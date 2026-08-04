@@ -28,6 +28,7 @@ related_tables:
   - race_aid_stations
   - race_aid_station_products
   - race_events
+  - race_event_editions
   - race_event_claims
   - race_event_edition_requests
   - race_event_publication_requests
@@ -55,7 +56,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Plan aid station: per-plan aid station snapshot.
 - Race aid station: catalog/private race aid station source, including water, solid, assistance service flags, and optional organizer detail JSON.
 - Organizer membership: event-scoped access through `race_event_organizers`.
-- Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group yearly organizer editions of one format.
+- Event edition: canonical yearly date range in `race_event_editions`, shared by every format for that event year.
+- Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
 - Event publication request: organizer request for admin validation before an event and its complete formats become live.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
@@ -86,6 +88,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
+| `race_event_editions` | Canonical yearly start/end date ranges for organizer events, with one current edition per event. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
@@ -130,6 +133,8 @@ erDiagram
   USER_PROFILES ||--o{ PUSH_DEVICES : registers
   PUSH_DEVICES ||--o{ PUSH_NOTIFICATION_EVENTS : logs
   RACE_EVENTS ||--o{ RACES : groups
+  RACE_EVENTS ||--o{ RACE_EVENT_EDITIONS : has
+  RACE_EVENT_EDITIONS ||--o{ RACES : contains
   RACE_EVENTS ||--o{ RACE_EVENT_CLAIMS : claimed_by
   RACE_EVENTS ||--o{ RACE_EVENT_EDITION_REQUESTS : renewed_by
   RACE_EVENTS ||--o{ RACE_EVENT_ORGANIZERS : managed_by
@@ -146,6 +151,7 @@ erDiagram
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)
 - [race_events](tables/race-events.md)
+- [race_event_editions](tables/race-event-editions.md)
 - [race_event_claims](tables/race-event-claims.md)
 - [race_event_edition_requests](tables/race-event-edition-requests.md)
 - [race_event_organizers](tables/race-event-organizers.md)
@@ -173,7 +179,7 @@ erDiagram
 - Event favorites are stored separately from organizer updates: `user_favorite_race_events` defines audience membership, while `race_event_updates` stores the runner-visible announcement history.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
-- Yearly organizer editions remain separate `races` rows. Use `edition_group_id` / `series_name` to group them; do not introduce a parallel editions table unless the product model changes.
+- Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
 - Organizer yearly editions are cloned directly as drafts. Admin validation is reserved for publication through `race_event_publication_requests`.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.

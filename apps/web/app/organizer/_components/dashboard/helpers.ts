@@ -16,6 +16,7 @@ import type {
   EventFormValues,
   GpxPreview,
   OrganizerEventDetail,
+  RaceEventEdition,
   RaceFormat,
   RaceFormValues,
   StationProduct,
@@ -62,7 +63,8 @@ export const isOrganizerScopeSavePending = (dirtyCount: number, currentRevision:
 export const createEmptyEventForm = (): EventFormValues => ({
   name: "",
   location: "",
-  raceDate: "",
+  editionStartDate: "",
+  editionEndDate: "",
   thumbnailUrl: "",
   isLive: false,
   organizerDetails: cloneJson(defaultOrganizerEventDetails),
@@ -86,7 +88,7 @@ export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): Rac
   ...createEmptyRaceForm(),
   seriesName: "",
   locationText: eventForm.location,
-  raceDate: eventForm.raceDate,
+  raceDate: eventForm.editionStartDate,
   thumbnailUrl: eventForm.thumbnailUrl,
   organizerDetails: {
     ...cloneJson(defaultOrganizerRaceDetails),
@@ -117,6 +119,11 @@ export const getRaceEditionYearValue = (value?: string | null) => {
   const date = formatDate(value);
   return date ? date.slice(0, 4) : "";
 };
+
+export const getRaceEditionYear = (race?: RaceFormat | null, editions: RaceEventEdition[] = []) =>
+  race?.edition_id
+    ? String(editions.find((edition) => edition.id === race.edition_id)?.edition_year ?? getRaceEditionYearValue(race.race_date))
+    : getRaceEditionYearValue(race?.race_date);
 
 const compareRaceEditions = (left: RaceFormat, right: RaceFormat) => {
   const leftDate = formatDate(left.race_date);
@@ -157,15 +164,21 @@ export const groupRacesBySeries = (races: RaceFormat[]): RaceSeriesGroup[] => {
 export const getDefaultEditionRaceId = (races: RaceFormat[], editionGroupId: string) =>
   groupRacesBySeries(races).find((group) => group.id === editionGroupId)?.races[0]?.id ?? null;
 
-export const getAvailableEditionYears = (races: RaceFormat[]) =>
-  Array.from(new Set(races.map((race) => getRaceEditionYearValue(race.race_date)).filter(Boolean))).sort((left, right) => right.localeCompare(left));
+export const getAvailableEditionYears = (races: RaceFormat[], editions: RaceEventEdition[] = []) =>
+  Array.from(
+    new Set([
+      ...editions.map((edition) => String(edition.edition_year)),
+      ...races.map((race) => getRaceEditionYear(race, editions)).filter(Boolean),
+    ])
+  ).sort((left, right) => right.localeCompare(left));
 
 export const buildEditionYearOptions = (
   races: RaceFormat[],
+  editions: RaceEventEdition[],
   editionRequests: EditionRequestRow[],
   eventId: string | null
 ): EditionYearOption[] => {
-  const raceYears = getAvailableEditionYears(races);
+  const raceYears = getAvailableEditionYears(races, editions);
   const pendingYears = Array.from(
     new Set(
       editionRequests
@@ -183,9 +196,21 @@ export const buildEditionYearOptions = (
   }));
 };
 
-export const formatEventDateRange = (event?: Pick<OrganizerEventDetail, "race_date" | "organizerDetails"> | null) => {
-  const startDate = formatDate(event?.race_date);
-  const endDate = formatDate(event?.organizerDetails?.dateRange.endDate);
+export const getEventEdition = (event: Pick<OrganizerEventDetail, "editions"> | null | undefined, editionYear?: string | null) => {
+  const editions = event?.editions ?? [];
+  return editions.find((edition) => String(edition.edition_year) === editionYear)
+    ?? editions.find((edition) => edition.is_current)
+    ?? editions[0]
+    ?? null;
+};
+
+export const formatEventDateRange = (
+  event?: Pick<OrganizerEventDetail, "race_date" | "organizerDetails" | "editions"> | null,
+  editionYear?: string | null
+) => {
+  const edition = getEventEdition(event, editionYear);
+  const startDate = formatDate(edition?.start_date ?? event?.race_date);
+  const endDate = formatDate(edition?.end_date ?? event?.organizerDetails?.dateRange.endDate);
   if (startDate && endDate && startDate !== endDate) return `${startDate} - ${endDate}`;
   return startDate || endDate;
 };
@@ -238,17 +263,26 @@ export const buildEventDraft = (
   eventDetail: OrganizerEventDetail | null,
   eventForm: EventFormValues,
   activeRace: RaceFormat | null,
-  raceForm: RaceFormValues
+  raceForm: RaceFormValues,
+  selectedEditionYear: string
 ): OrganizerEventDetail | null =>
   eventDetail
     ? {
         ...eventDetail,
         name: eventForm.name,
         location: eventForm.location,
-        race_date: eventForm.raceDate,
+        race_date: eventForm.editionStartDate,
         thumbnail_url: eventForm.thumbnailUrl,
         is_live: eventForm.isLive,
-        organizerDetails: eventForm.organizerDetails,
+        organizerDetails: {
+          ...eventForm.organizerDetails,
+          dateRange: { ...eventForm.organizerDetails.dateRange, endDate: eventForm.editionEndDate || null },
+        },
+        editions: (eventDetail.editions ?? []).map((edition) =>
+          String(edition.edition_year) === selectedEditionYear
+            ? { ...edition, start_date: eventForm.editionStartDate, end_date: eventForm.editionEndDate }
+            : edition
+        ),
         races: eventDetail.races.map((race) =>
           race.id === activeRace?.id
             ? {
@@ -289,10 +323,11 @@ export const normalizeOrganizerEventDetail = (event: OrganizerEventDetail): Orga
   };
 };
 
-export const eventToForm = (event: OrganizerEventDetail): EventFormValues => ({
+export const eventToForm = (event: OrganizerEventDetail, edition?: RaceEventEdition | null): EventFormValues => ({
   name: event.name,
   location: event.location ?? "",
-  raceDate: formatDate(event.race_date),
+  editionStartDate: formatDate(edition?.start_date ?? event.race_date),
+  editionEndDate: formatDate(edition?.end_date ?? event.organizerDetails?.dateRange.endDate),
   thumbnailUrl: event.thumbnail_url ?? "",
   isLive: event.is_live !== false,
   organizerDetails: cloneJson(event.organizerDetails ?? defaultOrganizerEventDetails),

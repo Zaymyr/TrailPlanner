@@ -48,10 +48,13 @@ describe("/api/organizer/races POST", () => {
 
   it("creates a race format when required fields are present", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(
+      Response.json([{ id: "44444444-4444-4444-4444-444444444444", start_date: "2026-09-12", end_date: "2026-09-13" }])
+    ).mockResolvedValueOnce(
       new Response(
         JSON.stringify([
           {
             id: "11111111-1111-1111-1111-111111111111",
+            edition_id: "44444444-4444-4444-4444-444444444444",
             edition_group_id: "11111111-1111-1111-1111-111111111111",
             series_name: "Trail 42",
             name: "Trail 42",
@@ -78,6 +81,7 @@ describe("/api/organizer/races POST", () => {
         JSON.stringify([
           {
             id: "11111111-1111-1111-1111-111111111111",
+            edition_id: "44444444-4444-4444-4444-444444444444",
             edition_group_id: "11111111-1111-1111-1111-111111111111",
             series_name: "Trail 42",
             name: "Trail 42",
@@ -104,6 +108,7 @@ describe("/api/organizer/races POST", () => {
     const response = await POST(
       createRequest({
         eventId: "22222222-2222-2222-2222-222222222222",
+        editionId: "44444444-4444-4444-4444-444444444444",
         name: "Trail 42",
         distanceKm: 42,
         elevationGainM: 1800,
@@ -119,13 +124,15 @@ describe("/api/organizer/races POST", () => {
     expect(response.status).toBe(201);
     expect(payload.race?.race_date).toBe("2026-09-12");
     expect(payload.race?.series_name).toBe("Trail 42");
-    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(fetch).toHaveBeenCalledTimes(3);
   });
 
-  it("rejects direct edition creation when cloneFromRaceId is provided", async () => {
+  it("rejects cloning into an unknown event edition", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([]));
     const response = await POST(
       createRequest({
         eventId: "22222222-2222-2222-2222-222222222222",
+        editionId: "44444444-4444-4444-4444-444444444444",
         cloneFromRaceId: "33333333-3333-3333-3333-333333333333",
         seriesName: "Trail 42",
         name: "Trail 42",
@@ -134,8 +141,8 @@ describe("/api/organizer/races POST", () => {
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(403);
-    expect(payload).toEqual({ message: "Creating a new edition now requires an approved edition request." });
+    expect(response.status).toBe(409);
+    expect(payload).toEqual({ message: "Event edition not found." });
   });
 });
 

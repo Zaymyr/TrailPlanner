@@ -15,6 +15,7 @@ related_files:
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
 related_tables:
   - race_event_edition_requests
+  - race_event_editions
   - race_events
   - races
 ---
@@ -29,7 +30,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 
 - Existing pending rows are closed as rejected by the transition migration with an explanatory reviewer note.
 - `authenticated` insert/update grants and the organizer insert policy are removed.
-- `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now clones source-year formats directly; it does not insert this table.
+- `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now creates a canonical `race_event_editions` range and clones source-year formats into it; it does not insert this table.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
 - Ordinary format saves, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
 
@@ -41,10 +42,11 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 
 - Do not restore organizer inserts or add new review UI for this table.
 - Do not interpret old `approved` rows as current publication approval; publication uses `race_event_publication_requests`.
-- Direct edition cloning must keep new `races` rows in draft and preserve their `edition_group_id` series relationship.
+- Direct edition cloning must attach draft `races` rows through `edition_id` and preserve their cross-year `edition_group_id` series relationship.
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 
 ## Related Docs
 
 - [race_event_publication_requests](race-event-publication-requests.md)
+- [race_event_editions](race-event-editions.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

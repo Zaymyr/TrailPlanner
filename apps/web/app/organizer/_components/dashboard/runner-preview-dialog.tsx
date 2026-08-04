@@ -9,7 +9,7 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { formatCoordinates } from "../../../../lib/location-utils";
 import type { FuelProduct } from "../../../../lib/product-types";
-import { formatEventDateRange, formatKm } from "./helpers";
+import { formatEventDateRange, formatKm, getRaceEditionYear } from "./helpers";
 import type { AidStationDraft, OrganizerEventDetail, StationProduct } from "./types";
 
 export function RunnerPreviewDialog({
@@ -31,7 +31,7 @@ export function RunnerPreviewDialog({
 }) {
   const activeRace = event?.races.find((race) => race.id === activeRaceId) ?? event?.races.find((race) => race.is_live) ?? event?.races[0] ?? null;
   const runnerDetails = event ? buildRunnerOrganizerDetails(event.organizerDetails ?? defaultOrganizerEventDetails, activeRace?.organizerDetails) : null;
-  const dateLabel = formatEventDateRange(event);
+  const dateLabel = formatEventDateRange(event, getRaceEditionYear(activeRace, event?.editions));
   const formatRunnerInfoVisible = runnerDetails?.access.enabledSections.runnerInfo !== false;
   const weatherAlertMessage =
     runnerDetails?.equipmentStatus.weatherPlan === "cold"

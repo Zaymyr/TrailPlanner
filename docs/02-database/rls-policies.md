@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
@@ -22,6 +23,7 @@ related_tables:
   - race_aid_station_products
   - race_event_claims
   - race_event_edition_requests
+  - race_event_editions
   - race_event_publication_requests
   - race_event_organizers
   - race_event_publication_requests
@@ -147,6 +149,12 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 - Retained legacy rows remain selectable under the historical policies.
 - Authenticated insert/update grants and the organizer insert policy are removed by the publication-request migration.
+
+`race_event_editions`:
+
+- RLS is enabled, but direct `anon` and `authenticated` privileges are revoked.
+- Only `service_role` can select or mutate rows; organizer API routes first enforce active event membership.
+- The current-edition trigger mirrors dates into legacy event fields, but does not grant client access.
 
 `race_event_publication_requests`:
 

@@ -52,6 +52,7 @@ const applyRequestSchema = z.object({
   formatUrls: z.array(z.string().trim().url()).max(12).default([]),
   previewHash: z.string().trim().min(16),
   eventRaceDate: isoDateSchema.optional(),
+  eventEditionEndDate: isoDateSchema.optional(),
   selectedEditionYear: z.string().trim().optional(),
   raceSelections: z.array(raceSelectionSchema).default([]),
 });
@@ -62,10 +63,18 @@ const eventContextSchema = z.object({
   location: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
+  race_event_editions: z.array(z.object({
+    id: z.string().uuid(),
+    edition_year: z.number().int(),
+    start_date: z.string(),
+    end_date: z.string(),
+    is_current: z.boolean(),
+  })).nullable().optional(),
   races: z
     .array(
       z.object({
         id: z.string().uuid(),
+        edition_id: z.string().uuid().nullable().optional(),
         edition_group_id: z.string().uuid(),
         series_name: z.string(),
         name: z.string(),
@@ -113,26 +122,32 @@ const datesShareYear = (left: string | null | undefined, right: string | null | 
 const getEditionYear = (value: string | null | undefined) =>
   value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value.slice(0, 4) : null;
 
-const alignRaceDateToEventYear = (
+const alignRaceDateToEditionRange = (
   raceDate: string | null,
-  eventRaceDate: string | null | undefined
+  editionStartDate: string | null | undefined,
+  editionEndDate?: string | null
 ) => {
-  const eventYear = getEditionYear(eventRaceDate);
-  if (!eventYear) return raceDate;
-  if (!raceDate) return eventRaceDate ?? null;
+  const startYear = getEditionYear(editionStartDate);
+  if (!startYear) return raceDate;
+  if (!raceDate) return editionStartDate ?? null;
 
-  const alignedDate = `${eventYear}${raceDate.slice(4)}`;
-  const parsed = new Date(`${alignedDate}T00:00:00Z`);
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === alignedDate
-    ? alignedDate
-    : eventRaceDate ?? raceDate;
+  const endDate = editionEndDate && editionEndDate >= editionStartDate! ? editionEndDate : editionStartDate!;
+  const candidateYears = Array.from(new Set([startYear, getEditionYear(endDate)].filter((year): year is string => Boolean(year))));
+  const alignedDate = candidateYears
+    .map((year) => `${year}${raceDate.slice(4)}`)
+    .find((candidate) => {
+      const parsed = new Date(`${candidate}T00:00:00Z`);
+      return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === candidate && candidate >= editionStartDate! && candidate <= endDate;
+    });
+  return alignedDate ?? editionStartDate ?? raceDate;
 };
 
 const alignRaceToEventDate = (
   race: OrganizerWebsiteImportRace,
-  eventRaceDate: string | null | undefined
+  eventRaceDate: string | null | undefined,
+  eventEditionEndDate?: string | null
 ): OrganizerWebsiteImportRace => {
-  const raceDate = alignRaceDateToEventYear(race.raceDate, eventRaceDate);
+  const raceDate = alignRaceDateToEditionRange(race.raceDate, eventRaceDate, eventEditionEndDate);
   return {
     ...race,
     raceDate,
@@ -187,11 +202,14 @@ const findMatchingSeriesRace = (previewRace: OrganizerWebsiteImportRace, races: 
 const findSuggestedRace = (
   previewRace: OrganizerWebsiteImportRace,
   races: EventRace[],
-  targetEditionYear: string | null
+  targetEditionYear: string | null,
+  targetEditionId?: string | null
 ) =>
   findMatchingSeriesRace(
     previewRace,
-    targetEditionYear ? races.filter((race) => getEditionYear(race.race_date) === targetEditionYear) : races
+    targetEditionId
+      ? races.filter((race) => race.edition_id === targetEditionId || (!race.edition_id && getEditionYear(race.race_date) === targetEditionYear))
+      : targetEditionYear ? races.filter((race) => getEditionYear(race.race_date) === targetEditionYear) : races
   );
 
 const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: EventContext) => ({
@@ -200,8 +218,9 @@ const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: Ev
   races: preview.races.map((race) => {
     const targetEventDate = preview.event.raceDate ?? event.race_date ?? null;
     const targetEditionYear = getEditionYear(targetEventDate);
-    const alignedRace = alignRaceToEventDate(race, targetEventDate);
-    const suggested = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear);
+    const targetEdition = (event.race_event_editions ?? []).find((edition) => String(edition.edition_year) === targetEditionYear) ?? null;
+    const alignedRace = alignRaceToEventDate(race, targetEventDate, targetEdition?.end_date);
+    const suggested = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear, targetEdition?.id);
     return {
       key: race.key,
       name: race.name,
@@ -228,7 +247,7 @@ const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: Ev
 
 const loadEventContext = async (serviceConfig: ReturnType<typeof serviceHeaders> extends never ? never : Parameters<typeof serviceHeaders>[0], eventId: string) => {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,organizer_details,races(id,edition_group_id,series_name,name,race_date,distance_km,elevation_gain_m,elevation_loss_m,external_site_url,location_text,thumbnail_url,gpx_storage_path,is_live)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,organizer_details,race_event_editions(id,edition_year,start_date,end_date,is_current),races(id,edition_id,edition_group_id,series_name,name,race_date,distance_km,elevation_gain_m,elevation_loss_m,external_site_url,location_text,thumbnail_url,gpx_storage_path,is_live)&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
@@ -253,7 +272,6 @@ const updateEventFromPreview = async (
   const updatePayload: Record<string, unknown> = {
     name: preview.event.name ?? event.name,
     location: preview.event.location ?? event.location ?? null,
-    race_date: preview.event.raceDate ?? event.race_date ?? null,
     organizer_details: {
       ...currentDetails,
       officialWebsiteUrl: preview.event.officialWebsiteUrl ?? currentDetails.officialWebsiteUrl ?? null,
@@ -374,7 +392,8 @@ const createRaceFromPreview = async (
   serviceConfig: Parameters<typeof serviceHeaders>[0],
   eventId: string,
   race: OrganizerWebsiteImportRace,
-  editionGroupId: string | null
+  editionGroupId: string | null,
+  editionId: string
 ) => {
   if (race.missingFields.length > 0 || !race.raceDate || race.distanceKm === null || race.elevationGainM === null) {
     throw new Error("Incomplete race preview.");
@@ -393,6 +412,7 @@ const createRaceFromPreview = async (
     body: JSON.stringify({
       id: raceId,
       event_id: eventId,
+      edition_id: editionId,
       edition_group_id: editionGroupId ?? raceId,
       slug: buildSlug(race.name, "organizer"),
       series_name: race.seriesName || race.name,
@@ -429,12 +449,48 @@ const createRaceFromPreview = async (
   return { raceId: createdRace.id, gpxUploaded: Boolean(gpxStoragePath), createdAidStations };
 };
 
+const ensureEventEdition = async (
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  event: EventContext,
+  startDate: string,
+  endDate: string
+) => {
+  const editionYear = Number(startDate.slice(0, 4));
+  const existing = (event.race_event_editions ?? []).find((edition) => edition.edition_year === editionYear) ?? null;
+  const normalizedEndDate = endDate >= startDate ? endDate : startDate;
+  const response = await fetch(
+    existing
+      ? `${serviceConfig.supabaseUrl}/rest/v1/race_event_editions?id=eq.${existing.id}`
+      : `${serviceConfig.supabaseUrl}/rest/v1/race_event_editions`,
+    {
+      method: existing ? "PATCH" : "POST",
+      headers: { ...serviceHeaders(serviceConfig), Prefer: "return=representation" },
+      body: JSON.stringify(
+        existing
+          ? { start_date: startDate, end_date: normalizedEndDate }
+          : {
+              event_id: event.id,
+              edition_year: editionYear,
+              start_date: startDate,
+              end_date: normalizedEndDate,
+              is_current: !(event.race_event_editions ?? []).some((edition) => edition.is_current),
+            }
+      ),
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) throw new Error("Unable to persist event edition.");
+  return z.array(z.object({ id: z.string().uuid(), start_date: z.string(), end_date: z.string() })).parse(await response.json())[0] ?? null;
+};
+
 const updateRaceFromPreview = async (
   serviceConfig: Parameters<typeof serviceHeaders>[0],
   existingRace: EventRace,
-  race: OrganizerWebsiteImportRace
+  race: OrganizerWebsiteImportRace,
+  editionId: string
 ) => {
   const updatePayload: Record<string, unknown> = {
+    edition_id: editionId,
     series_name: race.seriesName || existingRace.series_name,
     name: race.name || existingRace.name,
     race_date: race.raceDate ?? existingRace.race_date ?? null,
@@ -531,6 +587,16 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       return jsonError("No applicable changes selected.", 400);
     }
 
+    if (!targetEventDate) return jsonError("Ajoute une date d'édition avant l'import.", 409);
+    const existingTargetEdition = (event.race_event_editions ?? []).find((edition) => String(edition.edition_year) === targetEditionYear) ?? null;
+    const targetEdition = await ensureEventEdition(
+      auth.serviceConfig,
+      event,
+      targetEventDate,
+      parsedBody.data.eventEditionEndDate ?? existingTargetEdition?.end_date ?? targetEventDate
+    );
+    if (!targetEdition) return jsonError("Unable to persist event edition.", 502);
+
     await updateEventFromPreview(auth.serviceConfig, event, eventPreview);
 
     let createdRaces = 0;
@@ -545,18 +611,19 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
         return jsonError("This format score is too low to import. Analyse a more specific format page.", 400);
       }
 
-      const alignedRace = alignRaceToEventDate(previewRace, targetEventDate);
-      const existingEdition = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear);
+      const alignedRace = alignRaceToEventDate(previewRace, targetEdition.start_date, targetEdition.end_date);
+      const existingEdition = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear, targetEdition.id);
       const seriesReference = findMatchingSeriesRace(alignedRace, event.races ?? []);
 
       if (selection.mode === "create") {
         const result = existingEdition
-          ? await updateRaceFromPreview(auth.serviceConfig, existingEdition, alignedRace)
+          ? await updateRaceFromPreview(auth.serviceConfig, existingEdition, alignedRace, targetEdition.id)
           : await createRaceFromPreview(
               auth.serviceConfig,
               parsedParams.data.id,
               alignedRace,
-              seriesReference?.edition_group_id ?? null
+              seriesReference?.edition_group_id ?? null,
+              targetEdition.id
             );
         if (existingEdition) updatedRaces += 1;
         else createdRaces += 1;
@@ -567,16 +634,17 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
       const selectedTargetRace = selection.targetRaceId ? eventRaceMap.get(selection.targetRaceId) ?? null : null;
       const targetRace =
-        selectedTargetRace && (!targetEditionYear || getEditionYear(selectedTargetRace.race_date) === targetEditionYear)
+        selectedTargetRace && (selectedTargetRace.edition_id === targetEdition.id || (!selectedTargetRace.edition_id && getEditionYear(selectedTargetRace.race_date) === targetEditionYear))
           ? selectedTargetRace
           : existingEdition;
       const result = targetRace
-        ? await updateRaceFromPreview(auth.serviceConfig, targetRace, alignedRace)
+        ? await updateRaceFromPreview(auth.serviceConfig, targetRace, alignedRace, targetEdition.id)
         : await createRaceFromPreview(
             auth.serviceConfig,
             parsedParams.data.id,
             alignedRace,
-            seriesReference?.edition_group_id ?? null
+            seriesReference?.edition_group_id ?? null,
+            targetEdition.id
           );
       if (targetRace) updatedRaces += 1;
       else createdRaces += 1;

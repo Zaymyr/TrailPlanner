@@ -1,4 +1,4 @@
-import type { ChangeEvent, FormEvent } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { GpxRouteMap } from "../../../../components/gpx/GpxRouteMap";
 import { Button } from "../../../../components/ui/button";
@@ -22,11 +22,11 @@ export function EventInfoEditor({
   onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  const dateRange = eventForm.organizerDetails.dateRange;
   const missingName = !eventForm.name.trim();
   const missingLocation = !eventForm.location.trim();
-  const missingStartDate = !eventForm.raceDate.trim();
-  const missingEndDate = !dateRange.endDate?.trim();
+  const missingStartDate = !eventForm.editionStartDate.trim();
+  const missingEndDate = !eventForm.editionEndDate.trim();
+  const invalidDateRange = Boolean(eventForm.editionStartDate && eventForm.editionEndDate && eventForm.editionEndDate < eventForm.editionStartDate);
   const officialWebsiteUrl = eventForm.organizerDetails.officialWebsiteUrl ?? "";
 
   return (
@@ -67,24 +67,17 @@ export function EventInfoEditor({
           )
         }
       />
-      <TextField label="Date debut" type="date" value={eventForm.raceDate} onChange={(value) => onChange({ raceDate: value })} invalid={missingStartDate} />
+      <TextField label="Début de l'édition" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} />
       <TextField
-        label="Date fin"
+        label="Fin de l'édition"
         type="date"
-        value={dateRange.endDate ?? ""}
-        onChange={(value) =>
-          onChange(
-            {
-              organizerDetails: {
-                ...eventForm.organizerDetails,
-                dateRange: { ...dateRange, endDate: value || null },
-              },
-            },
-            "event"
-          )
-        }
-        invalid={missingEndDate}
+        value={eventForm.editionEndDate}
+        onChange={(value) => onChange({ editionEndDate: value })}
+        invalid={missingEndDate || invalidDateRange}
       />
+      <p className="text-xs text-muted-foreground lg:col-span-5">
+        Ces dates appartiennent à l'édition sélectionnée. Les formats les utilisent par défaut.
+      </p>
       <div className="space-y-2 lg:col-span-4">
         <Label>Image evenement (PNG)</Label>
         {eventForm.thumbnailUrl ? (
@@ -124,6 +117,7 @@ export function FormatsEditor({
   onPreviewRace,
   gpxPreview,
   status,
+  editionStartDate,
 }: {
   activeTab: string;
   activeRace: RaceFormat | null;
@@ -145,6 +139,7 @@ export function FormatsEditor({
   onPreviewRace: () => void;
   gpxPreview: GpxPreview | null;
   status: "idle" | "loading" | "saving" | "uploading";
+  editionStartDate: string;
 }) {
   return (
     <div className="space-y-5">
@@ -162,6 +157,7 @@ export function FormatsEditor({
           submitLabel="Ajouter"
           disabled={status === "saving" || status === "uploading"}
           requireRaceDate
+          editionStartDate={editionStartDate}
           gpxPreview={gpxPreview}
           gpxTitle="GPX du format"
           gpxStatus={newRaceGpxName ? "GPX pret a etre importe apres creation." : "Ajoute un GPX pour preremplir les stats et voir le parcours."}
@@ -205,6 +201,7 @@ export function FormatsEditor({
               gpxTitle="GPX source"
               gpxStatus={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
               hasGpx={Boolean(activeRace.gpx_storage_path)}
+              editionStartDate={editionStartDate}
             />
           ) : (
             <OrganizerGpxPanel
@@ -247,6 +244,7 @@ function RaceForm({
   gpxTitle = "GPX du format",
   gpxStatus,
   hasGpx = false,
+  editionStartDate,
 }: {
   title: string;
   values: RaceFormValues;
@@ -265,12 +263,18 @@ function RaceForm({
   gpxTitle?: string;
   gpxStatus?: string;
   hasGpx?: boolean;
+  editionStartDate: string;
 }) {
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
   const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
   const missingRaceDate = requireRaceDate && !values.raceDate.trim();
   const previewRace = buildPreviewRace(values, hasGpx);
+  const [usesCustomRaceDate, setUsesCustomRaceDate] = useState(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
+
+  useEffect(() => {
+    setUsesCustomRaceDate(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
+  }, [editionStartDate, values.raceDate]);
 
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
@@ -308,16 +312,34 @@ function RaceForm({
               <div className="lg:col-span-2">
                 <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
-              <div className="lg:col-span-4">
-                <TextField
-                  label={requireRaceDate ? "Date de course" : "Date du format"}
-                  type="date"
-                  value={values.raceDate}
-                  onChange={(value) => onChange({ ...values, raceDate: value })}
-                  required={requireRaceDate}
-                  invalid={missingRaceDate}
-                  disabled={disabled}
-                />
+              <div className="space-y-2 lg:col-span-4">
+                {editionStartDate ? (
+                  <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={usesCustomRaceDate}
+                      onChange={(event) => {
+                        setUsesCustomRaceDate(event.target.checked);
+                        if (!event.target.checked) onChange({ ...values, raceDate: editionStartDate });
+                      }}
+                      disabled={disabled}
+                    />
+                    Date différente de l'édition
+                  </label>
+                ) : null}
+                {usesCustomRaceDate || !editionStartDate ? (
+                  <TextField
+                    label="Date du format"
+                    type="date"
+                    value={values.raceDate}
+                    onChange={(value) => onChange({ ...values, raceDate: value })}
+                    required={requireRaceDate}
+                    invalid={missingRaceDate}
+                    disabled={disabled}
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Date héritée : {editionStartDate}</p>
+                )}
               </div>
               <div className="lg:col-span-8">
                 <AddressAutocompleteField

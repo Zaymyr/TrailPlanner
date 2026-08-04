@@ -59,6 +59,7 @@ export type PublicationRequestRow = {
 
 export type RaceFormat = {
   id: string;
+  edition_id?: string | null;
   edition_group_id: string;
   series_name: string;
   name: string;
@@ -82,6 +83,15 @@ export type ElevationPoint = {
   lon?: number;
   cumulativeGainM?: number;
   cumulativeLossM?: number;
+};
+
+export type RaceEventEdition = {
+  id: string;
+  event_id: string;
+  edition_year: number;
+  start_date: string;
+  end_date: string;
+  is_current: boolean;
 };
 
 export type GpxDetectedAidStation = {
@@ -109,6 +119,7 @@ export type OrganizerEventDetail = {
   thumbnail_url?: string | null;
   is_live?: boolean | null;
   organizerDetails?: OrganizerEventDetails;
+  editions?: RaceEventEdition[];
   races: RaceFormat[];
 };
 
@@ -149,7 +160,8 @@ export type RaceFormValues = {
 export type EventFormValues = {
   name: string;
   location: string;
-  raceDate: string;
+  editionStartDate: string;
+  editionEndDate: string;
   thumbnailUrl: string;
   isLive: boolean;
   organizerDetails: OrganizerEventDetails;

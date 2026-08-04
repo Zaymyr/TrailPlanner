@@ -12,7 +12,8 @@ import { useVerifiedSession } from "../hooks/useVerifiedSession";
 const initialEventForm = {
   name: "",
   location: "",
-  raceDate: "",
+  editionStartDate: "",
+  editionEndDate: "",
   officialSiteUrl: "",
 };
 
@@ -38,7 +39,8 @@ export default function OrganizersPage() {
         body: JSON.stringify({
           name: eventForm.name,
           location: eventForm.location,
-          raceDate: eventForm.raceDate,
+          editionStartDate: eventForm.editionStartDate,
+          editionEndDate: eventForm.editionEndDate,
           officialSiteUrl: eventForm.officialSiteUrl,
         }),
       });
@@ -97,7 +99,7 @@ export default function OrganizersPage() {
           <CardHeader>
             <CardTitle>Ajouter une course</CardTitle>
             <CardDescription>
-              Le nom est nécessaire comme point de départ. Le lieu et la date pourront être corrigés lors de l&apos;import.
+              Crée la première édition avec sa plage de dates. Elle pourra être corrigée lors de l&apos;import.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -146,7 +148,7 @@ export default function OrganizersPage() {
                   </p>
                 </div>
 
-                <div className="grid gap-4 sm:grid-cols-2">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <div className="space-y-1.5">
                     <Label htmlFor="organizer-new-event-location">Lieu</Label>
                     <Input
@@ -159,14 +161,32 @@ export default function OrganizersPage() {
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="organizer-new-event-date">Date de l&apos;événement</Label>
+                    <Label htmlFor="organizer-new-event-date">Début de l&apos;édition</Label>
                     <Input
                       id="organizer-new-event-date"
                       type="date"
-                      value={eventForm.raceDate}
+                      value={eventForm.editionStartDate}
                       onChange={(changeEvent) =>
-                        setEventForm((current) => ({ ...current, raceDate: changeEvent.target.value }))
+                        setEventForm((current) => ({
+                          ...current,
+                          editionStartDate: changeEvent.target.value,
+                          editionEndDate: current.editionEndDate || changeEvent.target.value,
+                        }))
                       }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="organizer-new-event-end-date">Fin de l&apos;édition</Label>
+                    <Input
+                      id="organizer-new-event-end-date"
+                      type="date"
+                      min={eventForm.editionStartDate || undefined}
+                      value={eventForm.editionEndDate}
+                      onChange={(changeEvent) =>
+                        setEventForm((current) => ({ ...current, editionEndDate: changeEvent.target.value }))
+                      }
+                      required
                     />
                   </div>
                 </div>
@@ -177,7 +197,7 @@ export default function OrganizersPage() {
                 </div>
 
                 {error ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}
-                <Button type="submit" disabled={submitting || !eventForm.name.trim()}>
+                <Button type="submit" disabled={submitting || !eventForm.name.trim() || !eventForm.editionStartDate || !eventForm.editionEndDate}>
                   {submitting ? "Création..." : "Créer et continuer"}
                 </Button>
               </form>

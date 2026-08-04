@@ -30,6 +30,7 @@ const updateRaceSchema = z.object({
 
 const raceRowSchema = z.object({
   id: z.string().uuid(),
+  edition_id: z.string().uuid().nullable().optional(),
   edition_group_id: z.string().uuid(),
   series_name: z.string(),
   name: z.string(),
@@ -82,6 +83,20 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if ("error" in race) return race.error;
   const parsedBody = updateRaceSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid race fields.", 400);
+
+  if (parsedBody.data.raceDate !== undefined && parsedBody.data.raceDate !== null) {
+    if (!race.edition_id) return jsonError("This format is not attached to an event edition.", 409);
+    const editionResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?id=eq.${race.edition_id}&select=start_date,end_date&limit=1`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!editionResponse.ok) return jsonError("Unable to inspect event edition.", 502);
+    const edition = z.array(z.object({ start_date: z.string(), end_date: z.string() })).parse(await editionResponse.json())[0] ?? null;
+    if (!edition) return jsonError("Event edition not found.", 409);
+    if (parsedBody.data.raceDate < edition.start_date || parsedBody.data.raceDate > edition.end_date) {
+      return jsonError("La date du format doit rester dans la plage de l'édition.", 409);
+    }
+  }
 
   const updatePayload: Record<string, unknown> = {};
   if (parsedBody.data.seriesName !== undefined) updatePayload.series_name = parsedBody.data.seriesName;

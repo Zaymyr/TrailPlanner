@@ -206,6 +206,13 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
         location: "Annecy",
         race_date: "2026-09-12",
         organizer_details: { officialWebsiteUrl: null },
+        race_event_editions: [{
+          id: "55555555-5555-5555-5555-555555555555",
+          edition_year: 2026,
+          start_date: "2026-09-12",
+          end_date: "2026-09-13",
+          is_current: true,
+        }],
         races: [],
       },
     ];
@@ -217,6 +224,7 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
 
     vi.mocked(fetch)
       .mockResolvedValueOnce(buildJsonResponse(eventContext))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "55555555-5555-5555-5555-555555555555", start_date: "2026-09-20", end_date: "2026-09-20" }]))
       .mockResolvedValueOnce(buildJsonResponse(null));
 
     const response = await POST(
@@ -232,11 +240,11 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
     );
 
     expect(response.status).toBe(200);
-    const eventPatch = vi
+    const editionPatch = vi
       .mocked(fetch)
-      .mock.calls.find(([url, init]) => String(url).includes("/rest/v1/race_events?") && init?.method === "PATCH");
-    expect(eventPatch).toBeDefined();
-    expect(JSON.parse(String(eventPatch?.[1]?.body))).toMatchObject({ race_date: "2026-09-20" });
+      .mock.calls.find(([url, init]) => String(url).includes("/rest/v1/race_event_editions?") && init?.method === "PATCH");
+    expect(editionPatch).toBeDefined();
+    expect(JSON.parse(String(editionPatch?.[1]?.body))).toMatchObject({ start_date: "2026-09-20" });
   });
 
   it("creates a missing edition in the event year and reuses the existing format series", async () => {
@@ -277,6 +285,7 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
 
     vi.mocked(fetch)
       .mockResolvedValueOnce(buildJsonResponse(eventContext))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "55555555-5555-5555-5555-555555555555", start_date: "2027-09-20", end_date: "2027-09-20" }], { status: 201 }))
       .mockResolvedValueOnce(buildJsonResponse(null))
       .mockResolvedValueOnce(buildJsonResponse([{ id: "44444444-4444-4444-4444-444444444444" }], { status: 201 }));
 
@@ -304,7 +313,8 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
     expect(raceInsert).toBeDefined();
     expect(JSON.parse(String(raceInsert?.[1]?.body))).toMatchObject({
       edition_group_id: existingEditionGroupId,
-      race_date: "2027-09-12",
+      edition_id: "55555555-5555-5555-5555-555555555555",
+      race_date: "2027-09-20",
       series_name: "42K",
       is_live: false,
       gpx_storage_path: null,

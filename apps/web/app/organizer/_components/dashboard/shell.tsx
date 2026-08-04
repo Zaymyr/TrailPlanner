@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
-import { buildEditionYearOptions, formatEventDateRange, getRaceEditionYearLabel, getRaceEditionYearValue, groupRacesBySeries } from "./helpers";
+import { buildEditionYearOptions, formatEventDateRange, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RaceFormat } from "./types";
 import { LevelBadge, StatusBadge } from "./controls";
 
@@ -102,11 +102,13 @@ export function OrganizerSummaryHeader({
   editionRequests,
   selectedEditionYear,
   newEditionDate,
+  newEditionEndDate,
   editionRequestState,
   publicationRequestState,
   onSelectedEventChange,
   onSelectedEditionYearChange,
   onEditionDateChange,
+  onEditionEndDateChange,
   onRequestEdition,
   onImportWebsite,
   completion,
@@ -124,11 +126,13 @@ export function OrganizerSummaryHeader({
   editionRequests: EditionRequestRow[];
   selectedEditionYear: string;
   newEditionDate: string;
+  newEditionEndDate: string;
   editionRequestState: EditionRequestRow | null;
   publicationRequestState: PublicationRequestRow | null;
   onSelectedEventChange: (eventId: string) => void;
   onSelectedEditionYearChange: (year: string) => void;
   onEditionDateChange: (value: string) => void;
+  onEditionEndDateChange: (value: string) => void;
   onRequestEdition: () => void;
   onImportWebsite: () => void;
   completion: OrganizerCompletionSummary | null;
@@ -141,10 +145,10 @@ export function OrganizerSummaryHeader({
 }) {
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
-  const editionYearOptions = buildEditionYearOptions(event?.races ?? [], editionRequests, selectedEventId);
+  const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
   const raceRows = groupRacesBySeries(event?.races ?? []).map((group) => {
     const activeEdition =
-      group.races.find((race) => getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
+      group.races.find((race) => getRaceEditionYear(race, event?.editions) === selectedEditionYear) ??
       group.races[0] ??
       null;
     const activeProgress = activeEdition ? raceProgress.find((entry) => entry.id === activeEdition.id)?.score ?? 0 : 0;
@@ -159,7 +163,7 @@ export function OrganizerSummaryHeader({
   const hasDraftFormats = raceRows.some((race) => race.activeEdition && !race.activeEdition.is_live);
   const publicationPending = publicationRequestState?.status === "pending";
   const canRequestPublication = !publicationPending && (!isLive || hasDraftFormats);
-  const dateLabel = formatEventDateRange(event);
+  const dateLabel = formatEventDateRange(event, selectedEditionYear);
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -222,7 +226,7 @@ export function OrganizerSummaryHeader({
               </div>
               <div className="min-w-[10rem] max-w-xs">
                 <label htmlFor="organizer-new-edition-date" className="text-sm font-medium text-foreground">
-                  Nouvelle edition
+                  Début de la nouvelle édition
                 </label>
                 <input
                   id="organizer-new-edition-date"
@@ -230,6 +234,19 @@ export function OrganizerSummaryHeader({
                   className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
                   value={newEditionDate}
                   onChange={(event) => onEditionDateChange(event.target.value)}
+                />
+              </div>
+              <div className="min-w-[10rem] max-w-xs">
+                <label htmlFor="organizer-new-edition-end-date" className="text-sm font-medium text-foreground">
+                  Fin de la nouvelle édition
+                </label>
+                <input
+                  id="organizer-new-edition-end-date"
+                  type="date"
+                  min={newEditionDate || undefined}
+                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                  value={newEditionEndDate}
+                  onChange={(event) => onEditionEndDateChange(event.target.value)}
                 />
               </div>
               <Button type="button" variant="outline" onClick={onRequestEdition} disabled={status !== "idle"}>
