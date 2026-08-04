@@ -941,6 +941,20 @@ export const en: Translations = {
       description: "See who has signed in recently and adjust their access role.",
       loadError: "Unable to load users.",
       empty: "No users found.",
+      searchLabel: "Search users",
+      searchPlaceholder: "Search by email, ID, or role…",
+      sort: {
+        ascending: "Sort ascending",
+        descending: "Sort descending",
+      },
+      pagination: {
+        label: "Users pagination",
+        results: "Results: {count}",
+        page: "Page {page} of {totalPages}",
+        previous: "Previous",
+        next: "Next",
+        goToPage: "Go to page {page}",
+      },
       messages: {
         updated: "User role updated.",
         updating: "Updating...",

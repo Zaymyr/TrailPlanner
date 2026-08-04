@@ -113,6 +113,12 @@ export const adminUsersSchema = z.object({
         .optional(),
     })
   ),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().positive(),
+  }),
 });
 
 export const adminUserSchema = adminUsersSchema.shape.users.element;

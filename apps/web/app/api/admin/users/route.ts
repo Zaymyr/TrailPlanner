@@ -30,6 +30,13 @@ const usersEnvelopeSchema = z.object({
   users: z.array(z.unknown()),
 });
 
+const adminUsersQuerySchema = z.object({
+  page: z.coerce.number().int().positive().catch(1),
+  search: z.string().trim().catch(""),
+  sort: z.enum(["email", "role", "createdAt", "lastSignInAt"]).catch("createdAt"),
+  order: z.enum(["asc", "desc"]).catch("desc"),
+});
+
 const mappedUsersSchema = z.object({
   users: z.array(
     z.object({
@@ -75,6 +82,12 @@ const mappedUsersSchema = z.object({
         .optional(),
     })
   ),
+  pagination: z.object({
+    page: z.number().int().positive(),
+    pageSize: z.number().int().positive(),
+    total: z.number().int().nonnegative(),
+    totalPages: z.number().int().positive(),
+  }),
 });
 
 const userRoleSchema = z.enum(["user", "admin"]);
@@ -89,6 +102,8 @@ const singleUserSchema = z.object({
 });
 
 const userIdUuidSchema = z.string().uuid();
+const ADMIN_USERS_PAGE_SIZE = 20;
+const SUPABASE_AUTH_PAGE_SIZE = 1000;
 
 const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
   id: user.id,
@@ -101,6 +116,46 @@ const mapUser = (user: z.infer<typeof supabaseAdminUserSchema>) => ({
       ? user.app_metadata.roles
       : undefined) ?? (user.app_metadata?.role ? [user.app_metadata.role] : undefined),
 });
+
+type MappedUser = ReturnType<typeof mapUser>;
+type AdminUserSort = z.infer<typeof adminUsersQuerySchema>["sort"];
+type SortDirection = z.infer<typeof adminUsersQuerySchema>["order"];
+
+const getSortValue = (user: MappedUser, sort: AdminUserSort): string | number | null => {
+  switch (sort) {
+    case "email":
+      return user.email?.toLocaleLowerCase() ?? null;
+    case "role":
+      return (user.roles ?? (user.role ? [user.role] : ["user"])).join(",").toLocaleLowerCase();
+    case "lastSignInAt": {
+      const timestamp = user.lastSignInAt ? new Date(user.lastSignInAt).getTime() : Number.NaN;
+      return Number.isFinite(timestamp) ? timestamp : null;
+    }
+    case "createdAt":
+    default: {
+      const timestamp = new Date(user.createdAt).getTime();
+      return Number.isFinite(timestamp) ? timestamp : null;
+    }
+  }
+};
+
+const sortUsers = (users: MappedUser[], sort: AdminUserSort, order: SortDirection) =>
+  [...users].sort((left, right) => {
+    const leftValue = getSortValue(left, sort);
+    const rightValue = getSortValue(right, sort);
+
+    if (leftValue === null && rightValue === null) return left.id.localeCompare(right.id);
+    if (leftValue === null) return 1;
+    if (rightValue === null) return -1;
+
+    const comparison =
+      typeof leftValue === "number" && typeof rightValue === "number"
+        ? leftValue - rightValue
+        : String(leftValue).localeCompare(String(rightValue), undefined, { sensitivity: "base" });
+
+    if (comparison === 0) return left.id.localeCompare(right.id);
+    return order === "asc" ? comparison : -comparison;
+  });
 
 const premiumGrantRowSchema = z.object({
   id: z.string().uuid(),
@@ -324,41 +379,76 @@ export async function GET(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
+  const query = adminUsersQuerySchema.parse({
+    page: request.nextUrl.searchParams.get("page") ?? undefined,
+    search: request.nextUrl.searchParams.get("search") ?? undefined,
+    sort: request.nextUrl.searchParams.get("sort") ?? undefined,
+    order: request.nextUrl.searchParams.get("order") ?? undefined,
+  });
+
   try {
-    const response = await fetch(`${auth.supabaseService.supabaseUrl}/auth/v1/admin/users?per_page=50`, {
-      headers: {
-        apikey: auth.supabaseService.supabaseServiceRoleKey,
-        Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
-      },
-      cache: "no-store",
-    });
+    const rawUsers: z.infer<typeof supabaseAdminUserSchema>[] = [];
+    const seenUserIds = new Set<string>();
 
-    const payload = await readResponsePayload(response);
+    for (let authPage = 1; ; authPage += 1) {
+      const response = await fetch(
+        `${auth.supabaseService.supabaseUrl}/auth/v1/admin/users?page=${authPage}&per_page=${SUPABASE_AUTH_PAGE_SIZE}`,
+        {
+          headers: {
+            apikey: auth.supabaseService.supabaseServiceRoleKey,
+            Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
+          },
+          cache: "no-store",
+        }
+      );
 
-    if (!response.ok) {
-      console.error("Unable to load users", payload);
-      return buildErrorResponse(502, "Failed to load admin users from Supabase Auth.", {
-        source: "supabase-auth-admin-users",
-        details: summarizePayload(payload) ?? `HTTP ${response.status}`,
-      });
+      const payload = await readResponsePayload(response);
+
+      if (!response.ok) {
+        console.error("Unable to load users", payload);
+        return buildErrorResponse(502, "Failed to load admin users from Supabase Auth.", {
+          source: "supabase-auth-admin-users",
+          details: summarizePayload(payload) ?? `HTTP ${response.status}`,
+        });
+      }
+
+      const parsedEnvelope = usersEnvelopeSchema.safeParse(payload);
+      const parsedList = z.array(z.unknown()).safeParse(payload);
+      const pageUsers = parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null;
+
+      if (!pageUsers) {
+        return buildErrorResponse(500, "Unexpected Supabase Auth response while loading admin users.", {
+          source: "supabase-auth-admin-users",
+          details: "Expected an array or an object with a users array.",
+        });
+      }
+
+      let newUserCount = 0;
+      for (const entry of pageUsers) {
+        const parsedUser = supabaseAdminUserSchema.safeParse(entry);
+        if (!parsedUser.success || seenUserIds.has(parsedUser.data.id)) continue;
+        seenUserIds.add(parsedUser.data.id);
+        rawUsers.push(parsedUser.data);
+        newUserCount += 1;
+      }
+
+      if (pageUsers.length < SUPABASE_AUTH_PAGE_SIZE || newUserCount === 0) break;
     }
 
-    const parsedEnvelope = usersEnvelopeSchema.safeParse(payload);
-    const parsedList = z.array(z.unknown()).safeParse(payload);
-
-    const rawUsers = (parsedEnvelope.success ? parsedEnvelope.data.users : parsedList.success ? parsedList.data : null);
-
-    if (!rawUsers) {
-      return buildErrorResponse(500, "Unexpected Supabase Auth response while loading admin users.", {
-        source: "supabase-auth-admin-users",
-        details: "Expected an array or an object with a users array.",
+    const normalizedSearch = query.search.toLocaleLowerCase();
+    const filteredUsers = rawUsers
+      .map((entry) => mapUser(entry))
+      .filter((user) => {
+        if (!normalizedSearch) return true;
+        const roles = user.roles ?? (user.role ? [user.role] : ["user"]);
+        return [user.email, user.id, ...roles].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
       });
-    }
-
-    const mapped = rawUsers
-      .map((entry) => supabaseAdminUserSchema.safeParse(entry))
-      .filter((entry): entry is { success: true; data: z.infer<typeof supabaseAdminUserSchema> } => entry.success)
-      .map((entry) => mapUser(entry.data));
+    const sortedUsers = sortUsers(filteredUsers, query.sort, query.order);
+    const total = sortedUsers.length;
+    const totalPages = Math.max(1, Math.ceil(total / ADMIN_USERS_PAGE_SIZE));
+    const page = Math.min(query.page, totalPages);
+    const pageStart = (page - 1) * ADMIN_USERS_PAGE_SIZE;
+    const mapped = sortedUsers.slice(pageStart, pageStart + ADMIN_USERS_PAGE_SIZE);
     const userIds = mapped.map((user) => user.id);
     const relationalUserIds = userIds.filter((userId) => userIdUuidSchema.safeParse(userId).success);
     let grantsByUserId = new Map<string, z.infer<typeof mappedUsersSchema.shape.users.element.shape.premiumGrant>>();
@@ -600,7 +690,15 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    const parsedMappedUsers = mappedUsersSchema.safeParse({ users: mappedWithGrants });
+    const parsedMappedUsers = mappedUsersSchema.safeParse({
+      users: mappedWithGrants,
+      pagination: {
+        page,
+        pageSize: ADMIN_USERS_PAGE_SIZE,
+        total,
+        totalPages,
+      },
+    });
 
     if (!parsedMappedUsers.success) {
       return buildErrorResponse(500, "Admin users response validation failed.", {
