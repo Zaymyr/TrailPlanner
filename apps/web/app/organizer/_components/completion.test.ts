@@ -171,6 +171,39 @@ describe("organizer completion", () => {
     expect(draftCompletion.formatModules.find((module) => module.id === "formats")?.status).toBe("complete");
   });
 
+  it("keeps per-format progress independent from the selected tab sidecars", () => {
+    const races = [
+      { ...baseEvent.races[0]!, aidStationCount: 1 },
+      {
+        ...baseEvent.races[0]!,
+        id: "race-2",
+        edition_group_id: "series-25k",
+        series_name: "25K",
+        name: "25K",
+        aidStationCount: 0,
+      },
+    ];
+    const selectedRaceSidecars = [
+      {
+        id: "station-1",
+        name: "Base vie",
+        distanceKm: 12,
+        waterRefill: true,
+        solidRefill: true,
+        assistanceAllowed: true,
+        organizerDetails: defaultOrganizerAidStationDetails,
+      },
+    ];
+
+    const firstSelected = buildOrganizerCompletion({ ...baseEvent, races }, races[0]!, selectedRaceSidecars, []);
+    const secondSelected = buildOrganizerCompletion({ ...baseEvent, races }, races[1]!, selectedRaceSidecars, []);
+
+    expect(firstSelected.raceProgress).toEqual(secondSelected.raceProgress);
+    expect(firstSelected.raceProgressScore).toBe(secondSelected.raceProgressScore);
+    expect(firstSelected.raceProgress[0]?.score).toBe(50);
+    expect(firstSelected.raceProgress[1]?.score).toBe(25);
+  });
+
   it("marks re-enabled empty access sections as incomplete", () => {
     const race = {
       ...baseEvent.races[0]!,

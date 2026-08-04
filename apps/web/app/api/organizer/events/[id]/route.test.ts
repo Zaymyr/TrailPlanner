@@ -65,6 +65,10 @@ describe("/api/organizer/events/[id]", () => {
               thumbnail_url: null,
               is_live: true,
               organizer_details: { schedule: { startTime: "07:00" } },
+              race_aid_stations: [
+                { id: "44444444-4444-4444-4444-444444444444" },
+                { id: "55555555-5555-5555-5555-555555555555" },
+              ],
             },
           ],
         },
@@ -86,6 +90,9 @@ describe("/api/organizer/events/[id]", () => {
     expect(payload.event.races[0].external_site_url).toBe("https://grand-trail.example/42k");
     expect(payload.event.races[0].series_name).toBe("42K");
     expect(payload.event.races[0].organizerDetails.schedule.startTime).toBe("07:00");
+    expect(payload.event.races[0].aidStationCount).toBe(2);
+    expect(payload.event.races[0].race_aid_stations).toBeUndefined();
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_aid_stations(id)");
   });
 
   it("persists organizerDetails on patch", async () => {

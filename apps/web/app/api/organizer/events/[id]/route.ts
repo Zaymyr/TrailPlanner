@@ -52,6 +52,14 @@ const eventDetailSchema = z.object({
         thumbnail_url: z.string().nullable().optional(),
         is_live: z.boolean(),
         organizer_details: z.unknown().nullable().optional(),
+        race_aid_stations: z
+          .array(
+            z.object({
+              id: z.string().uuid(),
+            })
+          )
+          .nullable()
+          .optional(),
       })
     )
     .nullable()
@@ -61,10 +69,14 @@ const eventDetailSchema = z.object({
 const mapEventDetail = (event: z.infer<typeof eventDetailSchema>) => ({
   ...event,
   organizerDetails: parseOrganizerEventDetails(event.organizer_details),
-  races: (event.races ?? []).map((race) => ({
-    ...race,
-    organizerDetails: parseOrganizerRaceDetails(race.organizer_details),
-  })),
+  races: (event.races ?? []).map((race) => {
+    const { race_aid_stations: raceAidStations, ...raceFields } = race;
+    return {
+      ...raceFields,
+      organizerDetails: parseOrganizerRaceDetails(race.organizer_details),
+      aidStationCount: raceAidStations?.length ?? 0,
+    };
+  }),
 });
 
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
@@ -78,7 +90,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if (organizer !== true) return organizer.error;
 
   const response = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,races(id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,organizer_details)&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,races(id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,organizer_details,race_aid_stations(id))&limit=1`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",
