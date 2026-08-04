@@ -9,8 +9,8 @@ const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) 
     headers: { "content-type": "application/json" },
   });
 
-const usersRequest = () =>
-  new NextRequest("http://localhost/api/admin/users", {
+const usersRequest = (query = "") =>
+  new NextRequest(`http://localhost/api/admin/users${query}`, {
     method: "GET",
     headers: {
       authorization: "Bearer admin-token",
@@ -56,6 +56,7 @@ describe("GET /api/admin/users", () => {
 
     expect(response.status).toBe(200);
     expect(payload.users).toHaveLength(1);
+    expect(payload.pagination).toEqual({ page: 1, pageSize: 20, total: 1, totalPages: 1 });
     expect(payload.users[0]).toMatchObject({
       id: anonymousUserId,
       createdAt: "2026-05-01T10:00:00.000Z",
@@ -75,6 +76,75 @@ describe("GET /api/admin/users", () => {
     });
     expect(payload.users[0]).not.toHaveProperty("email");
     expect(mockFetch).toHaveBeenCalledTimes(8);
+    expect(mockFetch.mock.calls[0]?.[0]).toBe(
+      "https://supabase.example/auth/v1/admin/users?page=1&per_page=1000"
+    );
+  });
+
+  it("returns every account through 20-user pages and sorts the complete result", async () => {
+    const mockFetch = vi.mocked(fetch);
+    const authUsers = Array.from({ length: 55 }, (_, index) => ({
+      id: `00000000-0000-0000-0000-${String(index + 1).padStart(12, "0")}`,
+      email: `runner-${String(index + 1).padStart(2, "0")}@example.com`,
+      created_at: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+      app_metadata: { role: "user" },
+    }));
+
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse({ users: authUsers }))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = (await GET(usersRequest("?page=3&sort=email&order=asc"))) as Response;
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.pagination).toEqual({ page: 3, pageSize: 20, total: 55, totalPages: 3 });
+    expect(payload.users).toHaveLength(15);
+    expect(payload.users[0].email).toBe("runner-41@example.com");
+    expect(payload.users[14].email).toBe("runner-55@example.com");
+  });
+
+  it("searches by email before paginating", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse({
+          users: [
+            {
+              id: "11111111-1111-1111-1111-111111111111",
+              email: "alice@example.com",
+              created_at: "2026-05-01T10:00:00.000Z",
+              app_metadata: { role: "user" },
+            },
+            {
+              id: "22222222-2222-2222-2222-222222222222",
+              email: "bob@example.com",
+              created_at: "2026-05-02T10:00:00.000Z",
+              app_metadata: { role: "user" },
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = (await GET(usersRequest("?search=ALICE"))) as Response;
+    const payload = await response.json();
+
+    expect(payload.pagination.total).toBe(1);
+    expect(payload.users.map((user: { email?: string }) => user.email)).toEqual(["alice@example.com"]);
   });
 
   it("returns explicit Supabase Auth error details when the user list request fails", async () => {

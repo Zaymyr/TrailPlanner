@@ -861,6 +861,20 @@ export type AdminTranslations = {
     description: string;
     loadError: string;
     empty: string;
+    searchLabel: string;
+    searchPlaceholder: string;
+    sort: {
+      ascending: string;
+      descending: string;
+    };
+    pagination: {
+      label: string;
+      results: string;
+      page: string;
+      previous: string;
+      next: string;
+      goToPage: string;
+    };
     messages: {
       updated: string;
       updating: string;

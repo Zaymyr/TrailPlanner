@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -78,7 +78,6 @@ const buildApiErrorMessage = (response: Response, payload: unknown, fallback: st
 
 export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const { t } = useI18n();
-  const queryClient = useQueryClient();
   const [userMessage, setUserMessage] = useState<string | null>(null);
   const [userError, setUserError] = useState<string | null>(null);
   const [updatingUserId, setUpdatingUserId] = useState<string | null>(null);
@@ -86,6 +85,11 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const [premiumDialogOpen, setPremiumDialogOpen] = useState(false);
   const [premiumDialogUser, setPremiumDialogUser] = useState<AdminUser | null>(null);
   const [detailsDialogUser, setDetailsDialogUser] = useState<AdminUser | null>(null);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<"email" | "role" | "createdAt" | "lastSignInAt">("createdAt");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
 
   const premiumReasonOptions = useMemo(
     () => [
@@ -134,13 +138,28 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
     }
   }, [premiumDialogOpen, premiumDialogUser, premiumForm, premiumReasonOptions]);
 
+  useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setPage(1);
+      setSearch(searchInput.trim());
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+
   const usersQuery = useQuery({
-    queryKey: ["admin", "users", accessToken],
+    queryKey: ["admin", "users", accessToken, page, search, sort, order],
     enabled: Boolean(accessToken),
     queryFn: async () => {
       if (!accessToken) throw new Error(t.admin.users.loadError);
 
-      const response = await fetch("/api/admin/users", {
+      const params = new URLSearchParams({
+        page: String(page),
+        search,
+        sort,
+        order,
+      });
+      const response = await fetch(`/api/admin/users?${params.toString()}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
@@ -157,7 +176,10 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
         throw new Error(`Invalid /api/admin/users response. ${summarizeZodError(parsed.error)}`);
       }
 
-      return parsed.data.users;
+      return parsed.data;
+    },
+    onSuccess: (data) => {
+      if (data.pagination.page !== page) setPage(data.pagination.page);
     },
   });
 
@@ -234,9 +256,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
       setUserMessage(t.admin.users.premium.messages.created);
       setPremiumDialogOpen(false);
       setPremiumDialogUser(null);
-      if (accessToken) {
-        void queryClient.invalidateQueries({ queryKey: ["admin", "users", accessToken] });
-      }
+      void usersQuery.refetch();
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.admin.users.premium.messages.error;
@@ -275,9 +295,7 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
       setUserError(null);
       setUserMessage(t.admin.users.premium.messages.revoked);
       setRevokingGrantId(null);
-      if (accessToken) {
-        void queryClient.invalidateQueries({ queryKey: ["admin", "users", accessToken] });
-      }
+      void usersQuery.refetch();
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : t.admin.users.premium.messages.error;
@@ -287,7 +305,55 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   });
 
   const isLoading = usersQuery.isLoading;
-  const userRows = usersQuery.data ?? [];
+  const userRows = usersQuery.data?.users ?? [];
+  const pagination = usersQuery.data?.pagination;
+
+  const pageNumbers = useMemo(() => {
+    if (!pagination || pagination.totalPages <= 1) return [];
+    return Array.from(
+      new Set([1, pagination.page - 1, pagination.page, pagination.page + 1, pagination.totalPages])
+    )
+      .filter((pageNumber) => pageNumber >= 1 && pageNumber <= pagination.totalPages)
+      .sort((left, right) => left - right);
+  }, [pagination]);
+
+  const handleSort = (column: "email" | "role" | "createdAt" | "lastSignInAt") => {
+    setPage(1);
+    if (sort === column) {
+      setOrder((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+    setSort(column);
+    setOrder(column === "createdAt" || column === "lastSignInAt" ? "desc" : "asc");
+  };
+
+  const renderSortableHeader = (
+    column: "email" | "role" | "createdAt" | "lastSignInAt",
+    label: string
+  ) => (
+    <TableHead
+      className="text-slate-600 dark:text-slate-300"
+      aria-sort={sort === column ? (order === "asc" ? "ascending" : "descending") : "none"}
+    >
+      <button
+        type="button"
+        className="inline-flex items-center gap-1 rounded-sm text-left hover:text-slate-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-500 dark:hover:text-slate-50"
+        onClick={() => handleSort(column)}
+      >
+        {label}
+        <span aria-hidden className={sort === column ? "text-emerald-600 dark:text-emerald-400" : "text-slate-400"}>
+          {sort === column ? (order === "asc" ? "↑" : "↓") : "↕"}
+        </span>
+        <span className="sr-only">
+          {sort === column
+            ? order === "asc"
+              ? t.admin.users.sort.descending
+              : t.admin.users.sort.ascending
+            : t.admin.users.sort.ascending}
+        </span>
+      </button>
+    </TableHead>
+  );
 
   const getUserRoles = (user: z.infer<typeof adminUserSchema>): UserRoleOption[] => {
     const roles = (user.roles ?? (user.role ? [user.role] : [])) as UserRoleOption[];
@@ -320,6 +386,25 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
           <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.users.description}</p>
         </CardHeader>
         <CardContent className="space-y-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="w-full sm:max-w-sm">
+              <Label htmlFor="admin-users-search" className="sr-only">
+                {t.admin.users.searchLabel}
+              </Label>
+              <Input
+                id="admin-users-search"
+                type="search"
+                value={searchInput}
+                placeholder={t.admin.users.searchPlaceholder}
+                onChange={(event) => setSearchInput(event.target.value)}
+              />
+            </div>
+            {pagination ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400" aria-live="polite">
+                {t.admin.users.pagination.results.replace("{count}", String(pagination.total))}
+              </p>
+            ) : null}
+          </div>
           {userMessage ? <p className="text-sm text-emerald-700 dark:text-emerald-200">{userMessage}</p> : null}
           {userError ? <p className="text-sm text-red-600 dark:text-red-300">{userError}</p> : null}
           {usersQuery.error ? (
@@ -340,12 +425,10 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.email}</TableHead>
-                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.role}</TableHead>
-                  <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.createdAt}</TableHead>
-                  <TableHead className="text-slate-600 dark:text-slate-300">
-                    {t.admin.users.table.lastSignInAt}
-                  </TableHead>
+                  {renderSortableHeader("email", t.admin.users.table.email)}
+                  {renderSortableHeader("role", t.admin.users.table.role)}
+                  {renderSortableHeader("createdAt", t.admin.users.table.createdAt)}
+                  {renderSortableHeader("lastSignInAt", t.admin.users.table.lastSignInAt)}
                   <TableHead className="text-slate-600 dark:text-slate-300">
                     {t.admin.users.table.premium}
                   </TableHead>
@@ -494,6 +577,59 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
                 ))}
               </TableBody>
             </Table>
+          ) : null}
+
+          {pagination && pagination.totalPages > 1 ? (
+            <nav className="flex flex-wrap items-center justify-between gap-3" aria-label={t.admin.users.pagination.label}>
+              <p className="text-sm text-slate-500 dark:text-slate-400">
+                {t.admin.users.pagination.page
+                  .replace("{page}", String(pagination.page))
+                  .replace("{totalPages}", String(pagination.totalPages))}
+              </p>
+              <div className="flex flex-wrap items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9"
+                  onClick={() => setPage((current) => Math.max(1, current - 1))}
+                  disabled={pagination.page <= 1 || isLoading}
+                >
+                  {t.admin.users.pagination.previous}
+                </Button>
+                {pageNumbers.map((pageNumber, index) => {
+                  const previousPageNumber = pageNumbers[index - 1];
+                  return (
+                    <span key={pageNumber} className="flex items-center gap-1">
+                      {previousPageNumber && pageNumber - previousPageNumber > 1 ? (
+                        <span className="px-1 text-slate-400" aria-hidden>
+                          …
+                        </span>
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant={pageNumber === pagination.page ? "default" : "outline"}
+                        className="h-9 min-w-9 px-2"
+                        aria-current={pageNumber === pagination.page ? "page" : undefined}
+                        aria-label={t.admin.users.pagination.goToPage.replace("{page}", String(pageNumber))}
+                        onClick={() => setPage(pageNumber)}
+                        disabled={isLoading}
+                      >
+                        {pageNumber}
+                      </Button>
+                    </span>
+                  );
+                })}
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-9"
+                  onClick={() => setPage((current) => Math.min(pagination.totalPages, current + 1))}
+                  disabled={pagination.page >= pagination.totalPages || isLoading}
+                >
+                  {t.admin.users.pagination.next}
+                </Button>
+              </div>
+            </nav>
           ) : null}
         </CardContent>
       </Card>

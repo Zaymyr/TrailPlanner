@@ -25,6 +25,12 @@ describe("adminUsersSchema", () => {
           },
         },
       ],
+      pagination: {
+        page: 1,
+        pageSize: 20,
+        total: 1,
+        totalPages: 1,
+      },
     });
 
     expect(parsed.success).toBe(true);

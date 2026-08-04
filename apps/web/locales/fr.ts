@@ -953,6 +953,20 @@ export const fr: Translations = {
       description: "Aperçu des utilisateurs connectés et gestion de leur rôle.",
       loadError: "Impossible de charger les utilisateurs.",
       empty: "Aucun utilisateur.",
+      searchLabel: "Rechercher un utilisateur",
+      searchPlaceholder: "Rechercher par email, identifiant ou rôle…",
+      sort: {
+        ascending: "Trier par ordre croissant",
+        descending: "Trier par ordre décroissant",
+      },
+      pagination: {
+        label: "Pagination des utilisateurs",
+        results: "Résultats : {count}",
+        page: "Page {page} sur {totalPages}",
+        previous: "Précédent",
+        next: "Suivant",
+        goToPage: "Aller à la page {page}",
+      },
       messages: {
         updated: "Rôle mis à jour.",
         updating: "Mise à jour...",
