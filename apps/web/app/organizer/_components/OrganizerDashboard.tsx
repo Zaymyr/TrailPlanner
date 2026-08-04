@@ -27,6 +27,7 @@ import {
   aidStationRowsToDrafts,
   applyGpxStatsToRaceForm,
   buildEventDraft,
+  buildOrganizerFormatSavePlan,
   buildProductsById,
   cloneJson,
   createEmptyEventForm,
@@ -546,7 +547,7 @@ export function OrganizerDashboard({
     }
   };
 
-  const saveRace = async (override?: Partial<RaceFormValues>) => {
+  const saveRace = async (override?: Partial<RaceFormValues>, options: { reloadEvent?: boolean } = {}) => {
     if (!accessToken || !activeRace || !selectedEventId) return false;
     const nextForm = {
       ...raceForm,
@@ -602,7 +603,9 @@ export function OrganizerDashboard({
 
       showToast("success", "Format mis à jour.");
       clearDirty(["formats", "equipment", "access"]);
-      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      if (options.reloadEvent !== false) {
+        await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      }
       return true;
     } finally {
       setStatus("idle");
@@ -1035,13 +1038,17 @@ export function OrganizerDashboard({
       if (!eventDirty) return true;
       return await saveEvent();
     }
-    const raceDirty = ["formats", "equipment", "access"].some((moduleId) => dirtyModules.has(moduleId as OrganizerModuleId));
-    if (raceDirty) {
-      const ok = await saveRace();
+    if (!selectedEventId) return false;
+    const savePlan = buildOrganizerFormatSavePlan(dirtyModules);
+    if (savePlan.saveRaceDetails) {
+      const ok = await saveRace(undefined, { reloadEvent: !savePlan.saveAidStations });
       if (!ok) return false;
     }
-    if (dirtyModules.has("aidStations")) {
-      return await saveAidStations();
+    if (savePlan.saveAidStations) {
+      const ok = await saveAidStations();
+      if (!ok) return false;
+      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYearValue(activeRace.race_date));
+      return true;
     }
     return true;
   };

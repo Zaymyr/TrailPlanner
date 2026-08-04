@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -116,6 +116,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer runner notifications are manual. Saves and publication review must not auto-create announcements.
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass; the longer history still comes from the dedicated updates route when a runner taps to see more.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
+- The organizer event detail read embeds child `race_aid_stations(id)` only to derive an `aidStationCount` per returned format. The raw nested rows are removed from the API response, and the count keeps completion scoring tied to each format rather than the selected dashboard tab.
 - Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page and may consolidate duplicate format candidates by normalized business name before sorting them by final quality score, but these preview choices do not create or move an event row. Missing required format values such as D+ remain explicit instead of being inferred.
 - Website-import field provenance and confidence scores are transient preview data computed by the server. They are not persisted in `race_events.organizer_details`; only organizer-confirmed event values, including `officialWebsiteUrl`, enter the row.
 - During website-import review, an organizer may explicitly replace the detected event date with another valid ISO calendar date. The server keeps that override outside the scraper hash and validates it after membership/hash checks. It writes the chosen date to `race_events.race_date` and uses its year to select or create child `races` editions: matching rows in another year are not overwritten, while a missing yearly edition reuses the matching series `edition_group_id` when possible.
@@ -146,6 +147,8 @@ select id, name, location, race_date, thumbnail_url, is_live, organizer_details
 from public.race_events
 where id = '<event-id>';
 ```
+
+The organizer service route additionally embeds `races(..., race_aid_stations(id))` and maps those ids to a per-format `aidStationCount`; it does not expose the nested station rows in its response.
 
 Observed mobile Racebook event shape:
 

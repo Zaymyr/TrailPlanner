@@ -4,6 +4,7 @@ import { defaultOrganizerAidStationDetails } from "../../../../lib/organizer-das
 import {
   applyGpxStatsToRaceForm,
   buildEditionYearOptions,
+  buildOrganizerFormatSavePlan,
   createEmptyRaceForm,
   getGpxElevationTotalsAtDistance,
   syncAidStationsWithGpxPreview,
@@ -38,6 +39,13 @@ const buildStation = (distanceKm: number): AidStationDraft => ({
 });
 
 describe("organizer dashboard GPX helpers", () => {
+  it("persists race schedule details together with aid-station edits", () => {
+    expect(buildOrganizerFormatSavePlan(new Set(["aidStations"]))).toEqual({
+      saveRaceDetails: true,
+      saveAidStations: true,
+    });
+  });
+
   it("copies the exact parsed GPX metrics into the race form", () => {
     expect(
       applyGpxStatsToRaceForm(createEmptyRaceForm(), {

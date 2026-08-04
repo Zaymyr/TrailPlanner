@@ -30,6 +30,7 @@ export type CompletionRace = {
   gpx_storage_path?: string | null;
   is_live: boolean;
   organizerDetails?: OrganizerRaceDetails;
+  aidStationCount?: number;
 };
 
 export type CompletionEvent = {
@@ -143,8 +144,8 @@ const compactMissingLabels = (entries: Array<[label: string, isFilled: boolean]>
 const buildFormatProgressModules = (
   eventDetails: OrganizerEventDetails,
   race: CompletionRace,
-  aidStations: CompletionAidStation[],
-  stationProducts: CompletionStationProduct[]
+  aidStationCount: number,
+  stationProductCount: number
 ): OrganizerModuleSummary[] => {
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, race.organizerDetails);
   const equipmentItems = runnerDetails.equipment.items;
@@ -201,10 +202,10 @@ const buildFormatProgressModules = (
       status:
         hasText(race.organizerDetails?.schedule.startTime) ||
         hasText(race.organizerDetails?.schedule.finishCutoffTime) ||
-        aidStations.length > 0
+        aidStationCount > 0
           ? "complete"
           : "empty",
-      countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${stationProducts.length} produit${stationProducts.length > 1 ? "s" : ""}` : ""}`,
+      countLabel: `${aidStationCount} ravito${aidStationCount > 1 ? "s" : ""}${aidStationCount > 0 ? ` - ${stationProductCount} produit${stationProductCount > 1 ? "s" : ""}` : ""}`,
     },
   ];
 };
@@ -220,13 +221,12 @@ export function buildOrganizerCompletion(
   const formatCount = event.races.length;
   const gpxCount = event.races.filter((race) => hasText(race.gpx_storage_path)).length;
   const raceProgress = event.races.map((race) => {
-    const isActiveRace = activeRace?.id === race.id;
     return {
       id: race.id,
       editionGroupId: race.edition_group_id,
       seriesName: race.series_name,
       name: race.name,
-      score: scoreModules(buildFormatProgressModules(eventDetails, race, isActiveRace ? aidStations : [], isActiveRace ? stationProducts : [])),
+      score: scoreModules(buildFormatProgressModules(eventDetails, race, race.aidStationCount ?? 0, 0)),
     };
   });
   const raceProgressScore = raceProgress.length > 0 ? Math.round(raceProgress.reduce((total, race) => total + race.score, 0) / raceProgress.length) : 0;
@@ -486,7 +486,7 @@ export function buildOrganizerCompletion(
   ];
 
   const formatModules: OrganizerModuleSummary[] = activeRace
-    ? buildFormatProgressModules(eventDetails, activeRace, aidStations, stationProducts).map((module) => {
+    ? buildFormatProgressModules(eventDetails, activeRace, aidStations.length, stationProducts.length).map((module) => {
         if (module.id === "formats") return { ...module, missingLabels: formatMissingLabels };
         if (module.id === "equipment") return { ...module, missingLabels: formatEquipmentMissingLabels };
         if (module.id === "access") return { ...module, missingLabels: formatAccessMissingLabels };

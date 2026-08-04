@@ -42,6 +42,14 @@ export const getModuleForTab = (tabId: string, currentModule: OrganizerModuleId)
   return tabId === EVENT_TAB_ID ? "event" : "formats";
 };
 
+export const buildOrganizerFormatSavePlan = (dirtyModules: ReadonlySet<OrganizerModuleId>) => {
+  const saveAidStations = dirtyModules.has("aidStations");
+  const saveRaceDetails =
+    saveAidStations || ["formats", "equipment", "access"].some((moduleId) => dirtyModules.has(moduleId as OrganizerModuleId));
+
+  return { saveRaceDetails, saveAidStations };
+};
+
 export const createEmptyEventForm = (): EventFormValues => ({
   name: "",
   location: "",
