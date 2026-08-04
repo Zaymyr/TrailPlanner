@@ -1147,6 +1147,8 @@ export type AdminTranslations = {
       setDraft: string;
       import: string;
       confirmImport: string;
+      downloadGpx: string;
+      downloadingGpx: string;
       loadingImport: string;
       importing: string;
       save: string;

@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-07-01
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -13,6 +13,9 @@ related_files:
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/api/admin/race-catalog/utmb/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
+  - apps/web/app/api/admin/race-catalog/tracedetrail/route.test.ts
+  - apps/web/app/api/admin/race-catalog/tracedetrail/importer.test.ts
+  - apps/web/lib/tracedetrail-race-import.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
@@ -85,6 +88,10 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 6. Inserts a public `races` row that stays draft (`is_live = false`) by default unless the admin explicitly marks it live.
 7. Inserts `race_aid_stations` from manual stations or normalized GPX waypoints.
 
+The Trace de Trail admin adapter first tries the official download with the credentials supplied for the current dialog, then retries the public download endpoint. When both downloads remain protected but the public trace page already exposes its route geometry, it rebuilds an importable GPX from that embedded geometry. The admin preview identifies this result as `embedded`. From the same reviewed preview, the admin can either create the catalog race or download the recovered GPX directly; the download action does not create a `race_events`/`races` row and does not upload anything to Supabase Storage.
+
+New Trace de Trail catalog races initialize `edition_group_id` with their own race id and `series_name` with the imported course name. These values are required by the edition-group schema even for the first edition of a format.
+
 ## User Private Race Import
 
 `apps/web/app/api/races/route.ts`:
@@ -156,6 +163,7 @@ For a brand-new organizer format, the add-format dashboard also uses the shared 
 - Waypoint-only files produce a `waypoint` point source and limited route geometry.
 - Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.
 - Catalog GPX and plan GPX live in different buckets.
+- A Trace de Trail GPX rebuilt from page geometry is not guaranteed to preserve every metadata field from the provider's original file.
 - Organizer GPX replacement updates source race data only; saved plans remain snapshots.
 - Organizer GPX waypoint import is safe-mode only: detected waypoints do not replace existing source stations, because replacing rows would break station ids and product links.
 - Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`. Organizer station-product links are the exception at response time: plans with `race_id` can receive current product suggestions from `/api/plans` without rewriting the saved plan row.

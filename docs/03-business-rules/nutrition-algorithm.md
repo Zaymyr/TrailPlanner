@@ -275,7 +275,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - The mobile ravito section header is presentation only, but on narrow iPhones it should keep the title on one truncated line rather than wrapping into the action buttons. Do not reintroduce multi-line `Ravitaillements` headers that collide with the auto-fill or add buttons.
 - Admin-only favorite usage shown in the mobile product detail modal is operational metadata. It must not influence allocation order, product eligibility, or per-unit nutrition values.
 - Harmonized official product display names must not change the underlying nutrition math. Allocation still depends on `fuel_type`, carbs, sodium, and quantity, not on the display label shown to runners.
-- Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; duplicate aliases can break `next build` before planner or catalog pages compile.
+- Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; this includes admin catalog actions such as direct GPX download, and duplicate aliases can break `next build` before planner or catalog pages compile.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.
 - Carb allocation uses product carbs as weights; products with `carbs_g <= 5` are excluded from carb-source allocation.
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.

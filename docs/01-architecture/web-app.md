@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-03
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -26,6 +26,9 @@ related_files:
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/utmb/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
+  - apps/web/app/api/admin/race-catalog/tracedetrail/route.test.ts
+  - apps/web/app/api/admin/race-catalog/tracedetrail/importer.test.ts
+  - apps/web/lib/tracedetrail-race-import.ts
   - apps/web/lib/organizer.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/page.tsx
@@ -176,6 +179,8 @@ Plan crew recap links are handled by `apps/web/app/api/plan-shares/route.ts`, `a
 ### Race Catalog and GPX
 
 Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live.
+
+The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, and direct GPX download. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition.
 
 User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false` and `created_by` set to the authenticated user.
 

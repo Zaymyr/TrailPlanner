@@ -516,6 +516,47 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
     },
   });
 
+  const traceDeTrailDownloadMutation = useMutation({
+    mutationFn: async (url: string) => {
+      const credentials =
+        traceDeTrailLogin.trim() && traceDeTrailPassword
+          ? { login: traceDeTrailLogin.trim(), password: traceDeTrailPassword }
+          : undefined;
+      const response = await fetch("/api/admin/race-catalog/tracedetrail", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ url, action: "download", credentials }),
+      });
+
+      if (!response.ok) {
+        const data = (await response.json().catch(() => null)) as { message?: string } | null;
+        throw new Error(data?.message ?? t.errors.traceDeTrailImportFailed);
+      }
+
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition");
+      const filename = disposition?.match(/filename="([^"]+)"/i)?.[1] ?? "trace-de-trail.gpx";
+      return { blob, filename };
+    },
+    onSuccess: ({ blob, filename }) => {
+      const objectUrl = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = objectUrl;
+      anchor.download = filename;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+      setTraceDeTrailError(null);
+    },
+    onError: (err) => {
+      setTraceDeTrailError(err instanceof Error ? err.message : t.errors.traceDeTrailImportFailed);
+    },
+  });
+
   const editForm = useForm<EditFormValues>({
     resolver: zodResolver(editFormSchema),
   });
@@ -1491,13 +1532,27 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   {traceDeTrailPreviewMutation.isPending ? t.actions.loadingImport : t.actions.import}
                 </Button>
               ) : (
-                <Button
-                  type="button"
-                  disabled={Boolean(traceDeTrailDuplicateRace) || traceDeTrailImportMutation.isPending}
-                  onClick={() => traceDeTrailImportMutation.mutate(traceDeTrailUrl.trim())}
-                >
-                  {traceDeTrailImportMutation.isPending ? t.actions.importing : t.actions.confirmImport}
-                </Button>
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={traceDeTrailDownloadMutation.isPending || traceDeTrailImportMutation.isPending}
+                    onClick={() => traceDeTrailDownloadMutation.mutate(traceDeTrailUrl.trim())}
+                  >
+                    {traceDeTrailDownloadMutation.isPending ? t.actions.downloadingGpx : t.actions.downloadGpx}
+                  </Button>
+                  <Button
+                    type="button"
+                    disabled={
+                      Boolean(traceDeTrailDuplicateRace) ||
+                      traceDeTrailImportMutation.isPending ||
+                      traceDeTrailDownloadMutation.isPending
+                    }
+                    onClick={() => traceDeTrailImportMutation.mutate(traceDeTrailUrl.trim())}
+                  >
+                    {traceDeTrailImportMutation.isPending ? t.actions.importing : t.actions.confirmImport}
+                  </Button>
+                </>
               )}
             </DialogFooter>
           </div>
