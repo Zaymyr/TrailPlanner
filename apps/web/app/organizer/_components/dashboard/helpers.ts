@@ -295,6 +295,19 @@ export const raceToForm = (race: RaceFormat): RaceFormValues => ({
   organizerDetails: cloneJson(race.organizerDetails ?? defaultOrganizerRaceDetails),
 });
 
+export const applyGpxStatsToRaceForm = (
+  form: RaceFormValues,
+  stats: GpxPreview["stats"]
+): RaceFormValues =>
+  stats
+    ? {
+        ...form,
+        distanceKm: stats.distanceKm,
+        elevationGainM: stats.gainM,
+        elevationLossM: stats.lossM.toString(),
+      }
+    : form;
+
 export type OrganizerAidStationRow = {
   id: string;
   name: string;

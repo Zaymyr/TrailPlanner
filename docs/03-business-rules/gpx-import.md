@@ -21,6 +21,10 @@ related_files:
   - apps/web/app/api/plans/from-catalog/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
+  - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/app/organizer/_components/dashboard/helpers.ts
+  - apps/web/app/organizer/_components/dashboard/helpers.test.ts
+  - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/components/GpxAidStationImporter.tsx
@@ -143,6 +147,8 @@ Existing saved plans are not rewritten after organizer GPX replacement. They kee
 
 For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, hydrates the organizer GPX panel with the same parsed points used by the interactive route map and elevation preview, and computes cumulative D+ / D- samples that the ravito editor can interpolate by km. After the format is created, the pending file is still uploaded through `/api/organizer/races/[id]/gpx` so the same stats are persisted on `races` and eligible waypoint ravitos can be created.
 
+For an existing format, a successful replacement also copies the exact returned parser values back into the active distance, D+, and D- form fields before and after the event refresh. The refresh keeps the format's edition year selected, so a stable race id does not leave the client form showing stale pre-import metrics while the `races` row already contains the new values.
+
 ## Review Flow Conflict
 
 `apps/web/components/GpxAidStationImporter.tsx` contains logic for updating existing race aid stations from GPX:
@@ -165,6 +171,7 @@ For a brand-new organizer format, the add-format dashboard also uses the shared 
 - Catalog GPX and plan GPX live in different buckets.
 - A Trace de Trail GPX rebuilt from page geometry is not guaranteed to preserve every metadata field from the provider's original file.
 - Organizer GPX replacement updates source race data only; saved plans remain snapshots.
+- Keep the active organizer form synchronized from the successful GPX response; reloading the event alone does not rerun race-form initialization when the active race id is unchanged.
 - Organizer GPX waypoint import is safe-mode only: detected waypoints do not replace existing source stations, because replacing rows would break station ids and product links.
 - Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`. Organizer station-product links are the exception at response time: plans with `race_id` can receive current product suggestions from `/api/plans` without rewriting the saved plan row.
 - Imported or manually added source aid stations do not count as published organizer mobile content by themselves; the mobile Racebook gate still needs explicit organizer details.

@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-07-29
+last_verified: 2026-08-04
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -50,6 +50,7 @@ This table is the sole content-review gate for the current organizer creation fl
 
 - Organizer event/race routes never accept direct `is_live` changes.
 - A request requires event name, location, start date, end date, and at least one format with name, positive distance, and non-negative elevation gain.
+- Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Rejection leaves all source rows unchanged.
 - Approval publishes complete formats under the event. Incomplete formats remain drafts and can be submitted in a later request after completion.
 - Publication does not send runner notifications automatically.
@@ -58,6 +59,7 @@ This table is the sole content-review gate for the current organizer creation fl
 
 - This is a publication review, not an ownership claim. Legacy claims may still protect access to pre-existing catalog events.
 - Recheck readiness during admin approval because organizers can edit source data while a request is pending.
+- Keep publication readiness sourced from persisted race values; client-side GPX form synchronization is only immediate feedback and does not bypass server-side revalidation.
 - New public-schema tables require explicit grants as well as RLS.
 
 ## Related Docs

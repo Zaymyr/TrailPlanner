@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-07-20
+last_verified: 2026-08-04
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -35,7 +35,7 @@ It:
 - receives parsed GPX points and optional detected aid stations;
 - fits the viewport to the route bounds;
 - shows the route polyline plus start, finish, and ravito markers;
-- is currently used by the organizer format editor GPX panel for the currently selected yearly edition inside one organizer format-series tab.
+- is currently used by the organizer format editor GPX panel for the currently selected yearly edition inside one organizer format-series tab; replacing the GPX preserves that year while synchronizing the adjacent distance and elevation fields from the same preview response.
 
 ## Gotchas
 
@@ -43,6 +43,7 @@ It:
 - Do not upgrade `react-leaflet` to v5 in this app until the web runtime upgrades to React 19; v5 crashes the current GPX organizer map on mount under React 18.
 - Preserve OpenStreetMap attribution when changing the tile layer.
 - Avoid passing extremely dense GPX point sets without considering render cost; reuse the existing dashboard GPX preview payload when possible.
+- Keep the route preview and visible distance/D+/D- fields on the same normalized GPX response so the map/profile cannot describe a different import than the form.
 - If a future screen needs editing or advanced basemap controls, extend the shared component instead of creating another map stack.
 
 ## Related Docs

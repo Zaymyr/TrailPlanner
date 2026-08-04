@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import { defaultOrganizerAidStationDetails } from "../../../../lib/organizer-dashboard-details";
-import { buildEditionYearOptions, getGpxElevationTotalsAtDistance, syncAidStationsWithGpxPreview } from "./helpers";
+import {
+  applyGpxStatsToRaceForm,
+  buildEditionYearOptions,
+  createEmptyRaceForm,
+  getGpxElevationTotalsAtDistance,
+  syncAidStationsWithGpxPreview,
+} from "./helpers";
 import type { AidStationDraft, EditionRequestRow, GpxPreview } from "./types";
 
 const preview: GpxPreview = {
@@ -32,6 +38,22 @@ const buildStation = (distanceKm: number): AidStationDraft => ({
 });
 
 describe("organizer dashboard GPX helpers", () => {
+  it("copies the exact parsed GPX metrics into the race form", () => {
+    expect(
+      applyGpxStatsToRaceForm(createEmptyRaceForm(), {
+        distanceKm: 42.37,
+        gainM: 1234.6,
+        lossM: 1198.4,
+        minAltM: 320,
+        maxAltM: 1640,
+      })
+    ).toMatchObject({
+      distanceKm: 42.37,
+      elevationGainM: 1234.6,
+      elevationLossM: "1198.4",
+    });
+  });
+
   it("keeps pending future edition years visible but disabled in the selector", () => {
     const options = buildEditionYearOptions(
       [{ id: "r1", edition_group_id: "g1", series_name: "42K", name: "42K", distance_km: 42, elevation_gain_m: 1000, is_live: false, race_date: "2026-06-20" }],

@@ -90,6 +90,7 @@ export function TextField({
   value,
   onChange,
   type = "text",
+  step,
   required,
   placeholder,
   invalid,
@@ -99,6 +100,7 @@ export function TextField({
   value: string;
   onChange: (value: string) => void;
   type?: string;
+  step?: string;
   required?: boolean;
   placeholder?: string;
   invalid?: boolean;
@@ -109,6 +111,7 @@ export function TextField({
       <Label>{label}</Label>
       <Input
         type={type}
+        step={step}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         required={required}

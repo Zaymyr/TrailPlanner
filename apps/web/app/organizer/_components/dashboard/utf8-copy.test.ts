@@ -36,8 +36,8 @@ describe("organizer dashboard UTF-8 copy", () => {
 
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(websiteImportSection).toContain("Voir les informations trouvées");
-    expect(websiteImportSection).toContain("Fiabilité des sources");
+    expect(websiteImportSection).toContain("Voir les informations fiables");
+    expect(websiteImportSection).toContain("Date détectée");
     forbiddenSequences.forEach((sequence) => {
       expect(websiteImportSection).not.toContain(sequence);
     });
