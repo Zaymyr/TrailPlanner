@@ -151,6 +151,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 - OpenStreetMap / Leaflet route maps: `docs/05-integrations/openstreetmap-leaflet.md`
 - Resend Broadcasts: `docs/05-integrations/resend-broadcasts.md`
 - Mulebar catalog scraping: `docs/05-integrations/mulebar-scraping.md`
+- BeTrail organizer email scraping: `docs/05-integrations/betrail-organizer-email-scraping.md`
 - Geocoding/address autocomplete: `docs/05-integrations/geocoding.md`
 - RevenueCat context: `docs/03-business-rules/premium-entitlement.md`
 - Supabase functions: `docs/05-integrations/supabase-edge-functions.md`
