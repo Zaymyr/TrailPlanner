@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
+import { Card } from '../../../../components/themed/Card';
 import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
@@ -22,12 +23,14 @@ import { fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../..
 import { fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 
-type RacebookTabKey = 'general' | 'gear' | 'bib' | 'course' | 'access';
+type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access';
 
 type LabeledItem = {
   label: string;
   value: string;
   actionUrl: string | null;
+  dataValue?: boolean;
+  tone?: 'neutral' | 'critical';
 };
 
 type MetricItem = {
@@ -66,6 +69,15 @@ function formatDate(value: string | null, locale: 'fr' | 'en'): string | null {
   });
 }
 
+function formatDateRange(startDate: string | null, endDate: string | null, locale: 'fr' | 'en'): string | null {
+  const start = formatDate(startDate, locale);
+  const end = formatDate(endDate, locale);
+
+  if (!start) return end;
+  if (!end || start === end) return start;
+  return `${start} – ${end}`;
+}
+
 function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
@@ -87,10 +99,10 @@ function SectionCard({
   children: ReactNode;
 }) {
   return (
-    <View style={styles.sectionCard}>
+    <Card style={styles.sectionCard}>
       <Text style={styles.sectionTitle}>{title}</Text>
       {children}
-    </View>
+    </Card>
   );
 }
 
@@ -181,12 +193,19 @@ function InfoList({ values }: { values: string[] }) {
   );
 }
 
-function LabeledInfoList({ items }: { items: LabeledItem[] }) {
+function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; emphasis?: boolean }) {
   return (
     <View style={styles.listGroup}>
       {items.map((item) => (
-        <View key={`${item.label}:${item.value}`} style={styles.tableRow}>
-          <Text style={styles.tableLabel}>{item.label}</Text>
+        <View
+          key={`${item.label}:${item.value}`}
+          style={[
+            styles.tableRow,
+            emphasis ? styles.tableRowEmphasis : null,
+            item.tone === 'critical' ? styles.tableRowCritical : null,
+          ]}
+        >
+          <Text style={[styles.tableLabel, emphasis ? styles.tableLabelEmphasis : null]}>{item.label}</Text>
           <View style={styles.tableDivider} />
           <View style={styles.tableValueWrap}>
             {item.actionUrl ? (
@@ -196,14 +215,41 @@ function LabeledInfoList({ items }: { items: LabeledItem[] }) {
                 accessibilityRole="link"
                 accessibilityLabel={`Ouvrir ${item.label}`}
               >
-                <Text style={[styles.tableValue, styles.tableValueLink]}>{item.value}</Text>
+                <Text style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, styles.tableValueLink]}>
+                  {item.value}
+                </Text>
               </Pressable>
+            ) : item.dataValue ? (
+              <DataText
+                tone={item.tone === 'critical' ? 'danger' : 'primary'}
+                weight="semibold"
+                style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null]}
+              >
+                {item.value}
+              </DataText>
             ) : (
-              <Text style={styles.tableValue}>{item.value}</Text>
+              <Text
+                style={[
+                  styles.tableValue,
+                  emphasis ? styles.tableValueEmphasis : null,
+                  item.tone === 'critical' ? styles.tableValueCritical : null,
+                ]}
+              >
+                {item.value}
+              </Text>
             )}
           </View>
         </View>
       ))}
+    </View>
+  );
+}
+
+function HeroDetailGroup({ title, values }: { title: string; values: string[] }) {
+  return (
+    <View style={styles.heroDetailGroup}>
+      <Text style={styles.heroDetailTitle}>{title}</Text>
+      <InfoList values={values} />
     </View>
   );
 }
@@ -405,7 +451,7 @@ export default function RaceRacebookScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { locale, t } = useI18n();
-  const [activeTab, setActiveTab] = useState<RacebookTabKey>('general');
+  const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<RacebookScreenData | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
@@ -454,7 +500,6 @@ export default function RaceRacebookScreen() {
 
   const tabs = useMemo(
     () => [
-      { key: 'general' as const, label: t.catalog.racebookTabGeneral },
       { key: 'gear' as const, label: t.catalog.racebookTabGear },
       { key: 'bib' as const, label: t.catalog.racebookTabBib },
       { key: 'course' as const, label: t.catalog.racebookTabCourse },
@@ -465,13 +510,29 @@ export default function RaceRacebookScreen() {
       t.catalog.racebookTabBib,
       t.catalog.racebookTabCourse,
       t.catalog.racebookTabGear,
-      t.catalog.racebookTabGeneral,
     ],
   );
 
-  const headerDate = formatDate(data?.race.raceDate ?? data?.event.raceDate ?? null, locale);
-  const headerLocation = data?.event.location ?? data?.race.location ?? null;
-  const eventMeta = [headerLocation, headerDate].filter(Boolean) as string[];
+  const eventDateRange = formatDateRange(
+    data?.event.raceDate ?? null,
+    data?.event.organizerDetails.dateRange.endDate ?? null,
+    locale,
+  );
+  const formattedRaceDate = formatDate(data?.race.raceDate ?? null, locale);
+  const formattedEventStartDate = formatDate(data?.event.raceDate ?? null, locale);
+  const showDistinctRaceDate = Boolean(formattedRaceDate && formattedRaceDate !== formattedEventStartDate);
+  const eventLocationDetails = data?.event.organizerDetails.eventLocation;
+  const raceLocationDetails = data?.race.organizerDetails.raceLocation;
+  const headerLocation =
+    data?.event.location ??
+    eventLocationDetails?.label ??
+    data?.race.location ??
+    raceLocationDetails?.label ??
+    null;
+  const headerLocationUrl =
+    (data?.event.location ?? eventLocationDetails?.label)
+      ? eventLocationDetails?.googleMapsUrl ?? null
+      : raceLocationDetails?.googleMapsUrl ?? null;
   const weatherPlan = data?.runnerDetails.equipmentStatus.weatherPlan ?? 'normal';
   const weatherAlertMessage =
     weatherPlan === 'cold'
@@ -482,69 +543,29 @@ export default function RaceRacebookScreen() {
   const weatherAlertIcon = weatherPlan === 'heat' ? 'thermometer-outline' : 'snow-outline';
   const lastMinuteMessage = data?.runnerDetails.services.lastMinuteMessage ?? null;
 
-  const generalSections = useMemo(() => {
-    if (!data) return [];
-
-    const runnerDetails = data.runnerDetails;
-    const eventLocation = data.event.organizerDetails.eventLocation;
-    const eventItems = [
-      data.event.name
-        ? { label: t.catalog.racebookFieldEventName, value: data.event.name, actionUrl: null }
-        : null,
-      (data.event.location ?? eventLocation.label)
-        ? {
-            label: t.catalog.racebookFieldEventLocation,
-            value: data.event.location ?? eventLocation.label!,
-            actionUrl: eventLocation.googleMapsUrl,
-          }
-        : null,
-      formatDate(data.event.raceDate, locale)
-        ? { label: t.catalog.racebookFieldEventStartDate, value: formatDate(data.event.raceDate, locale)!, actionUrl: null }
-        : null,
-      formatDate(data.event.organizerDetails.dateRange.endDate, locale)
-        ? {
-            label: t.catalog.racebookFieldEventEndDate,
-            value: formatDate(data.event.organizerDetails.dateRange.endDate, locale)!,
-            actionUrl: null,
-          }
-        : null,
-    ].filter((value): value is LabeledItem => Boolean(value));
-
-    const runnerInfoVisible = runnerDetails.access.enabledSections.runnerInfo !== false;
-    const runnerInfoLines = runnerInfoVisible
-      ? [
-          runnerDetails.runnerInfo.startArea,
-          runnerDetails.runnerInfo.briefing,
-          runnerDetails.runnerInfo.rules,
-          runnerDetails.runnerInfo.note,
-        ].filter((value): value is string => Boolean(value))
-      : [];
-
-    const servicesLines = [
-      runnerDetails.services.supporters,
-      runnerDetails.services.accommodations,
-      runnerDetails.services.restaurants,
-      runnerDetails.services.recovery,
-      runnerDetails.services.partners,
-      runnerDetails.services.note,
-    ].filter((value): value is string => Boolean(value));
+  const runnerInfoLines = useMemo(() => {
+    if (!data || data.runnerDetails.access.enabledSections.runnerInfo === false) return [];
 
     return [
-      { title: t.catalog.racebookSectionEventInfo, items: eventItems, lines: [] as string[] },
-      { title: t.catalog.racebookSectionRunnerInfo, items: [] as LabeledItem[], lines: runnerInfoLines },
-      { title: t.catalog.racebookSectionServices, items: [] as LabeledItem[], lines: servicesLines },
-    ].filter((section) => section.items.length > 0 || section.lines.length > 0);
-  }, [
-    data,
-    locale,
-    t.catalog.racebookFieldEventEndDate,
-    t.catalog.racebookFieldEventLocation,
-    t.catalog.racebookFieldEventName,
-    t.catalog.racebookFieldEventStartDate,
-    t.catalog.racebookSectionEventInfo,
-    t.catalog.racebookSectionRunnerInfo,
-    t.catalog.racebookSectionServices,
-  ]);
+      data.runnerDetails.runnerInfo.startArea,
+      data.runnerDetails.runnerInfo.briefing,
+      data.runnerDetails.runnerInfo.rules,
+      data.runnerDetails.runnerInfo.note,
+    ].filter((value): value is string => Boolean(value));
+  }, [data]);
+
+  const servicesLines = useMemo(() => {
+    if (!data) return [];
+
+    return [
+      data.runnerDetails.services.supporters,
+      data.runnerDetails.services.accommodations,
+      data.runnerDetails.services.restaurants,
+      data.runnerDetails.services.recovery,
+      data.runnerDetails.services.partners,
+      data.runnerDetails.services.note,
+    ].filter((value): value is string => Boolean(value));
+  }, [data]);
 
   const bibItems = useMemo(() => {
     if (!data) return [];
@@ -578,34 +599,67 @@ export default function RaceRacebookScreen() {
     ].filter((value): value is string => Boolean(value));
   }, [data, t.catalog.racebookBibEquipmentCheck, t.catalog.racebookBibThirdPartyPickupAllowed]);
 
+  const courseItems = useMemo(() => {
+    if (!data) return [];
+
+    const access = data.runnerDetails.access;
+    const schedule = data.runnerDetails.schedule;
+    const items: Array<LabeledItem | null> = [
+      schedule.startTime
+        ? {
+            label: t.catalog.racebookFieldStartTime,
+            value: schedule.startTime,
+            actionUrl: null,
+            dataValue: true,
+          }
+        : null,
+      access.startAddress
+        ? {
+            label: t.catalog.racebookFieldStartLocation,
+            value: access.startAddress,
+            actionUrl: access.startLocation.googleMapsUrl,
+          }
+        : null,
+      access.finishAddress
+        ? {
+            label: t.catalog.racebookFieldFinishLocation,
+            value: access.finishAddress,
+            actionUrl: access.finishLocation.googleMapsUrl,
+          }
+        : null,
+      schedule.finishCutoffTime
+        ? {
+            label: t.catalog.racebookFieldFinishCutoff,
+            value: schedule.finishCutoffTime,
+            actionUrl: null,
+            dataValue: true,
+            tone: 'critical' as const,
+          }
+        : null,
+    ];
+
+    return items.filter((value): value is LabeledItem => Boolean(value));
+  }, [
+    data,
+    t.catalog.racebookFieldFinishCutoff,
+    t.catalog.racebookFieldFinishLocation,
+    t.catalog.racebookFieldStartLocation,
+    t.catalog.racebookFieldStartTime,
+  ]);
+
+  const courseConstraintLines = useMemo(() => {
+    if (!data) return [];
+    return [data.runnerDetails.schedule.cutoffNote, data.runnerDetails.schedule.note].filter(
+      (value): value is string => Boolean(value),
+    );
+  }, [data]);
+
   const accessSections = useMemo(() => {
     if (!data) return [];
 
     const access = data.runnerDetails.access;
 
-    return [
-      {
-        title: t.catalog.racebookAccessGettingThere,
-        items: [
-          data.runnerDetails.schedule.startTime
-            ? { label: t.catalog.racebookFieldStartTime, value: data.runnerDetails.schedule.startTime, actionUrl: null }
-            : null,
-          access.startAddress
-            ? {
-                label: t.catalog.racebookFieldStartLocation,
-                value: access.startAddress,
-                actionUrl: access.startLocation.googleMapsUrl,
-              }
-            : null,
-          access.finishAddress
-            ? {
-                label: t.catalog.racebookFieldFinishLocation,
-                value: access.finishAddress,
-                actionUrl: access.finishLocation.googleMapsUrl,
-              }
-            : null,
-        ].filter((value): value is LabeledItem => Boolean(value)),
-      },
+    const sections: AccessSection[] = [
       {
         title: t.catalog.racebookAccessParking,
         lines: access.enabledSections.officialParkings && access.officialParkings ? [access.officialParkings] : [],
@@ -631,12 +685,11 @@ export default function RaceRacebookScreen() {
         title: t.catalog.racebookAccessNote,
         lines: access.note ? [access.note] : [],
       },
-    ].filter((section) => (section.items?.length ?? 0) > 0 || (section.lines?.length ?? 0) > 0) as AccessSection[];
+    ];
+
+    return sections.filter((section) => (section.items?.length ?? 0) > 0 || (section.lines?.length ?? 0) > 0);
   }, [
     data,
-    t.catalog.racebookFieldFinishLocation,
-    t.catalog.racebookFieldStartTime,
-    t.catalog.racebookAccessGettingThere,
     t.catalog.racebookAccessMap,
     t.catalog.racebookAccessNote,
     t.catalog.racebookAccessParking,
@@ -645,7 +698,12 @@ export default function RaceRacebookScreen() {
   ]);
 
   const equipmentItems = data?.runnerDetails.equipmentStatus.items ?? [];
+  const requiredEquipment = equipmentItems.filter((item) => item.active && item.required);
+  const recommendedEquipment = equipmentItems.filter((item) => item.active && !item.required);
+  const conditionalEquipment = equipmentItems.filter((item) => !item.active);
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
+  const bibPrimaryItems = bibItems.filter((item) => item.label !== t.catalog.racebookFieldBibDocuments);
+  const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
@@ -670,19 +728,48 @@ export default function RaceRacebookScreen() {
         </View>
       ) : data ? (
         <>
-          <View style={styles.heroCard}>
+          <Card style={styles.heroCard}>
             <View style={styles.heroHeader}>
-              <View style={styles.heroBadge}>
-                <Ionicons name="book-outline" size={18} color={Colors.brandPrimary} />
-              </View>
               <View style={styles.heroHeaderText}>
-                {data.event.name ? <Text style={styles.heroKicker}>{data.event.name}</Text> : null}
+                {data.event.name && data.event.name !== data.race.name ? (
+                  <Text style={styles.heroKicker}>{data.event.name}</Text>
+                ) : null}
                 <Heading variant="h2" style={styles.heroTitle}>
                   {data.race.name}
                 </Heading>
-                {eventMeta.length > 0 ? <Text style={styles.heroMeta}>{eventMeta.join(' • ')}</Text> : null}
+                <View style={styles.heroMetaGroup}>
+                  {eventDateRange ? <Text style={styles.heroMeta}>{eventDateRange}</Text> : null}
+                  {headerLocation ? (
+                    headerLocationUrl ? (
+                      <Pressable
+                        accessibilityRole="link"
+                        accessibilityLabel={`Ouvrir ${headerLocation}`}
+                        onPress={() => Linking.openURL(headerLocationUrl).catch(() => {})}
+                        style={styles.heroLocationAction}
+                      >
+                        <Text style={[styles.heroMeta, styles.tableValueLink]}>{headerLocation}</Text>
+                      </Pressable>
+                    ) : (
+                      <Text style={styles.heroMeta}>{headerLocation}</Text>
+                    )
+                  ) : null}
+                  {showDistinctRaceDate ? (
+                    <Text style={styles.heroFormatDate}>
+                      {`${t.catalog.racebookFieldFormatDate} · ${formattedRaceDate}`}
+                    </Text>
+                  ) : null}
+                </View>
               </View>
             </View>
+
+            {data.runnerDetails.schedule.startTime ? (
+              <View style={styles.heroStartFact}>
+                <Text style={styles.heroStartLabel}>{t.catalog.racebookFieldStartTime}</Text>
+                <DataText size="lg" weight="bold" tone="brand">
+                  {data.runnerDetails.schedule.startTime}
+                </DataText>
+              </View>
+            ) : null}
 
             <View style={styles.heroSummaryRow}>
               <View style={styles.summaryChip}>
@@ -696,13 +783,16 @@ export default function RaceRacebookScreen() {
                   <DataText style={styles.summaryChipText}>{`D- ${formatElevation(data.race.elevationLossM)} m`}</DataText>
                 </View>
               ) : null}
-              {data.runnerDetails.schedule.startTime ? (
-                <View style={styles.summaryChip}>
-                  <DataText style={styles.summaryChipText}>{data.runnerDetails.schedule.startTime}</DataText>
-                </View>
-              ) : null}
             </View>
-          </View>
+
+            {runnerInfoLines.length > 0 || servicesLines.length > 0 ? <View style={styles.heroDivider} /> : null}
+            {runnerInfoLines.length > 0 ? (
+              <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
+            ) : null}
+            {servicesLines.length > 0 ? (
+              <HeroDetailGroup title={t.catalog.racebookSectionServices} values={servicesLines} />
+            ) : null}
+          </Card>
 
           {weatherAlertMessage ? <InlineAlertCard icon={weatherAlertIcon} title="Alerte météo" message={weatherAlertMessage} /> : null}
 
@@ -729,40 +819,53 @@ export default function RaceRacebookScreen() {
           </View>
 
           <View style={styles.contentWrap}>
-            {activeTab === 'general' ? (
-              generalSections.length > 0 ? (
-                generalSections.map((section) => (
-                  <SectionCard key={section.title} title={section.title}>
-                    {section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
-                    {section.lines.length > 0 ? <InfoList values={section.lines} /> : null}
-                  </SectionCard>
-                ))
-              ) : (
-                <SectionCard title={t.catalog.racebookTabGeneral}>
-                  <EmptyState message={t.catalog.racebookEmptyGeneral} />
-                </SectionCard>
-              )
-            ) : null}
-
             {activeTab === 'gear' ? (
-              <SectionCard title={t.catalog.racebookTabGear}>
-                {equipmentItems.length === 0 && equipmentNotes.length === 0 ? (
+              equipmentItems.length === 0 && equipmentNotes.length === 0 ? (
+                <SectionCard title={t.catalog.racebookTabGear}>
                   <EmptyState message={t.catalog.racebookEmptyGear} />
-                ) : (
-                  <>
-                    {equipmentItems.length > 0 ? (
+                </SectionCard>
+              ) : (
+                <>
+                  {requiredEquipment.length > 0 ? (
+                    <SectionCard title={t.catalog.racebookSectionGearRequired}>
                       <GearList
-                        items={equipmentItems}
+                        items={requiredEquipment}
                         requiredLabel={t.catalog.racebookGearRequired}
                         recommendedLabel={t.catalog.racebookGearRecommended}
                         coldWeatherLabel={t.catalog.racebookGearColdWeather}
                         hotWeatherLabel={t.catalog.racebookGearHotWeather}
                       />
-                    ) : null}
-                    {equipmentNotes.length > 0 ? <InfoList values={equipmentNotes} /> : null}
-                  </>
-                )}
-              </SectionCard>
+                    </SectionCard>
+                  ) : null}
+                  {recommendedEquipment.length > 0 ? (
+                    <SectionCard title={t.catalog.racebookSectionGearRecommended}>
+                      <GearList
+                        items={recommendedEquipment}
+                        requiredLabel={t.catalog.racebookGearRequired}
+                        recommendedLabel={t.catalog.racebookGearRecommended}
+                        coldWeatherLabel={t.catalog.racebookGearColdWeather}
+                        hotWeatherLabel={t.catalog.racebookGearHotWeather}
+                      />
+                    </SectionCard>
+                  ) : null}
+                  {conditionalEquipment.length > 0 ? (
+                    <SectionCard title={t.catalog.racebookSectionGearConditional}>
+                      <GearList
+                        items={conditionalEquipment}
+                        requiredLabel={t.catalog.racebookGearRequired}
+                        recommendedLabel={t.catalog.racebookGearRecommended}
+                        coldWeatherLabel={t.catalog.racebookGearColdWeather}
+                        hotWeatherLabel={t.catalog.racebookGearHotWeather}
+                      />
+                    </SectionCard>
+                  ) : null}
+                  {equipmentNotes.length > 0 ? (
+                    <SectionCard title={t.catalog.racebookSectionAdditionalInfo}>
+                      <InfoList values={equipmentNotes} />
+                    </SectionCard>
+                  ) : null}
+                </>
+              )
             ) : null}
 
             {activeTab === 'bib' ? (
@@ -771,7 +874,11 @@ export default function RaceRacebookScreen() {
                   <EmptyState message={t.catalog.racebookEmptyBib} />
                 ) : (
                   <>
-                    {bibItems.length > 0 ? <LabeledInfoList items={bibItems} /> : null}
+                    {bibPrimaryItems.length > 0 ? <LabeledInfoList items={bibPrimaryItems} emphasis /> : null}
+                    {bibPrimaryItems.length > 0 && (bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
+                      <View style={styles.sectionDivider} />
+                    ) : null}
+                    {bibSecondaryItems.length > 0 ? <LabeledInfoList items={bibSecondaryItems} /> : null}
                     {bibLines.length > 0 ? <InfoList values={bibLines} /> : null}
                   </>
                 )}
@@ -780,6 +887,21 @@ export default function RaceRacebookScreen() {
 
             {activeTab === 'course' ? (
               <>
+                {courseItems.length > 0 || courseConstraintLines.length > 0 ? (
+                  <SectionCard title={t.catalog.racebookSectionCourseEssentials}>
+                    {courseItems.length > 0 ? <LabeledInfoList items={courseItems} emphasis /> : null}
+                    {courseItems.length > 0 && courseConstraintLines.length > 0 ? (
+                      <View style={styles.sectionDivider} />
+                    ) : null}
+                    {courseConstraintLines.length > 0 ? (
+                      <View style={styles.inlineBlock}>
+                        <Text style={styles.inlineBlockTitle}>{t.catalog.racebookSectionCourseConstraints}</Text>
+                        <InfoList values={courseConstraintLines} />
+                      </View>
+                    ) : null}
+                  </SectionCard>
+                ) : null}
+
                 <CourseMapCard
                   title={t.catalog.racebookSectionCourseMap}
                   points={routePreviewPoints}
@@ -904,10 +1026,6 @@ const styles = StyleSheet.create({
   heroCard: {
     gap: 14,
     padding: 18,
-    borderRadius: 24,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
   },
   alertCard: {
     gap: 8,
@@ -950,17 +1068,6 @@ const styles = StyleSheet.create({
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
-  },
-  heroBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
   },
   heroHeaderText: {
     flex: 1,
@@ -978,8 +1085,51 @@ const styles = StyleSheet.create({
   },
   heroMeta: {
     color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  heroMetaGroup: {
+    gap: 2,
+  },
+  heroLocationAction: {
+    alignSelf: 'flex-start',
+    minHeight: 32,
+    justifyContent: 'center',
+  },
+  heroFormatDate: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: '600',
+  },
+  heroStartFact: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 14,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  heroStartLabel: {
+    color: Colors.brandPrimary,
     fontSize: 13,
-    lineHeight: 18,
+    fontWeight: '700',
+  },
+  heroDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
+  },
+  heroDetailGroup: {
+    gap: 8,
+  },
+  heroDetailTitle: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   heroSummaryRow: {
     flexDirection: 'row',
@@ -1030,11 +1180,6 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     gap: 12,
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
   },
   sectionTitle: {
     color: Colors.textPrimary,
@@ -1075,11 +1220,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
   },
+  tableRowEmphasis: {
+    minHeight: 44,
+  },
+  tableRowCritical: {
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: Colors.dangerSurface,
+  },
   tableLabel: {
     flexShrink: 0,
     color: Colors.textSecondary,
     fontSize: 13,
     fontWeight: '700',
+  },
+  tableLabelEmphasis: {
+    color: Colors.textPrimary,
+    fontSize: 14,
   },
   tableDivider: {
     flex: 1,
@@ -1093,6 +1252,14 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 14,
     lineHeight: 20,
+  },
+  tableValueEmphasis: {
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '600',
+  },
+  tableValueCritical: {
+    color: Colors.danger,
   },
   tableValueWrap: {
     flexShrink: 1,
@@ -1143,6 +1310,10 @@ const styles = StyleSheet.create({
   },
   inlineBlock: {
     gap: 8,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: Colors.border,
   },
   inlineBlockTitle: {
     color: Colors.textPrimary,
