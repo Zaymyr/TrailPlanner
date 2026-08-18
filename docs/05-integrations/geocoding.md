@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-08-04
+last_verified: 2026-08-18
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -38,7 +38,8 @@ The current organizer flow is:
 5. The user can keep typing free text normally; the component keeps the raw input locally and only syncs a manual location object on blur when no autocomplete suggestion was chosen.
 6. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
 7. The runner preview reads that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link for live formats only; draft formats stay hidden from the organizer-facing preview list and cannot become the active preview fallback.
-8. The mobile Racebook can reuse the same stored Google Maps URL for bib pickup plus start/finish rows.
+8. Bib pickup can repeat this flow for every entry in `bibPickup.locations[]`; each location keeps its own geocoded object and independent dated time slots.
+9. The mobile Racebook can reuse every stored Google Maps URL for bib pickup plus start/finish rows.
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
@@ -70,7 +71,7 @@ Structured location objects use the organizer-details schema and may appear on:
 
 - `organizer_details.eventLocation`
 - `organizer_details.raceLocation`
-- `organizer_details.bibPickup.locationDetails`
+- `organizer_details.bibPickup.locations[].locationDetails` (with legacy `bibPickup.locationDetails` retained as a fallback)
 - `organizer_details.access.startLocation`
 - `organizer_details.access.finishLocation`
 
@@ -86,7 +87,7 @@ Each object stores:
 
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
-- Do not assume every historical organizer row has geocoded metadata; old rows should parse to empty/default location objects.
+- Do not assume every historical organizer row has geocoded metadata or a `bibPickup.locations[]` array; old single-location rows should parse through the legacy fallback without losing their free-text schedule.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.
 - The current quality improvement is still heuristic on top of Nominatim. It helps French race addresses significantly, but it is not a full postal-address provider with rooftop accuracy guarantees.
 - Google Places is a valid future replacement for autocomplete quality, but it requires a Google Maps Platform key, billing, quota management, and a review of Google usage terms before swapping providers.

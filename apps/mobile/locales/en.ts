@@ -597,7 +597,7 @@ export const en: MobileTranslations = {
     racebookSectionGearConditional: 'Depending on conditions',
     racebookSectionAdditionalInfo: 'Additional information',
     racebookLastMinuteTitle: 'Last minute',
-    racebookFieldStartTime: 'Start',
+    racebookFieldStartTime: 'Start time',
     racebookFieldFormatDate: 'Format date',
     racebookFieldStartLocation: 'Start location',
     racebookFieldFinishLocation: 'Finish location',

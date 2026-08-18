@@ -5,6 +5,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import {
   buildRunnerOrganizerDetails,
   defaultOrganizerEventDetails,
+  getOrganizerBibPickupLocations,
+  type OrganizerBibPickupSlot,
   type OrganizerLocation,
 } from "../../../../lib/organizer-dashboard-details";
 import { formatCoordinates } from "../../../../lib/location-utils";
@@ -46,6 +48,17 @@ export function RunnerPreviewDialog({
         runnerDetails.access.enabledSections.shuttles ? runnerDetails.access.shuttleSchedule : null,
         runnerDetails.access.enabledSections.roadRestrictions ? runnerDetails.access.roadRestrictions : null,
         runnerDetails.access.note,
+      ]
+    : [];
+  const bibPickupLocations = runnerDetails ? getOrganizerBibPickupLocations(runnerDetails.bibPickup) : [];
+  const bibPickupScheduleLines = runnerDetails
+    ? [
+        ...bibPickupLocations.flatMap((pickupLocation, locationIndex) =>
+          pickupLocation.slots.map(
+            (slot) => `${pickupLocation.location ?? `Lieu ${locationIndex + 1}`} - ${formatBibPickupSlot(slot)}`
+          )
+        ),
+        runnerDetails.bibPickup.schedule,
       ]
     : [];
 
@@ -119,14 +132,26 @@ export function RunnerPreviewDialog({
                   items={[
                     { label: "Événement", value: event.location ?? null, location: event.organizerDetails?.eventLocation },
                     { label: "Format", value: activeRace?.location_text ?? null, location: activeRace?.organizerDetails?.raceLocation },
-                    { label: "Retrait dossard", value: runnerDetails.bibPickup.location, location: runnerDetails.bibPickup.locationDetails },
+                    ...bibPickupLocations.map((pickupLocation, index) => ({
+                      label: bibPickupLocations.length > 1 ? `Retrait dossard ${index + 1}` : "Retrait dossard",
+                      value: pickupLocation.location,
+                      location: pickupLocation.locationDetails,
+                    })),
                     { label: "Départ", value: runnerDetails.access.startAddress, location: runnerDetails.access.startLocation },
                     { label: "Arrivée", value: runnerDetails.access.finishAddress, location: runnerDetails.access.finishLocation },
                   ]}
                 />
                 <PreviewEquipmentSection title="Matériel commun" items={runnerDetails.equipmentStatus.commonItems} empty="Matériel commun à venir." />
                 <PreviewEquipmentSection title={activeRace ? `Matériel ${activeRace.name}` : "Matériel format"} items={runnerDetails.equipmentStatus.raceItems} empty="Pas de matériel spécifique pour ce format." />
-                <PreviewTextSection title="Dossard" values={[runnerDetails.bibPickup.location, runnerDetails.bibPickup.schedule, runnerDetails.bibPickup.requiredDocuments, runnerDetails.bibPickup.note]} empty="Retrait dossard à venir." />
+                <PreviewTextSection
+                  title="Dossard"
+                  values={[
+                    ...bibPickupScheduleLines,
+                    runnerDetails.bibPickup.requiredDocuments,
+                    runnerDetails.bibPickup.note,
+                  ]}
+                  empty="Retrait dossard à venir."
+                />
                 <PreviewTextSection title="Accès" values={previewAccessValues} empty="Accès à venir." />
                 {runnerDetails.access.enabledSections.mapUrl && runnerDetails.access.mapUrl ? (
                   <section>
@@ -170,6 +195,17 @@ export function RunnerPreviewDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+function formatBibPickupSlot(slot: OrganizerBibPickupSlot): string {
+  const parsedDate = slot.date ? new Date(`${slot.date}T12:00:00`) : null;
+  const dateLabel =
+    parsedDate && !Number.isNaN(parsedDate.getTime())
+      ? parsedDate.toLocaleDateString("fr-FR", { weekday: "short", day: "numeric", month: "short", year: "numeric" })
+      : slot.date;
+  const timeLabel = [slot.startTime, slot.endTime].filter(Boolean).join(" - ");
+
+  return [dateLabel, timeLabel].filter(Boolean).join(" · ") || "Créneau à compléter";
 }
 
 export function PreviewTextSection({ title, values, empty }: { title: string; values: Array<string | null | undefined>; empty: string }) {

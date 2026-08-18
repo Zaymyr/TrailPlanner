@@ -1,7 +1,14 @@
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { cn } from "../../../../components/utils";
-import type { OrganizerEventDetails, OrganizerRaceDetails } from "../../../../lib/organizer-dashboard-details";
+import {
+  defaultOrganizerEventDetails,
+  getOrganizerBibPickupLocations,
+  type OrganizerBibPickupLocation,
+  type OrganizerBibPickupSlot,
+  type OrganizerEventDetails,
+  type OrganizerRaceDetails,
+} from "../../../../lib/organizer-dashboard-details";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
 import { TextAreaField, TextField, ToggleChip } from "./controls";
@@ -254,8 +261,31 @@ function BibPickupFields({
   onBibChange: (bib: OrganizerEventDetails["bibPickup"]) => void;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
-  const missingLocation = !bib.location?.trim();
-  const missingSchedule = !bib.schedule?.trim();
+  const locations = getOrganizerBibPickupLocations(bib);
+  const emptyLocationDetails = defaultOrganizerEventDetails.bibPickup.locationDetails;
+  const updateLocations = (nextLocations: OrganizerBibPickupLocation[]) => {
+    const firstLocation = nextLocations[0];
+    update({
+      locations: nextLocations,
+      location: firstLocation?.location ?? null,
+      locationDetails: firstLocation?.locationDetails ?? emptyLocationDetails,
+      ...(nextLocations.length === 0 ? { schedule: null } : null),
+    });
+  };
+  const addLocation = () => {
+    updateLocations([
+      ...locations,
+      {
+        location: null,
+        locationDetails: { ...emptyLocationDetails },
+        slots: [],
+      },
+    ]);
+  };
+  const updateLocation = (locationIndex: number, next: Partial<OrganizerBibPickupLocation>) => {
+    updateLocations(locations.map((location, index) => (index === locationIndex ? { ...location, ...next } : location)));
+  };
+  const updateSlots = (locationIndex: number, slots: OrganizerBibPickupSlot[]) => updateLocation(locationIndex, { slots });
 
   return (
     <section className="space-y-4 rounded-lg border border-border bg-background p-4">
@@ -263,18 +293,109 @@ function BibPickupFields({
         <p className="font-semibold text-foreground">{title}</p>
         <p className="text-sm text-muted-foreground">{description}</p>
       </div>
-      <div className="grid gap-3 md:grid-cols-2">
-        <AddressAutocompleteField
-          label="Lieu de retrait"
-          value={bib.location ?? ""}
-          location={bib.locationDetails}
-          biasLocation={bib.locationDetails}
-          onChange={(value) => update({ location: value || null })}
-          onLocationChange={(locationDetails) => update({ locationDetails })}
-          invalid={missingLocation}
-        />
-        <TextField label="Horaires retrait" value={bib.schedule ?? ""} onChange={(value) => update({ schedule: value || null })} invalid={missingSchedule} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="text-sm font-semibold text-foreground">Lieux et créneaux</p>
+          <p className="text-xs text-muted-foreground">Ajoute autant de lieux, de jours et de plages horaires que nécessaire.</p>
+        </div>
+        <Button type="button" variant="outline" onClick={addLocation}>
+          Ajouter un lieu
+        </Button>
       </div>
+      {locations.length === 0 ? (
+        <p className="rounded-md border border-dashed border-amber-300 bg-amber-50/50 p-4 text-sm text-amber-800">
+          Aucun lieu de retrait renseigné.
+        </p>
+      ) : (
+        <div className="space-y-4">
+          {locations.map((pickupLocation, locationIndex) => {
+            const missingLocation = !pickupLocation.location?.trim();
+            return (
+              <article key={`bib-location-${locationIndex}`} className="space-y-4 rounded-lg border border-border bg-card p-4">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="font-semibold text-foreground">Lieu de retrait {locationIndex + 1}</p>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    className="h-9 border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100"
+                    onClick={() => updateLocations(locations.filter((_, index) => index !== locationIndex))}
+                  >
+                    Supprimer le lieu
+                  </Button>
+                </div>
+                <AddressAutocompleteField
+                  label="Adresse du lieu"
+                  value={pickupLocation.location ?? ""}
+                  location={pickupLocation.locationDetails}
+                  biasLocation={pickupLocation.locationDetails}
+                  onChange={(value) => updateLocation(locationIndex, { location: value || null })}
+                  onLocationChange={(locationDetails) =>
+                    updateLocation(locationIndex, { location: locationDetails.label, locationDetails })
+                  }
+                  invalid={missingLocation}
+                />
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-sm font-semibold text-foreground">Jours et plages horaires</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() =>
+                        updateSlots(locationIndex, [
+                          ...pickupLocation.slots,
+                          { date: null, startTime: null, endTime: null },
+                        ])
+                      }
+                    >
+                      Ajouter un créneau
+                    </Button>
+                  </div>
+                  {pickupLocation.slots.length === 0 ? (
+                    <p className="rounded-md border border-dashed border-amber-300 bg-amber-50/50 p-3 text-sm text-amber-800">
+                      Aucun jour ni horaire pour ce lieu.
+                    </p>
+                  ) : (
+                    pickupLocation.slots.map((slot, slotIndex) => {
+                      const updateSlot = (next: Partial<OrganizerBibPickupSlot>) =>
+                        updateSlots(
+                          locationIndex,
+                          pickupLocation.slots.map((currentSlot, index) =>
+                            index === slotIndex ? { ...currentSlot, ...next } : currentSlot
+                          )
+                        );
+                      return (
+                        <div
+                          key={`bib-location-${locationIndex}-slot-${slotIndex}`}
+                          className="grid gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto] md:items-end"
+                        >
+                          <TextField label="Jour" type="date" value={slot.date ?? ""} onChange={(date) => updateSlot({ date: date || null })} invalid={!slot.date} />
+                          <TextField label="Début" type="time" value={slot.startTime ?? ""} onChange={(startTime) => updateSlot({ startTime: startTime || null })} invalid={!slot.startTime} />
+                          <TextField label="Fin" type="time" value={slot.endTime ?? ""} onChange={(endTime) => updateSlot({ endTime: endTime || null })} invalid={!slot.endTime} />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            className="h-10 border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100"
+                            onClick={() => updateSlots(locationIndex, pickupLocation.slots.filter((_, index) => index !== slotIndex))}
+                          >
+                            Supprimer
+                          </Button>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+      {bib.schedule ? (
+        <TextAreaField
+          label="Informations horaires existantes"
+          value={bib.schedule}
+          onChange={(value) => update({ schedule: value || null })}
+        />
+      ) : null}
       <TextAreaField label="Documents nécessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
       <div className="flex flex-wrap gap-2">
         <ToggleChip checked={bib.thirdPartyPickupAllowed === true} label="Retrait par tiers" onChange={(checked) => update({ thirdPartyPickupAllowed: checked })} />

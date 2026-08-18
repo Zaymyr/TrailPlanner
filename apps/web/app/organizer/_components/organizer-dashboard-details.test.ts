@@ -7,7 +7,58 @@ import {
   defaultOrganizerRaceDetails,
   deriveCommonEquipmentFromRaces,
   dedupeEquipmentItems,
+  getOrganizerBibPickupLocations,
+  parseOrganizerEventDetails,
 } from "../../../lib/organizer-dashboard-details";
+
+describe("organizer bib pickup details", () => {
+  it("keeps legacy bib pickup data available as one fallback location", () => {
+    const eventDetails = parseOrganizerEventDetails({
+      bibPickup: {
+        location: "Salle des fêtes, Annecy",
+        schedule: "Vendredi de 16h à 20h",
+      },
+    });
+
+    expect(eventDetails.bibPickup.locations).toEqual([]);
+    expect(getOrganizerBibPickupLocations(eventDetails.bibPickup)).toEqual([
+      {
+        location: "Salle des fêtes, Annecy",
+        locationDetails: defaultOrganizerEventDetails.bibPickup.locationDetails,
+        slots: [],
+      },
+    ]);
+    expect(eventDetails.bibPickup.schedule).toBe("Vendredi de 16h à 20h");
+  });
+
+  it("parses several bib pickup locations with independent dated time slots", () => {
+    const eventDetails = parseOrganizerEventDetails({
+      bibPickup: {
+        locations: [
+          {
+            location: "Gymnase central",
+            slots: [
+              { date: "2026-09-18", startTime: "16:00", endTime: "20:00" },
+              { date: "2026-09-19", startTime: "06:00", endTime: "08:00" },
+            ],
+          },
+          {
+            location: "Office du tourisme",
+            slots: [{ date: "2026-09-18", startTime: "14:00", endTime: "18:00" }],
+          },
+        ],
+      },
+    });
+
+    expect(eventDetails.bibPickup.locations).toHaveLength(2);
+    expect(eventDetails.bibPickup.locations[0]?.slots).toHaveLength(2);
+    expect(eventDetails.bibPickup.locations[1]?.slots[0]).toEqual({
+      date: "2026-09-18",
+      startTime: "14:00",
+      endTime: "18:00",
+    });
+  });
+});
 
 describe("organizer equipment syncing", () => {
   it("dedupes by weather tags as well as label and requirement", () => {

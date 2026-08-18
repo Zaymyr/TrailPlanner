@@ -31,7 +31,7 @@ type LabeledItem = {
   value: string;
   actionUrl: string | null;
   dataValue?: boolean;
-  tone?: 'neutral' | 'critical';
+  tone?: 'neutral' | 'positive' | 'critical';
 };
 
 type MetricItem = {
@@ -77,6 +77,16 @@ function formatDateRange(startDate: string | null, endDate: string | null, local
   if (!start) return end;
   if (!end || start === end) return start;
   return `${start} – ${end}`;
+}
+
+function formatBibPickupSlot(
+  slot: RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number],
+  locale: 'fr' | 'en',
+): string | null {
+  const dateLabel = formatDate(slot.date, locale);
+  const timeLabel = [slot.startTime, slot.endTime].filter(Boolean).join(' – ');
+  const value = [dateLabel, timeLabel].filter(Boolean).join(' · ');
+  return value || null;
 }
 
 function formatDistance(distanceKm: number) {
@@ -198,6 +208,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
           style={[
             styles.tableRow,
             emphasis ? styles.tableRowEmphasis : null,
+            item.tone === 'positive' ? styles.tableRowPositive : null,
             item.tone === 'critical' ? styles.tableRowCritical : null,
           ]}
         >
@@ -217,7 +228,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
               </Pressable>
             ) : item.dataValue ? (
               <DataText
-                tone={item.tone === 'critical' ? 'danger' : 'primary'}
+                tone={item.tone === 'critical' ? 'danger' : item.tone === 'positive' ? 'brand' : 'primary'}
                 weight="semibold"
                 style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null]}
               >
@@ -228,6 +239,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
                 style={[
                   styles.tableValue,
                   emphasis ? styles.tableValueEmphasis : null,
+                  item.tone === 'positive' ? styles.tableValuePositive : null,
                   item.tone === 'critical' ? styles.tableValueCritical : null,
                 ]}
               >
@@ -616,14 +628,46 @@ export default function RaceRacebookScreen() {
     if (!data) return [];
 
     const bibPickup = data.runnerDetails.bibPickup;
+    const pickupLocations =
+      bibPickup.locations.length > 0
+        ? bibPickup.locations
+        : bibPickup.location
+          ? [{ location: bibPickup.location, locationDetails: bibPickup.locationDetails, slots: [] }]
+          : [];
+    const locationItems = pickupLocations.flatMap((pickupLocation, locationIndex) => {
+      const locationLabel =
+        pickupLocations.length > 1
+          ? `${t.catalog.racebookFieldBibLocation} ${locationIndex + 1}`
+          : t.catalog.racebookFieldBibLocation;
+      const slotItems = pickupLocation.slots
+        .map((slot, slotIndex): LabeledItem | null => {
+          const value = formatBibPickupSlot(slot, locale);
+          if (!value) return null;
+
+          const slotLabel =
+            pickupLocations.length > 1
+              ? `${t.catalog.racebookFieldBibWindow} ${locationIndex + 1}.${slotIndex + 1}`
+              : pickupLocation.slots.length > 1
+                ? `${t.catalog.racebookFieldBibWindow} ${slotIndex + 1}`
+                : t.catalog.racebookFieldBibWindow;
+          return { label: slotLabel, value, actionUrl: null };
+        })
+        .filter((value): value is LabeledItem => Boolean(value));
+
+      return [
+        pickupLocation.location
+          ? {
+              label: locationLabel,
+              value: pickupLocation.location,
+              actionUrl: pickupLocation.locationDetails.googleMapsUrl,
+            }
+          : null,
+        ...slotItems,
+      ];
+    });
+
     return [
-      bibPickup.location
-        ? {
-            label: t.catalog.racebookFieldBibLocation,
-            value: bibPickup.location,
-            actionUrl: bibPickup.locationDetails.googleMapsUrl,
-          }
-        : null,
+      ...locationItems,
       bibPickup.schedule
         ? { label: t.catalog.racebookFieldBibWindow, value: bibPickup.schedule, actionUrl: null }
         : null,
@@ -631,7 +675,7 @@ export default function RaceRacebookScreen() {
         ? { label: t.catalog.racebookFieldBibDocuments, value: bibPickup.requiredDocuments, actionUrl: null }
         : null,
     ].filter((value): value is LabeledItem => Boolean(value));
-  }, [data, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibLocation, t.catalog.racebookFieldBibWindow]);
+  }, [data, locale, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibLocation, t.catalog.racebookFieldBibWindow]);
 
   const bibLines = useMemo(() => {
     if (!data) return [];
@@ -649,6 +693,15 @@ export default function RaceRacebookScreen() {
 
     const schedule = data.runnerDetails.schedule;
     const items: Array<LabeledItem | null> = [
+      schedule.startTime
+        ? {
+            label: t.catalog.racebookFieldStartTime,
+            value: schedule.startTime,
+            actionUrl: null,
+            dataValue: true,
+            tone: 'positive' as const,
+          }
+        : null,
       schedule.finishCutoffTime
         ? {
             label: t.catalog.racebookFieldFinishCutoff,
@@ -664,6 +717,7 @@ export default function RaceRacebookScreen() {
   }, [
     data,
     t.catalog.racebookFieldFinishCutoff,
+    t.catalog.racebookFieldStartTime,
   ]);
 
   const courseConstraintLines = useMemo(() => {
@@ -818,15 +872,6 @@ export default function RaceRacebookScreen() {
                   ) : null}
                 </View>
               </View>
-              {data.runnerDetails.schedule.startTime ? (
-                <View style={styles.heroStartFact}>
-                  <Text style={styles.heroStartLabel}>{t.catalog.racebookFieldStartTime}</Text>
-                  <Text style={styles.heroStartSeparator}>·</Text>
-                  <DataText size="lg" weight="bold" tone="brand">
-                    {data.runnerDetails.schedule.startTime}
-                  </DataText>
-                </View>
-              ) : null}
             </View>
 
             {runnerInfoLines.length > 0 || servicesLines.length > 0 ? <View style={styles.heroDivider} /> : null}
@@ -1154,28 +1199,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '600',
   },
-  heroStartFact: {
-    flexShrink: 0,
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 5,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 14,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  heroStartLabel: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  heroStartSeparator: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
   heroDivider: {
     height: 1,
     backgroundColor: Colors.border,
@@ -1263,6 +1286,13 @@ const styles = StyleSheet.create({
   tableRowEmphasis: {
     minHeight: 44,
   },
+  tableRowPositive: {
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: Colors.brandSurface,
+  },
   tableRowCritical: {
     marginHorizontal: -8,
     paddingHorizontal: 8,
@@ -1297,6 +1327,9 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 21,
     fontWeight: '600',
+  },
+  tableValuePositive: {
+    color: Colors.brandPrimary,
   },
   tableValueCritical: {
     color: Colors.danger,
