@@ -82,11 +82,6 @@ function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
-function formatElevation(value: number | null) {
-  if (value === null) return null;
-  return Math.round(value).toString();
-}
-
 function formatStationDistance(km: number) {
   return `${formatDistance(km)} km`;
 }
@@ -602,31 +597,8 @@ export default function RaceRacebookScreen() {
   const courseItems = useMemo(() => {
     if (!data) return [];
 
-    const access = data.runnerDetails.access;
     const schedule = data.runnerDetails.schedule;
     const items: Array<LabeledItem | null> = [
-      schedule.startTime
-        ? {
-            label: t.catalog.racebookFieldStartTime,
-            value: schedule.startTime,
-            actionUrl: null,
-            dataValue: true,
-          }
-        : null,
-      access.startAddress
-        ? {
-            label: t.catalog.racebookFieldStartLocation,
-            value: access.startAddress,
-            actionUrl: access.startLocation.googleMapsUrl,
-          }
-        : null,
-      access.finishAddress
-        ? {
-            label: t.catalog.racebookFieldFinishLocation,
-            value: access.finishAddress,
-            actionUrl: access.finishLocation.googleMapsUrl,
-          }
-        : null,
       schedule.finishCutoffTime
         ? {
             label: t.catalog.racebookFieldFinishCutoff,
@@ -642,9 +614,6 @@ export default function RaceRacebookScreen() {
   }, [
     data,
     t.catalog.racebookFieldFinishCutoff,
-    t.catalog.racebookFieldFinishLocation,
-    t.catalog.racebookFieldStartLocation,
-    t.catalog.racebookFieldStartTime,
   ]);
 
   const courseConstraintLines = useMemo(() => {
@@ -660,6 +629,25 @@ export default function RaceRacebookScreen() {
     const access = data.runnerDetails.access;
 
     const sections: AccessSection[] = [
+      {
+        title: t.catalog.racebookAccessLocations,
+        items: [
+          access.startAddress
+            ? {
+                label: t.catalog.racebookFieldStartLocation,
+                value: access.startAddress,
+                actionUrl: access.startLocation.googleMapsUrl,
+              }
+            : null,
+          access.finishAddress
+            ? {
+                label: t.catalog.racebookFieldFinishLocation,
+                value: access.finishAddress,
+                actionUrl: access.finishLocation.googleMapsUrl,
+              }
+            : null,
+        ].filter((value): value is LabeledItem => Boolean(value)),
+      },
       {
         title: t.catalog.racebookAccessParking,
         lines: access.enabledSections.officialParkings && access.officialParkings ? [access.officialParkings] : [],
@@ -690,11 +678,14 @@ export default function RaceRacebookScreen() {
     return sections.filter((section) => (section.items?.length ?? 0) > 0 || (section.lines?.length ?? 0) > 0);
   }, [
     data,
+    t.catalog.racebookAccessLocations,
     t.catalog.racebookAccessMap,
     t.catalog.racebookAccessNote,
     t.catalog.racebookAccessParking,
     t.catalog.racebookAccessRestrictions,
     t.catalog.racebookAccessShuttles,
+    t.catalog.racebookFieldFinishLocation,
+    t.catalog.racebookFieldStartLocation,
   ]);
 
   const equipmentItems = data?.runnerDetails.equipmentStatus.items ?? [];
@@ -704,6 +695,12 @@ export default function RaceRacebookScreen() {
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const bibPrimaryItems = bibItems.filter((item) => item.label !== t.catalog.racebookFieldBibDocuments);
   const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
+  const hasCourseContent =
+    courseItems.length > 0 ||
+    courseConstraintLines.length > 0 ||
+    routePreviewPoints.length >= 2 ||
+    elevationProfile.length >= 2 ||
+    (data?.aidStations.length ?? 0) > 0;
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
@@ -760,29 +757,20 @@ export default function RaceRacebookScreen() {
                   ) : null}
                 </View>
               </View>
+              {data.runnerDetails.schedule.startTime ? (
+                <View style={styles.heroStartFact}>
+                  <Text style={styles.heroStartLabel}>{t.catalog.racebookFieldStartTime}</Text>
+                  <DataText size="lg" weight="bold" tone="brand">
+                    {data.runnerDetails.schedule.startTime}
+                  </DataText>
+                </View>
+              ) : null}
             </View>
-
-            {data.runnerDetails.schedule.startTime ? (
-              <View style={styles.heroStartFact}>
-                <Text style={styles.heroStartLabel}>{t.catalog.racebookFieldStartTime}</Text>
-                <DataText size="lg" weight="bold" tone="brand">
-                  {data.runnerDetails.schedule.startTime}
-                </DataText>
-              </View>
-            ) : null}
 
             <View style={styles.heroSummaryRow}>
               <View style={styles.summaryChip}>
                 <DataText style={styles.summaryChipText}>{`${formatDistance(data.race.distanceKm)} km`}</DataText>
               </View>
-              <View style={styles.summaryChip}>
-                <DataText style={styles.summaryChipText}>{`D+ ${formatElevation(data.race.elevationGainM)} m`}</DataText>
-              </View>
-              {data.race.elevationLossM !== null ? (
-                <View style={styles.summaryChip}>
-                  <DataText style={styles.summaryChipText}>{`D- ${formatElevation(data.race.elevationLossM)} m`}</DataText>
-                </View>
-              ) : null}
             </View>
 
             {runnerInfoLines.length > 0 || servicesLines.length > 0 ? <View style={styles.heroDivider} /> : null}
@@ -902,17 +890,21 @@ export default function RaceRacebookScreen() {
                   </SectionCard>
                 ) : null}
 
-                <CourseMapCard
-                  title={t.catalog.racebookSectionCourseMap}
-                  points={routePreviewPoints}
-                  emptyMessage={t.catalog.racebookEmptyCourseMap}
-                />
+                {routePreviewPoints.length >= 2 ? (
+                  <CourseMapCard
+                    title={t.catalog.racebookSectionCourseMap}
+                    points={routePreviewPoints}
+                    emptyMessage={t.catalog.racebookEmptyCourseMap}
+                  />
+                ) : null}
 
-                <CourseProfileCard
-                  title={t.catalog.racebookSectionCourseProfile}
-                  points={elevationProfile}
-                  emptyMessage={t.catalog.racebookEmptyCourseProfile}
-                />
+                {elevationProfile.length >= 2 ? (
+                  <CourseProfileCard
+                    title={t.catalog.racebookSectionCourseProfile}
+                    points={elevationProfile}
+                    emptyMessage={t.catalog.racebookEmptyCourseProfile}
+                  />
+                ) : null}
 
                 {data.aidStations.length > 0 ? (
                   <SectionCard title={t.catalog.racebookSectionAidStations}>
@@ -937,11 +929,13 @@ export default function RaceRacebookScreen() {
                       ))}
                     </View>
                   </SectionCard>
-                ) : (
-                  <SectionCard title={t.catalog.racebookSectionAidStations}>
-                    <EmptyState message={t.catalog.racebookEmptyAid} />
+                ) : null}
+
+                {!hasCourseContent ? (
+                  <SectionCard title={t.catalog.racebookTabCourse}>
+                    <EmptyState message={t.catalog.racebookEmptyCourse} />
                   </SectionCard>
-                )}
+                ) : null}
               </>
             ) : null}
 
@@ -949,7 +943,7 @@ export default function RaceRacebookScreen() {
               accessSections.length > 0 ? (
                 accessSections.map((section) => (
                   <SectionCard key={section.title} title={section.title}>
-                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
+                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} emphasis /> : null}
                     {section.linkUrl && section.lines?.[0]?.startsWith('http') ? (
                       <Pressable onPress={() => Linking.openURL(section.linkUrl!).catch(() => {})}>
                         <Text style={styles.linkText}>{section.lines[0]}</Text>
@@ -1068,9 +1062,11 @@ const styles = StyleSheet.create({
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
   },
   heroHeaderText: {
     flex: 1,
+    minWidth: 0,
     gap: 4,
   },
   heroKicker: {
@@ -1103,10 +1099,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   heroStartFact: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
+    flexShrink: 0,
+    alignItems: 'flex-end',
+    gap: 2,
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 14,
