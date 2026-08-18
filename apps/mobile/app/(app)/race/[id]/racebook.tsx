@@ -47,6 +47,21 @@ type AccessSection = {
   linkUrl?: string | null;
 };
 
+type BibPickupSlot = RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number];
+
+type BibPickupDayGroup = {
+  key: string;
+  label: string;
+  timeRanges: string[];
+};
+
+type BibPickupLocationGroup = {
+  key: string;
+  location: string;
+  actionUrl: string | null;
+  days: BibPickupDayGroup[];
+};
+
 function sortGearItems(items: RacebookScreenData['runnerDetails']['equipmentStatus']['items']) {
   return [...items].sort((left, right) => {
     const leftGroup = !left.active ? 2 : left.required ? 0 : 1;
@@ -79,14 +94,57 @@ function formatDateRange(startDate: string | null, endDate: string | null, local
   return `${start} – ${end}`;
 }
 
-function formatBibPickupSlot(
-  slot: RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number],
+function formatBibPickupDate(value: string | null, locale: 'fr' | 'en'): string | null {
+  if (!value) return null;
+
+  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  const formatted = parsed.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${formatted.charAt(0).toLocaleUpperCase(locale === 'fr' ? 'fr-FR' : 'en-US')}${formatted.slice(1)}`;
+}
+
+function formatBibPickupTime(value: string | null, locale: 'fr' | 'en'): string | null {
+  if (!value) return null;
+
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return value;
+
+  const hour = String(Number(match[1]));
+  return locale === 'fr' ? `${hour}h${match[2]}` : `${hour.padStart(2, '0')}:${match[2]}`;
+}
+
+function groupBibPickupSlots(
+  slots: BibPickupSlot[],
   locale: 'fr' | 'en',
-): string | null {
-  const dateLabel = formatDate(slot.date, locale);
-  const timeLabel = [slot.startTime, slot.endTime].filter(Boolean).join(' – ');
-  const value = [dateLabel, timeLabel].filter(Boolean).join(' · ');
-  return value || null;
+  fallbackDayLabel: string,
+): BibPickupDayGroup[] {
+  const groups = new Map<string, BibPickupDayGroup>();
+
+  slots.forEach((slot, slotIndex) => {
+    const dateKey = slot.date ?? `undated-${slotIndex}`;
+    const startTime = formatBibPickupTime(slot.startTime, locale);
+    const endTime = formatBibPickupTime(slot.endTime, locale);
+    const timeRange = [startTime, endTime].filter(Boolean).join(' – ');
+    const existing = groups.get(dateKey);
+
+    if (existing) {
+      if (timeRange) existing.timeRanges.push(timeRange);
+      return;
+    }
+
+    groups.set(dateKey, {
+      key: dateKey,
+      label: formatBibPickupDate(slot.date, locale) ?? fallbackDayLabel,
+      timeRanges: timeRange ? [timeRange] : [],
+    });
+  });
+
+  return [...groups.values()];
 }
 
 function formatDistance(distanceKm: number) {
@@ -247,6 +305,64 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
               </Text>
             )}
           </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function BibPickupLocationList({
+  groups,
+  locationLabel,
+}: {
+  groups: BibPickupLocationGroup[];
+  locationLabel: string;
+}) {
+  return (
+    <View style={styles.bibLocationList}>
+      {groups.map((group, locationIndex) => (
+        <View key={group.key} style={styles.bibLocationCard}>
+          <View style={styles.bibLocationHeader}>
+            <View style={styles.bibLocationIcon}>
+              <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
+            </View>
+            <View style={styles.bibLocationTextWrap}>
+              <Text style={styles.bibLocationLabel}>
+                {groups.length > 1 ? `${locationLabel} ${locationIndex + 1}` : locationLabel}
+              </Text>
+              {group.actionUrl ? (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`${locationLabel}: ${group.location}`}
+                  onPress={() => Linking.openURL(group.actionUrl!).catch(() => {})}
+                  style={styles.bibLocationAction}
+                >
+                  <Text style={[styles.bibLocationValue, styles.tableValueLink]}>{group.location}</Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.bibLocationValue}>{group.location}</Text>
+              )}
+            </View>
+          </View>
+
+          {group.days.length > 0 ? (
+            <View style={styles.bibDayList}>
+              {group.days.map((day) => (
+                <View key={`${group.key}-${day.key}`} style={styles.bibDayRow}>
+                  <Text style={styles.bibDayLabel}>{day.label}</Text>
+                  {day.timeRanges.length > 0 ? (
+                    <View style={styles.bibTimeList}>
+                      {day.timeRanges.map((timeRange, timeIndex) => (
+                        <DataText key={`${day.key}-${timeRange}-${timeIndex}`} style={styles.bibTimeValue}>
+                          {timeRange}
+                        </DataText>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       ))}
     </View>
@@ -624,7 +740,7 @@ export default function RaceRacebookScreen() {
     ].filter((value): value is string => Boolean(value));
   }, [data]);
 
-  const bibItems = useMemo(() => {
+  const bibLocationGroups = useMemo(() => {
     if (!data) return [];
 
     const bibPickup = data.runnerDetails.bibPickup;
@@ -634,48 +750,35 @@ export default function RaceRacebookScreen() {
         : bibPickup.location
           ? [{ location: bibPickup.location, locationDetails: bibPickup.locationDetails, slots: [] }]
           : [];
-    const locationItems = pickupLocations.flatMap((pickupLocation, locationIndex) => {
-      const locationLabel =
-        pickupLocations.length > 1
-          ? `${t.catalog.racebookFieldBibLocation} ${locationIndex + 1}`
-          : t.catalog.racebookFieldBibLocation;
-      const slotItems = pickupLocation.slots
-        .map((slot, slotIndex): LabeledItem | null => {
-          const value = formatBibPickupSlot(slot, locale);
-          if (!value) return null;
+    return pickupLocations
+      .map((pickupLocation, locationIndex): BibPickupLocationGroup | null => {
+        if (!pickupLocation.location) return null;
 
-          const slotLabel =
-            pickupLocations.length > 1
-              ? `${t.catalog.racebookFieldBibWindow} ${locationIndex + 1}.${slotIndex + 1}`
-              : pickupLocation.slots.length > 1
-                ? `${t.catalog.racebookFieldBibWindow} ${slotIndex + 1}`
-                : t.catalog.racebookFieldBibWindow;
-          return { label: slotLabel, value, actionUrl: null };
-        })
-        .filter((value): value is LabeledItem => Boolean(value));
+        return {
+          key: `${pickupLocation.location}-${locationIndex}`,
+          location: pickupLocation.location,
+          actionUrl: pickupLocation.locationDetails.googleMapsUrl,
+          days: groupBibPickupSlots(pickupLocation.slots, locale, t.catalog.racebookFieldBibWindow),
+        };
+      })
+      .filter((value): value is BibPickupLocationGroup => Boolean(value));
+  }, [data, locale, t.catalog.racebookFieldBibWindow]);
 
-      return [
-        pickupLocation.location
-          ? {
-              label: locationLabel,
-              value: pickupLocation.location,
-              actionUrl: pickupLocation.locationDetails.googleMapsUrl,
-            }
-          : null,
-        ...slotItems,
-      ];
-    });
+  const bibItems = useMemo(() => {
+    if (!data) return [];
 
-    return [
-      ...locationItems,
+    const bibPickup = data.runnerDetails.bibPickup;
+    const items: Array<LabeledItem | null> = [
       bibPickup.schedule
         ? { label: t.catalog.racebookFieldBibWindow, value: bibPickup.schedule, actionUrl: null }
         : null,
       bibPickup.requiredDocuments
         ? { label: t.catalog.racebookFieldBibDocuments, value: bibPickup.requiredDocuments, actionUrl: null }
         : null,
-    ].filter((value): value is LabeledItem => Boolean(value));
-  }, [data, locale, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibLocation, t.catalog.racebookFieldBibWindow]);
+    ];
+
+    return items.filter((value): value is LabeledItem => Boolean(value));
+  }, [data, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibWindow]);
 
   const bibLines = useMemo(() => {
     if (!data) return [];
@@ -959,10 +1062,19 @@ export default function RaceRacebookScreen() {
 
             {activeTab === 'bib' ? (
               <SectionCard title={t.catalog.racebookSectionBib}>
-                {bibItems.length === 0 && bibLines.length === 0 ? (
+                {bibLocationGroups.length === 0 && bibItems.length === 0 && bibLines.length === 0 ? (
                   <EmptyState message={t.catalog.racebookEmptyBib} />
                 ) : (
                   <>
+                    {bibLocationGroups.length > 0 ? (
+                      <BibPickupLocationList
+                        groups={bibLocationGroups}
+                        locationLabel={t.catalog.racebookFieldBibLocation}
+                      />
+                    ) : null}
+                    {bibLocationGroups.length > 0 && (bibPrimaryItems.length > 0 || bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
+                      <View style={styles.sectionDivider} />
+                    ) : null}
                     {bibPrimaryItems.length > 0 ? <LabeledInfoList items={bibPrimaryItems} emphasis /> : null}
                     {bibPrimaryItems.length > 0 && (bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
                       <View style={styles.sectionDivider} />
@@ -1349,6 +1461,85 @@ const styles = StyleSheet.create({
     color: Colors.brandPrimary,
     textDecorationLine: 'underline',
     textDecorationColor: Colors.brandPrimary,
+  },
+  bibLocationList: {
+    gap: 12,
+  },
+  bibLocationCard: {
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  bibLocationHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  bibLocationIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  bibLocationTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  bibLocationLabel: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bibLocationAction: {
+    alignSelf: 'stretch',
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  bibLocationValue: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  bibDayList: {
+    marginLeft: 44,
+    gap: 10,
+  },
+  bibDayRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  bibDayLabel: {
+    flex: 1,
+    minWidth: 0,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  bibTimeList: {
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  bibTimeValue: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
   },
   chipRow: {
     flexDirection: 'row',
