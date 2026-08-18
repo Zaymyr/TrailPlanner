@@ -130,6 +130,51 @@ describe("organizer completion", () => {
     expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toEqual([]);
   });
 
+  it("requires a complete dated time slot for every structured bib pickup location", () => {
+    const organizerDetails = {
+      ...defaultOrganizerEventDetails,
+      dateRange: { endDate: "2026-09-13" },
+      bibPickup: {
+        ...defaultOrganizerEventDetails.bibPickup,
+        locations: [
+          {
+            location: "Gymnase central",
+            locationDetails: defaultOrganizerEventDetails.bibPickup.locationDetails,
+            slots: [{ date: "2026-09-11", startTime: "16:00", endTime: "20:00" }],
+          },
+          {
+            location: "Office du tourisme",
+            locationDetails: defaultOrganizerEventDetails.bibPickup.locationDetails,
+            slots: [],
+          },
+        ],
+      },
+    };
+    const incomplete = buildOrganizerCompletion({ ...baseEvent, organizerDetails }, baseEvent.races[0]!, [], []);
+    const complete = buildOrganizerCompletion(
+      {
+        ...baseEvent,
+        organizerDetails: {
+          ...organizerDetails,
+          bibPickup: {
+            ...organizerDetails.bibPickup,
+            locations: organizerDetails.bibPickup.locations.map((location, index) =>
+              index === 1
+                ? { ...location, slots: [{ date: "2026-09-12", startTime: "06:00", endTime: "08:00" }] }
+                : location
+            ),
+          },
+        },
+      },
+      baseEvent.races[0]!,
+      [],
+      []
+    );
+
+    expect(incomplete.eventModules.find((module) => module.id === "bibPickup")?.missingLabels).toEqual(["Jours et horaires"]);
+    expect(complete.eventModules.find((module) => module.id === "bibPickup")?.missingLabels).toEqual([]);
+  });
+
   it("derives event header progress from per-format completion modules", () => {
     const completion = buildOrganizerCompletion(
       {

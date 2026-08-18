@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-04
+last_verified: 2026-08-18
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -200,7 +200,7 @@ The v1 organizer portal is web-only:
 
 - `/organizers` creates a new non-live event through `POST /api/organizer/events` and immediately creates its active owner membership. It does not claim existing catalog events. With an official URL, the page redirects to `/organizer` with the new event selected and automatically opens its website-import analysis. The `/organizer` server page normalizes `eventId` and `importUrl` from its `searchParams` prop before passing them to the client dashboard, which keeps the route compatible with static generation without a client-side search-param bailout.
 - `/organizer` lets active event members maintain draft events, canonical `race_event_editions` date ranges, and attached formats. `Nouvelle édition` creates a start/end range and clones the selected source year as drafts through the compatibility `/api/organizer/edition-requests` URL; it no longer writes the retired review table. Event and format liveness stays read-only, and publication targets the current edition.
-- The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. It calls `/api/location-search`, keeps the existing text columns as the publishable source strings, and stores structured geocoded metadata alongside them in `organizer_details` so the runner preview can expose GPS coordinates and Google Maps links.
+- The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. Bib pickup accepts several event-level locations, each with several structured date/start/end slots; the legacy single location and free-text schedule remain readable as compatibility fallbacks. The editor calls `/api/location-search`, keeps the first bib location mirrored into the legacy text/location fields, and stores the complete location and slot list in `organizer_details` so runner previews can expose every address, GPS link, day, and time range.
 - The organizer creation screen and dashboard keep concise, consistently accented French copy across `/organizers` and `/organizer`.
 - The main header always shows "Mes courses" / "My races". It opens `/organizers` to let a new organizer create their first event, then opens `/organizer` after `/api/organizer/claims` reports at least one active membership.
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
@@ -261,7 +261,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep `/organizer` compatible with production prerendering. Bootstrap query values should enter through the server page props; using `useSearchParams` directly in `OrganizerDashboard` requires a Suspense boundary and otherwise fails `next build`.
 - Keep public catalog creation conservative by default: imported/admin-created events and races should start as non-live until someone publishes them deliberately.
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
-- Keep bib pickup shared at event level in the current organizer UI. Equipment is the exception: the dashboard mirrors shared items into every race list so a course can later drop one and shrink the event-level common subset.
+- Keep bib pickup shared at event level in the current organizer UI. Its `locations[]` entries own their own geocoded address and `slots[]`; do not flatten several pickup places into one format-level string. Equipment is the exception: the dashboard mirrors shared items into every race list so a course can later drop one and shrink the event-level common subset.
 - Keep the active weather plan on the event-level equipment JSON. Formats may retag items for `cold` / `heat`, but they must not choose a different active plan than the event.
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.
 - The Ravitos save plan must PATCH the active race details before PUTting aid stations because start/finish times live in `races.organizer_details.schedule`, not on `race_aid_stations`.

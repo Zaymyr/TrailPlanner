@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -95,7 +95,7 @@ Summary:
 - A membership grants access to all formats under the event.
 - The membership-gated event detail read may aggregate each child format's persisted ravito count for completion display; this does not widen access beyond the managed event.
 - A membership grants access to source ravito service flags (`water_available`, `solid_available`, `assistance_allowed`) for all formats under the event.
-- A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos. Event JSONB stores common defaults, the event end date, and additive geocoded location metadata; race JSONB stores active-format differences or additions, including the current access-section toggles and geocoded format/access location metadata used by the organizer dashboard.
+- A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos. Event JSONB stores common defaults, the event end date, additive geocoded location metadata, and event-level bib pickup as several locations with independent dated time slots; race JSONB stores active-format differences or additions, including the current access-section toggles and geocoded format/access location metadata used by the organizer dashboard.
 - A membership grants service-route access to upload the event PNG thumbnail, upload a format thumbnail, preview/replace format GPX files, and delete a format for every race under the event.
 - That same membership also authorizes organizer edition-grouping flows on `races`: creating a brand-new format series, renaming `series_name`, duplicating a format into a new `edition_group_id`, or cloning a new yearly edition inside an existing `edition_group_id`.
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
@@ -136,7 +136,7 @@ order by created_at asc;
 - Organizer dashboard JSONB fields do not change the membership model; keep using active `race_event_organizers` checks instead of field-level shortcuts.
 - `POST /api/organizer/events` creates an owner membership immediately after inserting a non-live event. If membership insertion fails, the route deletes that newly created event.
 - Common-vs-format detail splitting is an application convention, not a new authorization boundary.
-- The current organizer UI treats bib pickup as event-only, and treats format access-section toggles plus ravito start/finish timing cards as ordinary race-detail edits; all of them still rely on the same active event-membership check.
+- The current organizer UI treats bib pickup as event-only, including its `locations[]` and nested `slots[]`, and treats format access-section toggles plus ravito start/finish timing cards as ordinary race-detail edits; all of them still rely on the same active event-membership check.
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.

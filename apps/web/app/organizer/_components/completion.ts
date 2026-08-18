@@ -279,9 +279,18 @@ export function buildOrganizerCompletion(
     : [];
   const commonEquipmentMissingLabels = compactMissingLabels([["Matériel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)]]);
   const formatEquipmentMissingLabels = compactMissingLabels([["Matériel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)]]);
+  const hasStructuredBibLocations = commonBibPickup.locations.length > 0;
+  const hasCompleteBibLocations = hasStructuredBibLocations
+    ? commonBibPickup.locations.every((pickupLocation) => hasText(pickupLocation.location))
+    : hasText(commonBibPickup.location);
+  const hasCompleteBibSchedules = hasStructuredBibLocations
+    ? commonBibPickup.locations.every((pickupLocation) =>
+        pickupLocation.slots.some((slot) => hasText(slot.date) && hasText(slot.startTime) && hasText(slot.endTime))
+      )
+    : hasText(commonBibPickup.schedule);
   const bibPickupMissingLabels = compactMissingLabels([
-    ["Lieu retrait", hasText(commonBibPickup.location)],
-    ["Horaires", hasText(commonBibPickup.schedule)],
+    ["Lieux retrait", hasCompleteBibLocations],
+    ["Jours et horaires", hasCompleteBibSchedules],
   ]);
   const commonAccessMissingLabels = compactMissingLabels([
     ["Départ", hasText(commonAccess.startAddress)],
