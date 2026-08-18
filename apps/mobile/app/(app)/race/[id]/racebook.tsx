@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -324,18 +325,28 @@ function GearList({
   );
 }
 
-function ServicePill({
+function ServiceIconButton({
   icon,
   label,
+  active,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  active: boolean;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.servicePill}>
-      <Ionicons name={icon} size={14} color={Colors.brandPrimary} />
-      <Text style={styles.servicePillText}>{label}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ expanded: active }}
+      hitSlop={4}
+      onPress={onPress}
+      style={[styles.serviceIconButton, active ? styles.serviceIconButtonActive : null]}
+    >
+      <Ionicons name={icon} size={17} color={active ? Colors.textOnBrand : Colors.brandPrimary} />
+    </Pressable>
   );
 }
 
@@ -358,6 +369,7 @@ function AidStationCard({
     aidCutoffTime: string;
   };
 }) {
+  const [activeServiceLabel, setActiveServiceLabel] = useState<string | null>(null);
   const serviceItems = [
     station.waterAvailable ? { icon: 'water-outline' as const, label: copy.aidWater } : null,
     station.solidAvailable ? { icon: 'restaurant-outline' as const, label: copy.aidFood } : null,
@@ -399,10 +411,25 @@ function AidStationCard({
           </View>
 
           {serviceItems.length > 0 ? (
-            <View style={styles.servicePillRow}>
-              {serviceItems.map((item) => (
-                <ServicePill key={`${station.id}-${item.label}`} icon={item.icon} label={item.label} />
-              ))}
+            <View style={styles.serviceInfoGroup}>
+              <View style={styles.serviceIconRow}>
+                {serviceItems.map((item) => (
+                  <ServiceIconButton
+                    key={`${station.id}-${item.label}`}
+                    icon={item.icon}
+                    label={item.label}
+                    active={activeServiceLabel === item.label}
+                    onPress={() => {
+                      setActiveServiceLabel((current) => (current === item.label ? null : item.label));
+                    }}
+                  />
+                ))}
+              </View>
+              {activeServiceLabel ? (
+                <View style={styles.serviceTooltip} accessibilityLiveRegion="polite">
+                  <Text style={styles.serviceTooltipText}>{activeServiceLabel}</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -448,6 +475,7 @@ export default function RaceRacebookScreen() {
   const { locale, t } = useI18n();
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const [routePreviewPoints, setRoutePreviewPoints] = useState<MobileGpxPreviewPoint[]>([]);
@@ -491,6 +519,28 @@ export default function RaceRacebookScreen() {
     return () => {
       cancelled = true;
     };
+  }, [id]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!id) return;
+
+    setRefreshing(true);
+
+    try {
+      const [result, profilePoints, routePoints] = await Promise.all([
+        fetchRaceRacebookData(id),
+        fetchRaceElevationProfile(id),
+        fetchRaceRoutePreviewPoints(id),
+      ]);
+
+      setData(result);
+      setElevationProfile(profilePoints);
+      setRoutePreviewPoints(routePoints);
+    } catch {
+      // Keep the last successfully loaded Racebook visible when a refresh fails.
+    } finally {
+      setRefreshing(false);
+    }
   }, [id]);
 
   const tabs = useMemo(
@@ -704,7 +754,18 @@ export default function RaceRacebookScreen() {
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      alwaysBounceVertical
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={Colors.brandPrimary}
+          colors={[Colors.brandPrimary]}
+        />
+      }
+    >
       {loading ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={Colors.brandPrimary} size="small" />
@@ -760,17 +821,12 @@ export default function RaceRacebookScreen() {
               {data.runnerDetails.schedule.startTime ? (
                 <View style={styles.heroStartFact}>
                   <Text style={styles.heroStartLabel}>{t.catalog.racebookFieldStartTime}</Text>
+                  <Text style={styles.heroStartSeparator}>·</Text>
                   <DataText size="lg" weight="bold" tone="brand">
                     {data.runnerDetails.schedule.startTime}
                   </DataText>
                 </View>
               ) : null}
-            </View>
-
-            <View style={styles.heroSummaryRow}>
-              <View style={styles.summaryChip}>
-                <DataText style={styles.summaryChipText}>{`${formatDistance(data.race.distanceKm)} km`}</DataText>
-              </View>
             </View>
 
             {runnerInfoLines.length > 0 || servicesLines.length > 0 ? <View style={styles.heroDivider} /> : null}
@@ -1100,8 +1156,9 @@ const styles = StyleSheet.create({
   },
   heroStartFact: {
     flexShrink: 0,
-    alignItems: 'flex-end',
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 5,
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 14,
@@ -1110,6 +1167,11 @@ const styles = StyleSheet.create({
     borderColor: Colors.brandBorder,
   },
   heroStartLabel: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  heroStartSeparator: {
     color: Colors.brandPrimary,
     fontSize: 13,
     fontWeight: '700',
@@ -1125,23 +1187,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
-  },
-  heroSummaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  summaryChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryChipText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
   },
   tabsWrap: {
     flexDirection: 'row',
@@ -1447,26 +1492,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  servicePillRow: {
+  serviceInfoGroup: {
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  serviceIconRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-  },
-  servicePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
+  },
+  serviceIconButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
     backgroundColor: Colors.brandSurface,
     borderWidth: 1,
     borderColor: Colors.brandBorder,
   },
-  servicePillText: {
-    color: Colors.brandPrimary,
+  serviceIconButtonActive: {
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
+  },
+  serviceTooltip: {
+    maxWidth: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+  },
+  serviceTooltipText: {
+    color: Colors.textPrimary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   segmentGainText: {
     color: Colors.danger,

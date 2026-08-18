@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-08-17
+last_verified: 2026-08-18
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -125,12 +125,12 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event writes remain edition-aware for selecting child rows, but no date-based cutoff blocks event or format maintenance.
 - The canonical event start/end range is stored in `race_event_editions`. The current edition is mirrored into `race_date` and `organizer_details.dateRange.endDate` for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
-- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual non-ravito organizer content. Its top identity card exposes event/format identity, the event date range, any distinct format date, the best published location, distance, runner information, and event services, with an explicitly labeled start time in the right column and no D+/D- synthesis. Event-level bib pickup remains isolated in `Dossard`; `Course` owns finish cutoff and schedule constraints plus only the available GPX map, elevation profile, and ravitos; `Accès` owns start/finish linked locations and the remaining logistics. Equipment is presented in required, recommended, and inactive weather-conditional groups with inline status and weather markers.
+- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual non-ravito organizer content. Its top identity card exposes event/format identity, the event date range, any distinct format date, the best published location, runner information, and event services, with an explicitly labeled start time whose label and value share one row in the right column; distance, D+, and D- metric pills are omitted. Event-level bib pickup remains isolated in `Dossard`; `Course` owns finish cutoff and schedule constraints plus only the available GPX map, elevation profile, and ravitos; `Accès` owns start/finish linked locations and the remaining logistics. Equipment is presented in required, recommended, and inactive weather-conditional groups with inline status and weather markers.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
-- Mobile Racebook presentation keeps access start/finish and bib value widths responsive for readable long linked locations, and shows ravito metric labels inline beside their values; these layout rules do not change the event query or organizer-details contract.
+- Mobile Racebook presentation keeps access start/finish and bib value widths responsive for readable long linked locations, shows ravito metric labels inline beside their values, and presents water, solid food, assistance, and drop-bag flags as accessible icon-only buttons with one toggled inline label bubble. Pull-to-refresh repeats the existing read-only event, format, route, profile, and ravito reads so newly published organizer data appears without restarting the app; it does not change the event query or organizer-details contract.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Common Queries
