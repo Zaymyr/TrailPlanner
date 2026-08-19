@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-08-17
+last_verified: 2026-08-19
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -45,7 +45,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
 - Non-root plan actions can reuse `FloatingActionMenu` directly. The component keeps its default add icon for root menus but also accepts optional closed/open icons when a screen needs an actions affordance instead of a create affordance.
 - Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item. Use `href: null` alone when the screen should keep the bottom navigation visible; add `tabBarStyle: { display: 'none' }` only for flows that should hide the bar. Preserve the tab navigator's history-based back behavior so Android hardware back returns to the actual previous screen after these hidden routes are pushed.
-- Compact detail routes under an existing stack, such as `race/[id]/racebook`, can keep a route-local tab bar/state machine instead of introducing a shared navigation primitive when the screen is read-only and scoped to one flow. Keep the entry point hidden until the format is live and has real organizer content; aid-station rows alone should not unlock it. For Racebook specifically, use the top identity card for event/format identity, event date range, optional distinct format date, location, labeled start time, race metrics, runner information, and services. Keep weather and last-minute messages as compact alert cards above the tabs. The four tabs are `Matériel`, `Dossard`, `Course`, and `Accès`: group gear by required/recommended/weather-conditional state; emphasize bib place and schedule; put start, finish, finish cutoff, schedule constraints, GPX map, profile, and ravitos in `Course`; reserve `Accès` for parking, shuttles, restrictions, map links, and access notes. Render start and bib data in responsive label/divider/value rows so long linked locations wrap cleanly, and keep ravito metrics in their compact right column.
+- Compact detail routes under an existing stack, such as `race/[id]/racebook`, can keep a route-local tab bar/state machine instead of introducing a shared navigation primitive when the screen is read-only and scoped to one flow. Keep the entry point hidden until the format is live and has real organizer content; aid-station rows alone should not unlock it. For Racebook specifically, use the top identity card for event/format identity, event date range, optional distinct format date, location, runner information, and services, without distance, D+, D-, or start-time metric pills. Keep weather and last-minute messages as compact alert cards above the tabs. The four tabs are `Matériel`, `Dossard`, `Course`, and `Accès`: group gear by required/recommended/weather-conditional state; group bib pickup first by location and then by day, stacking same-day ranges under one localized short weekday/day/month label and formatting hours for the active locale, before documents and notes, while retaining legacy single-location/free-text fallbacks; place the explicitly labeled start time first in `Course` important information with light-green emphasis, retain critical styling for the finish cutoff, and keep schedule constraints, GPX map, profile, and ravitos there while hiding unavailable blocks; put linked start/finish locations before parking, shuttles, restrictions, map links, and notes in `Accès`. Render access and bib data responsively so long linked locations wrap cleanly. Keep ravito metrics in their compact right column and render service availability as accessible icon-only buttons that reveal at most one inline label bubble at a time. Keep native pull-to-refresh available even when content is short; reload all Racebook, profile, and route sources together without replacing a successful snapshot when a refresh request fails.
 - Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code. Preserve per-checkpoint assistance availability in the generated snapshot so recap screens can highlight crew handoff points, mute no-assistance points, and avoid showing a product handoff block where the crew cannot be present.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
 - When a setup/onboarding step already sits inside a shell card, prefer flat rows for one-off lists; when the same choice exists as a primary app surface, reuse the primary component for consistency.
@@ -54,6 +54,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Reuse `RaceEventSummaryCard` for catalog/onboarding race event rows so the onboarding race picker matches the Courses tab UX.
 - When extending the Courses tab, preserve its event-level route contract: favorites are tied to `race_events`, deep links such as `/(app)/catalog?eventId=<uuid>` should reopen the matching event sheet rather than inventing a second detail flow, and organizer-update history should stay compact on first render with any longer history loaded only after an explicit runner action.
 - Premium purchase UI that can trigger App Store review should keep the subscription summary plus both legal links close to the CTA: explicit title, duration, price, privacy policy, and Terms of Use (EULA).
+- Native changes require a new platform-compatible EAS Update runtime. The current release keeps iOS on `1.1.0` and uses the Android-specific `1.1.1` runtime for the Android 16 / API 36 binary.
 
 ## Steps
 
@@ -82,6 +83,8 @@ npm run test
 
 For native behavior, build/run with the development client profile from `apps/mobile/eas.json`.
 
+For Android production OTA updates, resolve and verify the Android runtime before publishing; the API 36 binary expects runtime `1.1.1` while the current iOS binary remains on `1.1.0`.
+
 For App Store subscription work, verify on iPhone and iPad layouts that the purchase surface still exposes functional privacy and Terms/EULA links without truncation.
 
 ## Do Not
@@ -101,6 +104,7 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 - Do not rely on a hidden parent route to hide every nested Expo Router screen. Register important dynamic children explicitly when adding plan/race utility screens, and choose separately whether the tab bar itself remains visible.
 - Do not switch the tab shell back to `backBehavior: 'initialRoute'` for hidden child flows unless you explicitly want Android hardware back to jump to the default tab instead of the previous screen.
 - Do not hide subscription legal links in a distant settings screen when the active surface is an in-app paywall; premium upgrade prompts should expose privacy and Terms/EULA directly.
+- Do not publish one undifferentiated OTA when platform runtimes differ. Publish and verify Android and iOS updates against their own resolved runtimes.
 
 ## Related Docs
 

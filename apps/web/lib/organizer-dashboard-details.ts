@@ -59,11 +59,24 @@ export const organizerEquipmentDetailsSchema = z
   })
   .default({ weatherPlan: "normal", items: [], note: null });
 
+export const organizerBibPickupSlotSchema = z.object({
+  date: nullableText,
+  startTime: nullableText,
+  endTime: nullableText,
+});
+
+export const organizerBibPickupLocationSchema = z.object({
+  location: nullableText,
+  locationDetails: organizerLocationSchema,
+  slots: z.array(organizerBibPickupSlotSchema).default([]),
+});
+
 export const organizerBibPickupDetailsSchema = z
   .object({
     location: nullableText,
     locationDetails: organizerLocationSchema,
     schedule: nullableText,
+    locations: z.array(organizerBibPickupLocationSchema).default([]),
     requiredDocuments: nullableText,
     thirdPartyPickupAllowed: nullableBoolean,
     equipmentCheck: nullableBoolean,
@@ -73,6 +86,7 @@ export const organizerBibPickupDetailsSchema = z
     location: null,
     locationDetails: organizerLocationSchema.parse({}),
     schedule: null,
+    locations: [],
     requiredDocuments: null,
     thirdPartyPickupAllowed: null,
     equipmentCheck: null,
@@ -227,6 +241,30 @@ export type RunnerOrganizerDetails = ReturnType<typeof buildRunnerOrganizerDetai
 export type OrganizerEquipmentDetails = z.infer<typeof organizerEquipmentDetailsSchema>;
 export type OrganizerEquipmentItem = OrganizerEquipmentDetails["items"][number];
 export type OrganizerWeatherPlan = z.infer<typeof organizerWeatherPlanSchema>;
+export type OrganizerBibPickupDetails = z.infer<typeof organizerBibPickupDetailsSchema>;
+export type OrganizerBibPickupLocation = z.infer<typeof organizerBibPickupLocationSchema>;
+export type OrganizerBibPickupSlot = z.infer<typeof organizerBibPickupSlotSchema>;
+
+export function getOrganizerBibPickupLocations(details: OrganizerBibPickupDetails): OrganizerBibPickupLocation[] {
+  if (details.locations.length > 0) return details.locations;
+
+  const hasLegacyLocation = Boolean(
+    details.location?.trim() ||
+      details.locationDetails.label?.trim() ||
+      details.locationDetails.googleMapsUrl ||
+      (details.locationDetails.lat !== null && details.locationDetails.lng !== null)
+  );
+
+  return hasLegacyLocation
+    ? [
+        {
+          location: details.location,
+          locationDetails: details.locationDetails,
+          slots: [],
+        },
+      ]
+    : [];
+}
 
 export type RunnerEquipmentItem = OrganizerEquipmentItem & {
   active: boolean;

@@ -14,13 +14,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: 'pace-yourself-app',
     owner: 'pace-yourself',
     scheme: 'paceyourself',
-    version: '1.1.0',
+    version: '1.1.1',
     updates: {
       url: 'https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c',
     },
-    // CNG / prebuild with EAS Update still uses a manual runtimeVersion string here.
-    // Keep this aligned with the runtime shipped in the current store build so OTA updates
-    // continue to reach installed binaries until a new native build is released.
+    // Keep the shared/iOS runtime aligned with the current iOS store build. Android
+    // overrides it below because the API 36 native build must not share OTA updates
+    // with the previous Android runtime.
     runtimeVersion: '1.1.0',
     orientation: 'portrait',
     icon: './assets/icon.png',
@@ -41,6 +41,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     },
     android: {
+      runtimeVersion: '1.1.1',
       versionCode: 1,
       playStoreUrl: 'https://play.google.com/store/apps/details?id=com.paceyourself.app',
       adaptiveIcon: {

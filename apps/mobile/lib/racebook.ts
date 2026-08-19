@@ -29,10 +29,23 @@ type OrganizerBibPickupDetails = {
   location: string | null;
   locationDetails: OrganizerLocationDetails;
   schedule: string | null;
+  locations: OrganizerBibPickupLocation[];
   requiredDocuments: string | null;
   thirdPartyPickupAllowed: boolean | null;
   equipmentCheck: boolean | null;
   note: string | null;
+};
+
+type OrganizerBibPickupSlot = {
+  date: string | null;
+  startTime: string | null;
+  endTime: string | null;
+};
+
+type OrganizerBibPickupLocation = {
+  location: string | null;
+  locationDetails: OrganizerLocationDetails;
+  slots: OrganizerBibPickupSlot[];
 };
 
 type OrganizerAccessDetails = {
@@ -193,6 +206,7 @@ const DEFAULT_BIB_PICKUP: OrganizerBibPickupDetails = {
   location: null,
   locationDetails: DEFAULT_LOCATION_DETAILS,
   schedule: null,
+  locations: [],
   requiredDocuments: null,
   thirdPartyPickupAllowed: null,
   equipmentCheck: null,
@@ -340,11 +354,33 @@ function parseEquipmentDetails(value: unknown): OrganizerEquipmentDetails {
 
 function parseBibPickupDetails(value: unknown): OrganizerBibPickupDetails {
   const record = readRecord(value);
+  const locations = Array.isArray(record.locations)
+    ? record.locations.map((locationValue) => {
+        const locationRecord = readRecord(locationValue);
+        const slots = Array.isArray(locationRecord.slots)
+          ? locationRecord.slots.map((slotValue) => {
+              const slotRecord = readRecord(slotValue);
+              return {
+                date: readText(slotRecord.date),
+                startTime: readText(slotRecord.startTime),
+                endTime: readText(slotRecord.endTime),
+              };
+            })
+          : [];
+
+        return {
+          location: readText(locationRecord.location),
+          locationDetails: parseLocationDetails(locationRecord.locationDetails),
+          slots,
+        };
+      })
+    : [];
 
   return {
     location: readText(record.location),
     locationDetails: parseLocationDetails(record.locationDetails),
     schedule: readText(record.schedule),
+    locations,
     requiredDocuments: readText(record.requiredDocuments),
     thirdPartyPickupAllowed: readNullableBoolean(record.thirdPartyPickupAllowed),
     equipmentCheck: readNullableBoolean(record.equipmentCheck),
@@ -471,6 +507,12 @@ function hasBibContent(details: OrganizerBibPickupDetails): boolean {
   return (
     hasAnyText([details.location, details.schedule, details.requiredDocuments, details.note]) ||
     hasLocationContent(details.locationDetails) ||
+    details.locations.some(
+      (location) =>
+        hasAnyText([location.location]) ||
+        hasLocationContent(location.locationDetails) ||
+        location.slots.some((slot) => hasAnyText([slot.date, slot.startTime, slot.endTime]))
+    ) ||
     details.thirdPartyPickupAllowed !== null ||
     details.equipmentCheck !== null
   );

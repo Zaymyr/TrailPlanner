@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-07-02
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - vercel.json
@@ -58,13 +58,17 @@ The root build command maps to `package.json` script `build`, which runs Turbo.
 
 - development: internal distribution with a development client.
 - preview: internal distribution with APK for Android.
-- production: store-oriented builds with remote app version source.
+- production: store-oriented Android app bundle and iOS Release builds with remote app version source and automatic build-number incrementing.
+- submit production for Android: Google Play `production` track with `releaseStatus: completed` (full rollout after Google approval).
 
 `apps/mobile/app.config.ts` declares OTA updates through `expo-updates`:
 
 - project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.
+- shared/iOS runtime `1.1.0` and Android runtime override `1.1.1` for the Android 16 / API 36 native release.
+
+Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetSdkVersion` 36 by default. The repository does not override those native defaults.
 
 The app config intentionally keeps `@react-native-google-signin/google-signin` out of the iOS plugin list, and `apps/mobile/react-native.config.js` disables the package in the React Native iOS autolinking layer, because the mobile app only supports native Google Sign-In on Android; iOS stays on the browser OAuth path.
 
@@ -141,6 +145,8 @@ Document variable names, not secret values. Important names visible in code incl
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
+- Do not collapse the platform runtime split until iOS also ships a compatible new native binary. Publish Android production OTAs against runtime `1.1.1` and iOS OTAs against the existing `1.1.0` runtime.
+- EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
 
 ## Related Docs
 

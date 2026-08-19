@@ -47,7 +47,6 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
-  - apps/web/app/organizer/_components/dashboard/runner-preview-dialog.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -198,9 +197,12 @@ GPX detection accepts explicit `.gpx` URLs, anchors whose visible label identifi
 
 The v1 organizer portal is web-only:
 
+- For a trusted admin, `/api/organizer/claims` replaces the membership-limited selector data with every `race_events` row ordered by name, including drafts. The downstream Organizer detail and mutation routes use the same admin bypass through `requireEventOrganizer`; non-admin selector data remains membership-scoped.
+
 - `/organizers` creates a new non-live event through `POST /api/organizer/events` and immediately creates its active owner membership. It does not claim existing catalog events. With an official URL, the page redirects to `/organizer` with the new event selected and automatically opens its website-import analysis. The `/organizer` server page normalizes `eventId` and `importUrl` from its `searchParams` prop before passing them to the client dashboard, which keeps the route compatible with static generation without a client-side search-param bailout.
-- `/organizer` lets active event members maintain draft events, canonical `race_event_editions` date ranges, and attached formats. `Nouvelle édition` creates a start/end range and clones the selected source year as drafts through the compatibility `/api/organizer/edition-requests` URL; it no longer writes the retired review table. Event and format liveness stays read-only, and publication targets the current edition.
-- The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. It calls `/api/location-search`, keeps the existing text columns as the publishable source strings, and stores structured geocoded metadata alongside them in `organizer_details` so the runner preview can expose GPS coordinates and Google Maps links.
+- `/organizer` lets active event members maintain draft events, canonical `race_event_editions` date ranges, and attached formats. Its compact edition header keeps the year selector beside a `Créer une nouvelle édition` button; the button opens a dialog for the start/end range and an optional, default-enabled duplication of the selected source year. The compatibility `/api/organizer/edition-requests` URL creates the edition either empty or with cloned draft formats and no longer writes the retired review table. Event and format liveness stays read-only, and publication targets the current edition.
+- In a selected format tab, the required module card is named `Course`. The `Formats & GPX` editor stays permanently expanded, has no internal runner-preview or single-format duplication action, and aligns the destructive format-delete action at the far right of its title row. Its former helper description is intentionally omitted. Format dates and locations inherit respectively from the selected edition and event until the organizer enables their explicit `Date différente` or `Lieu différent` controls.
+- The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. Bib pickup accepts several event-level locations, each with several structured date/start/end slots; the legacy single location and free-text schedule remain readable as compatibility fallbacks. The editor calls `/api/location-search`, keeps the first bib location mirrored into the legacy text/location fields, and stores the complete location and slot list in `organizer_details` so published runner surfaces can expose every address, GPS link, day, and time range.
 - The organizer creation screen and dashboard keep concise, consistently accented French copy across `/organizers` and `/organizer`.
 - The main header always shows "Mes courses" / "My races". It opens `/organizers` to let a new organizer create their first event, then opens `/organizer` after `/api/organizer/claims` reports at least one active membership.
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
@@ -253,7 +255,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - `planner_values` is intentionally flexible JSON. Validate route inputs, but do not assume every old plan has every current field.
 - `/api/race-catalog` and `/api/races` both write `races`, but the admin route creates public catalog rows and the user route creates private rows.
 - Organizer routes can also write public `races`, but only after an active `race_event_organizers` membership check. Claimed public races should not rely on `races.created_by`.
-- Keep organizer location text fields and their sibling geocoded JSON objects in sync. Publication checks still read the text columns/strings, while the preview-only GPS/Google affordances come from `organizer_details`.
+- Keep organizer location text fields and their sibling geocoded JSON objects in sync. Publication checks still read the text columns/strings, while published GPS/Google affordances come from `organizer_details`.
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
 - Organizer event creation inserts a non-live `race_events` row and its owner `race_event_organizers` membership through a service route; keep that path server-side and do not expose service-role writes to client code.
 - Website import upserts the validated canonical edition, attaches created/updated formats through `edition_id`, and reuses matching cross-year `edition_group_id` series instead of updating another edition's row.
@@ -261,7 +263,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep `/organizer` compatible with production prerendering. Bootstrap query values should enter through the server page props; using `useSearchParams` directly in `OrganizerDashboard` requires a Suspense boundary and otherwise fails `next build`.
 - Keep public catalog creation conservative by default: imported/admin-created events and races should start as non-live until someone publishes them deliberately.
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
-- Keep bib pickup shared at event level in the current organizer UI. Equipment is the exception: the dashboard mirrors shared items into every race list so a course can later drop one and shrink the event-level common subset.
+- Keep bib pickup shared at event level in the current organizer UI. Its `locations[]` entries own their own geocoded address and `slots[]`; do not flatten several pickup places into one format-level string. Equipment is the exception: the dashboard mirrors shared items into every race list so a course can later drop one and shrink the event-level common subset.
 - Keep the active weather plan on the event-level equipment JSON. Formats may retag items for `cold` / `heat`, but they must not choose a different active plan than the event.
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.
 - The Ravitos save plan must PATCH the active race details before PUTting aid stations because start/finish times live in `races.organizer_details.schedule`, not on `race_aid_stations`.
@@ -282,6 +284,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Public plan share pages are standalone in `RootChrome` and force light theme variables so a visitor's saved dark preference does not affect crew readability.
 - Set `PLAN_SHARE_TOKEN_SECRET` if reusable crew links must survive a service-role key rotation without creating one new stable link on the next re-share.
 - Public crew-state updates use the URL token as the secret. Keep the route rate-limited and avoid adding fields that would let a crew viewer edit the private plan.
+
+- Admin access to the complete Organizer event selector must continue to come from trusted `app_metadata` through `isAdminUser`; never broaden the catalog response for ordinary authenticated users.
 
 ## Related Docs
 

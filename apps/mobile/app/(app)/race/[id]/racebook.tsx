@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Linking,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   View,
@@ -30,7 +31,7 @@ type LabeledItem = {
   value: string;
   actionUrl: string | null;
   dataValue?: boolean;
-  tone?: 'neutral' | 'critical';
+  tone?: 'neutral' | 'positive' | 'critical';
 };
 
 type MetricItem = {
@@ -44,6 +45,21 @@ type AccessSection = {
   items?: LabeledItem[];
   lines?: string[];
   linkUrl?: string | null;
+};
+
+type BibPickupSlot = RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number];
+
+type BibPickupDayGroup = {
+  key: string;
+  label: string;
+  timeRanges: string[];
+};
+
+type BibPickupLocationGroup = {
+  key: string;
+  location: string;
+  actionUrl: string | null;
+  days: BibPickupDayGroup[];
 };
 
 function sortGearItems(items: RacebookScreenData['runnerDetails']['equipmentStatus']['items']) {
@@ -78,13 +94,61 @@ function formatDateRange(startDate: string | null, endDate: string | null, local
   return `${start} – ${end}`;
 }
 
-function formatDistance(distanceKm: number) {
-  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
+function formatBibPickupDate(value: string | null, locale: 'fr' | 'en'): string | null {
+  if (!value) return null;
+
+  const parsed = new Date(/^\d{4}-\d{2}-\d{2}$/.test(value) ? `${value}T12:00:00` : value);
+  if (Number.isNaN(parsed.getTime())) return value;
+
+  const formatted = parsed.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  });
+  return `${formatted.charAt(0).toLocaleUpperCase(locale === 'fr' ? 'fr-FR' : 'en-US')}${formatted.slice(1)}`;
 }
 
-function formatElevation(value: number | null) {
-  if (value === null) return null;
-  return Math.round(value).toString();
+function formatBibPickupTime(value: string | null, locale: 'fr' | 'en'): string | null {
+  if (!value) return null;
+
+  const match = /^(\d{1,2}):(\d{2})/.exec(value);
+  if (!match) return value;
+
+  const hour = String(Number(match[1]));
+  return locale === 'fr' ? `${hour}h${match[2]}` : `${hour.padStart(2, '0')}:${match[2]}`;
+}
+
+function groupBibPickupSlots(
+  slots: BibPickupSlot[],
+  locale: 'fr' | 'en',
+  fallbackDayLabel: string,
+): BibPickupDayGroup[] {
+  const groups = new Map<string, BibPickupDayGroup>();
+
+  slots.forEach((slot, slotIndex) => {
+    const dateKey = slot.date ?? `undated-${slotIndex}`;
+    const startTime = formatBibPickupTime(slot.startTime, locale);
+    const endTime = formatBibPickupTime(slot.endTime, locale);
+    const timeRange = [startTime, endTime].filter(Boolean).join(' – ');
+    const existing = groups.get(dateKey);
+
+    if (existing) {
+      if (timeRange) existing.timeRanges.push(timeRange);
+      return;
+    }
+
+    groups.set(dateKey, {
+      key: dateKey,
+      label: formatBibPickupDate(slot.date, locale) ?? fallbackDayLabel,
+      timeRanges: timeRange ? [timeRange] : [],
+    });
+  });
+
+  return [...groups.values()];
+}
+
+function formatDistance(distanceKm: number) {
+  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
 function formatStationDistance(km: number) {
@@ -202,6 +266,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
           style={[
             styles.tableRow,
             emphasis ? styles.tableRowEmphasis : null,
+            item.tone === 'positive' ? styles.tableRowPositive : null,
             item.tone === 'critical' ? styles.tableRowCritical : null,
           ]}
         >
@@ -221,7 +286,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
               </Pressable>
             ) : item.dataValue ? (
               <DataText
-                tone={item.tone === 'critical' ? 'danger' : 'primary'}
+                tone={item.tone === 'critical' ? 'danger' : item.tone === 'positive' ? 'brand' : 'primary'}
                 weight="semibold"
                 style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null]}
               >
@@ -232,6 +297,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
                 style={[
                   styles.tableValue,
                   emphasis ? styles.tableValueEmphasis : null,
+                  item.tone === 'positive' ? styles.tableValuePositive : null,
                   item.tone === 'critical' ? styles.tableValueCritical : null,
                 ]}
               >
@@ -239,6 +305,64 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
               </Text>
             )}
           </View>
+        </View>
+      ))}
+    </View>
+  );
+}
+
+function BibPickupLocationList({
+  groups,
+  locationLabel,
+}: {
+  groups: BibPickupLocationGroup[];
+  locationLabel: string;
+}) {
+  return (
+    <View style={styles.bibLocationList}>
+      {groups.map((group, locationIndex) => (
+        <View key={group.key} style={styles.bibLocationCard}>
+          <View style={styles.bibLocationHeader}>
+            <View style={styles.bibLocationIcon}>
+              <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
+            </View>
+            <View style={styles.bibLocationTextWrap}>
+              <Text style={styles.bibLocationLabel}>
+                {groups.length > 1 ? `${locationLabel} ${locationIndex + 1}` : locationLabel}
+              </Text>
+              {group.actionUrl ? (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`${locationLabel}: ${group.location}`}
+                  onPress={() => Linking.openURL(group.actionUrl!).catch(() => {})}
+                  style={styles.bibLocationAction}
+                >
+                  <Text style={[styles.bibLocationValue, styles.tableValueLink]}>{group.location}</Text>
+                </Pressable>
+              ) : (
+                <Text style={styles.bibLocationValue}>{group.location}</Text>
+              )}
+            </View>
+          </View>
+
+          {group.days.length > 0 ? (
+            <View style={styles.bibDayList}>
+              {group.days.map((day) => (
+                <View key={`${group.key}-${day.key}`} style={styles.bibDayRow}>
+                  <Text style={styles.bibDayLabel}>{day.label}</Text>
+                  {day.timeRanges.length > 0 ? (
+                    <View style={styles.bibTimeList}>
+                      {day.timeRanges.map((timeRange, timeIndex) => (
+                        <DataText key={`${day.key}-${timeRange}-${timeIndex}`} style={styles.bibTimeValue}>
+                          {timeRange}
+                        </DataText>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+              ))}
+            </View>
+          ) : null}
         </View>
       ))}
     </View>
@@ -329,18 +453,28 @@ function GearList({
   );
 }
 
-function ServicePill({
+function ServiceIconButton({
   icon,
   label,
+  active,
+  onPress,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
+  active: boolean;
+  onPress: () => void;
 }) {
   return (
-    <View style={styles.servicePill}>
-      <Ionicons name={icon} size={14} color={Colors.brandPrimary} />
-      <Text style={styles.servicePillText}>{label}</Text>
-    </View>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ expanded: active }}
+      hitSlop={4}
+      onPress={onPress}
+      style={[styles.serviceIconButton, active ? styles.serviceIconButtonActive : null]}
+    >
+      <Ionicons name={icon} size={17} color={active ? Colors.textOnBrand : Colors.brandPrimary} />
+    </Pressable>
   );
 }
 
@@ -363,6 +497,7 @@ function AidStationCard({
     aidCutoffTime: string;
   };
 }) {
+  const [activeServiceLabel, setActiveServiceLabel] = useState<string | null>(null);
   const serviceItems = [
     station.waterAvailable ? { icon: 'water-outline' as const, label: copy.aidWater } : null,
     station.solidAvailable ? { icon: 'restaurant-outline' as const, label: copy.aidFood } : null,
@@ -404,10 +539,25 @@ function AidStationCard({
           </View>
 
           {serviceItems.length > 0 ? (
-            <View style={styles.servicePillRow}>
-              {serviceItems.map((item) => (
-                <ServicePill key={`${station.id}-${item.label}`} icon={item.icon} label={item.label} />
-              ))}
+            <View style={styles.serviceInfoGroup}>
+              <View style={styles.serviceIconRow}>
+                {serviceItems.map((item) => (
+                  <ServiceIconButton
+                    key={`${station.id}-${item.label}`}
+                    icon={item.icon}
+                    label={item.label}
+                    active={activeServiceLabel === item.label}
+                    onPress={() => {
+                      setActiveServiceLabel((current) => (current === item.label ? null : item.label));
+                    }}
+                  />
+                ))}
+              </View>
+              {activeServiceLabel ? (
+                <View style={styles.serviceTooltip} accessibilityLiveRegion="polite">
+                  <Text style={styles.serviceTooltipText}>{activeServiceLabel}</Text>
+                </View>
+              ) : null}
             </View>
           ) : null}
 
@@ -453,6 +603,7 @@ export default function RaceRacebookScreen() {
   const { locale, t } = useI18n();
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(null);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const [routePreviewPoints, setRoutePreviewPoints] = useState<MobileGpxPreviewPoint[]>([]);
@@ -496,6 +647,28 @@ export default function RaceRacebookScreen() {
     return () => {
       cancelled = true;
     };
+  }, [id]);
+
+  const handleRefresh = useCallback(async () => {
+    if (!id) return;
+
+    setRefreshing(true);
+
+    try {
+      const [result, profilePoints, routePoints] = await Promise.all([
+        fetchRaceRacebookData(id),
+        fetchRaceElevationProfile(id),
+        fetchRaceRoutePreviewPoints(id),
+      ]);
+
+      setData(result);
+      setElevationProfile(profilePoints);
+      setRoutePreviewPoints(routePoints);
+    } catch {
+      // Keep the last successfully loaded Racebook visible when a refresh fails.
+    } finally {
+      setRefreshing(false);
+    }
   }, [id]);
 
   const tabs = useMemo(
@@ -567,26 +740,45 @@ export default function RaceRacebookScreen() {
     ].filter((value): value is string => Boolean(value));
   }, [data]);
 
+  const bibLocationGroups = useMemo(() => {
+    if (!data) return [];
+
+    const bibPickup = data.runnerDetails.bibPickup;
+    const pickupLocations =
+      bibPickup.locations.length > 0
+        ? bibPickup.locations
+        : bibPickup.location
+          ? [{ location: bibPickup.location, locationDetails: bibPickup.locationDetails, slots: [] }]
+          : [];
+    return pickupLocations
+      .map((pickupLocation, locationIndex): BibPickupLocationGroup | null => {
+        if (!pickupLocation.location) return null;
+
+        return {
+          key: `${pickupLocation.location}-${locationIndex}`,
+          location: pickupLocation.location,
+          actionUrl: pickupLocation.locationDetails.googleMapsUrl,
+          days: groupBibPickupSlots(pickupLocation.slots, locale, t.catalog.racebookFieldBibWindow),
+        };
+      })
+      .filter((value): value is BibPickupLocationGroup => Boolean(value));
+  }, [data, locale, t.catalog.racebookFieldBibWindow]);
+
   const bibItems = useMemo(() => {
     if (!data) return [];
 
     const bibPickup = data.runnerDetails.bibPickup;
-    return [
-      bibPickup.location
-        ? {
-            label: t.catalog.racebookFieldBibLocation,
-            value: bibPickup.location,
-            actionUrl: bibPickup.locationDetails.googleMapsUrl,
-          }
-        : null,
+    const items: Array<LabeledItem | null> = [
       bibPickup.schedule
         ? { label: t.catalog.racebookFieldBibWindow, value: bibPickup.schedule, actionUrl: null }
         : null,
       bibPickup.requiredDocuments
         ? { label: t.catalog.racebookFieldBibDocuments, value: bibPickup.requiredDocuments, actionUrl: null }
         : null,
-    ].filter((value): value is LabeledItem => Boolean(value));
-  }, [data, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibLocation, t.catalog.racebookFieldBibWindow]);
+    ];
+
+    return items.filter((value): value is LabeledItem => Boolean(value));
+  }, [data, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibWindow]);
 
   const bibLines = useMemo(() => {
     if (!data) return [];
@@ -602,7 +794,6 @@ export default function RaceRacebookScreen() {
   const courseItems = useMemo(() => {
     if (!data) return [];
 
-    const access = data.runnerDetails.access;
     const schedule = data.runnerDetails.schedule;
     const items: Array<LabeledItem | null> = [
       schedule.startTime
@@ -611,20 +802,7 @@ export default function RaceRacebookScreen() {
             value: schedule.startTime,
             actionUrl: null,
             dataValue: true,
-          }
-        : null,
-      access.startAddress
-        ? {
-            label: t.catalog.racebookFieldStartLocation,
-            value: access.startAddress,
-            actionUrl: access.startLocation.googleMapsUrl,
-          }
-        : null,
-      access.finishAddress
-        ? {
-            label: t.catalog.racebookFieldFinishLocation,
-            value: access.finishAddress,
-            actionUrl: access.finishLocation.googleMapsUrl,
+            tone: 'positive' as const,
           }
         : null,
       schedule.finishCutoffTime
@@ -642,8 +820,6 @@ export default function RaceRacebookScreen() {
   }, [
     data,
     t.catalog.racebookFieldFinishCutoff,
-    t.catalog.racebookFieldFinishLocation,
-    t.catalog.racebookFieldStartLocation,
     t.catalog.racebookFieldStartTime,
   ]);
 
@@ -660,6 +836,25 @@ export default function RaceRacebookScreen() {
     const access = data.runnerDetails.access;
 
     const sections: AccessSection[] = [
+      {
+        title: t.catalog.racebookAccessLocations,
+        items: [
+          access.startAddress
+            ? {
+                label: t.catalog.racebookFieldStartLocation,
+                value: access.startAddress,
+                actionUrl: access.startLocation.googleMapsUrl,
+              }
+            : null,
+          access.finishAddress
+            ? {
+                label: t.catalog.racebookFieldFinishLocation,
+                value: access.finishAddress,
+                actionUrl: access.finishLocation.googleMapsUrl,
+              }
+            : null,
+        ].filter((value): value is LabeledItem => Boolean(value)),
+      },
       {
         title: t.catalog.racebookAccessParking,
         lines: access.enabledSections.officialParkings && access.officialParkings ? [access.officialParkings] : [],
@@ -690,11 +885,14 @@ export default function RaceRacebookScreen() {
     return sections.filter((section) => (section.items?.length ?? 0) > 0 || (section.lines?.length ?? 0) > 0);
   }, [
     data,
+    t.catalog.racebookAccessLocations,
     t.catalog.racebookAccessMap,
     t.catalog.racebookAccessNote,
     t.catalog.racebookAccessParking,
     t.catalog.racebookAccessRestrictions,
     t.catalog.racebookAccessShuttles,
+    t.catalog.racebookFieldFinishLocation,
+    t.catalog.racebookFieldStartLocation,
   ]);
 
   const equipmentItems = data?.runnerDetails.equipmentStatus.items ?? [];
@@ -704,10 +902,27 @@ export default function RaceRacebookScreen() {
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const bibPrimaryItems = bibItems.filter((item) => item.label !== t.catalog.racebookFieldBibDocuments);
   const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
+  const hasCourseContent =
+    courseItems.length > 0 ||
+    courseConstraintLines.length > 0 ||
+    routePreviewPoints.length >= 2 ||
+    elevationProfile.length >= 2 ||
+    (data?.aidStations.length ?? 0) > 0;
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <ScrollView
+      contentContainerStyle={styles.container}
+      alwaysBounceVertical
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
+          tintColor={Colors.brandPrimary}
+          colors={[Colors.brandPrimary]}
+        />
+      }
+    >
       {loading ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={Colors.brandPrimary} size="small" />
@@ -760,29 +975,6 @@ export default function RaceRacebookScreen() {
                   ) : null}
                 </View>
               </View>
-            </View>
-
-            {data.runnerDetails.schedule.startTime ? (
-              <View style={styles.heroStartFact}>
-                <Text style={styles.heroStartLabel}>{t.catalog.racebookFieldStartTime}</Text>
-                <DataText size="lg" weight="bold" tone="brand">
-                  {data.runnerDetails.schedule.startTime}
-                </DataText>
-              </View>
-            ) : null}
-
-            <View style={styles.heroSummaryRow}>
-              <View style={styles.summaryChip}>
-                <DataText style={styles.summaryChipText}>{`${formatDistance(data.race.distanceKm)} km`}</DataText>
-              </View>
-              <View style={styles.summaryChip}>
-                <DataText style={styles.summaryChipText}>{`D+ ${formatElevation(data.race.elevationGainM)} m`}</DataText>
-              </View>
-              {data.race.elevationLossM !== null ? (
-                <View style={styles.summaryChip}>
-                  <DataText style={styles.summaryChipText}>{`D- ${formatElevation(data.race.elevationLossM)} m`}</DataText>
-                </View>
-              ) : null}
             </View>
 
             {runnerInfoLines.length > 0 || servicesLines.length > 0 ? <View style={styles.heroDivider} /> : null}
@@ -870,10 +1062,19 @@ export default function RaceRacebookScreen() {
 
             {activeTab === 'bib' ? (
               <SectionCard title={t.catalog.racebookSectionBib}>
-                {bibItems.length === 0 && bibLines.length === 0 ? (
+                {bibLocationGroups.length === 0 && bibItems.length === 0 && bibLines.length === 0 ? (
                   <EmptyState message={t.catalog.racebookEmptyBib} />
                 ) : (
                   <>
+                    {bibLocationGroups.length > 0 ? (
+                      <BibPickupLocationList
+                        groups={bibLocationGroups}
+                        locationLabel={t.catalog.racebookFieldBibLocation}
+                      />
+                    ) : null}
+                    {bibLocationGroups.length > 0 && (bibPrimaryItems.length > 0 || bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
+                      <View style={styles.sectionDivider} />
+                    ) : null}
                     {bibPrimaryItems.length > 0 ? <LabeledInfoList items={bibPrimaryItems} emphasis /> : null}
                     {bibPrimaryItems.length > 0 && (bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
                       <View style={styles.sectionDivider} />
@@ -902,17 +1103,21 @@ export default function RaceRacebookScreen() {
                   </SectionCard>
                 ) : null}
 
-                <CourseMapCard
-                  title={t.catalog.racebookSectionCourseMap}
-                  points={routePreviewPoints}
-                  emptyMessage={t.catalog.racebookEmptyCourseMap}
-                />
+                {routePreviewPoints.length >= 2 ? (
+                  <CourseMapCard
+                    title={t.catalog.racebookSectionCourseMap}
+                    points={routePreviewPoints}
+                    emptyMessage={t.catalog.racebookEmptyCourseMap}
+                  />
+                ) : null}
 
-                <CourseProfileCard
-                  title={t.catalog.racebookSectionCourseProfile}
-                  points={elevationProfile}
-                  emptyMessage={t.catalog.racebookEmptyCourseProfile}
-                />
+                {elevationProfile.length >= 2 ? (
+                  <CourseProfileCard
+                    title={t.catalog.racebookSectionCourseProfile}
+                    points={elevationProfile}
+                    emptyMessage={t.catalog.racebookEmptyCourseProfile}
+                  />
+                ) : null}
 
                 {data.aidStations.length > 0 ? (
                   <SectionCard title={t.catalog.racebookSectionAidStations}>
@@ -937,11 +1142,13 @@ export default function RaceRacebookScreen() {
                       ))}
                     </View>
                   </SectionCard>
-                ) : (
-                  <SectionCard title={t.catalog.racebookSectionAidStations}>
-                    <EmptyState message={t.catalog.racebookEmptyAid} />
+                ) : null}
+
+                {!hasCourseContent ? (
+                  <SectionCard title={t.catalog.racebookTabCourse}>
+                    <EmptyState message={t.catalog.racebookEmptyCourse} />
                   </SectionCard>
-                )}
+                ) : null}
               </>
             ) : null}
 
@@ -949,7 +1156,7 @@ export default function RaceRacebookScreen() {
               accessSections.length > 0 ? (
                 accessSections.map((section) => (
                   <SectionCard key={section.title} title={section.title}>
-                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} /> : null}
+                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} emphasis /> : null}
                     {section.linkUrl && section.lines?.[0]?.startsWith('http') ? (
                       <Pressable onPress={() => Linking.openURL(section.linkUrl!).catch(() => {})}>
                         <Text style={styles.linkText}>{section.lines[0]}</Text>
@@ -1068,9 +1275,11 @@ const styles = StyleSheet.create({
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    gap: 12,
   },
   heroHeaderText: {
     flex: 1,
+    minWidth: 0,
     gap: 4,
   },
   heroKicker: {
@@ -1102,23 +1311,6 @@ const styles = StyleSheet.create({
     lineHeight: 17,
     fontWeight: '600',
   },
-  heroStartFact: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-    borderRadius: 14,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  heroStartLabel: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
   heroDivider: {
     height: 1,
     backgroundColor: Colors.border,
@@ -1130,23 +1322,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 13,
     fontWeight: '700',
-  },
-  heroSummaryRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  summaryChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryChipText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
   },
   tabsWrap: {
     flexDirection: 'row',
@@ -1223,6 +1398,13 @@ const styles = StyleSheet.create({
   tableRowEmphasis: {
     minHeight: 44,
   },
+  tableRowPositive: {
+    marginHorizontal: -8,
+    paddingHorizontal: 8,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: Colors.brandSurface,
+  },
   tableRowCritical: {
     marginHorizontal: -8,
     paddingHorizontal: 8,
@@ -1258,6 +1440,9 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     fontWeight: '600',
   },
+  tableValuePositive: {
+    color: Colors.brandPrimary,
+  },
   tableValueCritical: {
     color: Colors.danger,
   },
@@ -1276,6 +1461,85 @@ const styles = StyleSheet.create({
     color: Colors.brandPrimary,
     textDecorationLine: 'underline',
     textDecorationColor: Colors.brandPrimary,
+  },
+  bibLocationList: {
+    gap: 12,
+  },
+  bibLocationCard: {
+    gap: 12,
+    padding: 14,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  bibLocationHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  bibLocationIcon: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  bibLocationTextWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  bibLocationLabel: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  bibLocationAction: {
+    alignSelf: 'stretch',
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  bibLocationValue: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    lineHeight: 21,
+    fontWeight: '700',
+  },
+  bibDayList: {
+    marginLeft: 44,
+    gap: 10,
+  },
+  bibDayRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  bibDayLabel: {
+    flex: 1,
+    minWidth: 0,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
+  },
+  bibTimeList: {
+    alignItems: 'flex-end',
+    gap: 5,
+  },
+  bibTimeValue: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    lineHeight: 19,
+    fontWeight: '700',
   },
   chipRow: {
     flexDirection: 'row',
@@ -1452,26 +1716,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  servicePillRow: {
+  serviceInfoGroup: {
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  serviceIconRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
-  },
-  servicePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
     gap: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
+  },
+  serviceIconButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 20,
     backgroundColor: Colors.brandSurface,
     borderWidth: 1,
     borderColor: Colors.brandBorder,
   },
-  servicePillText: {
-    color: Colors.brandPrimary,
+  serviceIconButtonActive: {
+    backgroundColor: Colors.brandPrimary,
+    borderColor: Colors.brandPrimary,
+  },
+  serviceTooltip: {
+    maxWidth: '100%',
+    paddingHorizontal: 10,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+  },
+  serviceTooltipText: {
+    color: Colors.textPrimary,
     fontSize: 12,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   segmentGainText: {
     color: Colors.danger,

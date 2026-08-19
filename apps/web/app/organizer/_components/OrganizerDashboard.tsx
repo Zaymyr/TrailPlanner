@@ -21,7 +21,7 @@ import { buildOrganizerCompletion, type OrganizerCompletionSummary, type Organiz
 import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
 import { OrganizerToast } from "./dashboard/controls";
-import { AccessEditor, BibPickupEditor, EquipmentEditor, PreviewLauncher, ServicesEditor } from "./dashboard/detail-editors";
+import { AccessEditor, BibPickupEditor, EquipmentEditor, ServicesEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import {
   aidStationRowsToDrafts,
@@ -56,7 +56,6 @@ import {
   type OrganizerAidStationRow,
 } from "./dashboard/helpers";
 import { ProductPickerModal, ProductsEditor } from "./dashboard/products-editor";
-import { RunnerPreviewDialog } from "./dashboard/runner-preview-dialog";
 import {
   CompletionTabsPanel,
   OrganizerNoMembershipCard,
@@ -131,7 +130,6 @@ export function OrganizerDashboard({
   const [newRaceGpxFile, setNewRaceGpxFile] = useState<File | null>(null);
   const [newEditionDate, setNewEditionDate] = useState("");
   const [newEditionEndDate, setNewEditionEndDate] = useState("");
-  const [showRaceDetails, setShowRaceDetails] = useState(true);
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
   const [expandedStationKey, setExpandedStationKey] = useState<string | null>(null);
   const [stationProducts, setStationProducts] = useState<StationProduct[]>([]);
@@ -140,7 +138,6 @@ export function OrganizerDashboard({
   const [productSearch, setProductSearch] = useState("");
   const [productStationId, setProductStationId] = useState<string | null>(null);
   const [productForm, setProductForm] = useState<ProductFormValues>(emptyProductForm);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [dirtyModulesByScope, setDirtyModulesByScope] = useState<Record<string, Set<OrganizerModuleId>>>({});
   const [pendingRevisionByScope, setPendingRevisionByScope] = useState<Record<string, number>>({});
   const [status, setStatus] = useState<"idle" | "loading" | "saving" | "uploading">("idle");
@@ -199,10 +196,6 @@ export function OrganizerDashboard({
   const productPickerStation = productPickerStationId ? aidStations.find((station) => station.id === productPickerStationId) ?? null : null;
   const hasDirtyChanges = dirtyModules.size > 0;
   const hasAnyDirtyChanges = Object.values(dirtyModulesByScope).some((modules) => modules.size > 0);
-  const currentEditionRequest =
-    editionRequests.find(
-      (request) => request.event_id === selectedEventId && request.requested_start_date === newEditionDate && request.status !== "rejected"
-    ) ?? null;
   const currentPublicationRequest =
     publicationRequests.find((request) => request.event_id === selectedEventId && request.status === "pending") ??
     publicationRequests.find((request) => request.event_id === selectedEventId) ??
@@ -784,54 +777,11 @@ export function OrganizerDashboard({
     }
   };
 
-  const duplicateActiveRace = async () => {
-    if (!accessToken || !selectedEventId || !activeRace) return;
-    if (!activeEdition) {
-      showToast("error", "Sélectionne une édition avant de dupliquer ce format.");
-      return;
-    }
-    setStatus("saving");
-    setError(null);
-    try {
-      const response = await fetch("/api/organizer/races", {
-        method: "POST",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          eventId: selectedEventId,
-          editionId: activeEdition?.id,
-          seriesName: `${activeRace.series_name} copie`,
-          name: `${activeRace.name} copie`,
-          distanceKm: activeRace.distance_km,
-          elevationGainM: activeRace.elevation_gain_m,
-          elevationLossM: activeRace.elevation_loss_m ?? null,
-          locationText: activeRace.location_text ?? "",
-          raceDate: activeRace.race_date ?? "",
-          thumbnailUrl: activeRace.thumbnail_url ?? "",
-          isLive: false,
-          organizerDetails: sanitizeRaceDetailsForSave(activeRace.organizerDetails ?? defaultOrganizerRaceDetails),
-        }),
-      });
-      const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
-      if (!response.ok || !data?.race) {
-        showToast("error", data?.message ?? "Impossible de dupliquer le format.");
-        return;
-      }
-      const duplicatedEditionYear = getRaceEditionYear(data.race, eventDetail?.editions);
-      setSelectedEditionYear(duplicatedEditionYear);
-      setActiveTab(data.race.edition_group_id);
-      setActiveModule("formats");
-      showToast("success", "Format dupliqué en brouillon, sans GPX ni ravitos.");
-      await loadEvent(selectedEventId, data.race.edition_group_id, duplicatedEditionYear);
-    } finally {
-      setStatus("idle");
-    }
-  };
-
-  const requestNewEdition = async () => {
-    if (!accessToken || !selectedEventId || !selectedEditionYear) return;
+  const requestNewEdition = async (duplicatePreviousEdition: boolean) => {
+    if (!accessToken || !selectedEventId || !selectedEditionYear) return false;
     if (!newEditionDate.trim() || !newEditionEndDate.trim() || newEditionEndDate < newEditionDate) {
       showToast("error", "Ajoute une plage de dates valide pour la nouvelle édition.");
-      return;
+      return false;
     }
     setStatus("saving");
     setError(null);
@@ -844,6 +794,7 @@ export function OrganizerDashboard({
           sourceYear: Number(selectedEditionYear),
           requestedStartDate: newEditionDate,
           requestedEndDate: newEditionEndDate,
+          duplicatePreviousEdition,
         }),
       });
       const data = (await response.json().catch(() => null)) as {
@@ -851,14 +802,20 @@ export function OrganizerDashboard({
         races?: Array<{ id: string; edition_group_id: string; race_date?: string | null }>;
         message?: string;
       } | null;
-      if (!response.ok || !data?.races?.length) {
+      if (!response.ok || !data?.edition) {
         showToast("error", data?.message ?? "Impossible de creer la nouvelle edition.");
-        return;
+        return false;
       }
-      const createdYear = String(data.edition?.edition_year ?? getRaceEditionYearValue(data.races[0]?.race_date));
+      const createdYear = String(data.edition.edition_year);
+      const nextActiveTab = duplicatePreviousEdition ? activeTab : EVENT_TAB_ID;
       setSelectedEditionYear(createdYear);
+      if (!duplicatePreviousEdition) {
+        setActiveTab(EVENT_TAB_ID);
+        setActiveModule("event");
+      }
       showToast("success", "Nouvelle édition créée en brouillon.");
-      await loadEvent(selectedEventId, activeTab, createdYear);
+      await loadEvent(selectedEventId, nextActiveTab, createdYear);
+      return true;
     } finally {
       setStatus("idle");
     }
@@ -1543,7 +1500,6 @@ export function OrganizerDashboard({
         selectedEditionYear={selectedEditionYear}
         newEditionDate={newEditionDate}
         newEditionEndDate={newEditionEndDate}
-        editionRequestState={currentEditionRequest}
         publicationRequestState={currentPublicationRequest}
         onSelectedEventChange={(eventId) => {
           saveCurrentScopeInBackground();
@@ -1558,20 +1514,13 @@ export function OrganizerDashboard({
         }}
         onEditionDateChange={setNewEditionDate}
         onEditionEndDateChange={setNewEditionEndDate}
-        onRequestEdition={() => {
-          void requestNewEdition();
-        }}
+        onRequestEdition={requestNewEdition}
         onImportWebsite={openWebsiteImportDialog}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
         status={status}
         onSaveAll={() => {
           void saveAllDirty();
-        }}
-        onPreview={() => {
-          void (async () => {
-            if (await saveBeforeNavigation()) setPreviewOpen(true);
-          })();
         }}
         onNotifyFollowers={() => {
           setEventUpdateError(null);
@@ -1602,9 +1551,22 @@ export function OrganizerDashboard({
       ) : null}
 
       <Card className="rounded-lg">
-        <CardHeader>
-          <CardTitle>{getModuleTitle(activeModule)}</CardTitle>
-          <CardDescription>{getModuleDescription(activeModule)}</CardDescription>
+        <CardHeader className={activeModule === "formats" && activeRace ? "flex flex-row items-center justify-between gap-4 space-y-0" : undefined}>
+          <div>
+            <CardTitle>{getModuleTitle(activeModule)}</CardTitle>
+            {activeModule !== "formats" ? <CardDescription>{getModuleDescription(activeModule)}</CardDescription> : null}
+          </div>
+          {activeModule === "formats" && activeRace ? (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void deleteActiveRace()}
+              disabled={status === "saving" || status === "uploading"}
+              className="shrink-0 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
+            >
+              Supprimer ce format
+            </Button>
+          ) : null}
         </CardHeader>
         <CardContent>
           {!eventDetail || !eventDraft ? (
@@ -1624,8 +1586,6 @@ export function OrganizerDashboard({
               newRaceForm={newRaceForm}
               newRaceImageName={newRaceImageFile?.name ?? null}
               newRaceGpxName={newRaceGpxFile?.name ?? null}
-              showRaceDetails={showRaceDetails}
-              onToggleRaceDetails={() => setShowRaceDetails((current) => !current)}
               onRaceFormChange={(next) => updateRaceForm(next, "formats")}
               onNewRaceFormChange={setNewRaceForm}
               onCreateRace={createRace}
@@ -1635,18 +1595,11 @@ export function OrganizerDashboard({
               onSelectNewRaceImage={selectNewRaceImage}
               onSelectNewRaceGpx={selectNewRaceGpx}
               onUploadGpx={uploadGpx}
-              onDuplicateRace={() => void duplicateActiveRace()}
-              onDeleteRace={() => {
-                void deleteActiveRace();
-              }}
-              onPreviewRace={() => {
-                void (async () => {
-                  if (await saveBeforeNavigation()) setPreviewOpen(true);
-                })();
-              }}
               gpxPreview={gpxPreview}
               status={status}
               editionStartDate={eventForm.editionStartDate}
+              eventLocationText={eventForm.location}
+              eventLocation={eventForm.organizerDetails.eventLocation}
             />
           ) : activeModule === "aidStations" ? (
             <AidStationsEditor
@@ -1774,15 +1727,7 @@ export function OrganizerDashboard({
             />
           ) : activeModule === "services" ? (
             <ServicesEditor details={eventForm.organizerDetails} onChange={(details) => updateEventDetails(details, "services")} />
-          ) : (
-            <PreviewLauncher
-              onPreview={() => {
-                void (async () => {
-                  if (await saveBeforeNavigation()) setPreviewOpen(true);
-                })();
-              }}
-            />
-          )}
+          ) : null}
         </CardContent>
       </Card>
 
@@ -2212,15 +2157,6 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <RunnerPreviewDialog
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-        event={eventDraft}
-        activeRaceId={activeRace?.id ?? null}
-        aidStations={aidStations}
-        stationProducts={stationProducts}
-        productsById={productsById}
-      />
     </div>
   );
 }

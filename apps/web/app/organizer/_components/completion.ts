@@ -13,8 +13,7 @@ export type OrganizerModuleId =
   | "bibPickup"
   | "access"
   | "products"
-  | "services"
-  | "preview";
+  | "services";
 
 export type OrganizerModuleLevel = "required" | "recommended" | "optional";
 export type OrganizerModuleStatus = "empty" | "incomplete" | "complete";
@@ -169,7 +168,7 @@ const buildFormatProgressModules = (
   return [
     {
       id: "formats",
-      title: "Identité",
+      title: "Course",
       description: "Nom, distance, dénivelé et GPX.",
       level: "required",
       status: isRaceIdentityComplete(race) ? "complete" : hasText(race.name) ? "incomplete" : "empty",
@@ -279,9 +278,18 @@ export function buildOrganizerCompletion(
     : [];
   const commonEquipmentMissingLabels = compactMissingLabels([["Matériel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)]]);
   const formatEquipmentMissingLabels = compactMissingLabels([["Matériel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)]]);
+  const hasStructuredBibLocations = commonBibPickup.locations.length > 0;
+  const hasCompleteBibLocations = hasStructuredBibLocations
+    ? commonBibPickup.locations.every((pickupLocation) => hasText(pickupLocation.location))
+    : hasText(commonBibPickup.location);
+  const hasCompleteBibSchedules = hasStructuredBibLocations
+    ? commonBibPickup.locations.every((pickupLocation) =>
+        pickupLocation.slots.some((slot) => hasText(slot.date) && hasText(slot.startTime) && hasText(slot.endTime))
+      )
+    : hasText(commonBibPickup.schedule);
   const bibPickupMissingLabels = compactMissingLabels([
-    ["Lieu retrait", hasText(commonBibPickup.location)],
-    ["Horaires", hasText(commonBibPickup.schedule)],
+    ["Lieux retrait", hasCompleteBibLocations],
+    ["Jours et horaires", hasCompleteBibSchedules],
   ]);
   const commonAccessMissingLabels = compactMissingLabels([
     ["Départ", hasText(commonAccess.startAddress)],
@@ -410,14 +418,6 @@ export function buildOrganizerCompletion(
         1
       ),
       countLabel: hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
-    },
-    {
-      id: "preview",
-      title: "Prévisualisation coureur",
-      description: "Version simple de ce que verra un coureur.",
-      level: "optional",
-      status: isEventCompleteForProgress(event) ? "complete" : "incomplete",
-      countLabel: isEventCompleteForProgress(event) ? "Prêt" : "Essentiel manquant",
     },
   ];
 

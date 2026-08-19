@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-08-17
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -60,7 +60,7 @@ related_tables:
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
 - Event liveness: mobile and onboarding filter on event/race live state.
 - Draft organizer event: a non-live event row created directly by an authenticated organizer.
-- Organizer dashboard details: nullable JSONB for event end date, official website, common equipment, common bib pickup, access, services, partners, and runner notes.
+- Organizer dashboard details: nullable JSONB for event end date, official website, common equipment, common bib pickup locations and dated time slots, access, services, partners, and runner notes.
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can be published for the event and pushed to followers.
 - Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
@@ -113,6 +113,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
+- Trusted admins can select every event, including drafts, from the existing Organizer header and use the same server mutation routes. This admin catalog read is service-role-backed after `app_metadata` verification and does not create organizer memberships.
 - Organizer yearly editions are normalized in `race_event_editions`. Formats attach through `races.edition_id`; `races.edition_group_id` and `series_name` continue to group the same format series across years.
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
 - Organizer runner notifications are manual. Saves and publication review must not auto-create announcements.
@@ -124,13 +125,13 @@ Organizer portal writes also go through web service routes after checking `race_
 - During website-import review, an organizer may replace the detected edition start date with another valid ISO date. The server validates it after membership/hash checks, upserts the corresponding `race_event_editions` row, and attaches imported formats to it. Matching rows in another year are not overwritten, while a missing format series reuses its `edition_group_id` when possible.
 - Organizer event writes remain edition-aware for selecting child rows, but no date-based cutoff blocks event or format maintenance.
 - The canonical event start/end range is stored in `race_event_editions`. The current edition is mirrored into `race_date` and `organizer_details.dateRange.endDate` for compatibility with catalog/mobile queries.
-- Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only; format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
-- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual non-ravito organizer content. Its top identity card exposes event/format identity, the event date range, any distinct format date, the best published location, race metrics, an explicitly labeled start time, runner information, and event services. Event-level bib pickup remains isolated in `Dossard`; `Course` owns start/finish locations, finish cutoff and schedule constraints before the GPX map, elevation profile, and ravitos; `Accès` is limited to remaining logistics. Equipment is presented in required, recommended, and inactive weather-conditional groups with inline status and weather markers.
+- Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only and stores `bibPickup.locations[]`, each containing one canonical/geocoded address and `slots[]` with date, start time, and end time. The legacy `location`, `locationDetails`, and free-text `schedule` fields remain compatibility fallbacks. Format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
+- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must continue to gate itself on live race state plus actual non-ravito organizer content. Its top identity card exposes event/format identity, the event date range, any distinct format date, the best published location, runner information, and event services; distance, D+, D-, and start-time metric pills are omitted. Event-level bib pickup remains isolated in `Dossard`; `Course` owns the explicitly labeled start time in a light-green important-information row, the critical finish cutoff, schedule constraints, and only the available GPX map, elevation profile, and ravitos; `Accès` owns start/finish linked locations and the remaining logistics. Equipment is presented in required, recommended, and inactive weather-conditional groups with inline status and weather markers.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
-- Mobile Racebook presentation keeps course start/finish and bib value widths responsive for readable long linked locations, and shows ravito metric labels inline beside their values; these layout rules do not change the event query or organizer-details contract.
+- Mobile Racebook presentation keeps access start/finish and bib value widths responsive for readable long linked locations, groups bib pickup by location and then by day, and stacks same-day ranges beneath one localized short weekday/day/month label with locale-specific hours. It shows ravito metric labels inline beside their values and presents water, solid food, assistance, and drop-bag flags as accessible icon-only buttons with one toggled inline label bubble. Pull-to-refresh repeats the existing read-only event, format, route, profile, and ravito reads so newly published organizer data appears without restarting the app; it does not change the event query or organizer-details contract.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Common Queries
@@ -187,6 +188,8 @@ from public.races;
 - Keep image upload validation in the server route; the database stores only the resulting URL.
 - Keep admin organizer review tolerant of missing yearly-edition joins: a failed `race_event_edition_requests -> race_events` read should not prevent the base event-claim review data from loading.
 - Keep generic website crawling bounded to prioritized same-origin pages. External registration, social, and activity-platform links are source references, not additional event pages to crawl into the `race_events` preview.
+
+- The membership rule has one server-verified admin exception. Do not turn the complete Organizer selector into an unfiltered authenticated or public `race_events` read.
 
 ## Related Docs
 

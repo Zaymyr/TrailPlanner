@@ -18,7 +18,6 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/utf8-copy.test.ts
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
-  - apps/web/app/organizer/_components/dashboard/runner-preview-dialog.tsx
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
 related_tables:
   - race_event_claims
@@ -93,8 +92,9 @@ Summary:
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
 - Approved claims should leave the admin pending-review queue once that membership handoff succeeds; the admin tab shows those rows only through the active-access membership list.
 - The admin review queue should resolve organizer identity when possible (`user_profiles.full_name`, otherwise auth email, otherwise `user_id`) so reviewers are not triaging UUIDs alone.
-- Once membership exists, yearly editions may be cloned directly as drafts. Claims remain only an access-control exception for pre-existing catalog events; publication review is separate.
-- The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks draft event, format, image, GPX, ravito, product, edition, and geocoded-location maintenance, while publication remains a separate admin-reviewed request. The synthesis shows read-only publication badges; draft formats stay hidden from runner preview. Scope navigation is immediate, but its silent background queue still persists through the same membership-gated routes; Ravito-module autosave writes race-level start/finish schedule details before station rows.
+- Once membership exists, yearly editions may be created directly as drafts, either empty or by cloning the selected edition. Claims remain only an access-control exception for pre-existing catalog events; publication review is separate.
+- The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks draft event, format, image, GPX, ravito, product, edition, geocoded-location maintenance, and the event-level list of bib-pickup locations with their dated time slots, while publication remains a separate admin-reviewed request. A format inherits the event location until its approved organizer enables and saves `Lieu différent de l'événement`. The synthesis shows read-only publication badges; draft formats stay outside published runner surfaces. Scope navigation is immediate, but its silent background queue still persists through the same membership-gated routes; Ravito-module autosave writes race-level start/finish schedule details before station rows.
+- Trusted admins do not need claim or membership handoff: the claims dashboard endpoint returns all events as selector entries after its `app_metadata` admin check, while preserving membership-only selector data for ordinary users.
 - The same approved-only dashboard also owns the manual `Notifier les coureurs` action. Pending or rejected claims must not unlock organizer update history, follower counts, or runner-notification sends.
 - Website-import review remains inside that approved-only boundary. Its distance-grouped found/manual field summary and GPX status are presentation only. The editable canonical edition-date correction changes only the selected `race_event_editions` row after membership/hash validation; neither the chosen date nor quality score proves organizer access.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
@@ -127,6 +127,7 @@ order by created_at asc;
 - Client-side GPX metric synchronization is presentation state only; organizer authorization must continue to come from active `race_event_organizers` membership on the server route.
 - Do not treat `status = 'approved'` as the only authorization check. Organizer write access should check an active `race_event_organizers` row.
 - Do not use `user_metadata` for reviewer/admin checks.
+- Do not persist the synthetic admin selector entries as `race_event_organizers`; they are response-only navigation data backed by the existing server-side admin authorization exception.
 - Deleting an auth user removes their claims, but public race/event data remains owned by catalog tables.
 - Rejected manual claims should keep their claim audit trail; deleting the draft event would cascade-delete the claim.
 - Pending claims should show request status only, not the organizer dashboard modules.

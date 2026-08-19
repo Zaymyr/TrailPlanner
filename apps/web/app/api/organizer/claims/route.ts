@@ -9,6 +9,7 @@ import {
   requireOrganizerAuth,
   serviceHeaders,
 } from "../../../../lib/organizer";
+import { isAdminUser } from "../../../../lib/supabase";
 
 const manualEventInputSchema = z.object({
   name: z.string().trim().min(2).max(180),
@@ -39,6 +40,15 @@ const claimInputSchema = z.object({
   }
 });
 
+const raceEventSummarySchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  location: z.string().nullable().optional(),
+  race_date: z.string().nullable().optional(),
+  thumbnail_url: z.string().nullable().optional(),
+  is_live: z.boolean().nullable().optional(),
+});
+
 const claimRowSchema = z.object({
   id: z.string().uuid(),
   created_at: z.string(),
@@ -51,17 +61,7 @@ const claimRowSchema = z.object({
   status: z.enum(["pending", "approved", "rejected"]),
   reviewer_notes: z.string().nullable().optional(),
   reviewed_at: z.string().nullable().optional(),
-  race_events: z
-    .object({
-      id: z.string().uuid(),
-      name: z.string(),
-      location: z.string().nullable().optional(),
-      race_date: z.string().nullable().optional(),
-      thumbnail_url: z.string().nullable().optional(),
-      is_live: z.boolean().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+  race_events: raceEventSummarySchema.nullable().optional(),
 });
 
 const membershipRowSchema = z.object({
@@ -69,17 +69,7 @@ const membershipRowSchema = z.object({
   created_at: z.string(),
   event_id: z.string().uuid(),
   role: z.string(),
-  race_events: z
-    .object({
-      id: z.string().uuid(),
-      name: z.string(),
-      location: z.string().nullable().optional(),
-      race_date: z.string().nullable().optional(),
-      thumbnail_url: z.string().nullable().optional(),
-      is_live: z.boolean().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+  race_events: raceEventSummarySchema.nullable().optional(),
 });
 
 const editionRequestRowSchema = z.object({
@@ -90,17 +80,7 @@ const editionRequestRowSchema = z.object({
   requested_start_date: z.string(),
   status: z.enum(["pending", "approved", "rejected"]),
   reviewer_notes: z.string().nullable().optional(),
-  race_events: z
-    .object({
-      id: z.string().uuid(),
-      name: z.string(),
-      location: z.string().nullable().optional(),
-      race_date: z.string().nullable().optional(),
-      thumbnail_url: z.string().nullable().optional(),
-      is_live: z.boolean().nullable().optional(),
-    })
-    .nullable()
-    .optional(),
+  race_events: raceEventSummarySchema.nullable().optional(),
 });
 
 const publicationRequestRowSchema = z.object({
@@ -132,7 +112,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [claimsResponse, membershipsResponse, editionRequestsResponse, publicationRequestsResponse] = await Promise.all([
+  const [claimsResponse, membershipsResponse, editionRequestsResponse, publicationRequestsResponse, adminEventsResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?user_id=eq.${auth.user.id}&select=id,created_at,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewer_notes,reviewed_at,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`,
       {
@@ -161,14 +141,30 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }
     ),
+    isAdminUser(auth.user)
+      ? fetch(
+          `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,thumbnail_url,is_live&order=name.asc`,
+          {
+            headers: serviceHeaders(auth.serviceConfig, ""),
+            cache: "no-store",
+          }
+        )
+      : Promise.resolve(null),
   ]);
 
-  if (!claimsResponse.ok || !membershipsResponse.ok || !editionRequestsResponse.ok || !publicationRequestsResponse.ok) {
+  if (
+    !claimsResponse.ok ||
+    !membershipsResponse.ok ||
+    !editionRequestsResponse.ok ||
+    !publicationRequestsResponse.ok ||
+    (adminEventsResponse && !adminEventsResponse.ok)
+  ) {
     console.error("Unable to load organizer claims", {
       claims: claimsResponse.ok ? null : await claimsResponse.text(),
       memberships: membershipsResponse.ok ? null : await membershipsResponse.text(),
       editionRequests: editionRequestsResponse.ok ? null : await editionRequestsResponse.text(),
       publicationRequests: publicationRequestsResponse.ok ? null : await publicationRequestsResponse.text(),
+      adminEvents: !adminEventsResponse || adminEventsResponse.ok ? null : await adminEventsResponse.text(),
     });
     return jsonError("Unable to load organizer data.", 502);
   }
@@ -178,7 +174,18 @@ export async function GET(request: NextRequest) {
   const editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
   const publicationRequests = z.array(publicationRequestRowSchema).parse(await publicationRequestsResponse.json());
 
-  return withSecurityHeaders(NextResponse.json({ claims, memberships, editionRequests, publicationRequests }));
+  const selectableMemberships = adminEventsResponse
+    ? z.array(raceEventSummarySchema).parse(await adminEventsResponse.json()).map((event) => ({
+        id: event.id,
+        event_id: event.id,
+        role: "admin",
+        race_events: event,
+      }))
+    : memberships;
+
+  return withSecurityHeaders(
+    NextResponse.json({ claims, memberships: selectableMemberships, editionRequests, publicationRequests })
+  );
 }
 
 export async function POST(request: NextRequest) {

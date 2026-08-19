@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-08-17
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -82,9 +82,13 @@ The app config in `apps/mobile/app.config.ts` declares:
 - slug `pace-yourself-app`;
 - owner `pace-yourself`;
 - scheme `paceyourself`;
-- runtime version `1.1.0`;
+- app version `1.1.1`;
+- shared/iOS runtime version `1.1.0`;
+- Android runtime version `1.1.1` for the Android 16 / API 36 native build;
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
 - update URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`.
+
+Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36. The project relies on those SDK defaults rather than adding a redundant `expo-build-properties` override.
 
 `apps/mobile/package.json` excludes `@react-native-google-signin/google-signin` from Expo iOS autolinking, `apps/mobile/react-native.config.js` disables the package for iOS in the React Native community autolinking layer, and `apps/mobile/app.config.ts` does not register the package's Expo config plugin. Native Google Sign-In is Android-only in `apps/mobile/hooks/useGoogleAuth.ts`, while iOS uses the browser OAuth path; keeping the package out of the iOS native build avoids both the Swift `AppCheckCore` CocoaPods conflict on EAS and Fabric startup crashes from partially registered Google Sign-In native components.
 
@@ -95,6 +99,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - `development`: internal distribution and `developmentClient: true`.
 - `preview`: internal distribution, Android APK, iOS Release.
 - `production`: Android app bundle, iOS Release, auto-increment enabled.
+- `submit.production.android`: completed release on the Google Play `production` track.
 - `submit.production.ios.ascAppId`: App Store Connect app id `6772180071` for TestFlight submissions.
 
 Because the dependency set includes native modules such as `expo-dev-client`, `react-native-purchases`, notifications, secure store, Apple auth, and `expo-crypto`, use the development client profile for realistic local/device testing. Expo Go can only be assumed for flows that do not require these native modules.
@@ -173,14 +178,16 @@ Do not copy actual keys into docs. Use environment variable names only.
 
 ## Gotchas
 
+- Keep the shared/iOS runtime at `1.1.0` until a new iOS native build is released. Android overrides it with `1.1.1`; Android production OTAs must be published from configuration that resolves that platform runtime.
+- The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - Hidden mobile detail headers should prefer one-line truncation over wrapping when the screen also shows custom left/right header actions; otherwise long French titles can overlap icons on compact iPhone widths.
 - Keep the tab navigator on history-based back behavior. Switching it back to `initialRoute` makes Android hardware back jump to `plans` from hidden plan/race detail screens instead of popping to the real previous screen.
 - The mobile catalog now has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details` on live formats: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. Aid stations alone are not enough to expose the mobile Racebook entry point.
-- The mobile Racebook also parses additive geocoded organizer metadata for event/format, bib pickup, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually.
-- The mobile Racebook uses a compact identity card for event/format identity, event date range, optional distinct format date, location, labeled start time, runner information, and services. Its four read-only tabs are `Matériel`, `Dossard`, `Course`, and `Accès`: `Course` owns start/finish locations, finish cutoff constraints, the interactive GPX map, elevation profile, and aid stations; `Accès` is limited to parking, shuttles, road restrictions, map links, and access notes.
+- The mobile Racebook also parses additive geocoded organizer metadata for event/format, every structured bib-pickup location, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually. The `Dossard` tab groups pickup information by location, then by day; multiple time ranges on the same day are stacked below one localized short weekday/day/month label, with locale-specific hour formatting (`Ven. 4 sept.` and `10h00 – 12h00` in French). Legacy single-location/free-text schedules remain readable.
+- The mobile Racebook uses a compact identity card for event/format identity, event date range, optional distinct format date, location, runner information, and services; distance, D+, D-, and start-time metric pills are intentionally omitted from this synthesis. Its four read-only tabs are `Matériel`, `Dossard`, `Course`, and `Accès`: `Course` owns the start time in a light-green important-information row, finish-cutoff constraints in a critical row, the interactive GPX map, elevation profile, and aid stations; `Accès` owns linked start/finish locations plus parking, shuttles, road restrictions, map links, and access notes. Pulling down anywhere on the screen reloads the Racebook, profile, and route data while preserving the last successful content if that refresh fails.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
 - Keep onboarding skip durable: write `user_profiles.onboarding_completed_at` before routing away, and retain the legacy durable-data fallback for profiles onboarded before the marker existed.
 - Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
@@ -193,7 +200,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
 - Keep `@react-native-google-signin/google-signin` excluded from iOS in both `apps/mobile/package.json` and `apps/mobile/react-native.config.js`, and keep it out of `apps/mobile/app.config.ts` plugins unless native Google Sign-In is intentionally enabled on iOS; otherwise `GoogleSignIn` can both pull `AppCheckCore` back into the iOS pod graph and trigger a Fabric launch crash from a partially registered `RNGoogleSignInButton` component.
-- Keep the mobile Racebook read-only. It consumes published organizer details plus live ravito source data, but it should open only when non-ravito organizer content is actually published; it must not import organizer dashboard mutation logic or admin routes. The runner-facing identity card surfaces the event date range, any distinct format date, location, distance, D+, D-, and a start time that is always explicitly labeled. Runner information and event services stay visible in that top card rather than a redundant general tab. Weather and last-minute alerts remain compact cards immediately below it. The four route-local tabs are `Matériel`, `Dossard`, `Course`, and `Accès`: equipment is grouped into required, recommended, and weather-conditional sections; bib location and schedule are emphasized before documents and notes; `Course` begins with start, finish, finish cutoff, and schedule constraints before the GPX map, elevation profile, and ravitos; `Accès` contains only the remaining logistics. Start and bib fields remain responsive table-like rows whose divider expands to the value while long linked locations retain enough width to wrap cleanly. Ravito cards retain their compact right metrics column whose km, D+, D-, and cutoff labels stay inline with their values.
+- Keep the mobile Racebook read-only. It consumes published organizer details plus live ravito source data, but it should open only when non-ravito organizer content is actually published; it must not import organizer dashboard mutation logic or admin routes. The runner-facing identity card surfaces the event date range, any distinct format date, and location without distance, D+, D-, or start-time metric pills. Runner information and event services stay visible in that top card rather than a redundant general tab. Weather and last-minute alerts remain compact cards immediately below it. The four route-local tabs are `Matériel`, `Dossard`, `Course`, and `Accès`: equipment is grouped into required, recommended, and weather-conditional sections; bib location and schedule are emphasized before documents and notes; `Course` places the explicitly labeled start time first in its important-information card with light-green emphasis, keeps the finish cutoff critical, and renders only the available GPX map, elevation profile, and ravito blocks, collapsing to one empty state when none exist; `Accès` begins with linked start/finish locations before the remaining logistics. Access and bib fields remain responsive table-like rows whose divider expands to the value while long linked locations retain enough width to wrap cleanly. Ravito cards retain their compact right metrics column whose km, D+, D-, and cutoff labels stay inline with their values. Water, solid food, assistance, and drop-bag availability use compact icon-only buttons; tapping one button opens a single inline information bubble with its label while keeping product space clear.
 
 ## Related Docs
 

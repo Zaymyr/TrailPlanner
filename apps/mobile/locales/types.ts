@@ -600,6 +600,7 @@ export type MobileTranslations = {
     racebookBibThirdPartyPickupAllowed: string;
     racebookBibEquipmentCheck: string;
     racebookAccessParking: string;
+    racebookAccessLocations: string;
     racebookAccessShuttles: string;
     racebookAccessRestrictions: string;
     racebookAccessMap: string;
@@ -621,7 +622,7 @@ export type MobileTranslations = {
     racebookEmptyGear: string;
     racebookEmptyBib: string;
     racebookEmptyAccess: string;
-    racebookEmptyAid: string;
+    racebookEmptyCourse: string;
     racebookEmptyCourseMap: string;
     racebookEmptyCourseProfile: string;
     racebookMapStart: string;
