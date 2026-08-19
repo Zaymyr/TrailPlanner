@@ -184,6 +184,33 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     expect(preview.races[0].distanceKm).toBe(29.33);
   });
 
+  it("merges a rounded distance-only GPX detection into its named format", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://distance.example/") {
+        return htmlResponse("<html><head><title>X Trail</title></head><body><p>26 septembre 2026</p></body></html>");
+      }
+      if (url === "https://distance.example/grand-trail") {
+        return htmlResponse("<h1>Grand Trail des Tours</h1><p>56 km</p>");
+      }
+      if (url === "https://distance.example/parcours-gpx") {
+        return htmlResponse('<p>56,6 km - parcours GPX</p><p>D+ 2931 m</p><a href="/grand-trail.gpx">Telecharger le GPX</a>');
+      }
+      if (url === "https://distance.example/grand-trail.gpx") return gpxResponse();
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://distance.example/", {
+      formatUrls: ["https://distance.example/grand-trail", "https://distance.example/parcours-gpx"],
+    });
+
+    expect(preview.races).toHaveLength(1);
+    expect(preview.races[0]).toMatchObject({
+      name: "Grand Trail des Tours",
+      hasReliableGpx: true,
+    });
+  });
+
   it("uses explicit format pages and keeps general-page logistics separate", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);

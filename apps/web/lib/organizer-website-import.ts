@@ -1373,9 +1373,14 @@ const normalizeRaceIdentityName = (value: string) =>
 
 const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandidate) => {
   if (left.key === right.key) return true;
+  const leftIdentity = normalizeRaceIdentityName(left.name);
+  const rightIdentity = normalizeRaceIdentityName(right.name);
+  const hasSingleNamedCandidate = Boolean(leftIdentity) !== Boolean(rightIdentity);
   const distanceToleranceKm =
     left.distanceKm !== null && right.distanceKm !== null
-      ? Math.max(0.5, Math.min(left.distanceKm, right.distanceKm) * 0.01)
+      ? hasSingleNamedCandidate
+        ? Math.max(0.8, Math.min(left.distanceKm, right.distanceKm) * 0.015)
+        : Math.max(0.5, Math.min(left.distanceKm, right.distanceKm) * 0.01)
       : 0;
   if (
     left.distanceKm !== null &&
@@ -1387,8 +1392,6 @@ const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandi
   if (left.distanceKm !== null && right.distanceKm !== null && Math.abs(left.distanceKm - right.distanceKm) > 1) {
     return false;
   }
-  const leftIdentity = normalizeRaceIdentityName(left.name);
-  const rightIdentity = normalizeRaceIdentityName(right.name);
   if (!leftIdentity || !rightIdentity) return false;
   if (leftIdentity === rightIdentity) return true;
 
