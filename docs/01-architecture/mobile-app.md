@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-08-18
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -82,9 +82,13 @@ The app config in `apps/mobile/app.config.ts` declares:
 - slug `pace-yourself-app`;
 - owner `pace-yourself`;
 - scheme `paceyourself`;
-- runtime version `1.1.0`;
+- app version `1.1.1`;
+- shared/iOS runtime version `1.1.0`;
+- Android runtime version `1.1.1` for the Android 16 / API 36 native build;
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
 - update URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`.
+
+Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36. The project relies on those SDK defaults rather than adding a redundant `expo-build-properties` override.
 
 `apps/mobile/package.json` excludes `@react-native-google-signin/google-signin` from Expo iOS autolinking, `apps/mobile/react-native.config.js` disables the package for iOS in the React Native community autolinking layer, and `apps/mobile/app.config.ts` does not register the package's Expo config plugin. Native Google Sign-In is Android-only in `apps/mobile/hooks/useGoogleAuth.ts`, while iOS uses the browser OAuth path; keeping the package out of the iOS native build avoids both the Swift `AppCheckCore` CocoaPods conflict on EAS and Fabric startup crashes from partially registered Google Sign-In native components.
 
@@ -95,6 +99,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - `development`: internal distribution and `developmentClient: true`.
 - `preview`: internal distribution, Android APK, iOS Release.
 - `production`: Android app bundle, iOS Release, auto-increment enabled.
+- `submit.production.android`: completed release on the Google Play `production` track.
 - `submit.production.ios.ascAppId`: App Store Connect app id `6772180071` for TestFlight submissions.
 
 Because the dependency set includes native modules such as `expo-dev-client`, `react-native-purchases`, notifications, secure store, Apple auth, and `expo-crypto`, use the development client profile for realistic local/device testing. Expo Go can only be assumed for flows that do not require these native modules.
@@ -173,6 +178,8 @@ Do not copy actual keys into docs. Use environment variable names only.
 
 ## Gotchas
 
+- Keep the shared/iOS runtime at `1.1.0` until a new iOS native build is released. Android overrides it with `1.1.1`; Android production OTAs must be published from configuration that resolves that platform runtime.
+- The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.

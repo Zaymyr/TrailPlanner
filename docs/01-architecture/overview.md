@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-07-01
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - package.json
@@ -55,6 +55,7 @@ The mobile app is an Expo Router app:
 - EAS profiles: `apps/mobile/eas.json`
 - Expo SDK: `expo ~54.0.33`
 - React Native: `react-native 0.81.5`
+- Android compile/target SDK: Android 16 / API 36 through the Expo SDK 54 defaults
 - React: `react 19.1.0`
 - Supabase dependency: `@supabase/supabase-js ^2.45.4`
 - Apple auth nonce helper: `expo-crypto ~15.0.8`
@@ -96,6 +97,7 @@ The mobile app is configured for EAS in `apps/mobile/eas.json`:
 - `development`: internal distribution with `developmentClient: true`
 - `preview`: internal distribution, Android APK, iOS Release build
 - `production`: Android app bundle, iOS Release build, remote app version source
+- Android production submission: completed release to the Google Play `production` track
 
 Supabase provides:
 
@@ -140,6 +142,7 @@ When docs and code disagree, use this order:
 - `docs/_archive/db/schema.sql` is not the current schema source of truth. It still uses old `race_catalog` names.
 - Several code paths reference `race_events` and newer race columns that are not fully backed by visible migrations in this repo. Those are documented with conflict markers in database docs.
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.
+- Android and iOS temporarily use different EAS Update runtimes: Android `1.1.1` for the API 36 native build and iOS `1.1.0` for the current App Store binary.
 
 ## Related Docs
 
