@@ -40,7 +40,6 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
-  - apps/web/app/organizer/_components/dashboard/runner-preview-dialog.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
@@ -139,21 +138,19 @@ Organizers with an active event membership can:
 - edit event-level name, location, selected-edition dates, PNG image, and common organizer details, but not live state;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
 - add a draft format attached to the selected edition, inheriting its start date unless an explicit in-range format date is enabled;
-- duplicate a format as metadata-only draft data without copying GPX, ravitos, or station-product links, creating a new `edition_group_id`;
-- create a yearly edition from a source year plus a new start/end range; formats, GPX, ravitos, and station products are cloned as draft rows attached to it while preserving format edition groups;
+- create a yearly edition from a new start/end range, either empty or by duplicating the selected source edition; when duplication is enabled, formats, GPX, ravitos, and station products are cloned as draft rows attached to it while preserving format edition groups;
 - upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
-- delete a format from the identity module after a confirmation step; source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
+- delete a format from the `Course` module after a confirmation step; the button is aligned at the far right of the `Formats & GPX` title row, source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and station-specific `race_aid_stations.organizer_details`;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
-- preview an internal runner-facing summary before a public runner page exists.
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector chooses a canonical edition and `Nouvelle édition` asks for its start/end dates before cloning draft formats. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Event and format rows keep read-only publication badges, while `Demander la publication` submits the current edition to admin review. Completion remains independent from live state and tab selection.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card and `Créer une nouvelle édition` stays on the right. The button opens a dialog for the start/end dates and a default-enabled `Dupliquer depuis l’édition précédente` checkbox; disabling it creates an empty edition. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Event and format rows keep read-only publication badges, while `Demander la publication` submits the current edition to admin review. Completion remains independent from live state and tab selection.
 
 Newly created years appear immediately in the event-level year selector and are editable without admin validation. Inside a format tab, the year remains driven only by the event-level selector; the format action bar does not repeat a local "Edition active" block.
 
-The format identity editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. In the information grid, D+ and D- each receive the same two-column desktop width as distance so four-digit values remain readable, and both accept the parser's one-decimal precision. The interactive route map then sits below as the main full-width visual focus, and repeated course metrics should not be duplicated across every preview header when the same values are already visible in the form.
+The format `Course` editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. In the information grid, D+ and D- each receive the same two-column desktop width as distance so four-digit values remain readable, and both accept the parser's one-decimal precision. Date and location use parallel opt-in overrides: without `Date différente de l'édition`, the edition start date is used; without `Lieu différent de l'événement`, `races.location_text` and `organizer_details.raceLocation` stay empty so runner-facing resolution inherits the event location. Disabling the location override clears both the format text and normalized geocoded object. The interactive route map then sits below as the main full-width visual focus. The editor is always expanded: the former show/hide toggle, single-format duplication button, and organizer-side runner preview are removed. `Formats & GPX` has no helper sentence beneath its title.
 
 The selected edition year controls its canonical range and attached format rows, but imposes no time-based lock. Event-range edits are rejected if an attached format date would fall outside the new range.
 
@@ -203,7 +200,7 @@ Recommended modules improve the dashboard score but do not block publication: GP
 
 Optional modules also improve the score but never block publication: ravito products, supporter notes, accommodations/restaurants/recovery, partners, and last-minute messages.
 
-Runner-facing preview resolves details as:
+Published runner-facing surfaces resolve details as:
 
 - equipment = common event equipment plus active-format equipment, with weather-tagged items always visible but grayed out unless the active event weather plan matches their `cold` / `heat` flags;
 - bib pickup = event value only, with every structured pickup location and its dated start/end slots preserved; legacy single-location/free-text schedules remain fallbacks;
@@ -290,6 +287,9 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
+- Keep the `Course` module free of duplicate/preview/show-hide action clutter; only the format delete action belongs in the `Formats & GPX` title row.
+- Keep format-location inheritance explicit: an unchecked `Lieu différent de l'événement` must clear both `location_text` and `raceLocation`, while the event location remains the displayed fallback.
+- Keep new-edition dates and the optional duplication control inside the shared dialog; the compact header card should contain only the edition selector and creation button.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
 - A website-imported format without a GPX is still a valid draft. Preserve `gpx_storage_path = null`, but populate the legacy required `gpx_path` with its deterministic organizer placeholder; do not upload an invented GPX file.
 - Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.

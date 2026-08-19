@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-08-18
+last_verified: 2026-08-19
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -9,7 +9,6 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
-  - apps/web/app/organizer/_components/dashboard/runner-preview-dialog.tsx
   - apps/web/lib/organizer-dashboard-details.ts
 related_tables: []
 ---
@@ -25,7 +24,7 @@ This document describes the web geocoding/autocomplete integration used by the o
 - Address autocomplete: server-backed search suggestions for typed addresses/places.
 - Geocoded metadata: additive `lat/lng` and Google Maps URL stored next to the existing plain text fields.
 - Canonical text field: the existing event/race/bib/access string that still drives publication checks and normal display.
-- Preview-only GPS affordance: coordinates and map links shown in the runner preview when geocoding data exists.
+- Runner-facing GPS affordance: coordinates and map links shown on published runner surfaces when geocoding data exists.
 
 ## Current Flow
 
@@ -37,13 +36,15 @@ The current organizer flow is:
 4. When the field or its parent scope already has coordinates, the component also sends a proximity bias so nearby suggestions rank first.
 5. The user can keep typing free text normally; the component keeps the raw input locally and only syncs a manual location object on blur when no autocomplete suggestion was chosen.
 6. The selected suggestion keeps the text input filled and also stores a structured location object in `organizer_details`.
-7. The runner preview reads that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link for live formats only; draft formats stay hidden from the organizer-facing preview list and cannot become the active preview fallback.
+7. Published runner surfaces read that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link for live formats only. The organizer dashboard no longer exposes an internal runner-preview dialog.
 8. Bib pickup can repeat this flow for every entry in `bibPickup.locations[]`; each location keeps its own geocoded object and independent dated time slots.
 9. The mobile Racebook can reuse every stored Google Maps URL for bib pickup plus start/finish rows.
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
 The add-format editor can queue a GPX before the format exists, but that upload remains separate from geocoding. Address autocomplete still owns only the canonical location string plus structured metadata. Edition start/end dates come from `race_event_editions`; switching year changes the selected edition and attached `races` rows without changing location ownership or duplicating the event location into format addresses.
+
+Format location now follows the same opt-in pattern as its date. `Lieu différent de l'événement` is unchecked by default, so a new format keeps `location_text` empty and inherits the event location at display time. Enabling it reveals `AddressAutocompleteField`; disabling it clears both the format text and the normalized `raceLocation` object.
 
 ## Provider Contract
 
@@ -86,6 +87,7 @@ Each object stores:
 ## Gotchas
 
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
+- Do not copy `eventLocation` into a new format merely to show inheritance; keep the race fields empty until the organizer explicitly enables a different location.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
 - Do not assume every historical organizer row has geocoded metadata or a `bibPickup.locations[]` array; old single-location rows should parse through the legacy fallback without losing their free-text schedule.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.

@@ -5,6 +5,8 @@ import { describe, expect, it } from "vitest";
 
 const organizerFiles = [
   "app/organizer/_components/dashboard/aid-stations-editor.tsx",
+  "app/organizer/_components/dashboard/event-format-editors.tsx",
+  "app/organizer/_components/dashboard/shell.tsx",
 ];
 
 const forbiddenSequences = [
@@ -31,7 +33,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     const absolutePath = resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx");
     const source = readFileSync(absolutePath, "utf8");
     const start = source.indexOf("<Dialog open={websiteImportOpen}");
-    const end = source.indexOf("<RunnerPreviewDialog", start);
+    const end = source.lastIndexOf("\n    </div>\n  );");
     const websiteImportSection = source.slice(start, end);
 
     expect(start).toBeGreaterThanOrEqual(0);
@@ -41,5 +43,20 @@ describe("organizer dashboard UTF-8 copy", () => {
     forbiddenSequences.forEach((sequence) => {
       expect(websiteImportSection).not.toContain(sequence);
     });
+  });
+
+  it("keeps removed format actions out of the organizer UI", () => {
+    const files = [
+      "app/organizer/_components/OrganizerDashboard.tsx",
+      "app/organizer/_components/dashboard/event-format-editors.tsx",
+      "app/organizer/_components/dashboard/shell.tsx",
+    ];
+    const source = files.map((relativePath) => readFileSync(resolve(process.cwd(), relativePath), "utf8")).join("\n");
+
+    expect(source).not.toContain("Prévisualiser côté coureur");
+    expect(source).not.toContain("Previsualiser ce format");
+    expect(source).not.toContain("Masquer les details");
+    expect(source).not.toContain("Dupliquer ce format");
+    expect(source).toContain("Lieu différent de l&apos;événement");
   });
 });

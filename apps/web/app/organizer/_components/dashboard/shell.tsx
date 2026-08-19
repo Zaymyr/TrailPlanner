@@ -1,7 +1,9 @@
+import * as React from "react";
 import Link from "next/link";
 
 import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../../components/ui/dialog";
 import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
@@ -103,7 +105,6 @@ export function OrganizerSummaryHeader({
   selectedEditionYear,
   newEditionDate,
   newEditionEndDate,
-  editionRequestState,
   publicationRequestState,
   onSelectedEventChange,
   onSelectedEditionYearChange,
@@ -115,7 +116,6 @@ export function OrganizerSummaryHeader({
   hasDirtyChanges,
   status,
   onSaveAll,
-  onPreview,
   onNotifyFollowers,
   onRequestPublication,
 }: {
@@ -127,22 +127,22 @@ export function OrganizerSummaryHeader({
   selectedEditionYear: string;
   newEditionDate: string;
   newEditionEndDate: string;
-  editionRequestState: EditionRequestRow | null;
   publicationRequestState: PublicationRequestRow | null;
   onSelectedEventChange: (eventId: string) => void;
   onSelectedEditionYearChange: (year: string) => void;
   onEditionDateChange: (value: string) => void;
   onEditionEndDateChange: (value: string) => void;
-  onRequestEdition: () => void;
+  onRequestEdition: (duplicatePreviousEdition: boolean) => Promise<boolean>;
   onImportWebsite: () => void;
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
   onSaveAll: () => void;
-  onPreview: () => void;
   onNotifyFollowers: () => void;
   onRequestPublication: () => void;
 }) {
+  const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
+  const [duplicatePreviousEdition, setDuplicatePreviousEdition] = React.useState(true);
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
@@ -205,15 +205,15 @@ export function OrganizerSummaryHeader({
 
       <div className="mt-3 space-y-2">
         {editionYearOptions.length > 0 ? (
-          <div className="rounded-md border border-border/60 bg-background/50 p-3">
-            <div className="flex flex-wrap items-end gap-3">
-              <div className="min-w-[10rem] max-w-xs">
+          <div className="rounded-md border border-border/60 bg-background/50 p-2.5">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div className="min-w-[9rem] max-w-[12rem] flex-1">
                 <label htmlFor="organizer-event-edition-select" className="text-sm font-medium text-foreground">
-                  Edition
+                  Édition
                 </label>
                 <select
                   id="organizer-event-edition-select"
-                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                  className="mt-1 h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
                   value={selectedEditionYear}
                   onChange={(event) => onSelectedEditionYearChange(event.target.value)}
                 >
@@ -224,39 +224,17 @@ export function OrganizerSummaryHeader({
                   ))}
                 </select>
               </div>
-              <div className="min-w-[10rem] max-w-xs">
-                <label htmlFor="organizer-new-edition-date" className="text-sm font-medium text-foreground">
-                  Début de la nouvelle édition
-                </label>
-                <input
-                  id="organizer-new-edition-date"
-                  type="date"
-                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
-                  value={newEditionDate}
-                  onChange={(event) => onEditionDateChange(event.target.value)}
-                />
-              </div>
-              <div className="min-w-[10rem] max-w-xs">
-                <label htmlFor="organizer-new-edition-end-date" className="text-sm font-medium text-foreground">
-                  Fin de la nouvelle édition
-                </label>
-                <input
-                  id="organizer-new-edition-end-date"
-                  type="date"
-                  min={newEditionDate || undefined}
-                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
-                  value={newEditionEndDate}
-                  onChange={(event) => onEditionEndDateChange(event.target.value)}
-                />
-              </div>
-              <Button type="button" variant="outline" onClick={onRequestEdition} disabled={status !== "idle"}>
-                Créer l&apos;édition
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => {
+                  setDuplicatePreviousEdition(true);
+                  setNewEditionDialogOpen(true);
+                }}
+                disabled={status !== "idle"}
+              >
+                Créer une nouvelle édition
               </Button>
-            </div>
-            <div className="mt-2 text-xs text-muted-foreground">
-              {editionRequestState
-                ? `Demande ${editionRequestState.status} pour le ${editionRequestState.requested_start_date}.`
-                : "La nouvelle edition sera creee directement en brouillon."}
             </div>
           </div>
         ) : null}
@@ -301,9 +279,6 @@ export function OrganizerSummaryHeader({
             Demander la publication
           </Button>
         ) : null}
-        <Button type="button" onClick={onPreview} variant="outline">
-          Prévisualiser côté coureur
-        </Button>
         <Button type="button" onClick={onNotifyFollowers} variant="outline" disabled={!event}>
           Notifier les coureurs
         </Button>
@@ -311,6 +286,76 @@ export function OrganizerSummaryHeader({
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
         </Button>
       </div>
+
+      <Dialog open={newEditionDialogOpen} onOpenChange={setNewEditionDialogOpen}>
+        <DialogContent>
+          <form
+            className="grid gap-5"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void onRequestEdition(duplicatePreviousEdition).then((created) => {
+                if (created) setNewEditionDialogOpen(false);
+              });
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Créer une nouvelle édition</DialogTitle>
+              <DialogDescription>Choisis les dates de l’édition. Elle sera créée en brouillon.</DialogDescription>
+            </DialogHeader>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="organizer-new-edition-date" className="text-sm font-medium text-foreground">
+                  Date de début
+                </label>
+                <input
+                  id="organizer-new-edition-date"
+                  type="date"
+                  required
+                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                  value={newEditionDate}
+                  onChange={(event) => onEditionDateChange(event.target.value)}
+                />
+              </div>
+              <div>
+                <label htmlFor="organizer-new-edition-end-date" className="text-sm font-medium text-foreground">
+                  Date de fin
+                </label>
+                <input
+                  id="organizer-new-edition-end-date"
+                  type="date"
+                  required
+                  min={newEditionDate || undefined}
+                  className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                  value={newEditionEndDate}
+                  onChange={(event) => onEditionEndDateChange(event.target.value)}
+                />
+              </div>
+            </div>
+            <label className="flex items-start gap-3 rounded-md border border-border bg-background/70 p-3 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 rounded border-input accent-brand"
+                checked={duplicatePreviousEdition}
+                onChange={(event) => setDuplicatePreviousEdition(event.target.checked)}
+              />
+              <span>
+                <span className="block font-medium">Dupliquer depuis l’édition précédente</span>
+                <span className="mt-1 block text-xs text-muted-foreground">
+                  Reprend les formats de l’édition {selectedEditionYear} dans la nouvelle édition.
+                </span>
+              </span>
+            </label>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setNewEditionDialogOpen(false)} disabled={status !== "idle"}>
+                Annuler
+              </Button>
+              <Button type="submit" disabled={status !== "idle"}>
+                {status === "saving" ? "Création..." : "Créer l’édition"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }

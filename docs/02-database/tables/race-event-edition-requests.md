@@ -30,10 +30,12 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 
 - Existing pending rows are closed as rejected by the transition migration with an explanatory reviewer note.
 - `authenticated` insert/update grants and the organizer insert policy are removed.
-- `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now creates a canonical `race_event_editions` range and clones source-year formats into it; it does not insert this table.
+- `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now creates a canonical `race_event_editions` range. Its `duplicatePreviousEdition` input defaults to `true` for backward compatibility; when false, the route creates the edition without cloning source-year formats. It does not insert this table.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
 - `/api/organizer/claims` continues to return only the current user's legacy edition-request rows even when its event selector is expanded to the full catalog for an admin; selector access does not revive or broaden this retired workflow.
 - Ordinary format saves, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
+- Removing the standalone `Dupliquer ce format` action does not affect edition duplication: the new-edition dialog still clones the selected source edition when `duplicatePreviousEdition` is enabled.
+- The format location override is independent from edition selection and does not read or write this retired request table.
 
 ## Historical Columns
 
@@ -43,7 +45,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 
 - Do not restore organizer inserts or add new review UI for this table.
 - Do not interpret old `approved` rows as current publication approval; publication uses `race_event_publication_requests`.
-- Direct edition cloning must attach draft `races` rows through `edition_id` and preserve their cross-year `edition_group_id` series relationship.
+- When optional edition duplication is enabled, cloned draft `races` rows must attach through `edition_id` and preserve their cross-year `edition_group_id` series relationship. An empty edition legitimately has no attached format until the organizer adds one.
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 
 ## Related Docs

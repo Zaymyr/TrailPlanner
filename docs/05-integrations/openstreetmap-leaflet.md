@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-08-04
+last_verified: 2026-08-19
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -36,6 +36,8 @@ It:
 - fits the viewport to the route bounds;
 - shows the route polyline plus start, finish, and ravito markers;
 - is used by the organizer format editor GPX panel for the selected canonical edition; replacing the GPX preserves its `edition_id`/year and synchronizes adjacent course metrics without changing edition dates.
+- remains visible in the always-expanded `Course` editor even though the separate organizer-side runner preview has been removed.
+- is independent from the format-location override; inheriting the event address does not change the uploaded GPX route or map bounds.
 
 ## Gotchas
 
