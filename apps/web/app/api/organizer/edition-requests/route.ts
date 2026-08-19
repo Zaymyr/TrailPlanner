@@ -11,6 +11,7 @@ const createEditionSchema = z.object({
   sourceYear: z.number().int().min(2000).max(2100),
   requestedStartDate: z.string().refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Invalid requested start date."),
   requestedEndDate: z.string().refine((value) => /^\d{4}-\d{2}-\d{2}$/.test(value), "Invalid requested end date."),
+  duplicatePreviousEdition: z.boolean().default(true),
 }).refine(
   (value) => value.requestedEndDate >= value.requestedStartDate,
   "Invalid edition date range."
@@ -52,11 +53,7 @@ export async function POST(request: NextRequest) {
   if (organizer !== true) return organizer.error;
 
   const targetYear = Number(parsed.data.requestedStartDate.slice(0, 4));
-  const [sourceEditionResponse, targetResponse, currentResponse] = await Promise.all([
-    fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?event_id=eq.${parsed.data.eventId}&edition_year=eq.${parsed.data.sourceYear}&select=id&limit=1`,
-      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
-    ),
+  const [targetResponse, currentResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?event_id=eq.${parsed.data.eventId}&edition_year=eq.${targetYear}&select=id&limit=1`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
@@ -67,19 +64,27 @@ export async function POST(request: NextRequest) {
     ),
   ]);
 
-  if (!sourceEditionResponse.ok || !targetResponse.ok || !currentResponse.ok) return jsonError("Unable to inspect event editions.", 502);
+  if (!targetResponse.ok || !currentResponse.ok) return jsonError("Unable to inspect event editions.", 502);
   if (((await targetResponse.json()) as unknown[]).length > 0) return jsonError("An edition already exists for that year.", 409);
   const previousCurrentEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await currentResponse.json())[0]?.id ?? null;
-  const sourceEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await sourceEditionResponse.json())[0]?.id ?? null;
-  if (!sourceEditionId) return jsonError("Source edition not found.", 409);
+  let sourceRaces: z.infer<typeof sourceRaceSchema>[] = [];
+  if (parsed.data.duplicatePreviousEdition) {
+    const sourceEditionResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?event_id=eq.${parsed.data.eventId}&edition_year=eq.${parsed.data.sourceYear}&select=id&limit=1`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!sourceEditionResponse.ok) return jsonError("Unable to inspect source edition.", 502);
+    const sourceEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await sourceEditionResponse.json())[0]?.id ?? null;
+    if (!sourceEditionId) return jsonError("Source edition not found.", 409);
 
-  const sourceResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?edition_id=eq.${sourceEditionId}&select=id,name,race_date&order=race_date.asc`,
-    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
-  );
-  if (!sourceResponse.ok) return jsonError("Unable to inspect source formats.", 502);
-  const sourceRaces = z.array(sourceRaceSchema).parse(await sourceResponse.json());
-  if (sourceRaces.length === 0) return jsonError("No format exists for the source year.", 409);
+    const sourceResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/races?edition_id=eq.${sourceEditionId}&select=id,name,race_date&order=race_date.asc`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!sourceResponse.ok) return jsonError("Unable to inspect source formats.", 502);
+    sourceRaces = z.array(sourceRaceSchema).parse(await sourceResponse.json());
+    if (sourceRaces.length === 0) return jsonError("No format exists for the source year.", 409);
+  }
 
   const earliestSourceDate = sourceRaces.map((race) => race.race_date).filter((date): date is string => Boolean(date)).sort()[0];
   const dayShift = earliestSourceDate

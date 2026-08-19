@@ -55,7 +55,6 @@ export function EquipmentEditor({
     />
   );
 }
-
 function EquipmentFields({
   title,
   description,
@@ -580,17 +579,6 @@ export function ServicesEditor({
       <TextAreaField label="Partenaires" value={services.partners ?? ""} onChange={(value) => update({ partners: value || null })} />
       <TextAreaField label="Message dernière minute" value={services.lastMinuteMessage ?? ""} onChange={(value) => update({ lastMinuteMessage: value || null })} />
       <TextAreaField label="Note services" value={services.note ?? ""} onChange={(value) => update({ note: value || null })} />
-    </div>
-  );
-}
-
-export function PreviewLauncher({ onPreview }: { onPreview: () => void }) {
-  return (
-    <div className="rounded-md border border-dashed border-border bg-background p-5">
-      <p className="text-sm text-muted-foreground">Ouvre une version simple côté coureur pour vérifier les informations renseignées.</p>
-      <Button type="button" className="mt-3" onClick={onPreview}>
-        Prévisualiser côté coureur
-      </Button>
     </div>
   );
 }

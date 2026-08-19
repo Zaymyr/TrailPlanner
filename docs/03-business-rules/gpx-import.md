@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-08-04
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -145,9 +145,13 @@ The mobile import preview also keeps the parsed route geometry client-side throu
 
 Existing saved plans are not rewritten after organizer GPX replacement. They keep their copied `plan-gpx` object, `elevation_profile`, `planner_values`, and `plan_aid_stations`.
 
-For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, while the format date inherits the selected canonical edition unless an explicit in-range override is enabled. After the format is created with its `edition_id`, the pending file is uploaded through the existing GPX route so the same stats are persisted and eligible waypoint ravitos can be created.
+For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, while the format date inherits the selected canonical edition and the location inherits the event unless their explicit overrides are enabled. After the format is created with its `edition_id`, the pending file is uploaded through the existing GPX route so the same stats are persisted and eligible waypoint ravitos can be created.
+
+Creating an empty yearly edition from the organizer dialog does not create or copy a GPX. GPX cloning occurs only when the organizer keeps edition duplication enabled; a later format added to an empty edition follows the normal pending-file upload flow above.
 
 For an existing format, a successful replacement also copies the exact returned parser values back into the active distance, D+, and D- form fields before and after the event refresh. The refresh keeps the format's edition year selected, so a stable race id does not leave the client form showing stale pre-import metrics while the `races` row already contains the new values.
+
+The organizer-side runner preview has been removed, but the GPX map and elevation profile remain inside the always-expanded `Course` editor because they validate the uploaded source file and drive ravito interpolation.
 
 ## Review Flow Conflict
 

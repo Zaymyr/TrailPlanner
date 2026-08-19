@@ -1,12 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { defaultOrganizerAidStationDetails } from "../../../../lib/organizer-dashboard-details";
+import { defaultOrganizerAidStationDetails, defaultOrganizerEventDetails } from "../../../../lib/organizer-dashboard-details";
 import { EVENT_TAB_ID } from "./constants";
 import {
   applyGpxStatsToRaceForm,
   buildEditionYearOptions,
   buildOrganizerFormatSavePlan,
   createEmptyRaceForm,
+  createRaceFormFromEventDefaults,
   getGpxElevationTotalsAtDistance,
   getOrganizerDirtyScopeKey,
   getRaceEditionYear,
@@ -70,6 +71,36 @@ describe("organizer dashboard GPX helpers", () => {
       distanceKm: 42.37,
       elevationGainM: 1234.6,
       elevationLossM: "1198.4",
+    });
+  });
+
+  it("keeps a new format location inherited from the event by default", () => {
+    const raceForm = createRaceFormFromEventDefaults({
+      name: "Trail test",
+      location: "Annecy",
+      editionStartDate: "2027-06-12",
+      editionEndDate: "2027-06-13",
+      thumbnailUrl: "",
+      isLive: false,
+      organizerDetails: {
+        ...defaultOrganizerEventDetails,
+        eventLocation: {
+          label: "Annecy",
+          lat: 45.8992,
+          lng: 6.1294,
+          googleMapsUrl: "https://maps.google.com/?q=Annecy",
+          source: "autocomplete",
+        },
+      },
+    });
+
+    expect(raceForm.locationText).toBe("");
+    expect(raceForm.organizerDetails.raceLocation).toEqual({
+      label: null,
+      lat: null,
+      lng: null,
+      googleMapsUrl: null,
+      source: null,
     });
   });
 

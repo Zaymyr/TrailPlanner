@@ -52,12 +52,15 @@ This table is the sole content-review gate for the current organizer creation fl
 
 - Organizer event/race routes never accept direct `is_live` changes.
 - A request requires event name/location, a valid current `race_event_editions` range, and at least one complete format attached to that edition.
+- A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Normal scope navigation may save silently in the background, but requesting publication still waits for foreground persistence before the server readiness check.
 - Rejection leaves all source rows unchanged.
 - Approval publishes complete formats attached to the current edition only. Other editions and incomplete formats remain unchanged.
 - Publication does not send runner notifications automatically.
+- Removing the organizer-side runner preview and format quick actions does not alter readiness: publication still validates persisted event, edition, and format rows.
+- An inherited format location remains empty on `races`; publication continues to require the event location, while an explicitly different format location is additive runner-facing data.
 
 ## Gotchas
 

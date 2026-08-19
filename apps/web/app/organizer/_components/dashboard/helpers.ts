@@ -87,12 +87,10 @@ export const createEmptyRaceForm = (): RaceFormValues => ({
 export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): RaceFormValues => ({
   ...createEmptyRaceForm(),
   seriesName: "",
-  locationText: eventForm.location,
   raceDate: eventForm.editionStartDate,
   thumbnailUrl: eventForm.thumbnailUrl,
   organizerDetails: {
     ...cloneJson(defaultOrganizerRaceDetails),
-    raceLocation: cloneJson(eventForm.organizerDetails.eventLocation),
     mandatoryEquipment: cloneJson(eventForm.organizerDetails.mandatoryEquipment),
     access: cloneJson(eventForm.organizerDetails.access),
   },
@@ -498,7 +496,6 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
     access: "Accès",
     products: "Produits",
     services: "Services",
-    preview: "Prévisualisation coureur",
   };
   return titles[moduleId];
 }
@@ -513,7 +510,6 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
     access: "Accès et sections optionnelles selon l'onglet actif.",
     products: "Produits officiels disponibles par ravito.",
     services: "Informations optionnelles utiles aux coureurs.",
-    preview: "Contrôle visuel de la version coureur interne.",
   };
   return descriptions[moduleId];
 }

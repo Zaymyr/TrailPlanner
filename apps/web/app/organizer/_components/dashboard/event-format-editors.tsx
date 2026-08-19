@@ -4,6 +4,7 @@ import { GpxRouteMap } from "../../../../components/gpx/GpxRouteMap";
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
+import { defaultOrganizerRaceDetails } from "../../../../lib/organizer-dashboard-details";
 import type { OrganizerModuleId } from "../completion";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { ADD_FORMAT_TAB_ID } from "./constants";
@@ -103,8 +104,6 @@ export function FormatsEditor({
   newRaceForm,
   newRaceImageName,
   newRaceGpxName,
-  showRaceDetails,
-  onToggleRaceDetails,
   onRaceFormChange,
   onNewRaceFormChange,
   onCreateRace,
@@ -112,12 +111,11 @@ export function FormatsEditor({
   onSelectNewRaceImage,
   onSelectNewRaceGpx,
   onUploadGpx,
-  onDuplicateRace,
-  onDeleteRace,
-  onPreviewRace,
   gpxPreview,
   status,
   editionStartDate,
+  eventLocationText,
+  eventLocation,
 }: {
   activeTab: string;
   activeRace: RaceFormat | null;
@@ -125,8 +123,6 @@ export function FormatsEditor({
   newRaceForm: RaceFormValues;
   newRaceImageName: string | null;
   newRaceGpxName: string | null;
-  showRaceDetails: boolean;
-  onToggleRaceDetails: () => void;
   onRaceFormChange: (next: Partial<RaceFormValues>) => void;
   onNewRaceFormChange: (next: RaceFormValues) => void;
   onCreateRace: (event: FormEvent<HTMLFormElement>) => void;
@@ -134,20 +130,20 @@ export function FormatsEditor({
   onSelectNewRaceImage: (event: ChangeEvent<HTMLInputElement>) => void;
   onSelectNewRaceGpx: (event: ChangeEvent<HTMLInputElement>) => void;
   onUploadGpx: (event: ChangeEvent<HTMLInputElement>) => void;
-  onDuplicateRace: () => void;
-  onDeleteRace: () => void;
-  onPreviewRace: () => void;
   gpxPreview: GpxPreview | null;
   status: "idle" | "loading" | "saving" | "uploading";
   editionStartDate: string;
+  eventLocationText: string;
+  eventLocation: EventFormValues["organizerDetails"]["eventLocation"];
 }) {
   return (
     <div className="space-y-5">
       {activeTab === ADD_FORMAT_TAB_ID ? (
         <RaceForm
+          key="new-format"
           title="Ajouter un format"
           values={newRaceForm}
-          biasLocation={null}
+          biasLocation={eventLocation}
           pendingImageName={newRaceImageName}
           pendingGpxName={newRaceGpxName}
           onChange={onNewRaceFormChange}
@@ -162,63 +158,28 @@ export function FormatsEditor({
           gpxTitle="GPX du format"
           gpxStatus={newRaceGpxName ? "GPX pret a etre importe apres creation." : "Ajoute un GPX pour preremplir les stats et voir le parcours."}
           hasGpx={Boolean(newRaceGpxName)}
+          inheritedLocationText={eventLocationText}
         />
       ) : activeRace ? (
-        <div className="space-y-4">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={onDuplicateRace} disabled={status === "saving"}>
-              Dupliquer ce format
-            </Button>
-            <Button type="button" variant="outline" onClick={onPreviewRace}>
-              Previsualiser ce format
-            </Button>
-            <Button type="button" variant="ghost" onClick={onToggleRaceDetails}>
-              {showRaceDetails ? "Masquer les details" : "Afficher les details"}
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              onClick={onDeleteRace}
-              disabled={status === "saving" || status === "uploading"}
-              className="border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
-            >
-              Supprimer ce format
-            </Button>
-          </div>
-          {showRaceDetails ? (
-            <RaceForm
-              title="Details du format"
-              values={raceForm}
-              biasLocation={raceForm.organizerDetails.raceLocation}
-              onChange={(values) => onRaceFormChange(values)}
-              onSubmit={(event) => event.preventDefault()}
-              onImageChange={onUploadRaceImage}
-              onGpxChange={onUploadGpx}
-              submitLabel=""
-              disabled={status === "saving" || status === "uploading"}
-              hideSubmit
-              gpxPreview={gpxPreview}
-              gpxTitle="GPX source"
-              gpxStatus={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
-              hasGpx={Boolean(activeRace.gpx_storage_path)}
-              editionStartDate={editionStartDate}
-            />
-          ) : (
-            <OrganizerGpxPanel
-              title="GPX source"
-              statusText={activeRace.gpx_storage_path ? "GPX source present." : "Aucun GPX source pour ce format."}
-              fileLabel={activeRace.gpx_storage_path ? "Remplacer le GPX source" : "Ajouter un GPX"}
-              onGpxChange={onUploadGpx}
-              disabled={status === "uploading"}
-              preview={gpxPreview}
-              activeRace={activeRace}
-              hasGpx={Boolean(activeRace.gpx_storage_path)}
-              pendingImageName={null}
-              thumbnailUrl={raceForm.thumbnailUrl}
-              onImageChange={onUploadRaceImage}
-            />
-          )}
-        </div>
+        <RaceForm
+          key={activeRace.id}
+          title="Détails du format"
+          values={raceForm}
+          biasLocation={eventLocation}
+          onChange={(values) => onRaceFormChange(values)}
+          onSubmit={(event) => event.preventDefault()}
+          onImageChange={onUploadRaceImage}
+          onGpxChange={onUploadGpx}
+          submitLabel=""
+          disabled={status === "saving" || status === "uploading"}
+          hideSubmit
+          gpxPreview={gpxPreview}
+          gpxTitle="GPX source"
+          gpxStatus={activeRace.gpx_storage_path ? "GPX source présent." : "Aucun GPX source pour ce format."}
+          hasGpx={Boolean(activeRace.gpx_storage_path)}
+          editionStartDate={editionStartDate}
+          inheritedLocationText={eventLocationText}
+        />
       ) : (
         <p className="text-sm text-muted-foreground">Selectionne ou ajoute un format.</p>
       )}
@@ -245,6 +206,7 @@ function RaceForm({
   gpxStatus,
   hasGpx = false,
   editionStartDate,
+  inheritedLocationText,
 }: {
   title: string;
   values: RaceFormValues;
@@ -264,6 +226,7 @@ function RaceForm({
   gpxStatus?: string;
   hasGpx?: boolean;
   editionStartDate: string;
+  inheritedLocationText: string;
 }) {
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
@@ -271,10 +234,17 @@ function RaceForm({
   const missingRaceDate = requireRaceDate && !values.raceDate.trim();
   const previewRace = buildPreviewRace(values, hasGpx);
   const [usesCustomRaceDate, setUsesCustomRaceDate] = useState(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
+  const [usesCustomLocation, setUsesCustomLocation] = useState(
+    Boolean(values.locationText.trim() && values.locationText.trim() !== inheritedLocationText.trim())
+  );
 
   useEffect(() => {
     setUsesCustomRaceDate(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
   }, [editionStartDate, values.raceDate]);
+
+  useEffect(() => {
+    setUsesCustomLocation(Boolean(values.locationText.trim() && values.locationText.trim() !== inheritedLocationText.trim()));
+  }, [inheritedLocationText, values.locationText]);
 
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
@@ -341,23 +311,50 @@ function RaceForm({
                   <p className="text-xs text-muted-foreground">Date héritée : {editionStartDate}</p>
                 )}
               </div>
-              <div className="lg:col-span-8">
-                <AddressAutocompleteField
-                  label="Lieu du format"
-                  value={values.locationText}
-                  location={values.organizerDetails.raceLocation}
-                  biasLocation={biasLocation ?? undefined}
-                  onChange={(value) => onChange({ ...values, locationText: value })}
-                  onLocationChange={(raceLocation) =>
-                    onChange({
-                      ...values,
-                      organizerDetails: {
-                        ...values.organizerDetails,
-                        raceLocation,
-                      },
-                    })
-                  }
-                />
+              <div className="space-y-2 lg:col-span-8">
+                {inheritedLocationText ? (
+                  <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                    <input
+                      type="checkbox"
+                      checked={usesCustomLocation}
+                      onChange={(event) => {
+                        setUsesCustomLocation(event.target.checked);
+                        if (!event.target.checked) {
+                          onChange({
+                            ...values,
+                            locationText: "",
+                            organizerDetails: {
+                              ...values.organizerDetails,
+                              raceLocation: { ...defaultOrganizerRaceDetails.raceLocation },
+                            },
+                          });
+                        }
+                      }}
+                      disabled={disabled}
+                    />
+                    Lieu différent de l&apos;événement
+                  </label>
+                ) : null}
+                {usesCustomLocation || !inheritedLocationText ? (
+                  <AddressAutocompleteField
+                    label="Lieu du format"
+                    value={values.locationText}
+                    location={values.organizerDetails.raceLocation}
+                    biasLocation={biasLocation ?? undefined}
+                    onChange={(value) => onChange({ ...values, locationText: value })}
+                    onLocationChange={(raceLocation) =>
+                      onChange({
+                        ...values,
+                        organizerDetails: {
+                          ...values.organizerDetails,
+                          raceLocation,
+                        },
+                      })
+                    }
+                  />
+                ) : (
+                  <p className="text-xs text-muted-foreground">Lieu hérité : {inheritedLocationText}</p>
+                )}
               </div>
             </div>
           </div>

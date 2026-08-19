@@ -13,8 +13,7 @@ export type OrganizerModuleId =
   | "bibPickup"
   | "access"
   | "products"
-  | "services"
-  | "preview";
+  | "services";
 
 export type OrganizerModuleLevel = "required" | "recommended" | "optional";
 export type OrganizerModuleStatus = "empty" | "incomplete" | "complete";
@@ -169,7 +168,7 @@ const buildFormatProgressModules = (
   return [
     {
       id: "formats",
-      title: "Identité",
+      title: "Course",
       description: "Nom, distance, dénivelé et GPX.",
       level: "required",
       status: isRaceIdentityComplete(race) ? "complete" : hasText(race.name) ? "incomplete" : "empty",
@@ -419,14 +418,6 @@ export function buildOrganizerCompletion(
         1
       ),
       countLabel: hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
-    },
-    {
-      id: "preview",
-      title: "Prévisualisation coureur",
-      description: "Version simple de ce que verra un coureur.",
-      level: "optional",
-      status: isEventCompleteForProgress(event) ? "complete" : "incomplete",
-      countLabel: isEventCompleteForProgress(event) ? "Prêt" : "Essentiel manquant",
     },
   ];
 
