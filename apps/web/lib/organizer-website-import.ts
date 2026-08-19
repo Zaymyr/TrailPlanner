@@ -112,6 +112,15 @@ type GenericRaceCandidate = OrganizerWebsiteImportRace & {
   score: number;
 };
 
+type EmbeddedGeoJsonTrack = {
+  title: string | null;
+  detectedYear: string | null;
+  gpxContent: string;
+  distanceKm: number;
+  elevationGainM: number;
+  elevationLossM: number;
+};
+
 const UTMB_HOST_PATTERN = /(^|\.)utmb\.world$/i;
 const TRACE_DE_TRAIL_HOST_PATTERN = /(^|\.)tracedetrail\.fr$/i;
 const FRENCH_MONTHS: Record<string, number> = {
@@ -215,6 +224,8 @@ const stripHtml = (value: string | null | undefined) => {
 const toPlainText = (html: string) =>
   decodeHtmlEntities(
     html
+      .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, " ")
       .replace(/<(br|\/p|\/div|\/li|\/section|\/article|\/h\d)[^>]*>/gi, "\n")
       .replace(/<[^>]+>/g, " ")
       .replace(/\r/g, "")
@@ -865,6 +876,188 @@ const fetchGenericHtmlPage = async (url: string): Promise<GenericPageCandidate> 
   };
 };
 
+const escapeXml = (value: string) =>
+  value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+
+const extractJsonArguments = (html: string, functionName: string) => {
+  const results: string[] = [];
+  let searchFrom = 0;
+  while (searchFrom < html.length) {
+    const callIndex = html.indexOf(`${functionName}(`, searchFrom);
+    if (callIndex < 0) break;
+    const objectStart = html.indexOf("{", callIndex + functionName.length + 1);
+    if (objectStart < 0 || objectStart - callIndex > 80) {
+      searchFrom = callIndex + functionName.length;
+      continue;
+    }
+
+    let depth = 0;
+    let inString = false;
+    let escaped = false;
+    for (let index = objectStart; index < html.length; index += 1) {
+      const character = html[index];
+      if (inString) {
+        if (escaped) escaped = false;
+        else if (character === "\\") escaped = true;
+        else if (character === '"') inString = false;
+        continue;
+      }
+      if (character === '"') {
+        inString = true;
+        continue;
+      }
+      if (character === "{") depth += 1;
+      if (character !== "}") continue;
+      depth -= 1;
+      if (depth !== 0) continue;
+      results.push(html.slice(objectStart, index + 1));
+      searchFrom = index + 1;
+      break;
+    }
+    if (searchFrom <= callIndex) searchFrom = callIndex + functionName.length;
+  }
+  return results;
+};
+
+const extractEmbeddedGeoJsonTracks = (page: GenericPageCandidate): EmbeddedGeoJsonTrack[] => {
+  const tracks: EmbeddedGeoJsonTrack[] = [];
+  for (const rawJson of extractJsonArguments(page.html, "load_json")) {
+    let collection: unknown;
+    try {
+      collection = JSON.parse(rawJson);
+    } catch {
+      continue;
+    }
+    if (!isRecord(collection) || !Array.isArray(collection.features)) continue;
+
+    for (const feature of collection.features) {
+      if (!isRecord(feature) || !isRecord(feature.geometry)) continue;
+      const geometryType = toNonEmptyString(feature.geometry.type);
+      const rawCoordinates = feature.geometry.coordinates;
+      const rawSegments = geometryType === "LineString" ? [rawCoordinates] : geometryType === "MultiLineString" ? rawCoordinates : null;
+      if (!Array.isArray(rawSegments)) continue;
+
+      const segments = rawSegments
+        .map((rawSegment) => {
+          if (!Array.isArray(rawSegment)) return [];
+          return rawSegment.flatMap((coordinate) => {
+            if (!Array.isArray(coordinate) || coordinate.length < 2) return [];
+            const longitude = toFiniteNumber(coordinate[0]);
+            const latitude = toFiniteNumber(coordinate[1]);
+            const elevation = toFiniteNumber(coordinate[2]);
+            if (
+              longitude === null ||
+              latitude === null ||
+              longitude < -180 ||
+              longitude > 180 ||
+              latitude < -90 ||
+              latitude > 90
+            ) {
+              return [];
+            }
+            return [{ longitude, latitude, elevation }];
+          });
+        })
+        .filter((segment) => segment.length >= 2);
+      if (segments.length === 0) continue;
+
+      const properties = isRecord(feature.properties) ? feature.properties : {};
+      const title = toNonEmptyString(properties.title);
+      const gpxContent = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Pace Yourself embedded GeoJSON importer" xmlns="http://www.topografix.com/GPX/1/1"><trk>${
+        title ? `<name>${escapeXml(title)}</name>` : ""
+      }${segments
+        .map(
+          (segment) =>
+            `<trkseg>${segment
+              .map(
+                (point) =>
+                  `<trkpt lat="${point.latitude}" lon="${point.longitude}">${
+                    point.elevation === null ? "" : `<ele>${point.elevation}</ele>`
+                  }</trkpt>`
+              )
+              .join("")}</trkseg>`
+        )
+        .join("")}</trk></gpx>`;
+
+      try {
+        const parsed = parseGpx(gpxContent);
+        const detectedYear =
+          title?.match(/\b(20\d{2})\b/)?.[1] ?? toNonEmptyString(properties.time)?.match(/\b(20\d{2})\b/)?.[1] ?? null;
+        tracks.push({
+          title,
+          detectedYear,
+          gpxContent,
+          distanceKm: Number(parsed.stats.distanceKm.toFixed(2)),
+          elevationGainM: Math.round(parsed.stats.gainM),
+          elevationLossM: Math.round(parsed.stats.lossM),
+        });
+      } catch {
+        continue;
+      }
+    }
+  }
+
+  return tracks;
+};
+
+const pickYearlessEventDate = (page: GenericPageCandidate, year: string | null) => {
+  if (!year) return null;
+  const candidates = Array.from(page.text.matchAll(/\b(\d{1,2})\s+([A-Za-zÀ-ÿ]+)\b/g)).flatMap((match) => {
+    const date = normalizeDate(`${match[1]} ${match[2]} ${year}`);
+    if (!date) return [];
+    const start = Math.max(0, (match.index ?? 0) - 120);
+    const end = Math.min(page.text.length, (match.index ?? 0) + match[0].length + 120);
+    return [{ date, score: scoreEventDateContext(page.text.slice(start, end)) }];
+  });
+  return candidates.sort((left, right) => right.score - left.score)[0]?.date ?? null;
+};
+
+const extractEmbeddedPageLocation = (page: GenericPageCandidate) => {
+  const primaryHeading = sanitizeRaceName(page.html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? null);
+  return Array.from(page.html.matchAll(/<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>/gi))
+    .map((match) => sanitizeRaceName(match[1]))
+    .find(
+      (heading): heading is string =>
+        Boolean(heading) &&
+        normalizeComparableName(heading ?? "") !== normalizeComparableName(primaryHeading ?? "") &&
+        !/\d|km|d\+|date|heure|parcours|course|trail|images?|inscription/i.test(heading ?? "")
+    ) ?? null;
+};
+
+const buildCandidatesFromEmbeddedGeoJson = (
+  page: GenericPageCandidate,
+  tracks: EmbeddedGeoJsonTrack[],
+  eventDate: string | null,
+  eventLocation: string | null,
+  eventImage: string | null
+) => {
+  const primaryHeading = sanitizeRaceName(page.html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] ?? null);
+  return tracks.map((track, index) => {
+    const trackDistance = parseDistanceKm(track.title);
+    const rawName =
+      tracks.length === 1 ? primaryHeading ?? track.title ?? `${track.distanceKm} km` : track.title ?? `${track.distanceKm} km`;
+    const name = formatRaceDisplayName(rawName, trackDistance ?? track.distanceKm);
+    return buildGenericRaceCandidate({
+      key: `race:embedded:${index}:${normalizeComparableName(name)}`,
+      name,
+      seriesName: name,
+      raceDate: eventDate ?? pickYearlessEventDate(page, track.detectedYear),
+      locationText: eventLocation,
+      distanceKm: track.distanceKm,
+      elevationGainM: track.elevationGainM,
+      elevationLossM: track.elevationLossM,
+      externalSiteUrl: page.url,
+      thumbnailUrl: eventImage,
+      gpxContent: track.gpxContent,
+      gpxStorageLabel: "embedded-geojson",
+      hasReliableGpx: true,
+      detectedYear: track.detectedYear,
+      sourceUrl: page.url,
+      sourceLabel: "embedded-geojson",
+    });
+  });
+};
+
 const extractCandidatePageUrls = (html: string, baseUrl: string) => {
   const base = new URL(baseUrl);
   const scoredUrls = new Map<string, number>();
@@ -1110,6 +1303,65 @@ const parseCourseCandidatesFromHeadings = (
   return races;
 };
 
+const parseCourseCandidatesFromTabPanels = (
+  page: GenericPageCandidate,
+  eventDate: string | null,
+  eventLocation: string | null,
+  eventImage: string | null
+) => {
+  const tabLabels = new Map<string, string>();
+  for (const match of page.html.matchAll(/<[^>]+\brole=["']tab["'][^>]*>([\s\S]*?)<\/[^>]+>/gi)) {
+    const tag = match[0].slice(0, match[0].indexOf(">") + 1);
+    const controlsId = tag.match(/\baria-controls=["']([^"']+)["']/i)?.[1];
+    const label = sanitizeRaceName(match[1]);
+    if (controlsId && label) tabLabels.set(`tab-${controlsId}`, label);
+  }
+
+  const panels = Array.from(page.html.matchAll(/<[^>]+\brole=["']tabpanel["'][^>]*>/gi));
+  return panels.flatMap((panel, index) => {
+    const labelledBy = panel[0].match(/\baria-labelledby=["']([^"']+)["']/i)?.[1];
+    const rawName = labelledBy ? tabLabels.get(labelledBy) ?? null : null;
+    if (!rawName) return [];
+
+    const sectionStart = panel.index ?? 0;
+    const sectionEnd = panels[index + 1]?.index ?? page.html.length;
+    const sectionHtml = page.html.slice(sectionStart, sectionEnd);
+    const sectionText = toPlainText(sectionHtml);
+    const distanceKm = parseDistanceKm(sectionText, rawName);
+    if (distanceKm === null) return [];
+
+    const distanceMatch = sectionText.match(/\d{1,3}(?:[.,]\d+)?\s*km/i);
+    const metricsAfterDistance = distanceMatch
+      ? Array.from(sectionText.slice((distanceMatch.index ?? 0) + distanceMatch[0].length).matchAll(/\b(\d{2,5})\s*m\b/gi))
+          .map((match) => toFiniteNumber(match[1]))
+          .filter((value): value is number => value !== null)
+      : [];
+    const name = rawName;
+    const gpxUrl = findGpxUrls(sectionHtml, page.url)[0] ?? null;
+
+    return [
+      buildGenericRaceCandidate({
+        key: `race:${normalizeComparableName(name)}`,
+        name,
+        seriesName: name,
+        raceDate: eventDate,
+        locationText: eventLocation,
+        distanceKm,
+        elevationGainM: parseElevationMeters(sectionText) ?? metricsAfterDistance[0] ?? null,
+        elevationLossM: metricsAfterDistance[1] ?? null,
+        externalSiteUrl: page.url,
+        thumbnailUrl: eventImage,
+        aidStations: parseAidStationsFromText(sectionText),
+        detectedYear: eventDate?.slice(0, 4) ?? null,
+        sourceUrl: page.url,
+        sourceLabel: "tab-panel",
+        gpxUrl,
+        gpxStorageLabel: gpxUrl ? "generic" : null,
+      }),
+    ];
+  });
+};
+
 const normalizeRaceIdentityName = (value: string) =>
   normalizeComparableName(value)
     .replace(/\b\d{1,3}(?:[.,]\d+)?\s*km\b/g, " ")
@@ -1121,12 +1373,19 @@ const normalizeRaceIdentityName = (value: string) =>
 
 const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandidate) => {
   if (left.key === right.key) return true;
+  const distanceToleranceKm =
+    left.distanceKm !== null && right.distanceKm !== null
+      ? Math.max(0.5, Math.min(left.distanceKm, right.distanceKm) * 0.01)
+      : 0;
   if (
     left.distanceKm !== null &&
     right.distanceKm !== null &&
-    Math.abs(left.distanceKm - right.distanceKm) <= 0.2
+    Math.abs(left.distanceKm - right.distanceKm) <= distanceToleranceKm
   ) {
     return true;
+  }
+  if (left.distanceKm !== null && right.distanceKm !== null && Math.abs(left.distanceKm - right.distanceKm) > 1) {
+    return false;
   }
   const leftIdentity = normalizeRaceIdentityName(left.name);
   const rightIdentity = normalizeRaceIdentityName(right.name);
@@ -1172,7 +1431,13 @@ const mergeAidStations = (
 };
 
 const genericSourceRank = (sourceLabel: string) => {
-  if (sourceLabel === "jsonld" || sourceLabel === "named-prose" || /^h[1-6]$/i.test(sourceLabel)) return 3;
+  if (
+    sourceLabel === "jsonld" ||
+    sourceLabel === "named-prose" ||
+    sourceLabel === "tab-panel" ||
+    sourceLabel === "embedded-geojson" ||
+    /^h[1-6]$/i.test(sourceLabel)
+  ) return 3;
   if (sourceLabel.startsWith("line:")) return 1;
   return 2;
 };
@@ -1314,7 +1579,11 @@ const hydrateGenericRaceGpx = async (candidates: GenericRaceCandidate[]) => {
 
   return hydrated.map(({ sourceLabel, sourceUrl, detectedYear: _detectedYear, gpxUrl, score: _score, ...race }) => {
     const confidence: OrganizerWebsiteImportConfidence =
-      sourceLabel === "jsonld" || sourceLabel === "named-prose" || /^h[1-6]$/i.test(sourceLabel)
+      sourceLabel === "jsonld" ||
+      sourceLabel === "named-prose" ||
+      sourceLabel === "tab-panel" ||
+      sourceLabel === "embedded-geojson" ||
+      /^h[1-6]$/i.test(sourceLabel)
         ? "high"
         : sourceLabel.startsWith("line:")
           ? "low"
@@ -1324,11 +1593,15 @@ const hydrateGenericRaceGpx = async (candidates: GenericRaceCandidate[]) => {
         ? "Données structurées"
         : sourceLabel === "named-prose"
           ? "Règlement ou page pratique"
-          : /^h[1-6]$/i.test(sourceLabel)
-            ? "Page dédiée au format"
-            : sourceLabel.startsWith("line:")
-              ? "Mention dans la page"
-              : "Page du site";
+          : sourceLabel === "tab-panel"
+            ? "Bloc de format de la page"
+            : sourceLabel === "embedded-geojson"
+              ? "Tracé GeoJSON intégré"
+              : /^h[1-6]$/i.test(sourceLabel)
+                ? "Page dédiée au format"
+                : sourceLabel.startsWith("line:")
+                  ? "Mention dans la page"
+                  : "Page du site";
 
     race.assessment = buildRaceAssessment(race, {
       url: sourceUrl,
@@ -1421,9 +1694,23 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
   const normalizedUrl = parsedUrl.toString();
   const rootPage = await fetchGenericHtmlPage(normalizedUrl);
   const pages = [rootPage];
+  const rootEmbeddedTracks = extractEmbeddedGeoJsonTracks(rootPage);
   const normalizedFormatUrls = normalizeFormatUrls(formatUrls).filter((formatUrl) => formatUrl !== normalizedUrl);
+  const discoveredFormatUrls = normalizedFormatUrls.length === 0
+    ? extractCandidatePageUrls(rootPage.html, normalizedUrl)
+        .slice(1)
+        .filter((candidateUrl) => {
+          if (rootEmbeddedTracks.length === 0) return true;
+          const pathname = new URL(candidateUrl).pathname;
+          return !/\/course\/|\/les-epreuves\/?$/i.test(pathname);
+        })
+    : [];
+  const requestedFormatUrls = Array.from(new Set([...normalizedFormatUrls, ...discoveredFormatUrls])).slice(
+    0,
+    GENERIC_PAGE_LIMIT - 1
+  );
   const formatPages = await Promise.all(
-    normalizedFormatUrls.map((formatUrl) => fetchGenericHtmlPage(formatUrl).catch(() => null))
+    requestedFormatUrls.map((formatUrl) => fetchGenericHtmlPage(formatUrl).catch(() => null))
   );
   const resolvedFormatPages = formatPages.filter((page): page is GenericPageCandidate => page !== null);
 
@@ -1442,10 +1729,19 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
       title
     ) ?? "Course";
   const eventName = extractGenericEventName(pages, fallbackEventName);
-  const eventLocation = extractGenericLocation(pages, allJsonLdEvents);
+  const eventLocation = extractGenericLocation(pages, allJsonLdEvents) ??
+    (rootEmbeddedTracks.length > 0 ? extractEmbeddedPageLocation(rootPage) : null);
 
+  const embeddedPageDate = pickYearlessEventDate(
+    rootPage,
+    rootEmbeddedTracks.map((track) => track.detectedYear).find(Boolean) ?? null
+  );
   const eventDate =
-    pickFirst(normalizeDate(allJsonLdEvents[0]?.startDate), pickBestEventDate(pages), normalizeDate(rootPage.html.match(/(\d{4}-\d{2}-\d{2})/)?.[1])) ??
+    pickFirst(
+      embeddedPageDate,
+      normalizeDate(allJsonLdEvents[0]?.startDate),
+      pickBestEventDate(pages)
+    ) ??
     null;
   const preferredYear = eventDate?.slice(0, 4) ?? null;
   const eventSiteUrl = pickFirst(absoluteUrl(normalizedUrl, toNonEmptyString(allJsonLdEvents[0]?.url)), normalizedUrl);
@@ -1456,7 +1752,21 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
     ...parseCourseCandidatesFromHeadings(page, eventDate, eventLocation, ogImage),
     ...parseCourseCandidatesFromNamedProse(page, eventDate, eventLocation, ogImage),
     ...parseCourseCandidatesFromLines(page, eventDate, eventLocation, ogImage),
+    ...buildCandidatesFromEmbeddedGeoJson(page, extractEmbeddedGeoJsonTracks(page), eventDate, eventLocation, ogImage),
   ]);
+  const rootTabCandidates = parseCourseCandidatesFromTabPanels(rootPage, eventDate, eventLocation, ogImage);
+  const rootEmbeddedCandidates = buildCandidatesFromEmbeddedGeoJson(
+    rootPage,
+    rootEmbeddedTracks,
+    eventDate,
+    eventLocation,
+    ogImage
+  );
+  const relevantGenericCandidates = rootEmbeddedCandidates.length > 0
+    ? genericCandidates.filter((candidate) =>
+        rootEmbeddedCandidates.some((rootCandidate) => raceCandidatesMatch(rootCandidate, candidate))
+      )
+    : genericCandidates;
 
   const merged = mergeRaceCandidates(
     [
@@ -1467,7 +1777,9 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
           sourceLabel: "jsonld",
         })
       ),
-      ...genericCandidates,
+      ...relevantGenericCandidates,
+      ...rootTabCandidates,
+      ...rootEmbeddedCandidates,
     ],
     preferredYear
   );
@@ -1546,11 +1858,14 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
     ],
     warnings: [
       ...merged.warnings,
-      ...(normalizedFormatUrls.length > resolvedFormatPages.length
+      ...(requestedFormatUrls.length > resolvedFormatPages.length
         ? ["Certaines URLs de format n'ont pas pu etre analysees."]
         : []),
-      ...(normalizedFormatUrls.length === 0
-        ? ["Ajoute une URL par format pour analyser les parcours. La page generale est reservee aux informations evenement."]
+      ...(normalizedFormatUrls.length === 0 &&
+      discoveredFormatUrls.length === 0 &&
+      rootTabCandidates.length === 0 &&
+      rootEmbeddedCandidates.length === 0
+        ? ["Aucun bloc de format ni page interne pertinente n'a ete detecte. Ajoute une URL par format pour completer l'analyse."]
         : []),
     ],
     canApply: races.length > 0,

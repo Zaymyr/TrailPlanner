@@ -37,6 +37,153 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     vi.restoreAllMocks();
   });
 
+  it("extracts formats embedded in accessible tab panels on the event page", async () => {
+    const traceResult = (traceId: number, courseName: string, distanceKm: number, elevationGainM: number, elevationLossM: number) => ({
+      traceId,
+      normalizedUrl: `https://tracedetrail.fr/fr/trace/${traceId}`,
+      courseName,
+      eventName: "Trail des Rois Maudits",
+      officialSiteUrl: "https://trail.example/",
+      thumbnailUrl: null,
+      distanceKm,
+      elevationGainM,
+      elevationLossM,
+      date: "2026-09-27",
+      location: "Les Andelys",
+      aidStations: [],
+      elevationProfile: [],
+      gpxContent: "<gpx />",
+      gpxAccessMode: "embedded" as const,
+    });
+    vi.mocked(getTraceDeTrailRaceData).mockImplementation(async (url) =>
+      String(url).endsWith("/254554")
+        ? traceResult(254554, "TRM 60km", 60.4, 2500, 2410)
+        : traceResult(290616, "TRM 44km", 43.6, 1810, 1840)
+    );
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      if (String(input) !== "https://trail.example/") throw new Error(`Unexpected URL ${input}`);
+      return htmlResponse(`
+        <html><head><title>Trail des Rois Maudits</title></head><body>
+          <p>Dimanche 27 septembre 2026</p>
+          <div role="tab" aria-controls="panel-60"><span>TRM 60km</span></div>
+          <div role="tab" aria-controls="panel-44"><span>TRM 44km</span></div>
+          <div role="tabpanel" aria-labelledby="tab-panel-60">
+            <p>60.4km</p><p>2500m</p><p>2410m</p>
+            <a href="https://tracedetrail.fr/fr/trace/254554">GPX TRM60</a>
+          </div>
+          <div role="tabpanel" aria-labelledby="tab-panel-44">
+            <p>43.6km</p><p>1810m</p><p>1840m</p>
+            <a href="https://tracedetrail.fr/fr/trace/290616">GPX TRM44</a>
+          </div>
+        </body></html>
+      `);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://trail.example/");
+
+    expect(preview.races.map((race) => race.name)).toEqual(["TRM 44km", "TRM 60km"]);
+    expect(preview.races.map((race) => race.distanceKm)).toEqual([43.6, 60.4]);
+    expect(preview.races.map((race) => race.elevationGainM)).toEqual([1810, 2500]);
+    expect(preview.races.map((race) => race.elevationLossM)).toEqual([1840, 2410]);
+    expect(preview.races.every((race) => race.hasReliableGpx)).toBe(true);
+  });
+
+  it("discovers a bounded set of same-origin format pages when none are supplied", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://chouette.example/") {
+        return htmlResponse(`
+          <html><head><title>Les Foulees Fleurinoises</title></head><body>
+            <p>Dimanche 27 septembre 2026</p>
+            <a href="/reglement/">Reglement</a>
+            <a href="/les-parcours/">Les parcours</a>
+            <a href="https://elsewhere.example/formats">Formats externes</a>
+          </body></html>
+        `);
+      }
+      if (url === "https://chouette.example/reglement/") {
+        return htmlResponse(`
+          <p>REGLEMENT 2026 : Les Foulees Fleurinoises</p>
+          <p>La « Fleurinoise » d'une longueur de 18 km et la « P'tite Fleurinoise » d'une longueur de 12 km.</p>
+          <p>1 ravitaillement pour la « P'tite Fleurinoise » au 8eme kilometre et 2 ravitaillements sur la « Fleurinoise » au 10eme & 15eme kilometre.</p>
+        `);
+      }
+      if (url === "https://chouette.example/les-parcours/") return htmlResponse("<p>Parcours 2026</p>");
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://chouette.example/");
+
+    expect(preview.races.map((race) => race.name)).toEqual(["P'tite Fleurinoise", "Fleurinoise"]);
+    expect(preview.races.map((race) => race.distanceKm)).toEqual([12, 18]);
+    expect(fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("rebuilds a GPX from an embedded Waymark GeoJSON trace", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      htmlResponse(`
+        <html>
+          <head><title>Les Balcons de la Dordogne</title></head>
+          <body>
+            <h1>Les Balcons de la Dordogne</h1>
+            <h3>Argentat-sur-Dordogne</h3>
+            <h3>26 septembre à 10h00</h3>
+            <h3>29.33 km</h3>
+            <h3>1280 m</h3>
+            <script>
+              waymark_viewer.load_json({"type":"FeatureCollection","features":[{"type":"Feature","properties":{"title":"xtrail 2026 (29km) sur TraceDeTrail.fr","time":"2026-01-03T08:53:10+00:00"},"geometry":{"type":"LineString","coordinates":[[1.94398,45.10047,100],[1.95398,45.11047,300],[1.96398,45.12047,120]]}}]});
+            </script>
+          </body>
+        </html>
+      `)
+    );
+
+    const preview = await buildOrganizerWebsiteImportPreview(
+      "https://xtrail.example/course/les-balcons-de-la-dordogne/"
+    );
+
+    expect(preview.event.raceDate).toBe("2026-09-26");
+    expect(preview.races).toHaveLength(1);
+    expect(preview.races[0]).toMatchObject({
+      name: "Les Balcons de la Dordogne",
+      raceDate: "2026-09-26",
+      hasReliableGpx: true,
+      gpxStorageLabel: "embedded-geojson",
+      missingFields: [],
+    });
+    expect(preview.races[0].distanceKm).toBeGreaterThan(1);
+    expect(preview.races[0].elevationGainM).toBeGreaterThan(0);
+    expect(preview.races[0].gpxContent).toContain('<trkpt lat="45.10047" lon="1.94398"><ele>100</ele></trkpt>');
+    expect(preview.races[0].assessment?.findings.find((finding) => finding.key === "gpx")).toMatchObject({
+      value: "GPX exploitable",
+      confidence: "high",
+      sourceLabel: "Trace GPX",
+    });
+  });
+
+  it("groups complementary detections by a practical distance tolerance", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://distance.example/") {
+        return htmlResponse("<html><head><title>Trail Distance</title></head><body><p>26 septembre 2026</p></body></html>");
+      }
+      if (url === "https://distance.example/course") {
+        return htmlResponse("<h1>Les Balcons</h1><p>29.33 km - D+ 1280</p>");
+      }
+      if (url === "https://distance.example/reglement") {
+        return htmlResponse('<p>La « Course des Balcons » d\'une longueur de 29,09 km. Ravitaillement au 15eme kilometre.</p>');
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://distance.example/", {
+      formatUrls: ["https://distance.example/course", "https://distance.example/reglement"],
+    });
+
+    expect(preview.races).toHaveLength(1);
+    expect(preview.races[0].distanceKm).toBe(29.33);
+  });
+
   it("uses explicit format pages and keeps general-page logistics separate", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);

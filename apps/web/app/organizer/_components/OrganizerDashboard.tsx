@@ -1449,7 +1449,9 @@ export function OrganizerDashboard({
       }));
 
   const websiteImportUsefulRaces =
-    websiteImportPreview?.races.filter((race) => (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE) ?? [];
+    websiteImportPreview?.races
+      .filter((race) => (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE)
+      .sort((left, right) => (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY)) ?? [];
   const websiteImportDiscardedRaceCount = (websiteImportPreview?.races.length ?? 0) - websiteImportUsefulRaces.length;
 
   const applyWebsiteImport = async () => {
@@ -2017,7 +2019,10 @@ export function OrganizerDashboard({
 
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <p className="text-sm font-semibold text-foreground">Formats a verifier</p>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Formats regroupés par distance</p>
+                      <p className="text-xs text-muted-foreground">Les informations trouvées sur plusieurs pages sont réunies dans le même format.</p>
+                    </div>
                     {websiteImportDiscardedRaceCount > 0 ? (
                       <p className="text-xs text-muted-foreground">
                         {websiteImportDiscardedRaceCount} resultat(s) sous {WEBSITE_IMPORT_MINIMUM_SCORE}/100 masque(s)
@@ -2026,6 +2031,9 @@ export function OrganizerDashboard({
                   </div>
                   {websiteImportUsefulRaces.map((race) => {
                     const selection = websiteImportSelections[race.key] ?? { mode: "ignore", targetRaceId: null };
+                    const foundFindings = race.assessment?.findings.filter((finding) => finding.value && finding.key !== "gpx") ?? [];
+                    const missingFindings = race.assessment?.findings.filter((finding) => !finding.value && finding.key !== "gpx") ?? [];
+                    const hasImportableGpx = Boolean(race.assessment?.findings.find((finding) => finding.key === "gpx")?.value);
                     const importRaceDate = websiteImportEventDate
                       ? race.raceDate
                         ? `${websiteImportEventDate.slice(0, 4)}${race.raceDate.slice(4)}`
@@ -2035,9 +2043,12 @@ export function OrganizerDashboard({
                       <div key={race.key} className="space-y-3 rounded-md border border-border/60 bg-card p-3">
                         <div className="flex flex-wrap items-start justify-between gap-2">
                           <div>
-                            <p className="font-medium text-foreground">{race.name}</p>
+                            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+                              {race.distanceKm !== null ? `Distance ${race.distanceKm} km` : "Distance à renseigner"}
+                            </p>
+                            <p className="mt-0.5 font-medium text-foreground">{race.name}</p>
                             <p className="text-sm text-muted-foreground">
-                              {[importRaceDate, race.locationText, race.distanceKm ? `${race.distanceKm} km` : null, race.elevationGainM !== null ? `D+ ${race.elevationGainM} m` : null]
+                              {[importRaceDate, race.locationText, race.elevationGainM !== null ? `D+ ${race.elevationGainM} m` : null, race.elevationLossM !== null ? `D− ${race.elevationLossM} m` : null]
                                 .filter(Boolean)
                                 .join(" · ") || "Informations partielles"}
                             </p>
@@ -2050,23 +2061,35 @@ export function OrganizerDashboard({
                               </div>
                             ) : null}
                             <div>
-                              {race.hasReliableGpx ? <p>GPX fiable détecté</p> : null}
                               {race.detectedAidStationCount > 0 ? <p>{race.detectedAidStationCount} ravito(s)</p> : null}
                             </div>
                           </div>
                         </div>
+                        <div
+                          className={`rounded-md border p-3 ${
+                            hasImportableGpx
+                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
+                              : "border-amber-300 bg-amber-50 text-amber-900"
+                          }`}
+                        >
+                          <p className="text-sm font-semibold">{hasImportableGpx ? "GPX récupéré" : "GPX manquant"}</p>
+                          <p className="mt-1 text-xs">
+                            {hasImportableGpx
+                              ? "Le tracé est importable. La distance, le D+ et le D− sont calculés depuis ce GPX."
+                              : race.hasReliableGpx
+                                ? "Des métriques fiables ont été trouvées, mais aucun fichier GPX importable n’a pu être récupéré. Ajoute-le manuellement si tu l’obtiens."
+                                : "Aucun fichier GPX ni aucune géométrie exploitable n’a été trouvé. Ajoute le GPX manuellement pour fiabiliser distance, D+ et D−."}
+                          </p>
+                        </div>
                         {race.assessment ? (
-                          <details className="group rounded-md border border-border/60 bg-background/60">
-                            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-foreground marker:content-none">
-                              <span>Voir les informations fiables</span>
-                              <span className="text-xs font-normal text-muted-foreground">
-                                {race.assessment.foundCount}/{race.assessment.totalCount} champs
-                              </span>
-                            </summary>
-                            <div className="space-y-2 border-t border-border/60 p-3">
-                              {race.assessment.findings
-                                .filter((finding) => finding.value)
-                                .map((finding) => (
+                          <div className="grid gap-3 lg:grid-cols-2">
+                            <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <p className="text-sm font-semibold text-emerald-900">Données trouvées</p>
+                                <p className="text-xs text-emerald-800">{foundFindings.length} champ(s)</p>
+                              </div>
+                              <div className="mt-3 space-y-2">
+                                {foundFindings.map((finding) => (
                                   <div key={finding.key} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
                                     <p className="font-medium text-foreground">{finding.label}</p>
                                     <div className="min-w-0 text-right text-muted-foreground">
@@ -2084,8 +2107,29 @@ export function OrganizerDashboard({
                                     </div>
                                   </div>
                                 ))}
+                              </div>
                             </div>
-                          </details>
+                            <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3">
+                              <div className="flex items-baseline justify-between gap-2">
+                                <p className="text-sm font-semibold text-amber-900">À renseigner manuellement</p>
+                                <p className="text-xs text-amber-800">{missingFindings.length} champ(s)</p>
+                              </div>
+                              {missingFindings.length > 0 ? (
+                                <div className="mt-3 space-y-2">
+                                  {missingFindings.map((finding) => (
+                                    <div key={finding.key} className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                                      <p className="font-medium text-foreground">{finding.label}</p>
+                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${finding.required ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
+                                        {finding.required ? "Obligatoire" : "Facultatif"}
+                                      </span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <p className="mt-3 text-sm text-emerald-800">Aucune donnée complémentaire à saisir.</p>
+                              )}
+                            </div>
+                          </div>
                         ) : null}
                         <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
                           <select
@@ -2141,9 +2185,6 @@ export function OrganizerDashboard({
                             </div>
                           )}
                         </div>
-                        {race.missingFields.length > 0 ? (
-                          <p className="text-xs font-medium text-amber-700">Champs manquants: {race.missingFields.join(", ")}</p>
-                        ) : null}
                         {race.warnings.length > 0 ? <p className="text-xs text-amber-800">{race.warnings.join(" ")}</p> : null}
                       </div>
                     );

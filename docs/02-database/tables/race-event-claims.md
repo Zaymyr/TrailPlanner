@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -96,7 +96,7 @@ Summary:
 - Once membership exists, yearly editions may be cloned directly as drafts. Claims remain only an access-control exception for pre-existing catalog events; publication review is separate.
 - The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks draft event, format, image, GPX, ravito, product, edition, and geocoded-location maintenance, while publication remains a separate admin-reviewed request. The synthesis shows read-only publication badges; draft formats stay hidden from runner preview. Scope navigation is immediate, but its silent background queue still persists through the same membership-gated routes; Ravito-module autosave writes race-level start/finish schedule details before station rows.
 - The same approved-only dashboard also owns the manual `Notifier les coureurs` action. Pending or rejected claims must not unlock organizer update history, follower counts, or runner-notification sends.
-- Website-import review remains inside that approved-only boundary. Its editable canonical edition-date correction changes only the selected `race_event_editions` row after membership/hash validation; neither the chosen date nor quality score proves organizer access.
+- Website-import review remains inside that approved-only boundary. Its distance-grouped found/manual field summary and GPX status are presentation only. The editable canonical edition-date correction changes only the selected `race_event_editions` row after membership/hash validation; neither the chosen date nor quality score proves organizer access.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.
