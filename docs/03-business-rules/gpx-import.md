@@ -151,6 +151,7 @@ Creating an empty yearly edition from the organizer dialog does not create or co
 
 For an existing format, a successful replacement also copies the exact returned parser values back into the active distance, D+, and D- form fields before and after the event refresh. The refresh keeps the format's edition year selected, so a stable race id does not leave the client form showing stale pre-import metrics while the `races` row already contains the new values.
 
+The organizer website-import review distinguishes a genuinely importable GPX from provider-backed metrics that have no recoverable file. Each distance-first format card displays `GPX récupéré` only when the preview assessment contains GPX content; otherwise it displays `GPX manquant` and asks for manual upload. Found distance/D+/D- remain visible with their sources, but they must not imply that a route file will be stored.
 The organizer-side runner preview has been removed, but the GPX map and elevation profile remain inside the always-expanded `Course` editor because they validate the uploaded source file and drive ravito interpolation.
 
 ## Review Flow Conflict
@@ -167,6 +168,7 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 ## Gotchas
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
+- Keep `GPX récupéré` tied to importable GPX content, not only to reliable provider metrics; some adapters can know distance/elevation without returning a file.
 - The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.
