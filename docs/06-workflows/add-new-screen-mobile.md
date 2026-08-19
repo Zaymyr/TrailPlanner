@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-08-18
+last_verified: 2026-08-19
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -54,6 +54,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Reuse `RaceEventSummaryCard` for catalog/onboarding race event rows so the onboarding race picker matches the Courses tab UX.
 - When extending the Courses tab, preserve its event-level route contract: favorites are tied to `race_events`, deep links such as `/(app)/catalog?eventId=<uuid>` should reopen the matching event sheet rather than inventing a second detail flow, and organizer-update history should stay compact on first render with any longer history loaded only after an explicit runner action.
 - Premium purchase UI that can trigger App Store review should keep the subscription summary plus both legal links close to the CTA: explicit title, duration, price, privacy policy, and Terms of Use (EULA).
+- Native changes require a new platform-compatible EAS Update runtime. The current release keeps iOS on `1.1.0` and uses the Android-specific `1.1.1` runtime for the Android 16 / API 36 binary.
 
 ## Steps
 
@@ -82,6 +83,8 @@ npm run test
 
 For native behavior, build/run with the development client profile from `apps/mobile/eas.json`.
 
+For Android production OTA updates, resolve and verify the Android runtime before publishing; the API 36 binary expects runtime `1.1.1` while the current iOS binary remains on `1.1.0`.
+
 For App Store subscription work, verify on iPhone and iPad layouts that the purchase surface still exposes functional privacy and Terms/EULA links without truncation.
 
 ## Do Not
@@ -101,6 +104,7 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 - Do not rely on a hidden parent route to hide every nested Expo Router screen. Register important dynamic children explicitly when adding plan/race utility screens, and choose separately whether the tab bar itself remains visible.
 - Do not switch the tab shell back to `backBehavior: 'initialRoute'` for hidden child flows unless you explicitly want Android hardware back to jump to the default tab instead of the previous screen.
 - Do not hide subscription legal links in a distant settings screen when the active surface is an in-app paywall; premium upgrade prompts should expose privacy and Terms/EULA directly.
+- Do not publish one undifferentiated OTA when platform runtimes differ. Publish and verify Android and iOS updates against their own resolved runtimes.
 
 ## Related Docs
 
