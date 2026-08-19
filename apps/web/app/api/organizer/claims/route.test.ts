@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, POST } from "./route";
 
+const adminState = vi.hoisted(() => ({ enabled: false }));
+
 const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) =>
   new Response(JSON.stringify(payload), {
     status: options.status ?? 200,
@@ -29,6 +31,7 @@ const claimsGetRequest = () =>
 
 describe("/api/organizer/claims", () => {
   beforeEach(() => {
+    adminState.enabled = false;
     vi.stubGlobal("fetch", vi.fn());
   });
 
@@ -225,6 +228,41 @@ describe("/api/organizer/claims", () => {
     expect(payload.publicationRequests).toHaveLength(1);
     expect(payload.memberships[0].event_id).toBe(eventId);
   });
+
+  it("returns every race event as a selectable organizer entry for admins", async () => {
+    adminState.enabled = true;
+    const mockFetch = vi.mocked(fetch);
+    const firstEventId = "11111111-1111-1111-1111-111111111111";
+    const secondEventId = "22222222-2222-2222-2222-222222222222";
+
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          { id: firstEventId, name: "A Trail", location: "Annecy", is_live: true },
+          { id: secondEventId, name: "Z Trail", location: "Chamonix", is_live: false },
+        ])
+      );
+
+    const response = await GET(claimsGetRequest());
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.memberships).toEqual([
+      expect.objectContaining({ id: firstEventId, event_id: firstEventId, role: "admin" }),
+      expect.objectContaining({ id: secondEventId, event_id: secondEventId, role: "admin" }),
+    ]);
+
+    const eventCatalogCall = mockFetch.mock.calls.find(([url]) =>
+      String(url).includes("/rest/v1/race_events?select=id,name,location,race_date,thumbnail_url,is_live&order=name.asc")
+    );
+    expect(eventCatalogCall).toBeDefined();
+    expect(String(eventCatalogCall?.[0])).not.toContain("is_live=eq.true");
+    expect(String(eventCatalogCall?.[0])).not.toContain("user_id=eq.");
+  });
 });
 
 vi.mock("../../../../lib/http", async (importOriginal) => {
@@ -249,5 +287,5 @@ vi.mock("../../../../lib/supabase", () => ({
       email: "organizer@example.com",
       appMetadata: { role: "user" },
     }),
-  isAdminUser: () => false,
+  isAdminUser: () => adminState.enabled,
 }));

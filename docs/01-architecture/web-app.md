@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-18
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -198,6 +198,8 @@ GPX detection accepts explicit `.gpx` URLs, anchors whose visible label identifi
 
 The v1 organizer portal is web-only:
 
+- For a trusted admin, `/api/organizer/claims` replaces the membership-limited selector data with every `race_events` row ordered by name, including drafts. The downstream Organizer detail and mutation routes use the same admin bypass through `requireEventOrganizer`; non-admin selector data remains membership-scoped.
+
 - `/organizers` creates a new non-live event through `POST /api/organizer/events` and immediately creates its active owner membership. It does not claim existing catalog events. With an official URL, the page redirects to `/organizer` with the new event selected and automatically opens its website-import analysis. The `/organizer` server page normalizes `eventId` and `importUrl` from its `searchParams` prop before passing them to the client dashboard, which keeps the route compatible with static generation without a client-side search-param bailout.
 - `/organizer` lets active event members maintain draft events, canonical `race_event_editions` date ranges, and attached formats. `Nouvelle édition` creates a start/end range and clones the selected source year as drafts through the compatibility `/api/organizer/edition-requests` URL; it no longer writes the retired review table. Event and format liveness stays read-only, and publication targets the current edition.
 - The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. Bib pickup accepts several event-level locations, each with several structured date/start/end slots; the legacy single location and free-text schedule remain readable as compatibility fallbacks. The editor calls `/api/location-search`, keeps the first bib location mirrored into the legacy text/location fields, and stores the complete location and slot list in `organizer_details` so runner previews can expose every address, GPS link, day, and time range.
@@ -282,6 +284,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Public plan share pages are standalone in `RootChrome` and force light theme variables so a visitor's saved dark preference does not affect crew readability.
 - Set `PLAN_SHARE_TOKEN_SECRET` if reusable crew links must survive a service-role key rotation without creating one new stable link on the next re-share.
 - Public crew-state updates use the URL token as the secret. Keep the route rate-limited and avoid adding fields that would let a crew viewer edit the private plan.
+
+- Admin access to the complete Organizer event selector must continue to come from trusted `app_metadata` through `isAdminUser`; never broaden the catalog response for ordinary authenticated users.
 
 ## Related Docs
 

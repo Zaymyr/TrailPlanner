@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-18
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -187,6 +187,8 @@ Equipment, bib pickup, and access are split by tab in the UI. Bib pickup stays e
 
 Organizer access is event-scoped. An active membership grants access to every format under that event and no other event.
 
+Admins are the explicit exception to the membership boundary: trusted `app_metadata` admin status lets the existing Organizer routes read and mutate any event. For admins, `/api/organizer/claims` supplies every `race_events` row, live or draft and ordered by name, to the existing event selector; ordinary users still receive only their active memberships.
+
 ## Publication and Completion Rules
 
 Creating a request through `/api/organizer/publication-requests` requires:
@@ -302,6 +304,8 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
 - Keep organizer dashboard copy properly UTF-8 encoded. The event/format editor renders accented French labels directly from source strings, so mojibake like `Ã©` on tabs, dates, or image labels is a user-facing bug, not a cosmetic doc issue.
 - Keep `/api/admin/organizer-claims` resilient to secondary-read failures. Missing yearly-edition rows or unavailable organizer-identity enrichment should degrade the admin tab gracefully instead of hiding the whole review queue.
+
+- The complete Organizer event list must remain admin-only. It may be returned only after the server verifies trusted `app_metadata`; non-admin users remain limited to active `race_event_organizers` memberships.
 
 ## Related Docs
 

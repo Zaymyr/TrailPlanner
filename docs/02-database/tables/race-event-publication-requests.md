@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-19
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -45,6 +45,7 @@ This table is the sole content-review gate for the current organizer creation fl
 - An authenticated user may insert and read their own request only when they have an active `race_event_organizers` membership for the event.
 - Only one pending request may exist per event.
 - Admin review is performed by a service-role API after trusted `app_metadata` admin authentication.
+- Admin access to every event through the Organizer selector does not synthesize publication requests; `/api/organizer/claims` still returns only the signed-in user's request rows, and the dedicated admin review route remains authoritative.
 - `review_race_event_publication_request` is invoker-security and executable only by `service_role`; approval rechecks readiness, publishes the event and complete formats, then closes the request atomically.
 
 ## Business Invariants
