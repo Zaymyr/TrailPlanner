@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-19
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -32,6 +32,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - `authenticated` insert/update grants and the organizer insert policy are removed.
 - `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now creates a canonical `race_event_editions` range and clones source-year formats into it; it does not insert this table.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
+- `/api/organizer/claims` continues to return only the current user's legacy edition-request rows even when its event selector is expanded to the full catalog for an admin; selector access does not revive or broaden this retired workflow.
 - Ordinary format saves, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
 
 ## Historical Columns
