@@ -94,7 +94,7 @@ where event_id = '<event-id>';
 - Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.
 - Only a confirmed addition should trigger the success toast and automatic scroll. Removing a favorite should preserve the current reading position, while a failed write restores the previous favorite order.
 - Favoriting affects ordering only; it must not change the compact organizer-update preview contract or trigger a separate history load by itself.
-- Reordering older announcements below mobile format actions, or deleting an announcement from organizer history, must not add or remove event favorites.
+- Moving or expanding the post-format organizer-announcement panel, or deleting an announcement from organizer history, must not add or remove event favorites.
 - Unread `NEW` badges come from `race_event_update_reads`, not from the favorite row.
 - Favorites follow the catalog event independently from Racebook publication; hiding every Racebook must not delete or hide the event favorite.
 

@@ -821,7 +821,7 @@ export default function CatalogScreen() {
     if (selectedEventUpdates.some((update) => update.id === selectedUpdateIdParam)) return;
     if (updatesLoadedEventId === selectedEvent.id || updatesLoadingMore) return;
 
-    void handleViewAllUpdates();
+    void handleViewAllUpdates(false);
   }, [selectedEvent, selectedEventUpdates, selectedUpdateIdParam, updatesLoadedEventId, updatesLoadingMore]);
 
   useEffect(() => {
@@ -836,16 +836,14 @@ export default function CatalogScreen() {
   const visibleSelectedEventUpdates = useMemo(() => {
     const visible = updatesExpanded
       ? selectedEventUpdates
-      : selectedEventUpdates.slice(0, ORGANIZER_UPDATES_PREVIEW_LIMIT);
+      : selectedEventUpdates.slice(0, 1);
     if (!selectedUpdateIdParam) return visible;
 
     const targetedUpdate = selectedEventUpdates.find((update) => update.id === selectedUpdateIdParam);
     if (!targetedUpdate) return visible;
+    if (!updatesExpanded) return [targetedUpdate];
     return [targetedUpdate, ...visible.filter((update) => update.id !== targetedUpdate.id)];
   }, [selectedEventUpdates, selectedUpdateIdParam, updatesExpanded]);
-
-  const featuredSelectedEventUpdate = visibleSelectedEventUpdates[0] ?? null;
-  const remainingSelectedEventUpdates = visibleSelectedEventUpdates.slice(1);
 
   useEffect(() => {
     if (!selectedEvent || !currentUserId) return;
@@ -870,13 +868,13 @@ export default function CatalogScreen() {
 
   const canLoadMoreUpdates =
     Boolean(selectedEvent) &&
-    selectedEventUpdates.length >= ORGANIZER_UPDATES_PREVIEW_LIMIT &&
-    (!updatesExpanded || updatesLoadedEventId !== selectedEvent?.id);
+    !updatesExpanded &&
+    (selectedEventUpdates.length > 1 || updatesLoadedEventId !== selectedEvent?.id);
 
-  async function handleViewAllUpdates() {
+  async function handleViewAllUpdates(expand = true) {
     if (!selectedEvent) return;
     if (updatesLoadedEventId === selectedEvent.id) {
-      setUpdatesExpanded(true);
+      setUpdatesExpanded(expand);
       return;
     }
 
@@ -885,7 +883,7 @@ export default function CatalogScreen() {
     try {
       const updates = await fetchRaceEventUpdates(selectedEvent.id);
       setSelectedEventUpdates(sortRaceEventUpdates(updates));
-      setUpdatesExpanded(true);
+      setUpdatesExpanded(expand);
       setUpdatesLoadedEventId(selectedEvent.id);
     } catch (caught) {
       Alert.alert(
@@ -1156,55 +1154,6 @@ export default function CatalogScreen() {
             <Text style={styles.sheetHint}>{t.catalog.chooseFormatHint}</Text>
 
             <ScrollView contentContainerStyle={styles.sheetContent}>
-              {selectedEventUpdates.length > 0 ? (
-                <View style={styles.eventUpdatesSection}>
-                  <View style={styles.eventUpdatesHeader}>
-                    <Text style={styles.eventUpdatesTitle}>{t.catalog.organizerUpdatesTitle}</Text>
-                    {canLoadMoreUpdates ? (
-                      <TouchableOpacity
-                        style={styles.eventUpdatesButton}
-                        onPress={() => {
-                          void handleViewAllUpdates();
-                        }}
-                        disabled={updatesLoadingMore}
-                      >
-                        <Text style={styles.eventUpdatesButtonText}>
-                          {updatesLoadingMore ? t.catalog.organizerUpdatesLoading : t.catalog.organizerUpdatesViewAll}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                  {[featuredSelectedEventUpdate].filter((update): update is RaceEventUpdate => update !== null).map((update) => {
-                    const raceName = update.race_id
-                      ? selectedEvent?.races.find((race) => race.id === update.race_id)?.name ?? null
-                      : null;
-                    const isNew = !readUpdateIds.has(update.id);
-                    return (
-                      <View
-                        key={update.id}
-                        style={[
-                          styles.eventUpdateCard,
-                          update.id === selectedUpdateIdParam && styles.eventUpdateCardTargeted,
-                        ]}
-                      >
-                        <View style={styles.eventUpdateMetaRow}>
-                          {raceName ? <Text style={styles.eventUpdateScope}>{raceName}</Text> : null}
-                          {isNew ? (
-                            <View style={styles.newBadge}>
-                              <Text style={styles.newBadgeText}>NEW</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <Text style={styles.eventUpdateMessage}>{update.message}</Text>
-                        {formatUpdateDate(update.created_at, locale) ? (
-                          <Text style={styles.eventUpdateDate}>{formatUpdateDate(update.created_at, locale)}</Text>
-                        ) : null}
-                      </View>
-                    );
-                  })}
-                </View>
-              ) : null}
-
               {selectedEvent?.races.map((race) => (
                 <RaceRow
                   key={race.id}
@@ -1236,9 +1185,25 @@ export default function CatalogScreen() {
                 />
               ))}
 
-              {remainingSelectedEventUpdates.length > 0 ? (
+              {visibleSelectedEventUpdates.length > 0 ? (
                 <View style={styles.eventUpdatesSection}>
-                  {remainingSelectedEventUpdates.map((update) => {
+                  <View style={styles.eventUpdatesHeader}>
+                    <Text style={styles.eventUpdatesTitle}>{t.catalog.organizerUpdatesTitle}</Text>
+                    {canLoadMoreUpdates ? (
+                      <TouchableOpacity
+                        style={styles.eventUpdatesButton}
+                        onPress={() => {
+                          void handleViewAllUpdates();
+                        }}
+                        disabled={updatesLoadingMore}
+                      >
+                        <Text style={styles.eventUpdatesButtonText}>
+                          {updatesLoadingMore ? t.catalog.organizerUpdatesLoading : t.catalog.organizerUpdatesViewAll}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  {visibleSelectedEventUpdates.map((update) => {
                     const raceName = update.race_id
                       ? selectedEvent?.races.find((race) => race.id === update.race_id)?.name ?? null
                       : null;
@@ -1251,14 +1216,16 @@ export default function CatalogScreen() {
                           update.id === selectedUpdateIdParam && styles.eventUpdateCardTargeted,
                         ]}
                       >
-                        <View style={styles.eventUpdateMetaRow}>
-                          {raceName ? <Text style={styles.eventUpdateScope}>{raceName}</Text> : null}
-                          {isNew ? (
-                            <View style={styles.newBadge}>
-                              <Text style={styles.newBadgeText}>NEW</Text>
-                            </View>
-                          ) : null}
-                        </View>
+                        {raceName || isNew ? (
+                          <View style={styles.eventUpdateMetaRow}>
+                            {raceName ? <Text style={styles.eventUpdateScope}>{raceName}</Text> : null}
+                            {isNew ? (
+                              <View style={styles.newBadge}>
+                                <Text style={styles.newBadgeText}>NEW</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                        ) : null}
                         <Text style={styles.eventUpdateMessage}>{update.message}</Text>
                         {formatUpdateDate(update.created_at, locale) ? (
                           <Text style={styles.eventUpdateDate}>{formatUpdateDate(update.created_at, locale)}</Text>
@@ -1803,6 +1770,11 @@ const styles = StyleSheet.create({
   eventUpdatesSection: {
     gap: 10,
     marginTop: 8,
+    padding: 12,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
   },
   eventUpdatesHeader: {
     alignItems: 'center',
@@ -1832,8 +1804,8 @@ const styles = StyleSheet.create({
     gap: 6,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
@@ -1842,7 +1814,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandSurface,
   },
   eventUpdateMetaRow: {
-    minHeight: 20,
     alignItems: 'center',
     flexDirection: 'row',
     gap: 8,

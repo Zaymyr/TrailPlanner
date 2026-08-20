@@ -52,6 +52,7 @@ export type EditionRequestRow = {
 export type PublicationRequestRow = {
   id: string;
   event_id: string;
+  race_id?: string | null;
   status: "pending" | "approved" | "rejected";
   reviewer_notes?: string | null;
   created_at: string;

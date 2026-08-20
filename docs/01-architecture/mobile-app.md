@@ -134,7 +134,7 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 - it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
 - it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping, then confirms a successful addition with a brief localized toast and scrolls the list to the newly pinned first event;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
-- it preloads up to three recent manual organizer updates per live event, renders only the newest (or deep-link-targeted) announcement before the format list, keeps the remaining loaded history below the formats, and lets runners expand to the fuller history on demand;
+- it preloads up to three recent manual organizer updates per live event, renders only the newest (or deep-link-targeted) announcement after every format row inside one light-green panel, and reveals the other messages plus fuller history only when the runner taps `View more`;
 - it reads `eventId`, `updateId`, and optional `raceId` route params so a push opens the matching event, message, and format context directly;
 - it loads the identified runner's `race_event_update_reads` plus lightweight update id/event references, displays `NEW` on event cards even when the unread item is older than the three-message preview, and persists receipts after messages are displayed.
 
@@ -196,7 +196,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
 - The success toast and automatic list repositioning apply only when adding a favorite after the API confirms the write. Removing a favorite keeps the runner's current reading position, and failed writes restore the previous order before showing the existing error alert.
 - Organizer update history in the event sheet is intentionally manual-announcement history only. Do not turn every organizer save into a runner-visible update.
-- Keep the event-sheet default compact: preload only the short organizer-update preview with the catalog query, keep one featured announcement above the actionable format rows, place older loaded announcements below them, and fetch the longer history only when the runner explicitly asks to see more.
+- Keep the event-sheet default compact: preload only the short organizer-update preview with the catalog query, place its light-green announcement panel after every actionable format row, show only the newest (or deep-link-targeted) message at first, and reveal older messages plus the longer history only when the runner explicitly asks to see more.
 - Read receipts are identified-user state. Anonymous sessions may read public updates but must not write `race_event_update_reads`.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.

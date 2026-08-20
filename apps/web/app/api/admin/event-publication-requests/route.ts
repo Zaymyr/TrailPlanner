@@ -9,11 +9,16 @@ const publicationRequestSchema = z.object({
   created_at: z.string(),
   user_id: z.string().uuid(),
   event_id: z.string().uuid(),
+  race_id: z.string().uuid().nullable().optional(),
   status: z.enum(["pending", "approved", "rejected"]),
   reviewer_notes: z.string().nullable().optional(),
   race_events: z.object({
     name: z.string(),
     location: z.string().nullable().optional(),
+    race_date: z.string().nullable().optional(),
+  }).nullable().optional(),
+  requested_race: z.object({
+    name: z.string(),
     race_date: z.string().nullable().optional(),
   }).nullable().optional(),
 });
@@ -55,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const [response, eventsResponse] = await Promise.all([
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?status=eq.pending&select=id,created_at,user_id,event_id,status,reviewer_notes,race_events(name,location,race_date)&order=created_at.asc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?status=eq.pending&select=id,created_at,user_id,event_id,race_id,status,reviewer_notes,race_events(name,location,race_date),requested_race:races(name,race_date)&order=created_at.asc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(

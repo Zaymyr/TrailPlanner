@@ -102,7 +102,7 @@ Organizer deletion is performed by `DELETE /api/organizer/events/[id]/updates?up
 - Do not edit old runner-facing announcements in place; editing would make delivered push content misleading. The organizer UI may delete a row after confirmation, while historical push-delivery logs remain untouched.
 - The mobile event sheet now preloads only a short recent preview from the main catalog query so the sheet can render updates immediately; keep that embedded payload intentionally small.
 - Adding an event favorite from that sheet may close it so the catalog can reveal the newly pinned event and success toast; this must not load, reorder, or mark organizer announcements.
-- Only the newest or deep-link-targeted loaded update belongs above the mobile format actions; older loaded updates belong below those actions so notification volume cannot bury the plan/Racebook choices.
+- The mobile update panel belongs after every format action, uses a light-green treatment, and shows only the newest or deep-link-targeted update while collapsed so notification volume cannot bury the plan/Racebook choices.
 - The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.

@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
+  - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
@@ -143,7 +144,7 @@ order by created_at asc;
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.
-- Membership authorizes maintenance and publication requests, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. After admin approval, the race service route may change only `races.racebook_is_live`.
+- Membership authorizes maintenance and per-format publication requests only when the requested `race_id` belongs to the managed event, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. After admin approval, the race service route may change only `races.racebook_is_live`.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.
 - Supabase Auth e-mail lookup for direct assignment must remain in the admin-only server route with the service credential. Never expose the Auth Admin user list or service credential to the browser.

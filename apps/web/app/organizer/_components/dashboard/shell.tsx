@@ -105,7 +105,7 @@ export function OrganizerSummaryHeader({
   selectedEditionYear,
   newEditionDate,
   newEditionEndDate,
-  publicationRequestState,
+  publicationRequestStates,
   onSelectedEventChange,
   onSelectedEditionYearChange,
   onEditionDateChange,
@@ -129,7 +129,7 @@ export function OrganizerSummaryHeader({
   selectedEditionYear: string;
   newEditionDate: string;
   newEditionEndDate: string;
-  publicationRequestState: PublicationRequestRow | null;
+  publicationRequestStates: PublicationRequestRow[];
   onSelectedEventChange: (eventId: string) => void;
   onSelectedEditionYearChange: (year: string) => void;
   onEditionDateChange: (value: string) => void;
@@ -166,7 +166,7 @@ export function OrganizerSummaryHeader({
     };
   });
   const isLive = event?.is_live !== false;
-  const publicationPending = publicationRequestState?.status === "pending";
+  const publicationPending = publicationRequestStates.some((request) => request.status === "pending");
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
 
   return (
@@ -276,7 +276,11 @@ export function OrganizerSummaryHeader({
           </span>
         </div>
         {raceRows.length > 0 ? (
-          raceRows.map((race) => (
+          raceRows.map((race) => {
+            const racePublicationPending = publicationRequestStates.some(
+              (request) => request.status === "pending" && (!request.race_id || request.race_id === race.activeEdition?.id)
+            );
+            return (
             <div
               key={race.id}
               className="grid gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
@@ -297,13 +301,14 @@ export function OrganizerSummaryHeader({
               ) : (
                 <LiveToggle
                   checked={false}
-                  disabled={publicationPending || status !== "idle"}
+                  disabled={racePublicationPending || status !== "idle"}
                   onChange={() => onRequestPublication(race.activeEdition!.id)}
-                  draftLabel={publicationPending ? "Demande en cours" : "Demander la publication"}
+                  draftLabel={racePublicationPending ? "Demande en cours" : "Demander la publication"}
                 />
               )}
             </div>
-          ))
+            );
+          })
         ) : (
           <p className="text-sm text-muted-foreground">Aucune course pour le moment.</p>
         )}

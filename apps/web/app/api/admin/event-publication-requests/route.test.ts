@@ -53,7 +53,17 @@ describe("/api/admin/event-publication-requests PATCH", () => {
 
   it("loads the pending requests and current-edition Racebook controls", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json([
+        {
+          id: "77777777-7777-7777-7777-777777777777",
+          created_at: "2026-08-20T12:00:00Z",
+          user_id: "88888888-8888-8888-8888-888888888888",
+          event_id: "22222222-2222-2222-2222-222222222222",
+          race_id: "44444444-4444-4444-4444-444444444444",
+          status: "pending",
+          requested_race: { name: "42 km", race_date: "2026-08-20" },
+        },
+      ]))
       .mockResolvedValueOnce(Response.json([
         {
           id: "22222222-2222-2222-2222-222222222222",
@@ -86,6 +96,8 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(response.status).toBe(200);
     expect(payload.events[0].races).toHaveLength(1);
     expect(payload.events[0].races[0].name).toBe("42 km");
+    expect(payload.publicationRequests[0].requested_race.name).toBe("42 km");
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("requested_race:races");
   });
 });
 

@@ -203,10 +203,7 @@ export function OrganizerDashboard({
   const productPickerStation = productPickerStationId ? aidStations.find((station) => station.id === productPickerStationId) ?? null : null;
   const hasDirtyChanges = dirtyModules.size > 0;
   const hasAnyDirtyChanges = Object.values(dirtyModulesByScope).some((modules) => modules.size > 0);
-  const currentPublicationRequest =
-    publicationRequests.find((request) => request.event_id === selectedEventId && request.status === "pending") ??
-    publicationRequests.find((request) => request.event_id === selectedEventId) ??
-    null;
+  const currentPublicationRequests = publicationRequests.filter((request) => request.event_id === selectedEventId);
   const showToast = (type: "success" | "error", message: string) => {
     setToast({ id: Date.now(), type, message });
   };
@@ -1296,7 +1293,7 @@ export function OrganizerDashboard({
       const response = await fetch("/api/organizer/publication-requests", {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: selectedEventId }),
+        body: JSON.stringify({ eventId: selectedEventId, raceId }),
       });
       const data = (await response.json().catch(() => null)) as {
         publicationRequest?: PublicationRequestRow;
@@ -1610,7 +1607,7 @@ export function OrganizerDashboard({
         selectedEditionYear={selectedEditionYear}
         newEditionDate={newEditionDate}
         newEditionEndDate={newEditionEndDate}
-        publicationRequestState={currentPublicationRequest}
+        publicationRequestStates={currentPublicationRequests}
         onSelectedEventChange={(eventId) => {
           saveCurrentScopeInBackground();
           setSelectedEventId(eventId);

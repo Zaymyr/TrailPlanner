@@ -87,6 +87,7 @@ const publicationRequestRowSchema = z.object({
   id: z.string().uuid(),
   created_at: z.string(),
   event_id: z.string().uuid(),
+  race_id: z.string().uuid().nullable().optional(),
   status: z.enum(["pending", "approved", "rejected"]),
   reviewer_notes: z.string().nullable().optional(),
 });
@@ -135,7 +136,7 @@ export async function GET(request: NextRequest) {
       }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?user_id=eq.${auth.user.id}&select=id,created_at,event_id,status,reviewer_notes&order=created_at.desc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?user_id=eq.${auth.user.id}&select=id,created_at,event_id,race_id,status,reviewer_notes&order=created_at.desc`,
       {
         headers: serviceHeaders(auth.serviceConfig, ""),
         cache: "no-store",

@@ -13,6 +13,7 @@ related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
+  - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
@@ -194,6 +195,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 `supabase/migrations/20260804152041_add_race_event_editions.sql` normalizes yearly event dates into `race_event_editions`, backfills rows from existing event/format dates, attaches formats through `races.edition_id`, restricts the table to service-role routes, and keeps legacy `race_events` date fields synchronized from the current edition. It also scopes publication approval to the current edition.
 
 `supabase/migrations/20260820135823_add_racebook_publication_control.sql` separates course catalog visibility from Racebook publication. It adds `races.racebook_is_live` plus durable admin approval provenance, replaces the publication-review function, and adds the service-role-only admin event switch function. As a safety migration it keeps organizer-managed courses live in the catalog but resets their Racebooks to hidden/unapproved for one fresh admin validation pass.
+
+`supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
 
 ### Plan Recap Sharing
 

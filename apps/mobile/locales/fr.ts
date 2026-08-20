@@ -575,7 +575,7 @@ export const fr: MobileTranslations = {
     viewFormats: 'Voir les formats',
     organizerUpdatesTitle: 'Dernières infos organisateur',
     organizerUpdatesLoading: 'Chargement...',
-    organizerUpdatesViewAll: 'Tout voir',
+    organizerUpdatesViewAll: 'Voir plus',
     singleFormatLabel: '1 format',
     multipleFormatsLabel: '{count} formats',
     chooseFormatHint: 'Choisis le format qui correspond à ta course pour créer ton plan.',

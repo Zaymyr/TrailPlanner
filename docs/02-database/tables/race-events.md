@@ -12,6 +12,7 @@ related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
+  - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
@@ -133,7 +134,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer yearly editions are normalized in `race_event_editions`. Formats attach through `races.edition_id`; `races.edition_group_id` and `series_name` continue to group the same format series across years.
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
 - Organizer runner notifications are manual. Saves and publication review must not auto-create announcements.
-- Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass. The newest or targeted announcement appears before the format rows, the other loaded announcements appear after them, and the longer history still comes from the dedicated updates route when a runner taps to see more.
+- Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass. After every format row, one light-green panel shows only the newest or targeted announcement while collapsed; tapping `View more` reveals the other messages and loads the longer history from the dedicated updates route when needed.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
 - The organizer event detail read embeds child `race_aid_stations(id)` only to derive an `aidStationCount` per returned format. The raw nested rows are removed from the API response, and the count keeps completion scoring tied to each format rather than the selected dashboard tab.
 - Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page and may consolidate duplicate format candidates by normalized business name before sorting them by final quality score, but these preview choices do not create or move an event row. Missing required format values such as D+ remain explicit instead of being inferred.
@@ -198,7 +199,7 @@ from public.races;
 - Keep the event-level catalog query narrow even with update previews: mobile should embed only the short recent history needed for instant sheet rendering, not the full announcement archive for every event.
 - Deleting a manual announcement is an organizer-history action scoped by event membership; it must not mutate the parent event, its formats, or its favorite audience.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
-- Organizer event/race mutation routes cannot set catalog live state. A publication request requires event name, location, start date, end date, and at least one complete format; admin approval rechecks those fields and atomically approves/publishes complete current-edition Racebooks.
+- Organizer event/race mutation routes cannot set catalog live state. A publication request requires event name/location, the requested format's edition range, and that exact format's complete identity fields; admin approval rechecks and publishes only that Racebook, regardless of which edition is current.
 - Never hide a course merely because its Racebook is hidden. `race_events.is_live` / `races.is_live` are catalog state; `races.racebook_is_live` is the runner Racebook state.
 - Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
 - Do not store per-format equipment, dossard, or access differences on the event row.
