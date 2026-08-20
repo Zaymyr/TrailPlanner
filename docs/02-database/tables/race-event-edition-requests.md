@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -36,6 +36,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Ordinary format saves, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
 - Removing the standalone `Dupliquer ce format` action does not affect edition duplication: the new-edition dialog still clones the selected source edition when `duplicatePreviousEdition` is enabled.
 - The format location override is independent from edition selection and does not read or write this retired request table.
+- Consolidating the Organizer format name input keeps `name` and `series_name` synchronized but does not change edition creation or the stable `edition_group_id` copied across years.
 
 ## Historical Columns
 

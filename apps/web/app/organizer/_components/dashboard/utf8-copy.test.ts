@@ -31,7 +31,7 @@ describe("organizer dashboard UTF-8 copy", () => {
 
   it("keeps the website import review copy free from mojibake sequences", () => {
     const absolutePath = resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx");
-    const source = readFileSync(absolutePath, "utf8");
+    const source = readFileSync(absolutePath, "utf8").replace(/\r\n/g, "\n");
     const start = source.indexOf("<Dialog open={websiteImportOpen}");
     const end = source.lastIndexOf("\n    </div>\n  );");
     const websiteImportSection = source.slice(start, end);
@@ -61,5 +61,17 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).not.toContain("Masquer les details");
     expect(source).not.toContain("Dupliquer ce format");
     expect(source).toContain("Lieu différent de l&apos;événement");
+  });
+
+  it("exposes one format name field and synchronizes both persisted names", () => {
+    const absolutePath = resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx");
+    const source = readFileSync(absolutePath, "utf8");
+    const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
+
+    expect(source).toContain('label="Nom du format"');
+    expect(source).toContain("name: value, seriesName: value");
+    expect(source).not.toContain('label="Libelle format"');
+    expect(dashboardSource).toContain("seriesName: mergedForm.name");
+    expect(dashboardSource).toContain("seriesName: newRaceForm.name");
   });
 });

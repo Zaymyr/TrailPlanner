@@ -42,7 +42,7 @@ export default function CarbCalculatorPage() {
         </h1>
         <p className="text-lg leading-8 text-muted-foreground">
           Ajustez la durée, la distance, le dénivelé et votre facilité à manger pendant l’effort, puis découvrez votre
-          apport à tester — avec une comparaison d’allure volontairement injuste.
+          apport à tester.
         </p>
       </header>
 

@@ -38,6 +38,7 @@ It:
 - is used by the organizer format editor GPX panel for the selected canonical edition; replacing the GPX preserves its `edition_id`/year and synchronizes adjacent course metrics without changing edition dates.
 - remains visible in the always-expanded `Course` editor even though the separate organizer-side runner preview has been removed.
 - is independent from the format-location override; inheriting the event address does not change the uploaded GPX route or map bounds.
+- is also independent from the consolidated `Nom du format` input; synchronizing `name` and `series_name` changes only format identity text, not GPX geometry.
 
 ## Gotchas
 

@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -150,7 +150,7 @@ The dashboard is organized as a compact top synthesis plus one tabbed completion
 
 Newly created years appear immediately in the event-level year selector and are editable without admin validation. Inside a format tab, the year remains driven only by the event-level selector; the format action bar does not repeat a local "Edition active" block.
 
-The format `Course` editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. In the information grid, D+ and D- each receive the same two-column desktop width as distance so four-digit values remain readable, and both accept the parser's one-decimal precision. Date and location use parallel opt-in overrides: without `Date différente de l'édition`, the edition start date is used; without `Lieu différent de l'événement`, `races.location_text` and `organizer_details.raceLocation` stay empty so runner-facing resolution inherits the event location. Disabling the location override clears both the format text and normalized geocoded object. The interactive route map then sits below as the main full-width visual focus. The editor is always expanded: the former show/hide toggle, single-format duplication button, and organizer-side runner preview are removed. `Formats & GPX` has no helper sentence beneath its title.
+The format `Course` editor now uses a desktop two-column layout with a flatter hierarchy: a compact information column on the left and a dedicated file side rail on the right. That right rail keeps only the GPX upload first and the image upload second, while the elevation profile now sits directly under the left-side format data and stretches to the full card width available there. In the information grid, one `Nom du format` field writes both `races.name` and `races.series_name`, because Organizer formats use the same value for their displayed name and cross-edition series label. D+ and D- each receive the same two-column desktop width as distance so four-digit values remain readable, and both accept the parser's one-decimal precision. Date and location use parallel opt-in overrides: without `Date différente de l'édition`, the edition start date is used; without `Lieu différent de l'événement`, `races.location_text` and `organizer_details.raceLocation` stay empty so runner-facing resolution inherits the event location. Disabling the location override clears both the format text and normalized geocoded object. The interactive route map then sits below as the main full-width visual focus. The editor is always expanded: the former show/hide toggle, single-format duplication button, and organizer-side runner preview are removed. `Formats & GPX` has no helper sentence beneath its title.
 
 The selected edition year controls its canonical range and attached format rows, but imposes no time-based lock. Event-range edits are rejected if an attached format date would fall outside the new range.
 
@@ -283,6 +283,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not replace existing source ravitos from organizer GPX waypoints; use the ravito editor to preserve station ids and product links.
 - Do not rely on manual insertion order for organizer ravitos; distance from start is the source of truth for both UI order and persisted `order_index`.
 - Do not infer yearly organizer grouping from `races.name`; use explicit `races.edition_group_id` and `races.series_name`.
+- Keep the Organizer's single format-name field synchronized to both `races.name` and `races.series_name`; `edition_group_id` remains the stable cross-edition identity.
 - Do not reintroduce a date-based organizer edit lock without a new explicit business decision; active membership currently authorizes both past and future edition maintenance.
 - Do not re-open manual editing for cumulative D+ / D- in the organizer ravito form while GPX-driven interpolation is the source of truth; km edits must keep recomputing those values from the active GPX preview.
 - Keep a UTF-8 regression test around route-local organizer copy when touching French labels on ravito cards or related dashboard text; mojibake should fail tests before it reaches the screen.

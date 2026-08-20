@@ -57,18 +57,34 @@ export const CARB_COMPARISONS = [
 ] as const;
 
 export const CARB_JOKES = [
-  { id: "nutella", text: "ouvrir le Nutella, perdre le couteau et finir la tartine sans se presser" },
-  { id: "buffet", text: "faire deux tours du buffet du ravito et demander la carte des desserts" },
-  { id: "gps", text: "laisser son GPS recalculer trois fois, puis lui expliquer qui commande" },
-  { id: "headlamp", text: "recharger sa frontale, même en plein jour, juste pour le principe" },
-  { id: "marmot", text: "donner une conférence TED à une marmotte sur la gestion d’allure" },
-  { id: "soup", text: "attendre que la soupe refroidisse et débattre du meilleur fromage à y tremper" },
-  { id: "poles", text: "démêler ses bâtons, les replier, puis les redémêler par nostalgie" },
-  { id: "strava", text: "publier sur Strava, répondre aux kudos et corriger le titre de la sortie" },
-  { id: "gel-tax", text: "instaurer une taxe sur les gels goût cola au prochain ravito" },
-  { id: "chairlift", text: "chercher un télésiège, constater qu’il est fermé et monter quand même" },
-  { id: "volunteer", text: "apprendre le prénom de tous les bénévoles avant de repartir" },
-  { id: "ego", text: "laisser ton ego reprendre son souffle avant la dernière descente" },
+  { id: "nutella", text: "🥖 Temps bonus : finir le Nutella au ravito." },
+  { id: "buffet", text: "🍜 Le ravito n’est pas un buffet à volonté. Enfin… normalement." },
+  { id: "gps", text: "🧭 Ton GPS dira « hors parcours » au pire moment." },
+  { id: "headlamp", text: "🔦 La frontale est chargée. Toi, beaucoup moins." },
+  { id: "marmot", text: "🐿️ La marmotte t’a vu marcher. Elle ne dira rien." },
+  { id: "soup", text: "🥣 La soupe sera brûlante jusqu’au prochain départ." },
+  { id: "poles", text: "🥢 Tes bâtons s’emmêleront devant le photographe." },
+  { id: "strava", text: "📱 Strava vient de demander si tu étais en voiture." },
+  { id: "gel-tax", text: "🤢 Au quatrième gel, ton palais dépose un préavis de grève." },
+  { id: "chairlift", text: "⛷️ Le télésiège est fermé. Il va falloir monter." },
+  { id: "volunteer", text: "😇 Le bénévole dira « encore 2 km » avec un grand sourire." },
+  { id: "ego", text: "🫠 Ton ego demande cinq minutes au prochain ravito." },
+  { id: "popcorn", text: "🍿 Attention au pop-corn : départ canon, explosion générale." },
+  { id: "toilet-paper", text: "🧻 N’oublie pas le papier. La diarrhée, elle, n’oublie jamais." },
+  { id: "risky-fart", text: "💨 Après le 60e km, ne fais confiance à aucun pet." },
+  { id: "stomach-airplane", text: "✈️ Ton estomac vient de passer en mode avion." },
+  { id: "chair", text: "🪑 Ne t’assois pas au ravito : la chaise gagne toujours." },
+  { id: "downhill", text: "🦵 La descente est gratuite. Tes quadris recevront la facture demain." },
+  { id: "shoe-rock", text: "🪨 Le caillou dans ta chaussure a signé un bail longue durée." },
+  { id: "plastic-flask", text: "🥤 Flasque goût plastique : grand cru, notes de fond de sac." },
+  { id: "salt-shirt", text: "🧂 Ton t-shirt pourrait assaisonner la soupe du ravito." },
+  { id: "never-again", text: "🔁 Tu diras « plus jamais » avant de t’inscrire lundi." },
+  { id: "watch-recovery", text: "⌚ Ta montre recommande 96 heures de récupération. Minimum." },
+  { id: "bonus-climb", text: "🏔️ Ce n’est pas un détour, c’est du D+ offert." },
+  { id: "chips", text: "🥔 Après minuit, même une chips devient gastronomique." },
+  { id: "rain-jacket", text: "🌧️ Le coupe-vent est au fond du sac. Sous absolument tout." },
+  { id: "lost-cup", text: "🥛 Ton gobelet pliable disparaîtra exactement au ravito." },
+  { id: "finish-line", text: "🏁 La ligne d’arrivée sent déjà la bière imaginaire." },
 ] as const;
 
 export type CarbComparison = (typeof CARB_COMPARISONS)[number];
@@ -81,6 +97,11 @@ export type CarbComparisonContext = {
   distance: number;
   elevation: number;
   jokeId: CarbJokeId;
+};
+
+export type CarbComparisonCopy = {
+  headline: string;
+  punchline: string;
 };
 
 export type SharedCarbCalculatorState = {
@@ -163,40 +184,26 @@ export function formatAverageSpeed(speedKph: number): string {
   return `${speedKph.toFixed(1).replace(".", ",")} km/h`;
 }
 
-export function formatCarbComparison(comparison: CarbComparison, context: CarbComparisonContext): string {
-  const runnerSpeed = getAverageSpeed(context.distance, context.duration);
+export function formatCarbComparison(comparison: CarbComparison, context: CarbComparisonContext): CarbComparisonCopy {
   const eliteSpeed = getAverageSpeed(comparison.distanceKm, comparison.finishSeconds / 3600);
   const projectedEliteSeconds = (context.distance / eliteSpeed) * 3600;
   const runnerSeconds = context.duration * 3600;
   const differenceSeconds = runnerSeconds - projectedEliteSeconds;
-  const runnerElevationDensity = context.elevation / context.distance;
-  const eliteElevationDensity = comparison.elevationGainM / comparison.distanceKm;
   const joke = getCarbJoke(context.jokeId) ?? CARB_JOKES[0];
+  const course = `${context.distance} km / ${context.elevation.toLocaleString("fr-FR")} m D+`;
 
-  let paceSentence: string;
+  let headline: string;
   if (Math.abs(differenceSeconds) < 5 * 60) {
-    paceSentence = `À quelques minutes près, ton allure moyenne colle à celle de ${comparison.athlete} sur l’${comparison.race} ${comparison.year}. Le jury vous départage en vous demandant de ${joke.text}.`;
+    headline = `🔥 Sur ${course}, photo-finish avec ${comparison.athlete}.`;
   } else if (differenceSeconds > 0) {
-    paceSentence = `À son allure de ${formatAverageSpeed(eliteSpeed)} sur l’${comparison.race} ${
-      comparison.year
-    }, ${comparison.athlete} couvrirait tes ${context.distance} km en ${formatDurationDifference(
-      projectedEliteSeconds,
-    )}, soit ${formatDurationDifference(differenceSeconds)} avant toi. Assez pour ${joke.text}.`;
+    headline = `🏃 Sur ${course}, ${comparison.athlete} finirait ${formatDurationDifference(
+      differenceSeconds,
+    )} avant toi.`;
   } else {
-    paceSentence = `Sur le papier, tes ${formatAverageSpeed(runnerSpeed)} dépassent les ${formatAverageSpeed(
-      eliteSpeed,
-    )} de ${comparison.athlete} sur l’${comparison.race} ${comparison.year}. Ton téléphone vient de demander si tu avais coché l’option hélicoptère. ${comparison.athlete} aurait tout de même le temps de ${joke.text} pour encaisser le choc.`;
+    headline = `🚁 Sur ${course}, tu finirais ${formatDurationDifference(-differenceSeconds)} avant ${comparison.athlete}.`;
   }
 
-  if (runnerElevationDensity > eliteElevationDensity * 1.2) {
-    return `${paceSentence} Avec ${Math.round(runnerElevationDensity)} m de D+/km, le tribunal des quadris t’accorde quand même de larges circonstances atténuantes.`;
-  }
-
-  if (runnerElevationDensity < eliteElevationDensity * 0.65) {
-    return `${paceSentence} Ton parcours grimpe nettement moins par kilomètre : aucun sapin assez large pour cacher la comparaison.`;
-  }
-
-  return `${paceSentence} Côté pente, vous jouez presque dans la même catégorie — seulement côté pente.`;
+  return { headline, punchline: joke.text };
 }
 
 export function parseSharedCarbCalculatorState(

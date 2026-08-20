@@ -106,7 +106,7 @@ Planner segment code in `apps/web/app/(planner)/race-planner/utils/segments.ts` 
 
 ## Quick Carb Calculator
 
-The public `/calculateur-glucides-trail` page is a simplified acquisition tool, not a replacement for the full planner. Expected effort duration and self-reported digestive tolerance are the only inputs used by the carbohydrate estimate. Distance and elevation gain are collected solely to calculate the runner's average speed, compare it with a referenced elite pace, and qualify the comparison by elevation per kilometer. They must not feed the carbohydrate interpolation. All four slider values remain visible, but no nutrition estimate is displayed until the runner explicitly starts the calculation. Changing a slider after a result invalidates that result and requires a new calculation.
+The public `/calculateur-glucides-trail` page is a simplified acquisition tool, not a replacement for the full planner. Expected effort duration and self-reported digestive tolerance are the only inputs used by the carbohydrate estimate. Distance is used to project a referenced elite's average UTMB speed over the runner's course length; elevation gain is displayed beside that projected comparison as course context, but is not used to normalize either pace. Neither input may feed the carbohydrate interpolation. All four slider values remain visible, but no nutrition estimate is displayed until the runner explicitly starts the calculation. Changing a slider after a result invalidates that result and requires a new calculation.
 
 `getCarbRangeForDuration` builds a smooth UI range from common endurance-duration guideposts:
 
@@ -119,7 +119,7 @@ Digestive tolerance is a UI scale from `0` (frequent nausea) to `100` (eats easi
 
 The page must keep its training-tolerance disclaimer. It presents the result as a starting point to test progressively, not as medical advice or an individualized prescription.
 
-The result includes one random elite and one random joke from the fixed catalogs in `apps/web/lib/carb-calculator-fun.ts`. The comparison projects the elite's average UTMB speed over the runner's entered distance, reports the projected time gap, then qualifies the joke by comparing elevation gain per kilometer. It does not claim the two courses are equivalent and never affects carbohydrate calculations. A new calculation avoids immediately repeating either the athlete or the joke.
+The result includes one random elite and one random joke from the fixed catalogs in `apps/web/lib/carb-calculator-fun.ts`. The compact headline projects the elite's average UTMB speed over the runner's entered distance and reports only the projected time gap, alongside the entered D+. A separate, larger line delivers a short trail-specific joke with an emoji. It does not claim the two courses are equivalent and never affects carbohydrate calculations. A new calculation avoids immediately repeating either the athlete or the joke.
 
 Calculator share links are stateless and accept only a complete `duration`, `tolerance`, `distance`, `elevation`, `comparison`, and `joke` query tuple. Duration must be within `0.5..30` on `0.5` steps, tolerance within `0..100` on `5` steps, distance within `5..200 km` on `5 km` steps, elevation within `0..15000 m` on `100 m` steps, and both ids must exist in their fixed catalogs. A valid tuple restores the same inputs, estimate, and copy without replaying the artificial loading delay; invalid or incomplete tuples display the initial calculator state.
 

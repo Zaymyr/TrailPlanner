@@ -634,11 +634,12 @@ export function OrganizerDashboard({
 
   const saveRace = async (override?: Partial<RaceFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !activeRace || !selectedEventId) return false;
-    const nextForm = {
+    const mergedForm = {
       ...raceForm,
       ...override,
       organizerDetails: sanitizeRaceDetailsForSave(override?.organizerDetails ?? raceForm.organizerDetails),
     };
+    const nextForm = { ...mergedForm, seriesName: mergedForm.name };
     const nextRaces = (eventDetail?.races ?? []).map((race) =>
       race.id === activeRace.id
         ? { ...race, series_name: nextForm.seriesName, organizerDetails: nextForm.organizerDetails }
@@ -745,7 +746,7 @@ export function OrganizerDashboard({
         body: JSON.stringify({
           eventId: selectedEventId,
           editionId: activeEdition?.id,
-          seriesName: newRaceForm.seriesName.trim() || newRaceForm.name,
+          seriesName: newRaceForm.name,
           name: newRaceForm.name,
           distanceKm: newRaceForm.distanceKm,
           elevationGainM: newRaceForm.elevationGainM,

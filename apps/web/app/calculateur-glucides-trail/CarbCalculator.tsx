@@ -88,7 +88,7 @@ export function CarbCalculator() {
     [calculatedInput],
   );
   const comparison = comparisonId ? getCarbComparison(comparisonId) : null;
-  const comparisonMessage =
+  const comparisonCopy =
     comparison && calculatedInput && jokeId
       ? formatCarbComparison(comparison, { ...calculatedInput, jokeId })
       : null;
@@ -186,7 +186,7 @@ export function CarbCalculator() {
   };
 
   const handleShare = async () => {
-    if (!estimate || !comparison || !calculatedInput || !comparisonMessage || !jokeId) return;
+    if (!estimate || !comparison || !calculatedInput || !comparisonCopy || !jokeId) return;
 
     const shareUrl = buildCarbCalculatorShareUrl(window.location.href, {
       duration: calculatedInput.duration,
@@ -196,7 +196,7 @@ export function CarbCalculator() {
       comparisonId: comparison.id,
       jokeId,
     });
-    const text = `Mon estimation trail sur ${calculatedInput.distance} km et ${calculatedInput.elevation} m D+ : ${estimate.carbsPerHour} g/h, soit ${estimate.totalCarbs} g au total. ${comparisonMessage}`;
+    const text = `Mon estimation trail : ${estimate.carbsPerHour} g/h, soit ${estimate.totalCarbs} g au total. ${comparisonCopy.headline} ${comparisonCopy.punchline}`;
 
     setShareStatus("idle");
 
@@ -342,7 +342,7 @@ export function CarbCalculator() {
 
       <Card className="min-w-0 border-brand-border bg-brand-surface/50">
         <CardContent className="flex min-h-72 flex-col justify-center space-y-6 py-7">
-          {status !== "ready" || !estimate || !comparison || !comparisonMessage || !calculatedInput ? (
+          {status !== "ready" || !estimate || !comparison || !comparisonCopy || !calculatedInput ? (
             <div className="space-y-3 text-center" role="status" aria-live="polite">
               {status === "calculating" ? (
                 <>
@@ -388,16 +388,10 @@ export function CarbCalculator() {
                 </div>
               </dl>
 
-              <p className="text-xs leading-5 text-muted-foreground">
-                Ce résultat est un point de départ à tester progressivement à l’entraînement. La distance et le D+
-                donnent du contexte à la comparaison, mais ne modifient pas votre estimation de glucides.
-              </p>
-
               <aside className="min-w-0 space-y-3 rounded-xl border border-brand-border bg-card p-4">
-                <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand">
-                  Comparaison parfaitement injuste du jour
-                </p>
-                <p className="text-sm font-semibold leading-6 text-foreground">{comparisonMessage}</p>
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-brand">Le verdict du jour</p>
+                <p className="text-lg font-bold leading-7 text-foreground sm:text-xl">{comparisonCopy.headline}</p>
+                <p className="text-lg font-semibold leading-7 text-brand sm:text-xl">{comparisonCopy.punchline}</p>
                 <p className="text-xs leading-5 text-muted-foreground">
                   <a
                     href={comparison.sourceUrl}

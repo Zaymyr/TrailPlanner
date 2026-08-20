@@ -35,7 +35,7 @@ describe("carb calculator fun comparisons", () => {
     expect(formatDurationDifference(2 * 3600 + 10 * 60)).toBe("2 h 10");
   });
 
-  it("compares projected pace and adapts the joke to elevation density", () => {
+  it("returns a short projected comparison and a separate punchline", () => {
     const comparison = getCarbComparison("kilian-utmb-2022")!;
     const slower = formatCarbComparison(comparison, {
       duration: 10,
@@ -49,18 +49,11 @@ describe("carb calculator fun comparisons", () => {
       elevation: 500,
       jokeId: "gps",
     });
-    const steeper = formatCarbComparison(comparison, {
-      duration: 12,
-      distance: 50,
-      elevation: 5000,
-      jokeId: "soup",
-    });
-
-    expect(slower).toContain("couvrirait tes 50 km");
-    expect(slower).toContain("Nutella");
-    expect(faster).toContain("option hélicoptère");
-    expect(faster).toContain("grimpe nettement moins");
-    expect(steeper).toContain("circonstances atténuantes");
+    expect(slower.headline).toContain("50 km / 3 000 m D+");
+    expect(slower.headline).toContain("avant toi");
+    expect(slower.punchline).toContain("Nutella");
+    expect(faster.headline).toContain("avant Kilian Jornet");
+    expect(faster.punchline).toContain("hors parcours");
   });
 });
 
