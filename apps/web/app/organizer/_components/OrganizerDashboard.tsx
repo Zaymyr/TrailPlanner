@@ -1312,6 +1312,40 @@ export function OrganizerDashboard({
     }
   };
 
+  const setRacebookVisibility = async (raceId: string, isLive: boolean) => {
+    if (!(await saveBeforeNavigation())) return;
+    if (!accessToken || !selectedEventId) return;
+
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/races/${raceId}`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ racebookIsLive: isLive }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        showToast("error", data?.message ?? "Impossible de modifier la publication du Racebook.");
+        return;
+      }
+
+      setEventDetail((current) =>
+        current?.id === selectedEventId
+          ? {
+              ...current,
+              races: current.races.map((race) =>
+                race.id === raceId ? { ...race, racebook_is_live: isLive } : race
+              ),
+            }
+          : current
+      );
+      showToast("success", isLive ? "Racebook publié dans l'application." : "Racebook masqué dans l'application.");
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   const submitEventUpdate = async () => {
     if (!selectedEventId || !accessToken) return;
 
@@ -1573,6 +1607,9 @@ export function OrganizerDashboard({
         }}
         onRequestPublication={() => {
           void requestPublication();
+        }}
+        onRacebookVisibilityChange={(raceId, isLive) => {
+          void setRacebookVisibility(raceId, isLive);
         }}
         onDeleteEvent={deleteSelectedEvent}
       />

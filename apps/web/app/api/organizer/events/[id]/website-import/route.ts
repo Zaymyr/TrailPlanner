@@ -428,7 +428,7 @@ const createRaceFromPreview = async (
       gpx_hash: gpxStoragePath ? `website-import:${raceId}` : `manual:${raceId}`,
       gpx_storage_path: gpxStoragePath,
       gpx_sha256: gpxStoragePath ? null : null,
-      is_live: false,
+      is_live: true,
       is_public: true,
       created_by: null,
       organizer_details: null,

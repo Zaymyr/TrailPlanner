@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
@@ -124,6 +125,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Approved organizers manage public claimed races through service routes and `race_event_organizers`, not through `races.created_by`.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
 - `races.edition_group_id` and `races.series_name` inherit the same `races` row policies; the organizer edition-grouping migration adds no new grants or RLS branches.
+- Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the membership-checked service route, and the route permits `racebook_is_live = true` only when the trusted approval timestamp exists.
 
 Some policy branches include legacy admin metadata checks. Do not copy them into new migrations.
 
@@ -162,7 +164,7 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 - Active event members can insert pending requests for themselves and read their own requests.
 - Trusted admins read the queue through the service API.
-- Atomic approval uses an invoker-security RPC executable only by `service_role`; organizers receive no direct live-state mutation permission.
+- Atomic first approval and the admin event-level Racebook switch use invoker-security RPCs executable only by `service_role`; organizers receive no direct table/RPC grant and mutate approved visibility only through a membership-checked service route.
 
 `race_event_organizers`:
 
@@ -321,6 +323,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
 - Adding `onboarding_completed_at` does not broaden profile visibility or mutation rights; do not add a separate policy for this column while the row remains owner-scoped.
+- Adding Racebook publication columns does not grant organizer table access. Keep approval RPCs service-role-only and organizer visibility changes behind active event-membership checks.
 
 ## Related Docs
 

@@ -14,6 +14,7 @@ related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
@@ -109,7 +110,7 @@ related_tables:
 
 ## Purpose
 
-This document records the organizer portal rules: authenticated users create their own non-live event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile consumes only the published read-only subset through the per-format Racebook screen.
+This document records the organizer portal rules: authenticated users create a catalog-visible event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile exposes a per-format Racebook only after its separate admin approval and publication flag are active.
 
 ## Key Concepts
 
@@ -125,13 +126,13 @@ This document records the organizer portal rules: authenticated users create the
 
 ## Direct Event Creation
 
-`/organizers` lets an authenticated user create a draft event from a name, optional location and official website URL, plus a required initial edition start/end range. `POST /api/organizer/events` inserts the event, creates its initial current `race_event_editions` row, then creates the active owner membership. Failure cleanup removes the inaccessible draft. Redirect bootstrap values remain passed from the `/organizer` server page as plain props.
+`/organizers` lets an authenticated user create an event from a name, optional location and official website URL, plus a required initial edition start/end range. `POST /api/organizer/events` inserts the catalog-visible event, creates its initial current `race_event_editions` row, then creates the active owner membership. Its Racebook formats remain hidden by default. Failure cleanup removes an event whose membership could not be created. Redirect bootstrap values remain passed from the `/organizer` server page as plain props.
 
 The direct-creation flow deliberately does not let a user take control of an existing catalog event. Existing claims and the admin claim queue remain available only as a legacy audit/access-management path; new `/organizers` submissions do not add claim rows and do not wait for admin approval.
 
 The admin Organizer tab can also delegate an existing event directly to an existing Supabase Auth account. The admin selects the event and enters the account e-mail; the protected server route resolves an exact case-insensitive Auth e-mail match, creates an active `organizer` membership (or reactivates a revoked membership), and leaves event/format publication state unchanged. The delegated organizer can edit every edition and format under the event, but only an `owner` or trusted admin can permanently delete the event.
 
-Revoking access still sets `revoked_at` on the membership and blocks future organizer writes. Yearly editions are created directly as drafts; admin validation now happens only when the organizer requests publication. Payment-based publication gating remains deferred and can later be added to that publication-review boundary.
+Revoking access still sets `revoked_at` on the membership and blocks future organizer writes without removing the course from the catalog. Yearly editions and formats are catalog-visible, but each new Racebook starts hidden. Admin validation happens only after the organizer requests Racebook publication. Payment-based publication gating remains deferred and can later be added to that publication-review boundary.
 
 ## Organizer Dashboard Rules
 
@@ -139,7 +140,7 @@ Revoking access still sets `revoked_at` on the membership and blocks future orga
 
 Organizers with an active event membership can:
 
-- edit event-level name, location, selected-edition dates, PNG image, and common organizer details, but not live state;
+- edit event-level name, location, selected-edition dates, PNG image, and common organizer details, but not catalog visibility;
 - edit existing race formats under the event, including format-specific `races.organizer_details`;
 - add a draft format attached to the selected edition, inheriting its start date unless an explicit in-range format date is enabled;
 - create a yearly edition from a new start/end range, either empty or by duplicating the selected source edition; when duplication is enabled, formats, GPX, ravitos, and station products are cloned as draft rows attached to it while preserving format edition groups;
@@ -152,7 +153,7 @@ Organizers with an active event membership can:
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card and `Créer une nouvelle édition` stays on the right. The button opens a dialog for the start/end dates and a default-enabled `Dupliquer depuis l’édition précédente` checkbox; disabling it creates an empty edition. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Event and format rows keep read-only publication badges, while `Demander la publication` submits the current edition to admin review. Completion remains independent from live state and tab selection.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card and `Créer une nouvelle édition` stays on the right. The button opens a dialog for the start/end dates and a default-enabled `Dupliquer depuis l’édition précédente` checkbox; disabling it creates an empty edition. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Each current-edition format has a Racebook switch: before approval it creates the event-level publication request; while pending it is disabled; after admin approval it directly controls `races.racebook_is_live`. Completion remains independent from catalog and Racebook visibility.
 
 Newly created years appear immediately in the event-level year selector and are editable without admin validation. Inside a format tab, the year remains driven only by the event-level selector; the format action bar does not repeat a local "Edition active" block.
 
@@ -254,7 +255,7 @@ Planner `assistanceAllowed` is separate from organizer product presence: it says
 
 ## Mobile Scope
 
-No mobile organizer editor exists in v1. Mobile can now consume published organizer details through the read-only `race/[id]/racebook` screen for live formats when there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, draft visibility, or admin powers.
+No mobile organizer editor exists in v1. Mobile can consume published organizer details through the read-only `race/[id]/racebook` screen only when the catalog format is live, `races.racebook_is_live = true`, and there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, hidden Racebook visibility, or admin powers.
 
 ## Gotchas
 
@@ -262,9 +263,9 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Reconstruct GPX only from complete public GeoJSON line geometry embedded in the fetched HTML. Do not infer a route from map tiles, screenshots, private endpoints, or isolated markers.
 - Do not use `races.created_by` to authorize claimed public race edits.
 - Do not expose organizer JSONB fields through public/mobile broad selects accidentally; public surfaces should keep explicit column selection.
-- Do not let the mobile Racebook bypass its live/content gate. Direct links for non-live, aid-station-only, or otherwise empty formats should fall back to an unavailable state instead of showing empty organizer shells.
+- Do not let the mobile Racebook bypass its three-part gate: catalog-live format, `racebook_is_live = true`, and meaningful organizer content. Direct links that fail any part must show the unavailable state.
 - Do not make the new route sketch or elevation-profile blocks part of the availability gate. They are best-effort visuals and must stay optional when stored GPX/elevation data is missing.
-- New organizer formats start in draft (`is_live = false`) until an admin approves an event publication request.
+- New organizer formats remain visible as courses (`is_live = true`) but start with `racebook_is_live = false` and no approval timestamp.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
 - Do not auto-create `race_event_updates` rows on organizer saves, publication approval, image upload, or GPX replacement. Runner notifications stay manual.
 - Format scope changes the title and in-app context, not the follower source: delivery still targets users who favorited the parent event.
@@ -274,9 +275,9 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not use `user_metadata` for admin claim approval or revocation checks.
 - Do not leave approved claims in the admin pending-review queue; once membership exists, the request belongs only in the active-access list.
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
-- Direct organizer creation creates non-live draft events and an immediate owner membership; do not treat those rows as public catalog entries until they are explicitly published.
+- Direct organizer creation creates catalog-visible events and an immediate owner membership; this does not publish any Racebook.
 - Keep organizer import bootstrap query parsing in the `/organizer` server page unless the client dashboard is explicitly wrapped in Suspense; direct `useSearchParams` usage otherwise breaks the production static build.
-- Do not restore organizer-side live toggles. Publication is the admin-reviewed boundary and must recheck event/format readiness at approval time.
+- Do not let organizer switches grant approval. Before `racebook_publication_approved_at` exists they may only request review; after approval they may freely toggle `racebook_is_live` without changing catalog visibility.
 - Do not bulk-duplicate common event details into every existing format except for equipment, which is intentionally mirrored into each race list so one race can later remove an item and automatically shrink the event-level shared subset.
 - Do not move the active weather plan to race scope without revisiting preview, mobile Racebook, sync, and documentation rules; the current contract is one event-level plan shared by every format.
 - Do not move bib pickup to format scope. Its event-level `locations[]` and nested `slots[]` must stay aligned across completion, autosave routing, web preview, and mobile Racebook parsing; preserve the legacy single-location/free-text fallback when reading historical rows.
@@ -315,6 +316,8 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Keep organizer dashboard copy properly UTF-8 encoded. The event/format editor renders accented French labels directly from source strings, so mojibake like `Ã©` on tabs, dates, or image labels is a user-facing bug, not a cosmetic doc issue.
 - Keep `/api/admin/organizer-claims` resilient to secondary-read failures. Missing yearly-edition rows or unavailable organizer-identity enrichment should degrade the admin tab gracefully instead of hiding the whole review queue.
 - Keep direct organizer assignment admin-only and server-side. The browser must never receive the Supabase service credential or the complete Auth user list, and assignment must not implicitly publish or unpublish the event or its Racebook formats.
+- The admin Organizer switch controls all complete Racebooks in the current edition. Turning it on grants durable per-format approval and publishes them; turning it off hides them while preserving approval so the organizer can publish them again later.
+- Migration `20260820135823_add_racebook_publication_control.sql` intentionally resets organizer-managed Racebooks to hidden/unapproved for one safe revalidation pass; it keeps their courses visible in the catalog.
 
 - The complete Organizer event list must remain admin-only. It may be returned only after the server verifies trusted `app_metadata`; non-admin users remain limited to active `race_event_organizers` memberships.
 

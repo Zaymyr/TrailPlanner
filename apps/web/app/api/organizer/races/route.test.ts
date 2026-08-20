@@ -125,6 +125,10 @@ describe("/api/organizer/races POST", () => {
     expect(payload.race?.race_date).toBe("2026-09-12");
     expect(payload.race?.series_name).toBe("Trail 42");
     expect(fetch).toHaveBeenCalledTimes(3);
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
+      is_live: true,
+      is_public: true,
+    });
   });
 
   it("rejects cloning into an unknown event edition", async () => {

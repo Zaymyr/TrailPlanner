@@ -34,6 +34,7 @@ type Race = {
   elevation_gain_m: number;
   race_date?: string | null;
   is_live: boolean | null;
+  racebook_is_live?: boolean | null;
   has_aid_stations: boolean | null;
   gpx_storage_path: string | null;
   thumbnail_url?: string | null;
@@ -497,6 +498,7 @@ export default function CatalogScreen() {
                 elevation_gain_m,
                 race_date,
                 is_live,
+                racebook_is_live,
                 has_aid_stations,
                 gpx_storage_path,
                 thumbnail_url,
@@ -1160,6 +1162,7 @@ export default function CatalogScreen() {
                   secondaryActionLabel={
                     canShowRacebook({
                       raceIsLive: race.is_live,
+                      racebookIsLive: race.racebook_is_live,
                       hasAidStations: race.has_aid_stations,
                       eventOrganizerDetails: selectedEvent.organizer_details,
                       raceOrganizerDetails: race.organizer_details,

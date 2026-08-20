@@ -17,6 +17,7 @@ related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -132,6 +133,7 @@ Current code treats `race_events` as a parent/grouping table for `races`:
 - legacy organizer edition requests and current publication requests reference `race_events(id)`.
 - organizer memberships reference `race_events(id)` and grant access to all `races` under the event.
 - yearly date ranges reference `race_events(id)`, and formats reference their canonical yearly edition.
+- `races.racebook_publication_approved_by -> auth.users(id) on delete set null` records the trusted admin who granted durable Racebook publication approval; `racebook_is_live` itself introduces no new relationship.
 
 <!-- TODO: verify with maintainer: visible migrations only show supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql altering race_events.thumbnail_url; no create-table migration for race_events was found in this repo. -->
 
@@ -174,6 +176,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - Organizer station products are source-race suggestions and are not copied into `plan_aid_stations`.
 - Organizer detail JSONB columns are metadata on existing source rows; they do not create new ownership or cascade relationships.
 - Public crew share links are plan children; deleting the plan must invalidate the public recap by cascading `plan_share_links`.
+- Deleting an approving admin must not delete or hide a course/Racebook row; the approval actor FK is intentionally `on delete set null` while the approval timestamp remains durable.
 
 ## Related Docs
 

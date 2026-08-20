@@ -85,6 +85,50 @@ describe("/api/organizer/races/[id] PATCH", () => {
       external_site_url: "https://grand-trail.example/42k",
     });
   });
+
+  it("rejects Racebook publication before admin approval", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      race_date: "2027-09-12",
+      racebook_publication_approved_at: null,
+    });
+
+    const response = await PATCH(patchRequest({ racebookIsLive: true }), { params: { id: raceId } });
+
+    expect(response.status).toBe(409);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("lets an approved organizer publish the Racebook", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      race_date: "2027-09-12",
+      racebook_publication_approved_at: "2026-08-20T12:00:00.000Z",
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          id: raceId,
+          edition_group_id: "33333333-3333-3333-3333-333333333333",
+          series_name: "Trail 42",
+          name: "Trail 42 2027",
+          event_id: eventId,
+          distance_km: 42,
+          elevation_gain_m: 1800,
+          is_live: true,
+          racebook_is_live: true,
+          racebook_publication_approved_at: "2026-08-20T12:00:00.000Z",
+        },
+      ])
+    );
+
+    const response = await PATCH(patchRequest({ racebookIsLive: true }), { params: { id: raceId } });
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body))).toEqual({ racebook_is_live: true });
+  });
 });
 
 describe("/api/organizer/races/[id] DELETE", () => {

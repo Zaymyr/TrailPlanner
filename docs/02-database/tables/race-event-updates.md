@@ -102,6 +102,7 @@ values ('<event-id>', null, auth.uid(), 'Retrait des dossards dès 17h.');
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.
 - Runner read state belongs in `race_event_update_reads`; do not mutate an announcement when one runner views it.
+- Do not use `racebook_is_live` as the event-announcement visibility rule. Updates stay governed by parent event liveness and their existing optional live-format validation.
 
 ## Related Docs
 

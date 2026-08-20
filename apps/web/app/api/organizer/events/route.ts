@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       location: parsed.data.location,
       race_date: parsed.data.editionStartDate,
       thumbnail_url: null,
-      is_live: false,
+      is_live: true,
       organizer_details: organizerDetails,
     }),
     cache: "no-store",

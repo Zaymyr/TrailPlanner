@@ -6,6 +6,7 @@ import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { LiveToggle } from "../../organizer/_components/dashboard/controls";
 
 type OrganizerUserSummary = {
   id: string;
@@ -88,6 +89,16 @@ type RaceEventOption = {
   race_date?: string | null;
 };
 
+type RacebookPublicationEvent = RaceEventOption & {
+  races: Array<{
+    id: string;
+    name: string;
+    race_date?: string | null;
+    racebook_is_live: boolean;
+    racebook_publication_approved_at?: string | null;
+  }>;
+};
+
 type Props = {
   accessToken: string | null;
 };
@@ -98,6 +109,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [publicationRequests, setPublicationRequests] = useState<OrganizerPublicationRequest[]>([]);
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
   const [events, setEvents] = useState<RaceEventOption[]>([]);
+  const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
   const [assignmentEmail, setAssignmentEmail] = useState("");
   const [assignmentEventId, setAssignmentEventId] = useState("");
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
@@ -140,6 +152,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       } | null;
       const publicationData = (await publicationResponse.json().catch(() => null)) as {
         publicationRequests?: OrganizerPublicationRequest[];
+        events?: RacebookPublicationEvent[];
         message?: string;
       } | null;
       if (!response.ok || !publicationResponse.ok) {
@@ -153,6 +166,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       setEvents(loadedEvents);
       setAssignmentEventId((current) => current || loadedEvents[0]?.id || "");
       setPublicationRequests(publicationData?.publicationRequests ?? []);
+      setPublicationEvents(publicationData?.events ?? []);
     } catch (caught) {
       console.error("Unable to load organizer claims", caught);
       setError("Unable to load organizer claims.");
@@ -249,6 +263,27 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
         setError(data?.message ?? "Unable to review publication request.");
+        return;
+      }
+      await load();
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const setRacebookVisibility = async (eventId: string, isLive: boolean) => {
+    if (!accessToken) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/event-publication-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ action: "setRacebookVisibility", eventId, isLive }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        setError(data?.message ?? "Impossible de modifier la visibilité des Racebooks.");
         return;
       }
       await load();
@@ -436,6 +471,64 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                 )}
               </section> : null}
             </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-lg">
+        <CardHeader>
+          <CardTitle>Publication des Racebooks</CardTitle>
+          <CardDescription>
+            Les courses restent visibles dans le catalogue. Ce contrôle affiche ou masque uniquement leurs Racebooks dans l’application.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {publicationEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune course disponible.</p>
+          ) : (
+            publicationEvents.map((event) => {
+              const pendingRequest = publicationRequests.find((request) => request.event_id === event.id) ?? null;
+              const publishedCount = event.races.filter((race) => race.racebook_is_live).length;
+              const approvedCount = event.races.filter((race) => race.racebook_publication_approved_at).length;
+              const isLive = event.races.length > 0 && publishedCount === event.races.length;
+
+              return (
+                <div key={event.id} className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 md:flex-row md:items-center md:justify-between">
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="font-semibold text-foreground">{event.name}</p>
+                      {pendingRequest ? (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                          Demande en cours
+                        </span>
+                      ) : approvedCount > 0 ? (
+                        <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700">
+                          Autorisation validée
+                        </span>
+                      ) : (
+                        <span className="rounded-full border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">
+                          Aucune demande
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      {event.races.length} format(s) · {publishedCount} Racebook(s) affiché(s)
+                      {event.location ? ` · ${event.location}` : ""}
+                    </p>
+                    {event.races.length > 0 ? (
+                      <p className="truncate text-xs text-muted-foreground">{event.races.map((race) => race.name).join(" · ")}</p>
+                    ) : null}
+                  </div>
+                  <LiveToggle
+                    checked={isLive}
+                    disabled={status === "saving" || event.races.length === 0}
+                    onChange={(checked) => void setRacebookVisibility(event.id, checked)}
+                    liveLabel="Racebooks affichés"
+                    draftLabel="Racebooks masqués"
+                  />
+                </div>
+              );
+            })
           )}
         </CardContent>
       </Card>

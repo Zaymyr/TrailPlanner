@@ -8,6 +8,7 @@ related_files:
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
@@ -61,7 +62,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event edition: canonical yearly date range in `race_event_editions`, shared by every format for that event year.
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
-- Event publication request: organizer request for admin validation before an event and its complete formats become live.
+- Event publication request: organizer request for the first admin approval of current-edition Racebooks; course catalog visibility is independent.
+- Racebook publication: `races.racebook_is_live` controls runner visibility, while approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and expands to the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
@@ -190,6 +192,7 @@ erDiagram
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
 - Organizer yearly editions are cloned directly as drafts. Admin validation is reserved for publication through `race_event_publication_requests`.
+- Do not conflate course catalog state with Racebook state: organizer-managed `race_events.is_live` and `races.is_live` remain true for catalog discovery, while new Racebooks default to hidden.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.

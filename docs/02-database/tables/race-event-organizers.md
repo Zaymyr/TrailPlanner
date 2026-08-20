@@ -6,6 +6,7 @@ ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
@@ -101,11 +102,11 @@ Summary:
 - That same membership also authorizes organizer edition-grouping flows on `races`: creating a brand-new format series, renaming `series_name`, duplicating a format into a new `edition_group_id`, or cloning a new yearly edition inside an existing `edition_group_id`.
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
 - That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
-- New organizer-created formats default to draft (`is_live = false`) until an admin approves an event publication request.
+- New organizer-created formats default to catalog-visible (`is_live = true`) but their Racebook defaults to hidden and unapproved.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
-- Direct admin assignment grants edit access only. It does not change `race_events.is_live`, any format `is_live` state, or the publication-review history.
+- Direct admin assignment grants edit access only. It does not change catalog or Racebook visibility, approval provenance, or publication-review history.
 
 ## Common Queries
 
@@ -136,13 +137,13 @@ order by created_at asc;
 - JWT admin checks must use `app_metadata`, not `user_metadata`.
 - New organizer-facing fields on child source tables should continue to check active membership for the parent event.
 - Organizer dashboard JSONB fields do not change the membership model; keep using active `race_event_organizers` checks instead of field-level shortcuts.
-- `POST /api/organizer/events` creates an owner membership immediately after inserting a non-live event. If membership insertion fails, the route deletes that newly created event.
+- `POST /api/organizer/events` creates an owner membership immediately after inserting a catalog-visible event. If membership insertion fails, the route deletes that newly created event.
 - Common-vs-format detail splitting is an application convention, not a new authorization boundary.
 - The current organizer UI treats bib pickup as event-only, including its `locations[]` and nested `slots[]`, and treats format access-section toggles plus ravito start/finish timing cards as ordinary race-detail edits; all of them still rely on the same active event-membership check.
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.
-- Membership authorizes draft maintenance and publication requests, but never direct organizer writes to `race_events.is_live` or `races.is_live`.
+- Membership authorizes maintenance and publication requests, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. After admin approval, the race service route may change only `races.racebook_is_live`.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.
 - Supabase Auth e-mail lookup for direct assignment must remain in the admin-only server route with the service credential. Never expose the Auth Admin user list or service credential to the browser.

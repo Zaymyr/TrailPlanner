@@ -65,6 +65,8 @@ Existing race slugs remain canonical even when they contain generated suffixes. 
 
 ## Gotchas
 
+- Public course discovery continues to use `races.is_live` / `races.is_public` and live parent events. `races.racebook_is_live` controls only the mobile runner Racebook and must not remove an otherwise published course from SEO/catalog pages.
+
 - Do not count races with missing distance toward a distance landing page.
 - Do not present another format from the same event as a similar independent race.
 - Similarity is a navigation aid, not a statement that courses have comparable terrain or difficulty.
@@ -77,4 +79,3 @@ Existing race slugs remain canonical even when they contain generated suffixes. 
 - [Web App](../01-architecture/web-app.md)
 - [race_events](../02-database/tables/race-events.md)
 - [Organizer Race Management](organizer-race-management.md)
-

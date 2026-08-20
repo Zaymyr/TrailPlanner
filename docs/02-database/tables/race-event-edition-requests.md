@@ -48,7 +48,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 
 - Do not restore organizer inserts or add new review UI for this table.
 - Do not interpret old `approved` rows as current publication approval; publication uses `race_event_publication_requests`.
-- When optional edition duplication is enabled, cloned draft `races` rows must attach through `edition_id` and preserve their cross-year `edition_group_id` series relationship. An empty edition legitimately has no attached format until the organizer adds one.
+- When optional edition duplication is enabled, cloned `races` rows must attach through `edition_id`, preserve their cross-year `edition_group_id`, and start with hidden/unapproved Racebook publication state even though the course row is catalog-visible. An empty edition legitimately has no attached format until the organizer adds one.
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 - Do not couple direct organizer delegation to this retired workflow. Membership assignment and yearly edition creation remain separate operations.
 
