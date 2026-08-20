@@ -13,6 +13,7 @@ import { sendOrganizerRaceUpdateNotifications } from "../../../../../../lib/push
 
 const createUpdateSchema = z.object({
   message: z.string().trim().min(1).max(280),
+  raceId: z.string().uuid().nullable().optional(),
 });
 
 const eventRowSchema = z.object({
@@ -26,6 +27,14 @@ const updateRowSchema = z.object({
   message: z.string(),
   created_at: z.string(),
   created_by: z.string().uuid().nullable().optional(),
+  race_id: z.string().uuid().nullable(),
+});
+
+const raceRowSchema = z.object({
+  id: z.string().uuid(),
+  event_id: z.string().uuid(),
+  name: z.string(),
+  is_live: z.boolean(),
 });
 
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
@@ -47,7 +56,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
       }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_updates?event_id=eq.${parsedParams.data.id}&select=id,event_id,message,created_at,created_by&order=created_at.desc&limit=20`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_updates?event_id=eq.${parsedParams.data.id}&select=id,event_id,race_id,message,created_at,created_by&order=created_at.desc&limit=20`,
       {
         headers: serviceHeaders(auth.serviceConfig, ""),
         cache: "no-store",
@@ -113,6 +122,26 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   const event = z.array(eventRowSchema).parse(await eventResponse.json())[0] ?? null;
   if (!event) return jsonError("Event not found.", 404);
 
+  const requestedRaceId = parsedBody.data.raceId ?? null;
+  let race: z.infer<typeof raceRowSchema> | null = null;
+  if (requestedRaceId) {
+    const raceResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${requestedRaceId}&event_id=eq.${parsedParams.data.id}&is_live=eq.true&select=id,event_id,name,is_live&limit=1`,
+      {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }
+    );
+
+    if (!raceResponse.ok) {
+      console.error("Unable to load organizer race format before update notification", await raceResponse.text());
+      return jsonError("Unable to load race format.", 502);
+    }
+
+    race = z.array(raceRowSchema).parse(await raceResponse.json())[0] ?? null;
+    if (!race) return jsonError("Live race format not found for this event.", 400);
+  }
+
   const insertResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_updates`, {
     method: "POST",
     headers: {
@@ -121,6 +150,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     },
     body: JSON.stringify({
       event_id: parsedParams.data.id,
+      race_id: race?.id ?? null,
       created_by: auth.user.id,
       message: parsedBody.data.message,
     }),
@@ -139,6 +169,8 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     const delivery = await sendOrganizerRaceUpdateNotifications({
       eventId: parsedParams.data.id,
       eventName: event.name,
+      raceId: race?.id ?? null,
+      raceName: race?.name ?? null,
       updateId: update.id,
       message: update.message,
     });

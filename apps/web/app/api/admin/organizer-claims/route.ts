@@ -142,6 +142,50 @@ const adminUsersResponseSchema = z.object({
   users: z.array(adminUserRowSchema),
 });
 
+const raceEventOptionSchema = z.object({
+  id: z.string().uuid(),
+  name: z.string(),
+  location: z.string().nullable().optional(),
+  race_date: z.string().nullable().optional(),
+});
+
+const existingMembershipSchema = z.object({
+  id: z.string().uuid(),
+  role: z.string(),
+  revoked_at: z.string().nullable().optional(),
+});
+
+const AUTH_USERS_PER_PAGE = 1000;
+const MAX_AUTH_USER_PAGES = 100;
+
+async function findAuthUserByEmail(
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  requestedEmail: string
+) {
+  const normalizedEmail = requestedEmail.trim().toLowerCase();
+
+  for (let page = 1; page <= MAX_AUTH_USER_PAGES; page += 1) {
+    const response = await fetch(
+      `${serviceConfig.supabaseUrl}/auth/v1/admin/users?page=${page}&per_page=${AUTH_USERS_PER_PAGE}`,
+      {
+        headers: serviceHeaders(serviceConfig, ""),
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Unable to search Supabase Auth users: ${await response.text()}`);
+    }
+
+    const users = adminUsersResponseSchema.parse(await response.json()).users;
+    const match = users.find((user) => user.email?.trim().toLowerCase() === normalizedEmail);
+    if (match) return { id: match.id, email: match.email!.trim() };
+    if (users.length < AUTH_USERS_PER_PAGE) return null;
+  }
+
+  throw new Error("Supabase Auth user search exceeded the supported pagination limit.");
+}
+
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 const parseIsoDate = (value: string | null | undefined) => {
@@ -447,6 +491,11 @@ const actionSchema = z.discriminatedUnion("action", [
     revokeReason: z.string().trim().optional().transform((value) => (value ? value : null)),
   }),
   z.object({
+    action: z.literal("assign"),
+    eventId: z.string().uuid(),
+    email: z.string().trim().email().transform((value) => value.toLowerCase()),
+  }),
+  z.object({
     action: z.literal("approveEditionRequest"),
     editionRequestId: z.string().uuid(),
     reviewerNotes: z.string().trim().optional().transform((value) => (value ? value : null)),
@@ -462,7 +511,7 @@ export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [claimsResponse, membershipsResponse, editionRequestsResponse] = await Promise.all([
+  const [claimsResponse, membershipsResponse, editionRequestsResponse, eventsResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?status=eq.pending&select=id,created_at,updated_at,user_id,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewed_by,reviewed_at,reviewer_notes,race_events(id,name,location,race_date)&order=created_at.asc&limit=200`,
       {
@@ -484,6 +533,13 @@ export async function GET(request: NextRequest) {
         cache: "no-store",
       }
     ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date&order=name.asc&limit=1000`,
+      {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }
+    ),
   ]);
 
   if (!claimsResponse.ok || !membershipsResponse.ok) {
@@ -498,11 +554,18 @@ export async function GET(request: NextRequest) {
   const claims = z.array(claimRowSchema).parse(await claimsResponse.json());
   const memberships = z.array(membershipRowSchema).parse(await membershipsResponse.json());
   let editionRequests: Array<z.infer<typeof editionRequestRowSchema>> = [];
+  let events: Array<z.infer<typeof raceEventOptionSchema>> = [];
 
   if (editionRequestsResponse.ok) {
     editionRequests = z.array(editionRequestRowSchema).parse(await editionRequestsResponse.json());
   } else {
     console.warn("Unable to load admin edition requests. Continuing without them.", await editionRequestsResponse.text());
+  }
+
+  if (eventsResponse.ok) {
+    events = z.array(raceEventOptionSchema).parse(await eventsResponse.json());
+  } else {
+    console.warn("Unable to load race events for organizer assignment. Continuing without them.", await eventsResponse.text());
   }
 
   const userIds = Array.from(new Set([...claims, ...memberships, ...editionRequests].map((row) => row.user_id)));
@@ -573,6 +636,7 @@ export async function GET(request: NextRequest) {
       claims: claims.map(withUserIdentity),
       memberships: memberships.map(withUserIdentity),
       editionRequests: editionRequests.map(withUserIdentity),
+      events,
     })
   );
 }
@@ -583,6 +647,103 @@ export async function PATCH(request: NextRequest) {
 
   const parsedBody = actionSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid organizer claim action.", 400);
+
+  if (parsedBody.data.action === "assign") {
+    let authUser: Awaited<ReturnType<typeof findAuthUserByEmail>>;
+    let event: z.infer<typeof raceEventOptionSchema> | null = null;
+
+    try {
+      const [matchedUser, eventResponse] = await Promise.all([
+        findAuthUserByEmail(auth.serviceConfig, parsedBody.data.email),
+        fetch(
+          `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedBody.data.eventId}&select=id,name,location,race_date&limit=1`,
+          {
+            headers: serviceHeaders(auth.serviceConfig, ""),
+            cache: "no-store",
+          }
+        ),
+      ]);
+
+      if (!eventResponse.ok) {
+        console.error("Unable to load race event before organizer assignment", await eventResponse.text());
+        return jsonError("Unable to load the race event.", 502);
+      }
+
+      authUser = matchedUser;
+      event = z.array(raceEventOptionSchema).parse(await eventResponse.json())[0] ?? null;
+    } catch (error) {
+      console.error("Unable to resolve organizer assignment", error);
+      return jsonError("Unable to find the Supabase account.", 502);
+    }
+
+    if (!event) return jsonError("Race event not found.", 404);
+    if (!authUser) return jsonError("No Supabase account matches this email address.", 404);
+
+    const existingResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?event_id=eq.${event.id}&user_id=eq.${authUser.id}&select=id,role,revoked_at&order=created_at.desc`,
+      {
+        headers: serviceHeaders(auth.serviceConfig, ""),
+        cache: "no-store",
+      }
+    );
+
+    if (!existingResponse.ok) {
+      console.error("Unable to inspect organizer membership before assignment", await existingResponse.text());
+      return jsonError("Unable to assign organizer access.", 502);
+    }
+
+    const existingMemberships = z.array(existingMembershipSchema).parse(await existingResponse.json());
+    const activeMembership = existingMemberships.find((membership) => !membership.revoked_at);
+    if (activeMembership) {
+      return jsonError("This account already has active organizer access to this race event.", 409);
+    }
+
+    const revokedMembership = existingMemberships[0] ?? null;
+    const membershipResponse = revokedMembership
+      ? await fetch(
+          `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?id=eq.${revokedMembership.id}`,
+          {
+            method: "PATCH",
+            headers: {
+              ...serviceHeaders(auth.serviceConfig),
+              Prefer: "return=representation",
+            },
+            body: JSON.stringify({
+              role: revokedMembership.role === "owner" ? "owner" : "organizer",
+              created_by: auth.user.id,
+              revoked_at: null,
+              revoked_by: null,
+              revoke_reason: null,
+            }),
+            cache: "no-store",
+          }
+        )
+      : await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers`, {
+          method: "POST",
+          headers: {
+            ...serviceHeaders(auth.serviceConfig),
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({
+            event_id: event.id,
+            user_id: authUser.id,
+            role: "organizer",
+            created_by: auth.user.id,
+          }),
+          cache: "no-store",
+        });
+
+    if (!membershipResponse.ok) {
+      console.error("Unable to create organizer assignment", await membershipResponse.text());
+      return jsonError("Unable to assign organizer access.", 502);
+    }
+
+    const membership = z
+      .array(membershipRowSchema.omit({ race_events: true }).passthrough())
+      .parse(await membershipResponse.json())[0] ?? null;
+
+    return withSecurityHeaders(NextResponse.json({ membership, user: authUser, event }));
+  }
 
   if (parsedBody.data.action === "approveEditionRequest" || parsedBody.data.action === "rejectEditionRequest") {
     const nextStatus = parsedBody.data.action === "approveEditionRequest" ? "approved" : "rejected";

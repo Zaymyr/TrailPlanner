@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET, PATCH } from "./route";
+import { DELETE, GET, PATCH } from "./route";
 
 const eventId = "11111111-1111-1111-1111-111111111111";
 
@@ -19,6 +19,12 @@ const organizerRequest = (body?: Record<string, unknown>) =>
       ...(body ? { "content-type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
+  });
+
+const deleteRequest = () =>
+  new NextRequest(`http://localhost/api/organizer/events/${eventId}`, {
+    method: "DELETE",
+    headers: { authorization: "Bearer user-token" },
   });
 
 describe("/api/organizer/events/[id]", () => {
@@ -153,6 +159,53 @@ describe("/api/organizer/events/[id]", () => {
     expect(payload.message).toBe("No fields to update.");
     expect(mockFetch).not.toHaveBeenCalled();
   });
+
+  it("lets the owner delete an event and cleans up its Storage files", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "33333333-3333-3333-3333-333333333333", role: "owner" }]))
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: eventId,
+            thumbnail_url: "https://supabase.example/storage/v1/object/public/race-images/organizer-events/event/thumb.png",
+            races: [
+              {
+                id: "22222222-2222-2222-2222-222222222222",
+                gpx_storage_path: "organizer/event/race.gpx",
+                thumbnail_url: "https://supabase.example/storage/v1/object/public/race-images/organizer-races/event/race/thumb.png",
+              },
+            ],
+          },
+        ])
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
+      .mockResolvedValue(new Response(null, { status: 204 }));
+
+    const response = await DELETE(deleteRequest(), { params: { id: eventId } });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload).toEqual({ deleted: true, eventId });
+    expect(mockFetch.mock.calls.some(([url, init]) => String(url).includes(`/races?event_id=eq.${eventId}`) && init?.method === "DELETE")).toBe(true);
+    expect(mockFetch.mock.calls.some(([url, init]) => String(url).includes(`/race_events?id=eq.${eventId}`) && init?.method === "DELETE")).toBe(true);
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/race-gpx/organizer/event/race.gpx"))).toBe(true);
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/race-images/organizer-events/event/thumb.png"))).toBe(true);
+    expect(mockFetch.mock.calls.some(([url]) => String(url).includes("/race-images/organizer-races/event/race/thumb.png"))).toBe(true);
+  });
+
+  it("rejects event deletion for a membership that is not the owner", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      buildJsonResponse([{ id: "33333333-3333-3333-3333-333333333333", role: "editor" }])
+    );
+
+    const response = await DELETE(deleteRequest(), { params: { id: eventId } });
+
+    expect(response.status).toBe(403);
+    expect(await response.json()).toEqual({ message: "Only the event owner can delete this course." });
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+  });
 });
 
 vi.mock("../../../../../lib/http", () => ({
@@ -186,3 +239,7 @@ vi.mock("../../../../../lib/organizer", async () => {
     },
   };
 });
+
+vi.mock("../../../../../lib/supabase", () => ({
+  isAdminUser: () => false,
+}));

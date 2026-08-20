@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-06-29
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -64,6 +64,7 @@ Summary:
 - One user can favorite an event only once.
 - Anonymous users must not create favorites through the runner API.
 - Organizer notifications use the favorite rows as the fan-out audience source, but favorites themselves do not store notification history.
+- Choosing one format changes the announcement context and title; it does not replace the parent event's favorite list as the push audience.
 
 ## Common Queries
 
@@ -91,6 +92,7 @@ where event_id = '<event-id>';
 - Do not expose cross-user favorite lists to organizers directly; organizer UI should show only aggregate counts.
 - Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.
 - Favoriting affects ordering only; it must not change the compact organizer-update preview contract or trigger a separate history load by itself.
+- Unread `NEW` badges come from `race_event_update_reads`, not from the favorite row.
 
 ## Related Docs
 

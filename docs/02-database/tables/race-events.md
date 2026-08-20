@@ -8,6 +8,7 @@ related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - apps/web/app/api/race-catalog/route.ts
@@ -51,6 +52,7 @@ related_tables:
   - race_event_organizers
   - race_event_publication_requests
   - race_event_updates
+  - race_event_update_reads
   - race_event_editions
   - races
   - user_favorite_race_events
@@ -70,13 +72,14 @@ related_tables:
 - Draft organizer event: a non-live event row created directly by an authenticated organizer.
 - Organizer dashboard details: nullable JSONB for event end date, official website, common equipment, common bib pickup locations and dated time slots, access, services, partners, and runner notes.
 - Event favorite target: runners follow the whole event, not an individual race format.
-- Organizer announcement source: manual `race_event_updates` rows can be published for the event and pushed to followers.
+- Organizer announcement source: manual `race_event_updates` rows can concern the whole event or one child format and are pushed to event followers.
 - Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
 - Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
 - Website-import target: the organizer website import route enriches the selected organizer-owned `race_events` row and must never create a different event during that review flow, even when the generic importer inspects a bounded set of prioritized same-origin pages, scores candidate dates, and merges format data before building its preview.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer creation target: direct creators receive an active owner membership and can manage all formats under their new event immediately.
+- Admin delegation target: the admin Organizer tab lists event ids/names after trusted admin verification so an existing Auth account can receive an event-scoped `organizer` membership without changing the event row.
 
 ## Columns Observed From Code
 
@@ -100,6 +103,7 @@ Event-scoped child tables added later include:
 
 - `user_favorite_race_events.event_id`
 - `race_event_updates.event_id`
+- `race_event_update_reads` reaches the event through its parent update
 
 <!-- CONFLICT: apps/web and apps/mobile query races.event_id and race_events joins; visible migrations do not create races.event_id or race_events. -->
 
@@ -124,6 +128,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Trusted admins can select every event, including drafts, from the existing Organizer header and use the same server mutation routes. This admin catalog read is service-role-backed after `app_metadata` verification and does not create organizer memberships.
+- The separate admin Organizer assignment form also reads the complete event list only after the same trusted admin check. Submitting an e-mail creates/reactivates membership but leaves every `race_events` field, including `is_live`, unchanged.
 - Organizer yearly editions are normalized in `race_event_editions`. Formats attach through `races.edition_id`; `races.edition_group_id` and `series_name` continue to group the same format series across years.
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
 - Organizer runner notifications are manual. Saves and publication review must not auto-create announcements.
@@ -188,7 +193,7 @@ from public.races;
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Manual organizer draft events are not public catalog rows until an admin approves a publication request.
-- Keep favorites and organizer updates on `race_events`. The push deep link and mobile catalog sheet both target the event id, not a specific format id.
+- Keep favorites event-scoped. Organizer updates always retain an event id and may additionally carry a child format id for title and navigation context.
 - Keep the event-level catalog query narrow even with update previews: mobile should embed only the short recent history needed for instant sheet rendering, not the full announcement archive for every event.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
 - Organizer event/race mutation routes cannot set live state. A publication request requires event name, location, start date, end date, and at least one complete format; admin approval rechecks those fields and atomically publishes the event plus complete formats.
@@ -198,6 +203,7 @@ from public.races;
 - Do not edit the legacy event date fields as canonical organizer dates; update `race_event_editions` and let its trigger mirror the current range.
 - Keep image upload validation in the server route; the database stores only the resulting URL.
 - Keep admin organizer review tolerant of missing yearly-edition joins: a failed `race_event_edition_requests -> race_events` read should not prevent the base event-claim review data from loading.
+- Keep the full event list used by direct organizer assignment behind the admin service route; do not expose draft events through a public or ordinary authenticated selector.
 - Keep generic website crawling bounded to prioritized same-origin pages. External registration, social, and activity-platform links are source references, not additional event pages to crawl into the `race_events` preview.
 
 - The membership rule has one server-verified admin exception. Do not turn the complete Organizer selector into an unfiltered authenticated or public `race_events` read.

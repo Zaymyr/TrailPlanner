@@ -1,12 +1,13 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
@@ -34,6 +35,7 @@ related_tables:
   - race_event_publication_requests
   - race_event_organizers
   - race_event_updates
+  - race_event_update_reads
   - products
   - user_favorite_race_events
   - user_profiles
@@ -61,7 +63,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event edition request: retired audit row from the former yearly-edition review workflow.
 - Event publication request: organizer request for admin validation before an event and its complete formats become live.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
-- Organizer update preview: mobile preloads a short per-event preview from `race_event_updates` in the Courses catalog, then expands to the longer history only on demand.
+- Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and expands to the longer history only on demand.
+- Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
 
 ## Tables
@@ -87,6 +90,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_event_publication_requests` | Pending/approved/rejected event publication reviews. |
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
+| `race_event_update_reads` | Owner-scoped receipts recording which organizer announcements a runner has seen. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
 | `race_event_editions` | Canonical yearly start/end date ranges for organizer events, with one current edition per event. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
@@ -140,6 +144,9 @@ erDiagram
   RACE_EVENTS ||--o{ RACE_EVENT_ORGANIZERS : managed_by
   RACE_EVENTS ||--o{ USER_FAVORITE_RACE_EVENTS : favorited_by
   RACE_EVENTS ||--o{ RACE_EVENT_UPDATES : announced_in
+  RACES ||--o{ RACE_EVENT_UPDATES : optionally_targets
+  RACE_EVENT_UPDATES ||--o{ RACE_EVENT_UPDATE_READS : read_by
+  USER_PROFILES ||--o{ RACE_EVENT_UPDATE_READS : reads
   PUSH_NOTIFICATION_EVENTS }o--|| PUSH_DEVICES : sent_to
 ```
 
@@ -156,6 +163,7 @@ erDiagram
 - [race_event_edition_requests](tables/race-event-edition-requests.md)
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_event_updates](tables/race-event-updates.md)
+- [race_event_update_reads](tables/race-event-update-reads.md)
 - [products](tables/products.md)
 - [user_favorite_race_events](tables/user-favorite-race-events.md)
 - [user_profiles](tables/user-profiles.md)
@@ -176,7 +184,7 @@ erDiagram
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
-- Event favorites are stored separately from organizer updates: `user_favorite_race_events` defines audience membership, while `race_event_updates` stores the runner-visible announcement history.
+- Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.

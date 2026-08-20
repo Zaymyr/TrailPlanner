@@ -1,10 +1,11 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-06-29
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
   - apps/web/app/api/organizer/events/[id]/updates/route.test.ts
   - apps/web/app/api/race-events/[id]/updates/route.ts
@@ -16,6 +17,8 @@ related_tables:
   - race_events
   - race_event_organizers
   - push_notification_events
+  - race_event_update_reads
+  - races
 ---
 
 # `race_event_updates`
@@ -39,16 +42,19 @@ related_tables:
 | `created_at` | `timestamptz` | not null, default UTC `now()` | Publish time. |
 | `event_id` | `uuid` | not null, references `race_events(id)` on delete cascade | Event receiving the update. |
 | `created_by` | `uuid` | nullable, references `auth.users(id)` on delete set null | Organizer/admin author. |
+| `race_id` | `uuid` | nullable, references `races(id)` on delete set null | Optional format concerned by the announcement. |
 | `message` | `text` | not null, trimmed length `1..280` | Runner-facing update message. |
 
 ## Foreign Keys
 
 - `event_id -> public.race_events(id) on delete cascade`
 - `created_by -> auth.users(id) on delete set null`
+- `race_id -> public.races(id) on delete set null`
 
 ## Indexes
 
 - `race_event_updates_event_created_idx` on `(event_id, created_at desc)`
+- partial `race_event_updates_race_created_idx` on `(race_id, created_at desc)` when `race_id` is not null
 
 ## RLS Policies
 
@@ -63,6 +69,8 @@ Summary:
 ## Business Invariants
 
 - Updates are event-scoped and intentionally manual; normal organizer saves or publish toggles must not auto-create rows here.
+- `race_id = null` means the update concerns the whole event. A non-null format must be live and belong to the same event; the route and insert RLS policy both enforce this.
+- Push titles use the event name for event-wide updates and the format name for format-specific updates.
 - The same message can be reused later, but each send should create a new update row with a new id.
 - Push dedupe relies on `organizer-race-update:<updateId>`, so re-sending the same stored update should not produce duplicate device logs.
 - Runner-facing history should show only these manual announcements, not every organizer mutation.
@@ -72,7 +80,7 @@ Summary:
 Fetch the latest runner-visible updates:
 
 ```sql
-select id, event_id, message, created_at
+select id, event_id, race_id, message, created_at
 from public.race_event_updates
 where event_id = '<event-id>'
 order by created_at desc
@@ -82,8 +90,8 @@ limit 20;
 Insert one organizer update:
 
 ```sql
-insert into public.race_event_updates (event_id, created_by, message)
-values ('<event-id>', auth.uid(), 'Retrait des dossards dès 17h.');
+insert into public.race_event_updates (event_id, race_id, created_by, message)
+values ('<event-id>', null, auth.uid(), 'Retrait des dossards dès 17h.');
 ```
 
 ## Gotchas
@@ -93,6 +101,7 @@ values ('<event-id>', auth.uid(), 'Retrait des dossards dès 17h.');
 - The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.
+- Runner read state belongs in `race_event_update_reads`; do not mutate an announcement when one runner views it.
 
 ## Related Docs
 

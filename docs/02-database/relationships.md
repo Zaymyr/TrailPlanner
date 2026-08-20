@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -15,6 +15,7 @@ related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
 related_tables:
   - race_plans
@@ -30,6 +31,7 @@ related_tables:
   - race_event_publication_requests
   - race_event_organizers
   - race_event_updates
+  - race_event_update_reads
   - products
   - user_favorite_race_events
   - user_profiles
@@ -72,6 +74,7 @@ User-owned tables include:
 - `race_event_organizers.user_id`
 - `plan_share_links.user_id`
 - `race_event_updates.created_by`
+- `race_event_update_reads.user_id`
 
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
 
@@ -124,7 +127,7 @@ Current code treats `race_events` as a parent/grouping table for `races`:
 - `apps/web/app/api/race-catalog/route.ts` creates `race_events`, and those new event/race rows should default to draft unless the admin explicitly publishes them.
 - admin APIs query `races(..., race_events(...))`.
 - mobile catalog groups races by `race_events`.
-- mobile favorites and organizer update notifications are event-scoped on `race_events`.
+- mobile favorites and organizer update audiences are event-scoped on `race_events`; an update may additionally reference one child `races` format for context.
 - organizer claims reference `race_events(id)`.
 - legacy organizer edition requests and current publication requests reference `race_events(id)`.
 - organizer memberships reference `race_events(id)` and grant access to all `races` under the event.
@@ -150,6 +153,9 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `user_favorite_race_events.event_id -> race_events(id) on delete cascade`
 - `race_event_updates.event_id -> race_events(id) on delete cascade`
 - `race_event_updates.created_by -> auth.users(id) on delete set null`
+- `race_event_updates.race_id -> races(id) on delete set null`
+- `race_event_update_reads.update_id -> race_event_updates(id) on delete cascade`
+- `race_event_update_reads.user_id -> user_profiles(user_id) on delete cascade`
 - `race_aid_station_products.race_aid_station_id -> race_aid_stations(id) on delete cascade`
 - `race_aid_station_products.product_id -> products(id) on delete cascade`
 
@@ -164,7 +170,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - The legacy coach/coachee relationship schema was removed by `20260618145940_remove_coach_features.sql`; do not build new relationships on the historical `coach_*` tables.
 - `plan_aid_stations.race_aid_station_id` is referenced by `GpxAidStationImporter`, but no visible migration creates it.
 - Do not cascade-delete public races when revoking organizer access; set `race_event_organizers.revoked_at`.
-- Organizer update history is event-child data; deleting an event cascades both favorites and updates.
+- Organizer update history is event-child data; deleting an event cascades favorites, updates, and their read receipts. Deleting only a format keeps the update as event history and sets its optional `race_id` to null.
 - Organizer station products are source-race suggestions and are not copied into `plan_aid_stations`.
 - Organizer detail JSONB columns are metadata on existing source rows; they do not create new ownership or cascade relationships.
 - Public crew share links are plan children; deleting the plan must invalidate the public recap by cascading `plan_share_links`.

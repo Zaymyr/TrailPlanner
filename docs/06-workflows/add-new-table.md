@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -16,7 +16,7 @@ related_tables: []
 
 Use this workflow when adding a Supabase table to Pace Yourself.
 
-For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and mobile onboarding completion on `user_profiles.onboarding_completed_at`; both still require schema and business/auth-doc updates.
+For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and mobile onboarding completion on `user_profiles.onboarding_completed_at`; both still require schema and business/auth-doc updates. `race_event_update_reads` is the current owner-scoped table example: it pairs explicit grants with RLS and a manual SQL policy check.
 
 ## Key Concepts
 

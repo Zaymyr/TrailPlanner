@@ -11,6 +11,7 @@ import {
   uuidParamSchema,
 } from "../../../../../lib/organizer";
 import { withSecurityHeaders } from "../../../../../lib/http";
+import { isAdminUser } from "../../../../../lib/supabase";
 import {
   organizerEventDetailsSchema,
   parseOrganizerEventDetails,
@@ -78,6 +79,36 @@ const eventDetailSchema = z.object({
     .nullable()
     .optional(),
 });
+
+const eventDeleteReadSchema = z.object({
+  id: z.string().uuid(),
+  thumbnail_url: z.string().nullable().optional(),
+  races: z.array(z.object({
+    id: z.string().uuid(),
+    gpx_storage_path: z.string().nullable().optional(),
+    thumbnail_url: z.string().nullable().optional(),
+  })).nullable().optional(),
+});
+
+const ownerMembershipSchema = z.object({ id: z.string().uuid(), role: z.string() });
+
+const getPublicRaceImageStoragePath = (supabaseUrl: string, publicUrl: string | null | undefined) => {
+  if (!publicUrl) return null;
+  const publicPrefix = `${supabaseUrl}/storage/v1/object/public/race-images/`;
+  return publicUrl.startsWith(publicPrefix) ? publicUrl.slice(publicPrefix.length) : null;
+};
+
+const deleteStorageObject = async (
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  bucket: string,
+  storagePath: string
+) => {
+  await fetch(`${serviceConfig.supabaseUrl}/storage/v1/object/${bucket}/${storagePath}`, {
+    method: "DELETE",
+    headers: serviceHeaders(serviceConfig, ""),
+    cache: "no-store",
+  }).catch(() => null);
+};
 
 const mapEventDetail = (event: z.infer<typeof eventDetailSchema>) => ({
   ...event,
@@ -234,4 +265,63 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
         : null,
     })
   );
+}
+
+export async function DELETE(request: NextRequest, context: { params: { id?: string } }) {
+  const auth = await requireOrganizerAuth(request);
+  if ("error" in auth) return auth.error;
+
+  const parsedParams = uuidParamSchema.safeParse(context.params);
+  if (!parsedParams.success) return jsonError("Invalid event id.", 400);
+
+  const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
+  if (organizer !== true) return organizer.error;
+
+  if (!isAdminUser(auth.user)) {
+    const membershipResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?event_id=eq.${parsedParams.data.id}&user_id=eq.${auth.user.id}&revoked_at=is.null&select=id,role&limit=1`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!membershipResponse.ok) return jsonError("Unable to verify event ownership.", 502);
+    const membership = z.array(ownerMembershipSchema).parse(await membershipResponse.json())[0] ?? null;
+    if (membership?.role !== "owner") return jsonError("Only the event owner can delete this course.", 403);
+  }
+
+  const eventReadResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,thumbnail_url,races(id,gpx_storage_path,thumbnail_url)&limit=1`,
+    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+  );
+  if (!eventReadResponse.ok) return jsonError("Unable to load event before delete.", 502);
+  const eventRow = z.array(eventDeleteReadSchema).parse(await eventReadResponse.json())[0] ?? null;
+  if (!eventRow) return jsonError("Event not found.", 404);
+
+  if ((eventRow.races?.length ?? 0) > 0) {
+    const racesDeleteResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/races?event_id=eq.${parsedParams.data.id}`,
+      { method: "DELETE", headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!racesDeleteResponse.ok) return jsonError("Unable to delete event formats.", 502);
+  }
+
+  const deleteResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}`,
+    { method: "DELETE", headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+  );
+
+  if (!deleteResponse.ok) {
+    console.error("Unable to delete organizer event", await deleteResponse.text());
+    return jsonError("Unable to delete event.", 502);
+  }
+
+  const storageDeletes: Array<Promise<void>> = [];
+  for (const race of eventRow.races ?? []) {
+    if (race.gpx_storage_path) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-gpx", race.gpx_storage_path));
+    const raceImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, race.thumbnail_url);
+    if (raceImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", raceImagePath));
+  }
+  const eventImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, eventRow.thumbnail_url);
+  if (eventImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", eventImagePath));
+  await Promise.all(storageDeletes);
+
+  return withSecurityHeaders(NextResponse.json({ deleted: true, eventId: parsedParams.data.id }));
 }

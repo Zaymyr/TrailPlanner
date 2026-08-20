@@ -101,6 +101,7 @@ const websiteImportScoreTone = (score: number) =>
 type OrganizerRaceEventUpdate = {
   id: string;
   event_id: string;
+  race_id: string | null;
   message: string;
   created_at: string;
   created_by?: string | null;
@@ -146,6 +147,7 @@ export function OrganizerDashboard({
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
+  const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
   const [eventUpdateError, setEventUpdateError] = useState<string | null>(null);
   const [eventUpdateSending, setEventUpdateSending] = useState(false);
   const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
@@ -170,6 +172,9 @@ export function OrganizerDashboard({
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeEdition = getEventEdition(eventDetail, selectedEditionYear);
+  const eventUpdateRaceOptions = (eventDetail?.races ?? []).filter(
+    (race) => race.is_live && (!activeEdition || race.edition_id === activeEdition.id)
+  );
   const activeSeries =
     activeTab === EVENT_TAB_ID || activeTab === ADD_FORMAT_TAB_ID
       ? null
@@ -1032,6 +1037,43 @@ export function OrganizerDashboard({
     }
   };
 
+  const deleteSelectedEvent = async () => {
+    if (!accessToken || !selectedEventId) return false;
+
+    const deletedEventId = selectedEventId;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/events/${deletedEventId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        showToast("error", data?.message ?? "Impossible de supprimer la course.");
+        return false;
+      }
+
+      const nextMemberships = memberships.filter((membership) => membership.event_id !== deletedEventId);
+      setMemberships(nextMemberships);
+      setSelectedEventId(nextMemberships[0]?.event_id ?? null);
+      setEventDetail(null);
+      setActiveTab(EVENT_TAB_ID);
+      setActiveModule("event");
+      setDirtyModulesByScope({});
+      dirtyRevisionByScopeRef.current = {};
+      showToast("success", "Course supprimée définitivement.");
+      await loadOrganizerData();
+      return true;
+    } catch (caught) {
+      console.error("Unable to delete organizer event", caught);
+      showToast("error", "Impossible de supprimer la course.");
+      return false;
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   const saveAidStations = async (options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !activeRace) return false;
     if (!options.background) {
@@ -1289,12 +1331,12 @@ export function OrganizerDashboard({
       const response = await fetch(`/api/organizer/events/${selectedEventId}/updates`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message, raceId: eventUpdateRaceId }),
       });
       const data = (await response.json().catch(() => null)) as
         | {
             update?: OrganizerRaceEventUpdate;
-            delivery?: { attempted?: number; sent?: number; failed?: number; skipped?: number };
+            delivery?: { totalCandidateCount?: number; sentCount?: number; skippedDuplicateCount?: number };
             message?: string;
           }
         | null;
@@ -1304,9 +1346,10 @@ export function OrganizerDashboard({
         return;
       }
 
-      const sentCount = data?.delivery?.sent ?? 0;
+      const sentCount = data?.delivery?.sentCount ?? 0;
       showToast("success", sentCount > 0 ? `Notification envoyée à ${sentCount} coureur(s).` : "Mise à jour publiée.");
       setEventUpdateMessage("");
+      setEventUpdateRaceId(null);
       setEventUpdatesDialogOpen(false);
       await loadEventUpdates(selectedEventId);
     } catch (caught) {
@@ -1525,11 +1568,13 @@ export function OrganizerDashboard({
         }}
         onNotifyFollowers={() => {
           setEventUpdateError(null);
+          setEventUpdateRaceId(null);
           setEventUpdatesDialogOpen(true);
         }}
         onRequestPublication={() => {
           void requestPublication();
         }}
+        onDeleteEvent={deleteSelectedEvent}
       />
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -1765,6 +1810,28 @@ export function OrganizerDashboard({
 
           <div className="space-y-4">
             <div className="space-y-1">
+              <label htmlFor="organizer-update-audience" className="text-sm font-medium text-foreground">
+                Notification concernée
+              </label>
+              <select
+                id="organizer-update-audience"
+                className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={eventUpdateRaceId ?? ""}
+                onChange={(event) => setEventUpdateRaceId(event.target.value || null)}
+              >
+                <option value="">Tout l’événement — {eventDetail?.name ?? "Événement"}</option>
+                {eventUpdateRaceOptions.map((race) => (
+                  <option key={race.id} value={race.id}>
+                    Format — {race.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Le titre de la notification affichera le nom de l’événement ou celui du format choisi.
+              </p>
+            </div>
+
+            <div className="space-y-1">
               <label htmlFor="organizer-update-message" className="text-sm font-medium text-foreground">
                 Message
               </label>
@@ -1795,6 +1862,11 @@ export function OrganizerDashboard({
                 <div className="space-y-2">
                   {eventUpdates.slice(0, 3).map((update) => (
                     <div key={update.id} className="rounded-md border border-border/60 bg-card p-3">
+                      <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        {update.race_id
+                          ? eventDetail?.races.find((race) => race.id === update.race_id)?.name ?? "Format"
+                          : eventDetail?.name ?? "Événement"}
+                      </p>
                       <p className="text-sm text-foreground">{update.message}</p>
                       <p className="mt-1 text-xs text-muted-foreground">{formatUpdateDate(update.created_at)}</p>
                     </div>

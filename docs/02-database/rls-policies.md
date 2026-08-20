@@ -1,12 +1,13 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
@@ -28,6 +29,7 @@ related_tables:
   - race_event_organizers
   - race_event_publication_requests
   - race_event_updates
+  - race_event_update_reads
   - race_events
   - products
   - user_favorite_race_events
@@ -191,8 +193,14 @@ Declared in `20260629123858_add_race_event_favorites_and_updates.sql`.
 `race_event_updates`:
 
 - `anon` and `authenticated` can select rows only when the parent `race_events` row is live.
-- Authenticated organizers and admins can insert rows only for events they actively manage, with `created_by = auth.uid()`.
+- Authenticated organizers and admins can insert rows only for events they actively manage, with `created_by = auth.uid()`. When `race_id` is present, the policy also requires a live format belonging to the same event.
 - No direct client update/delete path is documented; organizer writes are append-only through the server route.
+
+`race_event_update_reads`:
+
+- Authenticated users can select only their own receipts.
+- Authenticated users can insert only their own receipts and only for updates whose parent event is live.
+- The composite `(update_id, user_id)` primary key keeps repeated read marking idempotent; no client update/delete path is granted.
 
 ### `products`
 
@@ -306,6 +314,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 - Event-favorite ownership and organizer-update audience selection are separate concerns. Do not grant organizers direct read access to follower rows just because they can send updates.
+- Push delivery logs and read receipts have different security boundaries. Keep runner-visible state in owner-scoped `race_event_update_reads`, not in service-managed `push_notification_events`.
 - Adding service-flag columns to `race_aid_stations` does not grant new row access; keep organizer mutations behind the existing service-route membership check.
 - Adding organizer dashboard JSONB columns to existing source tables does not grant new row access. Keep event/race/station mutations behind the existing organizer service routes and active membership checks.
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.

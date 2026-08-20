@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -24,6 +24,7 @@ related_tables:
   - race_event_claims
   - race_event_organizers
   - race_aid_station_products
+  - race_event_update_reads
 ---
 
 # RLS Checklist
@@ -83,7 +84,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 Use:
 
 - `supabase/tests/organizer_rls_checks.sql` for event-membership and organizer station-product checks;
-- `supabase/tests/organizer_rls_checks.sql` for event-membership, race-event favorites, and organizer update visibility checks;
+- `supabase/tests/organizer_rls_checks.sql` for event membership, race-event favorites, format-scoped updates, and owner-only update read receipts;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 
@@ -103,6 +104,7 @@ Use:
 - Re-sharing a plan can update an existing `plan_share_links` snapshot, so the service route must verify both bearer-token identity and parent-plan ownership before update as well as insert.
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.
 - `user_profiles.onboarding_completed_at` is a column-only owner datum. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
+- Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 
 ## Related Docs
 

@@ -36,6 +36,7 @@ describe("/api/race-events/[id]/updates", () => {
           {
             id: updateId,
             event_id: eventId,
+            race_id: null,
             message: "Départ avancé de 15 minutes.",
             created_at: "2026-06-29T10:00:00.000Z",
           },
