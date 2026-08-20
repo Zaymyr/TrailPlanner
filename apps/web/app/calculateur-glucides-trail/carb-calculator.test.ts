@@ -7,8 +7,6 @@ describe("estimateCarbs", () => {
     expect(estimateCarbs({ durationHours: 6, digestiveTolerance: 0 })).toEqual({
       carbsPerHour: 30,
       totalCarbs: 180,
-      portionsPerHour: 1.2,
-      totalPortions: 8,
       rangeMin: 30,
       rangeMax: 90,
     });

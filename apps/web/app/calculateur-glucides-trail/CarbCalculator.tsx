@@ -8,10 +8,13 @@ import { estimateCarbs } from "../../lib/carb-calculator";
 import {
   buildCarbCalculatorShareUrl,
   formatCarbComparison,
+  getAverageSpeed,
   getCarbComparison,
   parseSharedCarbCalculatorState,
   selectCarbComparison,
+  selectCarbJoke,
   type CarbComparisonId,
+  type CarbJokeId,
 } from "../../lib/carb-calculator-fun";
 
 type CalculationStatus = "idle" | "calculating" | "ready";
@@ -20,6 +23,8 @@ type ShareStatus = "idle" | "shared" | "copied" | "error";
 type CalculatedInput = {
   duration: number;
   tolerance: number;
+  distance: number;
+  elevation: number;
 };
 
 const CALCULATION_DELAY_MS = 800;
@@ -58,13 +63,17 @@ function ShareIcon(props: SVGProps<SVGSVGElement>) {
 
 export function CarbCalculator() {
   const [duration, setDuration] = useState(6);
+  const [distance, setDistance] = useState(50);
+  const [elevation, setElevation] = useState(2000);
   const [digestiveTolerance, setDigestiveTolerance] = useState(50);
   const [status, setStatus] = useState<CalculationStatus>("idle");
   const [calculatedInput, setCalculatedInput] = useState<CalculatedInput | null>(null);
   const [comparisonId, setComparisonId] = useState<CarbComparisonId | null>(null);
+  const [jokeId, setJokeId] = useState<CarbJokeId | null>(null);
   const [shareStatus, setShareStatus] = useState<ShareStatus>("idle");
   const calculationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastComparisonIdRef = useRef<CarbComparisonId | null>(null);
+  const lastJokeIdRef = useRef<CarbJokeId | null>(null);
   const resultRef = useRef<HTMLDivElement | null>(null);
   const shouldFocusResultRef = useRef(false);
 
@@ -80,17 +89,28 @@ export function CarbCalculator() {
   );
   const comparison = comparisonId ? getCarbComparison(comparisonId) : null;
   const comparisonMessage =
-    comparison && calculatedInput ? formatCarbComparison(comparison, calculatedInput.duration) : null;
+    comparison && calculatedInput && jokeId
+      ? formatCarbComparison(comparison, { ...calculatedInput, jokeId })
+      : null;
 
   useEffect(() => {
     const sharedState = parseSharedCarbCalculatorState(window.location.search);
     if (!sharedState) return;
 
     setDuration(sharedState.duration);
+    setDistance(sharedState.distance);
+    setElevation(sharedState.elevation);
     setDigestiveTolerance(sharedState.tolerance);
-    setCalculatedInput({ duration: sharedState.duration, tolerance: sharedState.tolerance });
+    setCalculatedInput({
+      duration: sharedState.duration,
+      tolerance: sharedState.tolerance,
+      distance: sharedState.distance,
+      elevation: sharedState.elevation,
+    });
     setComparisonId(sharedState.comparisonId);
+    setJokeId(sharedState.jokeId);
     lastComparisonIdRef.current = sharedState.comparisonId;
+    lastJokeIdRef.current = sharedState.jokeId;
     setStatus("ready");
   }, []);
 
@@ -111,6 +131,7 @@ export function CarbCalculator() {
     setStatus("idle");
     setCalculatedInput(null);
     setComparisonId(null);
+    setJokeId(null);
     setShareStatus("idle");
   };
 
@@ -124,21 +145,35 @@ export function CarbCalculator() {
     resetResult();
   };
 
+  const handleDistanceChange = (nextDistance: number) => {
+    setDistance(nextDistance);
+    resetResult();
+  };
+
+  const handleElevationChange = (nextElevation: number) => {
+    setElevation(nextElevation);
+    resetResult();
+  };
+
   const handleCalculate = () => {
     if (calculationTimerRef.current) clearTimeout(calculationTimerRef.current);
 
-    const nextInput = { duration, tolerance: digestiveTolerance };
+    const nextInput = { duration, tolerance: digestiveTolerance, distance, elevation };
     setStatus("calculating");
     setCalculatedInput(null);
     setComparisonId(null);
+    setJokeId(null);
     setShareStatus("idle");
 
     calculationTimerRef.current = setTimeout(() => {
       const nextComparison = selectCarbComparison(lastComparisonIdRef.current);
+      const nextJoke = selectCarbJoke(lastJokeIdRef.current);
       lastComparisonIdRef.current = nextComparison.id;
+      lastJokeIdRef.current = nextJoke.id;
       shouldFocusResultRef.current = true;
       setCalculatedInput(nextInput);
       setComparisonId(nextComparison.id);
+      setJokeId(nextJoke.id);
       setStatus("ready");
       calculationTimerRef.current = null;
     }, CALCULATION_DELAY_MS);
@@ -151,14 +186,17 @@ export function CarbCalculator() {
   };
 
   const handleShare = async () => {
-    if (!estimate || !comparison || !calculatedInput || !comparisonMessage) return;
+    if (!estimate || !comparison || !calculatedInput || !comparisonMessage || !jokeId) return;
 
     const shareUrl = buildCarbCalculatorShareUrl(window.location.href, {
       duration: calculatedInput.duration,
       tolerance: calculatedInput.tolerance,
+      distance: calculatedInput.distance,
+      elevation: calculatedInput.elevation,
       comparisonId: comparison.id,
+      jokeId,
     });
-    const text = `Mon estimation trail : ${estimate.carbsPerHour} g/h, soit ${estimate.totalCarbs} g au total. ${comparisonMessage}`;
+    const text = `Mon estimation trail sur ${calculatedInput.distance} km et ${calculatedInput.elevation} m D+ : ${estimate.carbsPerHour} g/h, soit ${estimate.totalCarbs} g au total. ${comparisonMessage}`;
 
     setShareStatus("idle");
 
@@ -209,6 +247,52 @@ export function CarbCalculator() {
           </label>
 
           <label className="block space-y-4 text-sm font-semibold text-foreground">
+            <span className="flex items-center justify-between gap-4">
+              <span>Distance</span>
+              <output className="shrink-0 rounded-full bg-brand-surface px-3 py-1 text-base font-bold text-brand">
+                {distance} km
+              </output>
+            </span>
+            <input
+              type="range"
+              min="5"
+              max="200"
+              step="5"
+              value={distance}
+              disabled={controlsDisabled}
+              onChange={(event) => handleDistanceChange(Number(event.target.value))}
+              className="h-2 w-full cursor-pointer accent-[hsl(var(--brand))] disabled:cursor-wait disabled:opacity-60"
+            />
+            <span className="flex justify-between text-xs font-normal text-muted-foreground">
+              <span>5 km</span>
+              <span>200 km</span>
+            </span>
+          </label>
+
+          <label className="block space-y-4 text-sm font-semibold text-foreground">
+            <span className="flex items-center justify-between gap-4">
+              <span>Dénivelé positif</span>
+              <output className="shrink-0 rounded-full bg-brand-surface px-3 py-1 text-base font-bold text-brand">
+                {elevation.toLocaleString("fr-FR")} m
+              </output>
+            </span>
+            <input
+              type="range"
+              min="0"
+              max="15000"
+              step="100"
+              value={elevation}
+              disabled={controlsDisabled}
+              onChange={(event) => handleElevationChange(Number(event.target.value))}
+              className="h-2 w-full cursor-pointer accent-[hsl(var(--brand))] disabled:cursor-wait disabled:opacity-60"
+            />
+            <span className="flex justify-between text-xs font-normal text-muted-foreground">
+              <span>0 m</span>
+              <span>15 000 m</span>
+            </span>
+          </label>
+
+          <label className="block space-y-4 text-sm font-semibold text-foreground">
             <span className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
               <span>Tolérance digestive pendant l’effort</span>
               <output className="text-base font-bold leading-snug text-brand sm:text-right">
@@ -249,7 +333,7 @@ export function CarbCalculator() {
             ) : (
               <>
                 <RunnerIcon className="h-5 w-5" />
-                Calculer mon ravito
+                Calculer mon apport
               </>
             )}
           </Button>
@@ -271,7 +355,7 @@ export function CarbCalculator() {
               ) : (
                 <>
                   <p className="text-sm font-semibold uppercase tracking-[0.14em] text-brand">À vous de jouer</p>
-                  <p className="text-lg font-semibold text-foreground">Réglez les deux jauges, puis lancez le calcul.</p>
+                  <p className="text-lg font-semibold text-foreground">Réglez les quatre jauges, puis lancez le calcul.</p>
                   <p className="text-sm text-muted-foreground">Le résultat et la comparaison surprise restent cachés jusque-là.</p>
                 </>
               )}
@@ -297,15 +381,16 @@ export function CarbCalculator() {
                   <dd className="text-xl font-bold text-foreground sm:text-2xl">{estimate.totalCarbs} g</dd>
                 </div>
                 <div className="min-w-0">
-                  <dt className="text-sm text-muted-foreground">Repère de 25 g</dt>
-                  <dd className="text-xl font-bold text-foreground sm:text-2xl">{estimate.portionsPerHour}/h</dd>
+                  <dt className="text-sm text-muted-foreground">Allure moyenne</dt>
+                  <dd className="text-xl font-bold text-foreground sm:text-2xl">
+                    {getAverageSpeed(calculatedInput.distance, calculatedInput.duration).toFixed(1).replace(".", ",")} km/h
+                  </dd>
                 </div>
               </dl>
 
               <p className="text-xs leading-5 text-muted-foreground">
-                Cela représente environ {estimate.totalPortions} portions de 25 g sur la durée indiquée. Une portion
-                peut être un gel, une boisson ou un aliment : vérifiez toujours son étiquette. En cas de nausées
-                fréquentes, commencez bas et entraînez progressivement votre tolérance digestive.
+                Ce résultat est un point de départ à tester progressivement à l’entraînement. La distance et le D+
+                donnent du contexte à la comparaison, mais ne modifient pas votre estimation de glucides.
               </p>
 
               <aside className="min-w-0 space-y-3 rounded-xl border border-brand-border bg-card p-4">
@@ -314,17 +399,14 @@ export function CarbCalculator() {
                 </p>
                 <p className="text-sm font-semibold leading-6 text-foreground">{comparisonMessage}</p>
                 <p className="text-xs leading-5 text-muted-foreground">
-                  Le chrono est réel, la punchline est une blague : {comparison.athlete}, {comparison.race} {comparison.year}
-                  {" · "}
                   <a
                     href={comparison.sourceUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="font-semibold text-brand underline-offset-2 hover:underline"
                   >
-                    résultat officiel
+                    {comparison.athlete} · {comparison.race} {comparison.year} · {comparison.finishTime}
                   </a>
-                  {" · "}{comparison.finishTime}
                 </p>
               </aside>
 
