@@ -304,7 +304,7 @@ async function cloneEditionFromRequest(
           gpx_hash: `manual:${nextRaceId}`,
           gpx_storage_path: null,
           gpx_sha256: null,
-          is_live: false,
+          is_live: true,
           is_public: true,
           created_by: null,
           min_alt_m: sourceRace.min_alt_m ?? null,

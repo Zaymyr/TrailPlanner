@@ -9,7 +9,7 @@ import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completio
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
 import { buildEditionYearOptions, formatEventDateRange, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RaceFormat } from "./types";
-import { LevelBadge, StatusBadge } from "./controls";
+import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
 const getProgressTone = (score: number) => {
   if (score < 20) {
@@ -118,6 +118,7 @@ export function OrganizerSummaryHeader({
   onSaveAll,
   onNotifyFollowers,
   onRequestPublication,
+  onRacebookVisibilityChange,
   onDeleteEvent,
 }: {
   selectedMembership: MembershipRow | null;
@@ -141,6 +142,7 @@ export function OrganizerSummaryHeader({
   onSaveAll: () => void;
   onNotifyFollowers: () => void;
   onRequestPublication: () => void;
+  onRacebookVisibilityChange: (raceId: string, isLive: boolean) => void;
   onDeleteEvent: () => Promise<boolean>;
 }) {
   const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
@@ -164,9 +166,7 @@ export function OrganizerSummaryHeader({
     };
   });
   const isLive = event?.is_live !== false;
-  const hasDraftFormats = raceRows.some((race) => race.activeEdition && !race.activeEdition.is_live);
   const publicationPending = publicationRequestState?.status === "pending";
-  const canRequestPublication = !publicationPending && (!isLive || hasDraftFormats);
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
 
   return (
@@ -226,7 +226,7 @@ export function OrganizerSummaryHeader({
       <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <span className="inline-flex items-center gap-2 font-semibold text-foreground">
           <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
-          {isLive ? "Live" : "Brouillon"}
+          {isLive ? "Course visible" : "Course masquée"}
         </span>
         <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
       </div>
@@ -272,7 +272,7 @@ export function OrganizerSummaryHeader({
           </span>
           <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
           <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", isLive ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-border bg-muted text-muted-foreground")}>
-            {isLive ? "Publié" : "Brouillon"}
+            {isLive ? "Course visible" : "Course masquée"}
           </span>
         </div>
         {raceRows.length > 0 ? (
@@ -286,9 +286,22 @@ export function OrganizerSummaryHeader({
                 {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
               </span>
               <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
-              <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", race.activeEdition?.is_live ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-border bg-muted text-muted-foreground")}>
-                {race.activeEdition?.is_live ? "Publié" : "Brouillon"}
-              </span>
+              {race.activeEdition?.racebook_publication_approved_at ? (
+                <LiveToggle
+                  checked={race.activeEdition.racebook_is_live === true}
+                  disabled={status !== "idle"}
+                  onChange={(checked) => onRacebookVisibilityChange(race.activeEdition!.id, checked)}
+                  liveLabel="Racebook publié"
+                  draftLabel="Racebook masqué"
+                />
+              ) : (
+                <LiveToggle
+                  checked={false}
+                  disabled={publicationPending || status !== "idle"}
+                  onChange={onRequestPublication}
+                  draftLabel={publicationPending ? "Demande en cours" : "Demander la publication"}
+                />
+              )}
             </div>
           ))
         ) : (
@@ -301,11 +314,6 @@ export function OrganizerSummaryHeader({
           <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
             Publication en attente de validation admin
           </span>
-        ) : null}
-        {canRequestPublication ? (
-          <Button type="button" onClick={onRequestPublication} disabled={status !== "idle"}>
-            Demander la publication
-          </Button>
         ) : null}
         <Button type="button" onClick={onNotifyFollowers} variant="outline" disabled={!event}>
           Notifier les coureurs

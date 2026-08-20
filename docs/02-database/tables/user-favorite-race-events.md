@@ -93,6 +93,7 @@ where event_id = '<event-id>';
 - Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.
 - Favoriting affects ordering only; it must not change the compact organizer-update preview contract or trigger a separate history load by itself.
 - Unread `NEW` badges come from `race_event_update_reads`, not from the favorite row.
+- Favorites follow the catalog event independently from Racebook publication; hiding every Racebook must not delete or hide the event favorite.
 
 ## Related Docs
 

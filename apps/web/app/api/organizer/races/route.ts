@@ -49,6 +49,8 @@ const raceRowSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   is_live: z.boolean(),
+  racebook_is_live: z.boolean().default(false),
+  racebook_publication_approved_at: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
 });
 
@@ -204,7 +206,7 @@ export async function POST(request: NextRequest) {
     gpx_hash: `manual:${raceId}`,
     gpx_storage_path: null,
     gpx_sha256: null,
-    is_live: false,
+    is_live: true,
     is_public: true,
     created_by: null,
   };
@@ -217,7 +219,7 @@ export async function POST(request: NextRequest) {
     insertPayload.location_text = sourceRace.location_text;
     insertPayload.thumbnail_url = sourceRace.thumbnail_url;
     insertPayload.organizer_details = sourceRace.organizer_details ?? null;
-    insertPayload.is_live = false;
+    insertPayload.is_live = true;
     insertPayload.min_alt_m = sourceRace.min_alt_m ?? null;
     insertPayload.max_alt_m = sourceRace.max_alt_m ?? null;
     insertPayload.start_lat = sourceRace.start_lat ?? null;
@@ -396,7 +398,7 @@ export async function POST(request: NextRequest) {
 
   const createdRace = z.array(raceRowSchema).parse(await response.json())[0];
   const reloadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_id,edition_group_id,series_name,name,slug,event_id,external_site_url,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,organizer_details&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_id,edition_group_id,series_name,name,slug,event_id,external_site_url,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,racebook_is_live,racebook_publication_approved_at,organizer_details&limit=1`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",

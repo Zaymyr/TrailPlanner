@@ -73,6 +73,8 @@ export type RaceFormat = {
   gpx_storage_path?: string | null;
   thumbnail_url?: string | null;
   is_live: boolean;
+  racebook_is_live?: boolean;
+  racebook_publication_approved_at?: string | null;
   organizerDetails?: OrganizerRaceDetails;
 };
 

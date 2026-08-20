@@ -1,10 +1,11 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - apps/web/app/api/organizer/events/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
@@ -72,7 +73,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - A format date edited through organizer routes must lie inside its edition range.
 - Database triggers also reject edition range updates that exclude an attached format, event/edition mismatches, and out-of-range format writes from any service path.
 - Changing the current edition or its range mirrors `start_date` to `race_events.race_date` and `end_date` to `race_events.organizer_details.dateRange.endDate` for legacy catalog/mobile consumers.
-- Publication readiness and approval consider only the current edition and its attached formats.
+- Publication readiness and first Racebook approval consider only the current edition and its attached formats.
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
 
 ## Common Queries
@@ -99,6 +100,7 @@ where ree.event_id = :event_id
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.
 - Do not require a source edition lookup when the organizer explicitly disables duplication; source formats are needed only for the cloning branch.
+- A cloned/new edition may be course-visible while every attached Racebook is hidden. Do not derive Racebook visibility from edition currentness or `races.is_live`.
 
 ## Related Docs
 

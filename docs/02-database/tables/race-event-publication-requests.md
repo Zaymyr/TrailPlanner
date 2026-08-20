@@ -5,6 +5,7 @@ last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - apps/web/lib/organizer-publication.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
   - apps/web/app/api/organizer/publication-requests/route.test.ts
@@ -27,7 +28,7 @@ related_tables:
 
 ## Purpose
 
-This table is the sole content-review gate for the current organizer creation flow. Organizers freely maintain draft events, editions, and formats, then request admin publication at event level.
+This table is the sole first-publication review gate for organizer Racebooks. Courses remain visible in the catalog; organizers request event-level review before they can control the current edition's per-format Racebook visibility.
 
 ## Columns
 
@@ -47,19 +48,21 @@ This table is the sole content-review gate for the current organizer creation fl
 - Admin review is performed by a service-role API after trusted `app_metadata` admin authentication.
 - Admin access to every event through the Organizer selector does not synthesize publication requests; `/api/organizer/claims` still returns only the signed-in user's request rows, and the dedicated admin review route remains authoritative.
 - Direct admin e-mail assignment creates or reactivates an organizer membership only. It does not create a publication request or modify event/format live state.
-- `review_race_event_publication_request` is invoker-security and executable only by `service_role`; approval rechecks readiness, publishes the event and complete formats, then closes the request atomically.
+- `review_race_event_publication_request` is invoker-security and executable only by `service_role`; approval rechecks readiness, grants durable Racebook approval to complete current-edition formats, publishes their Racebooks, and closes the request atomically.
+- `set_race_event_racebook_visibility` is also service-role-only. The admin event switch can publish complete current-edition Racebooks (granting approval and closing a pending request) or hide every Racebook under the event.
 
 ## Business Invariants
 
-- Organizer event/race routes never accept direct `is_live` changes.
+- Organizer event/race routes never accept direct catalog `is_live` changes. The race route accepts `racebookIsLive` only after the format has an admin approval timestamp.
 - A directly delegated organizer receives the same membership-gated ability to maintain drafts and request publication, but assignment itself is not publication approval.
 - A request requires event name/location, a valid current `race_event_editions` range, and at least one complete format attached to that edition.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Normal scope navigation may save silently in the background, but requesting publication still waits for foreground persistence before the server readiness check.
-- Rejection leaves all source rows unchanged.
-- Approval publishes complete formats attached to the current edition only. Other editions and incomplete formats remain unchanged.
+- Rejection leaves the already-hidden Racebook rows unchanged.
+- Approval publishes complete Racebooks attached to the current edition only. Other editions and incomplete formats remain unchanged.
+- Once approved, an organizer may freely publish or hide each approved Racebook. This does not create a new request and does not alter course catalog visibility.
 - Publication does not send runner notifications automatically.
 - Format-specific manual notifications are available only for already-live formats in the selected edition. Draft formats must pass the publication workflow before they can be selected as runner notification context.
 - Removing the organizer-side runner preview and format quick actions does not alter readiness: publication still validates persisted event, edition, and format rows.
@@ -73,6 +76,7 @@ This table is the sole content-review gate for the current organizer creation fl
 - Recheck readiness during admin approval because organizers can edit source data while a request is pending.
 - Keep publication readiness sourced from persisted race values; client-side GPX form synchronization is only immediate feedback and does not bypass server-side revalidation.
 - New public-schema tables require explicit grants as well as RLS.
+- Do not use `races.is_live` as the Racebook publication source of truth. Use `racebook_is_live`; approval provenance is `racebook_publication_approved_at` / `racebook_publication_approved_by`.
 
 ## Related Docs
 

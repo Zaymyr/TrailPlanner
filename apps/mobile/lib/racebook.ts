@@ -183,6 +183,7 @@ export type RacebookScreenData = {
 
 export type RacebookSignals = {
   raceIsLive: boolean | null | undefined;
+  racebookIsLive: boolean | null | undefined;
   hasAidStations: boolean | null | undefined;
   eventOrganizerDetails: unknown;
   raceOrganizerDetails: unknown;
@@ -697,6 +698,7 @@ function normalizeProductLabel(productRecord: Record<string, unknown>): string |
 
 export function canShowRacebook(signals: RacebookSignals): boolean {
   if (signals.raceIsLive !== true) return false;
+  if (signals.racebookIsLive !== true) return false;
 
   const eventDetails = parseEventDetails(signals.eventOrganizerDetails);
   const raceDetails = parseRaceDetails(signals.raceOrganizerDetails);
@@ -717,6 +719,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       elevation_loss_m,
       race_date,
       is_live,
+      racebook_is_live,
       thumbnail_url,
       location_text,
       organizer_details,
@@ -812,6 +815,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
 
   const canOpen = canShowRacebook({
     raceIsLive: raceRow.is_live,
+    racebookIsLive: raceRow.racebook_is_live,
     hasAidStations: aidStations.length > 0,
     eventOrganizerDetails: eventRelation?.organizer_details,
     raceOrganizerDetails: raceRow.organizer_details,

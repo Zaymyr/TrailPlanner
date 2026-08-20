@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
+  - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
@@ -105,6 +106,7 @@ Use:
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.
 - `user_profiles.onboarding_completed_at` is a column-only owner datum. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
+- Racebook publication is a column-only extension of `races`: existing row RLS remains, but first approval and admin-wide visibility changes stay service-role-only, while organizer toggles require both active membership and a stored approval timestamp.
 
 ## Related Docs
 

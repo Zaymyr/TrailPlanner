@@ -35,7 +35,7 @@ describe("POST /api/organizer/events", () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(
         buildJsonResponse(
-          [{ id: eventId, name: "Trail du Fort", location: "Tamié", race_date: "2026-12-31", is_live: false }],
+          [{ id: eventId, name: "Trail du Fort", location: "Tamié", race_date: "2026-12-31", is_live: true }],
           201
         )
       )
@@ -58,14 +58,14 @@ describe("POST /api/organizer/events", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(201);
-    expect(payload.event).toMatchObject({ id: eventId, is_live: false });
+    expect(payload.event).toMatchObject({ id: eventId, is_live: true });
     expect(payload.membership).toMatchObject({ event_id: eventId, role: "owner" });
 
     const eventInsert = vi.mocked(fetch).mock.calls[0];
     expect(JSON.parse(String(eventInsert[1]?.body))).toMatchObject({
       name: "Trail du Fort",
       race_date: "2026-12-31",
-      is_live: false,
+      is_live: true,
       organizer_details: { officialWebsiteUrl: "https://www.trailfortdetamie.com/" },
     });
 
@@ -92,7 +92,7 @@ describe("POST /api/organizer/events", () => {
     const eventId = "11111111-1111-1111-1111-111111111111";
     vi.mocked(fetch)
       .mockResolvedValueOnce(
-        buildJsonResponse([{ id: eventId, name: "Trail du Fort", location: null, race_date: null, is_live: false }], 201)
+        buildJsonResponse([{ id: eventId, name: "Trail du Fort", location: null, race_date: null, is_live: true }], 201)
       )
       .mockResolvedValueOnce(
         buildJsonResponse([{ id: "33333333-3333-3333-3333-333333333333", event_id: eventId, edition_year: 2026, start_date: "2026-05-17", end_date: "2026-05-17", is_current: true }], 201)

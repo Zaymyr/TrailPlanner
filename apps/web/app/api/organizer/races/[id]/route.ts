@@ -4,7 +4,6 @@ import { z } from "zod";
 import {
   jsonError,
   loadRaceForOrganizer,
-  optionalTextOrNull,
   requireOrganizerAuth,
   serviceHeaders,
   uuidParamSchema,
@@ -15,17 +14,23 @@ import {
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
 
+const optionalPatchTextOrNull = z
+  .union([z.string().trim(), z.null()])
+  .optional()
+  .transform((value) => (value === undefined ? undefined : value && value.length > 0 ? value : null));
+
 const updateRaceSchema = z.object({
   seriesName: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1).optional(),
   distanceKm: z.coerce.number().positive().optional(),
   elevationGainM: z.coerce.number().nonnegative().optional(),
   elevationLossM: z.coerce.number().nonnegative().nullable().optional(),
-  externalSiteUrl: optionalTextOrNull,
-  locationText: optionalTextOrNull,
-  raceDate: optionalTextOrNull,
-  thumbnailUrl: optionalTextOrNull,
+  externalSiteUrl: optionalPatchTextOrNull,
+  locationText: optionalPatchTextOrNull,
+  raceDate: optionalPatchTextOrNull,
+  thumbnailUrl: optionalPatchTextOrNull,
   organizerDetails: organizerRaceDetailsSchema.optional(),
+  racebookIsLive: z.boolean().optional(),
 });
 
 const raceRowSchema = z.object({
@@ -45,6 +50,8 @@ const raceRowSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   is_live: z.boolean(),
+  racebook_is_live: z.boolean().default(false),
+  racebook_publication_approved_at: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
 });
 
@@ -83,6 +90,9 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if ("error" in race) return race.error;
   const parsedBody = updateRaceSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid race fields.", 400);
+  if (parsedBody.data.racebookIsLive === true && !race.racebook_publication_approved_at) {
+    return jsonError("La publication de ce Racebook doit d'abord être validée par un administrateur.", 409);
+  }
 
   if (parsedBody.data.raceDate !== undefined && parsedBody.data.raceDate !== null) {
     if (!race.edition_id) return jsonError("This format is not attached to an event edition.", 409);
@@ -111,6 +121,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.raceDate !== undefined) updatePayload.race_date = parsedBody.data.raceDate;
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;
   if (parsedBody.data.organizerDetails !== undefined) updatePayload.organizer_details = parsedBody.data.organizerDetails;
+  if (parsedBody.data.racebookIsLive !== undefined) updatePayload.racebook_is_live = parsedBody.data.racebookIsLive;
 
   if (Object.keys(updatePayload).length === 0) return jsonError("No fields to update.", 400);
 

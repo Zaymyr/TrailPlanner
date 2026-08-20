@@ -316,7 +316,7 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
       edition_id: "55555555-5555-5555-5555-555555555555",
       race_date: "2027-09-20",
       series_name: "42K",
-      is_live: false,
+      is_live: true,
       gpx_storage_path: null,
     });
     expect(JSON.parse(String(raceInsert?.[1]?.body)).gpx_path).toMatch(/^organizer\/11111111-1111-1111-1111-111111111111\/.+\.gpx$/);
