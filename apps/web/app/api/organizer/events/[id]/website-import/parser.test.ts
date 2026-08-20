@@ -161,14 +161,14 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     });
   });
 
-  it("groups complementary detections by a practical distance tolerance", async () => {
+  it("groups named detections up to 1.5 km apart", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
       if (url === "https://distance.example/") {
         return htmlResponse("<html><head><title>Trail Distance</title></head><body><p>26 septembre 2026</p></body></html>");
       }
       if (url === "https://distance.example/course") {
-        return htmlResponse("<h1>Les Balcons</h1><p>29.33 km - D+ 1280</p>");
+        return htmlResponse("<h1>Les Balcons</h1><p>30.4 km - D+ 1280</p>");
       }
       if (url === "https://distance.example/reglement") {
         return htmlResponse('<p>La « Course des Balcons » d\'une longueur de 29,09 km. Ravitaillement au 15eme kilometre.</p>');
@@ -181,7 +181,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     });
 
     expect(preview.races).toHaveLength(1);
-    expect(preview.races[0].distanceKm).toBe(29.33);
+    expect(preview.races[0].distanceKm).toBe(30.4);
   });
 
   it("merges a rounded distance-only GPX detection into its named format", async () => {

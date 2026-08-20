@@ -1375,13 +1375,7 @@ const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandi
   if (left.key === right.key) return true;
   const leftIdentity = normalizeRaceIdentityName(left.name);
   const rightIdentity = normalizeRaceIdentityName(right.name);
-  const hasSingleNamedCandidate = Boolean(leftIdentity) !== Boolean(rightIdentity);
-  const distanceToleranceKm =
-    left.distanceKm !== null && right.distanceKm !== null
-      ? hasSingleNamedCandidate
-        ? Math.max(0.8, Math.min(left.distanceKm, right.distanceKm) * 0.015)
-        : Math.max(0.5, Math.min(left.distanceKm, right.distanceKm) * 0.01)
-      : 0;
+  const distanceToleranceKm = 1.5;
   if (
     left.distanceKm !== null &&
     right.distanceKm !== null &&
@@ -1389,14 +1383,20 @@ const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandi
   ) {
     return true;
   }
-  if (left.distanceKm !== null && right.distanceKm !== null && Math.abs(left.distanceKm - right.distanceKm) > 1) {
+  if (
+    left.distanceKm !== null &&
+    right.distanceKm !== null &&
+    Math.abs(left.distanceKm - right.distanceKm) > distanceToleranceKm
+  ) {
     return false;
   }
   if (!leftIdentity || !rightIdentity) return false;
   if (leftIdentity === rightIdentity) return true;
 
   const distancesMatch =
-    left.distanceKm !== null && right.distanceKm !== null && Math.abs(left.distanceKm - right.distanceKm) <= 1;
+    left.distanceKm !== null &&
+    right.distanceKm !== null &&
+    Math.abs(left.distanceKm - right.distanceKm) <= distanceToleranceKm;
   if (!distancesMatch || Math.min(leftIdentity.length, rightIdentity.length) < 5) return false;
   return leftIdentity.includes(rightIdentity) || rightIdentity.includes(leftIdentity);
 };
