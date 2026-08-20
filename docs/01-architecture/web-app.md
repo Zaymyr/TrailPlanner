@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -12,6 +12,17 @@ related_files:
   - apps/web/app/hooks/useOrganizerMembershipStatus.ts
   - apps/web/app/header-tabs.tsx
   - apps/web/app/header-menu.tsx
+  - apps/web/components/SiteFooter.tsx
+  - apps/web/app/robots.ts
+  - apps/web/app/sitemap.ts
+  - apps/web/app/noindex-metadata.ts
+  - apps/web/app/courses/page.tsx
+  - apps/web/app/courses/[slug]/page.tsx
+  - apps/web/app/courses/_components/RaceCatalogFilter.tsx
+  - apps/web/app/calculateur-glucides-trail/page.tsx
+  - apps/web/app/calculateur-glucides-trail/CarbCalculator.tsx
+  - apps/web/lib/public-races.ts
+  - apps/web/lib/carb-calculator.ts
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/plans/route.ts
@@ -182,6 +193,16 @@ Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It req
 The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, and direct GPX download. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition.
 
 User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false` and `created_by` set to the authenticated user.
+
+### Public SEO Routes
+
+The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The catalog is rendered server-side and offers client-side name/location and distance filters. These filters do not create crawlable URL combinations.
+
+Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. Detail pages expose only published race/event facts, add `SportsEvent` JSON-LD, and link to the planner, calculator, and official source when available.
+
+`/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. It uses the existing onboarding nutrition estimate through `apps/web/lib/carb-calculator.ts`; it does not define a separate carb target rule.
+
+`sitemap.ts` includes the race catalog, every currently published race slug, the calculator, and existing blog pages. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
 
 ### Organizer Portal
 

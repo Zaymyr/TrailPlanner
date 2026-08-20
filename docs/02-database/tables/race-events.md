@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -31,6 +31,10 @@ related_files:
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/lib/organizer-website-import.ts
   - apps/web/lib/push.ts
+  - apps/web/lib/public-races.ts
+  - apps/web/app/courses/page.tsx
+  - apps/web/app/courses/[slug]/page.tsx
+  - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx
@@ -64,6 +68,7 @@ related_tables:
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can be published for the event and pushed to followers.
 - Mobile Racebook contract: the mobile Courses tab can now read `organizer_details` explicitly for live formats when deciding whether a runner-facing read-only Racebook page should be available.
+- Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
 - Website-import target: the organizer website import route enriches the selected organizer-owned `race_events` row and must never create a different event during that review flow, even when the generic importer inspects a bounded set of prioritized same-origin pages, scores candidate dates, and merges format data before building its preview.
 - Missing provenance: table creation must be verified outside the visible migrations.
@@ -100,7 +105,7 @@ No index creation for `race_events` was found in visible migrations. Admin and m
 
 ## RLS Policies
 
-No `race_events` RLS policy migration was found in this repo.
+No `race_events` RLS policy migration was found in this repo. A read-only live-environment check on 2026-08-20 confirmed that the anon Data API can read the explicit public catalog columns used by `apps/web/lib/public-races.ts`; migration provenance is still missing.
 
 Because API routes use service role for event writes, client/mobile read access must be verified against the live policies before changing catalog access.
 
@@ -109,6 +114,7 @@ Organizer portal writes also go through web service routes after checking `race_
 ## Business Invariants
 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
+- Public web pages must require `races.is_live = true` and `races.is_public = true`; related event enrichment must also require `race_events.is_live = true`.
 - Event rows can also be created by `POST /api/organizer/events`; those rows are inserted with `is_live = false`, then linked to their creator through an active owner membership.
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
 - Race rows can refer to an existing or newly created event.
@@ -172,6 +178,7 @@ from public.races;
 ## Gotchas
 
 - Treat this table as live-schema-dependent until its create migration is found.
+- Keep public web selects explicit. Do not expose `organizer_details`, ownership, membership, or other operational fields through the SEO catalog without a deliberate runner-facing contract.
 - Do not add docs that claim exact constraints for `race_events` without verification.
 - Code paths are real even though migration provenance is incomplete.
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.

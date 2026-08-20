@@ -25,11 +25,17 @@ export function HeaderTabs() {
   const { hasManagedRaces } = useOrganizerMembershipStatus(session?.accessToken);
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
+  const coursesLabel = locale === "fr" ? "Courses" : "Races";
   const organizerLabel = locale === "fr" ? "Mes courses" : "My races";
   const organizerHref: Route = hasManagedRaces ? "/organizer" : "/organizers";
 
   const tabItems: TabItem[] = useMemo(
     () => [
+      {
+        label: coursesLabel,
+        href: "/courses" as Route,
+        active: isActivePath(pathname, "/courses"),
+      },
       {
         label: t.navigation.racePlanner,
         href: "/race-planner",
@@ -62,6 +68,7 @@ export function HeaderTabs() {
       },
     ],
     [
+      coursesLabel,
       organizerLabel,
       organizerHref,
       pathname,
