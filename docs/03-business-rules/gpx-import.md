@@ -184,6 +184,8 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 - Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`. Organizer station-product links are the exception at response time: plans with `race_id` can receive current product suggestions from `/api/plans` without rewriting the saved plan row.
 - Imported or manually added source aid stations do not count as published organizer mobile content by themselves; the mobile Racebook gate still needs explicit organizer details.
 - The organizer notification selector may target a live format after its GPX or metadata work is complete, but notification scope does not parse, copy, or mutate GPX data.
+- An incomplete GPX or unsaved GPX-related draft on one format must not block the publication switch of another complete format; foreground persistence is required only for the switched format.
+- Removing a sent organizer announcement from public history also leaves GPX files, parsed metrics, and ravito interpolation state unchanged.
 
 ## Related Docs
 

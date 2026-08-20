@@ -1,13 +1,17 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
+  - apps/web/app/sign-in/page.tsx
+  - apps/web/app/sign-in/auth-errors.test.ts
+  - apps/web/app/api/auth/signin/route.ts
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/web/lib/auth-storage.ts
+  - apps/web/lib/auth-errors.ts
   - apps/web/lib/supabase.ts
   - apps/mobile/app/_layout.tsx
   - apps/mobile/app/(app)/onboarding.tsx
@@ -50,6 +54,10 @@ The route:
 
 After a web session is verified, `useVerifiedSession` also calls `POST /api/resend/contact` once per `userId + email` browser storage marker. That route re-validates the bearer token, skips anonymous users, and only syncs identified users into Resend Contacts.
 
+## Web Password Sign-In Errors
+
+`apps/web/app/api/auth/signin/route.ts` converts Supabase password-sign-in failures into a small, stable error-code contract instead of forwarding provider messages. `apps/web/app/sign-in/page.tsx` maps `invalid_credentials` to the active locale and uses the localized generic sign-in error for every other failure. The invalid-credentials wording must stay generic about whether the email address exists.
+
 ## Mobile Auth
 
 `apps/mobile/app/_layout.tsx` listens to Supabase auth state. On active sessions it:
@@ -90,6 +98,7 @@ Do not use `user_metadata` for new authorization decisions.
 ## Gotchas
 
 - Token storage exists in browser localStorage, but session verification is server-backed.
+- Do not render Supabase Auth `msg` values directly; provider messages are not localized and can expose technical details.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Trial repair runs during session verification and must stay idempotent.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.

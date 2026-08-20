@@ -64,7 +64,7 @@ Summary:
 
 - `anon` and `authenticated` can select rows only when the parent `race_events.is_live = true`.
 - Authenticated organizers and admins can insert rows for events they actively manage.
-- Public writes are not allowed.
+- Public writes are not allowed. Confirmed organizer deletion goes through the membership-checked service route rather than a client `DELETE` grant/policy.
 
 ## Business Invariants
 
@@ -72,6 +72,7 @@ Summary:
 - `race_id = null` means the update concerns the whole event. A non-null format must be live and belong to the same event; the route and insert RLS policy both enforce this.
 - Push titles use the event name for event-wide updates and the format name for format-specific updates.
 - The same message can be reused later, but each send should create a new update row with a new id.
+- An active organizer may remove an obsolete or mistaken announcement from the public history after explicit confirmation. Deletion cannot recall push notifications already delivered.
 - Push dedupe relies on `organizer-race-update:<updateId>`, so re-sending the same stored update should not produce duplicate device logs.
 - Runner-facing history should show only these manual announcements, not every organizer mutation.
 
@@ -94,10 +95,14 @@ insert into public.race_event_updates (event_id, race_id, created_by, message)
 values ('<event-id>', null, auth.uid(), 'Retrait des dossards dès 17h.');
 ```
 
+Organizer deletion is performed by `DELETE /api/organizer/events/[id]/updates?updateId=<update-id>`. The server verifies event membership and filters the service-role delete by both update id and event id.
+
 ## Gotchas
 
-- Keep this table append-only in practice; editing old runner-facing announcements would make push logs misleading.
+- Do not edit old runner-facing announcements in place; editing would make delivered push content misleading. The organizer UI may delete a row after confirmation, while historical push-delivery logs remain untouched.
 - The mobile event sheet now preloads only a short recent preview from the main catalog query so the sheet can render updates immediately; keep that embedded payload intentionally small.
+- Adding an event favorite from that sheet may close it so the catalog can reveal the newly pinned event and success toast; this must not load, reorder, or mark organizer announcements.
+- Only the newest or deep-link-targeted loaded update belongs above the mobile format actions; older loaded updates belong below those actions so notification volume cannot bury the plan/Racebook choices.
 - The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.

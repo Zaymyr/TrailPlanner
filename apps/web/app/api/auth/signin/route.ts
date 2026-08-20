@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../../lib/supabase";
 import { ACCESS_TOKEN_COOKIE, REFRESH_TOKEN_COOKIE } from "../../../../lib/auth-cookies";
+import { normalizeSignInErrorCode, SIGN_IN_ERROR_CODES } from "../../../../lib/auth-errors";
 
 const signInSchema = z.object({
   email: z.string().trim().email(),
@@ -13,14 +14,14 @@ export async function POST(request: Request) {
   const parsedBody = signInSchema.safeParse(await request.json().catch(() => null));
 
   if (!parsedBody.success) {
-    return NextResponse.json({ message: "Invalid sign in request." }, { status: 400 });
+    return NextResponse.json({ code: SIGN_IN_ERROR_CODES.signInFailed }, { status: 400 });
   }
 
   const supabaseConfig = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
 
   if (!supabaseConfig || !supabaseService) {
-    return NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 });
+    return NextResponse.json({ code: SIGN_IN_ERROR_CODES.signInFailed }, { status: 500 });
   }
 
   try {
@@ -37,8 +38,10 @@ export async function POST(request: Request) {
     const result = await fetchResponse.json().catch(() => null);
 
     if (!fetchResponse.ok || !result) {
-      const message = typeof result?.msg === "string" ? result.msg : "Unable to sign in.";
-      return NextResponse.json({ message }, { status: fetchResponse.status || 400 });
+      return NextResponse.json(
+        { code: normalizeSignInErrorCode(result) },
+        { status: fetchResponse.status || 400 }
+      );
     }
 
     const response = NextResponse.json(
@@ -89,6 +92,6 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     console.error("Unexpected Supabase error during sign in", error);
-    return NextResponse.json({ message: "Unable to sign in." }, { status: 500 });
+    return NextResponse.json({ code: SIGN_IN_ERROR_CODES.signInFailed }, { status: 500 });
   }
 }

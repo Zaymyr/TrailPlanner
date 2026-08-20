@@ -60,6 +60,11 @@ export const getOrganizerDirtyScopeKey = (eventId: string | null, activeTab: str
 export const isOrganizerScopeSavePending = (dirtyCount: number, currentRevision: number, pendingRevision?: number) =>
   dirtyCount > 0 && pendingRevision === currentRevision;
 
+export const shouldSaveActiveRaceBeforeRacebookChange = (
+  activeRaceId: string | null | undefined,
+  requestedRaceId: string
+) => activeRaceId === requestedRaceId;
+
 export const createEmptyEventForm = (): EventFormValues => ({
   name: "",
   location: "",

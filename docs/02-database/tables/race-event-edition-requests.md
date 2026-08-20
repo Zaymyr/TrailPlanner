@@ -34,10 +34,12 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
 - `/api/organizer/claims` continues to return only the current user's legacy edition-request rows even when its event selector is expanded to the full catalog for an admin; selector access does not revive or broaden this retired workflow.
 - Ordinary format saves, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
+- Per-format publication switches also stay independent from this retired workflow and from other dirty format scopes: only the switched format may require a foreground save.
 - Removing the standalone `Dupliquer ce format` action does not affect edition duplication: the new-edition dialog still clones the selected source edition when `duplicatePreviousEdition` is enabled.
 - The format location override is independent from edition selection and does not read or write this retired request table.
 - Consolidating the Organizer format name input keeps `name` and `series_name` synchronized but does not change edition creation or the stable `edition_group_id` copied across years.
 - The runner-notification format selector reads live formats from the currently selected canonical edition; it does not create, reactivate, or consult legacy edition requests.
+- Deleting a previously sent organizer announcement is likewise event-membership scoped and does not read, restore, or mutate this retired table.
 - Direct admin assignment of an existing Auth account creates or reactivates only `race_event_organizers`; it does not create, reactivate, or review a legacy edition request.
 
 ## Historical Columns

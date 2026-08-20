@@ -43,6 +43,7 @@ export type SignInTranslations = {
   submitting: string;
   success: string;
   error: string;
+  invalidCredentials: string;
 };
 
 export type PasswordResetRequestTranslations = {

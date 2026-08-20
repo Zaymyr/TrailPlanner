@@ -12,6 +12,7 @@ import {
   getOrganizerDirtyScopeKey,
   getRaceEditionYear,
   isOrganizerScopeSavePending,
+  shouldSaveActiveRaceBeforeRacebookChange,
   syncAidStationsWithGpxPreview,
 } from "./helpers";
 import type { AidStationDraft, EditionRequestRow, GpxPreview } from "./types";
@@ -43,7 +44,7 @@ const buildStation = (distanceKm: number): AidStationDraft => ({
   organizerDetails: { ...defaultOrganizerAidStationDetails },
 });
 
-describe("organizer dashboard GPX helpers", () => {
+describe("organizer dashboard helpers", () => {
   it("persists race schedule details together with aid-station edits", () => {
     expect(buildOrganizerFormatSavePlan(new Set(["aidStations"]))).toEqual({
       saveRaceDetails: true,
@@ -56,6 +57,12 @@ describe("organizer dashboard GPX helpers", () => {
     expect(getOrganizerDirtyScopeKey("event-1", "series-42k", "race-1")).toBe("race:race-1");
     expect(isOrganizerScopeSavePending(1, 3, 3)).toBe(true);
     expect(isOrganizerScopeSavePending(1, 4, 3)).toBe(false);
+  });
+
+  it("does not make another incomplete format block publication", () => {
+    expect(shouldSaveActiveRaceBeforeRacebookChange("incomplete-race", "publishable-race")).toBe(false);
+    expect(shouldSaveActiveRaceBeforeRacebookChange("publishable-race", "publishable-race")).toBe(true);
+    expect(shouldSaveActiveRaceBeforeRacebookChange(null, "publishable-race")).toBe(false);
   });
 
   it("copies the exact parsed GPX metrics into the race form", () => {

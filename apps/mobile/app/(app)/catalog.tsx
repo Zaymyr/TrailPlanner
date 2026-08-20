@@ -447,7 +447,10 @@ export default function CatalogScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
   const openingEventFromParamRef = useRef<string | null>(null);
+  const listRef = useRef<FlatList<EventGroup>>(null);
+  const favoriteToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   function handleCreatePlan(catalogRaceId: string) {
     router.push({
@@ -595,6 +598,15 @@ export default function CatalogScreen() {
     return fetchEvents();
   }, [t.catalog.otherRaces, t.common.error]);
 
+  useEffect(
+    () => () => {
+      if (favoriteToastTimeoutRef.current) {
+        clearTimeout(favoriteToastTimeoutRef.current);
+      }
+    },
+    [],
+  );
+
   const filteredEventGroups = useMemo(() => {
     const normalizedName = nameFilter.trim().toLowerCase();
 
@@ -732,7 +744,8 @@ export default function CatalogScreen() {
 
   async function handleToggleFavorite(eventId: string) {
     const previousFavoriteIds = favoriteEventIds;
-    const nextFavoriteIds = favoriteEventIds.includes(eventId)
+    const wasFavorite = favoriteEventIds.includes(eventId);
+    const nextFavoriteIds = wasFavorite
       ? favoriteEventIds.filter((currentId) => currentId !== eventId)
       : [eventId, ...favoriteEventIds];
 
@@ -743,6 +756,25 @@ export default function CatalogScreen() {
       const savedFavoriteIds = await saveRaceFavoriteEventIds(nextFavoriteIds);
       setFavoriteEventIds(savedFavoriteIds);
       setEventGroups((current) => sortEvents(current, savedFavoriteIds));
+
+      if (!wasFavorite && savedFavoriteIds.includes(eventId)) {
+        const eventName = eventGroups.find((event) => event.id === eventId)?.name;
+        setSelectedEvent((current) => (current?.id === eventId ? null : current));
+        setFavoriteToast(
+          locale === 'fr'
+            ? `${eventName ?? 'La course'} a été ajoutée aux favoris`
+            : `${eventName ?? 'The race'} was added to favorites`,
+        );
+
+        if (favoriteToastTimeoutRef.current) {
+          clearTimeout(favoriteToastTimeoutRef.current);
+        }
+        favoriteToastTimeoutRef.current = setTimeout(() => setFavoriteToast(null), 2600);
+
+        requestAnimationFrame(() => {
+          listRef.current?.scrollToIndex({ index: 0, animated: true, viewPosition: 0 });
+        });
+      }
     } catch (caught) {
       setFavoriteEventIds(previousFavoriteIds);
       setEventGroups((current) => sortEvents(current, previousFavoriteIds));
@@ -811,6 +843,9 @@ export default function CatalogScreen() {
     if (!targetedUpdate) return visible;
     return [targetedUpdate, ...visible.filter((update) => update.id !== targetedUpdate.id)];
   }, [selectedEventUpdates, selectedUpdateIdParam, updatesExpanded]);
+
+  const featuredSelectedEventUpdate = visibleSelectedEventUpdates[0] ?? null;
+  const remainingSelectedEventUpdates = visibleSelectedEventUpdates.slice(1);
 
   useEffect(() => {
     if (!selectedEvent || !currentUserId) return;
@@ -892,9 +927,13 @@ export default function CatalogScreen() {
   return (
     <>
       <FlatList
+        ref={listRef}
         data={filteredEventGroups}
         keyExtractor={(item) => item.id}
         contentContainerStyle={listContentStyle}
+        onScrollToIndexFailed={() => {
+          listRef.current?.scrollToOffset({ offset: 0, animated: true });
+        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -973,6 +1012,17 @@ export default function CatalogScreen() {
         )}
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
       />
+
+      {favoriteToast ? (
+        <View
+          accessibilityLiveRegion="polite"
+          pointerEvents="none"
+          style={[styles.favoriteToast, { top: Math.max(insets.top + 12, 24) }]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color={Colors.textOnBrand} />
+          <Text style={styles.favoriteToastText}>{favoriteToast}</Text>
+        </View>
+      ) : null}
 
       <RootScreenActionMenu
         actions={actionItems}
@@ -1124,7 +1174,7 @@ export default function CatalogScreen() {
                       </TouchableOpacity>
                     ) : null}
                   </View>
-                  {visibleSelectedEventUpdates.map((update) => {
+                  {[featuredSelectedEventUpdate].filter((update): update is RaceEventUpdate => update !== null).map((update) => {
                     const raceName = update.race_id
                       ? selectedEvent?.races.find((race) => race.id === update.race_id)?.name ?? null
                       : null;
@@ -1186,6 +1236,39 @@ export default function CatalogScreen() {
                 />
               ))}
 
+              {remainingSelectedEventUpdates.length > 0 ? (
+                <View style={styles.eventUpdatesSection}>
+                  {remainingSelectedEventUpdates.map((update) => {
+                    const raceName = update.race_id
+                      ? selectedEvent?.races.find((race) => race.id === update.race_id)?.name ?? null
+                      : null;
+                    const isNew = !readUpdateIds.has(update.id);
+                    return (
+                      <View
+                        key={update.id}
+                        style={[
+                          styles.eventUpdateCard,
+                          update.id === selectedUpdateIdParam && styles.eventUpdateCardTargeted,
+                        ]}
+                      >
+                        <View style={styles.eventUpdateMetaRow}>
+                          {raceName ? <Text style={styles.eventUpdateScope}>{raceName}</Text> : null}
+                          {isNew ? (
+                            <View style={styles.newBadge}>
+                              <Text style={styles.newBadgeText}>NEW</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.eventUpdateMessage}>{update.message}</Text>
+                        {formatUpdateDate(update.created_at, locale) ? (
+                          <Text style={styles.eventUpdateDate}>{formatUpdateDate(update.created_at, locale)}</Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -1234,6 +1317,30 @@ const styles = StyleSheet.create({
   },
   listFooterSpacing: {
     height: 8,
+  },
+  favoriteToast: {
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    zIndex: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: Colors.success,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.18,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  favoriteToastText: {
+    flex: 1,
+    color: Colors.textOnBrand,
+    fontSize: 14,
+    fontWeight: '700',
   },
   filtersCard: {
     backgroundColor: Colors.surface,
