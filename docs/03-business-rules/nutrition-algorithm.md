@@ -7,9 +7,11 @@ related_files:
   - apps/web/lib/nutrition-planner.ts
   - apps/web/lib/nutrition.ts
   - apps/web/lib/carb-calculator.ts
+  - apps/web/lib/carb-calculator-fun.ts
   - apps/web/app/calculateur-glucides-trail/page.tsx
   - apps/web/app/calculateur-glucides-trail/CarbCalculator.tsx
   - apps/web/app/calculateur-glucides-trail/carb-calculator.test.ts
+  - apps/web/app/calculateur-glucides-trail/carb-calculator-fun.test.ts
   - apps/web/lib/product-types.ts
   - apps/web/lib/fuel-types.ts
   - apps/web/lib/default-products.ts
@@ -104,7 +106,7 @@ Planner segment code in `apps/web/app/(planner)/race-planner/utils/segments.ts` 
 
 ## Quick Carb Calculator
 
-The public `/calculateur-glucides-trail` page is a simplified acquisition tool, not a replacement for the full planner. It uses two live range controls: expected effort duration and self-reported digestive tolerance. Distance, elevation, and performance goal are intentionally excluded because this quick surface does not have a validated rule that maps them directly to hourly carbohydrate intake.
+The public `/calculateur-glucides-trail` page is a simplified acquisition tool, not a replacement for the full planner. It uses two range controls: expected effort duration and self-reported digestive tolerance. Distance, elevation, and performance goal are intentionally excluded because this quick surface does not have a validated rule that maps them directly to hourly carbohydrate intake. The slider values remain visible, but no nutrition estimate is displayed until the runner explicitly starts the calculation. Changing a slider after a result invalidates that result and requires a new calculation.
 
 `getCarbRangeForDuration` builds a smooth UI range from common endurance-duration guideposts:
 
@@ -116,6 +118,10 @@ The public `/calculateur-glucides-trail` page is a simplified acquisition tool, 
 Digestive tolerance is a UI scale from `0` (frequent nausea) to `100` (eats easily during running). It interpolates between the duration range's minimum and maximum; the result is rounded to the nearest `5 g/h`. This interpolation is a user-facing starting estimate, not a clinical threshold. The calculator multiplies the hourly result by duration, rounds total grams, and displays an illustrative conversion using `25 g` per portion. Non-finite inputs are normalized and tolerance is clamped to `0..100`. The `25 g` value is only a display reference; it does not represent a product database row and does not alter planner allocation.
 
 The page must keep its training-tolerance disclaimer. It presents the result as a starting point to test progressively, not as medical advice or an individualized prescription.
+
+The result may include one random elite comparison from the fixed catalog in `apps/web/lib/carb-calculator-fun.ts`. Athlete, event, year, finish time, and official result URL are factual display data; the adjacent punchline is explicitly labeled as a joke. Comparisons are decorative, acknowledge that the runner's course is not the referenced UTMB course, and never affect carbohydrate calculations. A new calculation avoids immediately repeating the previous comparison.
+
+Calculator share links are stateless and accept only a complete `duration`, `tolerance`, and stable `comparison` query tuple. Duration must be within `0.5..30` on `0.5` steps, tolerance within `0..100` on `5` steps, and the comparison id must exist in the fixed catalog. A valid tuple restores the same inputs, estimate, and punchline without replaying the artificial loading delay; invalid or incomplete tuples display the initial calculator state.
 
 ## Organizer Products at Aid Stations
 
@@ -278,6 +284,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Planner UI product coverage is cumulative. Do not compute carbs/sodium coverage from only the products assigned to the current aid station.
 - Keep the quick calculator duration/tolerance interpolation independent from the full planner allocation. Changing its duration guideposts or tolerance mapping must update its tests and this documentation.
 - Do not treat the calculator's 25 g display portion as a catalog-product size or allocation unit.
+- Keep elite comparison facts sourced and jokes visibly separate. Comparison selection, loading animation, and share parameters must never alter the carbohydrate estimate.
 - Product quantities are whole units for consumption. Fractional product inventory must not be consumed as a fractional gel/bar/capsule.
 - A product that covers a small remaining carb or sodium deficit must still count even if it overshoots; do not discard it because of an overshoot penalty.
 - Mobile gauge values must use available carried inventory, not only consumed inventory, so manual oversupply remains visible.

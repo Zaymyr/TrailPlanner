@@ -41,8 +41,8 @@ export default function CarbCalculatorPage() {
           Combien de glucides par heure en trail ?
         </h1>
         <p className="text-lg leading-8 text-muted-foreground">
-          Ajustez la durée et votre facilité à manger pendant l’effort. Le résultat évolue immédiatement pour vous
-          donner un point de départ à tester pendant vos sorties longues.
+          Ajustez la durée et votre facilité à manger pendant l’effort, puis lancez le calcul pour révéler un point de
+          départ à tester pendant vos sorties longues — avec une comparaison trail volontairement injuste.
         </p>
       </header>
 
