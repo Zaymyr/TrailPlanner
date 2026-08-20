@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -61,6 +61,7 @@ This table is the sole content-review gate for the current organizer creation fl
 - Publication does not send runner notifications automatically.
 - Removing the organizer-side runner preview and format quick actions does not alter readiness: publication still validates persisted event, edition, and format rows.
 - An inherited format location remains empty on `races`; publication continues to require the event location, while an explicitly different format location is additive runner-facing data.
+- The Organizer's single format-name control persists the same non-empty value to `races.name` and `races.series_name`; publication readiness continues to validate the canonical `name` field.
 
 ## Gotchas
 

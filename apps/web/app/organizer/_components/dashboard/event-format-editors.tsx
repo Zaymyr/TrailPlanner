@@ -260,18 +260,15 @@ function RaceForm({
               <p className="text-sm text-muted-foreground">Nom, metriques, date et lieu du parcours.</p>
             </div>
             <div className="grid gap-3 lg:grid-cols-12">
-              <div className="lg:col-span-3">
+              <div className="lg:col-span-6">
                 <TextField
-                  label="Libelle format"
-                  value={values.seriesName}
-                  onChange={(value) => onChange({ ...values, seriesName: value })}
+                  label="Nom du format"
+                  value={values.name}
+                  onChange={(value) => onChange({ ...values, name: value, seriesName: value })}
                   required
-                  invalid={!values.seriesName.trim()}
+                  invalid={missingName}
                   disabled={disabled}
                 />
-              </div>
-              <div className="lg:col-span-3">
-                <TextField label="Nom" value={values.name} onChange={(value) => onChange({ ...values, name: value })} required invalid={missingName} disabled={disabled} />
               </div>
               <div className="lg:col-span-2">
                 <NumberField label="Distance km" value={values.distanceKm} onChange={(value) => onChange({ ...values, distanceKm: value })} step="0.1" invalid={missingDistance} disabled={disabled} />

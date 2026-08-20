@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
