@@ -37,7 +37,7 @@ related_tables:
 ## Business Invariants
 
 - Read state is per user and synchronized across devices; it is not derived from push-delivery logs.
-- Opening an event sheet marks the loaded announcements as read. A push deep link includes the update id so the targeted message is loaded and placed first before its receipt is persisted.
+- Opening an event sheet marks only the announcement displayed in its collapsed post-format panel as read. Expanding the panel marks the newly displayed history as read; a push deep link includes the update id so the targeted message is loaded and placed first before its receipt is persisted.
 - Anonymous sessions do not write read receipts.
 
 ## Gotchas

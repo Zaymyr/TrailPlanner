@@ -575,7 +575,7 @@ export const en: MobileTranslations = {
     viewFormats: 'View formats',
     organizerUpdatesTitle: 'Latest organizer updates',
     organizerUpdatesLoading: 'Loading...',
-    organizerUpdatesViewAll: 'View all',
+    organizerUpdatesViewAll: 'View more',
     singleFormatLabel: '1 format',
     multipleFormatsLabel: '{count} formats',
     chooseFormatHint: 'Choose the format that matches your race to create a plan.',

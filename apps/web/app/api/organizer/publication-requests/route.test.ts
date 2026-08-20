@@ -5,11 +5,12 @@ import { POST } from "./route";
 
 const publicationMocks = vi.hoisted(() => ({ validate: vi.fn() }));
 const eventId = "11111111-1111-1111-1111-111111111111";
+const raceId = "33333333-3333-3333-3333-333333333333";
 
 const request = () => new NextRequest("http://localhost/api/organizer/publication-requests", {
   method: "POST",
   headers: { authorization: "Bearer user-token", "content-type": "application/json" },
-  body: JSON.stringify({ eventId }),
+  body: JSON.stringify({ eventId, raceId }),
 });
 
 describe("/api/organizer/publication-requests POST", () => {
@@ -28,6 +29,7 @@ describe("/api/organizer/publication-requests POST", () => {
         id: "22222222-2222-2222-2222-222222222222",
         created_at: "2026-07-29T10:00:00.000Z",
         event_id: eventId,
+        race_id: raceId,
         user_id: "00000000-0000-0000-0000-000000000001",
         status: "pending",
         reviewer_notes: null,
@@ -36,6 +38,9 @@ describe("/api/organizer/publication-requests POST", () => {
     const response = await POST(request());
     expect(response.status).toBe(201);
     expect((await response.json()).publicationRequest.status).toBe("pending");
+    expect(publicationMocks.validate).toHaveBeenCalledWith(expect.anything(), eventId, raceId);
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain(`race_id=eq.${raceId}`);
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({ event_id: eventId, race_id: raceId });
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("race_events"))).toBe(false);
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("/rest/v1/races"))).toBe(false);
   });

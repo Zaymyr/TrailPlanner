@@ -4,6 +4,7 @@ scope: database
 last_verified: 2026-08-20
 ai_priority: high
 related_files:
+  - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - apps/web/app/api/organizer/events/route.ts
@@ -30,7 +31,7 @@ related_tables:
 
 - One event can have many yearly editions.
 - One edition owns one inclusive start/end date range.
-- At most one edition is current per event; publication and legacy event-date reads target it.
+- At most one edition is current per event; legacy event-date reads and the admin event-wide switch target it, while a format-specific publication request targets the requested race's own edition.
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 
@@ -44,7 +45,7 @@ related_tables:
 | `edition_year` | `smallint` | unique per event, 2000–2100 | Year of `start_date`. |
 | `start_date` | `date` | non-null | Canonical first day of the edition. |
 | `end_date` | `date` | non-null, not before start | Canonical last day of the edition. |
-| `is_current` | `boolean` | one true row per event at most | Edition mirrored to legacy event date fields and used for publication. |
+| `is_current` | `boolean` | one true row per event at most | Edition mirrored to legacy event date fields and used by event-wide admin publication controls. |
 
 `races.edition_id` is nullable only for legacy or undated rows. New organizer formats must provide it.
 
@@ -73,7 +74,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - A format date edited through organizer routes must lie inside its edition range.
 - Database triggers also reject edition range updates that exclude an attached format, event/edition mismatches, and out-of-range format writes from any service path.
 - Changing the current edition or its range mirrors `start_date` to `race_events.race_date` and `end_date` to `race_events.organizer_details.dateRange.endDate` for legacy catalog/mobile consumers.
-- Publication readiness and first Racebook approval consider only the current edition and its attached formats.
+- Format-specific publication readiness and first approval follow `race_event_publication_requests.race_id -> races.edition_id`, even when that edition is not current.
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
 
 ## Common Queries

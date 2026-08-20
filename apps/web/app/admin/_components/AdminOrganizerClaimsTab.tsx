@@ -73,11 +73,16 @@ type OrganizerPublicationRequest = {
   created_at: string;
   user_id: string;
   event_id: string;
+  race_id?: string | null;
   status: "pending" | "approved" | "rejected";
   reviewer_notes?: string | null;
   race_events?: {
     name: string;
     location?: string | null;
+    race_date?: string | null;
+  } | null;
+  requested_race?: {
+    name: string;
     race_date?: string | null;
   } | null;
 };
@@ -320,6 +325,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       <p className="font-semibold text-foreground">
                         {publicationRequest.race_events?.name ?? publicationRequest.event_id}
                       </p>
+                      {publicationRequest.requested_race ? (
+                        <p className="text-sm font-medium text-foreground">
+                          Format : {publicationRequest.requested_race.name}
+                          {publicationRequest.requested_race.race_date ? ` · ${publicationRequest.requested_race.race_date}` : ""}
+                        </p>
+                      ) : null}
                       <p className="text-sm text-muted-foreground">
                         Demandeur {publicationRequest.user_id} · {publicationRequest.race_events?.location ?? "Lieu non renseigné"}
                       </p>

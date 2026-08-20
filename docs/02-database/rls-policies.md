@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
+  - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - apps/web/lib/supabase.ts
@@ -162,9 +163,9 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 `race_event_publication_requests`:
 
-- Active event members can insert pending requests for themselves and read their own requests.
+- Active event members can insert pending requests for themselves only when `race_id` belongs to the same managed event, and can read their own requests.
 - Trusted admins read the queue through the service API.
-- Atomic first approval and the admin event-level Racebook switch use invoker-security RPCs executable only by `service_role`; organizers receive no direct table/RPC grant and mutate approved visibility only through a membership-checked service route.
+- Atomic first approval targets the stored `race_id`; the admin event-level Racebook switch still targets the current edition. Both invoker-security RPCs are executable only by `service_role`; organizers receive no direct table/RPC grant and mutate approved visibility only through a membership-checked service route.
 
 `race_event_organizers`:
 

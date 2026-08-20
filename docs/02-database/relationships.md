@@ -18,6 +18,7 @@ related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
+  - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -130,7 +131,8 @@ Current code treats `race_events` as a parent/grouping table for `races`:
 - mobile catalog groups races by `race_events`.
 - mobile favorites and organizer update audiences are event-scoped on `race_events`; an update may additionally reference one child `races` format for context.
 - organizer claims reference `race_events(id)`.
-- legacy organizer edition requests and current publication requests reference `race_events(id)`.
+- legacy organizer edition requests and publication requests reference `race_events(id)`;
+- `race_event_publication_requests.race_id -> races.id on delete cascade` targets the exact Racebook under review; null remains valid only for legacy event-level rows.
 - organizer memberships reference `race_events(id)` and grant access to all `races` under the event.
 - yearly date ranges reference `race_events(id)`, and formats reference their canonical yearly edition.
 - `races.racebook_publication_approved_by -> auth.users(id) on delete set null` records the trusted admin who granted durable Racebook publication approval; `racebook_is_live` itself introduces no new relationship.

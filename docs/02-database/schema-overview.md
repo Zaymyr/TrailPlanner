@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
+  - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
@@ -62,10 +63,10 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event edition: canonical yearly date range in `race_event_editions`, shared by every format for that event year.
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
-- Event publication request: organizer request for the first admin approval of current-edition Racebooks; course catalog visibility is independent.
+- Event publication request: organizer request for the first admin approval of one exact Racebook format, identified by `race_id`; course catalog visibility is independent.
 - Racebook publication: `races.racebook_is_live` controls runner visibility, while approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
-- Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, features one newest/targeted message above format actions, moves the remaining loaded history below them, and expands to the longer history only on demand.
+- Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
 
@@ -89,7 +90,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_edition_requests` | Retired audit rows from the former yearly-edition review gate. |
-| `race_event_publication_requests` | Pending/approved/rejected event publication reviews. |
+| `race_event_publication_requests` | Pending/approved/rejected per-format Racebook publication reviews, with nullable legacy event-level rows. |
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_event_update_reads` | Owner-scoped receipts recording which organizer announcements a runner has seen. |
@@ -144,6 +145,7 @@ erDiagram
   RACE_EVENTS ||--o{ RACE_EVENT_CLAIMS : claimed_by
   RACE_EVENTS ||--o{ RACE_EVENT_EDITION_REQUESTS : renewed_by
   RACE_EVENTS ||--o{ RACE_EVENT_ORGANIZERS : managed_by
+  RACES ||--o{ RACE_EVENT_PUBLICATION_REQUESTS : requested_for
   RACE_EVENTS ||--o{ USER_FAVORITE_RACE_EVENTS : favorited_by
   RACE_EVENTS ||--o{ RACE_EVENT_UPDATES : announced_in
   RACES ||--o{ RACE_EVENT_UPDATES : optionally_targets
