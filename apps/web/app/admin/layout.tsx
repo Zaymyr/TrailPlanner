@@ -4,6 +4,9 @@ import { redirect } from "next/navigation";
 
 import { ACCESS_TOKEN_COOKIE } from "../../lib/auth-cookies";
 import { fetchSupabaseUser, getSupabaseAnonConfig, isAdminUser } from "../../lib/supabase";
+import { noIndexMetadata } from "../noindex-metadata";
+
+export const metadata = noIndexMetadata;
 
 export default async function AdminLayout({ children }: { children: ReactNode }) {
   const supabaseConfig = getSupabaseAnonConfig();

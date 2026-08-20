@@ -1,10 +1,15 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
+  - apps/web/lib/nutrition.ts
+  - apps/web/lib/carb-calculator.ts
+  - apps/web/app/calculateur-glucides-trail/page.tsx
+  - apps/web/app/calculateur-glucides-trail/CarbCalculator.tsx
+  - apps/web/app/calculateur-glucides-trail/carb-calculator.test.ts
   - apps/web/lib/product-types.ts
   - apps/web/lib/fuel-types.ts
   - apps/web/lib/default-products.ts
@@ -96,6 +101,17 @@ Planner segment code in `apps/web/app/(planner)/race-planner/utils/segments.ts` 
 - elevation profile;
 - water carrying capacity;
 - per-hour carb/water/sodium targets.
+
+## Quick Carb Calculator
+
+The public `/calculateur-glucides-trail` page is a simplified acquisition tool, not a replacement for the full planner. `estimateCarbs` delegates its hourly target to `calculateNutrition` in `apps/web/lib/nutrition.ts`:
+
+- base target: `60 g/h`;
+- target when elevation is greater than `1000 m`, or the selected goal is `performance`: `70 g/h`.
+
+The user supplies duration, distance, elevation, and goal. The calculator multiplies the hourly target by the entered duration, rounds the total grams, and displays an illustrative conversion using `25 g` per portion. Negative or non-finite numeric inputs are normalized to zero before calculation. The `25 g` value is only a display reference; it does not represent a product database row and does not alter planner allocation.
+
+The page must keep its training-tolerance disclaimer. It presents the result as a starting point to test progressively, not as medical advice or an individualized prescription.
 
 ## Organizer Products at Aid Stations
 
@@ -256,6 +272,8 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 ## Gotchas
 
 - Planner UI product coverage is cumulative. Do not compute carbs/sodium coverage from only the products assigned to the current aid station.
+- Keep the quick calculator delegated to `calculateNutrition`; changing its 60/70 g per hour rule must update both the existing estimate behavior and this documentation.
+- Do not treat the calculator's 25 g display portion as a catalog-product size or allocation unit.
 - Product quantities are whole units for consumption. Fractional product inventory must not be consumed as a fractional gel/bar/capsule.
 - A product that covers a small remaining carb or sodium deficit must still count even if it overshoots; do not discard it because of an overshoot penalty.
 - Mobile gauge values must use available carried inventory, not only consumed inventory, so manual oversupply remains visible.

@@ -35,11 +35,17 @@ export function HeaderMenu() {
   const menuRef = useRef<HTMLDivElement | null>(null);
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
+  const coursesLabel = locale === "fr" ? "Courses" : "Races";
   const organizerLabel = locale === "fr" ? "Mes courses" : "My races";
   const organizerHref: Route = hasManagedRaces ? "/organizer" : "/organizers";
 
   const menuItems: MenuItem[] = useMemo(
     () => [
+      {
+        label: coursesLabel,
+        href: "/courses" as Route,
+        active: isActivePath(pathname, "/courses"),
+      },
       {
         label: t.navigation.racePlanner,
         href: "/race-planner",
@@ -72,6 +78,7 @@ export function HeaderMenu() {
       },
     ],
     [
+      coursesLabel,
       organizerLabel,
       organizerHref,
       pathname,

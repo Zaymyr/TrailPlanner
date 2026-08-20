@@ -1,20 +1,23 @@
 import type { MetadataRoute } from "next";
 
 import { getAllPostMetadata } from "../lib/blog/posts";
+import { getPublicRaces } from "../lib/public-races";
 import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "./seo";
 
 const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
 
-export const dynamic = "force-static";
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const posts = await getAllPostMetadata();
+  const [posts, races] = await Promise.all([getAllPostMetadata(), getPublicRaces()]);
 
   const staticEntries: MetadataRoute.Sitemap = [
     { url: toAbsoluteUrl(HOME_PATH) },
     { url: toAbsoluteUrl(RACE_PLANNER_PATH) },
     { url: toAbsoluteUrl(`${RACE_PLANNER_PATH}/mobile`) },
     { url: toAbsoluteUrl("/blog") },
+    { url: toAbsoluteUrl("/courses") },
+    { url: toAbsoluteUrl("/calculateur-glucides-trail") },
   ];
 
   const seenUrls = new Set<string>();
@@ -33,7 +36,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     });
   });
 
-  return [...staticEntries, ...blogEntries];
+  const raceEntries: MetadataRoute.Sitemap = races.map((race) => ({
+    url: toAbsoluteUrl(`/courses/${race.slug}`),
+  }));
+
+  return [...staticEntries, ...blogEntries, ...raceEntries];
 }
 
 /**
