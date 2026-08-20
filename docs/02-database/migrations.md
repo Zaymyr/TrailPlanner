@@ -1,12 +1,13 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260720120000_add_race_edition_groups.sql
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
@@ -22,6 +23,7 @@ related_tables:
   - race_event_organizers
   - race_event_publication_requests
   - race_event_updates
+  - race_event_update_reads
   - race_event_editions
   - race_aid_station_products
   - products
@@ -181,6 +183,8 @@ It adds comments on the new columns and deliberately adds no grants, foreign key
 - live-event read RLS plus organizer/admin insert RLS for updates.
 
 The manual RLS SQL check file was expanded accordingly so organizer relationship checks now also cover event favorites and update visibility behavior.
+
+`supabase/migrations/20260820130930_add_format_targeted_race_updates.sql` adds nullable `race_event_updates.race_id`, validates event/format consistency in the organizer insert policy, and creates owner-scoped `race_event_update_reads`. The receipt table grants only authenticated select/insert access, requires `auth.uid() = user_id`, and permits inserts only for updates under live events.
 
 `supabase/migrations/20260720120000_add_race_edition_groups.sql` originally added `races.edition_group_id` and `races.series_name` to group yearly rows of one format. The later canonical edition table does not replace that cross-year series grouping.
 

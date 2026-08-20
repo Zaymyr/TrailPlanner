@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
+  - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260720120000_add_race_edition_groups.sql
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
@@ -98,6 +99,7 @@ related_tables:
   - race_aid_station_products
   - race_events
   - race_event_updates
+  - race_event_update_reads
   - races
   - products
   - user_favorite_race_events
@@ -118,7 +120,7 @@ This document records the organizer portal rules: authenticated users create the
 - Source data: organizer edits update `race_events`, `races`, and `race_aid_stations`.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields that do not yet need normalized tables. Edition start/end dates are normalized in `race_event_editions`; the current range is mirrored into legacy event fields for mobile/catalog compatibility. Event details keep fields such as `officialWebsiteUrl`, equipment and geocoded location metadata, while format websites remain on `races.external_site_url`.
 - Event follower: authenticated runner who favorites one `race_events` row.
-- Organizer update: manual runner-facing announcement stored in `race_event_updates` and optionally pushed to event followers.
+- Organizer update: manual runner-facing announcement stored in `race_event_updates`, optionally scoped to one format, and pushed to event followers.
 - Runner snapshot: already-created `race_plans` stay unchanged when source race data changes, except that official ravito product suggestions are refreshed into `/api/plans` responses for plans linked to a `race_id`.
 
 ## Direct Event Creation
@@ -126,6 +128,8 @@ This document records the organizer portal rules: authenticated users create the
 `/organizers` lets an authenticated user create a draft event from a name, optional location and official website URL, plus a required initial edition start/end range. `POST /api/organizer/events` inserts the event, creates its initial current `race_event_editions` row, then creates the active owner membership. Failure cleanup removes the inaccessible draft. Redirect bootstrap values remain passed from the `/organizer` server page as plain props.
 
 The direct-creation flow deliberately does not let a user take control of an existing catalog event. Existing claims and the admin claim queue remain available only as a legacy audit/access-management path; new `/organizers` submissions do not add claim rows and do not wait for admin approval.
+
+The admin Organizer tab can also delegate an existing event directly to an existing Supabase Auth account. The admin selects the event and enters the account e-mail; the protected server route resolves an exact case-insensitive Auth e-mail match, creates an active `organizer` membership (or reactivates a revoked membership), and leaves event/format publication state unchanged. The delegated organizer can edit every edition and format under the event, but only an `owner` or trusted admin can permanently delete the event.
 
 Revoking access still sets `revoked_at` on the membership and blocks future organizer writes. Yearly editions are created directly as drafts; admin validation now happens only when the organizer requests publication. Payment-based publication gating remains deferred and can later be added to that publication-review boundary.
 
@@ -142,6 +146,8 @@ Organizers with an active event membership can:
 - upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
 - replace a format GPX source in `race-gpx`;
 - delete a format from the `Course` module after a confirmation step; the button is aligned at the far right of the `Formats & GPX` title row, source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
+- see whether the selected event has all publication-required information through a compact status badge beside the event selector;
+- permanently delete the selected event from the red cross placed immediately before that selector, but only after typing the exact word `Supprimer` in the confirmation dialog; the server restricts this destructive action to the active owner membership (or a trusted admin), removes event-owned formats and Storage assets, and leaves saved runner plans detached from their deleted source formats;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and station-specific `race_aid_stations.organizer_details`;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
@@ -156,7 +162,7 @@ The selected edition year controls its canonical range and attached format rows,
 
 When the organizer adds a format, the creation form can queue its image and GPX before submission. GPX parsing still pre-fills course metrics and visuals. The format inherits the edition start date unless a different in-range date is enabled; after row creation, the existing image and GPX routes persist the pending files.
 
-Approved organizers can also publish a manual event update from the top dashboard card through `Notifier les coureurs`. That action opens a modal, lets the organizer type one short runner-facing message, creates one `race_event_updates` row, and then sends push notifications only to users who favorited the event. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
+Approved organizers can also publish a manual update from the top dashboard card through `Notifier les coureurs`. The modal requires a scope (`Tout l’événement` or one live format from the selected edition) and one short message. It creates one `race_event_updates` row, then sends push notifications only to users who favorited the event. Event-wide pushes use the event name in the title; format-specific pushes use the format name and carry both event and format ids. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
 
 That same dashboard header now also exposes `Importer depuis un site web`. The organizer pastes the general event website URL and can add one explicit URL per format. The server detects `UTMB`, `Trace de Trail`, or falls back to a generic HTML/JSON-LD extraction, and the UI shows a review-first recap with:
 
@@ -211,7 +217,7 @@ Published runner-facing surfaces resolve details as:
 
 The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact. Its top identity card contains event/format identity, the event date range, an optional distinct format date, the best published location, runner information, and event services, while distance, D+, D-, and start-time metric pills are omitted from this synthesis. Weather and last-minute messages remain dedicated compact alert cards immediately below it. The redundant general tab is removed: the route-local tabs are `Matériel`, `Dossard`, `Course`, and `Accès`. Equipment is split into active required, active recommended, and weather-conditional inactive groups; `Dossard` groups every pickup location first, then groups its slots by day so same-day ranges share one localized short weekday/day/month label and use locale-specific hour formatting before documents and notes. `Course` owns the explicitly labeled start time as the first light-green important-information row, keeps the finish cutoff critical, and contains the remaining schedule constraints plus the stored GPX map, elevation profile, and source aid stations without rendering separate empty cards for missing course blocks. `Accès` begins with start/finish linked locations, then parking, shuttles, road restrictions, the published map URL, and access notes. Published geocoded event, start, finish, or bib values remain tappable so runners can launch navigation directly. Equipment status badges stay inline and right-aligned, and weather-tagged items retain icon-only cold/heat markers while remaining muted whenever the active plan does not match. A native pull-to-refresh re-queries the complete published Racebook snapshot, profile, and route so organizer changes can appear without restarting the app; a failed refresh keeps the last successful snapshot visible.
 
-Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, the event sheet exposes a preloaded preview of the latest manual organizer announcements below the format list with an explicit affordance to open the longer history, and organizer update pushes deep-link directly into that event sheet with `/(app)/catalog?eventId=<uuid>`.
+Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, unread previews add a `NEW` badge, and the event sheet places announcements before the format list with an affordance to open the longer history. Pushes deep-link with event, optional format, and update ids so the sheet opens directly on the targeted message and highlights the concerned format. Identified runners persist read receipts in `race_event_update_reads` once loaded messages are displayed.
 
 ## GPX Replacement
 
@@ -261,6 +267,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - New organizer formats start in draft (`is_live = false`) until an admin approves an event publication request.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
 - Do not auto-create `race_event_updates` rows on organizer saves, publication approval, image upload, or GPX replacement. Runner notifications stay manual.
+- Format scope changes the title and in-app context, not the follower source: delivery still targets users who favorited the parent event.
 - Do not let the mobile Courses sheet grow unbounded by default. Keep the runner-facing organizer history compact on first open and reveal the longer archive only after an explicit runner action.
 - Do not add separate grants or RLS policies for organizer JSONB columns on existing source tables; route membership checks and table row policies remain the access boundary.
 - Do not auto-sync existing saved plans after organizer source edits. Official ravito product links are read-time response overlays only; service flags, GPX, station distances, pacing, and runner supplies remain stored plan data.
@@ -307,6 +314,7 @@ No mobile organizer editor exists in v1. Mobile can now consume published organi
 - Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
 - Keep organizer dashboard copy properly UTF-8 encoded. The event/format editor renders accented French labels directly from source strings, so mojibake like `Ã©` on tabs, dates, or image labels is a user-facing bug, not a cosmetic doc issue.
 - Keep `/api/admin/organizer-claims` resilient to secondary-read failures. Missing yearly-edition rows or unavailable organizer-identity enrichment should degrade the admin tab gracefully instead of hiding the whole review queue.
+- Keep direct organizer assignment admin-only and server-side. The browser must never receive the Supabase service credential or the complete Auth user list, and assignment must not implicitly publish or unpublish the event or its Racebook formats.
 
 - The complete Organizer event list must remain admin-only. It may be returned only after the server verifies trusted `app_metadata`; non-admin users remain limited to active `race_event_organizers` memberships.
 

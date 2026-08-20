@@ -55,9 +55,12 @@ type EventGroup = {
 type RaceEventUpdate = {
   id: string;
   event_id: string;
+  race_id: string | null;
   message: string;
   created_at: string;
 };
+
+type RaceEventUpdateRef = Pick<RaceEventUpdate, 'id' | 'event_id'>;
 
 const ORGANIZER_UPDATES_PREVIEW_LIMIT = 3;
 
@@ -384,9 +387,41 @@ async function fetchRaceEventUpdates(eventId: string) {
   return payload.updates;
 }
 
+async function fetchReadRaceEventUpdateIds(userId: string) {
+  const { data, error } = await supabase
+    .from('race_event_update_reads')
+    .select('update_id')
+    .eq('user_id', userId);
+
+  if (error) throw error;
+  return ((data ?? []) as Array<{ update_id?: unknown }>)
+    .map((row) => row.update_id)
+    .filter((value): value is string => typeof value === 'string');
+}
+
+async function fetchRaceEventUpdateRefs() {
+  const { data, error } = await supabase.from('race_event_updates').select('id,event_id');
+  if (error) throw error;
+  return (data ?? []) as RaceEventUpdateRef[];
+}
+
+async function markRaceEventUpdatesRead(userId: string, updateIds: string[]) {
+  if (updateIds.length === 0) return;
+
+  const { error } = await supabase.from('race_event_update_reads').upsert(
+    updateIds.map((updateId) => ({ update_id: updateId, user_id: userId })),
+    { onConflict: 'update_id,user_id', ignoreDuplicates: true },
+  );
+  if (error) throw error;
+}
+
 export default function CatalogScreen() {
   const router = useRouter();
-  const { eventId: selectedEventIdParam } = useLocalSearchParams<{ eventId?: string }>();
+  const {
+    eventId: selectedEventIdParam,
+    raceId: selectedRaceIdParam,
+    updateId: selectedUpdateIdParam,
+  } = useLocalSearchParams<{ eventId?: string; raceId?: string; updateId?: string }>();
   const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
@@ -394,6 +429,9 @@ export default function CatalogScreen() {
   const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
   const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
   const [canFavoriteEvents, setCanFavoriteEvents] = useState(false);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [readUpdateIds, setReadUpdateIds] = useState<Set<string>>(() => new Set());
+  const [eventUpdateRefs, setEventUpdateRefs] = useState<RaceEventUpdateRef[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventGroup | null>(null);
   const [selectedEventUpdates, setSelectedEventUpdates] = useState<RaceEventUpdate[]>([]);
   const [updatesExpanded, setUpdatesExpanded] = useState(false);
@@ -427,7 +465,14 @@ export default function CatalogScreen() {
         const canUseFavorites = Boolean(sessionData?.session && !isAnonymousSession(sessionData.session));
         setCanFavoriteEvents(canUseFavorites);
 
-        const [eventsResult, orphansResult, personalResult, favoriteIdsResult] = await Promise.all([
+        const [
+          eventsResult,
+          orphansResult,
+          personalResult,
+          favoriteIdsResult,
+          readUpdateIdsResult,
+          eventUpdateRefsResult,
+        ] = await Promise.all([
           supabase
             .from('race_events')
             .select(`
@@ -441,6 +486,7 @@ export default function CatalogScreen() {
               race_event_updates (
                 id,
                 event_id,
+                race_id,
                 message,
                 created_at
               ),
@@ -474,6 +520,8 @@ export default function CatalogScreen() {
                 .eq('created_by', userId)
             : Promise.resolve({ data: [], error: null }),
           canUseFavorites ? fetchRaceFavoriteEventIds() : Promise.resolve([] as string[]),
+          canUseFavorites && userId ? fetchReadRaceEventUpdateIds(userId) : Promise.resolve([] as string[]),
+          canUseFavorites ? fetchRaceEventUpdateRefs() : Promise.resolve([] as RaceEventUpdateRef[]),
         ]);
 
         if (cancelled) return;
@@ -520,6 +568,9 @@ export default function CatalogScreen() {
         setEventGroups(groups);
         setPersonalRaces(sortRaces((personalResult.data ?? []) as Race[]));
         setFavoriteEventIds(favoriteIds);
+        setCurrentUserId(canUseFavorites ? userId : null);
+        setReadUpdateIds(new Set(readUpdateIdsResult));
+        setEventUpdateRefs(eventUpdateRefsResult);
         setError(null);
       } catch (err: unknown) {
         if (!cancelled) {
@@ -595,6 +646,16 @@ export default function CatalogScreen() {
       );
     });
   }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, nameFilter, personalRaces]);
+
+  const eventsWithUnreadUpdates = useMemo(
+    () =>
+      new Set(
+        eventUpdateRefs
+          .filter((update) => !readUpdateIds.has(update.id))
+          .map((update) => update.event_id),
+      ),
+    [eventUpdateRefs, readUpdateIds],
+  );
 
   const activeFiltersCount = useMemo(
     () =>
@@ -722,6 +783,14 @@ export default function CatalogScreen() {
   }, [eventGroups, selectedEventIdParam]);
 
   useEffect(() => {
+    if (!selectedEvent || !selectedUpdateIdParam) return;
+    if (selectedEventUpdates.some((update) => update.id === selectedUpdateIdParam)) return;
+    if (updatesLoadedEventId === selectedEvent.id || updatesLoadingMore) return;
+
+    void handleViewAllUpdates();
+  }, [selectedEvent, selectedEventUpdates, selectedUpdateIdParam, updatesLoadedEventId, updatesLoadingMore]);
+
+  useEffect(() => {
     if (!selectedEvent) return;
 
     const refreshedEvent = eventGroups.find((event) => event.id === selectedEvent.id) ?? null;
@@ -730,13 +799,38 @@ export default function CatalogScreen() {
     }
   }, [eventGroups, selectedEvent]);
 
-  const visibleSelectedEventUpdates = useMemo(
-    () =>
-      updatesExpanded
-        ? selectedEventUpdates
-        : selectedEventUpdates.slice(0, ORGANIZER_UPDATES_PREVIEW_LIMIT),
-    [selectedEventUpdates, updatesExpanded]
-  );
+  const visibleSelectedEventUpdates = useMemo(() => {
+    const visible = updatesExpanded
+      ? selectedEventUpdates
+      : selectedEventUpdates.slice(0, ORGANIZER_UPDATES_PREVIEW_LIMIT);
+    if (!selectedUpdateIdParam) return visible;
+
+    const targetedUpdate = selectedEventUpdates.find((update) => update.id === selectedUpdateIdParam);
+    if (!targetedUpdate) return visible;
+    return [targetedUpdate, ...visible.filter((update) => update.id !== targetedUpdate.id)];
+  }, [selectedEventUpdates, selectedUpdateIdParam, updatesExpanded]);
+
+  useEffect(() => {
+    if (!selectedEvent || !currentUserId) return;
+
+    const unreadIds = visibleSelectedEventUpdates
+      .map((update) => update.id)
+      .filter((updateId) => !readUpdateIds.has(updateId));
+    if (unreadIds.length === 0) return;
+
+    let cancelled = false;
+    void markRaceEventUpdatesRead(currentUserId, unreadIds)
+      .then(() => {
+        if (cancelled) return;
+        setReadUpdateIds((current) => new Set([...current, ...unreadIds]));
+      })
+      .catch((caught) => console.warn('Unable to mark race event updates as read.', caught));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUserId, readUpdateIds, selectedEvent, visibleSelectedEventUpdates]);
+
   const canLoadMoreUpdates =
     Boolean(selectedEvent) &&
     selectedEventUpdates.length >= ORGANIZER_UPDATES_PREVIEW_LIMIT &&
@@ -864,6 +958,7 @@ export default function CatalogScreen() {
             favoriteLabel={locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites'}
             unfavoriteLabel={locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites'}
             isFavorite={favoriteEventIds.includes(event.id)}
+            hasNewUpdate={eventsWithUnreadUpdates.has(event.id)}
             onToggleFavorite={
               canFavoriteEvents
                 ? () => {
@@ -1009,6 +1104,55 @@ export default function CatalogScreen() {
             <Text style={styles.sheetHint}>{t.catalog.chooseFormatHint}</Text>
 
             <ScrollView contentContainerStyle={styles.sheetContent}>
+              {selectedEventUpdates.length > 0 ? (
+                <View style={styles.eventUpdatesSection}>
+                  <View style={styles.eventUpdatesHeader}>
+                    <Text style={styles.eventUpdatesTitle}>{t.catalog.organizerUpdatesTitle}</Text>
+                    {canLoadMoreUpdates ? (
+                      <TouchableOpacity
+                        style={styles.eventUpdatesButton}
+                        onPress={() => {
+                          void handleViewAllUpdates();
+                        }}
+                        disabled={updatesLoadingMore}
+                      >
+                        <Text style={styles.eventUpdatesButtonText}>
+                          {updatesLoadingMore ? t.catalog.organizerUpdatesLoading : t.catalog.organizerUpdatesViewAll}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
+                  </View>
+                  {visibleSelectedEventUpdates.map((update) => {
+                    const raceName = update.race_id
+                      ? selectedEvent?.races.find((race) => race.id === update.race_id)?.name ?? null
+                      : null;
+                    const isNew = !readUpdateIds.has(update.id);
+                    return (
+                      <View
+                        key={update.id}
+                        style={[
+                          styles.eventUpdateCard,
+                          update.id === selectedUpdateIdParam && styles.eventUpdateCardTargeted,
+                        ]}
+                      >
+                        <View style={styles.eventUpdateMetaRow}>
+                          {raceName ? <Text style={styles.eventUpdateScope}>{raceName}</Text> : null}
+                          {isNew ? (
+                            <View style={styles.newBadge}>
+                              <Text style={styles.newBadgeText}>NEW</Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text style={styles.eventUpdateMessage}>{update.message}</Text>
+                        {formatUpdateDate(update.created_at, locale) ? (
+                          <Text style={styles.eventUpdateDate}>{formatUpdateDate(update.created_at, locale)}</Text>
+                        ) : null}
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+
               {selectedEvent?.races.map((race) => (
                 <RaceRow
                   key={race.id}
@@ -1030,7 +1174,7 @@ export default function CatalogScreen() {
                       params: { id: race.id },
                     });
                   }}
-                  subtitle={`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m`}
+                  subtitle={`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m${race.id === selectedRaceIdParam ? ' • Format concerné' : ''}`}
                   primaryActionLabel={t.catalog.createPlan}
                   onPrimaryPress={() => {
                     setSelectedEvent(null);
@@ -1039,34 +1183,6 @@ export default function CatalogScreen() {
                 />
               ))}
 
-              {selectedEventUpdates.length > 0 ? (
-                <View style={styles.eventUpdatesSection}>
-                  <View style={styles.eventUpdatesHeader}>
-                    <Text style={styles.eventUpdatesTitle}>{t.catalog.organizerUpdatesTitle}</Text>
-                    {canLoadMoreUpdates ? (
-                      <TouchableOpacity
-                        style={styles.eventUpdatesButton}
-                        onPress={() => {
-                          void handleViewAllUpdates();
-                        }}
-                        disabled={updatesLoadingMore}
-                      >
-                        <Text style={styles.eventUpdatesButtonText}>
-                          {updatesLoadingMore ? t.catalog.organizerUpdatesLoading : t.catalog.organizerUpdatesViewAll}
-                        </Text>
-                      </TouchableOpacity>
-                    ) : null}
-                  </View>
-                  {visibleSelectedEventUpdates.map((update) => (
-                    <View key={update.id} style={styles.eventUpdateCard}>
-                      <Text style={styles.eventUpdateMessage}>{update.message}</Text>
-                      {formatUpdateDate(update.created_at, locale) ? (
-                        <Text style={styles.eventUpdateDate}>{formatUpdateDate(update.created_at, locale)}</Text>
-                      ) : null}
-                    </View>
-                  ))}
-                </View>
-              ) : null}
             </ScrollView>
           </SafeAreaView>
         </View>
@@ -1610,6 +1726,35 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     paddingHorizontal: 14,
     paddingVertical: 12,
+  },
+  eventUpdateCardTargeted: {
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandSurface,
+  },
+  eventUpdateMetaRow: {
+    minHeight: 20,
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'space-between',
+  },
+  eventUpdateScope: {
+    color: Colors.brandPrimary,
+    flex: 1,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  newBadge: {
+    backgroundColor: Colors.brandPrimary,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  newBadgeText: {
+    color: Colors.textOnBrand,
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   eventUpdateMessage: {
     color: Colors.textPrimary,

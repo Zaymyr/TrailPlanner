@@ -118,6 +118,7 @@ related_tables:
   - race_event_organizers
   - race_event_publication_requests
   - race_event_updates
+  - race_event_update_reads
   - race_aid_station_products
   - user_favorite_race_events
   - user_profiles
@@ -244,11 +245,11 @@ The v1 organizer portal is web-only:
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
 - `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.
 - `/api/race-favorites` is the authenticated runner bridge for favoriting `race_events`, and `/api/race-events/[id]/updates` is the runner/mobile read route for the latest published organizer announcements on live events.
-- `/api/admin/organizer-claims` keeps legacy access-claim review and membership revocation. `/api/admin/event-publication-requests` owns publication approval/rejection; approval invokes the service-role-only database review function so event, complete formats, and request status change atomically.
+- `/api/admin/organizer-claims` keeps legacy access-claim review and membership revocation, and lets a trusted admin attach an existing Supabase Auth e-mail to an event as an `organizer`. Auth-user lookup and membership writes stay server-side; direct assignment grants edit access without changing live state. `/api/admin/event-publication-requests` owns publication approval/rejection; approval invokes the service-role-only database review function so event, complete formats, and request status change atomically.
 
 Organizer edits are draft-capable source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id` and inherit its start date unless an explicit in-range date is chosen. Legacy event date fields are trigger-maintained for catalog/mobile compatibility. All organizer writes stay behind active event membership checks, and publication validates then publishes only the current edition's complete formats.
 
-The same approved-only dashboard now exposes a manual `Notifier les coureurs` modal. Sending from that modal creates one `race_event_updates` row, then uses `apps/web/lib/push.ts` to notify only the users who favorited that event. The push payload deep-links runners back to `/(app)/catalog?eventId=<eventId>`, and delivery is logged in `push_notification_events` as `notification_kind = 'organizer-race-update'`.
+The same approved-only dashboard exposes a manual `Notifier les coureurs` modal. The organizer selects the whole event or one format from the selected edition before sending. The route validates that the format belongs to the event, stores it as nullable `race_event_updates.race_id`, and uses the event or format name in the push title. Delivery still targets event followers; the payload includes `eventId`, `updateId`, optional `raceId`, and a catalog deep link. Delivery is logged in `push_notification_events` as `notification_kind = 'organizer-race-update'`.
 
 The organizer write surface remains edition-aware for selection and grouping, but no longer becomes read-only based on `race_date`. Active event membership is the mutation authorization boundary for past and future editions.
 
@@ -294,6 +295,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep organizer location text fields and their sibling geocoded JSON objects in sync. Publication checks still read the text columns/strings, while published GPS/Google affordances come from `organizer_details`.
 - `race_events` is used by API routes, but this repo only shows a migration altering it, not creating it. See [../02-database/tables/race-events.md](../02-database/tables/race-events.md).
 - Organizer event creation inserts a non-live `race_events` row and its owner `race_event_organizers` membership through a service route; keep that path server-side and do not expose service-role writes to client code.
+- Admin organizer assignment must resolve the submitted e-mail through the server-only Supabase Auth Admin API. Return only the matched identity needed for confirmation, never the complete Auth user list or service credential.
 - Website import upserts the validated canonical edition, attaches created/updated formats through `edition_id`, and reuses matching cross-year `edition_group_id` series instead of updating another edition's row.
 - Do not convert a Trace de Trail `/iframe/{id}` path directly into `/trace/{id}`: iframe ids identify widgets and must first be resolved from the embed HTML. When a single-format page exposes several widgets, import only if they converge on one canonical trace.
 - Keep `/organizer` compatible with production prerendering. Bootstrap query values should enter through the server page props; using `useSearchParams` directly in `OrganizerDashboard` requires a Suspense boundary and otherwise fails `next build`.

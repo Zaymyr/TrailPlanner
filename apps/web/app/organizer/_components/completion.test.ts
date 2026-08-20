@@ -213,6 +213,8 @@ describe("organizer completion", () => {
 
     expect(draftCompletion.raceProgress).toEqual(liveCompletion.raceProgress);
     expect(draftCompletion.raceProgressScore).toBe(liveCompletion.raceProgressScore);
+    expect(draftCompletion.informationComplete).toBe(true);
+    expect(liveCompletion.informationComplete).toBe(true);
     expect(draftCompletion.formatModules.find((module) => module.id === "formats")?.status).toBe("complete");
   });
 

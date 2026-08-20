@@ -37,6 +37,8 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Removing the standalone `Dupliquer ce format` action does not affect edition duplication: the new-edition dialog still clones the selected source edition when `duplicatePreviousEdition` is enabled.
 - The format location override is independent from edition selection and does not read or write this retired request table.
 - Consolidating the Organizer format name input keeps `name` and `series_name` synchronized but does not change edition creation or the stable `edition_group_id` copied across years.
+- The runner-notification format selector reads live formats from the currently selected canonical edition; it does not create, reactivate, or consult legacy edition requests.
+- Direct admin assignment of an existing Auth account creates or reactivates only `race_event_organizers`; it does not create, reactivate, or review a legacy edition request.
 
 ## Historical Columns
 
@@ -48,6 +50,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Do not interpret old `approved` rows as current publication approval; publication uses `race_event_publication_requests`.
 - When optional edition duplication is enabled, cloned draft `races` rows must attach through `edition_id` and preserve their cross-year `edition_group_id` series relationship. An empty edition legitimately has no attached format until the organizer adds one.
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
+- Do not couple direct organizer delegation to this retired workflow. Membership assignment and yearly edition creation remain separate operations.
 
 ## Related Docs
 

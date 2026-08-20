@@ -118,6 +118,7 @@ export function OrganizerSummaryHeader({
   onSaveAll,
   onNotifyFollowers,
   onRequestPublication,
+  onDeleteEvent,
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
@@ -140,9 +141,12 @@ export function OrganizerSummaryHeader({
   onSaveAll: () => void;
   onNotifyFollowers: () => void;
   onRequestPublication: () => void;
+  onDeleteEvent: () => Promise<boolean>;
 }) {
   const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
   const [duplicatePreviousEdition, setDuplicatePreviousEdition] = React.useState(true);
+  const [deleteEventDialogOpen, setDeleteEventDialogOpen] = React.useState(false);
+  const [deleteEventConfirmation, setDeleteEventConfirmation] = React.useState("");
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
@@ -175,6 +179,20 @@ export function OrganizerSummaryHeader({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            aria-label="Supprimer la course sélectionnée"
+            title="Supprimer la course sélectionnée"
+            onClick={() => {
+              setDeleteEventConfirmation("");
+              setDeleteEventDialogOpen(true);
+            }}
+            disabled={!selectedEventId || status !== "idle"}
+            className="w-10 shrink-0 border-red-300 px-0 text-xl leading-none text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
+          >
+            ×
+          </Button>
           <select
             className="h-10 rounded-md border border-border bg-card px-3 text-sm"
             value={selectedEventId ?? ""}
@@ -186,6 +204,16 @@ export function OrganizerSummaryHeader({
               </option>
             ))}
           </select>
+          <span
+            className={cn(
+              "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold",
+              completion?.informationComplete
+                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
+                : "border-amber-300 bg-amber-50 text-amber-800"
+            )}
+          >
+            {completion?.informationComplete ? "Informations renseignées" : "À compléter"}
+          </span>
           <Link href="/organizers">
             <Button variant="outline">Ajouter une course</Button>
           </Link>
@@ -351,6 +379,62 @@ export function OrganizerSummaryHeader({
               </Button>
               <Button type="submit" disabled={status !== "idle"}>
                 {status === "saving" ? "Création..." : "Créer l’édition"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteEventDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteEventDialogOpen(open);
+          if (!open) setDeleteEventConfirmation("");
+        }}
+      >
+        <DialogContent>
+          <form
+            className="grid gap-5"
+            onSubmit={(submitEvent) => {
+              submitEvent.preventDefault();
+              if (deleteEventConfirmation !== "Supprimer") return;
+              void onDeleteEvent().then((deleted) => {
+                if (deleted) {
+                  setDeleteEventDialogOpen(false);
+                  setDeleteEventConfirmation("");
+                }
+              });
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Supprimer définitivement cette course ?</DialogTitle>
+              <DialogDescription>
+                La course « {selectedMembership?.race_events?.name ?? event?.name ?? "sélectionnée"} », ses éditions, ses formats et ses informations organisateur seront supprimés. Cette action est irréversible.
+              </DialogDescription>
+            </DialogHeader>
+            <div>
+              <label htmlFor="organizer-delete-event-confirmation" className="text-sm font-medium text-foreground">
+                Tape « Supprimer » pour confirmer
+              </label>
+              <input
+                id="organizer-delete-event-confirmation"
+                type="text"
+                autoComplete="off"
+                className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                value={deleteEventConfirmation}
+                onChange={(changeEvent) => setDeleteEventConfirmation(changeEvent.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDeleteEventDialogOpen(false)} disabled={status !== "idle"}>
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={deleteEventConfirmation !== "Supprimer" || status !== "idle"}
+                className="!bg-red-600 !text-white hover:!bg-red-700"
+              >
+                {status === "saving" ? "Suppression..." : "Supprimer définitivement"}
               </Button>
             </DialogFooter>
           </form>

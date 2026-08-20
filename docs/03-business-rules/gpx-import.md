@@ -183,6 +183,7 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 - Organizer GPX waypoint import is safe-mode only: detected waypoints do not replace existing source stations, because replacing rows would break station ids and product links.
 - Source station service flags affect new catalog imports only; existing saved plans keep their previous `planner_values`. Organizer station-product links are the exception at response time: plans with `race_id` can receive current product suggestions from `/api/plans` without rewriting the saved plan row.
 - Imported or manually added source aid stations do not count as published organizer mobile content by themselves; the mobile Racebook gate still needs explicit organizer details.
+- The organizer notification selector may target a live format after its GPX or metadata work is complete, but notification scope does not parse, copy, or mutate GPX data.
 
 ## Related Docs
 

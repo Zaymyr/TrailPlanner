@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -40,6 +40,8 @@ related_tables:
   - subscriptions
   - user_profiles
   - push_devices
+  - race_event_updates
+  - race_event_update_reads
 ---
 
 # Mobile App Architecture
@@ -122,7 +124,7 @@ The layout also tracks auth analytics for signed-in and signed-out events.
 Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion or an explicit confirmed skip. Setup steps expose a compact header skip action, while the final notification screen keeps its existing skip-step control; both normal completion and skipping persist `user_profiles.onboarding_completed_at` before the flow exits, while the gate retains legacy profile/favorite fallbacks.
 Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx` so the onboarding race choice uses the same event-card UX as the Courses tab.
 The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of always snapping to the default `plans` tab when a hidden detail route was pushed.
-Organizer update pushes can deep-link back into the catalog with `/(app)/catalog?eventId=<uuid>`; the catalog screen reopens the matching event sheet when that query param is present.
+Organizer update pushes deep-link into the catalog with `eventId`, `updateId`, and an optional `raceId`. The catalog reopens the event sheet, loads an older targeted message when it is outside the preview, places that message first, and highlights the concerned format.
 Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTitle.tsx` with explicit title-container insets from `apps/mobile/app/(app)/_layout.tsx`. When a screen adds extra header actions, keep enough right inset for those icons so long French titles truncate cleanly instead of overlapping the header buttons on narrow iPhones.
 
 ## Catalog and Event Sheets
@@ -132,8 +134,9 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 - it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
 - it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
-- it preloads up to three recent manual organizer updates per live event with the main catalog query, renders that short history below the format list in the sheet, and lets runners expand to the fuller history on demand;
-- it reads `eventId` from the route params so a push notification can open the matching event directly.
+- it preloads up to three recent manual organizer updates per live event, renders announcements before the format list, and lets runners expand to the fuller history on demand;
+- it reads `eventId`, `updateId`, and optional `raceId` route params so a push opens the matching event, message, and format context directly;
+- it loads the identified runner's `race_event_update_reads` plus lightweight update id/event references, displays `NEW` on event cards even when the unread item is older than the three-message preview, and persists receipts after messages are displayed.
 
 ## Premium and Purchases
 
@@ -193,6 +196,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
 - Organizer update history in the event sheet is intentionally manual-announcement history only. Do not turn every organizer save into a runner-visible update.
 - Keep the event-sheet default compact: preload only the short organizer-update preview with the catalog query, and fetch the longer history only when the runner explicitly asks to see more.
+- Read receipts are identified-user state. Anonymous sessions may read public updates but must not write `race_event_update_reads`.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Keep both required legal links visible from reviewer-reachable purchase surfaces: privacy should open the web legal page, and Terms of Use should open Apple’s standard EULA unless the billing/legal strategy is intentionally changed.

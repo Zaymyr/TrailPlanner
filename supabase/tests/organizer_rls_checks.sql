@@ -333,8 +333,8 @@ begin
 end $$;
 
 with inserted_update as (
-  insert into public.race_event_updates (event_id, created_by, message)
-  select event_id, '10000000-0000-0000-0000-000000000001', 'Organizer RLS update check'
+  insert into public.race_event_updates (event_id, race_id, created_by, message)
+  select event_id, race_id, '10000000-0000-0000-0000-000000000001', 'Organizer RLS update check'
   from _organizer_rls_fixture
   returning id
 )
@@ -346,6 +346,24 @@ do $$
 begin
   if not exists (select 1 from public.race_event_updates where id = (select update_id from _organizer_rls_fixture)) then
     raise exception 'Expected organizer to create a race event update.';
+  end if;
+end $$;
+
+insert into public.race_event_update_reads (update_id, user_id)
+select update_id, '10000000-0000-0000-0000-000000000001'
+from _organizer_rls_fixture
+where event_is_live;
+
+do $$
+begin
+  if (select event_is_live from _organizer_rls_fixture)
+     and not exists (
+       select 1
+       from public.race_event_update_reads
+       where update_id = (select update_id from _organizer_rls_fixture)
+         and user_id = '10000000-0000-0000-0000-000000000001'
+     ) then
+    raise exception 'Expected user to mark their own live race event update as read.';
   end if;
 end $$;
 
@@ -373,6 +391,14 @@ do $$
 begin
   if exists (select 1 from public.user_favorite_race_events where id = (select favorite_id from _organizer_rls_fixture)) then
     raise exception 'Expected other user not to read someone else''s favorite race event.';
+  end if;
+
+  if exists (
+    select 1
+    from public.race_event_update_reads
+    where update_id = (select update_id from _organizer_rls_fixture)
+  ) then
+    raise exception 'Expected other user not to read someone else''s update read receipt.';
   end if;
 
   if (select event_is_live from _organizer_rls_fixture) then

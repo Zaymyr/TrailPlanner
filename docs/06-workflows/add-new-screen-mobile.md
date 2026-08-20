@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -52,7 +52,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Required onboarding screens must hide the bottom tab bar until completion; register them with `href: null` and `tabBarStyle: { display: 'none' }` in the tab layout.
 - Onboarding product-picking should mirror the Nutrition catalog affordances: collapsed brand rows keep count/verified/selected signals, and product rows keep verified badges plus explicit selection checks. Ensure onboarding product queries include `is_official` when rendering those badges.
 - Reuse `RaceEventSummaryCard` for catalog/onboarding race event rows so the onboarding race picker matches the Courses tab UX.
-- When extending the Courses tab, preserve its event-level route contract: favorites are tied to `race_events`, deep links such as `/(app)/catalog?eventId=<uuid>` should reopen the matching event sheet rather than inventing a second detail flow, and organizer-update history should stay compact on first render with any longer history loaded only after an explicit runner action.
+- When extending the Courses tab, preserve its event-level route contract: favorites stay tied to `race_events`; organizer-update links add `updateId` and optional `raceId` to the catalog route so the existing event sheet opens the precise message and format context; longer history remains lazy-loaded unless a targeted message requires it.
 - Premium purchase UI that can trigger App Store review should keep the subscription summary plus both legal links close to the CTA: explicit title, duration, price, privacy policy, and Terms of Use (EULA).
 - Native changes require a new platform-compatible EAS Update runtime. The current release keeps iOS on `1.1.0` and uses the Android-specific `1.1.1` runtime for the Android 16 / API 36 binary.
 

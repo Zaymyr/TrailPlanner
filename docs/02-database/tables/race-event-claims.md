@@ -39,6 +39,7 @@ related_tables:
 - Reviewer: admin user that approves or rejects the request.
 - Status: `pending`, `approved`, or `rejected`.
 - Membership handoff: approved claims are linked to `race_event_organizers`.
+- Direct admin delegation: an admin can create an organizer membership for an existing Auth account without creating or approving a claim.
 - Edition age: once membership is active, past and future editions share the same organizer edit authorization; claims do not impose a date cutoff.
 
 ## Columns
@@ -95,12 +96,13 @@ Summary:
 - Once membership exists, yearly editions may be created directly as drafts, either empty or by cloning the selected edition. Claims remain only an access-control exception for pre-existing catalog events; publication review is separate.
 - The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks draft event, format, image, GPX, ravito, product, edition, geocoded-location maintenance, and the event-level list of bib-pickup locations with their dated time slots, while publication remains a separate admin-reviewed request. A format inherits the event location until its approved organizer enables and saves `Lieu différent de l'événement`. The synthesis shows read-only publication badges; draft formats stay outside published runner surfaces. Scope navigation is immediate, but its silent background queue still persists through the same membership-gated routes; Ravito-module autosave writes race-level start/finish schedule details before station rows.
 - Trusted admins do not need claim or membership handoff: the claims dashboard endpoint returns all events as selector entries after its `app_metadata` admin check, while preserving membership-only selector data for ordinary users.
-- The same approved-only dashboard also owns the manual `Notifier les coureurs` action. Pending or rejected claims must not unlock organizer update history, follower counts, or runner-notification sends.
+- The same approved-only dashboard also owns the manual `Notifier les coureurs` action, including its whole-event/live-format selector. Pending or rejected claims must not unlock organizer update history, follower counts, or runner-notification sends, and a format choice never changes that membership boundary.
 - Website-import review remains inside that approved-only boundary. Its distance-grouped found/manual field summary and GPX status are presentation only. The editable canonical edition-date correction changes only the selected `race_event_editions` row after membership/hash validation; neither the chosen date nor quality score proves organizer access.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.
 - Rejection stores review metadata but does not create membership.
+- Direct e-mail assignment is not a synthetic claim: it leaves this table unchanged and stores `claim_id = null` on a new delegated membership.
 
 ## Common Queries
 
@@ -132,6 +134,7 @@ order by created_at asc;
 - Rejected manual claims should keep their claim audit trail; deleting the draft event would cascade-delete the claim.
 - Pending claims should show request status only, not the organizer dashboard modules.
 - Keep legacy access claims visually distinct from content publication requests. Claims prove management access; publication requests validate going live.
+- Keep direct admin delegation visually and structurally distinct from legacy claims. It grants membership immediately but must not add a fabricated claim audit row.
 - Keep organizer request-state copy aligned across `/organizers` and `/organizer`: pending/rejected cards are status-only French UI and must not imply edit access before membership approval.
 - Keep organizer-dashboard French copy under UTF-8 regression coverage when editing route-local labels; approval-gated screens should not ship mojibake after a component rewrite.
 - Do not block the admin claim queue on auxiliary enrichment reads. If edition-request loading or organizer-identity enrichment fails, or if an auth-user email is malformed, keep serving the base claim rows with contact-email or UUID fallbacks.

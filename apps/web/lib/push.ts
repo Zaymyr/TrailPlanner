@@ -186,16 +186,16 @@ export function buildUnfinishedPlanReminderCopy(locale: PushLocale, planName: st
   };
 }
 
-export function buildOrganizerRaceUpdateCopy(locale: PushLocale, eventName: string, message: string) {
+export function buildOrganizerRaceUpdateCopy(locale: PushLocale, targetName: string, message: string) {
   if (locale === "fr") {
     return {
-      title: `Nouvelle info - ${eventName}`,
+      title: `Nouvelle info - ${targetName}`,
       body: message,
     };
   }
 
   return {
-    title: `Race update - ${eventName}`,
+    title: `Race update - ${targetName}`,
     body: message,
   };
 }
@@ -602,6 +602,8 @@ export async function sendScheduledPushReminders(): Promise<ReminderRunSummary> 
 export async function sendOrganizerRaceUpdateNotifications(input: {
   eventId: string;
   eventName: string;
+  raceId?: string | null;
+  raceName?: string | null;
   updateId: string;
   message: string;
 }): Promise<OrganizerRaceUpdateSummary> {
@@ -614,10 +616,15 @@ export async function sendOrganizerRaceUpdateNotifications(input: {
   }
 
   const devices = await fetchEnabledDevicesForUsers(favoriteUserIds);
-  const href = `/(app)/catalog?eventId=${input.eventId}`;
+  const searchParams = new URLSearchParams({
+    eventId: input.eventId,
+    updateId: input.updateId,
+  });
+  if (input.raceId) searchParams.set("raceId", input.raceId);
+  const href = `/(app)/catalog?${searchParams.toString()}`;
   const reminders = devices.map<PendingReminder>((device) => {
     const locale = normalizeLocale(device.locale);
-    const copy = buildOrganizerRaceUpdateCopy(locale, input.eventName, input.message);
+    const copy = buildOrganizerRaceUpdateCopy(locale, input.raceName ?? input.eventName, input.message);
 
     return {
       userId: device.user_id,
@@ -632,6 +639,7 @@ export async function sendOrganizerRaceUpdateNotifications(input: {
         href,
         kind: "organizer-race-update",
         eventId: input.eventId,
+        raceId: input.raceId ?? null,
         raceEventUpdateId: input.updateId,
         message: input.message,
       },

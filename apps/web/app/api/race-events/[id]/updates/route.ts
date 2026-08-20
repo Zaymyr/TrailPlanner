@@ -7,6 +7,7 @@ import { getSupabaseAnonConfig } from "../../../../../lib/supabase";
 const updateRowSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid(),
+  race_id: z.string().uuid().nullable(),
   message: z.string(),
   created_at: z.string(),
 });
@@ -49,7 +50,7 @@ export async function GET(_request: Request, context: { params: { id?: string } 
   }
 
   const updatesResponse = await fetch(
-    `${supabaseConfig.supabaseUrl}/rest/v1/race_event_updates?event_id=eq.${parsedParams.data.id}&select=id,event_id,message,created_at&order=created_at.desc&limit=20`,
+    `${supabaseConfig.supabaseUrl}/rest/v1/race_event_updates?event_id=eq.${parsedParams.data.id}&select=id,event_id,race_id,message,created_at&order=created_at.desc&limit=20`,
     {
       headers: {
         apikey: supabaseConfig.supabaseAnonKey,

@@ -46,11 +46,13 @@ This table is the sole content-review gate for the current organizer creation fl
 - Only one pending request may exist per event.
 - Admin review is performed by a service-role API after trusted `app_metadata` admin authentication.
 - Admin access to every event through the Organizer selector does not synthesize publication requests; `/api/organizer/claims` still returns only the signed-in user's request rows, and the dedicated admin review route remains authoritative.
+- Direct admin e-mail assignment creates or reactivates an organizer membership only. It does not create a publication request or modify event/format live state.
 - `review_race_event_publication_request` is invoker-security and executable only by `service_role`; approval rechecks readiness, publishes the event and complete formats, then closes the request atomically.
 
 ## Business Invariants
 
 - Organizer event/race routes never accept direct `is_live` changes.
+- A directly delegated organizer receives the same membership-gated ability to maintain drafts and request publication, but assignment itself is not publication approval.
 - A request requires event name/location, a valid current `race_event_editions` range, and at least one complete format attached to that edition.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
@@ -59,6 +61,7 @@ This table is the sole content-review gate for the current organizer creation fl
 - Rejection leaves all source rows unchanged.
 - Approval publishes complete formats attached to the current edition only. Other editions and incomplete formats remain unchanged.
 - Publication does not send runner notifications automatically.
+- Format-specific manual notifications are available only for already-live formats in the selected edition. Draft formats must pass the publication workflow before they can be selected as runner notification context.
 - Removing the organizer-side runner preview and format quick actions does not alter readiness: publication still validates persisted event, edition, and format rows.
 - An inherited format location remains empty on `races`; publication continues to require the event location, while an explicitly different format location is additive runner-facing data.
 - The Organizer's single format-name control persists the same non-empty value to `races.name` and `races.series_name`; publication readiness continues to validate the canonical `name` field.
@@ -66,6 +69,7 @@ This table is the sole content-review gate for the current organizer creation fl
 ## Gotchas
 
 - This is a publication review, not an ownership claim. Legacy claims may still protect access to pre-existing catalog events.
+- Keep the assignment form and publication review actions independent even though they share the admin Organizer tab.
 - Recheck readiness during admin approval because organizers can edit source data while a request is pending.
 - Keep publication readiness sourced from persisted race values; client-side GPX form synchronization is only immediate feedback and does not bypass server-side revalidation.
 - New public-schema tables require explicit grants as well as RLS.

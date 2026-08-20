@@ -81,6 +81,13 @@ type OrganizerPublicationRequest = {
   } | null;
 };
 
+type RaceEventOption = {
+  id: string;
+  name: string;
+  location?: string | null;
+  race_date?: string | null;
+};
+
 type Props = {
   accessToken: string | null;
 };
@@ -90,6 +97,10 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [editionRequests, setEditionRequests] = useState<OrganizerEditionRequest[]>([]);
   const [publicationRequests, setPublicationRequests] = useState<OrganizerPublicationRequest[]>([]);
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
+  const [events, setEvents] = useState<RaceEventOption[]>([]);
+  const [assignmentEmail, setAssignmentEmail] = useState("");
+  const [assignmentEventId, setAssignmentEventId] = useState("");
+  const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
   const [notesByClaim, setNotesByClaim] = useState<Record<string, string>>({});
   const [notesByEditionRequest, setNotesByEditionRequest] = useState<Record<string, string>>({});
   const [notesByPublicationRequest, setNotesByPublicationRequest] = useState<Record<string, string>>({});
@@ -124,6 +135,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         claims?: OrganizerClaim[];
         editionRequests?: OrganizerEditionRequest[];
         memberships?: OrganizerMembership[];
+        events?: RaceEventOption[];
         message?: string;
       } | null;
       const publicationData = (await publicationResponse.json().catch(() => null)) as {
@@ -137,10 +149,53 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       setClaims(data?.claims ?? []);
       setEditionRequests(data?.editionRequests ?? []);
       setMemberships(data?.memberships ?? []);
+      const loadedEvents = data?.events ?? [];
+      setEvents(loadedEvents);
+      setAssignmentEventId((current) => current || loadedEvents[0]?.id || "");
       setPublicationRequests(publicationData?.publicationRequests ?? []);
     } catch (caught) {
       console.error("Unable to load organizer claims", caught);
       setError("Unable to load organizer claims.");
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const assignOrganizer = async () => {
+    if (!accessToken || !assignmentEventId || !assignmentEmail.trim()) return;
+    setStatus("saving");
+    setError(null);
+    setAssignmentSuccess(null);
+    try {
+      const response = await fetch("/api/admin/organizer-claims", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          action: "assign",
+          eventId: assignmentEventId,
+          email: assignmentEmail.trim(),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        message?: string;
+        event?: RaceEventOption;
+        user?: { email?: string | null };
+      } | null;
+      if (!response.ok) {
+        setError(data?.message ?? "Impossible d’attribuer l’accès organisateur.");
+        return;
+      }
+      setAssignmentSuccess(
+        `${data?.user?.email ?? assignmentEmail.trim()} peut maintenant éditer ${data?.event?.name ?? "cette course"}.`
+      );
+      setAssignmentEmail("");
+      await load();
+    } catch (caught) {
+      console.error("Unable to assign organizer access", caught);
+      setError("Impossible d’attribuer l’accès organisateur.");
     } finally {
       setStatus("idle");
     }
@@ -382,6 +437,58 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               </section> : null}
             </>
           )}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-lg">
+        <CardHeader>
+          <CardTitle>Associer un organisateur</CardTitle>
+          <CardDescription>
+            Donnez à un compte Supabase existant le droit d’éditer un événement et tous ses formats, sans modifier leur publication.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
+            <div className="space-y-1">
+              <Label htmlFor="organizer-assignment-email">Adresse e-mail du compte</Label>
+              <Input
+                id="organizer-assignment-email"
+                type="email"
+                autoComplete="email"
+                value={assignmentEmail}
+                onChange={(event) => setAssignmentEmail(event.target.value)}
+                placeholder="organisateur@exemple.fr"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="organizer-assignment-event">Course</Label>
+              <select
+                id="organizer-assignment-event"
+                className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-card-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                value={assignmentEventId}
+                onChange={(event) => setAssignmentEventId(event.target.value)}
+              >
+                {events.length === 0 ? <option value="">Aucune course disponible</option> : null}
+                {events.map((event) => (
+                  <option key={event.id} value={event.id}>
+                    {event.name}{event.location ? ` — ${event.location}` : ""}{event.race_date ? ` — ${event.race_date.slice(0, 10)}` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Button
+              type="button"
+              disabled={status === "saving" || !assignmentEventId || !assignmentEmail.trim()}
+              onClick={() => void assignOrganizer()}
+            >
+              Associer
+            </Button>
+          </div>
+          {assignmentSuccess ? (
+            <p className="rounded-md border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
+              {assignmentSuccess}
+            </p>
+          ) : null}
         </CardContent>
       </Card>
 

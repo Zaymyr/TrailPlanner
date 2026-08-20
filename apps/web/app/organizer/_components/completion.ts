@@ -89,6 +89,7 @@ export type OrganizerCompletionSummary = {
   formatScore: number;
   raceProgress: OrganizerRaceProgress[];
   raceProgressScore: number;
+  informationComplete: boolean;
   requiredComplete: boolean;
   modules: OrganizerModuleSummary[];
   eventModules: OrganizerModuleSummary[];
@@ -523,6 +524,7 @@ export function buildOrganizerCompletion(
     formatScore,
     raceProgress,
     raceProgressScore,
+    informationComplete: isEventCompleteForProgress(event),
     requiredComplete: isEventReadyToPublish(event),
     modules,
     eventModules,

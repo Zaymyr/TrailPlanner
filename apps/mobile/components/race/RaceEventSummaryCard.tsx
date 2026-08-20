@@ -30,6 +30,7 @@ type RaceEventSummaryCardProps<T extends RaceEventSummaryRace> = {
   favoriteLabel?: string;
   unfavoriteLabel?: string;
   isFavorite?: boolean;
+  hasNewUpdate?: boolean;
   onToggleFavorite?: () => void;
   onOpenFormats: () => void;
 };
@@ -85,6 +86,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   favoriteLabel = 'Ajouter aux favoris',
   unfavoriteLabel = 'Retirer des favoris',
   isFavorite = false,
+  hasNewUpdate = false,
   onToggleFavorite,
   onOpenFormats,
 }: RaceEventSummaryCardProps<T>) {
@@ -105,9 +107,16 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
           <Ionicons name="flag-outline" size={18} color={Colors.brandPrimary} />
         </View>
         <View style={styles.headerText}>
-          <Text numberOfLines={2} style={styles.name}>
-            {event.name}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text numberOfLines={2} style={styles.name}>
+              {event.name}
+            </Text>
+            {hasNewUpdate ? (
+              <View style={styles.newBadge}>
+                <Text style={styles.newBadgeText}>NEW</Text>
+              </View>
+            ) : null}
+          </View>
           {headerMeta ? <Text style={styles.meta}>{headerMeta}</Text> : null}
         </View>
         {eventImageUrl ? (
@@ -188,9 +197,27 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   name: {
+    flexShrink: 1,
     fontSize: 16,
     fontWeight: '700',
     color: Colors.textPrimary,
+  },
+  nameRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 8,
+  },
+  newBadge: {
+    backgroundColor: Colors.brandPrimary,
+    borderRadius: 999,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+  },
+  newBadgeText: {
+    color: Colors.textOnBrand,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.5,
   },
   meta: {
     fontSize: 13,

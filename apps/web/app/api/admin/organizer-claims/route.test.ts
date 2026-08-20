@@ -174,6 +174,53 @@ describe("PATCH /api/admin/organizer-claims", () => {
     });
   });
 
+  it("assigns a Supabase account to an event as an organizer", async () => {
+    const mockFetch = vi.mocked(fetch);
+    const eventId = "11111111-1111-1111-1111-111111111111";
+    const userId = "33333333-3333-3333-3333-333333333333";
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse({ users: [{ id: userId, email: "organisateur@example.com" }] })
+      )
+      .mockResolvedValueOnce(
+        buildJsonResponse([{ id: eventId, name: "Trail des Crêtes", location: "Annecy", race_date: "2026-09-12" }])
+      )
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "44444444-4444-4444-4444-444444444444",
+            created_at: "2026-08-20T12:00:00.000Z",
+            event_id: eventId,
+            user_id: userId,
+            role: "organizer",
+            revoked_at: null,
+          },
+        ])
+      );
+
+    const response = await PATCH(
+      adminRequest({ action: "assign", eventId, email: "  Organisateur@Example.com " })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.user).toEqual({ id: userId, email: "organisateur@example.com" });
+    expect(payload.event.name).toBe("Trail des Crêtes");
+
+    const membershipCall = mockFetch.mock.calls.find(
+      ([url, init]) => String(url).endsWith("/rest/v1/race_event_organizers") && init?.method === "POST"
+    );
+    expect(membershipCall).toBeDefined();
+    expect(JSON.parse(membershipCall?.[1]?.body as string)).toMatchObject({
+      event_id: eventId,
+      user_id: userId,
+      role: "organizer",
+      created_by: "99999999-9999-9999-9999-999999999999",
+    });
+  });
+
   it("approves an edition request by cloning source-year formats into the requested year", async () => {
     const mockFetch = vi.mocked(fetch);
     const editionRequestId = "55555555-5555-5555-5555-555555555555";
@@ -331,6 +378,16 @@ describe("GET /api/admin/organizer-claims", () => {
         ])
       )
       .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "11111111-1111-1111-1111-111111111111",
+            name: "Trail des Crêtes",
+            location: "Annecy",
+            race_date: "2026-09-12",
+          },
+        ])
+      )
+      .mockResolvedValueOnce(
         buildJsonResponse([{ user_id: "33333333-3333-3333-3333-333333333333", full_name: "Camille Martin" }])
       )
       .mockResolvedValueOnce(
@@ -350,6 +407,7 @@ describe("GET /api/admin/organizer-claims", () => {
     expect(payload.claims).toHaveLength(1);
     expect(payload.memberships).toHaveLength(1);
     expect(payload.editionRequests).toHaveLength(1);
+    expect(payload.events[0].name).toBe("Trail des Crêtes");
     expect(payload.claims[0].user.label).toBe("Camille Martin");
     expect(payload.memberships[0].user.email).toBe("camille@example.com");
     expect(String(mockFetch.mock.calls[0]?.[0])).toContain("status=eq.pending");
@@ -390,6 +448,7 @@ describe("GET /api/admin/organizer-claims", () => {
         ])
       )
       .mockResolvedValueOnce(new Response('{"code":"42P01","message":"relation missing"}', { status: 404 }))
+      .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(new Response('{"message":"profiles unavailable"}', { status: 500 }))
       .mockResolvedValueOnce(new Response('{"message":"auth admin unavailable"}', { status: 500 }));
 
@@ -427,6 +486,7 @@ describe("GET /api/admin/organizer-claims", () => {
           },
         ])
       )
+      .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([]))
       .mockResolvedValueOnce(buildJsonResponse([]))

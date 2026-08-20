@@ -68,6 +68,7 @@ describe("/api/organizer/events/[id]/updates", () => {
           {
             id: updateId,
             event_id: eventId,
+            race_id: null,
             message: "Retrait des dossards dès 17h.",
             created_at: "2026-06-29T10:00:00.000Z",
             created_by: organizerId,
@@ -92,6 +93,7 @@ describe("/api/organizer/events/[id]/updates", () => {
             {
               id: updateId,
               event_id: eventId,
+              race_id: null,
               message: "Retrait des dossards dès 17h.",
               created_at: "2026-06-29T10:00:00.000Z",
               created_by: organizerId,
@@ -109,8 +111,35 @@ describe("/api/organizer/events/[id]/updates", () => {
     expect(mockSendOrganizerRaceUpdateNotifications).toHaveBeenCalledWith({
       eventId,
       eventName: "Grand Trail",
+      raceId: null,
+      raceName: null,
       updateId,
       message: "Retrait des dossards dès 17h.",
+    });
+  });
+
+  it("targets one format and uses its name for push delivery", async () => {
+    const raceId = "33333333-3333-3333-3333-333333333333";
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: eventId, name: "Grand Trail" }]))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: raceId, event_id: eventId, name: "Le 42 km", is_live: true }]))
+      .mockResolvedValueOnce(
+        buildJsonResponse(
+          [{ id: updateId, event_id: eventId, race_id: raceId, message: "Départ à 7h.", created_at: "2026-08-20T10:00:00.000Z", created_by: organizerId }],
+          { status: 201 }
+        )
+      );
+
+    const response = await POST(organizerRequest({ message: "Départ à 7h.", raceId }), { params: { id: eventId } });
+
+    expect(response.status).toBe(201);
+    expect(mockSendOrganizerRaceUpdateNotifications).toHaveBeenCalledWith({
+      eventId,
+      eventName: "Grand Trail",
+      raceId,
+      raceName: "Le 42 km",
+      updateId,
+      message: "Départ à 7h.",
     });
   });
 
