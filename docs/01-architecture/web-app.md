@@ -24,11 +24,13 @@ related_files:
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/app/calculateur-glucides-trail/page.tsx
   - apps/web/app/calculateur-glucides-trail/CarbCalculator.tsx
+  - apps/web/app/calculateur-glucides-trail/carb-calculator-fun.test.ts
   - apps/web/app/a-propos/page.tsx
   - apps/web/app/methodologie/page.tsx
   - apps/web/lib/public-races.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/lib/carb-calculator.ts
+  - apps/web/lib/carb-calculator-fun.ts
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/api/plans/route.ts
@@ -208,7 +210,9 @@ Each live public race has a canonical `/courses/[slug]` page. Known slugs are re
 
 `/courses/distances/[category]` provides crawlable discovery pages for short trails, 30–79 km trails, and ultra-trails. A category is generated, linked, and included in the sitemap only when at least five published races have a structured distance in its mutually exclusive range. Region pages remain disabled until the public race contract exposes normalized region or department data; free-text locations are not used to manufacture geographic landing pages.
 
-`/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. Two client-side sliders update the estimate immediately from expected duration and self-reported digestive tolerance. Its bounded duration/tolerance interpolation lives in `apps/web/lib/carb-calculator.ts` and is documented separately from the full planner allocation rule.
+`/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. The expected-duration and digestive-tolerance sliders keep their visible values, but the nutrition result remains hidden until the runner starts an explicit calculation. A short client-only loading state reveals the estimate and one sourced, intentionally unfair elite comparison. Changing either slider invalidates the displayed result.
+
+The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib/carb-calculator.ts` and is documented separately from the full planner allocation rule. Its share links are stateless: `duration`, `tolerance`, and a stable `comparison` id in the query string reproduce the same estimate and joke. The client accepts only in-range, step-aligned values and known comparison ids; invalid or incomplete query strings fall back to the untouched calculator. Sharing uses the browser Web Share API when available and clipboard copy otherwise, without a database write.
 
 `/a-propos` and `/methodologie` explain the product mission, editorial safeguards, calculator assumptions, source policy, and correction path. They are linked from the global footer and included in the sitemap to provide public trust and provenance signals.
 
