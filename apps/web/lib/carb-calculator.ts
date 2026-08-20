@@ -6,13 +6,9 @@ export type CarbEstimateInput = {
 export type CarbEstimate = {
   carbsPerHour: number;
   totalCarbs: number;
-  portionsPerHour: number;
-  totalPortions: number;
   rangeMin: number;
   rangeMax: number;
 };
-
-const REFERENCE_PORTION_GRAMS = 25;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -43,8 +39,6 @@ export function estimateCarbs(input: CarbEstimateInput): CarbEstimate {
   return {
     carbsPerHour,
     totalCarbs,
-    portionsPerHour: Number((carbsPerHour / REFERENCE_PORTION_GRAMS).toFixed(1)),
-    totalPortions: Math.ceil(totalCarbs / REFERENCE_PORTION_GRAMS),
     rangeMin: Math.round(range.min / 5) * 5,
     rangeMax: Math.round(range.max / 5) * 5,
   };

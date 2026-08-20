@@ -8,7 +8,7 @@ import { CarbCalculator } from "./CarbCalculator";
 export const metadata: Metadata = {
   title: "Calculateur de glucides par heure pour le trail",
   description:
-    "Estimez vos glucides par heure avec deux curseurs simples selon la durée de l’effort et votre tolérance digestive.",
+    "Estimez vos glucides par heure selon la durée et votre tolérance digestive, avec une comparaison d’allure adaptée à la distance et au dénivelé.",
   alternates: { canonical: "/calculateur-glucides-trail" },
   openGraph: {
     title: "Calculateur glucides trail : combien de grammes par heure ?",
@@ -41,8 +41,8 @@ export default function CarbCalculatorPage() {
           Combien de glucides par heure en trail ?
         </h1>
         <p className="text-lg leading-8 text-muted-foreground">
-          Ajustez la durée et votre facilité à manger pendant l’effort, puis lancez le calcul pour révéler un point de
-          départ à tester pendant vos sorties longues — avec une comparaison trail volontairement injuste.
+          Ajustez la durée, la distance, le dénivelé et votre facilité à manger pendant l’effort, puis découvrez votre
+          apport à tester — avec une comparaison d’allure volontairement injuste.
         </p>
       </header>
 
