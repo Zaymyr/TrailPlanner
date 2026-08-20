@@ -323,7 +323,7 @@ export const en: Translations = {
       breadcrumbLabel: "Breadcrumb",
       breadcrumbHome: "Home",
       breadcrumbPlanner: "Planner",
-      newPlanTitle: "New plan",
+      newPlanTitle: "Trail nutrition planner",
       draftRestored: "Unsaved draft restored.",
       undo: "Undo",
       savedAt: "Plan saved at {time}",

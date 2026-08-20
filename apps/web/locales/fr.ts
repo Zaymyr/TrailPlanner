@@ -333,7 +333,7 @@ export const fr: Translations = {
       breadcrumbLabel: "Fil d'Ariane",
       breadcrumbHome: "Accueil",
       breadcrumbPlanner: "Planificateur",
-      newPlanTitle: "Nouveau plan",
+      newPlanTitle: "Planificateur de nutrition trail",
       draftRestored: "Brouillon non sauvegardé restauré.",
       undo: "Annuler",
       savedAt: "Plan enregistré à {time}",

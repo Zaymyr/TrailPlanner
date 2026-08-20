@@ -68,6 +68,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Pacing Algorithm](03-business-rules/pacing-algorithm.md)
 - [GPX Import](03-business-rules/gpx-import.md)
 - [Organizer Race Management](03-business-rules/organizer-race-management.md)
+- [Public Race Discovery](03-business-rules/public-race-discovery.md)
 - [Premium Entitlement](03-business-rules/premium-entitlement.md)
 - [Trial Lifecycle](03-business-rules/trial-lifecycle.md)
 - [Plan Storage](03-business-rules/plan-storage.md)

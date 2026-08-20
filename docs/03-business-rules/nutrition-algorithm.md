@@ -104,12 +104,16 @@ Planner segment code in `apps/web/app/(planner)/race-planner/utils/segments.ts` 
 
 ## Quick Carb Calculator
 
-The public `/calculateur-glucides-trail` page is a simplified acquisition tool, not a replacement for the full planner. `estimateCarbs` delegates its hourly target to `calculateNutrition` in `apps/web/lib/nutrition.ts`:
+The public `/calculateur-glucides-trail` page is a simplified acquisition tool, not a replacement for the full planner. It uses two live range controls: expected effort duration and self-reported digestive tolerance. Distance, elevation, and performance goal are intentionally excluded because this quick surface does not have a validated rule that maps them directly to hourly carbohydrate intake.
 
-- base target: `60 g/h`;
-- target when elevation is greater than `1000 m`, or the selected goal is `performance`: `70 g/h`.
+`getCarbRangeForDuration` builds a smooth UI range from common endurance-duration guideposts:
 
-The user supplies duration, distance, elevation, and goal. The calculator multiplies the hourly target by the entered duration, rounds the total grams, and displays an illustrative conversion using `25 g` per portion. Negative or non-finite numeric inputs are normalized to zero before calculation. The `25 g` value is only a display reference; it does not represent a product database row and does not alter planner allocation.
+- under `45 min`: `0 g/h`;
+- from `45 min` to `1 h`: progressive transition up to `30 g/h`;
+- from `1 h` to `2.5 h`: `30 g/h` minimum, with the upper value progressing from `30` to `60 g/h`;
+- over `2.5 h`: `30 g/h` minimum, with the upper value progressing from `60` to `90 g/h` by `6 h`, then capped at `90 g/h`.
+
+Digestive tolerance is a UI scale from `0` (frequent nausea) to `100` (eats easily during running). It interpolates between the duration range's minimum and maximum; the result is rounded to the nearest `5 g/h`. This interpolation is a user-facing starting estimate, not a clinical threshold. The calculator multiplies the hourly result by duration, rounds total grams, and displays an illustrative conversion using `25 g` per portion. Non-finite inputs are normalized and tolerance is clamped to `0..100`. The `25 g` value is only a display reference; it does not represent a product database row and does not alter planner allocation.
 
 The page must keep its training-tolerance disclaimer. It presents the result as a starting point to test progressively, not as medical advice or an individualized prescription.
 
@@ -272,7 +276,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 ## Gotchas
 
 - Planner UI product coverage is cumulative. Do not compute carbs/sodium coverage from only the products assigned to the current aid station.
-- Keep the quick calculator delegated to `calculateNutrition`; changing its 60/70 g per hour rule must update both the existing estimate behavior and this documentation.
+- Keep the quick calculator duration/tolerance interpolation independent from the full planner allocation. Changing its duration guideposts or tolerance mapping must update its tests and this documentation.
 - Do not treat the calculator's 25 g display portion as a catalog-product size or allocation unit.
 - Product quantities are whole units for consumption. Fractional product inventory must not be consumed as a fractional gel/bar/capsule.
 - A product that covers a small remaining carb or sodium deficit must still count even if it overshoots; do not discard it because of an overshoot penalty.

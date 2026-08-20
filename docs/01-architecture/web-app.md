@@ -19,9 +19,15 @@ related_files:
   - apps/web/app/courses/page.tsx
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
+  - apps/web/app/courses/_components/PublicRaceLinks.tsx
+  - apps/web/app/courses/distances/[category]/page.tsx
+  - apps/web/app/courses/race-discovery.test.ts
   - apps/web/app/calculateur-glucides-trail/page.tsx
   - apps/web/app/calculateur-glucides-trail/CarbCalculator.tsx
+  - apps/web/app/a-propos/page.tsx
+  - apps/web/app/methodologie/page.tsx
   - apps/web/lib/public-races.ts
+  - apps/web/lib/race-discovery.ts
   - apps/web/lib/carb-calculator.ts
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
@@ -198,11 +204,15 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 
 The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The catalog is rendered server-side and offers client-side name/location and distance filters. These filters do not create crawlable URL combinations.
 
-Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. Detail pages expose only published race/event facts, add `SportsEvent` JSON-LD, and link to the planner, calculator, and official source when available.
+Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. Detail pages expose only published race/event facts, add `SportsEvent` and `BreadcrumbList` JSON-LD, and link to the planner, calculator, official source, other formats of the same event, and up to three similar races when available.
 
-`/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. It uses the existing onboarding nutrition estimate through `apps/web/lib/carb-calculator.ts`; it does not define a separate carb target rule.
+`/courses/distances/[category]` provides crawlable discovery pages for short trails, 30–79 km trails, and ultra-trails. A category is generated, linked, and included in the sitemap only when at least five published races have a structured distance in its mutually exclusive range. Region pages remain disabled until the public race contract exposes normalized region or department data; free-text locations are not used to manufacture geographic landing pages.
 
-`sitemap.ts` includes the race catalog, every currently published race slug, the calculator, and existing blog pages. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
+`/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. Two client-side sliders update the estimate immediately from expected duration and self-reported digestive tolerance. Its bounded duration/tolerance interpolation lives in `apps/web/lib/carb-calculator.ts` and is documented separately from the full planner allocation rule.
+
+`/a-propos` and `/methodologie` explain the product mission, editorial safeguards, calculator assumptions, source policy, and correction path. They are linked from the global footer and included in the sitemap to provide public trust and provenance signals.
+
+`sitemap.ts` includes the race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
 
 ### Organizer Portal
 

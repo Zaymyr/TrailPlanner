@@ -1,5 +1,4 @@
 import type { Locale } from "../locales/types";
-import { translations } from "../locales";
 
 const DEFAULT_SITE_URL = "https://pace-yourself.com";
 
@@ -14,10 +13,17 @@ export const localeToOgLocale = (locale: Locale): string =>
   locale === "fr" ? "fr_FR" : "en_US";
 
 export const buildLocaleMetaCopy = (locale: Locale) => {
-  const copy = translations[locale];
+  if (locale === "fr") {
+    return {
+      title: "Planificateur de nutrition trail et ultra | Pace Yourself",
+      description:
+        "Créez votre plan de nutrition trail : glucides, eau, sodium, allure et ravitaillements adaptés à votre parcours et à votre objectif.",
+    };
+  }
 
   return {
-    title: copy.homeHero.heading,
-    description: copy.homeHero.description,
+    title: "Trail and ultra nutrition planner | Pace Yourself",
+    description:
+      "Build a trail nutrition plan with carbohydrate, hydration, sodium, pacing, and aid-station targets adapted to your course.",
   };
 };

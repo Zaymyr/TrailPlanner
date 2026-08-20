@@ -30,10 +30,6 @@ const createMetadata = (locale: Locale): Metadata => {
     description,
     alternates: {
       canonical: CANONICAL_PATH,
-      languages: {
-        en: CANONICAL_PATH,
-        fr: CANONICAL_PATH,
-      },
     },
     openGraph: {
       title,
@@ -41,7 +37,6 @@ const createMetadata = (locale: Locale): Metadata => {
       url: CANONICAL_URL,
       siteName: "Pace Yourself",
       locale: ogLocale,
-      alternateLocale: [localeToOgLocale(locale === "en" ? "fr" : "en")],
       type: "website",
     },
     twitter: {
@@ -57,7 +52,7 @@ const createMetadata = (locale: Locale): Metadata => {
   };
 };
 
-export const metadata: Metadata = createMetadata("en");
+export const metadata: Metadata = createMetadata("fr");
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -70,7 +65,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <head />
       <body className="min-h-screen text-foreground">
         <GTagLoader />

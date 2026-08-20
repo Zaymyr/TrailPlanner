@@ -15,7 +15,7 @@ const I18nContext = React.createContext<I18nContextValue | undefined>(undefined)
 
 const resolveInitialLocale = (): Locale => {
   if (typeof window === "undefined") {
-    return "en";
+    return "fr";
   }
 
   const storedLocale = window.localStorage.getItem("locale");
@@ -23,12 +23,7 @@ const resolveInitialLocale = (): Locale => {
     return storedLocale;
   }
 
-  const browserLanguage = window.navigator.language?.toLowerCase() ?? "";
-  if (browserLanguage.startsWith("fr")) {
-    return "fr";
-  }
-
-  return "en";
+  return "fr";
 };
 
 export const I18nProvider = ({ children }: { children: React.ReactNode }) => {

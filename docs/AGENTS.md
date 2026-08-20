@@ -88,6 +88,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Auth / session work | `docs/04-auth-and-security/` + `docs/03-business-rules/trial-lifecycle.md` |
 | Business logic changes | `docs/03-business-rules/` |
 | Organizer portal / race organizer claims | `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/race-event-editions.md` + `docs/02-database/` + `docs/01-architecture/web-app.md` |
+| Public race pages / SEO selections | `docs/03-business-rules/public-race-discovery.md` + `docs/02-database/tables/race-events.md` + `docs/01-architecture/web-app.md` |
 | Race favorites / organizer runner notifications | `docs/02-database/tables/user-favorite-race-events.md` + `docs/02-database/tables/race-event-updates.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |
@@ -130,6 +131,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 - Premium: `docs/03-business-rules/premium-entitlement.md`
 - Trial: `docs/03-business-rules/trial-lifecycle.md`
 - Organizer race management: `docs/03-business-rules/organizer-race-management.md`
+- Public race discovery: `docs/03-business-rules/public-race-discovery.md`
 - Plan persistence: `docs/03-business-rules/plan-storage.md`
 
 ## If You Are Working On Web, Read:

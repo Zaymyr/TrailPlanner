@@ -3,21 +3,33 @@ import { describe, expect, it } from "vitest";
 import { estimateCarbs } from "../../lib/carb-calculator";
 
 describe("estimateCarbs", () => {
-  it("uses the standard 60 g/h target", () => {
-    expect(
-      estimateCarbs({ durationHours: 5, distanceKm: 42, elevationGainM: 900, goal: "good_time" }),
-    ).toEqual({ carbsPerHour: 60, totalCarbs: 300, portionsPerHour: 2.4, totalPortions: 12 });
+  it("returns a conservative target for frequent nausea", () => {
+    expect(estimateCarbs({ durationHours: 6, digestiveTolerance: 0 })).toEqual({
+      carbsPerHour: 30,
+      totalCarbs: 180,
+      portionsPerHour: 1.2,
+      totalPortions: 8,
+      rangeMin: 30,
+      rangeMax: 90,
+    });
   });
 
-  it("uses 70 g/h for high elevation or a performance goal", () => {
-    expect(
-      estimateCarbs({ durationHours: 8, distanceKm: 60, elevationGainM: 2500, goal: "comfort" }),
-    ).toEqual({ carbsPerHour: 70, totalCarbs: 560, portionsPerHour: 2.8, totalPortions: 23 });
+  it("raises the target when digestive tolerance increases", () => {
+    expect(estimateCarbs({ durationHours: 6, digestiveTolerance: 50 }).carbsPerHour).toBe(60);
+    expect(estimateCarbs({ durationHours: 6, digestiveTolerance: 100 }).carbsPerHour).toBe(90);
   });
 
-  it("prevents negative totals", () => {
-    expect(
-      estimateCarbs({ durationHours: -2, distanceKm: -10, elevationGainM: -100, goal: "good_time" }).totalCarbs,
-    ).toBe(0);
+  it("changes the hourly target with duration", () => {
+    expect(estimateCarbs({ durationHours: 2, digestiveTolerance: 100 }).carbsPerHour).toBe(50);
+    expect(estimateCarbs({ durationHours: 3, digestiveTolerance: 100 }).carbsPerHour).toBe(65);
+  });
+
+  it("does not recommend carbs for efforts shorter than 45 minutes", () => {
+    expect(estimateCarbs({ durationHours: 0.5, digestiveTolerance: 100 })).toMatchObject({
+      carbsPerHour: 0,
+      totalCarbs: 0,
+      rangeMin: 0,
+      rangeMax: 0,
+    });
   });
 });
