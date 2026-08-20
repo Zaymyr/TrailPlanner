@@ -28,6 +28,7 @@ const eventSchema = z.object({
 
 export type PublicRace = {
   id: string;
+  eventId: string | null;
   slug: string;
   name: string;
   eventName: string | null;
@@ -91,6 +92,7 @@ const toPublicRace = (
   event: z.infer<typeof eventSchema> | undefined,
 ): PublicRace => ({
   id: race.id,
+  eventId: race.event_id,
   slug: race.slug,
   name: race.name,
   eventName: event?.name ?? null,

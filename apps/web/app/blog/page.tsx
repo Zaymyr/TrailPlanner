@@ -5,7 +5,7 @@ import { BlogCard } from "../../components/BlogCard";
 import { TagBadge } from "../../components/TagBadge";
 import { cn } from "../../components/utils";
 import { getAllPosts, getAllTags, type CompiledPost, type TagSummary } from "../../lib/blog/posts";
-import { buildLocaleMetaCopy, localeToOgLocale, SITE_URL } from "../seo";
+import { localeToOgLocale, SITE_URL } from "../seo";
 
 export const dynamic = "force-static";
 
@@ -16,7 +16,9 @@ type BlogPageProps = {
 };
 
 export async function generateMetadata(): Promise<Metadata> {
-  const { title, description } = buildLocaleMetaCopy("en");
+  const title = "Conseils nutrition trail et ultra | Blog Pace Yourself";
+  const description =
+    "Conseils pratiques pour gérer glucides, hydratation, sodium, allure et ravitaillements en trail et ultra-trail.";
   const canonicalPath = "/blog";
   const canonicalUrl = new URL(canonicalPath, SITE_URL).toString();
 
@@ -32,8 +34,7 @@ export async function generateMetadata(): Promise<Metadata> {
       description,
       url: canonicalUrl,
       siteName: "Pace Yourself",
-      locale: localeToOgLocale("en"),
-      alternateLocale: [localeToOgLocale("fr")],
+      locale: localeToOgLocale("fr"),
       type: "website",
     },
     twitter: {
@@ -102,7 +103,7 @@ const TagFilter = ({ tags, activeTag }: { tags: TagSummary[]; activeTag?: string
 
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {renderTagLink("All posts", undefined)}
+      {renderTagLink("Tous les articles", undefined)}
       {tags.map((tag) => renderTagLink(tag.tag, tag.tag, tag.count))}
     </div>
   );
@@ -124,10 +125,10 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
             Blog
           </p>
           <h1 className="text-3xl font-semibold leading-tight text-foreground sm:text-4xl">
-            Insights &amp; trail notes
+            Conseils nutrition et préparation trail
           </h1>
           <p className="max-w-2xl text-base text-muted-foreground sm:text-lg">
-            Articles about fueling, pacing, and race planning from the Pace Yourself team.
+            Des guides concrets pour préparer vos ravitaillements, votre hydratation et votre allure en trail.
           </p>
         </div>
         <TagFilter tags={tags} activeTag={selectedTag} />
@@ -136,8 +137,8 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
       {visiblePosts.length === 0 ? (
         <p className="text-sm text-muted-foreground">
           {selectedTag
-            ? `No posts found for “${selectedTag}”.`
-            : "No posts available yet. Check back soon!"}
+            ? `Aucun article trouvé pour « ${selectedTag} ».`
+            : "Aucun article disponible pour le moment."}
         </p>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">

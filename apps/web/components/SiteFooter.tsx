@@ -48,6 +48,12 @@ export function SiteFooter() {
           <Link className="transition hover:text-[hsl(var(--success))] dark:hover:text-emerald-200" href="/organizers">
             Organisateurs
           </Link>
+          <Link className="transition hover:text-[hsl(var(--success))] dark:hover:text-emerald-200" href={"/a-propos" as Route}>
+            À propos
+          </Link>
+          <Link className="transition hover:text-[hsl(var(--success))] dark:hover:text-emerald-200" href={"/methodologie" as Route}>
+            Méthodologie
+          </Link>
         </nav>
       </div>
     </footer>

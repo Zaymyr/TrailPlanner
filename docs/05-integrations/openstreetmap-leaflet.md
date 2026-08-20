@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-08-19
+last_verified: 2026-08-20
 ai_priority: medium
 related_files:
   - apps/web/package.json

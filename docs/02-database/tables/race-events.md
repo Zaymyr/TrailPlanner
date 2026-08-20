@@ -35,6 +35,10 @@ related_files:
   - apps/web/app/courses/page.tsx
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
+  - apps/web/app/courses/_components/PublicRaceLinks.tsx
+  - apps/web/app/courses/distances/[category]/page.tsx
+  - apps/web/app/courses/race-discovery.test.ts
+  - apps/web/lib/race-discovery.ts
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx

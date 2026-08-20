@@ -23,7 +23,7 @@ type BlogLayoutProps = {
 const formatUpdatedAt = (isoDate?: string): string | undefined =>
   isoDate ? formatBlogDate(isoDate) : undefined;
 
-const buildJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
+const buildJsonLd = (post: CompiledPost, canonicalUrl: string, locale: "fr" | "en") => ({
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: post.meta.title,
@@ -32,7 +32,7 @@ const buildJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
   dateModified: post.meta.updatedAt ?? post.meta.date,
   url: canonicalUrl,
   mainEntityOfPage: canonicalUrl,
-  inLanguage: "en",
+  inLanguage: locale,
   wordCount: post.meta.readingTime.words,
   keywords: post.meta.tags,
   articleBody: post.body,
@@ -187,7 +187,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId, locale = "en" }:
         id={`blog-json-ld-${post.meta.slug}`}
         type="application/ld+json"
         strategy="afterInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(post, canonicalUrl)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(post, canonicalUrl, locale)) }}
       />
     </div>
   );

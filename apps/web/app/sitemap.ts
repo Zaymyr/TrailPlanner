@@ -2,6 +2,7 @@ import type { MetadataRoute } from "next";
 
 import { getAllPostMetadata } from "../lib/blog/posts";
 import { getPublicRaces } from "../lib/public-races";
+import { getIndexableDistancePages } from "../lib/race-discovery";
 import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "./seo";
 
 const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
@@ -14,10 +15,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
     { url: toAbsoluteUrl(HOME_PATH) },
     { url: toAbsoluteUrl(RACE_PLANNER_PATH) },
-    { url: toAbsoluteUrl(`${RACE_PLANNER_PATH}/mobile`) },
     { url: toAbsoluteUrl("/blog") },
     { url: toAbsoluteUrl("/courses") },
     { url: toAbsoluteUrl("/calculateur-glucides-trail") },
+    { url: toAbsoluteUrl("/a-propos") },
+    { url: toAbsoluteUrl("/methodologie") },
   ];
 
   const seenUrls = new Set<string>();
@@ -39,8 +41,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const raceEntries: MetadataRoute.Sitemap = races.map((race) => ({
     url: toAbsoluteUrl(`/courses/${race.slug}`),
   }));
+  const distanceEntries: MetadataRoute.Sitemap = getIndexableDistancePages(races).map(({ page }) => ({
+    url: toAbsoluteUrl(`/courses/distances/${page.slug}`),
+  }));
 
-  return [...staticEntries, ...blogEntries, ...raceEntries];
+  return [...staticEntries, ...blogEntries, ...raceEntries, ...distanceEntries];
 }
 
 /**

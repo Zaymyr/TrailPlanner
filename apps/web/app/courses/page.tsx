@@ -3,6 +3,7 @@ import type { Route } from "next";
 import Link from "next/link";
 
 import { getPublicRaces } from "../../lib/public-races";
+import { getIndexableDistancePages } from "../../lib/race-discovery";
 import { SITE_URL } from "../seo";
 import { RaceCatalogFilter } from "./_components/RaceCatalogFilter";
 
@@ -23,6 +24,7 @@ export const metadata: Metadata = {
 
 export default async function CoursesPage() {
   const races = await getPublicRaces();
+  const distancePages = getIndexableDistancePages(races);
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
@@ -50,6 +52,33 @@ export default async function CoursesPage() {
           </Link>
         </div>
       </header>
+
+      {distancePages.length ? (
+        <section className="space-y-4" aria-labelledby="distance-selections-heading">
+          <div className="space-y-2">
+            <h2 id="distance-selections-heading" className="text-2xl font-semibold text-foreground">
+              Explorer les courses par distance
+            </h2>
+            <p className="text-muted-foreground">
+              Accédez aux sélections qui contiennent suffisamment de courses publiées pour être réellement utiles.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {distancePages.map(({ page, races: matchingRaces }) => (
+              <Link
+                key={page.slug}
+                href={`/courses/distances/${page.slug}` as Route}
+                className="rounded-xl border border-border bg-card p-5 transition hover:border-brand-border hover:bg-brand-surface"
+              >
+                <span className="font-semibold text-foreground">{page.label}</span>
+                <span className="mt-1 block text-sm text-muted-foreground">
+                  {matchingRaces.length} course{matchingRaces.length > 1 ? "s" : ""}
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <RaceCatalogFilter races={races} />
     </main>
