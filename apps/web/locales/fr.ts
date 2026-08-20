@@ -299,6 +299,7 @@ export const fr: Translations = {
       submitting: "Connexion...",
       success: "Connexion réussie. Redirection…",
       error: "Impossible de te connecter. Réessaie.",
+      invalidCredentials: "Email ou mot de passe incorrect.",
     },
     passwordResetRequest: {
       title: "Réinitialiser ton mot de passe",

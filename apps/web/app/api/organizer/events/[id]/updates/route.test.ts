@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET, POST } from "./route";
+import { DELETE, GET, POST } from "./route";
 
 const eventId = "11111111-1111-1111-1111-111111111111";
 const organizerId = "00000000-0000-0000-0000-000000000001";
@@ -33,6 +33,12 @@ const organizerRequest = (body?: Record<string, unknown>) =>
       ...(body ? { "content-type": "application/json" } : {}),
     },
     body: body ? JSON.stringify(body) : undefined,
+  });
+
+const organizerDeleteRequest = (id = updateId) =>
+  new NextRequest(`http://localhost/api/organizer/events/${eventId}/updates?updateId=${id}`, {
+    method: "DELETE",
+    headers: { authorization: "Bearer organizer-token" },
   });
 
 describe("/api/organizer/events/[id]/updates", () => {
@@ -158,6 +164,50 @@ describe("/api/organizer/events/[id]/updates", () => {
     });
 
     const response = await POST(organizerRequest({ message: "Message" }), { params: { id: eventId } });
+
+    expect(response.status).toBe(403);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("allows an organizer to delete an update from the managed event", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      buildJsonResponse([
+        {
+          id: updateId,
+          event_id: eventId,
+          race_id: null,
+          message: "Information obsolète.",
+          created_at: "2026-08-20T10:00:00.000Z",
+          created_by: organizerId,
+        },
+      ])
+    );
+
+    const response = await DELETE(organizerDeleteRequest(), { params: { id: eventId } });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.deletedUpdateId).toBe(updateId);
+    expect(fetch).toHaveBeenCalledWith(
+      `https://supabase.example/rest/v1/race_event_updates?id=eq.${updateId}&event_id=eq.${eventId}`,
+      expect.objectContaining({ method: "DELETE" })
+    );
+  });
+
+  it("returns not found when the update does not belong to the managed event", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = await DELETE(organizerDeleteRequest(), { params: { id: eventId } });
+
+    expect(response.status).toBe(404);
+  });
+
+  it("rejects update deletion for non-organizers", async () => {
+    mockRequireEventOrganizer.mockResolvedValueOnce({
+      error: Response.json({ message: "Forbidden." }, { status: 403 }),
+    });
+
+    const response = await DELETE(organizerDeleteRequest(), { params: { id: eventId } });
 
     expect(response.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();

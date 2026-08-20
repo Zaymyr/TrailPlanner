@@ -65,7 +65,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event publication request: organizer request for the first admin approval of current-edition Racebooks; course catalog visibility is independent.
 - Racebook publication: `races.racebook_is_live` controls runner visibility, while approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
-- Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and expands to the longer history only on demand.
+- Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, features one newest/targeted message above format actions, moves the remaining loaded history below them, and expands to the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
 
@@ -186,7 +186,8 @@ erDiagram
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
-- Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state.
+- Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state. Organizer-confirmed announcement deletion removes the history row and cascades its receipts without changing favorites or previous push-delivery logs.
+- The mobile toast and scroll-to-pinned-event behavior happen only after the favorite API confirms the persisted id; they are presentation feedback and add no table fields or relationships.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.

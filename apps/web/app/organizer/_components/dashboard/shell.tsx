@@ -141,7 +141,7 @@ export function OrganizerSummaryHeader({
   status: "idle" | "loading" | "saving" | "uploading";
   onSaveAll: () => void;
   onNotifyFollowers: () => void;
-  onRequestPublication: () => void;
+  onRequestPublication: (raceId: string) => void;
   onRacebookVisibilityChange: (raceId: string, isLive: boolean) => void;
   onDeleteEvent: () => Promise<boolean>;
 }) {
@@ -298,7 +298,7 @@ export function OrganizerSummaryHeader({
                 <LiveToggle
                   checked={false}
                   disabled={publicationPending || status !== "idle"}
-                  onChange={onRequestPublication}
+                  onChange={() => onRequestPublication(race.activeEdition!.id)}
                   draftLabel={publicationPending ? "Demande en cours" : "Demander la publication"}
                 />
               )}

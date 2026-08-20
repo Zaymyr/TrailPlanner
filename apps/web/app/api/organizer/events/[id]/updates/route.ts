@@ -16,6 +16,10 @@ const createUpdateSchema = z.object({
   raceId: z.string().uuid().nullable().optional(),
 });
 
+const deleteUpdateSchema = z.object({
+  updateId: z.string().uuid(),
+});
+
 const eventRowSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -188,4 +192,56 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       )
     );
   }
+}
+
+export async function DELETE(request: NextRequest, context: { params: { id?: string } }) {
+  const auth = await requireOrganizerAuth(request);
+  if ("error" in auth) return auth.error;
+
+  const parsedParams = uuidParamSchema.safeParse(context.params);
+  if (!parsedParams.success) return jsonError("Invalid event id.", 400);
+
+  const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
+  if (organizer !== true) return organizer.error;
+
+  const parsedQuery = deleteUpdateSchema.safeParse({
+    updateId: request.nextUrl.searchParams.get("updateId"),
+  });
+  if (!parsedQuery.success) return jsonError("Invalid update id.", 400);
+
+  const rateLimit = await checkRateLimitAsync(
+    `organizer-event-update-delete:${auth.user.id}:${parsedParams.data.id}`,
+    10,
+    60_000
+  );
+  if (!rateLimit.allowed) {
+    return withSecurityHeaders(
+      NextResponse.json(
+        { message: "Too many requests." },
+        { status: 429, headers: { "Retry-After": Math.ceil((rateLimit.retryAfter ?? 0) / 1000).toString() } }
+      )
+    );
+  }
+
+  const deleteResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_updates?id=eq.${parsedQuery.data.updateId}&event_id=eq.${parsedParams.data.id}`,
+    {
+      method: "DELETE",
+      headers: {
+        ...serviceHeaders(auth.serviceConfig),
+        Prefer: "return=representation",
+      },
+      cache: "no-store",
+    }
+  );
+
+  if (!deleteResponse.ok) {
+    console.error("Unable to delete organizer race update", await deleteResponse.text());
+    return jsonError("Unable to delete event update.", 502);
+  }
+
+  const deletedUpdate = z.array(updateRowSchema).parse(await deleteResponse.json())[0] ?? null;
+  if (!deletedUpdate) return jsonError("Event update not found.", 404);
+
+  return withSecurityHeaders(NextResponse.json({ deletedUpdateId: deletedUpdate.id }));
 }

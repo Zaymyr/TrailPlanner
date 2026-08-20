@@ -289,6 +289,7 @@ export const en: Translations = {
       submitting: "Signing in...",
       success: "Signed in successfully. Redirecting…",
       error: "Unable to sign in. Please try again.",
+      invalidCredentials: "Email or password is incorrect.",
     },
     passwordResetRequest: {
       title: "Reset your password",

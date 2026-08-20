@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
+import { SIGN_IN_ERROR_CODES } from "../../lib/auth-errors";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
@@ -55,11 +56,15 @@ export default function SignInPage() {
       const data = (await response.json().catch(() => null)) as {
         access_token?: string;
         refresh_token?: string;
-        message?: string;
+        code?: string;
       } | null;
 
       if (!response.ok || !data?.access_token) {
-        setFormError(data?.message ?? t.auth.signIn.error);
+        setFormError(
+          data?.code === SIGN_IN_ERROR_CODES.invalidCredentials
+            ? t.auth.signIn.invalidCredentials
+            : t.auth.signIn.error
+        );
         return;
       }
 

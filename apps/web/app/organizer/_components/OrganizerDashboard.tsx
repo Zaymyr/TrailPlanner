@@ -46,6 +46,7 @@ import {
   getModuleTitle,
   getOrganizerDirtyScopeKey,
   isOrganizerScopeSavePending,
+  shouldSaveActiveRaceBeforeRacebookChange,
   normalizeGpxPreview,
   normalizeOrganizerEventDetail,
   raceToForm,
@@ -150,6 +151,7 @@ export function OrganizerDashboard({
   const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
   const [eventUpdateError, setEventUpdateError] = useState<string | null>(null);
   const [eventUpdateSending, setEventUpdateSending] = useState(false);
+  const [eventUpdateDeletingId, setEventUpdateDeletingId] = useState<string | null>(null);
   const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
@@ -1284,8 +1286,8 @@ export function OrganizerDashboard({
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
   };
 
-  const requestPublication = async () => {
-    if (!(await saveBeforeNavigation())) return;
+  const requestPublication = async (raceId: string) => {
+    if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId || !eventDetail) return;
 
     setStatus("saving");
@@ -1313,7 +1315,7 @@ export function OrganizerDashboard({
   };
 
   const setRacebookVisibility = async (raceId: string, isLive: boolean) => {
-    if (!(await saveBeforeNavigation())) return;
+    if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId) return;
 
     setStatus("saving");
@@ -1391,6 +1393,36 @@ export function OrganizerDashboard({
       setEventUpdateError("Impossible d'envoyer la notification.");
     } finally {
       setEventUpdateSending(false);
+    }
+  };
+
+  const deleteEventUpdate = async (update: OrganizerRaceEventUpdate) => {
+    if (!selectedEventId || !accessToken || eventUpdateDeletingId) return;
+    if (!window.confirm("Supprimer ce message de l'historique visible par les coureurs ?")) return;
+
+    setEventUpdateDeletingId(update.id);
+    setEventUpdateError(null);
+    try {
+      const response = await fetch(
+        `/api/organizer/events/${selectedEventId}/updates?updateId=${encodeURIComponent(update.id)}`,
+        {
+          method: "DELETE",
+          headers: authHeaders,
+        }
+      );
+      const data = (await response.json().catch(() => null)) as { deletedUpdateId?: string; message?: string } | null;
+      if (!response.ok) {
+        setEventUpdateError(data?.message ?? "Impossible de supprimer le message.");
+        return;
+      }
+
+      setEventUpdates((current) => current.filter((item) => item.id !== update.id));
+      showToast("success", "Message supprimé.");
+    } catch (caught) {
+      console.error("Unable to delete organizer event update", caught);
+      setEventUpdateError("Impossible de supprimer le message.");
+    } finally {
+      setEventUpdateDeletingId(null);
     }
   };
 
@@ -1605,8 +1637,8 @@ export function OrganizerDashboard({
           setEventUpdateRaceId(null);
           setEventUpdatesDialogOpen(true);
         }}
-        onRequestPublication={() => {
-          void requestPublication();
+        onRequestPublication={(raceId) => {
+          void requestPublication(raceId);
         }}
         onRacebookVisibilityChange={(raceId, isLive) => {
           void setRacebookVisibility(raceId, isLive);
@@ -1898,7 +1930,17 @@ export function OrganizerDashboard({
                 <p className="text-sm font-semibold text-foreground">Dernières mises à jour publiées</p>
                 <div className="space-y-2">
                   {eventUpdates.slice(0, 3).map((update) => (
-                    <div key={update.id} className="rounded-md border border-border/60 bg-card p-3">
+                    <div key={update.id} className="relative rounded-md border border-border/60 bg-card p-3 pr-10">
+                      <button
+                        type="button"
+                        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-lg leading-none text-muted-foreground transition-colors hover:bg-red-50 hover:text-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                        aria-label="Supprimer ce message"
+                        title="Supprimer ce message"
+                        disabled={eventUpdateDeletingId !== null}
+                        onClick={() => void deleteEventUpdate(update)}
+                      >
+                        {eventUpdateDeletingId === update.id ? "…" : "×"}
+                      </button>
                       <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {update.race_id
                           ? eventDetail?.races.find((race) => race.id === update.race_id)?.name ?? "Format"
@@ -1914,10 +1956,19 @@ export function OrganizerDashboard({
           </div>
 
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => setEventUpdatesDialogOpen(false)} disabled={eventUpdateSending}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setEventUpdatesDialogOpen(false)}
+              disabled={eventUpdateSending || eventUpdateDeletingId !== null}
+            >
               Annuler
             </Button>
-            <Button type="button" onClick={() => void submitEventUpdate()} disabled={eventUpdateSending || !selectedEventId}>
+            <Button
+              type="button"
+              onClick={() => void submitEventUpdate()}
+              disabled={eventUpdateSending || eventUpdateDeletingId !== null || !selectedEventId}
+            >
               {eventUpdateSending ? "Envoi..." : "Envoyer la notification"}
             </Button>
           </DialogFooter>
@@ -1943,7 +1994,7 @@ export function OrganizerDashboard({
             <div className="space-y-4 pb-2">
             <div className="space-y-1">
               <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">
-                URL generale de l'evenement
+                URL générale de l’événement
               </label>
               <input
                 id="organizer-website-import-url"

@@ -60,10 +60,12 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Normal scope navigation may save silently in the background, but requesting publication still waits for foreground persistence before the server readiness check.
+- That foreground wait applies only when the request switch belongs to the currently edited format. Dirty or incomplete work on another format remains independent and must not block the request.
 - Rejection leaves the already-hidden Racebook rows unchanged.
 - Approval publishes complete Racebooks attached to the current edition only. Other editions and incomplete formats remain unchanged.
 - Once approved, an organizer may freely publish or hide each approved Racebook. This does not create a new request and does not alter course catalog visibility.
 - Publication does not send runner notifications automatically.
+- Sending or deleting a manual organizer announcement does not create, approve, reject, or reopen a Racebook publication request.
 - Format-specific manual notifications are available only for already-live formats in the selected edition. Draft formats must pass the publication workflow before they can be selected as runner notification context.
 - Removing the organizer-side runner preview and format quick actions does not alter readiness: publication still validates persisted event, edition, and format rows.
 - An inherited format location remains empty on `races`; publication continues to require the event location, while an explicitly different format location is additive runner-facing data.
