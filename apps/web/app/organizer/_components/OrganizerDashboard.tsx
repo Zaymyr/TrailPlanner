@@ -240,6 +240,7 @@ export function OrganizerDashboard({
   const backgroundSaveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
 
   const accessToken = session?.accessToken ?? null;
+  const isAdmin = session?.role === "admin" || session?.roles?.includes("admin") === true;
   selectedEventIdRef.current = selectedEventId;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
@@ -1622,7 +1623,7 @@ export function OrganizerDashboard({
         onEditionDateChange={setNewEditionDate}
         onEditionEndDateChange={setNewEditionEndDate}
         onRequestEdition={requestNewEdition}
-        onImportWebsite={openWebsiteImportDialog}
+        onImportWebsite={isAdmin ? openWebsiteImportDialog : undefined}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
         status={status}
@@ -1980,7 +1981,7 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={websiteImportOpen} onOpenChange={setWebsiteImportOpen}>
+      <Dialog open={websiteImportOpen && isAdmin} onOpenChange={setWebsiteImportOpen}>
         <DialogContent
           className={
             websiteImportPreview
@@ -2132,6 +2133,38 @@ export function OrganizerDashboard({
                     ) : null}
                   </div>
                 ))}
+              </div>
+            ) : null}
+
+            {websiteImportPreview?.reconciliation ? (
+              <div className="space-y-3 rounded-md border border-brand/30 bg-brand/5 p-3 text-sm">
+                <div>
+                  <p className="font-medium text-foreground">Réconciliation LLM</p>
+                  <p className="mt-1 text-muted-foreground">{websiteImportPreview.reconciliation.summary}</p>
+                </div>
+                {websiteImportPreview.reconciliation.raceMatches.map((match) => {
+                  const race = websiteImportPreview.races.find((candidate) => candidate.key === match.previewRaceKey);
+                  const target = eventDetail?.races.find((candidate) => candidate.id === match.targetRaceId);
+                  const tone =
+                    match.confidence === "high"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                      : match.confidence === "medium"
+                        ? "border-amber-300 bg-amber-50 text-amber-800"
+                        : "border-red-300 bg-red-50 text-red-800";
+                  return (
+                    <div key={match.previewRaceKey} className="rounded-md border border-border/60 bg-card p-3 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium text-foreground">{race?.name ?? match.previewRaceKey}</p>
+                        <span className={`rounded-full border px-2 py-0.5 font-semibold ${tone}`}>
+                          {match.decision === "match" ? "Rapprochement" : match.decision === "separate" ? "Format distinct" : "À vérifier"} · {match.confidence}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-muted-foreground">{match.rationale}</p>
+                      {target ? <p className="mt-1 text-foreground">Cible proposée : {target.name}</p> : null}
+                      {match.evidence.length > 0 ? <p className="mt-1 text-muted-foreground">Preuves : {match.evidence.join(" · ")}</p> : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
 

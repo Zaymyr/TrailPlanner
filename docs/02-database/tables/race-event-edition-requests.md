@@ -54,6 +54,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 - Do not couple direct organizer delegation to this retired workflow. Membership assignment and yearly edition creation remain separate operations.
 - Roadbook preview uploads may be 25 MB each because they use temporary private Storage and remain review-only; they do not create or reactivate an edition request.
+- LLM reconciliation for the admin-only roadbook preview can suggest a format relationship but cannot revive this retired review workflow.
 
 ## Related Docs
 

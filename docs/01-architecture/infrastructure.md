@@ -135,6 +135,8 @@ Document variable names, not secret values. Important names visible in code incl
 - `EXPO_PUBLIC_POSTHOG_TOKEN`
 - `EXPO_PUBLIC_POSTHOG_HOST`
 - `RESEND_API_KEY`
+- `OPENAI_API_KEY`
+- `OPENAI_ORGANIZER_IMPORT_MODEL`
 - `REVENUECAT_*`
 - `EXPO_PUBLIC_REVENUECAT_*`
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
@@ -148,6 +150,7 @@ Document variable names, not secret values. Important names visible in code incl
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
 - Keep `organizer-imports` private and owner-folder-scoped. The browser can upload and make a best-effort cleanup request, but service-role cleanup in the analysis route is the mandatory deletion path.
+- `OPENAI_API_KEY` is server-only. The organizer import LLM is admin-only, returns a transient reviewed proposal, and must never receive service-role credentials.
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 - Do not collapse the platform runtime split until iOS also ships a compatible new native binary. Publish Android production OTAs against runtime `1.1.1` and iOS OTAs against the existing `1.1.0` runtime.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.

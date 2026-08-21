@@ -84,6 +84,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - New public-schema tables require explicit grants as well as RLS.
 - Do not use `races.is_live` as the Racebook publication source of truth. Use `racebook_is_live`; approval provenance is `racebook_publication_approved_at` / `racebook_publication_approved_by`.
 - Roadbook preview uploads use temporary private Storage and may be 25 MB each; they do not establish publication readiness or approval.
+- Admin-only LLM reconciliation is a pre-import proposal and does not establish publication readiness or approval.
 
 ## Related Docs
 

@@ -271,6 +271,18 @@ export type WebsiteImportPreview = {
           };
     }>;
   }>;
+  reconciliation?: {
+    summary: string;
+    warnings: string[];
+    raceMatches: Array<{
+      previewRaceKey: string;
+      targetRaceId: string | null;
+      decision: "match" | "separate" | "uncertain";
+      confidence: "high" | "medium" | "low";
+      rationale: string;
+      evidence: string[];
+    }>;
+  } | null;
   missingFields: string[];
   warnings: string[];
   canApply: boolean;

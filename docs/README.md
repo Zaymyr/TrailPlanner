@@ -92,6 +92,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Geocoding](05-integrations/geocoding.md)
 - [Supabase Edge Functions](05-integrations/supabase-edge-functions.md)
 - [Analytics](05-integrations/analytics.md)
+- [OpenAI Organizer Import Reconciliation](05-integrations/openai-organizer-import.md)
 
 ### 06 Workflows
 

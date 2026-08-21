@@ -135,7 +135,7 @@ export function OrganizerSummaryHeader({
   onEditionDateChange: (value: string) => void;
   onEditionEndDateChange: (value: string) => void;
   onRequestEdition: (duplicatePreviousEdition: boolean) => Promise<boolean>;
-  onImportWebsite: () => void;
+  onImportWebsite?: () => void;
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
@@ -217,9 +217,11 @@ export function OrganizerSummaryHeader({
           <Link href="/organizers">
             <Button variant="outline">Ajouter une course</Button>
           </Link>
-          <Button type="button" variant="outline" onClick={onImportWebsite}>
-            Importer les informations
-          </Button>
+          {onImportWebsite ? (
+            <Button type="button" variant="outline" onClick={onImportWebsite}>
+              Importer les informations
+            </Button>
+          ) : null}
         </div>
       </div>
 
