@@ -218,7 +218,7 @@ export function OrganizerSummaryHeader({
             <Button variant="outline">Ajouter une course</Button>
           </Link>
           <Button type="button" variant="outline" onClick={onImportWebsite}>
-            Importer depuis un site web
+            Importer les informations
           </Button>
         </div>
       </div>

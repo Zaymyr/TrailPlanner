@@ -53,11 +53,12 @@ export const organizerWeatherPlanSchema = z.enum(["normal", "cold", "heat"]);
 
 export const organizerEquipmentDetailsSchema = z
   .object({
+    overrideEnabled: z.boolean().optional(),
     weatherPlan: organizerWeatherPlanSchema.default("normal"),
     items: z.array(equipmentItemSchema).default([]),
     note: nullableText,
   })
-  .default({ weatherPlan: "normal", items: [], note: null });
+  .default({ overrideEnabled: false, weatherPlan: "normal", items: [], note: null });
 
 export const organizerBibPickupSlotSchema = z.object({
   date: nullableText,
@@ -372,6 +373,14 @@ export const expandRaceEquipmentWithCommon = (
   items: mergeEquipmentItems(commonEquipment.items, raceEquipment.items),
 });
 
+export const hasRaceEquipmentOverride = (
+  commonEquipment: OrganizerEquipmentDetails,
+  raceEquipment: OrganizerEquipmentDetails
+) =>
+  raceEquipment.overrideEnabled ||
+  getRaceSpecificEquipment(commonEquipment, raceEquipment).items.length > 0 ||
+  Boolean(raceEquipment.note?.trim());
+
 export const applyCommonEquipmentToRace = (
   previousCommonEquipment: OrganizerEquipmentDetails,
   nextCommonEquipment: OrganizerEquipmentDetails,
@@ -420,7 +429,10 @@ export const deriveCommonEquipmentFromRaces = (
 export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails, raceDetails?: OrganizerRaceDetails | null) {
   const race = raceDetails ?? defaultOrganizerRaceDetails;
   const commonEquipment = eventDetails.mandatoryEquipment;
-  const expandedRaceEquipment = expandRaceEquipmentWithCommon(commonEquipment, race.mandatoryEquipment);
+  const raceEquipment = hasRaceEquipmentOverride(commonEquipment, race.mandatoryEquipment)
+    ? race.mandatoryEquipment
+    : defaultOrganizerRaceDetails.mandatoryEquipment;
+  const expandedRaceEquipment = expandRaceEquipmentWithCommon(commonEquipment, raceEquipment);
   const raceSpecificEquipment = getRaceSpecificEquipment(commonEquipment, expandedRaceEquipment);
   const weatherPlan = commonEquipment.weatherPlan;
   const mergedEquipmentItems = mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items);
@@ -431,7 +443,7 @@ export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails,
     equipment: {
       weatherPlan,
       items: mergedEquipmentItems,
-      note: [commonEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null,
+      note: [commonEquipment.note, raceEquipment.note].filter(Boolean).join("\n") || null,
     },
     equipmentStatus: {
       weatherPlan,

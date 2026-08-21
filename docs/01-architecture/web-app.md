@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -69,6 +69,7 @@ related_files:
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/lib/organizer-dashboard-details.ts
+  - apps/web/lib/organizer-document-import.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
@@ -164,6 +165,10 @@ The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser 
 - custom SVG handling through SVGR for component imports.
 
 ## Main Runtime Areas
+
+### Organizer Information Import
+
+The organizer dashboard action is named `Importer les informations`. Its source step accepts an optional main website URL, up to twelve format URLs, and up to eight PDF/image selections capped at 15 MB each. The current preview records document names as pending sources but does not extract document contents yet; PDF text extraction and OCR must be added server-side before document values can affect race data.
 
 ### Authentication and Session
 
@@ -303,7 +308,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep public catalog creation conservative by default: imported/admin-created events and races should start as non-live until someone publishes them deliberately.
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
 - Course discovery and Racebook publication are separate contracts. Web catalog pages continue to use `is_live` / `is_public`; never substitute `racebook_is_live` into the SEO catalog filter.
-- Keep bib pickup shared at event level in the current organizer UI. Its `locations[]` entries own their own geocoded address and `slots[]`; do not flatten several pickup places into one format-level string. Equipment is the exception: the dashboard mirrors shared items into every race list so a course can later drop one and shrink the event-level common subset.
+- Keep bib pickup shared at event level in the current organizer UI. Its `locations[]` entries own their own geocoded address and `slots[]`; do not flatten several pickup places into one format-level string. Equipment is inherited by default; a format's `mandatoryEquipment.overrideEnabled` must be explicitly checked before its stored full list is used or edited.
 - Keep the active weather plan on the event-level equipment JSON. Formats may retag items for `cold` / `heat`, but they must not choose a different active plan than the event.
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.
 - Keep Racebook switch saves scoped to the switched format. Do not foreground-save an unrelated active draft before publishing or hiding another format.

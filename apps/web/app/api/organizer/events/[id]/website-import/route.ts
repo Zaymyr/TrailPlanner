@@ -24,6 +24,13 @@ import {
   organizerEventDetailsSchema,
   parseOrganizerEventDetails,
 } from "../../../../../../lib/organizer-dashboard-details";
+import {
+  extractOrganizerDocument,
+  reconcileOrganizerDocumentFindings,
+  attachDocumentFindingsToFormats,
+  ORGANIZER_DOCUMENT_MAX_COUNT,
+  validateOrganizerDocument,
+} from "../../../../../../lib/organizer-document-import";
 
 const raceSelectionSchema = z.object({
   previewRaceKey: z.string().trim().min(1),
@@ -36,7 +43,36 @@ const previewRequestSchema = z.object({
   action: z.literal("preview"),
   url: z.string().trim().url(),
   formatUrls: z.array(z.string().trim().url()).max(12).default([]),
+  documentNames: z.array(z.string().trim().min(1)).max(8).default([]),
 });
+
+const parsePreviewRequest = async (request: NextRequest) => {
+  if (!request.headers.get("content-type")?.includes("multipart/form-data")) {
+    return { parsed: previewRequestSchema.safeParse(await request.json().catch(() => null)), documents: [] as File[] };
+  }
+
+  const formData = await request.formData();
+  const files = formData.getAll("documents").filter((value): value is File => value instanceof File);
+  const documentError = files.length > ORGANIZER_DOCUMENT_MAX_COUNT ? "Ajoute au maximum 8 documents." : files.map(validateOrganizerDocument).find(Boolean);
+  if (documentError) return { parsed: previewRequestSchema.safeParse({}), documents: files };
+
+  let formatUrls: unknown = [];
+  try {
+    formatUrls = JSON.parse(String(formData.get("formatUrls") ?? "[]"));
+  } catch {
+    formatUrls = null;
+  }
+
+  return {
+    parsed: previewRequestSchema.safeParse({
+      action: formData.get("action"),
+      url: formData.get("url"),
+      formatUrls,
+      documentNames: files.map((file) => file.name),
+    }),
+    documents: files,
+  };
+};
 
 const isoDateSchema = z
   .string()
@@ -538,9 +574,11 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if (organizer !== true) return organizer.error;
 
-  const rawBody = await request.json().catch(() => null);
+  const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data") ?? false;
+  const rawBody = isMultipart ? null : await request.json().catch(() => null);
   const isApply = rawBody?.action === "apply";
-  const parsedBody = isApply ? applyRequestSchema.safeParse(rawBody) : previewRequestSchema.safeParse(rawBody);
+  const previewRequest = isMultipart ? await parsePreviewRequest(request) : { parsed: previewRequestSchema.safeParse(rawBody), documents: [] as File[] };
+  const parsedBody = isApply ? applyRequestSchema.safeParse(rawBody) : previewRequest.parsed;
   if (!parsedBody.success) return jsonError("Invalid import request.", 400);
 
   const rateLimit = await checkRateLimitAsync(`organizer-website-import:${auth.user.id}:${parsedParams.data.id}`, 6, 60_000);
@@ -562,7 +600,43 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     const augmentedPreview = buildAugmentedPreview(preview, event);
 
     if (parsedBody.data.action === "preview") {
-      return withSecurityHeaders(NextResponse.json({ preview: { ...augmentedPreview, previewHash } }));
+      const formatCandidates = [
+        ...(event.races ?? []).map((race) => ({
+          name: race.name,
+          distanceKm: race.distance_km,
+          elevationGainM: race.elevation_gain_m,
+          elevationLossM: race.elevation_loss_m ?? null,
+        })),
+        ...preview.races.map((race) => ({
+          name: race.name,
+          distanceKm: race.distanceKm,
+          elevationGainM: race.elevationGainM,
+          elevationLossM: race.elevationLossM,
+        })),
+      ];
+      const formatNames = formatCandidates.map((race) => race.name);
+      const documents = await Promise.all(
+        previewRequest.documents.map(async (file, index) => {
+          const document = await extractOrganizerDocument(file, `document:${index}:${file.name}`);
+          const findings = attachDocumentFindingsToFormats(document.findings, formatNames);
+                  return { ...document, findings: reconcileOrganizerDocumentFindings(findings, formatCandidates) };
+        })
+      );
+      const documentWarnings = documents.map((document) =>
+        document.status === "extracted"
+          ? `Document analysé : ${document.fileName} (${document.pageCount ?? 0} page(s), texte extrait).`
+          : `${document.fileName} : ${document.message ?? "Document en attente d'extraction."}`
+      );
+      return withSecurityHeaders(
+        NextResponse.json({
+          preview: {
+            ...augmentedPreview,
+            warnings: [...augmentedPreview.warnings, ...documentWarnings],
+            documents: documents.map(({ text: _text, ...document }) => document),
+            previewHash,
+          },
+        })
+      );
     }
 
     if (previewHash !== parsedBody.data.previewHash) {

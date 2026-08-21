@@ -9,8 +9,6 @@ import { buildCumulativeElevationTotals, GpxParseError, parseGpx } from "../../.
 import { type FuelType } from "../../../lib/fuel-types";
 import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWaypoints";
 import {
-  applyCommonEquipmentToRace,
-  deriveCommonEquipmentFromRaces,
   defaultOrganizerAidStationDetails,
   defaultOrganizerRaceDetails,
   type OrganizerEventDetails,
@@ -157,6 +155,7 @@ export function OrganizerDashboard({
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
   const [websiteImportFormatUrls, setWebsiteImportFormatUrls] = useState<string[]>([""]);
+  const [websiteImportDocuments, setWebsiteImportDocuments] = useState<File[]>([]);
   const [websiteImportPreview, setWebsiteImportPreview] = useState<WebsiteImportPreview | null>(null);
   const [websiteImportEventDate, setWebsiteImportEventDate] = useState("");
   const [websiteImportSelections, setWebsiteImportSelections] = useState<Record<string, WebsiteImportRaceSelection>>({});
@@ -220,25 +219,6 @@ export function OrganizerDashboard({
   const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm, selectedEditionYear);
   const productsById = useMemo(() => buildProductsById(catalogProducts, stationProducts), [catalogProducts, stationProducts]);
   const authHeaders = useMemo((): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), [accessToken]);
-  const serializeEquipment = (equipment: OrganizerEventDetails["mandatoryEquipment"]) =>
-    JSON.stringify({
-      weatherPlan: equipment.weatherPlan,
-      items: equipment.items.map((item) => ({
-        label: item.label,
-        required: item.required,
-        cold: item.cold,
-        heat: item.heat,
-      })),
-    });
-
-  const syncEventCommonEquipment = (details: OrganizerEventDetails, races: RaceFormat[]) => ({
-    ...details,
-    mandatoryEquipment: deriveCommonEquipmentFromRaces(
-      races.map((race) => race.organizerDetails),
-      details.mandatoryEquipment
-    ),
-  });
-
   const sanitizeRaceDetailsForSave = (details: RaceFormValues["organizerDetails"]) => ({
     ...details,
     schedule: {
@@ -542,26 +522,6 @@ export function OrganizerDashboard({
   const saveEvent = async (override?: Partial<EventFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !selectedEventId) return false;
     const nextForm = { ...eventForm, ...override };
-    const previousCommonEquipment = eventDetail?.organizerDetails?.mandatoryEquipment ?? eventForm.organizerDetails.mandatoryEquipment;
-    const equipmentChanged = serializeEquipment(previousCommonEquipment) !== serializeEquipment(nextForm.organizerDetails.mandatoryEquipment);
-    const raceEquipmentUpdates = equipmentChanged
-      ? (eventDetail?.races ?? [])
-          .map((race) => {
-          const raceOrganizerDetails = race.organizerDetails ?? defaultOrganizerRaceDetails;
-          return {
-            raceId: race.id,
-            organizerDetails: {
-              ...raceOrganizerDetails,
-              mandatoryEquipment: applyCommonEquipmentToRace(
-                previousCommonEquipment,
-                nextForm.organizerDetails.mandatoryEquipment,
-                raceOrganizerDetails.mandatoryEquipment
-              ),
-            },
-          };
-        })
-      : [];
-
     if (!options.background) {
       setStatus("saving");
       setError(null);
@@ -586,26 +546,6 @@ export function OrganizerDashboard({
         return false;
       }
 
-      if (raceEquipmentUpdates.length > 0) {
-        const raceResponses = await Promise.all(
-          raceEquipmentUpdates.map(async ({ raceId, organizerDetails }) => {
-            const raceResponse = await fetch(`/api/organizer/races/${raceId}`, {
-              method: "PATCH",
-              headers: { ...authHeaders, "Content-Type": "application/json" },
-              body: JSON.stringify({ organizerDetails }),
-            });
-            const raceData = (await raceResponse.json().catch(() => null)) as { message?: string } | null;
-            return { ok: raceResponse.ok, message: raceData?.message };
-          })
-        );
-        const failedRaceUpdate = raceResponses.find((result) => !result.ok);
-        if (failedRaceUpdate) {
-          showToast("error", failedRaceUpdate.message ?? "Impossible de reporter le matériel sur toutes les courses.");
-          return false;
-        }
-      }
-
-      const equipmentUpdatesByRaceId = new Map(raceEquipmentUpdates.map((update) => [update.raceId, update.organizerDetails]));
       setEventDetail((current) =>
         current?.id === selectedEventId
           ? {
@@ -620,10 +560,7 @@ export function OrganizerDashboard({
                   ? { ...edition, start_date: nextForm.editionStartDate, end_date: nextForm.editionEndDate }
                   : edition
               ),
-              races: current.races.map((race) => {
-                const organizerDetails = equipmentUpdatesByRaceId.get(race.id);
-                return organizerDetails ? { ...race, organizerDetails } : race;
-              }),
+              races: current.races,
             }
           : current
       );
@@ -644,15 +581,6 @@ export function OrganizerDashboard({
       organizerDetails: sanitizeRaceDetailsForSave(override?.organizerDetails ?? raceForm.organizerDetails),
     };
     const nextForm = { ...mergedForm, seriesName: mergedForm.name };
-    const nextRaces = (eventDetail?.races ?? []).map((race) =>
-      race.id === activeRace.id
-        ? { ...race, series_name: nextForm.seriesName, organizerDetails: nextForm.organizerDetails }
-        : race
-    );
-    const syncedEventDetails = syncEventCommonEquipment(eventForm.organizerDetails, nextRaces);
-    const shouldSyncEventCommon =
-      serializeEquipment(eventForm.organizerDetails.mandatoryEquipment) !== serializeEquipment(syncedEventDetails.mandatoryEquipment);
-
     if (!options.background) {
       setStatus("saving");
       setError(null);
@@ -679,27 +607,11 @@ export function OrganizerDashboard({
         return false;
       }
 
-      if (shouldSyncEventCommon) {
-        const eventResponse = await fetch(`/api/organizer/events/${selectedEventId}`, {
-          method: "PATCH",
-          headers: { ...authHeaders, "Content-Type": "application/json" },
-          body: JSON.stringify({ selectedEditionYear, organizerDetails: syncedEventDetails }),
-        });
-        const eventData = (await eventResponse.json().catch(() => null)) as { message?: string } | null;
-        if (!eventResponse.ok) {
-          showToast("error", eventData?.message ?? "Impossible de mettre à jour le matériel partagé.");
-          return false;
-        }
-        if (selectedEventIdRef.current === selectedEventId) {
-          setEventForm((current) => ({ ...current, organizerDetails: syncedEventDetails }));
-        }
-      }
-
       setEventDetail((current) =>
         current?.id === selectedEventId
           ? {
               ...current,
-              organizerDetails: shouldSyncEventCommon ? syncedEventDetails : current.organizerDetails,
+              organizerDetails: current.organizerDetails,
               races: current.races.map((race) =>
                 race.id === activeRace.id
                   ? {
@@ -1430,14 +1342,16 @@ export function OrganizerDashboard({
     setWebsiteImportSelections({});
     setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
     setWebsiteImportFormatUrls([""]);
+    setWebsiteImportDocuments([]);
     setWebsiteImportOpen(true);
   };
 
   const previewWebsiteImport = useCallback(async (urlOverride?: string) => {
     if (!selectedEventId || !accessToken) return;
     const url = (urlOverride ?? websiteImportUrl).trim();
+    const formatUrls = websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean);
     if (!url) {
-      setWebsiteImportError("Ajoute l'URL du site officiel avant de lancer l'analyse.");
+      setWebsiteImportError("Ajoute l'URL principale du site avant de lancer l'analyse. Les documents seront traités dans l'étape documentaire suivante.");
       return;
     }
 
@@ -1445,10 +1359,15 @@ export function OrganizerDashboard({
     setWebsiteImportError(null);
     setWebsiteImportUrl(url);
     try {
+      const formData = new FormData();
+      formData.append("action", "preview");
+      formData.append("url", url);
+      formData.append("formatUrls", JSON.stringify(formatUrls));
+      websiteImportDocuments.forEach((document) => formData.append("documents", document, document.name));
       const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
         method: "POST",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "preview", url, formatUrls: websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean) }),
+        headers: authHeaders,
+        body: formData,
       });
       const data = (await response.json().catch(() => null)) as { preview?: WebsiteImportPreview; message?: string } | null;
       if (!response.ok || !data?.preview) {
@@ -1486,7 +1405,7 @@ export function OrganizerDashboard({
     } finally {
       setWebsiteImportLoading(false);
     }
-  }, [accessToken, authHeaders, eventForm.editionStartDate, selectedEventId, websiteImportFormatUrls, websiteImportUrl]);
+  }, [accessToken, authHeaders, eventForm.editionStartDate, selectedEventId, websiteImportDocuments, websiteImportFormatUrls, websiteImportUrl]);
 
   useEffect(() => {
     if (!requestedImportUrl || !requestedEventId || eventDetail?.id !== requestedEventId || !accessToken) return;
@@ -2055,7 +1974,78 @@ export function OrganizerDashboard({
               ))}
             </div>
 
+            <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
+              <div>
+                <p className="text-sm font-medium text-foreground">Documents du roadbook</p>
+                <p className="text-xs text-muted-foreground">Prépare des PDF ou images pour la prochaine étape d’analyse documentaire.</p>
+              </div>
+              <input
+                id="organizer-website-import-documents"
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                multiple
+                className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+                onChange={(event) => {
+                  const files = Array.from(event.target.files ?? []);
+                  const invalidFile = files.find((file) => file.size > 15 * 1024 * 1024);
+                  if (invalidFile) {
+                    setWebsiteImportError(`Le document ${invalidFile.name} dépasse la limite de 15 Mo.`);
+                    return;
+                  }
+                  if (files.length > 8) {
+                    setWebsiteImportError("Ajoute au maximum 8 documents.");
+                    return;
+                  }
+                  setWebsiteImportDocuments(files);
+                  setWebsiteImportError(null);
+                }}
+              />
+              {websiteImportDocuments.length > 0 ? (
+                <ul className="space-y-1 text-xs text-muted-foreground">
+                  {websiteImportDocuments.map((document) => (
+                    <li key={`${document.name}-${document.size}`}>{document.name}</li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+
             {websiteImportError ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{websiteImportError}</p> : null}
+
+            {websiteImportPreview?.documents?.length ? (
+              <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
+                <p className="text-sm font-medium text-foreground">Documents analysés</p>
+                {websiteImportPreview.documents.map((document) => (
+                  <div key={document.sourceId} className="space-y-2 text-xs">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-foreground">{document.fileName}</span>
+                      <span className="text-muted-foreground">
+                        {document.status === "extracted" ? `${document.pageCount ?? 0} page(s), texte extrait` : document.message ?? "OCR en attente"}
+                      </span>
+                    </div>
+                    {document.findings.length > 0 ? (
+                      <div className="space-y-1 border-l-2 border-brand/40 pl-3 text-muted-foreground">
+                        <p className="font-medium text-foreground">Observations à confirmer</p>
+                        {document.findings.map((finding, index) => (
+                          <div key={`${document.sourceId}-${finding.field}-${index}`}>
+                            <p>
+                              {finding.formatHint ? `${finding.formatHint} : ` : ""}{finding.value} <span className="text-amber-700">({finding.confidence})</span>
+                            </p>
+                            {finding.comparison.status !== "unverified" ? (
+                              <p className={finding.comparison.status === "conflict" ? "text-red-700" : "text-emerald-700"}>
+                                {finding.comparison.status === "conflict" ? "Conflit" : "Concordant"} avec le site : {finding.comparison.comparedValue}
+                              </p>
+                            ) : null}
+                            {finding.alternatives.length > 0 ? (
+                              <p className="text-amber-700">Conflit : {finding.alternatives.map((alternative) => alternative.value).join(" / ")}</p>
+                            ) : null}
+                          </div>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            ) : null}
 
             {websiteImportPreview ? (
               <div className="space-y-4 rounded-md border border-border/70 bg-background/70 p-4">

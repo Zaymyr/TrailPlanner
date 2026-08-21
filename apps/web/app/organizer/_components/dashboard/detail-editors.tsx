@@ -3,6 +3,7 @@ import { Input } from "../../../../components/ui/input";
 import { cn } from "../../../../components/utils";
 import {
   defaultOrganizerEventDetails,
+  expandRaceEquipmentWithCommon,
   getOrganizerBibPickupLocations,
   type OrganizerBibPickupLocation,
   type OrganizerBibPickupSlot,
@@ -45,14 +46,42 @@ export function EquipmentEditor({
     return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Sélectionne un format pour ajouter du matériel spécifique.</p>;
   }
 
+  const hasEquipmentOverride = raceDetails.mandatoryEquipment.overrideEnabled;
+  const updateEquipmentOverride = (overrideEnabled: boolean) =>
+    onRaceChange({
+      ...raceDetails,
+      mandatoryEquipment: {
+        ...(overrideEnabled
+          ? expandRaceEquipmentWithCommon(eventDetails.mandatoryEquipment, raceDetails.mandatoryEquipment)
+          : raceDetails.mandatoryEquipment),
+        overrideEnabled,
+      },
+    });
+
   return (
-    <EquipmentFields
-      title={`Matériel - ${activeRace.name}`}
-      description="Cette liste contient tout le matériel visible sur cette course. Retirer un item partagé l'enlève du commun."
-      equipment={raceDetails.mandatoryEquipment}
-      sharedWeatherPlan={eventDetails.mandatoryEquipment.weatherPlan}
-      onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment })}
-    />
+    <div className="space-y-4">
+      <label className="flex items-start gap-3 rounded-lg border border-border bg-background p-4 text-sm">
+        <input
+          type="checkbox"
+          checked={hasEquipmentOverride}
+          onChange={(event) => updateEquipmentOverride(event.target.checked)}
+          className="mt-0.5 h-4 w-4"
+        />
+        <span>
+          <span className="block font-medium text-foreground">Matériel différent pour ce format</span>
+          <span className="block text-muted-foreground">Utiliser une liste spécifique au lieu du matériel de l'événement.</span>
+        </span>
+      </label>
+      {hasEquipmentOverride ? (
+        <EquipmentFields
+          title={`Matériel - ${activeRace.name}`}
+          description="La liste est initialisée avec le matériel de l'événement. Tu peux ensuite la modifier pour ce format."
+          equipment={raceDetails.mandatoryEquipment}
+          sharedWeatherPlan={eventDetails.mandatoryEquipment.weatherPlan}
+          onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment: { ...mandatoryEquipment, overrideEnabled: true } })}
+        />
+      ) : null}
+    </div>
   );
 }
 function EquipmentFields({
