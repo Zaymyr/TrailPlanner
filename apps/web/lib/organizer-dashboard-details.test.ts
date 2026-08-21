@@ -65,4 +65,29 @@ describe("buildRunnerOrganizerDetails", () => {
     expect(runnerDetails.access.finishLocation.label).toBe("Ligne d'arrivée format 80K, Annecy");
     expect(runnerDetails.access.finishLocation.lng).toBe(6.130222);
   });
+
+  it("uses format equipment only when its explicit override is enabled", () => {
+    const eventDetails = {
+      ...defaultOrganizerEventDetails,
+      mandatoryEquipment: {
+        ...defaultOrganizerEventDetails.mandatoryEquipment,
+        items: [{ id: "event-item", label: "Couverture", required: true, cold: false, heat: false, note: null }],
+      },
+    };
+    const formatEquipment = {
+      ...defaultOrganizerRaceDetails,
+      mandatoryEquipment: {
+        ...defaultOrganizerRaceDetails.mandatoryEquipment,
+        items: [{ id: "format-item", label: "Lampe", required: true, cold: false, heat: false, note: null }],
+      },
+    };
+
+    expect(buildRunnerOrganizerDetails(eventDetails, formatEquipment).equipment.items.map((item) => item.label)).toEqual(["Couverture"]);
+    expect(
+      buildRunnerOrganizerDetails(eventDetails, {
+        ...formatEquipment,
+        mandatoryEquipment: { ...formatEquipment.mandatoryEquipment, overrideEnabled: true },
+      }).equipment.items.map((item) => item.label)
+    ).toEqual(["Lampe"]);
+  });
 });

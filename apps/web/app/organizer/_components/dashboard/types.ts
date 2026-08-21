@@ -240,6 +240,37 @@ export type WebsiteImportPreview = {
     };
   };
   races: WebsiteImportPreviewRace[];
+  documents?: Array<{
+    sourceId: string;
+    fileName: string;
+    mediaType: string;
+    sizeBytes: number;
+    pageCount: number | null;
+    extractionMethod: "pdf-text" | "ocr-pending";
+    status: "extracted" | "ocr-pending" | "rejected";
+    message: string | null;
+    findings: Array<{
+      field: "distanceKm" | "elevationGainM" | "elevationLossM" | "startTime" | "bibPickup" | "cutoff" | "aidStations" | "mandatoryEquipment" | "emergencyContact" | "liveTracking";
+      value: string;
+      scope: "event" | "format" | "format-unknown";
+      formatHint: string | null;
+      confidence: "medium" | "low";
+      evidence: string;
+          alternatives: Array<{
+            field: "distanceKm" | "elevationGainM" | "elevationLossM" | "startTime" | "bibPickup" | "cutoff" | "aidStations" | "mandatoryEquipment" | "emergencyContact" | "liveTracking";
+            value: string;
+            scope: "event" | "format" | "format-unknown";
+            formatHint: string | null;
+            confidence: "medium" | "low";
+            evidence: string;
+          }>;
+          comparison: {
+            status: "concordant" | "conflict" | "unverified";
+            comparedValue: string | null;
+            comparedSource: "website" | "gpx" | null;
+          };
+    }>;
+  }>;
   missingFields: string[];
   warnings: string[];
   canApply: boolean;

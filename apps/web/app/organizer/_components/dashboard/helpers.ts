@@ -2,6 +2,7 @@ import {
   expandRaceEquipmentWithCommon,
   defaultOrganizerEventDetails,
   defaultOrganizerRaceDetails,
+  hasRaceEquipmentOverride,
   parseOrganizerAidStationDetails,
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
@@ -96,7 +97,7 @@ export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): Rac
   thumbnailUrl: eventForm.thumbnailUrl,
   organizerDetails: {
     ...cloneJson(defaultOrganizerRaceDetails),
-    mandatoryEquipment: cloneJson(eventForm.organizerDetails.mandatoryEquipment),
+    mandatoryEquipment: cloneJson(defaultOrganizerRaceDetails.mandatoryEquipment),
     access: cloneJson(eventForm.organizerDetails.access),
   },
 });
@@ -319,7 +320,10 @@ export const normalizeOrganizerEventDetail = (event: OrganizerEventDetail): Orga
         ...race,
         organizerDetails: {
           ...raceDetails,
-          mandatoryEquipment: expandRaceEquipmentWithCommon(organizerDetails.mandatoryEquipment, raceDetails.mandatoryEquipment),
+          mandatoryEquipment: {
+            ...expandRaceEquipmentWithCommon(organizerDetails.mandatoryEquipment, raceDetails.mandatoryEquipment),
+            overrideEnabled: hasRaceEquipmentOverride(organizerDetails.mandatoryEquipment, raceDetails.mandatoryEquipment),
+          },
         },
       };
     }),

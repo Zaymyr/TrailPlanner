@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-08-19
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - vercel.json
@@ -31,6 +31,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 - Supabase project: Auth, Postgres, Storage, Edge Functions, and cron.
 - Vault-backed cron secret: secret used by pg_cron to call push reminder functions.
 - Service role: server-only key used by trusted routes/functions.
+- Organizer import documents are currently selected in the browser and identified in the preview only; no document bucket or OCR provider is configured yet.
 
 ## Vercel
 
