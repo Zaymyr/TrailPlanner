@@ -58,6 +58,23 @@ describe("organizer bib pickup details", () => {
       endTime: "18:00",
     });
   });
+
+  it("uses the format pickup only when its explicit override is enabled", () => {
+    const eventDetails = parseOrganizerEventDetails({
+      bibPickup: { location: "Retrait commun" },
+    });
+    const sharedRaceDetails = {
+      ...defaultOrganizerRaceDetails,
+      bibPickup: { ...defaultOrganizerRaceDetails.bibPickup, location: "Retrait format" },
+    };
+    const overrideRaceDetails = {
+      ...sharedRaceDetails,
+      bibPickup: { ...sharedRaceDetails.bibPickup, overrideEnabled: true },
+    };
+
+    expect(buildRunnerOrganizerDetails(eventDetails, sharedRaceDetails).bibPickup.location).toBe("Retrait commun");
+    expect(buildRunnerOrganizerDetails(eventDetails, overrideRaceDetails).bibPickup.location).toBe("Retrait format");
+  });
 });
 
 describe("organizer equipment syncing", () => {

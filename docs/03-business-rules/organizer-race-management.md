@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -260,6 +260,8 @@ Planner `assistanceAllowed` is separate from organizer product presence: it says
 No mobile organizer editor exists in v1. Mobile can consume published organizer details through the read-only `race/[id]/racebook` screen only when the catalog format is live, `races.racebook_is_live = true`, and there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, hidden Racebook visibility, or admin powers.
 
 ## Gotchas
+
+- Format-specific bib pickup is an explicit opt-in override. When `races.organizer_details.bibPickup.overrideEnabled` is false or absent, runner-facing reads use the event pickup; the format editor keeps GPS/autocomplete fields hidden.
 
 - Keep automatic generic discovery same-origin, hint-filtered, and capped. Do not turn it into an unrestricted site crawl; explicit format URLs must remain authoritative when supplied.
 - Reconstruct GPX only from complete public GeoJSON line geometry embedded in the fetched HTML. Do not infer a route from map tiles, screenshots, private endpoints, or isolated markers.

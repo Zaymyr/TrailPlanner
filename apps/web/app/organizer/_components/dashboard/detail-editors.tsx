@@ -248,16 +248,56 @@ export function BibPickupEditor({
   );
 }
 
+export function RaceBibPickupEditor({
+  activeRace,
+  raceDetails,
+  onRaceChange,
+}: {
+  activeRace: RaceFormat | null;
+  raceDetails: OrganizerRaceDetails;
+  onRaceChange: (details: OrganizerRaceDetails) => void;
+}) {
+  if (!activeRace) {
+    return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Sélectionne un format pour ajouter un retrait spécifique.</p>;
+  }
+
+  const bib = raceDetails.bibPickup;
+  return (
+    <section className="space-y-4 rounded-lg border border-border bg-background p-4">
+      <div>
+        <p className="font-semibold text-foreground">Retrait dossard - {activeRace.name}</p>
+        <p className="text-sm text-muted-foreground">Par défaut, ce format utilise le retrait commun de l'événement.</p>
+      </div>
+      <ToggleChip
+        checked={bib.overrideEnabled}
+        label="Retrait différent pour ce format"
+        onChange={(overrideEnabled) => onRaceChange({ ...raceDetails, bibPickup: { ...bib, overrideEnabled } })}
+      />
+      {bib.overrideEnabled ? (
+        <BibPickupFields
+          title="Retrait spécifique au format"
+          description="Renseigne uniquement les différences applicables à ce format."
+          bib={bib}
+          hideLocationDetails
+          onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup: { ...bibPickup, overrideEnabled: true } })}
+        />
+      ) : null}
+    </section>
+  );
+}
+
 function BibPickupFields({
   title,
   description,
   bib,
   onBibChange,
+  hideLocationDetails,
 }: {
   title: string;
   description: string;
   bib: OrganizerEventDetails["bibPickup"];
   onBibChange: (bib: OrganizerEventDetails["bibPickup"]) => void;
+  hideLocationDetails?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
   const locations = getOrganizerBibPickupLocations(bib);
@@ -322,17 +362,21 @@ function BibPickupFields({
                     Supprimer le lieu
                   </Button>
                 </div>
-                <AddressAutocompleteField
-                  label="Adresse du lieu"
-                  value={pickupLocation.location ?? ""}
-                  location={pickupLocation.locationDetails}
-                  biasLocation={pickupLocation.locationDetails}
-                  onChange={(value) => updateLocation(locationIndex, { location: value || null })}
-                  onLocationChange={(locationDetails) =>
-                    updateLocation(locationIndex, { location: locationDetails.label, locationDetails })
-                  }
-                  invalid={missingLocation}
-                />
+                {hideLocationDetails ? (
+                  <TextField label="Lieu de retrait" value={pickupLocation.location ?? ""} onChange={(value) => updateLocation(locationIndex, { location: value || null })} />
+                ) : (
+                  <AddressAutocompleteField
+                    label="Adresse du lieu"
+                    value={pickupLocation.location ?? ""}
+                    location={pickupLocation.locationDetails}
+                    biasLocation={pickupLocation.locationDetails}
+                    onChange={(value) => updateLocation(locationIndex, { location: value || null })}
+                    onLocationChange={(locationDetails) =>
+                      updateLocation(locationIndex, { location: locationDetails.label, locationDetails })
+                    }
+                    invalid={missingLocation}
+                  />
+                )}
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <p className="text-sm font-semibold text-foreground">Jours et plages horaires</p>

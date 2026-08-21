@@ -26,6 +26,7 @@ type OrganizerLocationDetails = {
 };
 
 type OrganizerBibPickupDetails = {
+  overrideEnabled: boolean;
   location: string | null;
   locationDetails: OrganizerLocationDetails;
   schedule: string | null;
@@ -204,6 +205,7 @@ const DEFAULT_LOCATION_DETAILS: OrganizerLocationDetails = {
 };
 
 const DEFAULT_BIB_PICKUP: OrganizerBibPickupDetails = {
+  overrideEnabled: false,
   location: null,
   locationDetails: DEFAULT_LOCATION_DETAILS,
   schedule: null,
@@ -378,6 +380,7 @@ function parseBibPickupDetails(value: unknown): OrganizerBibPickupDetails {
     : [];
 
   return {
+    overrideEnabled: readBoolean(record.overrideEnabled, false),
     location: readText(record.location),
     locationDetails: parseLocationDetails(record.locationDetails),
     schedule: readText(record.schedule),
@@ -640,7 +643,7 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
       commonItems: decorateEquipmentItemsWithWeatherPlan(commonEquipment.items, weatherPlan),
       raceItems: decorateEquipmentItemsWithWeatherPlan(raceSpecificEquipment.items, weatherPlan),
     },
-    bibPickup: eventDetails.bibPickup,
+    bibPickup: raceDetails.bibPickup.overrideEnabled ? raceDetails.bibPickup : eventDetails.bibPickup,
     access: {
       startAddress: mergePreferredText(eventDetails.access.startAddress, raceDetails.access.startAddress),
       startLocation: hasLocationContent(raceDetails.access.startLocation)
