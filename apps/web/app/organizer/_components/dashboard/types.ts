@@ -272,6 +272,8 @@ export type WebsiteImportPreview = {
     }>;
   }>;
   reconciliation?: {
+    status: "completed" | "unavailable" | "failed";
+    message: string;
     summary: string;
     warnings: string[];
     raceMatches: Array<{
@@ -281,6 +283,14 @@ export type WebsiteImportPreview = {
       confidence: "high" | "medium" | "low";
       rationale: string;
       evidence: string[];
+      fieldChanges: Array<{
+        field: string;
+        importedValue: string | null;
+        currentValue: string | null;
+        action: "add" | "replace" | "keep" | "unknown";
+        rationale: string;
+        evidence: string[];
+      }>;
     }>;
   } | null;
   missingFields: string[];

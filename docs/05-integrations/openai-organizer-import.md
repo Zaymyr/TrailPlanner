@@ -27,11 +27,11 @@ This integration lets a trusted admin reconcile website, roadbook, and existing 
 
 ## Flow
 
-`POST /api/organizer/events/[id]/website-import` is admin-only. For a preview, it first performs the existing deterministic website/PDF extraction, then sends the extracted event/formats, bounded roadbook text, and existing formats to OpenAI. The model returns validated JSON containing a summary, warnings, and one `match`, `separate`, or `uncertain` decision per evaluated format.
+`POST /api/organizer/events/[id]/website-import` is admin-only. For a preview, it first performs the existing deterministic website/PDF extraction, then sends the extracted event/formats, bounded roadbook text, and existing formats to OpenAI. The model returns validated JSON containing a summary, warnings, and one `match`, `separate`, or `uncertain` decision per evaluated format. Each decision includes a field-level comparison whose action is `add`, `replace`, `keep`, or `unknown`, with current/imported values, rationale, and evidence.
 
 Only a `match` with `high` confidence may prefill an existing target format. The admin can still change every selection before applying the import. Medium and low confidence decisions are displayed for review only. The normal server-side schema, edition-range, and score checks remain authoritative.
 
-When `OPENAI_API_KEY` is missing, the preview remains available with an explicit reconciliation-unavailable warning. No client receives the OpenAI key.
+The preview always shows the LLM execution state: completed, not executed because `OPENAI_API_KEY` is missing, or failed. A failed reconciliation leaves the deterministic preview available and explicitly states that no LLM proposal was used. No client receives the OpenAI key.
 
 ## Environment Variables
 

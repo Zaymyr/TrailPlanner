@@ -16,6 +16,18 @@ const reconciliationSchema = z.object({
         confidence: z.enum(["high", "medium", "low"]),
         rationale: z.string().trim().min(1).max(1_000),
         evidence: z.array(z.string().trim().min(1).max(500)).max(6),
+        fieldChanges: z
+          .array(
+            z.object({
+              field: z.string().trim().min(1).max(100),
+              importedValue: z.string().trim().min(1).max(500).nullable(),
+              currentValue: z.string().trim().min(1).max(500).nullable(),
+              action: z.enum(["add", "replace", "keep", "unknown"]),
+              rationale: z.string().trim().min(1).max(500),
+              evidence: z.array(z.string().trim().min(1).max(500)).max(4),
+            })
+          )
+          .max(12),
       })
     )
     .max(30),
@@ -69,7 +81,7 @@ export async function reconcileOrganizerImportWithLlm(input: ReconciliationInput
         {
           role: "system",
           content:
-            "Tu reconcilies des informations de courses trail. Tu ne dois jamais inventer une valeur ni fusionner deux formats par seule proximite de distance. Propose un match uniquement lorsque les preuves fournies sont compatibles (nom, date, distance, denivele, horaires ou source). Pour chaque format importe, retourne un objet JSON avec summary, warnings et raceMatches. Une decision match doit utiliser uniquement un targetRaceId existant; sinon utilise separate ou uncertain. Cite les elements fournis dans evidence et explique toute ambiguite.",
+            "Tu reconcilies des informations de courses trail. Tu ne dois jamais inventer une valeur ni fusionner deux formats par seule proximite de distance. Propose un match uniquement lorsque les preuves fournies sont compatibles (nom, date, distance, denivele, horaires ou source). Pour chaque format importe, retourne un objet JSON avec summary, warnings et raceMatches. Chaque raceMatch doit contenir fieldChanges: pour chaque champ pertinent, indique la valeur importee, la valeur actuelle, et action add, replace, keep ou unknown. Une decision match doit utiliser uniquement un targetRaceId existant; sinon utilise separate ou uncertain. Cite les elements fournis dans evidence et explique toute ambiguite.",
         },
         { role: "user", content: JSON.stringify(payload) },
       ],

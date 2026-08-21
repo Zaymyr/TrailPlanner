@@ -722,19 +722,32 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
           ? `Document analysé : ${document.fileName} (${document.pageCount ?? 0} page(s), texte extrait).`
           : `${document.fileName} : ${document.message ?? "Document en attente d'extraction."}`
       );
-      const reconciliation = await reconcileOrganizerImportWithLlm({
-        preview,
-        existingRaces: (event.races ?? []).map((race) => ({
-          id: race.id,
-          name: race.name,
-          seriesName: race.series_name,
-          raceDate: race.race_date ?? null,
-          distanceKm: race.distance_km,
-          elevationGainM: race.elevation_gain_m,
-          elevationLossM: race.elevation_loss_m ?? null,
-        })),
-        documents: documents.map((document) => ({ fileName: document.fileName, text: document.text })),
-      });
+      let reconciliationStatus: "completed" | "unavailable" | "failed" = "unavailable";
+      let reconciliationMessage = "OPENAI_API_KEY n'est pas configurée : aucun rapprochement LLM n'a été exécuté.";
+      let reconciliation = null;
+      try {
+        reconciliation = await reconcileOrganizerImportWithLlm({
+          preview,
+          existingRaces: (event.races ?? []).map((race) => ({
+            id: race.id,
+            name: race.name,
+            seriesName: race.series_name,
+            raceDate: race.race_date ?? null,
+            distanceKm: race.distance_km,
+            elevationGainM: race.elevation_gain_m,
+            elevationLossM: race.elevation_loss_m ?? null,
+          })),
+          documents: documents.map((document) => ({ fileName: document.fileName, text: document.text })),
+        });
+        if (reconciliation) {
+          reconciliationStatus = "completed";
+          reconciliationMessage = "Réconciliation LLM terminée. Vérifie les changements proposés avant d'appliquer l'import.";
+        }
+      } catch (reconciliationError) {
+        console.error("Organizer import LLM reconciliation unavailable", reconciliationError);
+        reconciliationStatus = "failed";
+        reconciliationMessage = "La réconciliation LLM a échoué. Les données extraites restent disponibles sans proposition de rapprochement.";
+      }
       if (reconciliation) {
         const highConfidenceMatches = new Map(
           reconciliation.raceMatches
@@ -756,11 +769,13 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
             warnings: [
               ...augmentedPreview.warnings,
               ...(websiteImportWarning ? [websiteImportWarning] : []),
-              ...(reconciliation ? [`Réconciliation LLM : ${reconciliation.summary}`, ...reconciliation.warnings] : ["Réconciliation LLM indisponible : configure OPENAI_API_KEY."]),
+              ...(reconciliation ? [`Réconciliation LLM : ${reconciliation.summary}`, ...reconciliation.warnings] : [reconciliationMessage]),
               ...documentWarnings,
             ],
             documents: documents.map(({ text: _text, ...document }) => document),
-            reconciliation,
+            reconciliation: reconciliation
+              ? { ...reconciliation, status: reconciliationStatus, message: reconciliationMessage }
+              : { status: reconciliationStatus, message: reconciliationMessage, summary: "Aucune proposition de rapprochement.", warnings: [], raceMatches: [] },
             previewHash,
           },
         })
