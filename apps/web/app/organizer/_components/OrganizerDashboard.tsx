@@ -21,7 +21,7 @@ import { buildOrganizerCompletion, type OrganizerCompletionSummary, type Organiz
 import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
 import { OrganizerToast } from "./dashboard/controls";
-import { AccessEditor, BibPickupEditor, EquipmentEditor, ServicesEditor } from "./dashboard/detail-editors";
+import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor, ServicesEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import {
   aidStationRowsToDrafts,
@@ -1806,7 +1806,15 @@ export function OrganizerDashboard({
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "equipment")}
             />
           ) : activeModule === "bibPickup" ? (
-            <BibPickupEditor eventDetails={eventForm.organizerDetails} onEventChange={(details) => updateEventDetails(details, "bibPickup")} />
+            isEventTab ? (
+              <BibPickupEditor eventDetails={eventForm.organizerDetails} onEventChange={(details) => updateEventDetails(details, "bibPickup")} />
+            ) : (
+              <RaceBibPickupEditor
+                activeRace={activeRace}
+                raceDetails={raceForm.organizerDetails}
+                onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "bibPickup")}
+              />
+            )
           ) : activeModule === "access" ? (
             <AccessEditor
               scope={isEventTab ? "event" : "format"}

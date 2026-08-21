@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -187,6 +187,8 @@ from public.races;
 ```
 
 ## Gotchas
+
+- Keep event bib pickup as the default source. A format-level pickup is active only when `overrideEnabled` is explicitly true; absent/false values preserve the event fallback, and the format variant does not require geocoded metadata.
 
 - Treat this table as live-schema-dependent until its create migration is found.
 - Keep public web selects explicit. Do not expose `organizer_details`, ownership, membership, or other operational fields through the SEO catalog without a deliberate runner-facing contract.

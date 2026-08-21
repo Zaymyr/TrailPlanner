@@ -73,6 +73,7 @@ export const organizerBibPickupLocationSchema = z.object({
 
 export const organizerBibPickupDetailsSchema = z
   .object({
+    overrideEnabled: z.boolean().default(false),
     location: nullableText,
     locationDetails: organizerLocationSchema,
     schedule: nullableText,
@@ -83,6 +84,7 @@ export const organizerBibPickupDetailsSchema = z
     note: nullableText,
   })
   .default({
+    overrideEnabled: false,
     location: null,
     locationDetails: organizerLocationSchema.parse({}),
     schedule: null,
@@ -437,7 +439,7 @@ export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails,
       commonItems: decorateEquipmentItemsWithWeatherPlan(commonEquipment.items, weatherPlan),
       raceItems: decorateEquipmentItemsWithWeatherPlan(raceSpecificEquipment.items, weatherPlan),
     },
-    bibPickup: eventDetails.bibPickup,
+    bibPickup: race.bibPickup.overrideEnabled ? race.bibPickup : eventDetails.bibPickup,
     access: mergePreferRace(eventDetails.access, race.access),
     services: eventDetails.services,
     schedule: race.schedule,
