@@ -9,8 +9,7 @@ import {
   jsonError,
   optionalTextOrNull,
   optionalUrlOrNull,
-  requireEventOrganizer,
-  requireOrganizerAuth,
+  requireAdminAuth,
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
@@ -34,6 +33,7 @@ import {
   ORGANIZER_DOCUMENT_MAX_COUNT,
   validateOrganizerDocument,
 } from "../../../../../../lib/organizer-document-import";
+import { reconcileOrganizerImportWithLlm } from "../../../../../../lib/organizer-import-reconciliation";
 
 export const runtime = "nodejs";
 
@@ -640,14 +640,11 @@ const updateRaceFromPreview = async (
 };
 
 export async function POST(request: NextRequest, context: { params: { id?: string } }) {
-  const auth = await requireOrganizerAuth(request);
+  const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
   const parsedParams = uuidParamSchema.safeParse(context.params);
   if (!parsedParams.success) return jsonError("Invalid event id.", 400);
-
-  const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
-  if (organizer !== true) return organizer.error;
 
   const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data") ?? false;
   const rawBody = isMultipart ? null : await request.json().catch(() => null);
@@ -692,7 +689,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       }
     }
     const previewHash = computeOrganizerWebsiteImportPreviewHash(preview);
-    const augmentedPreview = buildAugmentedPreview(preview, event);
+    let augmentedPreview = buildAugmentedPreview(preview, event);
 
     if (parsedBody.data.action === "preview") {
       const formatCandidates = [
@@ -725,12 +722,60 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
           ? `Document analysé : ${document.fileName} (${document.pageCount ?? 0} page(s), texte extrait).`
           : `${document.fileName} : ${document.message ?? "Document en attente d'extraction."}`
       );
+      let reconciliationStatus: "completed" | "unavailable" | "failed" = "unavailable";
+      let reconciliationMessage = "OPENAI_API_KEY n'est pas configurée : aucun rapprochement LLM n'a été exécuté.";
+      let reconciliation = null;
+      try {
+        reconciliation = await reconcileOrganizerImportWithLlm({
+          preview,
+          existingRaces: (event.races ?? []).map((race) => ({
+            id: race.id,
+            name: race.name,
+            seriesName: race.series_name,
+            raceDate: race.race_date ?? null,
+            distanceKm: race.distance_km,
+            elevationGainM: race.elevation_gain_m,
+            elevationLossM: race.elevation_loss_m ?? null,
+          })),
+          documents: documents.map((document) => ({ fileName: document.fileName, text: document.text })),
+        });
+        if (reconciliation) {
+          reconciliationStatus = "completed";
+          reconciliationMessage = "Réconciliation LLM terminée. Vérifie les changements proposés avant d'appliquer l'import.";
+        }
+      } catch (reconciliationError) {
+        console.error("Organizer import LLM reconciliation unavailable", reconciliationError);
+        reconciliationStatus = "failed";
+        reconciliationMessage = "La réconciliation LLM a échoué. Les données extraites restent disponibles sans proposition de rapprochement.";
+      }
+      if (reconciliation) {
+        const highConfidenceMatches = new Map(
+          reconciliation.raceMatches
+            .filter((match) => match.decision === "match" && match.confidence === "high" && match.targetRaceId)
+            .map((match) => [match.previewRaceKey, match.targetRaceId])
+        );
+        augmentedPreview = {
+          ...augmentedPreview,
+          races: augmentedPreview.races.map((race) => ({
+            ...race,
+            suggestedTargetRaceId: highConfidenceMatches.get(race.key) ?? race.suggestedTargetRaceId,
+          })),
+        };
+      }
       return withSecurityHeaders(
         NextResponse.json({
           preview: {
             ...augmentedPreview,
-            warnings: [...augmentedPreview.warnings, ...(websiteImportWarning ? [websiteImportWarning] : []), ...documentWarnings],
+            warnings: [
+              ...augmentedPreview.warnings,
+              ...(websiteImportWarning ? [websiteImportWarning] : []),
+              ...(reconciliation ? [`Réconciliation LLM : ${reconciliation.summary}`, ...reconciliation.warnings] : [reconciliationMessage]),
+              ...documentWarnings,
+            ],
             documents: documents.map(({ text: _text, ...document }) => document),
+            reconciliation: reconciliation
+              ? { ...reconciliation, status: reconciliationStatus, message: reconciliationMessage }
+              : { status: reconciliationStatus, message: reconciliationMessage, summary: "Aucune proposition de rapprochement.", warnings: [], raceMatches: [] },
             previewHash,
           },
         })

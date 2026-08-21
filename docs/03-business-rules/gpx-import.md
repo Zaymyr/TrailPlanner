@@ -170,6 +170,7 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
 - Keep `GPX récupéré` tied to importable GPX content, not only to reliable provider metrics; some adapters can know distance/elevation without returning a file.
 - The organizer roadbook preview is not a GPX upload. Its PDF/image selection permits up to 25 MB per file through temporary private Storage, then deletes each object after analysis; larger route files continue to use the dedicated GPX route.
+- The roadbook preview and its LLM reconciliation are admin-only and do not change GPX ownership or bypass the dedicated organizer GPX route.
 - The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.

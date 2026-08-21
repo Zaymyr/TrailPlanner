@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -108,6 +108,7 @@ Use:
 - `user_profiles.onboarding_completed_at` is a column-only owner datum. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 - Racebook publication is a column-only extension of `races`: existing row RLS remains, but first approval and admin-wide visibility changes stay service-role-only. New publication-request inserts must bind `race_id` to the same managed event, while organizer toggles require both active membership and a stored approval timestamp.
+- The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
 
 ## Related Docs
 

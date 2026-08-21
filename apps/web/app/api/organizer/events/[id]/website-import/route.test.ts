@@ -379,7 +379,7 @@ vi.mock("../../../../../../lib/organizer", async () => {
     optionalTextOrNull: z.string().nullable().optional(),
     optionalUrlOrNull: z.string().nullable().optional(),
     requireEventOrganizer: () => Promise.resolve(true),
-    requireOrganizerAuth: () =>
+    requireAdminAuth: () =>
       Promise.resolve({
         user: { id: "00000000-0000-0000-0000-000000000001" },
         serviceConfig: {

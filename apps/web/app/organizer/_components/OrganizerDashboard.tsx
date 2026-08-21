@@ -240,6 +240,7 @@ export function OrganizerDashboard({
   const backgroundSaveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
 
   const accessToken = session?.accessToken ?? null;
+  const isAdmin = session?.role === "admin" || session?.roles?.includes("admin") === true;
   selectedEventIdRef.current = selectedEventId;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
@@ -1622,7 +1623,7 @@ export function OrganizerDashboard({
         onEditionDateChange={setNewEditionDate}
         onEditionEndDateChange={setNewEditionEndDate}
         onRequestEdition={requestNewEdition}
-        onImportWebsite={openWebsiteImportDialog}
+        onImportWebsite={isAdmin ? openWebsiteImportDialog : undefined}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
         status={status}
@@ -1980,7 +1981,7 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={websiteImportOpen} onOpenChange={setWebsiteImportOpen}>
+      <Dialog open={websiteImportOpen && isAdmin} onOpenChange={setWebsiteImportOpen}>
         <DialogContent
           className={
             websiteImportPreview
@@ -2132,6 +2133,94 @@ export function OrganizerDashboard({
                     ) : null}
                   </div>
                 ))}
+              </div>
+            ) : null}
+
+            {websiteImportPreview?.reconciliation ? (
+              <div className="space-y-3 rounded-md border border-brand/30 bg-brand/5 p-3 text-sm">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <p className="font-medium text-foreground">Réconciliation LLM</p>
+                    <p className="mt-1 text-muted-foreground">{websiteImportPreview.reconciliation.message}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{websiteImportPreview.reconciliation.summary}</p>
+                  </div>
+                  <span
+                    className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                      websiteImportPreview.reconciliation.status === "completed"
+                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                        : websiteImportPreview.reconciliation.status === "failed"
+                          ? "border-red-300 bg-red-50 text-red-800"
+                          : "border-amber-300 bg-amber-50 text-amber-800"
+                    }`}
+                  >
+                    {websiteImportPreview.reconciliation.status === "completed"
+                      ? "Analyse terminée"
+                      : websiteImportPreview.reconciliation.status === "failed"
+                        ? "Analyse en échec"
+                        : "Analyse non exécutée"}
+                  </span>
+                </div>
+                {websiteImportPreview.reconciliation.raceMatches.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">Aucun rapprochement LLM n’est disponible. Les choix d’import restent entièrement manuels.</p>
+                ) : null}
+                {websiteImportPreview.reconciliation.raceMatches.map((match) => {
+                  const race = websiteImportPreview.races.find((candidate) => candidate.key === match.previewRaceKey);
+                  const target = eventDetail?.races.find((candidate) => candidate.id === match.targetRaceId);
+                  const tone =
+                    match.confidence === "high"
+                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                      : match.confidence === "medium"
+                        ? "border-amber-300 bg-amber-50 text-amber-800"
+                        : "border-red-300 bg-red-50 text-red-800";
+                  return (
+                    <div key={match.previewRaceKey} className="rounded-md border border-border/60 bg-card p-3 text-xs">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="font-medium text-foreground">{race?.name ?? match.previewRaceKey}</p>
+                        <span className={`rounded-full border px-2 py-0.5 font-semibold ${tone}`}>
+                          {match.decision === "match" ? "Rapprochement" : match.decision === "separate" ? "Format distinct" : "À vérifier"} · {match.confidence}
+                        </span>
+                      </div>
+                      <p className="mt-2 text-muted-foreground">{match.rationale}</p>
+                      {target ? <p className="mt-1 text-foreground">Cible proposée : {target.name}</p> : null}
+                      {match.evidence.length > 0 ? <p className="mt-1 text-muted-foreground">Preuves : {match.evidence.join(" · ")}</p> : null}
+                      {match.fieldChanges.length > 0 ? (
+                        <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
+                          <p className="font-medium text-foreground">Effet proposé sur les données</p>
+                          {match.fieldChanges.map((change) => {
+                            const changeTone =
+                              change.action === "add"
+                                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
+                                : change.action === "replace"
+                                  ? "border-amber-300 bg-amber-50 text-amber-800"
+                                  : change.action === "keep"
+                                    ? "border-sky-300 bg-sky-50 text-sky-800"
+                                    : "border-red-300 bg-red-50 text-red-800";
+                            const label =
+                              change.action === "add"
+                                ? "Ajout"
+                                : change.action === "replace"
+                                  ? "Remplacement proposé"
+                                  : change.action === "keep"
+                                    ? "Valeur conservée"
+                                    : "À décider";
+                            return (
+                              <div key={`${match.previewRaceKey}-${change.field}`} className="rounded-md border border-border/60 bg-background p-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="font-medium text-foreground">{change.field}</p>
+                                  <span className={`rounded-full border px-2 py-0.5 font-semibold ${changeTone}`}>{label}</span>
+                                </div>
+                                {change.currentValue ? <p className="mt-1 text-muted-foreground">Actuel : {change.currentValue}</p> : null}
+                                {change.importedValue ? <p className="mt-1 text-foreground">Importé : {change.importedValue}</p> : null}
+                                <p className="mt-1 text-muted-foreground">{change.rationale}</p>
+                                {change.evidence.length > 0 ? <p className="mt-1 text-muted-foreground">Preuves : {change.evidence.join(" · ")}</p> : null}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : null}
 
