@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -98,6 +98,7 @@ Summary:
 - Trusted admins do not need claim or membership handoff: the claims dashboard endpoint returns all events as selector entries after its `app_metadata` admin check, while preserving membership-only selector data for ordinary users.
 - The same approved-only dashboard also owns the manual `Notifier les coureurs` action, including its whole-event/live-format selector and confirmed deletion of recent history entries. Pending or rejected claims must not unlock organizer update history, follower counts, sends, or deletes, and a format choice never changes that membership boundary.
 - Website-import review remains inside that approved-only boundary. Its distance-grouped found/manual field summary and GPX status are presentation only. The editable canonical edition-date correction changes only the selected `race_event_editions` row after membership/hash validation; neither the chosen date nor quality score proves organizer access.
+- Roadbook selection is preview-only. Each document may be 25 MB because it is uploaded directly to a private, owner-folder-scoped Storage location, analyzed server-side, then deleted; it does not alter this membership boundary.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.

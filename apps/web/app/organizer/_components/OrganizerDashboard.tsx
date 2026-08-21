@@ -82,7 +82,78 @@ const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
 const WEBSITE_IMPORT_MINIMUM_SCORE = 70;
+const WEBSITE_IMPORT_MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
 const EMPTY_DIRTY_MODULES = new Set<OrganizerModuleId>();
+
+type OrganizerImportDocumentReference = {
+  path: string;
+  fileName: string;
+  mediaType: string;
+  sizeBytes: number;
+};
+
+const getDocumentExtension = (document: File) => {
+  const extension = document.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
+  if (extension) return extension;
+  return document.type === "application/pdf" ? "pdf" : document.type.split("/")[1] ?? "bin";
+};
+
+const removeTemporaryOrganizerImportDocuments = async (
+  documents: OrganizerImportDocumentReference[],
+  accessToken: string
+) => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) return;
+
+  await Promise.all(
+    documents.map((document) =>
+      fetch(`${supabaseUrl}/storage/v1/object/organizer-imports/${document.path}`, {
+        method: "DELETE",
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }).catch(() => null)
+    )
+  );
+};
+
+const uploadTemporaryOrganizerImportDocuments = async ({
+  documents,
+  userId,
+  accessToken,
+}: {
+  documents: File[];
+  userId: string;
+  accessToken: string;
+}): Promise<OrganizerImportDocumentReference[]> => {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!supabaseUrl || !supabaseAnonKey) throw new Error("Configuration Supabase manquante.");
+
+  const uploaded: OrganizerImportDocumentReference[] = [];
+  try {
+    for (const document of documents) {
+      const path = `${userId}/${crypto.randomUUID()}.${getDocumentExtension(document)}`;
+      const response = await fetch(`${supabaseUrl}/storage/v1/object/organizer-imports/${path}`, {
+        method: "POST",
+        headers: {
+          apikey: supabaseAnonKey,
+          Authorization: `Bearer ${accessToken}`,
+          "Content-Type": document.type,
+        },
+        body: document,
+      });
+      if (!response.ok) throw new Error(`Échec de l'envoi du document ${document.name}.`);
+      uploaded.push({ path, fileName: document.name, mediaType: document.type, sizeBytes: document.size });
+    }
+    return uploaded;
+  } catch (error) {
+    await removeTemporaryOrganizerImportDocuments(uploaded, accessToken);
+    throw error;
+  }
+};
 
 type OrganizerSaveOptions = {
   background?: boolean;
@@ -1358,22 +1429,31 @@ export function OrganizerDashboard({
     setWebsiteImportLoading(true);
     setWebsiteImportError(null);
     setWebsiteImportUrl(url);
+    let uploadedDocuments: OrganizerImportDocumentReference[] = [];
     try {
-      const formData = new FormData();
-      formData.append("action", "preview");
-      formData.append("url", url);
-      formData.append("formatUrls", JSON.stringify(formatUrls));
-      websiteImportDocuments.forEach((document) => formData.append("documents", document, document.name));
+      if (websiteImportDocuments.length > 0) {
+        if (!session?.id) throw new Error("Session organisateur introuvable.");
+        uploadedDocuments = await uploadTemporaryOrganizerImportDocuments({
+          documents: websiteImportDocuments,
+          userId: session.id,
+          accessToken,
+        });
+      }
       const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
         method: "POST",
-        headers: authHeaders,
-        body: formData,
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "preview", url, formatUrls, documents: uploadedDocuments }),
       });
       const data = (await response.json().catch(() => null)) as { preview?: WebsiteImportPreview; message?: string } | null;
       if (!response.ok || !data?.preview) {
         setWebsiteImportPreview(null);
         setWebsiteImportSelections({});
-        setWebsiteImportError(data?.message ?? "Impossible d'analyser ce site.");
+        setWebsiteImportError(
+          data?.message ??
+            (response.status === 413
+              ? "Le serveur a refusé l'analyse du document. Vérifie qu'il ne dépasse pas 25 Mo puis réessaie."
+              : `L'analyse a échoué côté serveur (HTTP ${response.status}). Réessaie dans quelques instants.`)
+        );
         return;
       }
 
@@ -1401,11 +1481,12 @@ export function OrganizerDashboard({
       console.error("Unable to preview organizer website import", caught);
       setWebsiteImportPreview(null);
       setWebsiteImportSelections({});
-      setWebsiteImportError("Impossible d'analyser ce site.");
+      setWebsiteImportError("La connexion au serveur a été interrompue pendant l'analyse. Réessaie dans quelques instants.");
     } finally {
+      await removeTemporaryOrganizerImportDocuments(uploadedDocuments, accessToken);
       setWebsiteImportLoading(false);
     }
-  }, [accessToken, authHeaders, eventForm.editionStartDate, selectedEventId, websiteImportDocuments, websiteImportFormatUrls, websiteImportUrl]);
+  }, [accessToken, authHeaders, eventForm.editionStartDate, selectedEventId, session?.id, websiteImportDocuments, websiteImportFormatUrls, websiteImportUrl]);
 
   useEffect(() => {
     if (!requestedImportUrl || !requestedEventId || eventDetail?.id !== requestedEventId || !accessToken) return;
@@ -1987,7 +2068,7 @@ export function OrganizerDashboard({
                 className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
                 onChange={(event) => {
                   const files = Array.from(event.target.files ?? []);
-                  const invalidFile = files.find((file) => file.size > 25 * 1024 * 1024);
+                  const invalidFile = files.find((file) => file.size > WEBSITE_IMPORT_MAX_DOCUMENT_BYTES);
                   if (invalidFile) {
                     setWebsiteImportError(`Le document ${invalidFile.name} dépasse la limite de 25 Mo.`);
                     return;

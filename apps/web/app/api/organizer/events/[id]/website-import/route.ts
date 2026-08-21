@@ -17,6 +17,7 @@ import {
 import {
   buildOrganizerWebsiteImportPreview,
   computeOrganizerWebsiteImportPreviewHash,
+  OrganizerWebsiteImportError,
   type OrganizerWebsiteImportPreview,
   type OrganizerWebsiteImportRace,
 } from "../../../../../../lib/organizer-website-import";
@@ -29,6 +30,7 @@ import {
   extractOrganizerDocument,
   reconcileOrganizerDocumentFindings,
   attachDocumentFindingsToFormats,
+  ORGANIZER_DOCUMENT_MAX_BYTES,
   ORGANIZER_DOCUMENT_MAX_COUNT,
   validateOrganizerDocument,
 } from "../../../../../../lib/organizer-document-import";
@@ -42,11 +44,18 @@ const raceSelectionSchema = z.object({
 });
 const MIN_ACTIONABLE_WEBSITE_IMPORT_SCORE = 70;
 
+const temporaryDocumentReferenceSchema = z.object({
+  path: z.string().trim().min(1).max(240),
+  fileName: z.string().trim().min(1).max(200),
+  mediaType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp"]),
+  sizeBytes: z.number().int().positive().max(ORGANIZER_DOCUMENT_MAX_BYTES),
+});
+
 const previewRequestSchema = z.object({
   action: z.literal("preview"),
   url: z.string().trim().url().optional().default(""),
   formatUrls: z.array(z.string().trim().url()).max(12).default([]),
-  documentNames: z.array(z.string().trim().min(1)).max(8).default([]),
+  documents: z.array(temporaryDocumentReferenceSchema).max(ORGANIZER_DOCUMENT_MAX_COUNT).default([]),
 });
 
 const parsePreviewRequest = async (request: NextRequest) => {
@@ -71,7 +80,7 @@ const parsePreviewRequest = async (request: NextRequest) => {
       action: formData.get("action"),
       url: formData.get("url"),
       formatUrls,
-      documentNames: files.map((file) => file.name),
+      documents: [],
     }),
     documents: files,
   };
@@ -111,6 +120,52 @@ const emptyWebsitePreview = (): OrganizerWebsiteImportPreview => ({
   warnings: [],
   canApply: false,
 });
+
+const loadTemporaryOrganizerImportDocuments = async (
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  userId: string,
+  references: Array<z.infer<typeof temporaryDocumentReferenceSchema>>
+) =>
+  Promise.all(
+    references.map(async (reference, index) => {
+      if (!reference.path.startsWith(`${userId}/`)) {
+        throw new OrganizerWebsiteImportError("AUTH_FAILED", "Document temporaire non autorisé.");
+      }
+      const response = await fetch(
+        `${serviceConfig.supabaseUrl}/storage/v1/object/organizer-imports/${reference.path}`,
+        { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" }
+      );
+      if (!response.ok) throw new OrganizerWebsiteImportError("INVALID_DATA", "Impossible de récupérer un document temporaire.");
+      const data = await response.arrayBuffer();
+      const document = {
+        name: reference.fileName,
+        type: reference.mediaType,
+        size: data.byteLength,
+        arrayBuffer: async () => data,
+      };
+      const validationError = validateOrganizerDocument(document);
+      if (validationError) throw new OrganizerWebsiteImportError("INVALID_DATA", validationError);
+      return { document, sourceId: `document:${index}:${reference.fileName}` };
+    })
+  );
+
+const deleteTemporaryOrganizerImportDocuments = async (
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  userId: string,
+  references: Array<z.infer<typeof temporaryDocumentReferenceSchema>>
+) => {
+  await Promise.all(
+    references
+      .filter((reference) => reference.path.startsWith(`${userId}/`))
+      .map((reference) =>
+        fetch(`${serviceConfig.supabaseUrl}/storage/v1/object/organizer-imports/${reference.path}`, {
+          method: "DELETE",
+          headers: serviceHeaders(serviceConfig, ""),
+          cache: "no-store",
+        }).catch(() => null)
+      )
+  );
+};
 
 const eventContextSchema = z.object({
   id: z.string().uuid(),
@@ -600,6 +655,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   const previewRequest = isMultipart ? await parsePreviewRequest(request) : { parsed: previewRequestSchema.safeParse(rawBody), documents: [] as File[] };
   const parsedBody = isApply ? applyRequestSchema.safeParse(rawBody) : previewRequest.parsed;
   if (!parsedBody.success) return jsonError("Invalid import request.", 400);
+  const temporaryDocumentReferences = parsedBody.data.action === "preview" ? parsedBody.data.documents : [];
 
   const rateLimit = await checkRateLimitAsync(`organizer-website-import:${auth.user.id}:${parsedParams.data.id}`, 6, 60_000);
   if (!rateLimit.allowed) {
@@ -615,13 +671,22 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   if (!event) return jsonError("Unable to load event.", 502);
 
   try {
+    const temporaryDocuments = await loadTemporaryOrganizerImportDocuments(
+      auth.serviceConfig,
+      auth.user.id,
+      temporaryDocumentReferences
+    );
+    const sourceDocuments = [
+      ...previewRequest.documents.map((document, index) => ({ document, sourceId: `document:${index}:${document.name}` })),
+      ...temporaryDocuments,
+    ];
     let preview = emptyWebsitePreview();
     let websiteImportWarning: string | null = null;
     if (parsedBody.data.url) {
       try {
         preview = await buildOrganizerWebsiteImportPreview(parsedBody.data.url, { formatUrls: parsedBody.data.formatUrls });
       } catch (websiteError) {
-        if (previewRequest.documents.length === 0) throw websiteError;
+        if (sourceDocuments.length === 0) throw websiteError;
         console.error("Unable to preview organizer website import; continuing with supplied documents", websiteError);
         websiteImportWarning = "Le site n'a pas pu être analysé, mais les documents fournis restent disponibles pour la vérification.";
       }
@@ -649,10 +714,10 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       ];
       const formatNames = formatCandidates.map((race) => race.name);
       const documents = await Promise.all(
-        previewRequest.documents.map(async (file, index) => {
-          const document = await extractOrganizerDocument(file, `document:${index}:${file.name}`);
+        sourceDocuments.map(async ({ document: file, sourceId }) => {
+          const document = await extractOrganizerDocument(file, sourceId);
           const findings = attachDocumentFindingsToFormats(document.findings, formatNames);
-                  return { ...document, findings: reconcileOrganizerDocumentFindings(findings, formatCandidates) };
+          return { ...document, findings: reconcileOrganizerDocumentFindings(findings, formatCandidates) };
         })
       );
       const documentWarnings = documents.map((document) =>
@@ -790,5 +855,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     }
     console.error("Unexpected organizer website import error", error);
     return jsonError("Unable to import this website.", 500);
+  } finally {
+    await deleteTemporaryOrganizerImportDocuments(auth.serviceConfig, auth.user.id, temporaryDocumentReferences);
   }
 }

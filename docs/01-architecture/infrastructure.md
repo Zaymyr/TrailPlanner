@@ -32,6 +32,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 - Vault-backed cron secret: secret used by pg_cron to call push reminder functions.
 - Service role: server-only key used by trusted routes/functions.
 - Organizer import documents are currently selected in the browser and identified in the preview only; no document bucket or OCR provider is configured yet.
+- Organizer roadbooks use the private `organizer-imports` bucket. Browser uploads are restricted to the authenticated user's folder and to 25 MB PDF/JPEG/PNG/WebP files; the organizer website-import API removes them after analysis, including failures.
 
 ## Vercel
 
@@ -84,6 +85,7 @@ The repository uses Supabase for:
   - `plan-gpx`: private copied GPX per saved plan.
   - `race-images`: public race image storage, including organizer event PNG thumbnails under `organizer-events/<eventId>/`.
   - `product-images`: public product image storage.
+  - `organizer-imports`: private temporary PDF/image uploads for organizer roadbook analysis; objects must not be retained after the analysis request.
 - Edge Functions:
   - `push-register`
   - `push-reminders`
@@ -145,6 +147,7 @@ Document variable names, not secret values. Important names visible in code incl
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
+- Keep `organizer-imports` private and owner-folder-scoped. The browser can upload and make a best-effort cleanup request, but service-role cleanup in the analysis route is the mandatory deletion path.
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 - Do not collapse the platform runtime split until iOS also ships a compatible new native binary. Publish Android production OTAs against runtime `1.1.1` and iOS OTAs against the existing `1.1.0` runtime.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
