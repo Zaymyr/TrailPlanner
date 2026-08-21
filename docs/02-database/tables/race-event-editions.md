@@ -76,7 +76,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - Changing the current edition or its range mirrors `start_date` to `race_events.race_date` and `end_date` to `race_events.organizer_details.dateRange.endDate` for legacy catalog/mobile consumers.
 - Format-specific publication readiness and first approval follow `race_event_publication_requests.race_id -> races.edition_id`, even when that edition is not current.
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
-- A website-import preview that falls back to supplied roadbook documents remains review-only; it cannot create or update an edition until the organizer confirms a subsequent applicable import.
+- A website-import preview that falls back to supplied roadbook documents remains review-only; those 25 MB-per-file temporary Storage objects are deleted after extraction and cannot create or update an edition until the organizer confirms a subsequent applicable import.
 
 ## Common Queries
 

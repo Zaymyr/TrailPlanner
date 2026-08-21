@@ -108,6 +108,39 @@ describe("/api/organizer/events/[id]/website-import preview", () => {
     expect(payload.preview.races[0].suggestedTargetRaceId).toBe("22222222-2222-2222-2222-222222222222");
     expect(payload.preview.previewHash).toHaveLength(64);
   });
+
+  it("analyzes and deletes temporary organizer documents", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response("not a PDF", { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const response = await POST(
+      importRequest({
+        action: "preview",
+        url: "https://utmb.world/races/example",
+        documents: [
+          {
+            path: "00000000-0000-0000-0000-000000000001/temporary-roadbook.pdf",
+            fileName: "roadbook.pdf",
+            mediaType: "application/pdf",
+            sizeBytes: 9,
+          },
+        ],
+      }),
+      { params: { id: eventId } }
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.preview.documents[0]).toMatchObject({ fileName: "roadbook.pdf", status: "rejected" });
+    expect(
+      vi.mocked(fetch).mock.calls.some(
+        ([url, init]) =>
+          String(url).includes("/storage/v1/object/organizer-imports/00000000-0000-0000-0000-000000000001/temporary-roadbook.pdf") &&
+          init?.method === "DELETE"
+      )
+    ).toBe(true);
+  });
 });
 
 describe("/api/organizer/events/[id]/website-import apply", () => {

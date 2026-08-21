@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -14,6 +14,7 @@ related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
 related_tables:
@@ -198,6 +199,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
 
+`supabase/migrations/20260821143417_add_organizer_imports_bucket.sql` adds the private `organizer-imports` bucket with a 25 MB PDF/JPEG/PNG/WebP limit. Authenticated users may insert and delete only objects whose first path segment matches their own auth user id. The organizer website-import route uses service-role access to read and delete these temporary objects after analysis; no document is persisted as race-event data.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -251,6 +254,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Public link migrations should not store raw share tokens. Hash tokens server-side and keep public reads behind a service-role route/page that validates expiry and revocation.
 - Public crew tracking state belongs beside the share snapshot, not in the private plan JSON. Keep it bounded and route-mediated.
 - Column-only onboarding markers on `user_profiles` must keep owner-scoped writes and must not use a fabricated profile preference as a completion signal.
+- Temporary organizer roadbooks belong only in `organizer-imports`, never in `race-gpx` or public image buckets. Keep owner-folder checks on browser upload/delete policies and service-route cleanup in a `finally` block.
 
 ## Related Docs
 

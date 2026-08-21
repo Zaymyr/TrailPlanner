@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -53,6 +53,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - When optional edition duplication is enabled, cloned `races` rows must attach through `edition_id`, preserve their cross-year `edition_group_id`, and start with hidden/unapproved Racebook publication state even though the course row is catalog-visible. An empty edition legitimately has no attached format until the organizer adds one.
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 - Do not couple direct organizer delegation to this retired workflow. Membership assignment and yearly edition creation remain separate operations.
+- Roadbook preview uploads may be 25 MB each because they use temporary private Storage and remain review-only; they do not create or reactivate an edition request.
 
 ## Related Docs
 

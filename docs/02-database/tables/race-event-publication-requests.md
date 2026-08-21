@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-21
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -83,6 +83,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Keep publication readiness sourced from persisted race values; client-side GPX form synchronization is only immediate feedback and does not bypass server-side revalidation.
 - New public-schema tables require explicit grants as well as RLS.
 - Do not use `races.is_live` as the Racebook publication source of truth. Use `racebook_is_live`; approval provenance is `racebook_publication_approved_at` / `racebook_publication_approved_by`.
+- Roadbook preview uploads use temporary private Storage and may be 25 MB each; they do not establish publication readiness or approval.
 
 ## Related Docs
 

@@ -143,13 +143,15 @@ const compareFindingWithFormats = (
   };
 };
 
-export function validateOrganizerDocument(file: File): string | null {
+type OrganizerDocumentFile = Pick<File, "name" | "size" | "type" | "arrayBuffer">;
+
+export function validateOrganizerDocument(file: OrganizerDocumentFile): string | null {
   if (!SUPPORTED_MEDIA_TYPES.has(file.type)) return "Type de document non pris en charge.";
   if (file.size > ORGANIZER_DOCUMENT_MAX_BYTES) return "Le document dépasse la limite de 25 Mo.";
   return null;
 }
 
-export async function extractOrganizerDocument(file: File, sourceId: string): Promise<OrganizerDocumentSource> {
+export async function extractOrganizerDocument(file: OrganizerDocumentFile, sourceId: string): Promise<OrganizerDocumentSource> {
   const base = {
     sourceId,
     fileName: file.name,
