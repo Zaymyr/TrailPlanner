@@ -16,8 +16,9 @@ const request = () => new NextRequest("http://localhost/api/organizer/publicatio
 describe("/api/organizer/publication-requests POST", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
-    publicationMocks.validate.mockResolvedValue({ ok: true, publishableRaceCount: 2 });
+    publicationMocks.validate.mockResolvedValue({ ok: true, publishableRaceCount: 1, raceId });
   });
+
   afterEach(() => {
     vi.restoreAllMocks();
   });

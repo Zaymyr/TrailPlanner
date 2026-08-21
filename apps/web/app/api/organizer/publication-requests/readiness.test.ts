@@ -50,7 +50,11 @@ describe("organizer publication readiness", () => {
         "11111111-1111-1111-1111-111111111111",
         "44444444-4444-4444-4444-444444444444"
       )
-    ).resolves.toEqual({ ok: true, publishableRaceCount: 1 });
+    ).resolves.toEqual({
+      ok: true,
+      publishableRaceCount: 1,
+      raceId: "44444444-4444-4444-4444-444444444444",
+    });
   });
 
   it("rejects only when the requested format itself is incomplete", async () => {

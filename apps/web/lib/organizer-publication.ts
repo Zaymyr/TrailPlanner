@@ -27,7 +27,7 @@ const publicationEventSchema = z.object({
 });
 
 export type PublicationReadiness =
-  | { ok: true; publishableRaceCount: number }
+  | { ok: true; publishableRaceCount: number; raceId: string }
   | { ok: false; message: string; status: number };
 
 export async function validateOrganizerEventPublication(
@@ -66,5 +66,5 @@ export async function validateOrganizerEventPublication(
     return { ok: false, message: "Complète le nom, la distance et le D+ de ce format avant de demander sa publication.", status: 409 };
   }
 
-  return { ok: true, publishableRaceCount: 1 };
+  return { ok: true, publishableRaceCount: 1, raceId: requestedRace.id };
 }
