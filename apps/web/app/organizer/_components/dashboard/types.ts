@@ -265,9 +265,9 @@ export type WebsiteImportPreview = {
             evidence: string;
           }>;
           comparison: {
-            status: "concordant" | "conflict" | "unverified";
+            status: "concordant" | "conflict" | "unverified" | "fill-missing" | "same";
             comparedValue: string | null;
-            comparedSource: "website" | "gpx" | null;
+            comparedSource: "current-data" | "website" | "gpx" | null;
           };
     }>;
   }>;

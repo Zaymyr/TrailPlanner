@@ -18,7 +18,7 @@ describe("organizer document import", () => {
   it("rejects unsupported media types and oversized files", () => {
     expect(validateOrganizerDocument(new File(["text"], "roadbook.txt", { type: "text/plain" }))).toBe("Type de document non pris en charge.");
     const oversized = new File([new Uint8Array(ORGANIZER_DOCUMENT_MAX_BYTES + 1)], "large.pdf", { type: "application/pdf" });
-    expect(validateOrganizerDocument(oversized)).toBe("Le document dépasse la limite de 15 Mo.");
+    expect(validateOrganizerDocument(oversized)).toBe("Le document dépasse la limite de 25 Mo.");
   });
 
   it("keeps images pending until an OCR provider is configured", async () => {
@@ -68,6 +68,19 @@ describe("organizer document import", () => {
     expect(reconciled[0]?.comparison.status).toBe("concordant");
     expect(reconciled[1]?.comparison.status).toBe("conflict");
     expect(reconciled[1]?.comparison.comparedValue).toBe("2500 m");
+  });
+
+  it("distinguishes missing, same and different existing text values", () => {
+    const findings = attachDocumentFindingsToFormats(
+      extractOrganizerDocumentFindings("X-Trail 81 km - départ à 4h00\nX-Trail 81 km - dossards vendredi 16h"),
+      ["X-Trail 81 km"]
+    );
+    const reconciled = reconcileOrganizerDocumentFindings(findings, [
+      { name: "X-Trail 81 km", distanceKm: 81, elevationGainM: 3000, elevationLossM: null, startTime: null, bibPickup: "vendredi 16h", cutoff: null },
+    ]);
+
+    expect(reconciled.find((finding) => finding.field === "startTime")?.comparison.status).toBe("fill-missing");
+    expect(reconciled.find((finding) => finding.field === "bibPickup")?.comparison.status).toBe("same");
   });
 
   it("can compare a document with a format detected by the website in the same import", () => {
