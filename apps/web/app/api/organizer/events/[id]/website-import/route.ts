@@ -23,6 +23,7 @@ import {
 import {
   organizerEventDetailsSchema,
   parseOrganizerEventDetails,
+  parseOrganizerRaceDetails,
 } from "../../../../../../lib/organizer-dashboard-details";
 import {
   extractOrganizerDocument,
@@ -41,7 +42,7 @@ const MIN_ACTIONABLE_WEBSITE_IMPORT_SCORE = 70;
 
 const previewRequestSchema = z.object({
   action: z.literal("preview"),
-  url: z.string().trim().url(),
+  url: z.string().trim().url().optional().default(""),
   formatUrls: z.array(z.string().trim().url()).max(12).default([]),
   documentNames: z.array(z.string().trim().min(1)).max(8).default([]),
 });
@@ -93,6 +94,22 @@ const applyRequestSchema = z.object({
   raceSelections: z.array(raceSelectionSchema).default([]),
 });
 
+const emptyWebsitePreview = (): OrganizerWebsiteImportPreview => ({
+  source: { provider: "generic", url: "", label: "Documents fournis" },
+  event: {
+    name: null,
+    location: null,
+    raceDate: null,
+    officialWebsiteUrl: null,
+    thumbnailUrl: null,
+    logistics: { mandatoryEquipment: [], shuttles: null, startAddress: null, officialParkings: null },
+  },
+  races: [],
+  missingFields: [],
+  warnings: [],
+  canApply: false,
+});
+
 const eventContextSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
@@ -122,6 +139,7 @@ const eventContextSchema = z.object({
         location_text: z.string().nullable().optional(),
         thumbnail_url: z.string().nullable().optional(),
         gpx_storage_path: z.string().nullable().optional(),
+        organizer_details: z.unknown().nullable().optional(),
         is_live: z.boolean(),
       })
     )
@@ -595,7 +613,9 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   if (!event) return jsonError("Unable to load event.", 502);
 
   try {
-    const preview = await buildOrganizerWebsiteImportPreview(parsedBody.data.url, { formatUrls: parsedBody.data.formatUrls });
+    const preview = parsedBody.data.url
+      ? await buildOrganizerWebsiteImportPreview(parsedBody.data.url, { formatUrls: parsedBody.data.formatUrls })
+      : emptyWebsitePreview();
     const previewHash = computeOrganizerWebsiteImportPreviewHash(preview);
     const augmentedPreview = buildAugmentedPreview(preview, event);
 
@@ -606,6 +626,9 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
           distanceKm: race.distance_km,
           elevationGainM: race.elevation_gain_m,
           elevationLossM: race.elevation_loss_m ?? null,
+          startTime: parseOrganizerRaceDetails(race.organizer_details).schedule.startTime,
+          bibPickup: parseOrganizerRaceDetails(race.organizer_details).bibPickup.locations.map((location) => location.location ?? "").join(" ") || parseOrganizerRaceDetails(race.organizer_details).bibPickup.schedule,
+          cutoff: parseOrganizerRaceDetails(race.organizer_details).schedule.finishCutoffTime,
         })),
         ...preview.races.map((race) => ({
           name: race.name,

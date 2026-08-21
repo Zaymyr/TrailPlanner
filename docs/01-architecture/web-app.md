@@ -168,7 +168,7 @@ The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser 
 
 ### Organizer Information Import
 
-The organizer dashboard action is named `Importer les informations`. Its source step accepts an optional main website URL, up to twelve format URLs, and up to eight PDF/image selections capped at 15 MB each. The current preview records document names as pending sources but does not extract document contents yet; PDF text extraction and OCR must be added server-side before document values can affect race data.
+The organizer dashboard action is named `Importer les informations`. Its source step accepts an optional main website URL, up to twelve format URLs, and up to eight PDF/image selections capped at 25 MB each. A document-only preview is valid when no website URL is provided. PDF text extraction produces review observations that are compared with current format data as missing, same, or conflicting; OCR for images and scanned PDFs remains pending, and no document value is written without organizer confirmation. A missing field is proposed for completion, an equal value is marked as already matching, and a different value requires an explicit overwrite decision.
 
 ### Authentication and Session
 

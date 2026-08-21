@@ -1350,8 +1350,8 @@ export function OrganizerDashboard({
     if (!selectedEventId || !accessToken) return;
     const url = (urlOverride ?? websiteImportUrl).trim();
     const formatUrls = websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean);
-    if (!url) {
-      setWebsiteImportError("Ajoute l'URL principale du site avant de lancer l'analyse. Les documents seront traités dans l'étape documentaire suivante.");
+    if (!url && formatUrls.length === 0 && websiteImportDocuments.length === 0) {
+      setWebsiteImportError("Ajoute un site, une URL de format ou un document avant de lancer l'analyse.");
       return;
     }
 
@@ -1977,7 +1977,7 @@ export function OrganizerDashboard({
             <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
               <div>
                 <p className="text-sm font-medium text-foreground">Documents du roadbook</p>
-                <p className="text-xs text-muted-foreground">Prépare des PDF ou images pour la prochaine étape d’analyse documentaire.</p>
+                <p className="text-xs text-muted-foreground">PDF ou images, 25 Mo maximum par document.</p>
               </div>
               <input
                 id="organizer-website-import-documents"
@@ -1987,9 +1987,9 @@ export function OrganizerDashboard({
                 className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
                 onChange={(event) => {
                   const files = Array.from(event.target.files ?? []);
-                  const invalidFile = files.find((file) => file.size > 15 * 1024 * 1024);
+                  const invalidFile = files.find((file) => file.size > 25 * 1024 * 1024);
                   if (invalidFile) {
-                    setWebsiteImportError(`Le document ${invalidFile.name} dépasse la limite de 15 Mo.`);
+                    setWebsiteImportError(`Le document ${invalidFile.name} dépasse la limite de 25 Mo.`);
                     return;
                   }
                   if (files.length > 8) {
@@ -2032,7 +2032,14 @@ export function OrganizerDashboard({
                             </p>
                             {finding.comparison.status !== "unverified" ? (
                               <p className={finding.comparison.status === "conflict" ? "text-red-700" : "text-emerald-700"}>
-                                {finding.comparison.status === "conflict" ? "Conflit" : "Concordant"} avec le site : {finding.comparison.comparedValue}
+                                  {finding.comparison.status === "conflict"
+                                  ? "Différente, validation requise"
+                                  : finding.comparison.status === "fill-missing"
+                                    ? "Champ non renseigné, proposition disponible"
+                                    : finding.comparison.status === "same"
+                                      ? "Identique à la valeur actuelle"
+                                      : "Concordante"}
+                                {finding.comparison.comparedValue ? ` : ${finding.comparison.comparedValue}` : ""}
                               </p>
                             ) : null}
                             {finding.alternatives.length > 0 ? (

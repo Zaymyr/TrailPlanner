@@ -1,6 +1,6 @@
 import pdfParse from "pdf-parse";
 
-export const ORGANIZER_DOCUMENT_MAX_BYTES = 15 * 1024 * 1024;
+export const ORGANIZER_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024;
 export const ORGANIZER_DOCUMENT_MAX_COUNT = 8;
 
 export type OrganizerDocumentSource = {
@@ -30,9 +30,9 @@ export type OrganizerReconciledFinding = OrganizerDocumentFinding & {
 };
 
 export type OrganizerFindingComparison = {
-  status: "concordant" | "conflict" | "unverified";
+  status: "concordant" | "conflict" | "unverified" | "fill-missing" | "same";
   comparedValue: string | null;
-  comparedSource: "website" | "gpx" | null;
+  comparedSource: "current-data" | "website" | "gpx" | null;
 };
 
 const SUPPORTED_MEDIA_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
@@ -79,7 +79,15 @@ export const attachDocumentFindingsToFormats = (findings: OrganizerDocumentFindi
   });
 export const reconcileOrganizerDocumentFindings = (
   findings: OrganizerDocumentFinding[],
-  formats: Array<{ name: string; distanceKm: number | null; elevationGainM: number | null; elevationLossM: number | null }> = []
+  formats: Array<{
+    name: string;
+    distanceKm: number | null;
+    elevationGainM: number | null;
+    elevationLossM: number | null;
+    startTime?: string | null;
+    bibPickup?: string | null;
+    cutoff?: string | null;
+  }> = []
 ): OrganizerReconciledFinding[] => {
   const groups = new Map<string, OrganizerDocumentFinding[]>();
   findings.forEach((finding) => {
@@ -103,25 +111,41 @@ const extractMetricNumber = (field: OrganizerDocumentFinding["field"], value: st
 
 const compareFindingWithFormats = (
   finding: OrganizerDocumentFinding,
-  formats: Array<{ name: string; distanceKm: number | null; elevationGainM: number | null; elevationLossM: number | null }>
+  formats: Array<{
+    name: string;
+    distanceKm: number | null;
+    elevationGainM: number | null;
+    elevationLossM: number | null;
+    startTime?: string | null;
+    bibPickup?: string | null;
+    cutoff?: string | null;
+  }>
 ): OrganizerFindingComparison => {
   const format = formats.find((candidate) => candidate.name === finding.formatHint);
   if (!format) return { status: "unverified", comparedValue: null, comparedSource: null };
   const documentValue = extractMetricNumber(finding.field, finding.value);
   const referenceValue =
     finding.field === "distanceKm" ? format.distanceKm : finding.field === "elevationGainM" ? format.elevationGainM : finding.field === "elevationLossM" ? format.elevationLossM : null;
+  const textReference = finding.field === "startTime" ? format.startTime : finding.field === "bibPickup" ? format.bibPickup : finding.field === "cutoff" ? format.cutoff : null;
+  if (textReference !== null && textReference !== undefined) {
+    const same = finding.value.toLocaleLowerCase("fr-FR").includes(textReference.toLocaleLowerCase("fr-FR"));
+    return { status: same ? "same" : "conflict", comparedValue: textReference, comparedSource: "current-data" };
+  }
+  if (finding.field === "startTime" || finding.field === "bibPickup" || finding.field === "cutoff") {
+    return { status: "fill-missing", comparedValue: null, comparedSource: null };
+  }
   if (documentValue === null || referenceValue === null) return { status: "unverified", comparedValue: null, comparedSource: null };
   const tolerance = finding.field === "distanceKm" ? 1 : 25;
   return {
     status: Math.abs(documentValue - referenceValue) <= tolerance ? "concordant" : "conflict",
     comparedValue: `${referenceValue}${finding.field === "distanceKm" ? " km" : " m"}`,
-    comparedSource: format.distanceKm === referenceValue && finding.field === "distanceKm" ? "website" : "website",
+    comparedSource: "current-data",
   };
 };
 
 export function validateOrganizerDocument(file: File): string | null {
   if (!SUPPORTED_MEDIA_TYPES.has(file.type)) return "Type de document non pris en charge.";
-  if (file.size > ORGANIZER_DOCUMENT_MAX_BYTES) return "Le document dépasse la limite de 15 Mo.";
+  if (file.size > ORGANIZER_DOCUMENT_MAX_BYTES) return "Le document dépasse la limite de 25 Mo.";
   return null;
 }
 

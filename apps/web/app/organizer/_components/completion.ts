@@ -165,6 +165,7 @@ const buildFormatProgressModules = (
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, race.organizerDetails);
   const equipmentItems = runnerDetails.equipment.items;
   const access = runnerDetails.access;
+  const bibPickup = runnerDetails.bibPickup;
 
   return [
     {
@@ -182,6 +183,25 @@ const buildFormatProgressModules = (
       level: "recommended",
       status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
       countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
+    },
+    {
+      id: "bibPickup",
+      title: "Dossard",
+      description: "Retrait et documents utilisés par ce format.",
+      level: "recommended",
+      status: statusFrom(
+        filledCount([
+          bibPickup.location,
+          bibPickup.schedule,
+          bibPickup.requiredDocuments,
+          bibPickup.thirdPartyPickupAllowed,
+          bibPickup.equipmentCheck,
+          bibPickup.note,
+        ]),
+        6,
+        2
+      ),
+      countLabel: bibPickup.overrideEnabled ? "Spécifique" : "Hérité de l'événement",
     },
     {
       id: "access",

@@ -79,7 +79,7 @@ describe("organizer completion", () => {
 
     expect(completion.modules.find((module) => module.id === "aidStations")?.countLabel).toContain("1 produit");
     expect(completion.formatModules.some((module) => module.id === "products")).toBe(false);
-    expect(completion.formatModules.some((module) => module.id === "bibPickup")).toBe(false);
+    expect(completion.formatModules.find((module) => module.id === "bibPickup")?.title).toBe("Dossard");
   });
 
   it("reports missing labels for event and format identity modules", () => {
@@ -200,10 +200,10 @@ describe("organizer completion", () => {
     );
 
     expect(completion.raceProgress).toEqual([
-      { id: "race-1", editionGroupId: "series-42k", seriesName: "42K", name: "42K", score: 25 },
-      { id: "race-2", editionGroupId: "series-25k", seriesName: "25K", name: "25K", score: 25 },
+      { id: "race-1", editionGroupId: "series-42k", seriesName: "42K", name: "42K", score: 20 },
+      { id: "race-2", editionGroupId: "series-25k", seriesName: "25K", name: "25K", score: 20 },
     ]);
-    expect(completion.raceProgressScore).toBe(25);
+    expect(completion.raceProgressScore).toBe(20);
   });
 
   it("does not change completion percentages when publication toggles change", () => {
@@ -247,8 +247,8 @@ describe("organizer completion", () => {
 
     expect(firstSelected.raceProgress).toEqual(secondSelected.raceProgress);
     expect(firstSelected.raceProgressScore).toBe(secondSelected.raceProgressScore);
-    expect(firstSelected.raceProgress[0]?.score).toBe(50);
-    expect(firstSelected.raceProgress[1]?.score).toBe(25);
+    expect(firstSelected.raceProgress[0]?.score).toBe(40);
+    expect(firstSelected.raceProgress[1]?.score).toBe(20);
   });
 
   it("marks re-enabled empty access sections as incomplete", () => {
