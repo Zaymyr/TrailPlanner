@@ -33,6 +33,8 @@ import {
   validateOrganizerDocument,
 } from "../../../../../../lib/organizer-document-import";
 
+export const runtime = "nodejs";
+
 const raceSelectionSchema = z.object({
   previewRaceKey: z.string().trim().min(1),
   mode: z.enum(["create", "update", "ignore"]),
@@ -613,9 +615,17 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   if (!event) return jsonError("Unable to load event.", 502);
 
   try {
-    const preview = parsedBody.data.url
-      ? await buildOrganizerWebsiteImportPreview(parsedBody.data.url, { formatUrls: parsedBody.data.formatUrls })
-      : emptyWebsitePreview();
+    let preview = emptyWebsitePreview();
+    let websiteImportWarning: string | null = null;
+    if (parsedBody.data.url) {
+      try {
+        preview = await buildOrganizerWebsiteImportPreview(parsedBody.data.url, { formatUrls: parsedBody.data.formatUrls });
+      } catch (websiteError) {
+        if (previewRequest.documents.length === 0) throw websiteError;
+        console.error("Unable to preview organizer website import; continuing with supplied documents", websiteError);
+        websiteImportWarning = "Le site n'a pas pu être analysé, mais les documents fournis restent disponibles pour la vérification.";
+      }
+    }
     const previewHash = computeOrganizerWebsiteImportPreviewHash(preview);
     const augmentedPreview = buildAugmentedPreview(preview, event);
 
@@ -654,7 +664,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
         NextResponse.json({
           preview: {
             ...augmentedPreview,
-            warnings: [...augmentedPreview.warnings, ...documentWarnings],
+            warnings: [...augmentedPreview.warnings, ...(websiteImportWarning ? [websiteImportWarning] : []), ...documentWarnings],
             documents: documents.map(({ text: _text, ...document }) => document),
             previewHash,
           },
