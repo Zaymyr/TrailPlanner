@@ -144,7 +144,7 @@ describe("/api/organizer/events/[id]", () => {
     expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
       organizer_details: {
         officialWebsiteUrl: "https://grand-trail.example",
-        emergencyContact: { name: "PC course", phone: "06 12 34 56 78" },
+        emergencyContact: { name: "PC course", phone: "+33 6 12 34 56 78" },
         mandatoryEquipment: {
           weatherPlan: "heat",
           items: [{ label: "Casquette", required: false, cold: false, heat: true }],

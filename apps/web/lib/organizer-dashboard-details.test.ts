@@ -16,7 +16,21 @@ describe("parseOrganizerEventDetails", () => {
     });
 
     expect(details.officialWebsiteUrl).toBe("https://grand-trail.example");
-    expect(details.emergencyContact).toEqual({ name: "PC course", phone: "06 12 34 56 78" });
+    expect(details.emergencyContact).toEqual({ name: "PC course", phone: "+33 6 12 34 56 78" });
+  });
+
+  it("normalizes French international emergency numbers", () => {
+    const details = parseOrganizerEventDetails({
+      emergencyContact: { name: null, phone: "0033 (0)6.12.34.56.78" },
+    });
+
+    expect(details.emergencyContact.phone).toBe("+33 6 12 34 56 78");
+  });
+
+  it("keeps short emergency numbers intact", () => {
+    const details = parseOrganizerEventDetails({ emergencyContact: { phone: "112" } });
+
+    expect(details.emergencyContact.phone).toBe("112");
   });
 });
 

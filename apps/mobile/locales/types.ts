@@ -590,7 +590,9 @@ export type MobileTranslations = {
     racebookSectionAdditionalInfo: string;
     racebookLastMinuteTitle: string;
     racebookOfficialWebsite: string;
+    racebookOfficialWebsiteShort: string;
     racebookEmergencyContact: string;
+    racebookEmergencyShort: string;
     racebookCallEmergency: string;
     racebookFieldStartTime: string;
     racebookFieldFormatDate: string;
