@@ -23,6 +23,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/lib/organizer-website-import.ts
+  - apps/web/lib/organizer-import-engine.ts
   - apps/web/lib/organizer-import-proposals.ts
   - apps/web/app/organizer/_components/dashboard/helpers.ts
   - apps/web/app/organizer/_components/dashboard/helpers.test.ts
@@ -153,8 +154,11 @@ Creating an empty yearly edition from the organizer dialog does not create or co
 
 For an existing format, a successful replacement also copies the exact returned parser values back into the active distance, D+, and D- form fields before and after the event refresh. The refresh keeps the format's edition year selected, so a stable race id does not leave the client form showing stale pre-import metrics while the `races` row already contains the new values.
 
-The organizer website-import review distinguishes a genuinely importable GPX from provider-backed metrics that have no recoverable file. Each distance-first format card displays `GPX récupéré` only when the preview assessment contains GPX content; otherwise it displays `GPX manquant` and asks for manual upload. Found distance/D+/D- remain visible with their sources, but they must not imply that a route file will be stored.
-The preview hash includes the SHA-256 digest of each recoverable GPX payload, not only its URL or parsed metrics. Apply can therefore accept a GPX only through its selected proposal in the signed preview snapshot. Existing GPX files remain untouched unless that exact field proposal is selected.
+The organizer information-import review distinguishes a genuinely importable GPX from provider-backed metrics that have no recoverable file. Distance/D+/D- and GPX availability become separate source claims. A GPX can corroborate or supply metrics only after its format identity is unambiguous; distance proximity by itself must not attach an anonymous trace to a named candidate. A confirmed format may remain an incomplete draft without any GPX.
+
+Uploading a GPX later through Organizer clears the imported draft's `distance_km` and `elevation_gain_m` missing markers because those metrics come from the parsed geometry. If no required marker remains, the course becomes complete and catalog-live; its Racebook remains hidden until the independent publication approval flow.
+
+The preview hash includes the SHA-256 digest of each recoverable GPX payload, not only its URL or parsed metrics. Apply can therefore accept a GPX only through its selected claim/proposal in the reviewed snapshot. Existing GPX files remain untouched unless that exact field is selected.
 
 The organizer-side runner preview has been removed, but the GPX map and elevation profile remain inside the always-expanded `Course` editor because they validate the uploaded source file and drive ravito interpolation.
 
@@ -173,7 +177,8 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
 - Keep `GPX récupéré` tied to importable GPX content, not only to reliable provider metrics; some adapters can know distance/elevation without returning a file.
-- The organizer roadbook preview is not a GPX upload. Its PDF/image selection permits up to 25 MB per file through temporary private Storage, then deletes each object after analysis; larger route files continue to use the dedicated GPX route.
+- Never merge a distance-only GPX detection into a named format automatically. Preserve it as a separate candidate until identity is confirmed.
+- The organizer roadbook workflow is not a GPX upload. Its PDF/image selection permits up to 25 MB per file through temporary private Storage; apply, cancel, or expiry cleanup deletes each object. Larger route files continue to use the dedicated GPX route.
 - The roadbook preview and its LLM reconciliation are admin-only and do not change GPX ownership or bypass the dedicated organizer GPX route.
 - The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.

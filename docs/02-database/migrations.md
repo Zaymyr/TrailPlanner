@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -15,12 +15,15 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
 related_tables:
   - race_plans
   - plan_share_links
   - races
+  - organizer_import_sessions
   - race_events
   - race_event_claims
   - race_event_organizers
@@ -201,6 +204,16 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 `supabase/migrations/20260821143417_add_organizer_imports_bucket.sql` adds the private `organizer-imports` bucket with a 25 MB PDF/JPEG/PNG/WebP limit. Authenticated users may insert and delete only objects whose first path segment matches their own auth user id. The organizer website-import route uses service-role access to read and delete these temporary objects after analysis; no document is persisted as race-event data.
 
+`supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql` implements the database boundary for two-pass Organizer imports:
+
+- adds `races.data_status` and `missing_required_fields`, defaulting existing rows to complete;
+- enforces hidden incomplete drafts and explicit zero/null sentinels for required unknowns;
+- creates service-only `organizer_import_sessions` with a two-hour default expiry and event/edition scope validation;
+- adds invoker-security, service-role-only RPCs for atomic format confirmation and allowlisted field application, including optional explicit aid-station replacement;
+- configures an hourly Vault-authenticated pg_cron GET to the web cleanup route when `web_app_url` and `cron_secret` exist.
+
+The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privileges, RLS, strict payload rejection, draft creation, explicit station replacement, and the draft-to-live-course transition.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -225,11 +238,13 @@ Push support comes from:
 
 The later cron auth migration should be treated as the effective schedule/auth implementation.
 
+Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at minute 17 of each hour. Unlike data-only purges, it calls `/api/cron/organizer-import-cleanup` so the route can remove private Storage objects before deleting expired session rows.
+
 ## Adding a Migration
 
 1. Read the relevant table doc under `docs/02-database/tables`.
 2. Read current migrations that last touched the table.
-3. Create a timestamped SQL file in `supabase/migrations`.
+3. Run `npx supabase migration new <descriptive-name>` to create the timestamped SQL file; do not invent the filename manually.
 4. Write idempotent DDL where possible with `if exists` / `if not exists`.
 5. Add or update RLS in the same migration when adding a user-facing table.
 6. Add comments or tests for SECURITY DEFINER functions.
@@ -255,6 +270,7 @@ The later cron auth migration should be treated as the effective schedule/auth i
 - Public crew tracking state belongs beside the share snapshot, not in the private plan JSON. Keep it bounded and route-mediated.
 - Column-only onboarding markers on `user_profiles` must keep owner-scoped writes and must not use a fabricated profile preference as a completion signal.
 - Temporary organizer roadbooks belong only in `organizer-imports`, never in `race-gpx` or public image buckets. Keep owner-folder checks on browser upload/delete policies and service-route cleanup in a `finally` block.
+- Do not replace the Organizer cleanup HTTP job with a direct SQL row purge: deleting the manifest first can orphan temporary Storage objects.
 
 ## Related Docs
 

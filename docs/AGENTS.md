@@ -91,7 +91,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Public race pages / SEO selections | `docs/03-business-rules/public-race-discovery.md` + `docs/02-database/tables/race-events.md` + `docs/01-architecture/web-app.md` |
 | Race favorites / organizer runner notifications | `docs/02-database/tables/user-favorite-race-events.md` + `docs/02-database/tables/race-event-updates.md` + `docs/02-database/tables/race-event-update-reads.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
-| Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` |
+| Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/organizer-import-sessions.md` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |
 | Design system changes | `docs/07-design-system/` |
 | New feature shipping | `docs/06-workflows/ship-a-feature.md` |

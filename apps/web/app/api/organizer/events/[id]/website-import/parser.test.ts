@@ -187,7 +187,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     expect(preview.races[0].distanceKm).toBe(30.4);
   });
 
-  it("merges a rounded distance-only GPX detection into its named format", async () => {
+  it("does not merge an anonymous GPX detection into a named format from distance alone", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
       if (url === "https://distance.example/") {
@@ -207,11 +207,11 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       formatUrls: ["https://distance.example/grand-trail", "https://distance.example/parcours-gpx"],
     });
 
-    expect(preview.races).toHaveLength(1);
-    expect(preview.races[0]).toMatchObject({
-      name: "Grand Trail des Tours",
-      hasReliableGpx: true,
-    });
+    expect(preview.races).toHaveLength(2);
+    expect(preview.races).toEqual(expect.arrayContaining([
+      expect.objectContaining({ name: "Grand Trail des Tours", hasReliableGpx: false }),
+      expect.objectContaining({ name: "56.6 km" }),
+    ]));
   });
 
   it("keeps nearby formats separate when their distinctive names are incompatible", async () => {
@@ -386,7 +386,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       formatUrls: ["https://scores.example/formats"],
     });
 
-    expect(preview.races.map((race) => race.name)).toEqual(["La Grande Traversée", "10 km"]);
+    expect(preview.races.map((race) => race.name)).toEqual(["La Grande Traversée", "10 km", "10 km"]);
     expect(preview.races[0].assessment?.score).toBeGreaterThan(preview.races[1].assessment?.score ?? 0);
   });
 

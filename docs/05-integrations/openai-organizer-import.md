@@ -5,12 +5,16 @@ last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-import-reconciliation.ts
+  - apps/web/lib/organizer-import-engine.ts
+  - apps/web/lib/organizer-import-engine.test.ts
+  - apps/web/lib/organizer-document-import.ts
   - apps/web/lib/organizer-import-proposals.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/events/[id]/website-import/reconciliation.test.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/app/organizer/_components/dashboard/types.ts
   - apps/web/app/organizer/_components/dashboard/website-import-review-details.tsx
+  - apps/web/app/organizer/_components/dashboard/website-import-review-details.test.ts
 related_tables:
   - race_events
   - races
@@ -24,19 +28,20 @@ This integration lets a trusted admin reconcile website, roadbook, and existing 
 
 ## Key Concepts
 
-- Reconciliation: semantic comparison of imported formats against existing formats.
-- Evidence: supplied source text or structured facts cited by the model for each decision.
-- Proposal: transient LLM output that never writes event or format data by itself.
+- Format candidate: evidence that one format exists, independently from the completeness of its fields.
+- Source claim: one typed field value with source, edition, URL or document page, verbatim evidence, confidence, and role (`candidate`, `current`, or historical `reference`).
+- Field resolution: the current claim and all alternatives for one event/format field, classified as resolved, conflicting, or missing.
+- LLM selection: a transient choice of an existing applicable `claimId`, or `uncertain`; it is never a new value.
 
 ## Flow
 
-`POST /api/organizer/events/[id]/website-import` is admin-only. For a preview, it first performs the existing deterministic website/PDF extraction, then sends the extracted event/formats, globally bounded roadbook text, and existing formats to OpenAI. Roadbook sampling preserves the beginning, middle, and end of long documents. Imported document text is explicitly treated as untrusted data, not as instructions. The model uses a strict Structured Outputs `json_schema` response and returns one `match`, `separate`, or `uncertain` decision per evaluated format, with typed field comparisons, rationale, and evidence.
+`POST /api/organizer/events/[id]/website-import` is admin-only and separates discovery from enrichment. Discovery first returns every credible format candidate, including incomplete ones. Completeness and the former quality score remain review signals only: they cannot erase a format whose existence has been confirmed. Candidate consolidation requires compatible normalized identity evidence; distance proximity by itself never merges two detections or selects an existing format.
 
-The server then performs semantic validation beyond JSON shape: every preview key must appear exactly once, a target cannot be reused, `match` requires a valid target, `separate` forbids one, typed field values must match their contract, and high confidence requires evidence. Only a valid high-confidence match may prefill an existing target format. Medium and low confidence decisions are displayed for review only.
+After the admin confirms the format count and bindings, deterministic extraction emits source claims for website, structured data, GPX, paginated roadbook findings, current Organizer values, and previous-edition reference values. Field grouping uses symmetric concordance tolerances of `max(0.5 km, 2%)` for distance and `max(100 m, 8%)` for D+/D-. A previous-edition claim is contextual only and cannot be selected automatically.
 
-The model never supplies a database write value. Deterministic extraction creates typed event/format proposals; LLM output may enrich their evidence and recommendation only. The preview returns a canonical proposal snapshot bound to the event and preview hash, signed server-side with HMAC and expiring after 30 minutes. Apply accepts only proposal ids selected by the admin from that signed snapshot, with at most one selected proposal per field. A create requires selected name, date, distance, and D+ proposals; an update requires an explicit target in the selected edition. Document-only review is supported by comparing PDF findings with synthetic preview cards for existing formats.
+OpenAI is called only for field resolutions containing incompatible applicable claims. The strict Structured Outputs schema contains no output value: every response must return exactly one decision per requested `resolutionId`, either `select` with a `selectedClaimId` already present in that resolution, or `uncertain` with no claim. Server-side semantic validation rejects missing/duplicate resolutions, invented claim ids, and attempts to select historical reference claims. Imported text remains wrapped as untrusted source data.
 
-The dashboard displays document findings, evidence, comparisons, alternatives, reconciliation status, and field-level checkboxes. Recommended choices are preselected but remain editable. A failed reconciliation exposes a sanitized provider reason while leaving the deterministic preview available. No client receives the OpenAI key or HMAC secret.
+The deterministic report remains usable if OpenAI is unavailable or abstains. It groups the event and each confirmed format separately, counts safe/review/conflict/missing fields, and keeps the current value beside every alternative, source, edition, document page, evidence, and confidence. An LLM choice is visibly recommended but remains unselected when claims conflict. Only a high-confidence, non-conflicting candidate that fills a missing current value is eligible for preselection. Confirmation may retain missing fields and create an incomplete draft format. No client receives the OpenAI key.
 
 ## Environment Variables
 
@@ -46,10 +51,11 @@ The dashboard displays document findings, evidence, comparisons, alternatives, r
 ## Gotchas
 
 - Do not let the LLM create, publish, or directly patch event/format rows.
-- Do not use a distance tolerance alone to merge distinctively named formats; anonymous or rounded compatible detections may still be consolidated conservatively.
-- Keep roadbook text bounded before sending it to the provider, and do not retain the temporary upload after analysis.
-- Treat an unavailable or invalid LLM response as a preview warning or failure, never as permission to invent a deterministic match.
-- Never apply raw client values from the review payload. Verify the canonical signed snapshot, expiry, preview hash, proposal scope, target edition, and selected ids first.
+- Do not use distance, including an exact or rounded match, as the only evidence for candidate consolidation or existing-format binding.
+- Keep roadbook text bounded before sending it to the provider. Retain the temporary upload only for the active two-pass session, then delete it on apply, cancel, or expiry cleanup.
+- Preserve document page numbers in claims when the PDF parser exposes them. Unscoped format findings remain observations until a confirmed format can be identified conservatively.
+- Treat an unavailable, invalid, or `uncertain` LLM response as a review state, never as permission to invent a choice.
+- Never apply raw client values from the review payload. Verify the event/edition/session-bound signed field snapshot, expiry, field scope, target format, and selected claim ids first.
 
 ## Related Docs
 

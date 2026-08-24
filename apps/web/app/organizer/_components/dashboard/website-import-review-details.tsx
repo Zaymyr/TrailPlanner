@@ -1,61 +1,14 @@
-import type { RaceFormat, WebsiteImportFieldProposal, WebsiteImportPreview, WebsiteImportProposalValue } from "./types";
-
-type ImportDocument = NonNullable<WebsiteImportPreview["documents"]>[number];
-type DocumentFinding = ImportDocument["findings"][number];
-type Reconciliation = NonNullable<WebsiteImportPreview["reconciliation"]>;
-type RaceMatch = Reconciliation["raceMatches"][number];
-
-const documentFieldLabels: Record<DocumentFinding["field"], string> = {
-  distanceKm: "Distance",
-  elevationGainM: "Dénivelé positif",
-  elevationLossM: "Dénivelé négatif",
-  startTime: "Heure de départ",
-  bibPickup: "Retrait des dossards",
-  cutoff: "Barrière horaire",
-  aidStations: "Ravitaillements",
-  mandatoryEquipment: "Matériel obligatoire",
-  emergencyContact: "Contact de secours",
-  liveTracking: "Suivi en direct",
-};
-
-const documentStatusLabels: Record<ImportDocument["status"], string> = {
-  extracted: "Texte extrait",
-  "ocr-pending": "OCR nécessaire",
-  rejected: "Non analysé",
-};
-
-const comparisonLabels: Record<DocumentFinding["comparison"]["status"], string> = {
-  concordant: "Concordant",
-  conflict: "Écart à vérifier",
-  unverified: "Non vérifié",
-  "fill-missing": "Champ à compléter",
-  same: "Valeur identique",
-};
-
-const comparisonSourceLabels: Record<NonNullable<DocumentFinding["comparison"]["comparedSource"]>, string> = {
-  "current-data": "donnée actuelle",
-  website: "site web",
-  gpx: "GPX",
-};
-
-const reconciliationStatusLabels: Record<Reconciliation["status"], string> = {
-  completed: "Analyse terminée",
-  unavailable: "Analyse indisponible",
-  failed: "Analyse échouée",
-};
-
-const reconciliationDecisionLabels: Record<RaceMatch["decision"], string> = {
-  match: "Format correspondant",
-  separate: "Format distinct",
-  uncertain: "Correspondance incertaine",
-};
-
-const reconciliationActionLabels: Record<RaceMatch["fieldChanges"][number]["action"], string> = {
-  add: "Ajouter",
-  replace: "Remplacer",
-  keep: "Conserver",
-  unknown: "À examiner",
-};
+import { Button } from "../../../../components/ui/button";
+import type {
+  RaceFormat,
+  WebsiteImportDiscoveryWorkflow,
+  WebsiteImportFieldReport,
+  WebsiteImportFieldSelection,
+  WebsiteImportFormatCandidate,
+  WebsiteImportFormatDecision,
+  WebsiteImportReviewWorkflow,
+  WebsiteImportValue,
+} from "./types";
 
 const confidenceLabels = {
   high: "Confiance élevée",
@@ -63,40 +16,12 @@ const confidenceLabels = {
   low: "Confiance faible",
 } as const;
 
-const scopeLabels: Record<DocumentFinding["scope"], string> = {
-  event: "Événement",
-  format: "Format",
-  "format-unknown": "Format à identifier",
-};
-
-const proposalSourceLabels: Record<WebsiteImportFieldProposal["sourceKind"], string> = {
-  gpx: "GPX",
-  "structured-data": "Données structurées",
-  html: "Site web",
-  pdf: "Document",
-  llm: "Analyse assistée",
-};
-
-const formatProposalValue = (value: WebsiteImportProposalValue) => {
-  if (value === null) return "Non renseigné";
-  if (Array.isArray(value)) {
-    if (value.length === 0) return "Liste vide";
-    return value
-      .map((item) =>
-        typeof item === "string"
-          ? item
-          : `${item.name} · ${item.distanceKm} km`
-      )
-      .join(" · ");
-  }
-  if (typeof value === "boolean") return value ? "Oui" : "Non";
-  return String(value);
-};
-
-const formatFileSize = (sizeBytes: number) => {
-  if (sizeBytes < 1024 * 1024) return `${Math.max(1, Math.round(sizeBytes / 1024))} Ko`;
-  return `${(sizeBytes / (1024 * 1024)).toFixed(1).replace(".", ",")} Mo`;
-};
+const statusLabels = {
+  safe: "Sûr",
+  review: "À vérifier",
+  conflict: "Conflit",
+  missing: "Manquant",
+} as const;
 
 const confidenceTone = (confidence: "high" | "medium" | "low") =>
   confidence === "high"
@@ -105,298 +30,481 @@ const confidenceTone = (confidence: "high" | "medium" | "low") =>
       ? "border-amber-200 bg-amber-50 text-amber-800"
       : "border-slate-200 bg-slate-50 text-slate-700";
 
-const comparisonTone = (status: DocumentFinding["comparison"]["status"]) =>
-  status === "conflict"
-    ? "border-red-200 bg-red-50 text-red-800"
-    : status === "fill-missing"
+const statusTone = (status: "safe" | "review" | "conflict" | "missing") =>
+  status === "safe"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+    : status === "review"
       ? "border-amber-200 bg-amber-50 text-amber-800"
-      : status === "same" || status === "concordant"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+      : status === "conflict"
+        ? "border-red-200 bg-red-50 text-red-800"
         : "border-slate-200 bg-slate-50 text-slate-700";
 
-function EvidenceList({ evidence }: { evidence: string[] }) {
-  if (evidence.length === 0) return null;
-  return (
-    <div className="space-y-1 border-l-2 border-border/70 pl-2 text-xs text-muted-foreground">
-      {evidence.map((item, index) => (
-        <p key={`${item}-${index}`} className="break-words">
-          {item}
-        </p>
-      ))}
-    </div>
-  );
-}
+const isMissingValue = (value: WebsiteImportValue) =>
+  value === null ||
+  (typeof value === "string" && value.trim().length === 0) ||
+  (Array.isArray(value) && value.length === 0);
 
-function DocumentFindingCard({ finding }: { finding: DocumentFinding }) {
-  const comparison = finding.comparison;
+export const formatWebsiteImportValue = (value: WebsiteImportValue) => {
+  if (isMissingValue(value)) return "Non renseigné";
+  if (typeof value === "boolean") return value ? "Oui" : "Non";
+  if (Array.isArray(value)) {
+    return value
+      .map((item) =>
+        typeof item === "string"
+          ? item
+          : typeof item.name === "string"
+            ? item.name
+            : JSON.stringify(item)
+      )
+      .join(" · ");
+  }
+  if (typeof value === "object") return JSON.stringify(value);
+  return String(value);
+};
+
+export const getWebsiteImportCandidateKey = (candidate: WebsiteImportFormatCandidate) =>
+  candidate.candidateKey;
+
+const normalizedName = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+export const buildInitialWebsiteImportFormatDecisions = (
+  candidates: WebsiteImportFormatCandidate[],
+  existingRaces: RaceFormat[]
+): WebsiteImportFormatDecision[] =>
+  candidates.flatMap((candidate, index) => {
+    const candidateKey = getWebsiteImportCandidateKey(candidate);
+    if (!candidateKey) return [];
+    const name = candidate.proposedName.trim() || candidate.names[0]?.trim() || `Format ${index + 1}`;
+    const exactTarget = existingRaces.find(
+      (race) => normalizedName(race.series_name || race.name) === normalizedName(name)
+    ) ?? existingRaces.find((race) => race.id === candidate.suggestedExistingRaceId);
+    return [{
+      groupId: `candidate-${candidateKey}`,
+      candidateKeys: [candidateKey],
+      mode: exactTarget ? "bind-existing" : "create",
+      targetRaceId: exactTarget?.id ?? null,
+      name,
+    }];
+  });
+
+const selectionKey = (scope: "event" | "format", raceId: string | null | undefined, field: string) =>
+  `${scope}:${raceId ?? "event"}:${field}`;
+
+export const buildInitialWebsiteImportFieldSelections = (
+  workflow: WebsiteImportReviewWorkflow
+): Record<string, WebsiteImportFieldSelection> => {
+  const reports = [workflow.eventReport, ...workflow.formatReports];
+  return Object.fromEntries(
+    reports.flatMap((report) =>
+      report.resolutions.map((resolution) => {
+        const recommended = resolution.claims.find(
+          (claim) => claim.id === resolution.recommendedClaimId && claim.confidence === "high"
+        );
+        const base = {
+          scope: report.scope,
+          ...(report.scope === "format" && report.raceId ? { raceId: report.raceId } : {}),
+          field: resolution.field,
+        } as const;
+        const selection: WebsiteImportFieldSelection =
+          resolution.status === "safe" && isMissingValue(resolution.currentValue) && recommended
+            ? { ...base, decision: "claim", claimId: recommended.id }
+            : isMissingValue(resolution.currentValue)
+              ? { ...base, decision: "missing" }
+              : { ...base, decision: "keep" };
+        return [selectionKey(report.scope, report.raceId, resolution.field), selection] as const;
+      })
+    )
+  );
+};
+
+const evidenceText = (evidence: WebsiteImportFormatCandidate["evidence"][number]) =>
+  evidence.evidence;
+
+const evidenceSource = (evidence: WebsiteImportFormatCandidate["evidence"][number]) => {
+  const label = evidence.label;
+  const page = evidence.page ? ` · page ${evidence.page}` : "";
+  const year = evidence.edition ? ` · édition ${evidence.edition}` : "";
+  return `${label}${page}${year}`;
+};
+
+export function WebsiteImportFormatDiscoveryReview({
+  workflow,
+  decisions,
+  existingRaces,
+  onChange,
+  onAddManual,
+  onMerge,
+  onSeparate,
+  onRemove,
+}: {
+  workflow: WebsiteImportDiscoveryWorkflow;
+  decisions: WebsiteImportFormatDecision[];
+  existingRaces: RaceFormat[];
+  onChange: (groupId: string, change: Partial<WebsiteImportFormatDecision>) => void;
+  onAddManual: () => void;
+  onMerge: (groupId: string, targetGroupId: string) => void;
+  onSeparate: (groupId: string, candidateKey: string) => void;
+  onRemove: (groupId: string) => void;
+}) {
+  const candidateByKey = new Map(
+    workflow.candidates.map((candidate) => [getWebsiteImportCandidateKey(candidate), candidate])
+  );
+  const confirmedCount = decisions.filter((decision) => decision.mode !== "ignore").length;
+  const createdCount = decisions.filter((decision) => decision.mode === "create").length;
+  const boundCount = decisions.filter((decision) => decision.mode === "bind-existing").length;
+  const ignoredCount = decisions.filter((decision) => decision.mode === "ignore").length;
+
   return (
-    <div className="space-y-2 rounded-md border border-border/60 bg-background p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-foreground">{documentFieldLabels[finding.field]}</p>
-          <p className="break-words text-sm text-muted-foreground">{finding.value}</p>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${confidenceTone(finding.confidence)}`}>
-            {confidenceLabels[finding.confidence]}
-          </span>
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${comparisonTone(comparison.status)}`}>
-            {comparisonLabels[comparison.status]}
-          </span>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">
-        {scopeLabels[finding.scope]}
-        {finding.formatHint ? ` · ${finding.formatHint}` : ""}
-      </p>
-      <div className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
-        <span className="font-medium text-foreground">Preuve :</span> {finding.evidence}
-      </div>
-      {comparison.comparedValue ? (
-        <p className="text-xs text-muted-foreground">
-          Comparé à {comparison.comparedSource ? comparisonSourceLabels[comparison.comparedSource] : "la donnée disponible"} :{" "}
-          <span className="font-medium text-foreground">{comparison.comparedValue}</span>
-        </p>
-      ) : null}
-      {finding.alternatives.length > 0 ? (
-        <details className="text-xs text-muted-foreground">
-          <summary className="cursor-pointer font-medium text-foreground">
-            {finding.alternatives.length} autre{finding.alternatives.length > 1 ? "s" : ""} lecture{finding.alternatives.length > 1 ? "s" : ""}
-          </summary>
-          <div className="mt-2 space-y-2 border-l-2 border-border/70 pl-2">
-            {finding.alternatives.map((alternative, index) => (
-              <div key={`${alternative.field}-${alternative.value}-${index}`}>
-                <p className="font-medium text-foreground">{documentFieldLabels[alternative.field]} : {alternative.value}</p>
-                <p>{alternative.evidence}</p>
-              </div>
-            ))}
+    <div className="space-y-4">
+      <div className="rounded-lg border border-primary/25 bg-primary/5 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-sm font-semibold text-foreground">Étape 1 sur 2 · Confirmer les formats</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              L’existence d’un format est évaluée séparément de la complétude de ses informations.
+            </p>
           </div>
-        </details>
-      ) : null}
-    </div>
-  );
-}
+          <div className="text-right">
+            <p className="text-2xl font-semibold text-primary">{confirmedCount}</p>
+            <p className="text-xs text-muted-foreground">format{confirmedCount > 1 ? "s" : ""} après validation</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <span className="rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-emerald-800">{createdCount} à créer</span>
+          <span className="rounded-full border border-sky-200 bg-sky-50 px-2.5 py-1 text-sky-800">{boundCount} existant{boundCount > 1 ? "s" : ""}</span>
+          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-slate-700">{ignoredCount} ignoré{ignoredCount > 1 ? "s" : ""}</span>
+        </div>
+      </div>
 
-function DocumentsReview({ documents }: { documents: ImportDocument[] }) {
-  if (documents.length === 0) return null;
-  const findingCount = documents.reduce((total, document) => total + document.findings.length, 0);
-  return (
-    <details className="rounded-md border border-border/60 bg-card px-3 py-2">
-      <summary className="cursor-pointer text-sm font-medium text-foreground">
-        Documents analysés ({documents.length}) · {findingCount} observation{findingCount > 1 ? "s" : ""}
-      </summary>
-      <div className="mt-3 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-muted-foreground">
-          Ces observations sont proposées pour la revue. Elles ne modifient aucune donnée automatiquement.
+          Corrige le nom, regroupe les doublons ou rattache une détection à un format existant.
         </p>
-        {documents.map((document) => (
-          <section key={document.sourceId} className="space-y-3 rounded-md border border-border/60 bg-muted/20 p-3">
+        <Button type="button" variant="outline" className="h-8 px-3 text-xs" onClick={onAddManual}>
+          Ajouter un format oublié
+        </Button>
+      </div>
+
+      {decisions.map((decision, decisionIndex) => {
+        const candidates = decision.candidateKeys
+          .map((candidateKey) => candidateByKey.get(candidateKey))
+          .filter((candidate): candidate is WebsiteImportFormatCandidate => Boolean(candidate));
+        const evidence = candidates.flatMap((candidate) => candidate.evidence);
+        const missingFields = Array.from(new Set(candidates.flatMap((candidate) => candidate.completeness.missingRequiredFields)));
+        const detectedEditions = Array.from(new Set(candidates.map((candidate) => candidate.edition.date ?? candidate.edition.year).filter(Boolean)));
+        const confidence = candidates.some((candidate) => candidate.existenceConfidence === "low")
+          ? "low"
+          : candidates.some((candidate) => candidate.existenceConfidence === "medium")
+            ? "medium"
+            : "high";
+
+        return (
+          <section key={decision.groupId} className="space-y-3 rounded-lg border border-border/70 bg-card p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
-              <div className="min-w-0">
-                <p className="break-words text-sm font-semibold text-foreground">{document.fileName}</p>
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary">Format final {decisionIndex + 1}</p>
                 <p className="text-xs text-muted-foreground">
-                  {formatFileSize(document.sizeBytes)}
-                  {document.pageCount ? ` · ${document.pageCount} page${document.pageCount > 1 ? "s" : ""}` : ""}
-                  {` · ${document.extractionMethod === "pdf-text" ? "extraction du texte" : "OCR en attente"}`}
+                  {decision.manual ? "Ajout manuel" : `${decision.candidateKeys.length} détection${decision.candidateKeys.length > 1 ? "s regroupées" : ""}`}
                 </p>
+                {detectedEditions.length > 0 ? (
+                  <p className="text-xs text-muted-foreground">Édition détectée : {detectedEditions.join(" · ")}</p>
+                ) : null}
               </div>
-              <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${document.status === "extracted" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-amber-200 bg-amber-50 text-amber-800"}`}>
-                {documentStatusLabels[document.status]}
-              </span>
+              {decision.manual ? (
+                <button type="button" className="text-xs font-medium text-red-700 hover:underline" onClick={() => onRemove(decision.groupId)}>
+                  Retirer cet ajout
+                </button>
+              ) : (
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${confidenceTone(confidence)}`}>
+                  Existence · {confidenceLabels[confidence].replace("Confiance ", "")}
+                </span>
+              )}
             </div>
-            {document.message ? <p className="text-xs text-muted-foreground">{document.message}</p> : null}
-            {document.findings.length > 0 ? (
-              <div className="grid gap-2 lg:grid-cols-2">
-                {document.findings.map((finding, index) => (
-                  <DocumentFindingCard key={`${finding.field}-${finding.value}-${index}`} finding={finding} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">Aucune observation exploitable dans ce document.</p>
-            )}
-          </section>
-        ))}
-      </div>
-    </details>
-  );
-}
 
-function MatchReview({ match, preview, existingRaces }: { match: RaceMatch; preview: WebsiteImportPreview; existingRaces: RaceFormat[] }) {
-  const importedRace = preview.races.find((race) => race.key === match.previewRaceKey);
-  const targetRace = existingRaces.find((race) => race.id === match.targetRaceId);
-  return (
-    <div className="space-y-3 rounded-md border border-border/60 bg-background p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-foreground">{importedRace?.name ?? match.previewRaceKey}</p>
-          <p className="text-xs text-muted-foreground">
-            Cible : {targetRace?.series_name ?? targetRace?.name ?? match.targetRaceId ?? "aucun format existant"}
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-1.5">
-          <span className="rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[11px] font-medium text-foreground">
-            {reconciliationDecisionLabels[match.decision]}
-          </span>
-          <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${confidenceTone(match.confidence)}`}>
-            {confidenceLabels[match.confidence]}
-          </span>
-        </div>
-      </div>
-      <p className="text-xs text-muted-foreground">{match.rationale}</p>
-      <EvidenceList evidence={match.evidence} />
-      {match.fieldChanges.length > 0 ? (
-        <details className="rounded-md border border-border/50 bg-muted/20 px-3 py-2">
-          <summary className="cursor-pointer text-xs font-medium text-foreground">
-            Comparaison champ par champ ({match.fieldChanges.length})
-          </summary>
-          <div className="mt-3 space-y-2">
-            {match.fieldChanges.map((change, index) => (
-              <div key={`${change.field}-${index}`} className="space-y-1.5 rounded-md border border-border/50 bg-card p-2.5 text-xs">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="font-medium text-foreground">{change.field}</p>
-                  <span className="rounded-full border border-border bg-background px-2 py-0.5 font-medium text-foreground">
-                    {reconciliationActionLabels[change.action]}
-                  </span>
-                </div>
-                <div className="grid gap-1 text-muted-foreground sm:grid-cols-2">
-                  <p>Import : <span className="font-medium text-foreground">{change.importedValue ?? "non renseigné"}</span></p>
-                  <p>Actuel : <span className="font-medium text-foreground">{change.currentValue ?? "non renseigné"}</span></p>
-                </div>
-                <p className="text-muted-foreground">{change.rationale}</p>
-                <EvidenceList evidence={change.evidence} />
+            <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_180px_minmax(0,1fr)]">
+              <label className="space-y-1 text-xs font-medium text-foreground">
+                Nom confirmé
+                <input
+                  type="text"
+                  maxLength={160}
+                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-normal text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  value={decision.name}
+                  onChange={(event) => onChange(decision.groupId, { name: event.target.value })}
+                />
+              </label>
+              <label className="space-y-1 text-xs font-medium text-foreground">
+                Décision
+                <select
+                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-normal text-foreground"
+                  value={decision.mode}
+                  onChange={(event) => {
+                    const mode = event.target.value as WebsiteImportFormatDecision["mode"];
+                    onChange(decision.groupId, {
+                      mode,
+                      targetRaceId: mode === "bind-existing" ? decision.targetRaceId : null,
+                    });
+                  }}
+                >
+                  <option value="create">Créer un brouillon</option>
+                  <option value="bind-existing">Rattacher à l’existant</option>
+                  {!decision.manual ? <option value="ignore">Ignorer</option> : null}
+                </select>
+              </label>
+              {decision.mode === "bind-existing" ? (
+                <label className="space-y-1 text-xs font-medium text-foreground">
+                  Format existant
+                  <select
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-normal text-foreground"
+                    value={decision.targetRaceId ?? ""}
+                    onChange={(event) => onChange(decision.groupId, { targetRaceId: event.target.value || null })}
+                  >
+                    <option value="">Choisir une cible</option>
+                    {existingRaces.map((race) => (
+                      <option key={race.id} value={race.id}>{race.series_name || race.name} · {race.race_date?.slice(0, 10) ?? "sans date"}</option>
+                    ))}
+                  </select>
+                </label>
+              ) : !decision.manual && decisions.length > 1 ? (
+                <label className="space-y-1 text-xs font-medium text-foreground">
+                  Regrouper avec
+                  <select
+                    className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm font-normal text-foreground"
+                    value=""
+                    onChange={(event) => event.target.value && onMerge(decision.groupId, event.target.value)}
+                  >
+                    <option value="">Aucun regroupement</option>
+                    {decisions
+                      .filter(
+                        (candidate) =>
+                          candidate.groupId !== decision.groupId &&
+                          candidate.mode !== "ignore" &&
+                          !candidate.manual
+                      )
+                      .map((candidate) => <option key={candidate.groupId} value={candidate.groupId}>{candidate.name}</option>)}
+                  </select>
+                </label>
+              ) : (
+                <div />
+              )}
+            </div>
+
+            {decision.candidateKeys.length > 1 ? (
+              <div className="flex flex-wrap gap-2">
+                {decision.candidateKeys.map((candidateKey) => {
+                  const candidate = candidateByKey.get(candidateKey);
+                  return (
+                    <button
+                      key={candidateKey}
+                      type="button"
+                      className="rounded-full border border-border bg-background px-2.5 py-1 text-xs text-foreground hover:border-primary"
+                      onClick={() => onSeparate(decision.groupId, candidateKey)}
+                    >
+                      {candidate?.names[0] ?? candidateKey} · séparer
+                    </button>
+                  );
+                })}
               </div>
-            ))}
-          </div>
-        </details>
-      ) : null}
+            ) : null}
+
+            {evidence.length > 0 ? (
+              <details className="rounded-md border border-border/60 bg-muted/20 px-3 py-2" open={confidence !== "high"}>
+                <summary className="cursor-pointer text-xs font-medium text-foreground">Preuves d’existence ({evidence.length})</summary>
+                <div className="mt-2 space-y-2">
+                  {evidence.map((item, index) => {
+                    const url = item.url;
+                    return (
+                      <div key={`${decision.groupId}-evidence-${index}`} className="border-l-2 border-border pl-2 text-xs text-muted-foreground">
+                        <p className="font-medium text-foreground">{evidenceSource(item)}</p>
+                        <p className="break-words">{evidenceText(item)}</p>
+                        {url ? <a href={url} target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">Ouvrir la source</a> : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              </details>
+            ) : null}
+
+            {missingFields.length > 0 && decision.mode !== "ignore" ? (
+              <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Format incomplet : {missingFields.join(", ")}. Il sera quand même créé comme brouillon masqué.
+              </p>
+            ) : null}
+          </section>
+        );
+      })}
     </div>
   );
 }
 
-function ReconciliationReview({ reconciliation, preview, existingRaces }: { reconciliation: Reconciliation; preview: WebsiteImportPreview; existingRaces: RaceFormat[] }) {
-  return (
-    <details className="rounded-md border border-border/60 bg-card px-3 py-2">
-      <summary className="cursor-pointer text-sm font-medium text-foreground">
-        Rapprochement assisté · {reconciliationStatusLabels[reconciliation.status]}
-      </summary>
-      <div className="mt-3 space-y-3">
-        <div className="rounded-md border border-border/60 bg-muted/20 p-3 text-xs text-muted-foreground">
-          <p className="font-medium text-foreground">{reconciliation.summary || reconciliation.message}</p>
-          {reconciliation.summary && reconciliation.message && reconciliation.summary !== reconciliation.message ? <p className="mt-1">{reconciliation.message}</p> : null}
-          {reconciliation.warnings.map((warning, index) => <p key={`${warning}-${index}`} className="mt-1 text-amber-800">{warning}</p>)}
-        </div>
-        {reconciliation.raceMatches.length > 0 ? (
-          <div className="space-y-2">
-            {reconciliation.raceMatches.map((match, index) => (
-              <MatchReview key={`${match.previewRaceKey}-${match.targetRaceId ?? "none"}-${index}`} match={match} preview={preview} existingRaces={existingRaces} />
-            ))}
-          </div>
-        ) : (
-          <p className="text-xs text-muted-foreground">Aucune proposition de rapprochement disponible.</p>
-        )}
-      </div>
-    </details>
-  );
-}
+const reportCounts = (report: WebsiteImportFieldReport) => ({
+  safe: report.resolutions.filter((item) => item.status === "safe").length,
+  review: report.resolutions.filter((item) => item.status === "review").length,
+  conflict: report.resolutions.filter((item) => item.status === "conflict").length,
+  missing: report.resolutions.filter((item) => item.status === "missing").length,
+});
 
-export function WebsiteImportProposalChoices({
-  preview,
-  scope,
-  previewRaceKey = null,
-  selectedProposalIds,
+function FieldReportReview({
+  report,
+  selections,
   onSelectionChange,
 }: {
-  preview: WebsiteImportPreview;
-  scope: "event" | "format";
-  previewRaceKey?: string | null;
-  selectedProposalIds: string[];
-  onSelectionChange: (proposalIds: string[]) => void;
+  report: WebsiteImportFieldReport;
+  selections: Record<string, WebsiteImportFieldSelection>;
+  onSelectionChange: (key: string, selection: WebsiteImportFieldSelection) => void;
 }) {
-  const proposals = preview.proposalSnapshot.proposals.filter(
-    (proposal) => proposal.scope === scope && (scope === "event" || proposal.previewRaceKey === previewRaceKey)
-  );
-  if (proposals.length === 0) return null;
-
+  const counts = reportCounts(report);
   return (
-    <details open className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
-      <summary className="cursor-pointer text-sm font-medium text-foreground">
-        Champs à intégrer ({selectedProposalIds.length}/{proposals.length})
-      </summary>
-      <div className="mt-2 space-y-2">
-        <p className="text-xs text-muted-foreground">
-          Coche la source à appliquer. Choisir une autre source pour le même champ remplace automatiquement la précédente.
-        </p>
-        {proposals.map((proposal) => {
-          const checked = selectedProposalIds.includes(proposal.id);
+    <section className="space-y-3 rounded-lg border border-border/70 bg-card p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wide text-primary">
+            {report.scope === "event" ? "Événement" : "Format"}
+          </p>
+          <h3 className="font-semibold text-foreground">{report.name}</h3>
+        </div>
+        <div className="flex flex-wrap gap-1.5 text-[11px] font-medium">
+          {(["safe", "review", "conflict", "missing"] as const).map((status) => (
+            <span key={status} className={`rounded-full border px-2 py-0.5 ${statusTone(status)}`}>
+              {statusLabels[status]} {counts[status]}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        {report.resolutions.map((resolution) => {
+          const key = selectionKey(report.scope, report.raceId, resolution.field);
+          const selected = selections[key];
+          const selectionBase = {
+            scope: report.scope,
+            ...(report.scope === "format" && report.raceId ? { raceId: report.raceId } : {}),
+            field: resolution.field,
+          } as const;
           return (
-            <label key={proposal.id} className="flex cursor-pointer items-start gap-2 rounded-md border border-border/60 bg-card p-2.5">
-              <input
-                type="checkbox"
-                className="mt-0.5 h-4 w-4 rounded border-border text-primary focus-visible:ring-2 focus-visible:ring-ring"
-                checked={checked}
-                onChange={(event) => {
-                  if (!event.target.checked) {
-                    onSelectionChange(selectedProposalIds.filter((id) => id !== proposal.id));
-                    return;
-                  }
-                  const competingIds = new Set(
-                    proposals.filter((candidate) => candidate.field === proposal.field).map((candidate) => candidate.id)
+            <div key={key} className="space-y-3 rounded-md border border-border/60 bg-background p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="text-sm font-semibold text-foreground">{resolution.label}</p>
+                  <p className="text-xs text-muted-foreground">
+                    Actuel : <span className="font-medium text-foreground">{formatWebsiteImportValue(resolution.currentValue)}</span>
+                  </p>
+                </div>
+                <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${statusTone(resolution.status)}`}>
+                  {statusLabels[resolution.status]}
+                </span>
+              </div>
+              {resolution.reason ? (
+                <p className="rounded-md bg-muted/40 px-2.5 py-2 text-xs text-muted-foreground">
+                  Arbitrage assisté : {resolution.reason}
+                </p>
+              ) : null}
+
+              <div className="space-y-2">
+                {!isMissingValue(resolution.currentValue) ? (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md border border-border/60 p-2.5">
+                    <input
+                      type="radio"
+                      name={key}
+                      className="mt-0.5 h-4 w-4"
+                      checked={selected?.decision === "keep"}
+                      onChange={() => onSelectionChange(key, { ...selectionBase, decision: "keep" })}
+                    />
+                    <span className="text-sm text-foreground">Garder la valeur actuelle</span>
+                  </label>
+                ) : null}
+
+                {resolution.claims.map((claim) => {
+                  const checked = selected?.decision === "claim" && selected.claimId === claim.id;
+                  const recommended = resolution.recommendedClaimId === claim.id;
+                  const sourceDetails = [
+                    claim.source.label,
+                    claim.source.fileName && claim.source.fileName !== claim.source.label
+                      ? claim.source.fileName
+                      : null,
+                    claim.source.editionYear ? `édition ${claim.source.editionYear}` : null,
+                    claim.source.page ? `page ${claim.source.page}` : null,
+                  ].filter(Boolean).join(" · ");
+                  return (
+                    <label key={claim.id} className={`flex cursor-pointer items-start gap-2 rounded-md border p-2.5 ${checked ? "border-primary bg-primary/5" : "border-border/60"}`}>
+                      <input
+                        type="radio"
+                        name={key}
+                        className="mt-0.5 h-4 w-4"
+                        checked={checked}
+                        onChange={() => onSelectionChange(key, { ...selectionBase, decision: "claim", claimId: claim.id })}
+                      />
+                      <span className="min-w-0 flex-1 space-y-1">
+                        <span className="flex flex-wrap items-center justify-between gap-2">
+                          <span className="break-words text-sm font-medium text-foreground">{formatWebsiteImportValue(claim.value)}</span>
+                          <span className="flex flex-wrap gap-1.5">
+                            {recommended ? (
+                              <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">
+                                Recommandation
+                              </span>
+                            ) : null}
+                            <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${confidenceTone(claim.confidence)}`}>
+                              {confidenceLabels[claim.confidence]}
+                            </span>
+                          </span>
+                        </span>
+                        <span className="block text-xs text-muted-foreground">{sourceDetails}</span>
+                        <span className="block break-words border-l-2 border-border pl-2 text-xs text-muted-foreground">Preuve : {claim.evidence.join(" · ")}</span>
+                        {claim.source.url ? <a href={claim.source.url} target="_blank" rel="noreferrer" className="inline-block text-xs font-medium text-primary hover:underline" onClick={(event) => event.stopPropagation()}>Ouvrir la source</a> : null}
+                      </span>
+                    </label>
                   );
-                  onSelectionChange([...selectedProposalIds.filter((id) => !competingIds.has(id)), proposal.id]);
-                }}
-              />
-              <span className="min-w-0 flex-1 space-y-1">
-                <span className="flex flex-wrap items-center justify-between gap-2">
-                  <span className="text-sm font-medium text-foreground">{proposal.label}</span>
-                  <span className="flex flex-wrap gap-1.5">
-                    {proposal.recommended ? (
-                      <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Recommandé</span>
-                    ) : null}
-                    <span className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${comparisonTone(proposal.comparison)}`}>
-                      {comparisonLabels[proposal.comparison]}
-                    </span>
-                  </span>
-                </span>
-                <span className="block break-words text-sm text-foreground">{formatProposalValue(proposal.value)}</span>
-                <span className="block text-xs text-muted-foreground">
-                  {proposalSourceLabels[proposal.sourceKind]} · {proposal.sourceLabel} · {confidenceLabels[proposal.confidence]}
-                </span>
-                {proposal.currentValue !== null ? (
-                  <span className="block text-xs text-muted-foreground">
-                    Valeur actuelle : <span className="font-medium text-foreground">{formatProposalValue(proposal.currentValue)}</span>
-                  </span>
+                })}
+
+                {resolution.currentValue === null ? (
+                  <label className="flex cursor-pointer items-start gap-2 rounded-md border border-dashed border-border/70 p-2.5">
+                    <input
+                      type="radio"
+                      name={key}
+                      className="mt-0.5 h-4 w-4"
+                      checked={selected?.decision === "missing"}
+                      onChange={() => onSelectionChange(key, { ...selectionBase, decision: "missing" })}
+                    />
+                    <span className="text-sm text-muted-foreground">Laisser ce champ manquant</span>
+                  </label>
                 ) : null}
-                {proposal.evidence.length > 0 ? <EvidenceList evidence={proposal.evidence} /> : null}
-                {proposal.sourceUrl ? (
-                  <a
-                    href={proposal.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-block text-xs font-medium text-primary underline-offset-4 hover:underline"
-                    onClick={(event) => event.stopPropagation()}
-                  >
-                    Ouvrir la source
-                  </a>
-                ) : null}
-              </span>
-            </label>
+              </div>
+            </div>
           );
         })}
       </div>
-    </details>
+    </section>
   );
 }
 
-export function WebsiteImportReviewDetails({ preview, existingRaces }: { preview: WebsiteImportPreview; existingRaces: RaceFormat[] }) {
-  const documents = preview.documents ?? [];
-  if (documents.length === 0 && !preview.reconciliation) return null;
-
+export function WebsiteImportFieldReview({
+  workflow,
+  selections,
+  onSelectionChange,
+}: {
+  workflow: WebsiteImportReviewWorkflow;
+  selections: Record<string, WebsiteImportFieldSelection>;
+  onSelectionChange: (key: string, selection: WebsiteImportFieldSelection) => void;
+}) {
   return (
-    <div className="space-y-2">
-      <DocumentsReview documents={documents} />
-      {preview.reconciliation ? (
-        <ReconciliationReview reconciliation={preview.reconciliation} preview={preview} existingRaces={existingRaces} />
-      ) : null}
+    <div className="space-y-4">
+      <div className="rounded-lg border border-primary/25 bg-primary/5 p-4">
+        <p className="text-sm font-semibold text-foreground">Étape 2 sur 2 · Valider les informations</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Chaque valeur reste liée à sa source et à sa preuve. Les conflits ne sont jamais sélectionnés automatiquement.
+        </p>
+      </div>
+      <FieldReportReview report={workflow.eventReport} selections={selections} onSelectionChange={onSelectionChange} />
+      {workflow.formatReports.map((report, index) => (
+        <FieldReportReview key={report.raceId ?? `${report.name}-${index}`} report={report} selections={selections} onSelectionChange={onSelectionChange} />
+      ))}
+      <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+        Tu peux appliquer une revue partielle. Tout format encore incomplet restera en brouillon et masqué du catalogue jusqu’à sa complétion.
+      </p>
     </div>
   );
 }

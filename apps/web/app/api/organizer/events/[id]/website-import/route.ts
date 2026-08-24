@@ -11,6 +11,7 @@ import {
   optionalUrlOrNull,
   requireAdminAuth,
   serviceHeaders,
+  type OrganizerAuth,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import {
@@ -26,6 +27,7 @@ import {
   parseOrganizerRaceDetails,
 } from "../../../../../../lib/organizer-dashboard-details";
 import {
+  buildOrganizerDocumentSourceClaims,
   extractOrganizerDocument,
   reconcileOrganizerDocumentFindings,
   attachDocumentFindingsToFormats,
@@ -35,6 +37,7 @@ import {
 } from "../../../../../../lib/organizer-document-import";
 import {
   reconcileOrganizerImportWithLlm,
+  resolveOrganizerFieldConflictsWithLlm,
   OrganizerImportReconciliationError,
   type OrganizerImportReconciliation,
 } from "../../../../../../lib/organizer-import-reconciliation";
@@ -46,6 +49,25 @@ import {
   type OrganizerImportProposalValue,
   type OrganizerImportRaceField,
 } from "../../../../../../lib/organizer-import-proposals";
+import {
+  createOrganizerImportSession,
+  deleteOrganizerImportSession,
+  loadOrganizerImportSession,
+  organizerImportSourceManifestSchema,
+  updateOrganizerImportSession,
+} from "../../../../../../lib/organizer-import-sessions";
+import {
+  buildFormatCandidates,
+  buildSourceClaims,
+  createSourceClaim,
+  fieldResolutionSchema,
+  formatCandidateSchema,
+  groupClaimsIntoFieldResolutions,
+  type FieldResolution,
+  type OrganizerImportClaimValue,
+  type OrganizerImportClaimField,
+  type SourceClaim,
+} from "../../../../../../lib/organizer-import-engine";
 
 export const runtime = "nodejs";
 
@@ -63,6 +85,67 @@ const temporaryDocumentReferenceSchema = z.object({
   mediaType: z.enum(["application/pdf", "image/jpeg", "image/png", "image/webp"]),
   sizeBytes: z.number().int().positive().max(ORGANIZER_DOCUMENT_MAX_BYTES),
 });
+
+const workflowConfirmedFormatSchema = z.object({
+  candidateKeys: z.array(z.string().trim().min(1).max(300)).max(30),
+  mode: z.enum(["create", "bind-existing", "ignore"]),
+  targetRaceId: z.string().uuid().nullable().optional(),
+  name: z.string().trim().min(1).max(300),
+});
+
+const workflowFieldSelectionSchema = z.object({
+  scope: z.enum(["event", "format"]),
+  raceId: z.string().uuid().nullable().optional(),
+  field: z.string().trim().min(1).max(100),
+  decision: z.enum(["claim", "keep", "missing"]),
+  claimId: z.string().trim().min(1).max(300).nullable().optional(),
+}).superRefine((selection, context) => {
+  if (selection.scope === "format" && !selection.raceId) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["raceId"], message: "Un format exige une cible." });
+  }
+  if (selection.decision === "claim" && !selection.claimId) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ["claimId"], message: "Une valeur exige une source." });
+  }
+});
+
+const workflowRequestSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("discover-formats"),
+    editionId: z.string().uuid(),
+    url: z.union([z.string().trim().url(), z.literal("")]).default(""),
+    formatUrls: z.array(z.string().trim().url()).max(12).default([]),
+    documents: z.array(temporaryDocumentReferenceSchema).max(ORGANIZER_DOCUMENT_MAX_COUNT).default([]),
+  }),
+  z.object({
+    action: z.literal("confirm-formats"),
+    sessionId: z.string().uuid(),
+    discoverySnapshot: z.unknown(),
+    discoverySignature: z.string().regex(/^[a-f0-9]{64}$/),
+    confirmedFormats: z.array(workflowConfirmedFormatSchema).max(30),
+  }),
+  z.object({ action: z.literal("analyze-fields"), sessionId: z.string().uuid() }),
+  z.object({
+    action: z.literal("apply-fields"),
+    sessionId: z.string().uuid(),
+    fieldSnapshot: z.unknown(),
+    fieldSignature: z.string().regex(/^[a-f0-9]{64}$/),
+    selections: z.array(workflowFieldSelectionSchema).max(500),
+  }),
+  z.object({ action: z.literal("cancel"), sessionId: z.string().uuid() }),
+]);
+
+type WorkflowRequest = z.infer<typeof workflowRequestSchema>;
+
+const workflowActions = new Set<WorkflowRequest["action"]>([
+  "discover-formats",
+  "confirm-formats",
+  "analyze-fields",
+  "apply-fields",
+  "cancel",
+]);
+
+const isWorkflowAction = (value: unknown): value is WorkflowRequest["action"] =>
+  typeof value === "string" && workflowActions.has(value as WorkflowRequest["action"]);
 
 const previewRequestSchema = z.object({
   action: z.literal("preview"),
@@ -176,6 +259,115 @@ const verifyProposalSnapshot = (snapshot: OrganizerImportProposalSnapshot, signa
   return expected.length === provided.length && timingSafeEqual(expected, provided);
 };
 
+const canonicalizeWorkflowValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalizeWorkflowValue);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, child]) => [key, canonicalizeWorkflowValue(child)])
+    );
+  }
+  return value;
+};
+
+const serializeWorkflowValue = (value: unknown) => JSON.stringify(canonicalizeWorkflowValue(value));
+
+const signWorkflowSnapshot = (kind: "discovery" | "fields", value: unknown, secret: string) =>
+  createHmac("sha256", secret).update(`${kind}:`).update(serializeWorkflowValue(value)).digest("hex");
+
+const verifyWorkflowSnapshot = (
+  kind: "discovery" | "fields",
+  value: unknown,
+  signature: string,
+  secret: string
+) => {
+  const expected = Buffer.from(signWorkflowSnapshot(kind, value, secret), "hex");
+  const provided = Buffer.from(signature, "hex");
+  return expected.length === provided.length && timingSafeEqual(expected, provided);
+};
+
+const workflowDiscoverySnapshotSchema = z.object({
+  version: z.literal(2),
+  eventId: z.string().uuid(),
+  editionId: z.string().uuid(),
+  expiresAt: z.string().datetime(),
+  candidates: z.array(formatCandidateSchema).max(30),
+});
+
+const workflowPublicClaimSchema = z.object({
+  id: z.string().trim().min(1).max(500),
+  value: proposalValueSchema,
+  source: z.object({
+    kind: z.string().trim().min(1).max(80),
+    label: z.string().trim().min(1).max(300),
+    url: z.string().url().nullable(),
+    fileName: z.string().nullable(),
+    page: z.number().int().positive().nullable(),
+    editionYear: z.string().nullable(),
+  }),
+  evidence: z.array(z.string().trim().min(1).max(2_000)).max(8),
+  confidence: z.enum(["high", "medium", "low"]),
+});
+
+const workflowPublicResolutionSchema = z.object({
+  field: z.string().trim().min(1).max(100),
+  label: z.string().trim().min(1).max(200),
+  reason: z.string().trim().min(1).max(1_000),
+  currentValue: proposalValueSchema,
+  claims: z.array(workflowPublicClaimSchema).max(100),
+  recommendedClaimId: z.string().nullable(),
+  status: z.enum(["safe", "review", "conflict", "missing"]),
+});
+
+const workflowFieldReportSchema = z.object({
+  scope: z.enum(["event", "format"]),
+  raceId: z.string().uuid().nullable(),
+  name: z.string().trim().min(1).max(300),
+  resolutions: z.array(workflowPublicResolutionSchema).max(100),
+});
+
+const workflowFieldSnapshotSchema = z.object({
+  version: z.literal(2),
+  eventId: z.string().uuid(),
+  editionId: z.string().uuid(),
+  sessionId: z.string().uuid(),
+  expiresAt: z.string().datetime(),
+  eventReport: workflowFieldReportSchema,
+  formatReports: z.array(workflowFieldReportSchema).max(30),
+});
+
+const workflowConfirmedSessionFormatSchema = z.object({
+  formatKey: z.string().trim().min(1).max(300),
+  candidateKeys: z.array(z.string().trim().min(1).max(300)).max(30),
+  raceId: z.string().uuid(),
+  name: z.string().trim().min(1).max(300),
+  mode: z.enum(["create", "bind-existing"]),
+  dataStatus: z.enum(["draft", "complete"]),
+  missingRequiredFields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])),
+});
+
+const confirmFormatsRpcResponseSchema = z.object({
+  sessionId: z.string().uuid(),
+  formats: z.array(z.object({
+    formatKey: z.string(),
+    raceId: z.string().uuid(),
+    name: z.string(),
+    mode: z.enum(["create", "bind-existing"]),
+    dataStatus: z.enum(["draft", "complete"]),
+    missingRequiredFields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])),
+  })),
+  createdCount: z.number().int().nonnegative(),
+  boundExistingCount: z.number().int().nonnegative(),
+});
+
+const applyFieldsRpcResponseSchema = z.object({
+  sessionId: z.string().uuid(),
+  formatsUpdated: z.number().int().nonnegative(),
+  draftsRemaining: z.number().int().nonnegative(),
+  formatsCompleted: z.number().int().nonnegative(),
+});
+
 const emptyWebsitePreview = (): OrganizerWebsiteImportPreview => ({
   source: { provider: "generic", url: "", label: "Documents fournis" },
   event: {
@@ -269,6 +461,8 @@ const eventContextSchema = z.object({
         gpx_storage_path: z.string().nullable().optional(),
         organizer_details: z.unknown().nullable().optional(),
         is_live: z.boolean(),
+        data_status: z.enum(["draft", "complete"]).optional().default("complete"),
+        missing_required_fields: z.array(z.string()).optional().default([]),
       })
     )
     .nullable()
@@ -748,9 +942,123 @@ const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: Ev
   }),
 });
 
+type ExtractedWorkflowDocument = Awaited<ReturnType<typeof extractOrganizerDocument>>;
+
+const parseDocumentMetric = (value: string) => {
+  const match = value.match(/\b(\d{1,5}(?:[.,]\d+)?)\b/);
+  if (!match) return null;
+  const parsed = Number(match[1].replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const attachWorkflowDocumentFindings = (
+  documents: ExtractedWorkflowDocument[],
+  preview: OrganizerWebsiteImportPreview
+) => {
+  const formatNames = preview.races.flatMap((race) => [race.name, race.seriesName]).filter(Boolean);
+  return documents.map((document) => ({
+    ...document,
+    findings: attachDocumentFindingsToFormats(document.findings, formatNames).map((finding) => {
+      if (finding.scope !== "format-unknown" || finding.field !== "distanceKm") return finding;
+      const distanceKm = parseDocumentMetric(finding.value);
+      if (distanceKm === null) return finding;
+      const matchingRaces = preview.races.filter(
+        (race) => race.distanceKm !== null && Math.abs(race.distanceKm - distanceKm) <= Math.max(0.5, distanceKm * 0.02)
+      );
+      return matchingRaces.length === 1
+        ? { ...finding, scope: "format" as const, formatHint: matchingRaces[0].name }
+        : finding;
+    }),
+  }));
+};
+
+const buildDocumentFormatCandidates = (documents: ExtractedWorkflowDocument[]) => {
+  const candidates = documents.flatMap((document, documentIndex) =>
+    document.findings.flatMap((finding) => {
+      if (finding.scope !== "format-unknown" || finding.field !== "distanceKm") return [];
+      const distanceKm = parseDocumentMetric(finding.value);
+      if (distanceKm === null || distanceKm <= 0) return [];
+      const candidateKey = `document:${documentIndex}:${finding.page ?? 0}:${distanceKm}`;
+      const source = {
+        sourceId: document.sourceId,
+        kind: "official-document" as const,
+        label: document.fileName,
+        url: null,
+        page: finding.page,
+        edition: null,
+      };
+      const distanceClaim = createSourceClaim({
+        scope: { kind: "format", scopeKey: candidateKey },
+        field: "distanceKm",
+        value: distanceKm,
+        source,
+        evidence: finding.evidence,
+        confidence: finding.confidence,
+        claimRole: "candidate",
+      });
+      return [formatCandidateSchema.parse({
+        candidateKey,
+        detectionKeys: [candidateKey],
+        names: [`${distanceKm} km`],
+        proposedName: `${distanceKm} km`,
+        edition: { date: null, year: null },
+        existenceConfidence: finding.confidence,
+        evidence: [{ ...source, evidence: finding.evidence }],
+        claims: [distanceClaim],
+        completeness: {
+          knownRequiredFields: ["distanceKm"],
+          missingRequiredFields: ["name", "raceDate", "elevationGainM"],
+        },
+        suggestedExistingRaceId: null,
+      })];
+    })
+  );
+  return [...new Map(candidates.map((candidate) => [candidate.candidateKey, candidate])).values()];
+};
+
+const loadWorkflowSources = async (
+  auth: OrganizerAuth,
+  event: EventContext,
+  editionId: string,
+  manifest: z.infer<typeof organizerImportSourceManifestSchema>
+) => {
+  const temporaryDocuments = await loadTemporaryOrganizerImportDocuments(
+    auth.serviceConfig,
+    auth.user.id,
+    manifest.documents
+  );
+  const extractedDocuments = await Promise.all(
+    temporaryDocuments.map(async ({ document, sourceId }) => extractOrganizerDocument(document, sourceId))
+  );
+  const edition = (event.race_event_editions ?? []).find((candidate) => candidate.id === editionId) ?? null;
+  if (!edition) throw new OrganizerWebsiteImportError("INVALID_DATA", "L'édition sélectionnée est inconnue.");
+
+  let preview = emptyWebsitePreview();
+  let websiteWarning: string | null = null;
+  const primaryUrl = manifest.url || manifest.formatUrls[0] || "";
+  const additionalFormatUrls = manifest.url ? manifest.formatUrls : manifest.formatUrls.slice(1);
+  if (primaryUrl) {
+    try {
+      preview = await buildOrganizerWebsiteImportPreview(primaryUrl, { formatUrls: additionalFormatUrls });
+    } catch (error) {
+      if (temporaryDocuments.length === 0) throw error;
+      console.error("Unable to analyze organizer website; using documents only", error);
+      websiteWarning = "Le site n'a pas pu être analysé; les documents restent exploitables.";
+    }
+  }
+  if (!primaryUrl || !preview.source.url) {
+    preview = buildDocumentOnlyPreview({ ...event, race_date: edition.start_date });
+  }
+  return {
+    preview,
+    documents: attachWorkflowDocumentFindings(extractedDocuments, preview),
+    websiteWarning,
+  };
+};
+
 const loadEventContext = async (serviceConfig: ReturnType<typeof serviceHeaders> extends never ? never : Parameters<typeof serviceHeaders>[0], eventId: string) => {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,organizer_details,race_event_editions(id,edition_year,start_date,end_date,is_current),races(id,edition_id,edition_group_id,series_name,name,race_date,distance_km,elevation_gain_m,elevation_loss_m,external_site_url,location_text,thumbnail_url,gpx_storage_path,organizer_details,is_live)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,organizer_details,race_event_editions(id,edition_year,start_date,end_date,is_current),races(id,edition_id,edition_group_id,series_name,name,race_date,distance_km,elevation_gain_m,elevation_loss_m,external_site_url,location_text,thumbnail_url,gpx_storage_path,organizer_details,is_live,data_status,missing_required_fields)&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
@@ -763,6 +1071,274 @@ const loadEventContext = async (serviceConfig: ReturnType<typeof serviceHeaders>
   }
 
   return z.array(eventContextSchema).parse(await response.json())[0] ?? null;
+};
+
+const invokeOrganizerImportRpc = async <Schema extends z.ZodTypeAny>(
+  auth: OrganizerAuth,
+  name: "confirm_organizer_import_formats" | "apply_organizer_import_field_patches",
+  payload: Record<string, unknown>,
+  schema: Schema
+): Promise<z.infer<Schema>> => {
+  const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/${name}`, {
+    method: "POST",
+    headers: serviceHeaders(auth.serviceConfig),
+    body: JSON.stringify(payload),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const detail = await response.text();
+    console.error(`Unable to execute ${name}`, detail);
+    throw new OrganizerWebsiteImportError("INVALID_DATA", "Impossible d'appliquer l'étape d'import.");
+  }
+  return schema.parse(await response.json());
+};
+
+const raceToWorkflowValues = (race: EventRace) => {
+  const details = parseOrganizerRaceDetails(race.organizer_details);
+  const missing = new Set(race.missing_required_fields);
+  return {
+    name: race.name,
+    seriesName: race.series_name,
+    raceDate: missing.has("race_date") ? undefined : race.race_date ?? undefined,
+    locationText: race.location_text ?? undefined,
+    distanceKm: missing.has("distance_km") ? undefined : race.distance_km,
+    elevationGainM: missing.has("elevation_gain_m") ? undefined : race.elevation_gain_m,
+    elevationLossM: race.elevation_loss_m ?? undefined,
+    externalSiteUrl: race.external_site_url ?? undefined,
+    thumbnailUrl: race.thumbnail_url ?? undefined,
+    gpx: race.gpx_storage_path ? true : undefined,
+    startTime: details.schedule.startTime ?? undefined,
+    finishCutoffTime: details.schedule.finishCutoffTime ?? undefined,
+    bibPickup: details.bibPickup.schedule ?? undefined,
+    mandatoryEquipment: details.mandatoryEquipment.items.map((item) => item.label),
+  } satisfies Partial<Record<OrganizerImportClaimField, OrganizerImportClaimValue | undefined>>;
+};
+
+const buildWorkflowClaims = (
+  preview: OrganizerWebsiteImportPreview,
+  documents: ExtractedWorkflowDocument[],
+  event: EventContext,
+  editionId: string,
+  confirmedFormats: Array<z.infer<typeof workflowConfirmedSessionFormatSchema>>,
+  discoveryCandidates: Array<z.infer<typeof formatCandidateSchema>>
+) => {
+  const scopeKeyByPreviewRaceKey: Record<string, string> = {};
+  for (const format of confirmedFormats) {
+    for (const candidateKey of format.candidateKeys) {
+      const candidate = discoveryCandidates.find((item) => item.candidateKey === candidateKey);
+      for (const detectionKey of candidate?.detectionKeys ?? [candidateKey]) {
+        scopeKeyByPreviewRaceKey[detectionKey] = format.raceId;
+      }
+    }
+  }
+
+  const eventRaceById = new Map((event.races ?? []).map((race) => [race.id, race]));
+  const currentFormats = confirmedFormats.flatMap((format) => {
+    const race = eventRaceById.get(format.raceId);
+    return race
+      ? [{ formatKey: format.raceId, raceId: race.id, name: race.name, seriesName: race.series_name, values: raceToWorkflowValues(race) }]
+      : [];
+  });
+  const eventDetails = parseOrganizerEventDetails(event.organizer_details);
+
+  const formatKeyByHint: Record<string, string> = {};
+  for (const race of preview.races) {
+    const scopeKey = scopeKeyByPreviewRaceKey[race.key];
+    if (!scopeKey) continue;
+    formatKeyByHint[race.name] = scopeKey;
+    formatKeyByHint[race.seriesName] = scopeKey;
+  }
+  for (const format of confirmedFormats) formatKeyByHint[format.name] = format.raceId;
+  const documentScopeByEvidence = new Map<string, string>();
+  for (const format of confirmedFormats) {
+    for (const candidateKey of format.candidateKeys) {
+      const candidate = discoveryCandidates.find((item) => item.candidateKey === candidateKey);
+      if (!candidateKey.startsWith("document:") || !candidate) continue;
+      for (const claim of candidate.claims.filter((item) => item.field === "distanceKm")) {
+        documentScopeByEvidence.set(
+          `${claim.source.sourceId}:${claim.source.page ?? 0}:${claim.value}`,
+          format.raceId
+        );
+      }
+    }
+  }
+  const additionalClaims = documents.flatMap((document) => buildOrganizerDocumentSourceClaims({
+    ...document,
+    findings: document.findings.map((finding) => {
+      if (finding.scope === "format-unknown" && finding.field === "mandatoryEquipment") {
+        return { ...finding, scope: "event" as const };
+      }
+      if (finding.scope === "format-unknown" && finding.field === "distanceKm") {
+        const distanceKm = parseDocumentMetric(finding.value);
+        const raceId = distanceKm === null
+          ? null
+          : documentScopeByEvidence.get(`${document.sourceId}:${finding.page ?? 0}:${distanceKm}`) ?? null;
+        if (raceId) {
+          const syntheticHint = `document-scope:${raceId}`;
+          formatKeyByHint[syntheticHint] = raceId;
+          return { ...finding, scope: "format" as const, formatHint: syntheticHint };
+        }
+      }
+      return finding;
+    }),
+  }, formatKeyByHint));
+
+  const edition = (event.race_event_editions ?? []).find((candidate) => candidate.id === editionId) ?? null;
+  const previousFormats = confirmedFormats.flatMap((format) => {
+    const currentRace = eventRaceById.get(format.raceId);
+    if (!currentRace) return [];
+    const previous = (event.races ?? [])
+      .filter((race) => race.edition_group_id === currentRace.edition_group_id && race.id !== currentRace.id)
+      .filter((race) => !edition || !race.race_date || race.race_date < edition.start_date)
+      .sort((left, right) => (right.race_date ?? "").localeCompare(left.race_date ?? ""))[0];
+    return previous
+      ? [{ formatKey: format.raceId, raceId: previous.id, name: previous.name, seriesName: previous.series_name, values: raceToWorkflowValues(previous) }]
+      : [];
+  });
+
+  return buildSourceClaims({
+    preview,
+    scopeKeyByPreviewRaceKey,
+    currentData: {
+      event: {
+        name: event.name,
+        location: event.location ?? undefined,
+        officialWebsiteUrl: eventDetails.officialWebsiteUrl ?? undefined,
+        mandatoryEquipment: eventDetails.mandatoryEquipment.items.map((item) => item.label),
+        startAddress: eventDetails.access.startAddress ?? undefined,
+        shuttles: eventDetails.access.shuttles ?? undefined,
+        officialParkings: eventDetails.access.officialParkings ?? undefined,
+      },
+      formats: currentFormats,
+    },
+    previousEditionData: previousFormats.length > 0
+      ? { edition: edition ? String(edition.edition_year - 1) : null, formats: previousFormats }
+      : null,
+    additionalClaims,
+  });
+};
+
+const workflowEventFields: OrganizerImportClaimField[] = [
+  "name",
+  "location",
+  "officialWebsiteUrl",
+  "mandatoryEquipment",
+  "startAddress",
+  "shuttles",
+  "officialParkings",
+];
+
+const workflowFormatFields: OrganizerImportClaimField[] = [
+  "name",
+  "seriesName",
+  "raceDate",
+  "locationText",
+  "distanceKm",
+  "elevationGainM",
+  "elevationLossM",
+  "externalSiteUrl",
+  "thumbnailUrl",
+  "gpx",
+  "aidStations",
+  "startTime",
+  "finishCutoffTime",
+  "bibPickup",
+  "mandatoryEquipment",
+];
+
+const toWorkflowPublicClaim = (claim: SourceClaim): z.infer<typeof workflowPublicClaimSchema> => ({
+  id: claim.claimId,
+  value: claim.value,
+  source: {
+    kind: claim.source.kind,
+    label: claim.source.label,
+    url: claim.source.url,
+    fileName: claim.source.kind === "official-document" || claim.source.kind === "ocr" ? claim.source.label : null,
+    page: claim.source.page,
+    editionYear: claim.source.edition,
+  },
+  evidence: [claim.evidence],
+  confidence: claim.confidence,
+});
+
+const buildWorkflowFieldReport = (
+  scope: "event" | "format",
+  raceId: string | null,
+  name: string,
+  fields: OrganizerImportClaimField[],
+  resolutions: FieldResolution[]
+): z.infer<typeof workflowFieldReportSchema> => {
+  const scopeKey = scope === "event" ? "event" : raceId;
+  return workflowFieldReportSchema.parse({
+    scope,
+    raceId,
+    name,
+    resolutions: fields.map((field) => {
+      const resolution = resolutions.find(
+        (candidate) => candidate.scope.kind === scope && candidate.scope.scopeKey === scopeKey && candidate.field === field
+      );
+      if (!resolution) {
+        return {
+          field,
+          label: proposalLabels[field] ?? field,
+          reason: "Aucune source applicable ne renseigne ce champ.",
+          currentValue: null,
+          claims: [],
+          recommendedClaimId: null,
+          status: "missing" as const,
+        };
+      }
+      const publicClaims = resolution.claims.map(toWorkflowPublicClaim);
+      const recommendationIsApplicable = resolution.recommendedClaimId !== null &&
+        publicClaims.some((claim) => claim.id === resolution.recommendedClaimId);
+      const status = resolution.status === "conflict"
+        ? "conflict" as const
+        : resolution.status === "missing"
+          ? "missing" as const
+          : resolution.canPreselect || Boolean(resolution.currentClaim)
+            ? "safe" as const
+            : "review" as const;
+      return {
+        field,
+        label: proposalLabels[field] ?? field,
+        reason: resolution.reason,
+        currentValue: resolution.currentClaim?.value ?? null,
+        claims: publicClaims,
+        recommendedClaimId: recommendationIsApplicable ? resolution.recommendedClaimId : null,
+        status,
+      };
+    }),
+  });
+};
+
+const applyLlmConflictRecommendations = async (resolutions: FieldResolution[]) => {
+  let warnings: string[] = [];
+  try {
+    const result = await resolveOrganizerFieldConflictsWithLlm({ resolutions });
+    if (!result) return { resolutions, warnings: ["Le LLM n'est pas configuré; les conflits restent à valider manuellement."] };
+    warnings = result.warnings;
+    const decisions = new Map(result.resolutions.map((resolution) => [resolution.resolutionId, resolution]));
+    return {
+      resolutions: resolutions.map((resolution) => {
+        const decision = decisions.get(resolution.resolutionId);
+        if (!decision || decision.decision !== "select") return resolution;
+        return fieldResolutionSchema.parse({
+          ...resolution,
+          recommendedClaimId: decision.selectedClaimId,
+          reason: `${resolution.reason} Recommandation LLM : ${decision.rationale}`,
+        });
+      }),
+      warnings,
+    };
+  } catch (error) {
+    console.error("Organizer field conflict LLM unavailable", error);
+    return {
+      resolutions,
+      warnings: [error instanceof OrganizerImportReconciliationError
+        ? error.message
+        : "Le LLM n'a pas pu départager les sources; les conflits restent manuels."],
+    };
+  }
 };
 
 const updateEventFromPreview = async (
@@ -1126,6 +1702,467 @@ const updateRaceFromPreview = async (
   return { raceId: existingRace.id, gpxUploaded, createdAidStations };
 };
 
+const workflowResponse = (body: Record<string, unknown>) =>
+  withSecurityHeaders(NextResponse.json(body));
+
+const handleOrganizerImportWorkflow = async (
+  auth: OrganizerAuth,
+  event: EventContext,
+  request: WorkflowRequest
+) => {
+  try {
+    if (request.action === "discover-formats") {
+      const edition = (event.race_event_editions ?? []).find((candidate) => candidate.id === request.editionId);
+      if (!edition) return jsonError("L'édition sélectionnée est inconnue.", 404);
+      if (!request.url && request.formatUrls.length === 0 && request.documents.length === 0) {
+        return jsonError("Ajoute au moins une URL ou un document officiel.", 400);
+      }
+      const sourceManifest = organizerImportSourceManifestSchema.parse({
+        url: request.url,
+        formatUrls: request.formatUrls,
+        documents: request.documents,
+      });
+      const sources = await loadWorkflowSources(auth, event, request.editionId, sourceManifest);
+      const editionRaces = (event.races ?? []).filter((race) =>
+        race.edition_id === edition.id || (!race.edition_id && race.race_date?.slice(0, 4) === String(edition.edition_year))
+      );
+      const websiteCandidates = buildFormatCandidates(sources.preview, editionRaces.map((race) => ({
+        id: race.id,
+        name: race.name,
+        seriesName: race.series_name,
+        raceDate: race.race_date ?? null,
+        distanceKm: race.distance_km,
+      })));
+      const candidateKeyByHint = new Map<string, string>();
+      for (const candidate of websiteCandidates) {
+        for (const name of candidate.names) candidateKeyByHint.set(normalizeComparableName(name), candidate.candidateKey);
+      }
+      const documentClaims = sources.documents.flatMap((document) => {
+        const mapping = Object.fromEntries(
+          [...candidateKeyByHint.entries()].map(([name, candidateKey]) => [name, candidateKey])
+        );
+        return buildOrganizerDocumentSourceClaims({
+          ...document,
+          findings: document.findings.map((finding) => ({
+            ...finding,
+            formatHint: finding.formatHint ? normalizeComparableName(finding.formatHint) : null,
+          })),
+        }, mapping);
+      });
+      const enrichedWebsiteCandidates = websiteCandidates.map((candidate) => {
+        const claims = documentClaims.filter(
+          (claim) => claim.scope.kind === "format" && claim.scope.scopeKey === candidate.candidateKey
+        );
+        if (claims.length === 0) return candidate;
+        return formatCandidateSchema.parse({
+          ...candidate,
+          claims: [...candidate.claims, ...claims],
+          evidence: [
+            ...candidate.evidence,
+            ...claims.map((claim) => ({ ...claim.source, evidence: claim.evidence })),
+          ].slice(0, 30),
+        });
+      });
+      const candidates = [...enrichedWebsiteCandidates, ...buildDocumentFormatCandidates(sources.documents)].slice(0, 30);
+      const discoverySnapshot = workflowDiscoverySnapshotSchema.parse({
+        version: 2,
+        eventId: event.id,
+        editionId: request.editionId,
+        expiresAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
+        candidates,
+      });
+      const session = await createOrganizerImportSession(auth, {
+        eventId: event.id,
+        editionId: request.editionId,
+        sourceManifest,
+        discoverySnapshot,
+      });
+      if (!session) {
+        await deleteTemporaryOrganizerImportDocuments(auth.serviceConfig, auth.user.id, request.documents);
+        return jsonError("Impossible de créer la session d'import.", 502);
+      }
+      return workflowResponse({
+        workflow: {
+          sessionId: session.id,
+          step: "formats",
+          expiresAt: session.expires_at,
+          candidates,
+          discoverySnapshot,
+          discoverySignature: signWorkflowSnapshot(
+            "discovery",
+            discoverySnapshot,
+            auth.serviceConfig.supabaseServiceRoleKey
+          ),
+          warnings: [
+            ...(sources.websiteWarning ? [sources.websiteWarning] : []),
+            ...candidates.flatMap((candidate) =>
+              candidate.edition.year && candidate.edition.year !== String(edition.edition_year)
+                ? [`${candidate.proposedName} semble appartenir à l'édition ${candidate.edition.year}, pas à ${edition.edition_year}.`]
+                : []
+            ),
+            ...sources.documents.flatMap((document) => document.message ? [`${document.fileName}: ${document.message}`] : []),
+          ],
+        },
+      });
+    }
+
+    const session = await loadOrganizerImportSession(auth, request.sessionId, event.id);
+    if (!session) return jsonError("La session d'import est introuvable ou expirée.", 409);
+
+    if (request.action === "cancel") {
+      const cancelled = await deleteOrganizerImportSession(auth, session);
+      return workflowResponse({ cancelled });
+    }
+
+    if (request.action === "confirm-formats") {
+      if (session.status !== "discovered") return jsonError("Les formats ont déjà été confirmés.", 409);
+      const parsedSnapshot = workflowDiscoverySnapshotSchema.safeParse(request.discoverySnapshot);
+      if (!parsedSnapshot.success) return jsonError("Le relevé des formats est invalide.", 409);
+      const snapshot = parsedSnapshot.data;
+      if (
+        snapshot.eventId !== event.id ||
+        snapshot.editionId !== session.edition_id ||
+        Date.parse(snapshot.expiresAt) <= Date.now() ||
+        serializeWorkflowValue(snapshot) !== serializeWorkflowValue(session.discovery_snapshot) ||
+        !verifyWorkflowSnapshot("discovery", snapshot, request.discoverySignature, auth.serviceConfig.supabaseServiceRoleKey)
+      ) {
+        return jsonError("Le relevé des formats a expiré ou a été modifié.", 409);
+      }
+
+      const knownCandidateKeys = new Set(snapshot.candidates.map((candidate) => candidate.candidateKey));
+      const submittedKeys = request.confirmedFormats.flatMap((format) => format.candidateKeys);
+      if (submittedKeys.some((key) => !knownCandidateKeys.has(key))) {
+        return jsonError("Un format confirmé ne fait pas partie du relevé.", 409);
+      }
+      if (new Set(submittedKeys).size !== submittedKeys.length) {
+        return jsonError("Un format détecté ne peut être traité qu'une fois.", 400);
+      }
+      if (snapshot.candidates.some((candidate) => !submittedKeys.includes(candidate.candidateKey))) {
+        return jsonError("Confirme ou ignore chaque format détecté.", 400);
+      }
+      const actionable = request.confirmedFormats.filter((format) => format.mode !== "ignore");
+      if (actionable.length === 0) return jsonError("Conserve au moins un format.", 400);
+      if (request.confirmedFormats.some((format) => format.mode === "ignore" && format.candidateKeys.length === 0)) {
+        return jsonError("Un ajout manuel ne peut pas être ignoré.", 400);
+      }
+      if (actionable.some((format) => format.mode === "bind-existing" ? !format.targetRaceId : Boolean(format.targetRaceId))) {
+        return jsonError("La cible d'un format est incohérente.", 400);
+      }
+      const edition = (event.race_event_editions ?? []).find((candidate) => candidate.id === session.edition_id)!;
+      const editionRaceIds = new Set((event.races ?? []).filter((race) =>
+        race.edition_id === edition.id || (!race.edition_id && race.race_date?.slice(0, 4) === String(edition.edition_year))
+      ).map((race) => race.id));
+      const bindingTargets = actionable.flatMap((format) => format.targetRaceId ? [format.targetRaceId] : []);
+      if (bindingTargets.some((raceId) => !editionRaceIds.has(raceId)) || new Set(bindingTargets).size !== bindingTargets.length) {
+        return jsonError("Chaque rattachement doit viser un format unique de cette édition.", 409);
+      }
+
+      const rpcFormats = actionable.map((format) => ({
+        formatKey: format.candidateKeys[0] ?? `manual:${randomUUID()}`,
+        candidateKeys: format.candidateKeys,
+        mode: format.mode,
+        ...(format.mode === "bind-existing" ? { raceId: format.targetRaceId } : {}),
+        name: format.name,
+      }));
+      const confirmed = await invokeOrganizerImportRpc(
+        auth,
+        "confirm_organizer_import_formats",
+        { p_session_id: session.id, p_formats: rpcFormats },
+        confirmFormatsRpcResponseSchema
+      );
+      const candidateKeysByFormatKey = new Map(
+        rpcFormats.map((format, index) => [format.formatKey, actionable[index].candidateKeys])
+      );
+      const confirmedFormats = confirmed.formats.map((format) => workflowConfirmedSessionFormatSchema.parse({
+        ...format,
+        candidateKeys: candidateKeysByFormatKey.get(format.formatKey) ?? [],
+      }));
+      return workflowResponse({
+        workflow: {
+          sessionId: session.id,
+          step: "fields",
+          confirmedFormats,
+        },
+      });
+    }
+
+    const confirmedFormats = z.array(workflowConfirmedSessionFormatSchema).parse(session.confirmed_formats);
+
+    if (request.action === "analyze-fields") {
+      if (session.status !== "formats_confirmed" && session.status !== "fields_analyzed") {
+        return jsonError("Confirme d'abord les formats.", 409);
+      }
+      const discoverySnapshot = workflowDiscoverySnapshotSchema.parse(session.discovery_snapshot);
+      const sources = await loadWorkflowSources(auth, event, session.edition_id, session.source_manifest);
+      const claims = buildWorkflowClaims(
+        sources.preview,
+        sources.documents,
+        event,
+        session.edition_id,
+        confirmedFormats,
+        discoverySnapshot.candidates
+      );
+      const groupedResolutions = groupClaimsIntoFieldResolutions(claims);
+      const llmResult = await applyLlmConflictRecommendations(groupedResolutions);
+      const eventReport = buildWorkflowFieldReport("event", null, event.name, workflowEventFields, llmResult.resolutions);
+      const formatReports = confirmedFormats.map((format) => buildWorkflowFieldReport(
+        "format",
+        format.raceId,
+        format.name,
+        workflowFormatFields,
+        llmResult.resolutions
+      ));
+      const fieldSnapshot = workflowFieldSnapshotSchema.parse({
+        version: 2,
+        eventId: event.id,
+        editionId: session.edition_id,
+        sessionId: session.id,
+        expiresAt: session.expires_at,
+        eventReport,
+        formatReports,
+      });
+      const updated = await updateOrganizerImportSession(auth, session, {
+        status: "fields_analyzed",
+        field_snapshot: fieldSnapshot,
+      });
+      if (!updated) return jsonError("Impossible d'enregistrer le rapport d'analyse.", 502);
+      return workflowResponse({
+        workflow: {
+          sessionId: session.id,
+          step: "review",
+          confirmedFormats,
+          eventReport,
+          formatReports,
+          fieldSnapshot,
+          fieldSignature: signWorkflowSnapshot("fields", fieldSnapshot, auth.serviceConfig.supabaseServiceRoleKey),
+          warnings: [
+            ...(sources.websiteWarning ? [sources.websiteWarning] : []),
+            ...llmResult.warnings,
+            ...sources.documents.flatMap((document) => document.message ? [`${document.fileName}: ${document.message}`] : []),
+          ],
+        },
+      });
+    }
+
+    if (session.status !== "fields_analyzed") return jsonError("Analyse d'abord les champs.", 409);
+    const parsedSnapshot = workflowFieldSnapshotSchema.safeParse(request.fieldSnapshot);
+    if (!parsedSnapshot.success) return jsonError("Le rapport signé est invalide.", 409);
+    const fieldSnapshot = parsedSnapshot.data;
+    if (
+      fieldSnapshot.eventId !== event.id ||
+      fieldSnapshot.editionId !== session.edition_id ||
+      fieldSnapshot.sessionId !== session.id ||
+      Date.parse(fieldSnapshot.expiresAt) <= Date.now() ||
+      serializeWorkflowValue(fieldSnapshot) !== serializeWorkflowValue(session.field_snapshot) ||
+      !verifyWorkflowSnapshot("fields", fieldSnapshot, request.fieldSignature, auth.serviceConfig.supabaseServiceRoleKey)
+    ) {
+      return jsonError("Le rapport signé a expiré ou a été modifié.", 409);
+    }
+
+    const reportByKey = new Map<string, z.infer<typeof workflowPublicResolutionSchema>>();
+    for (const report of [fieldSnapshot.eventReport, ...fieldSnapshot.formatReports]) {
+      for (const resolution of report.resolutions) {
+        reportByKey.set(`${report.scope}:${report.raceId ?? "event"}:${resolution.field}`, resolution);
+      }
+    }
+    const selectionKeys = request.selections.map(
+      (selection) => `${selection.scope}:${selection.raceId ?? "event"}:${selection.field}`
+    );
+    if (new Set(selectionKeys).size !== selectionKeys.length) {
+      return jsonError("Un champ ne peut recevoir qu'une seule décision.", 400);
+    }
+    const validatedSelections = request.selections.map((selection, index) => {
+      const key = selectionKeys[index];
+      const resolution = reportByKey.get(key);
+      if (!resolution) throw new OrganizerWebsiteImportError("INVALID_DATA", "Une décision ne correspond pas au rapport signé.");
+      if (selection.decision === "claim") {
+        const claim = resolution.claims.find((candidate) => candidate.id === selection.claimId);
+        if (!claim) throw new OrganizerWebsiteImportError("INVALID_DATA", "La source choisie n'est pas applicable à ce champ.");
+        return { selection, resolution, value: claim.value };
+      }
+      if (selection.claimId) throw new OrganizerWebsiteImportError("INVALID_DATA", "Une décision sans source ne doit pas fournir de claimId.");
+      if (selection.decision === "missing" && resolution.currentValue !== null) {
+        throw new OrganizerWebsiteImportError("INVALID_DATA", "Un champ déjà renseigné doit être conservé ou remplacé.");
+      }
+      return { selection, resolution, value: null };
+    });
+
+    const eventPatch: Record<string, unknown> = {};
+    const eventDetails = parseOrganizerEventDetails(event.organizer_details);
+    let nextEventDetails = eventDetails;
+    let eventDetailsChanged = false;
+    const eventSelections = validatedSelections.filter(({ selection }) => selection.scope === "event" && selection.decision === "claim");
+    for (const { selection, value } of eventSelections) {
+      if (selection.field === "name" && typeof value === "string") eventPatch.name = value;
+      if (selection.field === "location" && typeof value === "string") eventPatch.location = value;
+      if (selection.field === "officialWebsiteUrl" && typeof value === "string") {
+        nextEventDetails = { ...nextEventDetails, officialWebsiteUrl: value };
+        eventDetailsChanged = true;
+      }
+      if (selection.field === "mandatoryEquipment" && Array.isArray(value) && value.every((item) => typeof item === "string")) {
+        nextEventDetails = {
+          ...nextEventDetails,
+          mandatoryEquipment: {
+            ...nextEventDetails.mandatoryEquipment,
+            items: value.map((label, index) => ({ id: `information-import-${index}`, label, required: true, cold: false, heat: false, note: null })),
+          },
+        };
+        eventDetailsChanged = true;
+      }
+      if (["startAddress", "shuttles", "officialParkings"].includes(selection.field) && typeof value === "string") {
+        const accessKey = selection.field as "startAddress" | "shuttles" | "officialParkings";
+        nextEventDetails = { ...nextEventDetails, access: { ...nextEventDetails.access, [accessKey]: value } };
+        eventDetailsChanged = true;
+      }
+    }
+    if (eventDetailsChanged) eventPatch.organizerDetails = nextEventDetails;
+
+    const eventRaceById = new Map((event.races ?? []).map((race) => [race.id, race]));
+    const racePatches: Array<{ raceId: string; fields: Record<string, unknown>; missingRequiredFields: string[] }> = [];
+    const uploadedGpxPaths: string[] = [];
+    const gpxSelections = validatedSelections.filter(
+      ({ selection, value }) => selection.scope === "format" && selection.field === "gpx" && selection.decision === "claim" && value === true
+    );
+    let refreshedPreview: OrganizerWebsiteImportPreview | null = null;
+    if (gpxSelections.length > 0) {
+      refreshedPreview = (await loadWorkflowSources(auth, event, session.edition_id, session.source_manifest)).preview;
+    }
+
+    for (const format of confirmedFormats) {
+      const race = eventRaceById.get(format.raceId);
+      if (!race) throw new OrganizerWebsiteImportError("INVALID_DATA", "Un brouillon confirmé est introuvable.");
+      const fields: Record<string, unknown> = {};
+      const missingRequiredFields = new Set(race.missing_required_fields);
+      let raceDetails = parseOrganizerRaceDetails(race.organizer_details);
+      let raceDetailsChanged = false;
+      const selections = validatedSelections.filter(({ selection }) => selection.scope === "format" && selection.raceId === race.id);
+      for (const { selection, value } of selections) {
+        if (selection.decision === "missing") {
+          if (selection.field === "raceDate") missingRequiredFields.add("race_date");
+          if (selection.field === "distanceKm") missingRequiredFields.add("distance_km");
+          if (selection.field === "elevationGainM") missingRequiredFields.add("elevation_gain_m");
+          continue;
+        }
+        if (selection.decision !== "claim") continue;
+        if (selection.field === "raceDate") missingRequiredFields.delete("race_date");
+        if (selection.field === "distanceKm") missingRequiredFields.delete("distance_km");
+        if (selection.field === "elevationGainM") missingRequiredFields.delete("elevation_gain_m");
+        const directFieldMap: Partial<Record<OrganizerImportClaimField, string>> = {
+          name: "name",
+          seriesName: "seriesName",
+          raceDate: "raceDate",
+          distanceKm: "distanceKm",
+          elevationGainM: "elevationGainM",
+          elevationLossM: "elevationLossM",
+          externalSiteUrl: "externalSiteUrl",
+          locationText: "locationText",
+          thumbnailUrl: "thumbnailUrl",
+          aidStations: "aidStations",
+        };
+        const directField = directFieldMap[selection.field as OrganizerImportClaimField];
+        if (directField === "aidStations" && Array.isArray(value)) {
+          if (!value.every((station) => typeof station === "object" && station !== null && "name" in station)) {
+            throw new OrganizerWebsiteImportError("INVALID_DATA", "Les ravitaillements sélectionnés sont invalides.");
+          }
+          fields.aidStations = value.map((station, index) => ({
+              name: station.name,
+              distanceKm: station.distanceKm,
+              ...(typeof station.waterRefill === "boolean" ? { waterRefill: station.waterRefill } : {}),
+              ...(typeof station.solidRefill === "boolean" ? { solidRefill: station.solidRefill } : {}),
+              ...(typeof station.assistanceAllowed === "boolean" ? { assistanceAllowed: station.assistanceAllowed } : {}),
+              orderIndex: index,
+          }));
+        } else if (directField) {
+          fields[directField] = value;
+        }
+        if (selection.field === "startTime" && typeof value === "string") {
+          raceDetails = { ...raceDetails, schedule: { ...raceDetails.schedule, startTime: value } };
+          raceDetailsChanged = true;
+        }
+        if (selection.field === "finishCutoffTime" && typeof value === "string") {
+          raceDetails = { ...raceDetails, schedule: { ...raceDetails.schedule, finishCutoffTime: value } };
+          raceDetailsChanged = true;
+        }
+        if (selection.field === "bibPickup" && typeof value === "string") {
+          raceDetails = { ...raceDetails, bibPickup: { ...raceDetails.bibPickup, schedule: value } };
+          raceDetailsChanged = true;
+        }
+        if (selection.field === "mandatoryEquipment" && Array.isArray(value) && value.every((item) => typeof item === "string")) {
+          raceDetails = {
+            ...raceDetails,
+            mandatoryEquipment: {
+              ...raceDetails.mandatoryEquipment,
+              overrideEnabled: true,
+              items: value.map((label, index) => ({ id: `information-import-${index}`, label, required: true, cold: false, heat: false, note: null })),
+            },
+          };
+          raceDetailsChanged = true;
+        }
+        if (selection.field === "gpx" && value === true && !race.gpx_storage_path && refreshedPreview) {
+          const discoverySnapshot = workflowDiscoverySnapshotSchema.parse(session.discovery_snapshot);
+          const previewKeys = format.candidateKeys.flatMap((candidateKey) =>
+            discoverySnapshot.candidates.find((candidate) => candidate.candidateKey === candidateKey)?.detectionKeys ?? []
+          );
+          const previewRace = refreshedPreview.races.find((candidate) => previewKeys.includes(candidate.key));
+          if (!previewRace?.gpxContent) {
+            throw new OrganizerWebsiteImportError("INVALID_DATA", "La trace GPX sélectionnée n'est plus disponible.");
+          }
+          const storagePath = await uploadRaceGpx(auth.serviceConfig, event.id, race.id, previewRace);
+          if (storagePath) {
+            uploadedGpxPaths.push(storagePath);
+            fields.gpxPath = storagePath;
+            fields.gpxHash = `website-import:${race.id}`;
+            fields.gpxStoragePath = storagePath;
+            fields.gpxSha256 = null;
+          }
+        }
+      }
+      if (raceDetailsChanged) fields.organizerDetails = raceDetails;
+      racePatches.push({ raceId: race.id, fields, missingRequiredFields: [...missingRequiredFields] });
+    }
+
+    let applied: z.infer<typeof applyFieldsRpcResponseSchema>;
+    try {
+      applied = await invokeOrganizerImportRpc(
+        auth,
+        "apply_organizer_import_field_patches",
+        { p_session_id: session.id, p_event_patch: eventPatch, p_race_patches: racePatches },
+        applyFieldsRpcResponseSchema
+      );
+    } catch (error) {
+      await Promise.all(uploadedGpxPaths.map((path) =>
+        fetch(`${auth.serviceConfig.supabaseUrl}/storage/v1/object/race-gpx/${path}`, {
+          method: "DELETE",
+          headers: serviceHeaders(auth.serviceConfig, ""),
+          cache: "no-store",
+        }).catch(() => null)
+      ));
+      throw error;
+    }
+    await deleteOrganizerImportSession(auth, session);
+    return workflowResponse({
+      applied: {
+        eventUpdated: Object.keys(eventPatch).length > 0,
+        formatsUpdated: applied.formatsUpdated,
+        draftsRemaining: applied.draftsRemaining,
+        formatsCompleted: applied.formatsCompleted,
+      },
+    });
+  } catch (error) {
+    if (request.action === "discover-formats") {
+      await deleteTemporaryOrganizerImportDocuments(auth.serviceConfig, auth.user.id, request.documents);
+    }
+    if (error instanceof z.ZodError) return jsonError("Le workflow d'import contient des données invalides.", 400);
+    if (error instanceof Error && "code" in error) {
+      const code = (error as { code?: string }).code;
+      const status = code === "FETCH_FAILED" ? 502 : code === "AUTH_REQUIRED" ? 403 : code === "AUTH_FAILED" ? 401 : 422;
+      return jsonError(error.message, status);
+    }
+    console.error("Unexpected organizer import workflow error", error);
+    return jsonError("Impossible de poursuivre l'import Organizer.", 500);
+  }
+};
+
 export async function POST(request: NextRequest, context: { params: { id?: string } }) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
@@ -1135,11 +2172,18 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const isMultipart = request.headers.get("content-type")?.includes("multipart/form-data") ?? false;
   const rawBody = isMultipart ? null : await request.json().catch(() => null);
+  const parsedWorkflow = !isMultipart && isWorkflowAction(rawBody?.action)
+    ? workflowRequestSchema.safeParse(rawBody)
+    : null;
+  if (parsedWorkflow && !parsedWorkflow.success) return jsonError("Invalid import workflow request.", 400);
   const isApply = rawBody?.action === "apply";
   const previewRequest = isMultipart ? await parsePreviewRequest(request) : { parsed: previewRequestSchema.safeParse(rawBody), documents: [] as File[] };
-  const parsedBody = isApply ? applyRequestSchema.safeParse(rawBody) : previewRequest.parsed;
-  if (!parsedBody.success) return jsonError("Invalid import request.", 400);
-  const temporaryDocumentReferences = parsedBody.data.action === "preview" ? parsedBody.data.documents : [];
+  const parsedBody = parsedWorkflow
+    ? null
+    : isApply ? applyRequestSchema.safeParse(rawBody) : previewRequest.parsed;
+  if (parsedBody && !parsedBody.success) return jsonError("Invalid import request.", 400);
+  if (!parsedWorkflow && !parsedBody) return jsonError("Invalid import request.", 400);
+  const temporaryDocumentReferences = parsedBody?.success && parsedBody.data.action === "preview" ? parsedBody.data.documents : [];
 
   const rateLimit = await checkRateLimitAsync(`organizer-website-import:${auth.user.id}:${parsedParams.data.id}`, 6, 60_000);
   if (!rateLimit.allowed) {
@@ -1153,6 +2197,12 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const event = await loadEventContext(auth.serviceConfig, parsedParams.data.id);
   if (!event) return jsonError("Unable to load event.", 502);
+
+  if (parsedWorkflow?.success) {
+    return handleOrganizerImportWorkflow(auth, event, parsedWorkflow.data);
+  }
+
+  if (!parsedBody?.success) return jsonError("Invalid import request.", 400);
 
   try {
     const temporaryDocuments = await loadTemporaryOrganizerImportDocuments(

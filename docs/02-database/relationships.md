@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -19,11 +19,13 @@ related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
 related_tables:
   - race_plans
   - plan_share_links
   - plan_aid_stations
   - races
+  - organizer_import_sessions
   - race_aid_stations
   - race_aid_station_products
   - race_events
@@ -77,6 +79,7 @@ User-owned tables include:
 - `plan_share_links.user_id`
 - `race_event_updates.created_by`
 - `race_event_update_reads.user_id`
+- `organizer_import_sessions.created_by`
 
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
 
@@ -162,10 +165,15 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_update_reads.user_id -> user_profiles(user_id) on delete cascade`
 - `race_aid_station_products.race_aid_station_id -> race_aid_stations(id) on delete cascade`
 - `race_aid_station_products.product_id -> products(id) on delete cascade`
+- `organizer_import_sessions.event_id -> race_events(id) on delete cascade`
+- `organizer_import_sessions.edition_id -> race_event_editions(id) on delete cascade`
+- `organizer_import_sessions.created_by -> auth.users(id) on delete cascade`
 
 Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Claimed catalog race rows should not be reassigned through `races.created_by`.
 
 `20260618160000_add_organizer_dashboard_details.sql` adds nullable organizer detail JSONB columns to `race_events`, `races`, and `race_aid_stations`. It adds no foreign keys and does not change cascade behavior.
+
+`organizer_import_sessions` is temporary workflow state. Its scope trigger requires the selected edition to belong to the selected event. Confirmed formats are stored as validated JSON `raceId` bindings rather than foreign-key child rows because the whole snapshot expires; both import RPCs revalidate every bound race against the session event and edition before mutation.
 
 ## Gotchas
 
@@ -179,6 +187,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - Organizer detail JSONB columns are metadata on existing source rows; they do not create new ownership or cascade relationships.
 - Public crew share links are plan children; deleting the plan must invalidate the public recap by cascading `plan_share_links`.
 - Deleting an approving admin must not delete or hide a course/Racebook row; the approval actor FK is intentionally `on delete set null` while the approval timestamp remains durable.
+- Explicit import replacement of `aidStations` deletes and recreates the source station set atomically. Because station products cascade by station id, the review must warn that selected replacement removes existing `race_aid_station_products`; omitting the field preserves every station and product link.
 
 ## Related Docs
 

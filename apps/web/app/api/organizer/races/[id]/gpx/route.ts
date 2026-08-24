@@ -197,6 +197,10 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const gpxSha = createHash("sha256").update(gpxContent).digest("hex");
+  const missingRequiredFields = new Set(race.missing_required_fields ?? []);
+  if (parsedGpx.stats.distanceKm > 0) missingRequiredFields.delete("distance_km");
+  missingRequiredFields.delete("elevation_gain_m");
+  const completesImportedDraft = (race.data_status ?? "complete") === "draft" && missingRequiredFields.size === 0;
   const updateResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
     {
@@ -221,6 +225,14 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
         bounds_min_lng: parsedGpx.stats.boundsMinLng,
         bounds_max_lat: parsedGpx.stats.boundsMaxLat,
         bounds_max_lng: parsedGpx.stats.boundsMaxLng,
+        ...((race.data_status ?? "complete") === "draft"
+          ? {
+              missing_required_fields: [...missingRequiredFields],
+              data_status: completesImportedDraft ? "complete" : "draft",
+              is_live: completesImportedDraft,
+              racebook_is_live: false,
+            }
+          : {}),
       }),
       cache: "no-store",
     }

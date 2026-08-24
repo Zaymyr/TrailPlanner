@@ -50,6 +50,8 @@ const raceRowSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   is_live: z.boolean(),
+  data_status: z.enum(["draft", "complete"]).optional().default("complete"),
+  missing_required_fields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])).optional().default([]),
   racebook_is_live: z.boolean().default(false),
   racebook_publication_approved_at: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
@@ -90,6 +92,9 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if ("error" in race) return race.error;
   const parsedBody = updateRaceSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid race fields.", 400);
+  if (parsedBody.data.racebookIsLive === true && (race.data_status ?? "complete") === "draft") {
+    return jsonError("Complète les informations minimales du format avant de publier son Racebook.", 409);
+  }
   if (parsedBody.data.racebookIsLive === true && !race.racebook_publication_approved_at) {
     return jsonError("La publication de ce Racebook doit d'abord être validée par un administrateur.", 409);
   }
@@ -122,6 +127,31 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;
   if (parsedBody.data.organizerDetails !== undefined) updatePayload.organizer_details = parsedBody.data.organizerDetails;
   if (parsedBody.data.racebookIsLive !== undefined) updatePayload.racebook_is_live = parsedBody.data.racebookIsLive;
+
+  const requiredFieldChanged =
+    parsedBody.data.raceDate !== undefined ||
+    parsedBody.data.distanceKm !== undefined ||
+    parsedBody.data.elevationGainM !== undefined;
+  const currentDataStatus = race.data_status ?? "complete";
+  if (requiredFieldChanged || currentDataStatus === "draft") {
+    const missingRequiredFields = new Set(race.missing_required_fields ?? []);
+    if (parsedBody.data.raceDate !== undefined) {
+      if (parsedBody.data.raceDate === null) missingRequiredFields.add("race_date");
+      else missingRequiredFields.delete("race_date");
+    }
+    if (parsedBody.data.distanceKm !== undefined) missingRequiredFields.delete("distance_km");
+    if (parsedBody.data.elevationGainM !== undefined) missingRequiredFields.delete("elevation_gain_m");
+    const nextDataStatus = missingRequiredFields.size === 0 ? "complete" : "draft";
+    updatePayload.missing_required_fields = [...missingRequiredFields];
+    updatePayload.data_status = nextDataStatus;
+    if (nextDataStatus === "draft") {
+      updatePayload.is_live = false;
+      updatePayload.racebook_is_live = false;
+    } else if (currentDataStatus === "draft") {
+      updatePayload.is_live = true;
+      updatePayload.racebook_is_live = false;
+    }
+  }
 
   if (Object.keys(updatePayload).length === 0) return jsonError("No fields to update.", 400);
 

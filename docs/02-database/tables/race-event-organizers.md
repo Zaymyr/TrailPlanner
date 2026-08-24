@@ -104,6 +104,7 @@ Summary:
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
 - That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
 - New organizer-created formats default to catalog-visible (`is_live = true`) but their Racebook defaults to hidden and unapproved.
+- Admin-confirmed import formats are the exception: they may start as hidden incomplete drafts. The same membership-gated race and GPX routes may complete their required-field markers later, while keeping the Racebook hidden.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.

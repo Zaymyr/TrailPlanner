@@ -7,6 +7,8 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/organizer/events/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
@@ -19,6 +21,7 @@ related_tables:
   - race_events
   - races
   - race_event_publication_requests
+  - organizer_import_sessions
 ---
 
 # race_event_editions
@@ -77,6 +80,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - Format-specific publication readiness and first approval follow `race_event_publication_requests.race_id -> races.edition_id`, even when that edition is not current.
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
 - An admin-only website-import preview that falls back to supplied roadbook documents remains review-only; LLM reconciliation can recommend format matches but cannot create or update an edition. Apply requires an unexpired signed proposal snapshot and an explicit target format inside the selected edition. Those 25 MB-per-file temporary Storage objects are deleted after extraction, and an edition changes only after explicit admin confirmation.
+- Two-pass import sessions reference one edition and verify it belongs to the selected event. New confirmed format drafts inherit this edition's `start_date`; field apply cannot target a format in another edition.
 
 ## Common Queries
 
@@ -103,6 +107,7 @@ where ree.event_id = :event_id
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.
 - Do not require a source edition lookup when the organizer explicitly disables duplication; source formats are needed only for the cloning branch.
 - A cloned/new edition may be course-visible while every attached Racebook is hidden. Do not derive Racebook visibility from edition currentness or `races.is_live`.
+- Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.
 
 ## Related Docs
 
