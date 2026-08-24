@@ -103,7 +103,7 @@ describe("/api/organizer/events/[id]/website-import preview", () => {
     });
     const payload = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status, JSON.stringify(payload)).toBe(200);
     expect(payload.preview.source.provider).toBe("utmb");
     expect(payload.preview.races[0].suggestedTargetRaceId).toBe("22222222-2222-2222-2222-222222222222");
     expect(payload.preview.previewHash).toHaveLength(64);
@@ -131,7 +131,7 @@ describe("/api/organizer/events/[id]/website-import preview", () => {
     );
     const payload = await response.json();
 
-    expect(response.status).toBe(200);
+    expect(response.status, JSON.stringify(payload)).toBe(200);
     expect(payload.preview.documents[0]).toMatchObject({ fileName: "roadbook.pdf", status: "rejected" });
     expect(
       vi.mocked(fetch).mock.calls.some(
@@ -140,6 +140,33 @@ describe("/api/organizer/events/[id]/website-import preview", () => {
           init?.method === "DELETE"
       )
     ).toBe(true);
+  });
+
+  it("builds a signed document-only review against existing formats", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response(new Uint8Array([137, 80, 78, 71]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const response = await POST(importRequest({
+      action: "preview",
+      url: "",
+      documents: [{
+        path: "00000000-0000-0000-0000-000000000001/roadbook.png",
+        fileName: "roadbook.png",
+        mediaType: "image/png",
+        sizeBytes: 4,
+      }],
+    }), { params: { id: eventId } });
+    const payload = await response.json();
+
+    expect(response.status, JSON.stringify(payload)).toBe(200);
+    expect(payload.preview.source.label).toBe("Documents fournis");
+    expect(payload.preview.races[0]).toMatchObject({
+      key: "existing:22222222-2222-2222-2222-222222222222",
+      suggestedTargetRaceId: "22222222-2222-2222-2222-222222222222",
+      canCreate: false,
+    });
+    expect(payload.preview.proposalSignature).toMatch(/^[a-f0-9]{64}$/);
   });
 });
 
@@ -202,8 +229,7 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
   });
 
   it("rejects stale preview hashes", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
-      buildJsonResponse([
+    const eventContext = [
         {
           id: eventId,
           name: "Grand Trail",
@@ -212,14 +238,22 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
           organizer_details: { officialWebsiteUrl: null },
           races: [],
         },
-      ])
-    );
+      ];
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse(eventContext));
+    const previewResponse = await POST(importRequest({ action: "preview", url: "https://example.com/race" }), {
+      params: { id: eventId },
+    });
+    const previewPayload = await previewResponse.json();
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse(eventContext));
 
     const response = await POST(
       importRequest({
         action: "apply",
         url: "https://example.com/race",
-        previewHash: "stale-preview-hash-0001",
+        previewHash: "0".repeat(64),
+        proposalSnapshot: previewPayload.preview.proposalSnapshot,
+        proposalSignature: previewPayload.preview.proposalSignature,
+        selectedEventProposalIds: [],
         selectedEditionYear: "2026",
         raceSelections: [],
       }),
@@ -228,7 +262,7 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(409);
-    expect(payload.message).toContain("preview");
+    expect(payload.message).toContain("revue");
   });
 
   it("applies an organizer-selected event date without changing the preview hash", async () => {
@@ -265,6 +299,9 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
         action: "apply",
         url: "https://example.com/race",
         previewHash: previewPayload.preview.previewHash,
+        proposalSnapshot: previewPayload.preview.proposalSnapshot,
+        proposalSignature: previewPayload.preview.proposalSignature,
+        selectedEventProposalIds: [],
         eventRaceDate: "2026-09-20",
         selectedEditionYear: "2026",
         raceSelections: [],
@@ -272,7 +309,7 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
       { params: { id: eventId } }
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status, JSON.stringify(await response.clone().json())).toBe(200);
     const editionPatch = vi
       .mocked(fetch)
       .mock.calls.find(([url, init]) => String(url).includes("/rest/v1/race_event_editions?") && init?.method === "PATCH");
@@ -319,27 +356,36 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(buildJsonResponse(eventContext))
       .mockResolvedValueOnce(buildJsonResponse([{ id: "55555555-5555-5555-5555-555555555555", start_date: "2027-09-20", end_date: "2027-09-20" }], { status: 201 }))
-      .mockResolvedValueOnce(buildJsonResponse(null))
       .mockResolvedValueOnce(buildJsonResponse([{ id: "44444444-4444-4444-4444-444444444444" }], { status: 201 }));
+
+    const selectedProposalIds = previewPayload.preview.proposalSnapshot.proposals
+      .filter((proposal: { scope: string; previewRaceKey: string | null }) =>
+        proposal.scope === "format" && proposal.previewRaceKey === "race:0:grand-trail-42k"
+      )
+      .map((proposal: { id: string }) => proposal.id);
 
     const response = await POST(
       importRequest({
         action: "apply",
         url: "https://example.com/race",
         previewHash: previewPayload.preview.previewHash,
+        proposalSnapshot: previewPayload.preview.proposalSnapshot,
+        proposalSignature: previewPayload.preview.proposalSignature,
+        selectedEventProposalIds: [],
         eventRaceDate: "2027-09-20",
         raceSelections: [
           {
             previewRaceKey: "race:0:grand-trail-42k",
             mode: "create",
             targetRaceId: null,
+            selectedProposalIds,
           },
         ],
       }),
       { params: { id: eventId } }
     );
 
-    expect(response.status).toBe(200);
+    expect(response.status, JSON.stringify(await response.clone().json())).toBe(200);
     const raceInsert = vi
       .mocked(fetch)
       .mock.calls.find(([url, init]) => String(url).endsWith("/rest/v1/races") && init?.method === "POST");
@@ -348,11 +394,87 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
       edition_group_id: existingEditionGroupId,
       edition_id: "55555555-5555-5555-5555-555555555555",
       race_date: "2027-09-20",
-      series_name: "42K",
+      series_name: "Grand Trail 42K",
       is_live: true,
       gpx_storage_path: null,
     });
     expect(JSON.parse(String(raceInsert?.[1]?.body)).gpx_path).toMatch(/^organizer\/11111111-1111-1111-1111-111111111111\/.+\.gpx$/);
+  });
+
+  it("updates only explicitly selected fields from the signed review", async () => {
+    const targetRaceId = "22222222-2222-2222-2222-222222222222";
+    const editionId = "55555555-5555-5555-5555-555555555555";
+    const eventContext = [{
+      id: eventId,
+      name: "Grand Trail",
+      location: "Annecy",
+      race_date: "2026-09-12",
+      organizer_details: { officialWebsiteUrl: null },
+      race_event_editions: [{
+        id: editionId,
+        edition_year: 2026,
+        start_date: "2026-09-12",
+        end_date: "2026-09-13",
+        is_current: true,
+      }],
+      races: [{
+        id: targetRaceId,
+        edition_id: editionId,
+        edition_group_id: "33333333-3333-3333-3333-333333333333",
+        series_name: "42K",
+        name: "Ancien nom",
+        race_date: "2026-09-12",
+        distance_km: 41,
+        elevation_gain_m: 2200,
+        elevation_loss_m: 2100,
+        external_site_url: null,
+        location_text: "Annecy",
+        thumbnail_url: null,
+        gpx_storage_path: null,
+        organizer_details: null,
+        is_live: false,
+      }],
+    }];
+
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse(eventContext));
+    const previewResponse = await POST(importRequest({ action: "preview", url: "https://example.com/race" }), {
+      params: { id: eventId },
+    });
+    const previewPayload = await previewResponse.json();
+    const distanceProposal = previewPayload.preview.proposalSnapshot.proposals.find(
+      (proposal: { previewRaceKey: string | null; field: string }) =>
+        proposal.previewRaceKey === "race:0:grand-trail-42k" && proposal.field === "distanceKm"
+    );
+    expect(distanceProposal).toBeDefined();
+
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse(eventContext))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId, start_date: "2026-09-12", end_date: "2026-09-13" }]))
+      .mockResolvedValueOnce(buildJsonResponse(null));
+
+    const response = await POST(importRequest({
+      action: "apply",
+      url: "https://example.com/race",
+      previewHash: previewPayload.preview.previewHash,
+      proposalSnapshot: previewPayload.preview.proposalSnapshot,
+      proposalSignature: previewPayload.preview.proposalSignature,
+      selectedEventProposalIds: [],
+      eventRaceDate: "2026-09-12",
+      raceSelections: [{
+        previewRaceKey: "race:0:grand-trail-42k",
+        mode: "update",
+        targetRaceId,
+        selectedProposalIds: [distanceProposal.id],
+      }],
+    }), { params: { id: eventId } });
+
+    expect(response.status, JSON.stringify(await response.clone().json())).toBe(200);
+    const racePatch = vi.mocked(fetch).mock.calls.find(
+      ([url, init]) => String(url).includes(`/rest/v1/races?id=eq.${targetRaceId}`) && init?.method === "PATCH"
+    );
+    expect(racePatch).toBeDefined();
+    const body = JSON.parse(String(racePatch?.[1]?.body));
+    expect(body).toEqual({ edition_id: editionId, distance_km: 42 });
   });
 });
 

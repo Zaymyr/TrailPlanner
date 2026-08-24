@@ -175,6 +175,7 @@ export type WebsiteImportRaceMode = "create" | "update" | "ignore";
 export type WebsiteImportRaceSelection = {
   mode: WebsiteImportRaceMode;
   targetRaceId: string | null;
+  selectedProposalIds: string[];
 };
 
 export type WebsiteImportConfidence = "high" | "medium" | "low";
@@ -217,6 +218,45 @@ export type WebsiteImportPreviewRace = {
   hasReliableGpx: boolean;
   detectedAidStationCount: number;
   assessment: WebsiteImportAssessment | null;
+};
+
+export type WebsiteImportProposalValue =
+  | string
+  | number
+  | boolean
+  | null
+  | string[]
+  | Array<{
+      name: string;
+      distanceKm: number;
+      waterRefill: boolean | null;
+      solidRefill: boolean | null;
+      assistanceAllowed: boolean | null;
+    }>;
+
+export type WebsiteImportFieldProposal = {
+  id: string;
+  scope: "event" | "format";
+  previewRaceKey: string | null;
+  field: string;
+  label: string;
+  value: WebsiteImportProposalValue;
+  currentValue: WebsiteImportProposalValue;
+  sourceKind: "gpx" | "structured-data" | "html" | "pdf" | "llm";
+  sourceLabel: string;
+  sourceUrl: string | null;
+  evidence: string[];
+  confidence: WebsiteImportConfidence;
+  comparison: "fill-missing" | "same" | "conflict" | "unverified";
+  recommended: boolean;
+};
+
+export type WebsiteImportProposalSnapshot = {
+  version: 1;
+  eventId: string;
+  previewHash: string;
+  expiresAt: string;
+  proposals: WebsiteImportFieldProposal[];
 };
 
 export type WebsiteImportPreview = {
@@ -293,6 +333,8 @@ export type WebsiteImportPreview = {
       }>;
     }>;
   } | null;
+  proposalSnapshot: WebsiteImportProposalSnapshot;
+  proposalSignature: string;
   missingFields: string[];
   warnings: string[];
   canApply: boolean;

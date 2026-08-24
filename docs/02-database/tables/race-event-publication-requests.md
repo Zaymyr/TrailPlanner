@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -16,6 +16,7 @@ related_files:
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/app/organizer/_components/dashboard/types.ts
+  - apps/web/app/organizer/_components/dashboard/website-import-review-details.tsx
   - apps/web/app/organizer/_components/dashboard/shell.tsx
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
 related_tables:
@@ -84,7 +85,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - New public-schema tables require explicit grants as well as RLS.
 - Do not use `races.is_live` as the Racebook publication source of truth. Use `racebook_is_live`; approval provenance is `racebook_publication_approved_at` / `racebook_publication_approved_by`.
 - Roadbook preview uploads use temporary private Storage and may be 25 MB each; they do not establish publication readiness or approval.
-- Admin-only LLM reconciliation is a pre-import proposal and does not establish publication readiness or approval.
+- Admin-only LLM reconciliation and the signed per-field import snapshot are pre-import controls. Applying selected proposals may change draft source fields, but does not establish publication readiness or approval; the publication route revalidates persisted data independently.
 
 ## Related Docs
 

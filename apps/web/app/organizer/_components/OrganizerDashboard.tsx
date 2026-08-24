@@ -55,6 +55,7 @@ import {
   type OrganizerAidStationRow,
 } from "./dashboard/helpers";
 import { ProductPickerModal, ProductsEditor } from "./dashboard/products-editor";
+import { WebsiteImportProposalChoices, WebsiteImportReviewDetails } from "./dashboard/website-import-review-details";
 import {
   CompletionTabsPanel,
   OrganizerNoMembershipCard,
@@ -75,6 +76,7 @@ import type {
   RaceFormValues,
   StationProduct,
   WebsiteImportPreview,
+  WebsiteImportFieldProposal,
   WebsiteImportRaceSelection,
 } from "./dashboard/types";
 
@@ -83,7 +85,32 @@ const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/a
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
 const WEBSITE_IMPORT_MINIMUM_SCORE = 70;
 const WEBSITE_IMPORT_MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
+const WEBSITE_IMPORT_REQUIRED_CREATE_FIELDS = new Set(["name", "raceDate", "distanceKm", "elevationGainM"]);
 const EMPTY_DIRTY_MODULES = new Set<OrganizerModuleId>();
+
+const hasWebsiteImportProposalValue = (proposal: WebsiteImportFieldProposal) => {
+  if (proposal.value === null) return false;
+  if (typeof proposal.value === "string") return proposal.value.trim().length > 0;
+  if (Array.isArray(proposal.value)) return proposal.value.length > 0;
+  return true;
+};
+
+const getInitialWebsiteImportProposalIds = (
+  proposals: WebsiteImportFieldProposal[],
+  includeRequiredCreateFields = false
+) => {
+  const selectedByField = new Map<string, string>();
+  proposals.forEach((proposal) => {
+    const shouldSelect =
+      proposal.recommended ||
+      (includeRequiredCreateFields && WEBSITE_IMPORT_REQUIRED_CREATE_FIELDS.has(proposal.field) && hasWebsiteImportProposalValue(proposal));
+    if (!shouldSelect) return;
+    const currentId = selectedByField.get(proposal.field);
+    const currentProposal = currentId ? proposals.find((candidate) => candidate.id === currentId) : null;
+    if (!currentProposal || (!currentProposal.recommended && proposal.recommended)) selectedByField.set(proposal.field, proposal.id);
+  });
+  return Array.from(selectedByField.values());
+};
 
 type OrganizerImportDocumentReference = {
   path: string;
@@ -229,6 +256,7 @@ export function OrganizerDashboard({
   const [websiteImportDocuments, setWebsiteImportDocuments] = useState<File[]>([]);
   const [websiteImportPreview, setWebsiteImportPreview] = useState<WebsiteImportPreview | null>(null);
   const [websiteImportEventDate, setWebsiteImportEventDate] = useState("");
+  const [websiteImportSelectedEventProposalIds, setWebsiteImportSelectedEventProposalIds] = useState<string[]>([]);
   const [websiteImportSelections, setWebsiteImportSelections] = useState<Record<string, WebsiteImportRaceSelection>>({});
   const [websiteImportError, setWebsiteImportError] = useState<string | null>(null);
   const [websiteImportLoading, setWebsiteImportLoading] = useState(false);
@@ -375,6 +403,7 @@ export function OrganizerDashboard({
     if (websiteImportOpen) return;
     setWebsiteImportPreview(null);
     setWebsiteImportEventDate("");
+    setWebsiteImportSelectedEventProposalIds([]);
     setWebsiteImportSelections({});
     setWebsiteImportError(null);
     setWebsiteImportLoading(false);
@@ -1411,6 +1440,7 @@ export function OrganizerDashboard({
     setWebsiteImportError(null);
     setWebsiteImportPreview(null);
     setWebsiteImportEventDate(eventForm.editionStartDate);
+    setWebsiteImportSelectedEventProposalIds([]);
     setWebsiteImportSelections({});
     setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
     setWebsiteImportFormatUrls([""]);
@@ -1448,6 +1478,7 @@ export function OrganizerDashboard({
       const data = (await response.json().catch(() => null)) as { preview?: WebsiteImportPreview; message?: string } | null;
       if (!response.ok || !data?.preview) {
         setWebsiteImportPreview(null);
+        setWebsiteImportSelectedEventProposalIds([]);
         setWebsiteImportSelections({});
         setWebsiteImportError(
           data?.message ??
@@ -1460,27 +1491,39 @@ export function OrganizerDashboard({
 
       setWebsiteImportPreview(data.preview);
       setWebsiteImportEventDate(data.preview.event.raceDate ?? eventForm.editionStartDate);
+      const proposals = data.preview.proposalSnapshot.proposals;
+      setWebsiteImportSelectedEventProposalIds(
+        getInitialWebsiteImportProposalIds(proposals.filter((proposal) => proposal.scope === "event"))
+      );
       setWebsiteImportSelections(
         Object.fromEntries(
-          data.preview.races.map((race) => [
-            race.key,
-            {
-              mode:
-                (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE
-                  ? race.suggestedTargetRaceId
-                    ? "update"
-                    : race.canCreate
-                      ? "create"
-                      : "ignore"
-                  : "ignore",
-              targetRaceId: race.suggestedTargetRaceId,
-            } satisfies WebsiteImportRaceSelection,
-          ])
+          data.preview.races.map((race) => {
+            const mode: WebsiteImportRaceSelection["mode"] =
+              (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE
+                ? race.suggestedTargetRaceId
+                  ? "update"
+                  : race.canCreate
+                    ? "create"
+                    : "ignore"
+                : "ignore";
+            const raceProposals = proposals.filter(
+              (proposal) => proposal.scope === "format" && proposal.previewRaceKey === race.key
+            );
+            return [
+              race.key,
+              {
+                mode,
+                targetRaceId: race.suggestedTargetRaceId,
+                selectedProposalIds: getInitialWebsiteImportProposalIds(raceProposals, mode === "create"),
+              } satisfies WebsiteImportRaceSelection,
+            ];
+          })
         )
       );
     } catch (caught) {
       console.error("Unable to preview organizer website import", caught);
       setWebsiteImportPreview(null);
+      setWebsiteImportSelectedEventProposalIds([]);
       setWebsiteImportSelections({});
       setWebsiteImportError("La connexion au serveur a été interrompue pendant l'analyse. Réessaie dans quelques instants.");
     } finally {
@@ -1503,12 +1546,11 @@ export function OrganizerDashboard({
   const hasApplicableWebsiteImportSelection =
     websiteImportPreview &&
     Boolean(websiteImportEventDate) &&
-    (Boolean(websiteImportPreview.event.name) ||
-      Boolean(websiteImportPreview.event.location) ||
-      Boolean(websiteImportPreview.event.officialWebsiteUrl) ||
+    (websiteImportSelectedEventProposalIds.length > 0 ||
       websiteImportPreview.races.some((race) => {
         const selection = websiteImportSelections[race.key];
         if (!selection || selection.mode === "ignore") return false;
+        if (selection.selectedProposalIds.length === 0) return false;
         if (selection.mode === "create") return race.canCreate;
         return selection.mode === "update" && Boolean(selection.targetRaceId);
       }));
@@ -1527,6 +1569,7 @@ export function OrganizerDashboard({
       previewRaceKey: race.key,
       mode: websiteImportSelections[race.key]?.mode ?? "ignore",
       targetRaceId: websiteImportSelections[race.key]?.targetRaceId ?? null,
+      selectedProposalIds: websiteImportSelections[race.key]?.selectedProposalIds ?? [],
     }));
 
     setWebsiteImportApplying(true);
@@ -1543,6 +1586,9 @@ export function OrganizerDashboard({
           eventRaceDate: websiteImportEventDate || undefined,
           eventEditionEndDate: eventForm.editionEndDate || websiteImportEventDate || undefined,
           selectedEditionYear,
+          proposalSnapshot: websiteImportPreview.proposalSnapshot,
+          proposalSignature: websiteImportPreview.proposalSignature,
+          selectedEventProposalIds: websiteImportSelectedEventProposalIds,
           raceSelections,
         }),
       });
@@ -2144,6 +2190,16 @@ export function OrganizerDashboard({
                       </div>
                     </details>
                   ) : null}
+                  <WebsiteImportProposalChoices
+                    preview={websiteImportPreview}
+                    scope="event"
+                    selectedProposalIds={websiteImportSelectedEventProposalIds}
+                    onSelectionChange={setWebsiteImportSelectedEventProposalIds}
+                  />
+                  <WebsiteImportReviewDetails
+                    preview={websiteImportPreview}
+                    existingRaces={eventDetail?.races ?? []}
+                  />
                 </div>
 
                 <div className="space-y-3">
@@ -2159,7 +2215,7 @@ export function OrganizerDashboard({
                     ) : null}
                   </div>
                   {websiteImportUsefulRaces.map((race) => {
-                    const selection = websiteImportSelections[race.key] ?? { mode: "ignore", targetRaceId: null };
+                    const selection = websiteImportSelections[race.key] ?? { mode: "ignore", targetRaceId: null, selectedProposalIds: [] };
                     const foundFindings = race.assessment?.findings.filter((finding) => finding.value && finding.key !== "gpx") ?? [];
                     const missingFindings = race.assessment?.findings.filter((finding) => !finding.value && finding.key !== "gpx") ?? [];
                     const hasImportableGpx = Boolean(race.assessment?.findings.find((finding) => finding.key === "gpx")?.value);
@@ -2248,21 +2304,55 @@ export function OrganizerDashboard({
                             </div>
                           </div>
                         ) : null}
+                        <WebsiteImportProposalChoices
+                          preview={websiteImportPreview}
+                          scope="format"
+                          previewRaceKey={race.key}
+                          selectedProposalIds={selection.selectedProposalIds}
+                          onSelectionChange={(selectedProposalIds) =>
+                            setWebsiteImportSelections((current) => ({
+                              ...current,
+                              [race.key]: { ...(current[race.key] ?? selection), selectedProposalIds },
+                            }))
+                          }
+                        />
                         <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
                           <select
                             className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground"
                             value={selection.mode}
                             onChange={(event) =>
-                              setWebsiteImportSelections((current) => ({
-                                ...current,
-                                [race.key]: {
-                                  mode: event.target.value as WebsiteImportRaceSelection["mode"],
-                                  targetRaceId:
-                                    event.target.value === "update"
-                                      ? current[race.key]?.targetRaceId ?? race.suggestedTargetRaceId
-                                      : null,
-                                },
-                              }))
+                              setWebsiteImportSelections((current) => {
+                                const mode = event.target.value as WebsiteImportRaceSelection["mode"];
+                                const currentSelection = current[race.key] ?? selection;
+                                const raceProposals = websiteImportPreview.proposalSnapshot.proposals.filter(
+                                  (proposal) => proposal.scope === "format" && proposal.previewRaceKey === race.key
+                                );
+                                const initialCreateProposalIds =
+                                  mode === "create" ? getInitialWebsiteImportProposalIds(raceProposals, true) : [];
+                                const selectedFields = new Set(
+                                  currentSelection.selectedProposalIds
+                                    .map((id) => raceProposals.find((proposal) => proposal.id === id)?.field)
+                                    .filter((field): field is string => Boolean(field))
+                                );
+                                const additionalProposalIds = initialCreateProposalIds.filter((id) => {
+                                  const proposal = raceProposals.find((candidate) => candidate.id === id);
+                                  if (!proposal || selectedFields.has(proposal.field)) return false;
+                                  selectedFields.add(proposal.field);
+                                  return true;
+                                });
+                                const selectedProposalIds = [...currentSelection.selectedProposalIds, ...additionalProposalIds];
+                                return {
+                                  ...current,
+                                  [race.key]: {
+                                    mode,
+                                    targetRaceId:
+                                      mode === "update"
+                                        ? currentSelection.targetRaceId ?? race.suggestedTargetRaceId
+                                        : null,
+                                    selectedProposalIds,
+                                  },
+                                };
+                              })
                             }
                           >
                             <option value="ignore">Ignorer</option>
@@ -2281,6 +2371,7 @@ export function OrganizerDashboard({
                                   [race.key]: {
                                     mode: "update",
                                     targetRaceId: event.target.value || null,
+                                    selectedProposalIds: current[race.key]?.selectedProposalIds ?? selection.selectedProposalIds,
                                   },
                                 }))
                               }

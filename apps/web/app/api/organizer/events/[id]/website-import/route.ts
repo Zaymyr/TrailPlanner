@@ -1,4 +1,4 @@
-import { randomUUID } from "crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "crypto";
 
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
@@ -36,7 +36,16 @@ import {
 import {
   reconcileOrganizerImportWithLlm,
   OrganizerImportReconciliationError,
+  type OrganizerImportReconciliation,
 } from "../../../../../../lib/organizer-import-reconciliation";
+import {
+  organizerImportEventFields,
+  organizerImportRaceFields,
+  type OrganizerImportFieldProposal,
+  type OrganizerImportProposalSnapshot,
+  type OrganizerImportProposalValue,
+  type OrganizerImportRaceField,
+} from "../../../../../../lib/organizer-import-proposals";
 
 export const runtime = "nodejs";
 
@@ -44,6 +53,7 @@ const raceSelectionSchema = z.object({
   previewRaceKey: z.string().trim().min(1),
   mode: z.enum(["create", "update", "ignore"]),
   targetRaceId: z.string().uuid().nullable().optional(),
+  selectedProposalIds: z.array(z.string().trim().min(1).max(240)).max(40).default([]),
 });
 const MIN_ACTIONABLE_WEBSITE_IMPORT_SCORE = 70;
 
@@ -56,7 +66,7 @@ const temporaryDocumentReferenceSchema = z.object({
 
 const previewRequestSchema = z.object({
   action: z.literal("preview"),
-  url: z.string().trim().url().optional().default(""),
+  url: z.union([z.string().trim().url(), z.literal("")]).default(""),
   formatUrls: z.array(z.string().trim().url()).max(12).default([]),
   documents: z.array(temporaryDocumentReferenceSchema).max(ORGANIZER_DOCUMENT_MAX_COUNT).default([]),
 });
@@ -99,14 +109,72 @@ const isoDateSchema = z
 
 const applyRequestSchema = z.object({
   action: z.literal("apply"),
-  url: z.string().trim().url(),
+  url: z.union([z.string().trim().url(), z.literal("")]).default(""),
   formatUrls: z.array(z.string().trim().url()).max(12).default([]),
   previewHash: z.string().trim().min(16),
   eventRaceDate: isoDateSchema.optional(),
   eventEditionEndDate: isoDateSchema.optional(),
   selectedEditionYear: z.string().trim().optional(),
+  proposalSnapshot: z.unknown(),
+  proposalSignature: z.string().regex(/^[a-f0-9]{64}$/),
+  selectedEventProposalIds: z.array(z.string().trim().min(1).max(240)).max(30).default([]),
   raceSelections: z.array(raceSelectionSchema).default([]),
 });
+
+const proposalValueSchema = z.union([
+  z.string().max(2_000),
+  z.number().finite(),
+  z.boolean(),
+  z.null(),
+  z.array(z.string().trim().min(1).max(500)).max(100),
+  z.array(
+    z.object({
+      name: z.string().trim().min(1).max(200),
+      distanceKm: z.number().finite().nonnegative(),
+      waterRefill: z.boolean().nullable(),
+      solidRefill: z.boolean().nullable(),
+      assistanceAllowed: z.boolean().nullable(),
+    })
+  ).max(100),
+]);
+
+const proposalSnapshotSchema = z.object({
+  version: z.literal(1),
+  eventId: z.string().uuid(),
+  previewHash: z.string().regex(/^[a-f0-9]{64}$/),
+  expiresAt: z.string().datetime(),
+  proposals: z.array(
+    z.object({
+      id: z.string().trim().min(1).max(240),
+      scope: z.enum(["event", "format"]),
+      previewRaceKey: z.string().nullable(),
+      field: z.enum([...organizerImportEventFields, ...organizerImportRaceFields]),
+      label: z.string().trim().min(1).max(200),
+      value: proposalValueSchema,
+      currentValue: proposalValueSchema,
+      sourceKind: z.enum(["gpx", "structured-data", "html", "pdf", "llm"]),
+      sourceLabel: z.string().trim().min(1).max(200),
+      sourceUrl: z.string().url().nullable(),
+      evidence: z.array(z.string().trim().min(1).max(500)).max(8),
+      confidence: z.enum(["high", "medium", "low"]),
+      comparison: z.enum(["fill-missing", "same", "conflict", "unverified"]),
+      recommended: z.boolean(),
+    })
+  ).max(300),
+});
+
+const PROPOSAL_SNAPSHOT_TTL_MS = 30 * 60_000;
+
+const serializeProposalSnapshot = (snapshot: OrganizerImportProposalSnapshot) => JSON.stringify(snapshot);
+
+const signProposalSnapshot = (snapshot: OrganizerImportProposalSnapshot, secret: string) =>
+  createHmac("sha256", secret).update(serializeProposalSnapshot(snapshot)).digest("hex");
+
+const verifyProposalSnapshot = (snapshot: OrganizerImportProposalSnapshot, signature: string, secret: string) => {
+  const expected = Buffer.from(signProposalSnapshot(snapshot, secret), "hex");
+  const provided = Buffer.from(signature, "hex");
+  return expected.length === provided.length && timingSafeEqual(expected, provided);
+};
 
 const emptyWebsitePreview = (): OrganizerWebsiteImportPreview => ({
   source: { provider: "generic", url: "", label: "Documents fournis" },
@@ -211,6 +279,326 @@ const aidStationCountSchema = z.object({ count: z.number().int().nonnegative() }
 
 type EventContext = z.infer<typeof eventContextSchema>;
 type EventRace = NonNullable<EventContext["races"]>[number];
+
+const getEventRacesForEdition = (event: EventContext, raceDate: string | null | undefined) => {
+  const editionYear = raceDate?.slice(0, 4) ?? null;
+  const edition = (event.race_event_editions ?? []).find(
+    (candidate) => String(candidate.edition_year) === editionYear
+  ) ?? (event.race_event_editions ?? []).find((candidate) => candidate.is_current) ?? null;
+  return (event.races ?? []).filter((race) =>
+    edition
+      ? race.edition_id === edition.id || (!race.edition_id && race.race_date?.slice(0, 4) === String(edition.edition_year))
+      : !editionYear || race.race_date?.slice(0, 4) === editionYear
+  );
+};
+
+const buildDocumentOnlyPreview = (event: EventContext): OrganizerWebsiteImportPreview => ({
+  source: { provider: "generic", url: "", label: "Documents fournis" },
+  event: {
+    name: event.name,
+    location: event.location ?? null,
+    raceDate: event.race_date ?? null,
+    officialWebsiteUrl: parseOrganizerEventDetails(event.organizer_details).officialWebsiteUrl,
+    thumbnailUrl: null,
+    logistics: { mandatoryEquipment: [], shuttles: null, startAddress: null, officialParkings: null },
+  },
+  races: getEventRacesForEdition(event, event.race_date).map((race) => {
+    const values = [
+      ["name", "Nom du format", race.name],
+      ["raceDate", "Date", race.race_date ?? null],
+      ["distanceKm", "Distance", `${race.distance_km} km`],
+      ["elevationGainM", "Dénivelé positif", `${race.elevation_gain_m} m`],
+      ["elevationLossM", "Dénivelé négatif", race.elevation_loss_m === null ? null : `${race.elevation_loss_m} m`],
+      ["locationText", "Lieu", race.location_text ?? null],
+      ["externalSiteUrl", "Page du format", race.external_site_url ?? null],
+    ] as const;
+    return {
+      key: `existing:${race.id}`,
+      name: race.name,
+      seriesName: race.series_name,
+      raceDate: race.race_date ?? null,
+      locationText: race.location_text ?? null,
+      distanceKm: race.distance_km,
+      elevationGainM: race.elevation_gain_m,
+      elevationLossM: race.elevation_loss_m ?? null,
+      externalSiteUrl: race.external_site_url ?? null,
+      thumbnailUrl: race.thumbnail_url ?? null,
+      aidStations: [],
+      gpxContent: null,
+      gpxStorageLabel: null,
+      missingFields: [],
+      hasReliableGpx: Boolean(race.gpx_storage_path),
+      assessment: {
+        score: 100,
+        coverageScore: 100,
+        reliabilityScore: 100,
+        foundCount: values.filter(([, , value]) => value !== null).length,
+        totalCount: values.length,
+        reliableCount: 0,
+        findings: values.map(([key, label, value]) => ({
+          key,
+          label,
+          value,
+          required: ["name", "raceDate", "distanceKm", "elevationGainM"].includes(key),
+          confidence: value === null ? null : "high" as const,
+          sourceUrl: null,
+          sourceLabel: value === null ? null : "Données actuelles",
+        })),
+      },
+    };
+  }),
+  missingFields: [],
+  warnings: [],
+  canApply: true,
+});
+
+const proposalLabels: Record<string, string> = {
+  name: "Nom",
+  seriesName: "Nom de série",
+  raceDate: "Date",
+  location: "Lieu de l'événement",
+  locationText: "Lieu du format",
+  distanceKm: "Distance",
+  elevationGainM: "Dénivelé positif",
+  elevationLossM: "Dénivelé négatif",
+  officialWebsiteUrl: "Site officiel",
+  externalSiteUrl: "Page du format",
+  thumbnailUrl: "Image",
+  gpx: "Trace GPX",
+  aidStations: "Ravitaillements",
+  startTime: "Heure de départ",
+  finishCutoffTime: "Heure limite d'arrivée",
+  bibPickup: "Retrait des dossards",
+  mandatoryEquipment: "Matériel obligatoire",
+  startAddress: "Adresse de départ",
+  shuttles: "Navettes",
+  officialParkings: "Parkings officiels",
+};
+
+const normalizeProposalValue = (value: OrganizerImportProposalValue) =>
+  typeof value === "string" ? value.trim().toLocaleLowerCase("fr-FR") : JSON.stringify(value);
+
+const compareProposalValues = (
+  value: OrganizerImportProposalValue,
+  currentValue: OrganizerImportProposalValue
+): OrganizerImportFieldProposal["comparison"] => {
+  const currentMissing =
+    currentValue === null ||
+    currentValue === "" ||
+    (Array.isArray(currentValue) && currentValue.length === 0);
+  if (currentMissing) return "fill-missing";
+  return normalizeProposalValue(value) === normalizeProposalValue(currentValue) ? "same" : "conflict";
+};
+
+const buildProposal = (input: Omit<OrganizerImportFieldProposal, "label" | "comparison" | "recommended">) => {
+  const comparison = compareProposalValues(input.value, input.currentValue);
+  return {
+    ...input,
+    label: proposalLabels[input.field] ?? input.field,
+    comparison,
+    recommended: comparison === "fill-missing" || comparison === "same",
+  } satisfies OrganizerImportFieldProposal;
+};
+
+const findingSourceKind = (race: OrganizerWebsiteImportRace, field: OrganizerImportRaceField) =>
+  race.hasReliableGpx && ["distanceKm", "elevationGainM", "elevationLossM", "gpx", "aidStations"].includes(field)
+    ? "gpx" as const
+    : race.assessment?.findings.find((finding) => finding.key === field)?.sourceLabel === "Données structurées"
+      ? "structured-data" as const
+      : "html" as const;
+
+const buildOrganizerImportProposals = (
+  preview: OrganizerWebsiteImportPreview,
+  event: EventContext,
+  documents: Array<{
+    sourceId: string;
+    fileName: string;
+    findings: Array<{
+      field: string;
+      value: string;
+      formatHint: string | null;
+      confidence: "medium" | "low";
+      evidence: string;
+    }>;
+  }>,
+  reconciliation: OrganizerImportReconciliation | null
+) => {
+  const proposals: OrganizerImportFieldProposal[] = [];
+  const eventDetails = parseOrganizerEventDetails(event.organizer_details);
+  const scopedEventRaces = getEventRacesForEdition(event, preview.event.raceDate ?? event.race_date);
+  const logistics = preview.event.logistics ?? {
+    mandatoryEquipment: [],
+    shuttles: null,
+    startAddress: null,
+    officialParkings: null,
+  };
+  const addEvent = (
+    field: (typeof organizerImportEventFields)[number],
+    value: OrganizerImportProposalValue,
+    currentValue: OrganizerImportProposalValue,
+    sourceUrl: string | null
+  ) => {
+    if (value === null || value === "" || (Array.isArray(value) && value.length === 0)) return;
+    proposals.push(buildProposal({
+      id: `event:${field}:website`,
+      scope: "event",
+      previewRaceKey: null,
+      field,
+      value,
+      currentValue,
+      sourceKind: "html",
+      sourceLabel: preview.source.label,
+      sourceUrl,
+      evidence: [],
+      confidence: preview.source.provider === "generic" ? "medium" : "high",
+    }));
+  };
+
+  if (preview.source.url) {
+    addEvent("name", preview.event.name, event.name, preview.source.url || null);
+    addEvent("location", preview.event.location, event.location ?? null, preview.source.url || null);
+    addEvent("officialWebsiteUrl", preview.event.officialWebsiteUrl, eventDetails.officialWebsiteUrl, preview.source.url || null);
+    addEvent(
+      "mandatoryEquipment",
+      logistics.mandatoryEquipment,
+      eventDetails.mandatoryEquipment.items.map((item) => item.label),
+      preview.source.url || null
+    );
+    addEvent("startAddress", logistics.startAddress, eventDetails.access.startAddress, preview.source.url || null);
+    addEvent("shuttles", logistics.shuttles, eventDetails.access.shuttles, preview.source.url || null);
+    addEvent("officialParkings", logistics.officialParkings, eventDetails.access.officialParkings, preview.source.url || null);
+
+    for (const race of preview.races) {
+    const reconciliationMatch = reconciliation?.raceMatches.find((match) => match.previewRaceKey === race.key) ?? null;
+    const deterministicTarget = findMatchingSeriesRace(race, scopedEventRaces);
+    const target = reconciliationMatch?.decision === "match" && reconciliationMatch.targetRaceId
+      ? (event.races ?? []).find((candidate) => candidate.id === reconciliationMatch.targetRaceId) ?? deterministicTarget
+      : deterministicTarget;
+    const raceDetails = parseOrganizerRaceDetails(target?.organizer_details);
+    const values: Array<[OrganizerImportRaceField, OrganizerImportProposalValue, OrganizerImportProposalValue]> = [
+      ["name", race.name, target?.name ?? null],
+      ["seriesName", race.seriesName, target?.series_name ?? null],
+      ["raceDate", race.raceDate, target?.race_date ?? null],
+      ["locationText", race.locationText, target?.location_text ?? null],
+      ["distanceKm", race.distanceKm, target?.distance_km ?? null],
+      ["elevationGainM", race.elevationGainM, target?.elevation_gain_m ?? null],
+      ["elevationLossM", race.elevationLossM, target?.elevation_loss_m ?? null],
+      ["externalSiteUrl", race.externalSiteUrl, target?.external_site_url ?? null],
+      ["thumbnailUrl", race.thumbnailUrl, target?.thumbnail_url ?? null],
+      ["gpx", race.gpxContent ? "GPX disponible" : null, target?.gpx_storage_path ? "GPX existant" : null],
+      [
+        "aidStations",
+        race.aidStations.map((station) => ({
+          name: station.name,
+          distanceKm: station.distanceKm,
+          waterRefill: station.waterRefill,
+          solidRefill: null,
+          assistanceAllowed: null,
+        })),
+        [],
+      ],
+      ["startTime", null, raceDetails.schedule.startTime],
+      ["finishCutoffTime", null, raceDetails.schedule.finishCutoffTime],
+      ["bibPickup", null, raceDetails.bibPickup.schedule],
+      ["mandatoryEquipment", [], raceDetails.mandatoryEquipment.items.map((item) => item.label)],
+    ];
+
+    for (const [field, value, currentValue] of values) {
+      if (value === null || value === "" || (Array.isArray(value) && value.length === 0)) continue;
+      const assessmentFinding = race.assessment?.findings.find((finding) => finding.key === field);
+      const llmChange = reconciliationMatch?.fieldChanges.find((change) => change.field === field) ?? null;
+      const proposal = buildProposal({
+        id: `format:${race.key}:${field}:website`,
+        scope: "format",
+        previewRaceKey: race.key,
+        field,
+        value,
+        currentValue,
+        sourceKind: findingSourceKind(race, field),
+        sourceLabel: assessmentFinding?.sourceLabel ?? preview.source.label,
+        sourceUrl: assessmentFinding?.sourceUrl ?? race.externalSiteUrl,
+        evidence: llmChange?.evidence ?? [],
+        confidence: assessmentFinding?.confidence ?? (race.hasReliableGpx ? "high" : "medium"),
+      });
+      proposals.push({
+        ...proposal,
+        recommended: proposal.recommended && (!llmChange || llmChange.action !== "unknown"),
+      });
+    }
+  }
+  }
+
+  const normalizeName = (value: string) => normalizeComparableName(value).replace(/\b\d+(?:[.,]\d+)?\s*km\b/g, "").trim();
+  const parseNumber = (value: string) => {
+    const match = value.match(/\b(\d{1,5}(?:[.,]\d+)?)\b/);
+    return match ? Number(match[1].replace(",", ".")) : null;
+  };
+  const parseTime = (value: string) => {
+    const match = value.match(/\b(\d{1,2})\s*[h:]\s*(\d{0,2})\b/i);
+    if (!match) return null;
+    return `${match[1].padStart(2, "0")}:${(match[2] || "00").padStart(2, "0")}`;
+  };
+
+  for (const document of documents) {
+    for (const [findingIndex, finding] of document.findings.entries()) {
+      const race = finding.formatHint
+        ? preview.races.find((candidate) => {
+            const candidateNames = [candidate.name, candidate.seriesName].map(normalizeName);
+            return candidateNames.includes(normalizeName(finding.formatHint!));
+          }) ?? null
+        : null;
+      const target = race ? findMatchingSeriesRace(race, scopedEventRaces) : null;
+      const raceDetails = parseOrganizerRaceDetails(target?.organizer_details);
+      let field: OrganizerImportRaceField | null = null;
+      let value: OrganizerImportProposalValue = null;
+      let currentValue: OrganizerImportProposalValue = null;
+      if (finding.field === "distanceKm" || finding.field === "elevationGainM" || finding.field === "elevationLossM") {
+        field = finding.field;
+        value = parseNumber(finding.value);
+        currentValue = field === "distanceKm"
+          ? target?.distance_km ?? null
+          : field === "elevationGainM"
+            ? target?.elevation_gain_m ?? null
+            : target?.elevation_loss_m ?? null;
+      } else if (finding.field === "startTime") {
+        field = "startTime";
+        value = parseTime(finding.value);
+        currentValue = raceDetails.schedule.startTime;
+      } else if (finding.field === "cutoff") {
+        field = "finishCutoffTime";
+        value = parseTime(finding.value);
+        currentValue = raceDetails.schedule.finishCutoffTime;
+      } else if (finding.field === "bibPickup") {
+        field = "bibPickup";
+        value = finding.value;
+        currentValue = raceDetails.bibPickup.schedule;
+      } else if (finding.field === "mandatoryEquipment") {
+        field = "mandatoryEquipment";
+        value = [finding.value];
+        currentValue = race
+          ? raceDetails.mandatoryEquipment.items.map((item) => item.label)
+          : eventDetails.mandatoryEquipment.items.map((item) => item.label);
+      }
+      if (!field || value === null) continue;
+      const scope = race ? "format" as const : "event" as const;
+      proposals.push(buildProposal({
+        id: `${scope}:${race?.key ?? "event"}:${field}:pdf:${document.sourceId}:${findingIndex}`,
+        scope,
+        previewRaceKey: race?.key ?? null,
+        field,
+        value,
+        currentValue,
+        sourceKind: "pdf",
+        sourceLabel: document.fileName,
+        sourceUrl: null,
+        evidence: [finding.evidence],
+        confidence: finding.confidence,
+      }));
+    }
+  }
+
+  return proposals;
+};
 
 const buildRestError = (message: string) =>
   withSecurityHeaders(
@@ -350,6 +738,7 @@ const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: Ev
       warnings: buildRaceWarnings(race, suggested),
       suggestedTargetRaceId: suggested?.id ?? null,
       canCreate:
+        !race.key.startsWith("existing:") &&
         alignedRace.missingFields.length === 0 &&
         (!race.assessment || race.assessment.score >= MIN_ACTIONABLE_WEBSITE_IMPORT_SCORE),
       hasReliableGpx: race.hasReliableGpx,
@@ -361,7 +750,7 @@ const buildAugmentedPreview = (preview: OrganizerWebsiteImportPreview, event: Ev
 
 const loadEventContext = async (serviceConfig: ReturnType<typeof serviceHeaders> extends never ? never : Parameters<typeof serviceHeaders>[0], eventId: string) => {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,organizer_details,race_event_editions(id,edition_year,start_date,end_date,is_current),races(id,edition_id,edition_group_id,series_name,name,race_date,distance_km,elevation_gain_m,elevation_loss_m,external_site_url,location_text,thumbnail_url,gpx_storage_path,is_live)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_date,organizer_details,race_event_editions(id,edition_year,start_date,end_date,is_current),races(id,edition_id,edition_group_id,series_name,name,race_date,distance_km,elevation_gain_m,elevation_loss_m,external_site_url,location_text,thumbnail_url,gpx_storage_path,organizer_details,is_live)&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
@@ -379,38 +768,45 @@ const loadEventContext = async (serviceConfig: ReturnType<typeof serviceHeaders>
 const updateEventFromPreview = async (
   serviceConfig: Parameters<typeof serviceHeaders>[0],
   event: EventContext,
-  preview: OrganizerWebsiteImportPreview
+  proposals: OrganizerImportFieldProposal[]
 ) => {
+  if (proposals.length === 0) return;
   const currentDetails = parseOrganizerEventDetails(event.organizer_details);
-  const logistics = preview.event.logistics ?? { mandatoryEquipment: [], shuttles: null, startAddress: null, officialParkings: null };
-  const updatePayload: Record<string, unknown> = {
-    name: preview.event.name ?? event.name,
-    location: preview.event.location ?? event.location ?? null,
-    organizer_details: {
-      ...currentDetails,
-      officialWebsiteUrl: preview.event.officialWebsiteUrl ?? currentDetails.officialWebsiteUrl ?? null,
-      mandatoryEquipment:
-        currentDetails.mandatoryEquipment.items.length > 0 || logistics.mandatoryEquipment.length === 0
-          ? currentDetails.mandatoryEquipment
-          : {
-              ...currentDetails.mandatoryEquipment,
-              items: logistics.mandatoryEquipment.map((label, index) => ({
-                id: `website-import-${index}`,
-                label,
-                required: true,
-                cold: false,
-                heat: false,
-                note: null,
-              })),
-            },
-      access: {
-        ...currentDetails.access,
-        startAddress: currentDetails.access.startAddress ?? logistics.startAddress,
-        shuttles: currentDetails.access.shuttles ?? logistics.shuttles,
-        officialParkings: currentDetails.access.officialParkings ?? logistics.officialParkings,
-      },
+  const byField = new Map(proposals.map((proposal) => [proposal.field, proposal.value]));
+  const nextDetails = {
+    ...currentDetails,
+    officialWebsiteUrl: typeof byField.get("officialWebsiteUrl") === "string"
+      ? byField.get("officialWebsiteUrl") as string
+      : currentDetails.officialWebsiteUrl,
+    mandatoryEquipment: Array.isArray(byField.get("mandatoryEquipment"))
+      ? {
+          ...currentDetails.mandatoryEquipment,
+          items: (byField.get("mandatoryEquipment") as string[]).map((label, index) => ({
+            id: `information-import-${index}`,
+            label,
+            required: true,
+            cold: false,
+            heat: false,
+            note: null,
+          })),
+        }
+      : currentDetails.mandatoryEquipment,
+    access: {
+      ...currentDetails.access,
+      startAddress: typeof byField.get("startAddress") === "string"
+        ? byField.get("startAddress") as string
+        : currentDetails.access.startAddress,
+      shuttles: typeof byField.get("shuttles") === "string"
+        ? byField.get("shuttles") as string
+        : currentDetails.access.shuttles,
+      officialParkings: typeof byField.get("officialParkings") === "string"
+        ? byField.get("officialParkings") as string
+        : currentDetails.access.officialParkings,
     },
   };
+  const updatePayload: Record<string, unknown> = { organizer_details: nextDetails };
+  if (typeof byField.get("name") === "string") updatePayload.name = byField.get("name");
+  if (typeof byField.get("location") === "string") updatePayload.location = byField.get("location");
 
   const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${event.id}`, {
     method: "PATCH",
@@ -486,8 +882,8 @@ const hydrateAidStationsIfEmpty = async (
         name: station.name,
         km: station.distanceKm,
         water_available: station.waterRefill,
-        solid_available: true,
-        assistance_allowed: true,
+        solid_available: false,
+        assistance_allowed: false,
         order_index: index,
       }))
     ),
@@ -502,19 +898,97 @@ const hydrateAidStationsIfEmpty = async (
   return race.aidStations.length;
 };
 
+const getSelectedProposalValue = (
+  proposals: OrganizerImportFieldProposal[],
+  field: OrganizerImportRaceField
+) => proposals.find((proposal) => proposal.field === field)?.value;
+
+const applyProposalValuesToRace = (
+  race: OrganizerWebsiteImportRace,
+  proposals: OrganizerImportFieldProposal[]
+): OrganizerWebsiteImportRace => {
+  const text = (field: OrganizerImportRaceField, fallback: string | null) => {
+    const value = getSelectedProposalValue(proposals, field);
+    return typeof value === "string" ? value : fallback;
+  };
+  const number = (field: OrganizerImportRaceField, fallback: number | null) => {
+    const value = getSelectedProposalValue(proposals, field);
+    return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+  };
+  const name = text("name", race.name) ?? race.name;
+  return {
+    ...race,
+    name,
+    seriesName: name,
+    raceDate: text("raceDate", race.raceDate),
+    locationText: text("locationText", race.locationText),
+    distanceKm: number("distanceKm", race.distanceKm),
+    elevationGainM: number("elevationGainM", race.elevationGainM),
+    elevationLossM: number("elevationLossM", race.elevationLossM),
+    externalSiteUrl: text("externalSiteUrl", race.externalSiteUrl),
+    thumbnailUrl: text("thumbnailUrl", race.thumbnailUrl),
+  };
+};
+
+const buildImportedRaceDetails = (
+  currentValue: unknown,
+  proposals: OrganizerImportFieldProposal[]
+) => {
+  const details = parseOrganizerRaceDetails(currentValue);
+  const startTime = getSelectedProposalValue(proposals, "startTime");
+  const finishCutoffTime = getSelectedProposalValue(proposals, "finishCutoffTime");
+  const bibPickup = getSelectedProposalValue(proposals, "bibPickup");
+  const mandatoryEquipment = getSelectedProposalValue(proposals, "mandatoryEquipment");
+  return {
+    ...details,
+    schedule: {
+      ...details.schedule,
+      startTime: typeof startTime === "string" ? startTime : details.schedule.startTime,
+      finishCutoffTime: typeof finishCutoffTime === "string" ? finishCutoffTime : details.schedule.finishCutoffTime,
+    },
+    bibPickup: typeof bibPickup === "string"
+      ? { ...details.bibPickup, schedule: bibPickup }
+      : details.bibPickup,
+    mandatoryEquipment: Array.isArray(mandatoryEquipment)
+      ? {
+          ...details.mandatoryEquipment,
+          overrideEnabled: true,
+          items: (mandatoryEquipment as string[]).map((label, index) => ({
+            id: `information-import-${index}`,
+            label,
+            required: true,
+            cold: false,
+            heat: false,
+            note: null,
+          })),
+        }
+      : details.mandatoryEquipment,
+  };
+};
+
 const createRaceFromPreview = async (
   serviceConfig: Parameters<typeof serviceHeaders>[0],
   eventId: string,
   race: OrganizerWebsiteImportRace,
+  proposals: OrganizerImportFieldProposal[],
   editionGroupId: string | null,
   editionId: string
 ) => {
-  if (race.missingFields.length > 0 || !race.raceDate || race.distanceKm === null || race.elevationGainM === null) {
+  const selectedFields = new Set(proposals.map((proposal) => proposal.field));
+  const requiredFields: OrganizerImportRaceField[] = ["name", "raceDate", "distanceKm", "elevationGainM"];
+  if (
+    requiredFields.some((field) => !selectedFields.has(field)) ||
+    !race.raceDate ||
+    race.distanceKm === null ||
+    race.elevationGainM === null
+  ) {
     throw new Error("Incomplete race preview.");
   }
 
   const raceId = randomUUID();
-  const gpxStoragePath = race.gpxContent ? await uploadRaceGpx(serviceConfig, eventId, raceId, race) : null;
+  const gpxStoragePath = selectedFields.has("gpx") && race.gpxContent
+    ? await uploadRaceGpx(serviceConfig, eventId, raceId, race)
+    : null;
   // `gpx_path` is a legacy required column, while `gpx_storage_path` accurately signals whether a GPX was imported.
   const legacyGpxPath = gpxStoragePath ?? `organizer/${eventId}/${raceId}.gpx`;
   const insertResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/races`, {
@@ -529,15 +1003,15 @@ const createRaceFromPreview = async (
       edition_id: editionId,
       edition_group_id: editionGroupId ?? raceId,
       slug: buildSlug(race.name, "organizer"),
-      series_name: race.seriesName || race.name,
+      series_name: race.name,
       name: race.name,
       race_date: race.raceDate,
       distance_km: race.distanceKm,
       elevation_gain_m: race.elevationGainM,
-      elevation_loss_m: race.elevationLossM ?? 0,
-      location_text: race.locationText,
-      external_site_url: race.externalSiteUrl,
-      thumbnail_url: race.thumbnailUrl,
+      elevation_loss_m: selectedFields.has("elevationLossM") ? race.elevationLossM : null,
+      location_text: selectedFields.has("locationText") ? race.locationText : null,
+      external_site_url: selectedFields.has("externalSiteUrl") ? race.externalSiteUrl : null,
+      thumbnail_url: selectedFields.has("thumbnailUrl") ? race.thumbnailUrl : null,
       gpx_path: legacyGpxPath,
       gpx_hash: gpxStoragePath ? `website-import:${raceId}` : `manual:${raceId}`,
       gpx_storage_path: gpxStoragePath,
@@ -545,7 +1019,7 @@ const createRaceFromPreview = async (
       is_live: true,
       is_public: true,
       created_by: null,
-      organizer_details: null,
+      organizer_details: buildImportedRaceDetails(null, proposals),
     }),
     cache: "no-store",
   });
@@ -558,7 +1032,9 @@ const createRaceFromPreview = async (
   const createdRace = z
     .array(z.object({ id: z.string().uuid() }))
     .parse(await insertResponse.json())[0];
-  const createdAidStations = await hydrateAidStationsIfEmpty(serviceConfig, createdRace.id, race);
+  const createdAidStations = selectedFields.has("aidStations")
+    ? await hydrateAidStationsIfEmpty(serviceConfig, createdRace.id, race)
+    : 0;
 
   return { raceId: createdRace.id, gpxUploaded: Boolean(gpxStoragePath), createdAidStations };
 };
@@ -601,23 +1077,29 @@ const updateRaceFromPreview = async (
   serviceConfig: Parameters<typeof serviceHeaders>[0],
   existingRace: EventRace,
   race: OrganizerWebsiteImportRace,
+  proposals: OrganizerImportFieldProposal[],
   editionId: string
 ) => {
-  const updatePayload: Record<string, unknown> = {
-    edition_id: editionId,
-    series_name: race.seriesName || existingRace.series_name,
-    name: race.name || existingRace.name,
-    race_date: race.raceDate ?? existingRace.race_date ?? null,
-    location_text: race.locationText ?? existingRace.location_text ?? null,
-    external_site_url: race.externalSiteUrl ?? existingRace.external_site_url ?? null,
-    distance_km: race.distanceKm ?? existingRace.distance_km,
-    elevation_gain_m: race.elevationGainM ?? existingRace.elevation_gain_m,
-    elevation_loss_m: race.elevationLossM ?? existingRace.elevation_loss_m ?? null,
-    thumbnail_url: existingRace.thumbnail_url ?? race.thumbnailUrl ?? null,
-  };
+  const selectedFields = new Set(proposals.map((proposal) => proposal.field));
+  const updatePayload: Record<string, unknown> = { edition_id: editionId };
+  if (selectedFields.has("name") || selectedFields.has("seriesName")) {
+    updatePayload.name = race.name || existingRace.name;
+    updatePayload.series_name = race.name || existingRace.series_name;
+  }
+  if (selectedFields.has("raceDate")) updatePayload.race_date = race.raceDate ?? existingRace.race_date ?? null;
+  if (selectedFields.has("locationText")) updatePayload.location_text = race.locationText;
+  if (selectedFields.has("externalSiteUrl")) updatePayload.external_site_url = race.externalSiteUrl;
+  if (selectedFields.has("distanceKm")) updatePayload.distance_km = race.distanceKm;
+  if (selectedFields.has("elevationGainM")) updatePayload.elevation_gain_m = race.elevationGainM;
+  if (selectedFields.has("elevationLossM")) updatePayload.elevation_loss_m = race.elevationLossM;
+  if (selectedFields.has("thumbnailUrl") && !existingRace.thumbnail_url) updatePayload.thumbnail_url = race.thumbnailUrl;
+  const organizerDetailFields: OrganizerImportRaceField[] = ["startTime", "finishCutoffTime", "bibPickup", "mandatoryEquipment"];
+  if (organizerDetailFields.some((field) => selectedFields.has(field))) {
+    updatePayload.organizer_details = buildImportedRaceDetails(existingRace.organizer_details, proposals);
+  }
 
   let gpxUploaded = false;
-  if (!existingRace.gpx_storage_path && race.gpxContent) {
+  if (selectedFields.has("gpx") && !existingRace.gpx_storage_path && race.gpxContent) {
     const gpxStoragePath = await uploadRaceGpx(serviceConfig, existingRace.id, existingRace.id, race);
     updatePayload.gpx_path = gpxStoragePath;
     updatePayload.gpx_hash = gpxStoragePath ? `website-import:${existingRace.id}` : null;
@@ -638,7 +1120,9 @@ const updateRaceFromPreview = async (
     throw new Error("Unable to update race.");
   }
 
-  const createdAidStations = await hydrateAidStationsIfEmpty(serviceConfig, existingRace.id, race);
+  const createdAidStations = selectedFields.has("aidStations")
+    ? await hydrateAidStationsIfEmpty(serviceConfig, existingRace.id, race)
+    : 0;
   return { raceId: existingRace.id, gpxUploaded, createdAidStations };
 };
 
@@ -691,12 +1175,16 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
         websiteImportWarning = "Le site n'a pas pu être analysé, mais les documents fournis restent disponibles pour la vérification.";
       }
     }
+    if (!parsedBody.data.url && (sourceDocuments.length > 0 || parsedBody.data.action === "apply")) {
+      preview = buildDocumentOnlyPreview(event);
+    }
     const previewHash = computeOrganizerWebsiteImportPreviewHash(preview);
     let augmentedPreview = buildAugmentedPreview(preview, event);
 
     if (parsedBody.data.action === "preview") {
+      const scopedEventRaces = getEventRacesForEdition(event, preview.event.raceDate ?? event.race_date);
       const formatCandidates = [
-        ...(event.races ?? []).map((race) => ({
+        ...scopedEventRaces.map((race) => ({
           name: race.name,
           distanceKm: race.distance_km,
           elevationGainM: race.elevation_gain_m,
@@ -731,7 +1219,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       try {
         reconciliation = await reconcileOrganizerImportWithLlm({
           preview,
-          existingRaces: (event.races ?? []).map((race) => ({
+          existingRaces: scopedEventRaces.map((race) => ({
             id: race.id,
             name: race.name,
             seriesName: race.series_name,
@@ -768,6 +1256,17 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
           })),
         };
       }
+      const proposalSnapshot = proposalSnapshotSchema.parse({
+        version: 1,
+        eventId: event.id,
+        previewHash,
+        expiresAt: new Date(Date.now() + PROPOSAL_SNAPSHOT_TTL_MS).toISOString(),
+        proposals: buildOrganizerImportProposals(preview, event, documents, reconciliation),
+      }) as OrganizerImportProposalSnapshot;
+      const proposalSignature = signProposalSnapshot(
+        proposalSnapshot,
+        auth.serviceConfig.supabaseServiceRoleKey
+      );
       return withSecurityHeaders(
         NextResponse.json({
           preview: {
@@ -783,28 +1282,65 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
               ? { ...reconciliation, status: reconciliationStatus, message: reconciliationMessage }
               : { status: reconciliationStatus, message: reconciliationMessage, summary: "Aucune proposition de rapprochement.", warnings: [], raceMatches: [] },
             previewHash,
+            proposalSnapshot,
+            proposalSignature,
           },
         })
       );
+    }
+
+    const parsedSnapshot = proposalSnapshotSchema.safeParse(parsedBody.data.proposalSnapshot);
+    if (!parsedSnapshot.success) return jsonError("Le snapshot de revue est invalide. Relance l'analyse.", 409);
+    const proposalSnapshot = parsedSnapshot.data as OrganizerImportProposalSnapshot;
+    if (
+      proposalSnapshot.eventId !== event.id ||
+      proposalSnapshot.previewHash !== parsedBody.data.previewHash ||
+      Date.parse(proposalSnapshot.expiresAt) <= Date.now() ||
+      !verifyProposalSnapshot(
+        proposalSnapshot,
+        parsedBody.data.proposalSignature,
+        auth.serviceConfig.supabaseServiceRoleKey
+      )
+    ) {
+      return jsonError("La revue signée a expiré ou a été modifiée. Relance l'analyse.", 409);
     }
 
     if (previewHash !== parsedBody.data.previewHash) {
       return jsonError("The preview is outdated. Run the analysis again before applying.", 409);
     }
 
+    const proposalById = new Map(proposalSnapshot.proposals.map((proposal) => [proposal.id, proposal]));
+    const selectedEventProposals = parsedBody.data.selectedEventProposalIds.map((id) => proposalById.get(id)).filter(
+      (proposal): proposal is OrganizerImportFieldProposal => Boolean(proposal?.scope === "event")
+    );
+    if (selectedEventProposals.length !== parsedBody.data.selectedEventProposalIds.length) {
+      return jsonError("Une proposition événement est inconnue.", 409);
+    }
+    const eventFieldKeys = selectedEventProposals.map((proposal) => proposal.field);
+    if (new Set(eventFieldKeys).size !== eventFieldKeys.length) {
+      return jsonError("Sélectionne au maximum une proposition par champ événement.", 400);
+    }
+
     const previewRaceMap = new Map(preview.races.map((race) => [race.key, race]));
     const eventRaceMap = new Map((event.races ?? []).map((race) => [race.id, race]));
     const actionableSelections = parsedBody.data.raceSelections.filter((selection) => selection.mode !== "ignore");
+    const selectedPreviewKeys = actionableSelections.map((selection) => selection.previewRaceKey);
+    if (new Set(selectedPreviewKeys).size !== selectedPreviewKeys.length) {
+      return jsonError("Un format de la revue ne peut être appliqué qu'une fois.", 400);
+    }
+    const selectedUpdateTargets = actionableSelections
+      .filter((selection) => selection.mode === "update")
+      .map((selection) => selection.targetRaceId)
+      .filter((target): target is string => Boolean(target));
+    if (new Set(selectedUpdateTargets).size !== selectedUpdateTargets.length) {
+      return jsonError("Un format existant ne peut être ciblé qu'une fois.", 400);
+    }
     const eventPreview = parsedBody.data.eventRaceDate
       ? { ...preview, event: { ...preview.event, raceDate: parsedBody.data.eventRaceDate } }
       : preview;
     const targetEventDate = eventPreview.event.raceDate ?? event.race_date ?? null;
     const targetEditionYear = getEditionYear(targetEventDate);
-    const hasEventUpdate =
-      Boolean(eventPreview.event.name?.trim()) ||
-      Boolean(eventPreview.event.location?.trim()) ||
-      Boolean(eventPreview.event.raceDate?.trim()) ||
-      Boolean(eventPreview.event.officialWebsiteUrl?.trim());
+    const hasEventUpdate = selectedEventProposals.length > 0 || Boolean(parsedBody.data.eventRaceDate?.trim());
 
     if (!hasEventUpdate && actionableSelections.length === 0) {
       return jsonError("No applicable changes selected.", 400);
@@ -820,7 +1356,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     );
     if (!targetEdition) return jsonError("Unable to persist event edition.", 502);
 
-    await updateEventFromPreview(auth.serviceConfig, event, eventPreview);
+    await updateEventFromPreview(auth.serviceConfig, event, selectedEventProposals);
 
     let createdRaces = 0;
     let updatedRaces = 0;
@@ -834,43 +1370,60 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
         return jsonError("This format score is too low to import. Analyse a more specific format page.", 400);
       }
 
-      const alignedRace = alignRaceToEventDate(previewRace, targetEdition.start_date, targetEdition.end_date);
+      const selectedRaceProposals = selection.selectedProposalIds.map((id) => proposalById.get(id)).filter(
+        (proposal): proposal is OrganizerImportFieldProposal =>
+          Boolean(proposal?.scope === "format" && proposal.previewRaceKey === selection.previewRaceKey)
+      );
+      if (selectedRaceProposals.length !== selection.selectedProposalIds.length) {
+        return jsonError("Une proposition de format est inconnue.", 409);
+      }
+      const selectedFieldKeys = selectedRaceProposals.map((proposal) => proposal.field);
+      if (new Set(selectedFieldKeys).size !== selectedFieldKeys.length) {
+        return jsonError("Sélectionne au maximum une proposition par champ de format.", 400);
+      }
+      if (selectedRaceProposals.length === 0) {
+        return jsonError("Sélectionne au moins un champ à importer pour ce format.", 400);
+      }
+
+      const proposedRace = applyProposalValuesToRace(previewRace, selectedRaceProposals);
+      const alignedRace = alignRaceToEventDate(proposedRace, targetEdition.start_date, targetEdition.end_date);
       const existingEdition = findSuggestedRace(alignedRace, event.races ?? [], targetEditionYear, targetEdition.id);
       const seriesReference = findMatchingSeriesRace(alignedRace, event.races ?? []);
 
       if (selection.mode === "create") {
-        const result = existingEdition
-          ? await updateRaceFromPreview(auth.serviceConfig, existingEdition, alignedRace, targetEdition.id)
-          : await createRaceFromPreview(
-              auth.serviceConfig,
-              parsedParams.data.id,
-              alignedRace,
-              seriesReference?.edition_group_id ?? null,
-              targetEdition.id
-            );
-        if (existingEdition) updatedRaces += 1;
-        else createdRaces += 1;
+        if (existingEdition) {
+          return jsonError("Ce format existe déjà dans l'édition. Choisis explicitement « Mettre à jour ».", 409);
+        }
+        const result = await createRaceFromPreview(
+          auth.serviceConfig,
+          parsedParams.data.id,
+          alignedRace,
+          selectedRaceProposals,
+          seriesReference?.edition_group_id ?? null,
+          targetEdition.id
+        );
+        createdRaces += 1;
         gpxUploads += result.gpxUploaded ? 1 : 0;
         hydratedAidStations += result.createdAidStations;
         continue;
       }
 
       const selectedTargetRace = selection.targetRaceId ? eventRaceMap.get(selection.targetRaceId) ?? null : null;
-      const targetRace =
-        selectedTargetRace && (selectedTargetRace.edition_id === targetEdition.id || (!selectedTargetRace.edition_id && getEditionYear(selectedTargetRace.race_date) === targetEditionYear))
-          ? selectedTargetRace
-          : existingEdition;
-      const result = targetRace
-        ? await updateRaceFromPreview(auth.serviceConfig, targetRace, alignedRace, targetEdition.id)
-        : await createRaceFromPreview(
-            auth.serviceConfig,
-            parsedParams.data.id,
-            alignedRace,
-            seriesReference?.edition_group_id ?? null,
-            targetEdition.id
-          );
-      if (targetRace) updatedRaces += 1;
-      else createdRaces += 1;
+      const targetRaceIsInEdition = selectedTargetRace && (
+        selectedTargetRace.edition_id === targetEdition.id ||
+        (!selectedTargetRace.edition_id && getEditionYear(selectedTargetRace.race_date) === targetEditionYear)
+      );
+      if (!selectedTargetRace || !targetRaceIsInEdition) {
+        return jsonError("La cible de mise à jour doit appartenir à l'édition sélectionnée.", 409);
+      }
+      const result = await updateRaceFromPreview(
+        auth.serviceConfig,
+        selectedTargetRace,
+        alignedRace,
+        selectedRaceProposals,
+        targetEdition.id
+      );
+      updatedRaces += 1;
       gpxUploads += result.gpxUploaded ? 1 : 0;
       hydratedAidStations += result.createdAidStations;
     }

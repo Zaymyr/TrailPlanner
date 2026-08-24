@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -34,6 +34,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/helpers.ts
   - apps/web/app/organizer/_components/dashboard/helpers.test.ts
   - apps/web/app/organizer/_components/dashboard/utf8-copy.test.ts
+  - apps/web/app/organizer/_components/dashboard/website-import-review-details.tsx
   - apps/web/app/organizer/_components/dashboard/controls.tsx
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
   - apps/web/app/organizer/_components/dashboard/shell.tsx
@@ -91,6 +92,8 @@ related_files:
   - apps/web/components/race-planner/ActionPlan.tsx
   - apps/web/lib/location-utils.ts
   - apps/web/lib/organizer-website-import.ts
+  - apps/web/lib/organizer-import-reconciliation.ts
+  - apps/web/lib/organizer-import-proposals.ts
   - apps/web/lib/organizer-publication.ts
 related_tables:
   - race_event_claims
@@ -177,7 +180,9 @@ That same dashboard header now also exposes `Importer depuis un site web`. The o
 - explicit per-format actions: create, update, or ignore.
 - an actionable quality score: only formats at or above `70/100` are shown and selectable; each distance-first card always separates found values with their source links from fields that still need manual entry.
 
-The review import route never creates another `race_events` row, publishes automatically, or writes before confirmation. It is reserved for trusted admins rather than ordinary organizers. After deterministic website/PDF extraction, a server-only LLM reconciles imported formats with existing event formats and returns evidence-backed `match`, `separate`, or `uncertain` proposals. The main review shows only each format's found fields, missing fields, and sources; document observations, LLM details, logistics, and warnings remain secondary. Only a high-confidence match can prefill the admin's target selection; every proposed match remains visible and editable, and model output cannot itself create, merge, update, or publish records. When a submitted official website cannot be analyzed but roadbook documents are present, the server keeps the document review available and reports a website warning instead of failing the entire preview. When `/organizers` supplies an official URL, it first creates the draft, initial edition, and membership. The organizer may correct the edition start date; the server validates the ISO override outside the scraper hash, upserts the matching `race_event_editions` row, and attaches imported formats through `edition_id`. Only matching series inside that edition are updated; a missing format reuses its cross-year `edition_group_id` when available. Detected format month/day is preserved only when valid inside the edition range, otherwise the edition start is used.
+The review import route never creates another `race_events` row, publishes automatically, or writes before confirmation. It is reserved for trusted admins. Deterministic website/PDF extraction produces typed, source-ranked proposals; GPX facts have priority and distinctively incompatible names are not consolidated on distance alone. The LLM reconciles the preview with existing formats using strict schema plus semantic checks, but it can only enrich evidence and recommendations, never introduce a write value.
+
+The server returns a canonical proposal snapshot signed for the selected event and preview hash, expiring after 30 minutes. The dashboard exposes document findings, comparisons, alternatives, reconciliation details, and per-field checkboxes. Apply verifies the signature and accepts only selected proposal ids. Unselected fields are untouched; create requires selected name, date, distance, and D+, while update requires an explicit target inside the selected edition. PDF-only review remains useful by generating review cards for existing formats. When a submitted website cannot be analyzed but documents are present, the server keeps that review and reports a warning. The editable edition start date remains separately validated server-side after hash/membership checks.
 
 The format score focuses the review rather than authorizing import by itself. It combines weighted information coverage (65%) with estimated source reliability (35%); name, date, distance, and D+ have double weight because they are required to create a usable format. Only formats scored at least `70/100` are presented for action; lower scores are automatically ignored because they commonly represent product or incidental text detections. Provider adapters and parsed GPX values are high-confidence, structured data and dedicated format/regulation sections outrank generic text. Every displayed found field keeps its source URL; every absent assessment field is listed separately as required or optional manual input. Each format also has an always-visible GPX status that distinguishes an importable GPX from reliable metrics without a recoverable file and from a fully missing route.
 
@@ -316,9 +321,10 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 - Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.
 - Keep candidates below `70/100` out of the actionable review and import selections. They may be retained only in transient parsing work, never surfaced as default format actions.
 - Do not place organizer edition-date corrections inside the preview hash or trust arbitrary client dates. Validate the override server-side, then update the canonical edition only after hash and membership checks.
+- Do not accept raw review values on apply. Only ids from the unexpired, event-bound, preview-bound signed proposal snapshot may be selected, with one proposal per field.
 - Keep the generic event page and format pages separate: do not infer formats from the general page or crawl its links. Fetch only the organizer-supplied format URLs, keep each fetch size-limited and time-bounded, and leave missing formats visible for manual completion.
 - Do not treat every kilometer mention as a format. Ravito distances, barriers, age categories, result archives, prices, and training-analysis blocks need a course-level signal or a named format context.
-- Consolidate detections separated by at most 1.5 km, regardless of their labels. Retain the earliest heading-level name and preserve a conflict warning when non-GPX metrics disagree. Do not merge distances farther apart merely because their labels overlap.
+- Consolidate detections separated by at most 1.5 km only when their normalized names are compatible or one candidate is anonymous/generic. Distinctive incompatible names remain separate even at a similar distance. Retain the best source-ranked values and preserve conflict evidence when non-GPX metrics disagree.
 - During website import, scope format matching to the validated event year. A same-name format from another year is a series reference for `edition_group_id`, not the update target for the new edition.
 - Do not infer missing elevation. A downloadable GPX may supply D+/D-, but without one the recap must leave D+ missing rather than create a plausible-looking value.
 - Keep the website-import review panel on a definite viewport-relative height and explicitly prioritize its flex layout. A `max-height` plus conflicting `grid` / `flex` classes can clip the recap instead of making its center panel scroll.
