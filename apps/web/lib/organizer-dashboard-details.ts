@@ -377,9 +377,9 @@ export const hasRaceEquipmentOverride = (
   commonEquipment: OrganizerEquipmentDetails,
   raceEquipment: OrganizerEquipmentDetails
 ) =>
-  raceEquipment.overrideEnabled ||
-  getRaceSpecificEquipment(commonEquipment, raceEquipment).items.length > 0 ||
-  Boolean(raceEquipment.note?.trim());
+  raceEquipment.overrideEnabled ??
+  (getRaceSpecificEquipment(commonEquipment, raceEquipment).items.length > 0 ||
+    Boolean(raceEquipment.note?.trim()));
 
 export const applyCommonEquipmentToRace = (
   previousCommonEquipment: OrganizerEquipmentDetails,
@@ -429,25 +429,38 @@ export const deriveCommonEquipmentFromRaces = (
 export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails, raceDetails?: OrganizerRaceDetails | null) {
   const race = raceDetails ?? defaultOrganizerRaceDetails;
   const commonEquipment = eventDetails.mandatoryEquipment;
-  const raceEquipment = hasRaceEquipmentOverride(commonEquipment, race.mandatoryEquipment)
-    ? race.mandatoryEquipment
-    : defaultOrganizerRaceDetails.mandatoryEquipment;
-  const expandedRaceEquipment = expandRaceEquipmentWithCommon(commonEquipment, raceEquipment);
-  const raceSpecificEquipment = getRaceSpecificEquipment(commonEquipment, expandedRaceEquipment);
+  const equipmentOverride = race.mandatoryEquipment.overrideEnabled;
+  const hasLegacyEquipmentOverride =
+    equipmentOverride === undefined && hasRaceEquipmentOverride(commonEquipment, race.mandatoryEquipment);
+  const raceSpecificEquipment =
+    equipmentOverride === true || hasLegacyEquipmentOverride
+      ? getRaceSpecificEquipment(commonEquipment, race.mandatoryEquipment)
+      : defaultOrganizerRaceDetails.mandatoryEquipment;
   const weatherPlan = commonEquipment.weatherPlan;
-  const mergedEquipmentItems = mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items);
+  const resolvedEquipmentItems =
+    equipmentOverride === true
+      ? dedupeEquipmentItems(race.mandatoryEquipment.items)
+      : hasLegacyEquipmentOverride
+        ? mergeEquipmentItems(commonEquipment.items, raceSpecificEquipment.items)
+        : commonEquipment.items;
+  const resolvedEquipmentNote =
+    equipmentOverride === true
+      ? race.mandatoryEquipment.note
+      : hasLegacyEquipmentOverride
+        ? [commonEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null
+        : commonEquipment.note;
 
   return {
     commonEquipment,
     raceEquipment: raceSpecificEquipment,
     equipment: {
       weatherPlan,
-      items: mergedEquipmentItems,
-      note: [commonEquipment.note, raceEquipment.note].filter(Boolean).join("\n") || null,
+      items: resolvedEquipmentItems,
+      note: resolvedEquipmentNote,
     },
     equipmentStatus: {
       weatherPlan,
-      items: decorateEquipmentItemsWithWeatherPlan(mergedEquipmentItems, weatherPlan),
+      items: decorateEquipmentItemsWithWeatherPlan(resolvedEquipmentItems, weatherPlan),
       commonItems: decorateEquipmentItemsWithWeatherPlan(commonEquipment.items, weatherPlan),
       raceItems: decorateEquipmentItemsWithWeatherPlan(raceSpecificEquipment.items, weatherPlan),
     },

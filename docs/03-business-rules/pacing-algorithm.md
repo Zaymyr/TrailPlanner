@@ -1,11 +1,15 @@
 ---
 title: Pacing Algorithm
 scope: business-rule
-last_verified: 2026-06-18
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - apps/web/app/(planner)/race-planner/utils/segments.ts
   - apps/web/app/(planner)/race-planner/utils/pacing.ts
+  - apps/web/app/(planner)/race-planner/utils/section-recompute.ts
+  - apps/web/app/(planner)/race-planner/utils/segmentation.ts
+  - apps/web/app/(planner)/race-planner/utils/__tests__/planner-utils.test.ts
+  - apps/web/app/(planner)/race-planner/utils/__tests__/section-recompute.test.ts
   - packages/fuel-planner/computeFuelPlan.ts
   - packages/shared/src/index.ts
   - apps/web/lib/nutrition.ts
@@ -45,6 +49,10 @@ For each segment it computes:
 - target water;
 - target sodium;
 - carried water shortfall when capacity is insufficient.
+
+Moving duration uses an equivalent-distance model: each `100 m` of D+ adds one flat-equivalent kilometer and each `300 m` of D- adds one. A smooth fatigue slowdown starts only after a threshold derived from `fatigueLevel` and uses elapsed race time. Per-segment pace adjustments are added after that effort estimate.
+
+Sub-section recomputation accepts either an elevation-aware `estimateSeconds` callback or a simpler flat `secondsPerKm` / `speedKph` fallback. The fallback deliberately multiplies physical distance only; callers that need D+, D- and fatigue must supply the estimator, as the planner and social-template builder do.
 
 Water capacity is based on `waterBagLiters * 1000`. Available water is reduced by segment demand and refilled at stations unless water refill is disabled. Segment objects also carry station service metadata such as `solidRefill`, `assistanceAllowed`, and optional `sourceAidStationId`; these fields support nutrition inventory, recap, and official ravito product matching rather than ETA computation. When assistance is disabled, `segments.ts` keeps only supplies marked `source: "organizer"` because they represent official ravito products rather than crew handoffs.
 
@@ -96,6 +104,7 @@ This is onboarding guidance, not the full planner segment model.
 - Guard against zero or negative speed before dividing.
 - Old plans may have aid station or segment data in older shapes inside `planner_values`.
 - Segment timing and alert scheduling are related but not identical systems.
+- Do not expect `secondsPerKm` alone to apply elevation equivalence during sub-section recomputation; that field is the explicit flat fallback.
 - Do not move UI-dependent planner code into `packages/shared`.
 
 ## Related Docs

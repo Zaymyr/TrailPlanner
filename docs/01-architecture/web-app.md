@@ -318,6 +318,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
 - Course discovery and Racebook publication are separate contracts. Web catalog pages continue to use `is_live` / `is_public`; never substitute `racebook_is_live` into the SEO catalog filter.
 - Keep bib pickup shared at event level in the current organizer UI. Its `locations[]` entries own their own geocoded address and `slots[]`; do not flatten several pickup places into one format-level string. Equipment is inherited by default; a format's `mandatoryEquipment.overrideEnabled` must be explicitly checked before its stored full list is used or edited.
+- Preserve the tri-state compatibility of format equipment JSON: `true` is a full replacement, `false` is authoritative inheritance, and only a missing legacy flag may be inferred from old format-specific items or notes.
 - Keep the active weather plan on the event-level equipment JSON. Formats may retag items for `cold` / `heat`, but they must not choose a different active plan than the event.
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.
 - Keep Racebook switch saves scoped to the switched format. Do not foreground-save an unrelated active draft before publishing or hiding another format.

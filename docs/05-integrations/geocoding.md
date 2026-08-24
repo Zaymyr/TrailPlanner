@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -96,6 +96,7 @@ Each object stores:
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 - Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.
+- `organizer-dashboard-details.ts` also normalizes unrelated equipment overrides. Preserve its explicit `true` / explicit `false` / absent-legacy distinction without changing any canonical or geocoded location field.
 
 ## Related Docs
 

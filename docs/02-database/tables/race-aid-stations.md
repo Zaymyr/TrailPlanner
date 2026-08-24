@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-08-18
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -128,6 +128,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Do not use organizer GPX upload to replace existing stations; safe-mode waypoint import avoids breaking station-product links.
 - Missing service flags from legacy reads should be treated as enabled to preserve old catalog behavior.
 - Missing `organizer_details` from legacy reads should be parsed as empty/default dashboard details, not treated as invalid station data.
+- The shared organizer-details parser also handles race equipment compatibility. Its tri-state override normalization is independent from station `organizer_details` and must not alter ravito rows.
 - The current organizer editor treats cumulative D+ / D- as GPX-derived metrics, not manual overrides; keep the preview interpolation contract aligned with saved station JSON.
 
 ## Related Docs

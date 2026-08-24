@@ -241,7 +241,7 @@ describe("GET /api/race-plans/[id]/social-template", () => {
     expect(payload.aidStations[0].take.fallbackUsed).toBe(true);
     expect(payload.aidStations[0].take.items[0]).toMatchObject({
       kind: "estimate",
-      label: "Estimation jusqu'a Arrivee",
+      label: "Estimation jusqu'a Arrivée",
       carbsG: 88,
       waterMl: 625,
       sodiumMg: 750,
