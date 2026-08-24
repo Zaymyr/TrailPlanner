@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -17,6 +17,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/utf8-copy.test.ts
+  - apps/web/app/organizer/_components/dashboard/website-import-review-details.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
   - apps/web/app/api/organizer/events/[id]/updates/route.ts
 related_tables:
@@ -97,7 +98,7 @@ Summary:
 - The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks event, format, image, GPX, ravito, product, edition, geocoded-location maintenance, and the event-level list of bib-pickup locations with their dated time slots, while first Racebook publication remains a separate admin-reviewed request carrying the clicked `race_id`. Before approval, the per-format switch requests publication; afterward it can publish or hide that Racebook. The switch waits for a save only when its own format is currently being edited, so another incomplete draft does not block it. Course catalog visibility is independent.
 - Trusted admins do not need claim or membership handoff: the claims dashboard endpoint returns all events as selector entries after its `app_metadata` admin check, while preserving membership-only selector data for ordinary users.
 - The same approved-only dashboard also owns the manual `Notifier les coureurs` action, including its whole-event/live-format selector and confirmed deletion of recent history entries. Pending or rejected claims must not unlock organizer update history, follower counts, sends, or deletes, and a format choice never changes that membership boundary.
-- Website-import review is reserved for trusted admins, independently from normal organizer membership. Its distance-grouped found/manual field summary, GPX status, and LLM reconciliation proposals are presentation only. The editable canonical edition-date correction changes only the selected `race_event_editions` row after admin/hash validation; neither the chosen date, quality score, nor LLM confidence proves authorization.
+- Website-import review is reserved for trusted admins, independently from normal organizer membership. Its typed field proposals, evidence, GPX status, and LLM recommendations are presentation only until the admin selects proposal ids from an unexpired event-bound signed snapshot. The editable canonical edition-date correction changes only the selected `race_event_editions` row after admin/hash validation; neither the chosen date, quality score, signature, nor LLM confidence replaces authorization.
 - Roadbook selection is preview-only. Each document may be 25 MB because it is uploaded directly to a private, owner-folder-scoped Storage location, analyzed server-side, then deleted; it does not alter this membership boundary.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.

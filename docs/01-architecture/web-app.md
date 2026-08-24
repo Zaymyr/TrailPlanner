@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -71,6 +71,10 @@ related_files:
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/lib/organizer-document-import.ts
   - apps/web/lib/organizer-import-reconciliation.ts
+  - apps/web/lib/organizer-import-proposals.ts
+  - apps/web/app/organizer/_components/dashboard/website-import-review-details.tsx
+  - apps/web/app/api/organizer/events/[id]/website-import/reconciliation.test.ts
+  - apps/web/vitest.config.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
@@ -169,7 +173,11 @@ The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser 
 
 ### Organizer Information Import
 
-The organizer dashboard action is named `Importer les informations` and is visible and callable only to a trusted admin. Its source step accepts an optional main website URL, up to twelve format URLs, and up to eight PDF/image selections capped at 25 MB each. The browser uploads documents directly to the private `organizer-imports` Storage bucket, then sends only their temporary paths to the API so the Vercel request-payload limit is not involved. The API downloads and analyzes each document with service-role access, and deletes every temporary object in a `finally` block; the browser also attempts cleanup when an API request cannot start. A document-only preview is valid when no website URL is provided. After deterministic extraction, a server-only OpenAI reconciliation proposes evidence-backed format matches against existing rows; only high-confidence matches prefill an admin-editable target, and no LLM result writes data. The main review stays concise: each format shows found fields, missing fields, and source links; document observations, LLM details, logistics, and warnings remain available as secondary information. When a supplied website cannot be retrieved but documents are present, the route continues with the document preview and adds a warning instead of discarding the roadbook. PDF text extraction produces review observations that are compared with current format data as missing, same, or conflicting; OCR for images and scanned PDFs remains pending, and no document value is written without organizer confirmation. A missing field is proposed for completion, an equal value is marked as already matching, and a different value requires an explicit overwrite decision.
+The organizer dashboard action is named `Importer les informations` and is visible and callable only to a trusted admin. Its source step accepts an optional main website URL, up to twelve format URLs, and up to eight PDF/image selections capped at 25 MB each. The browser uploads documents directly to the private `organizer-imports` Storage bucket, then sends only their temporary paths to the API. The API analyzes and always deletes them. A document-only preview compares extracted findings with the existing formats even without a website URL.
+
+Deterministic extraction creates typed, source-ranked field proposals. GPX metrics outrank weaker page values, incompatible distinctive names are not merged by distance alone, and the preview hash includes a SHA-256 digest of GPX content. OpenAI reconciliation uses strict Structured Outputs and can enrich evidence or recommend a match, but cannot introduce database values. Long roadbooks are sampled across their beginning, middle, and end within one global budget and are treated as untrusted input.
+
+The review displays documents, findings, sources, comparisons, alternatives, LLM status, and one checkbox per proposed field. The server signs a canonical proposal snapshot bound to the event and preview hash for 30 minutes. Apply verifies the signature and accepts only selected proposal ids, so unchecked fields remain untouched. Create requires explicitly selected identity/date/distance/D+ fields; update requires an explicitly selected existing format in the chosen edition. A supplied but unreachable website degrades to the document review with a warning. OCR for images and scanned PDFs remains pending.
 
 ### Authentication and Session
 

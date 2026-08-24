@@ -497,6 +497,9 @@ const buildPreviewHash = (preview: OrganizerWebsiteImportPreview) =>
           externalSiteUrl: race.externalSiteUrl,
           thumbnailUrl: race.thumbnailUrl,
           aidStations: race.aidStations,
+          gpxContentHash: race.gpxContent
+            ? createHash("sha256").update(race.gpxContent).digest("hex")
+            : null,
           hasReliableGpx: race.hasReliableGpx,
           missingFields: race.missingFields,
           assessment: race.assessment,
@@ -1371,34 +1374,56 @@ const normalizeRaceIdentityName = (value: string) =>
     .replace(/\s+/g, " ")
     .trim();
 
+const GENERIC_RACE_IDENTITY_TOKENS = new Set([
+  "a",
+  "au",
+  "aux",
+  "course",
+  "courses",
+  "de",
+  "des",
+  "du",
+  "format",
+  "la",
+  "le",
+  "les",
+  "parcours",
+  "race",
+  "the",
+  "trail",
+]);
+
+const distinctiveRaceIdentityTokens = (identity: string) =>
+  new Set(
+    identity
+      .split(" ")
+      .filter((token) => token.length > 0 && !GENERIC_RACE_IDENTITY_TOKENS.has(token))
+  );
+
+const raceIdentityNamesAreCompatible = (leftIdentity: string, rightIdentity: string) => {
+  if (!leftIdentity || !rightIdentity) return true;
+  if (leftIdentity === rightIdentity) return true;
+
+  const leftTokens = distinctiveRaceIdentityTokens(leftIdentity);
+  const rightTokens = distinctiveRaceIdentityTokens(rightIdentity);
+  if (leftTokens.size === 0 || rightTokens.size === 0) return true;
+
+  return Array.from(leftTokens).some((token) => rightTokens.has(token));
+};
+
 const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandidate) => {
-  if (left.key === right.key) return true;
   const leftIdentity = normalizeRaceIdentityName(left.name);
   const rightIdentity = normalizeRaceIdentityName(right.name);
   const distanceToleranceKm = 1.5;
-  if (
-    left.distanceKm !== null &&
-    right.distanceKm !== null &&
-    Math.abs(left.distanceKm - right.distanceKm) <= distanceToleranceKm
-  ) {
-    return true;
-  }
-  if (
-    left.distanceKm !== null &&
-    right.distanceKm !== null &&
-    Math.abs(left.distanceKm - right.distanceKm) > distanceToleranceKm
-  ) {
+  const bothHaveDistance = left.distanceKm !== null && right.distanceKm !== null;
+  if (bothHaveDistance && Math.abs(left.distanceKm! - right.distanceKm!) > distanceToleranceKm) {
     return false;
   }
-  if (!leftIdentity || !rightIdentity) return false;
+  if (left.key === right.key) return true;
+  if (!leftIdentity || !rightIdentity) return bothHaveDistance;
   if (leftIdentity === rightIdentity) return true;
 
-  const distancesMatch =
-    left.distanceKm !== null &&
-    right.distanceKm !== null &&
-    Math.abs(left.distanceKm - right.distanceKm) <= distanceToleranceKm;
-  if (!distancesMatch || Math.min(leftIdentity.length, rightIdentity.length) < 5) return false;
-  return leftIdentity.includes(rightIdentity) || rightIdentity.includes(leftIdentity);
+  return bothHaveDistance && raceIdentityNamesAreCompatible(leftIdentity, rightIdentity);
 };
 
 const chooseMergedRaceName = (left: string, right: string) => {
@@ -1443,6 +1468,35 @@ const genericSourceRank = (sourceLabel: string) => {
   ) return 3;
   if (sourceLabel.startsWith("line:")) return 1;
   return 2;
+};
+
+type MergeableRaceField =
+  | "raceDate"
+  | "locationText"
+  | "distanceKm"
+  | "elevationGainM"
+  | "elevationLossM"
+  | "externalSiteUrl"
+  | "thumbnailUrl";
+
+const candidateFieldReliability = (candidate: GenericRaceCandidate, field: MergeableRaceField) => {
+  const isCourseMetric = field === "distanceKm" || field === "elevationGainM" || field === "elevationLossM";
+  if (isCourseMetric && candidate.hasReliableGpx && candidate.gpxContent) return 100;
+  return genericSourceRank(candidate.sourceLabel) * 10;
+};
+
+const chooseReliableField = <Field extends MergeableRaceField>(
+  preferred: GenericRaceCandidate,
+  fallback: GenericRaceCandidate,
+  field: Field
+): GenericRaceCandidate[Field] => {
+  const preferredValue = preferred[field];
+  const fallbackValue = fallback[field];
+  if (preferredValue === null) return fallbackValue;
+  if (fallbackValue === null) return preferredValue;
+  return candidateFieldReliability(fallback, field) > candidateFieldReliability(preferred, field)
+    ? fallbackValue
+    : preferredValue;
 };
 
 const mergeCandidateAidStations = (preferred: GenericRaceCandidate, fallback: GenericRaceCandidate) => {
@@ -1512,13 +1566,13 @@ const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: 
       ...preferred,
       name: mergedName,
       seriesName: mergedName,
-      raceDate: preferred.raceDate ?? fallback.raceDate,
-      locationText: preferred.locationText ?? fallback.locationText,
-      distanceKm: preferred.distanceKm ?? fallback.distanceKm,
-      elevationGainM: preferred.elevationGainM ?? fallback.elevationGainM,
-      elevationLossM: preferred.elevationLossM ?? fallback.elevationLossM,
-      externalSiteUrl: preferred.externalSiteUrl ?? fallback.externalSiteUrl,
-      thumbnailUrl: preferred.thumbnailUrl ?? fallback.thumbnailUrl,
+      raceDate: chooseReliableField(preferred, fallback, "raceDate"),
+      locationText: chooseReliableField(preferred, fallback, "locationText"),
+      distanceKm: chooseReliableField(preferred, fallback, "distanceKm"),
+      elevationGainM: chooseReliableField(preferred, fallback, "elevationGainM"),
+      elevationLossM: chooseReliableField(preferred, fallback, "elevationLossM"),
+      externalSiteUrl: chooseReliableField(preferred, fallback, "externalSiteUrl"),
+      thumbnailUrl: chooseReliableField(preferred, fallback, "thumbnailUrl"),
       aidStations: mergeCandidateAidStations(preferred, fallback),
       gpxContent: preferred.gpxContent ?? fallback.gpxContent,
       gpxStorageLabel: preferred.gpxStorageLabel ?? fallback.gpxStorageLabel,

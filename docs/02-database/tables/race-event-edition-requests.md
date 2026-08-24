@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -11,6 +11,7 @@ related_files:
   - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/app/organizer/_components/dashboard/website-import-review-details.tsx
   - apps/web/app/organizer/_components/dashboard/shell.tsx
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
 related_tables:
@@ -54,7 +55,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 - Do not couple direct organizer delegation to this retired workflow. Membership assignment and yearly edition creation remain separate operations.
 - Roadbook preview uploads may be 25 MB each because they use temporary private Storage and remain review-only; they do not create or reactivate an edition request.
-- LLM reconciliation for the admin-only roadbook preview can suggest a format relationship but cannot revive this retired review workflow.
+- LLM reconciliation for the admin-only roadbook preview can suggest a format relationship, and signed field selections can update only an explicitly targeted current table row; neither operation revives this retired workflow.
 
 ## Related Docs
 

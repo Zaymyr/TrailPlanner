@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -33,6 +33,7 @@ related_files:
   - apps/web/app/api/race-events/[id]/updates/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/lib/organizer-website-import.ts
+  - apps/web/lib/organizer-import-proposals.ts
   - apps/web/lib/push.ts
   - apps/web/lib/public-races.ts
   - apps/web/app/courses/page.tsx
@@ -138,7 +139,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
 - The organizer event detail read embeds child `race_aid_stations(id)` only to derive an `aidStationCount` per returned format. The raw nested rows are removed from the API response, and the count keeps completion scoring tied to each format rather than the selected dashboard tab.
 - Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page and may consolidate duplicate format candidates by normalized business name before sorting them by final quality score, but these preview choices do not create or move an event row. Missing required format values such as D+ remain explicit instead of being inferred.
-- Website-import field provenance and confidence scores are transient preview data computed by the server. They are not persisted in `race_events.organizer_details`; only organizer-confirmed event values, including `officialWebsiteUrl`, enter the row.
+- Website-import field provenance and confidence scores are transient preview data computed by the server. They are returned in an event-bound, preview-bound signed proposal snapshot and are not persisted in `race_events.organizer_details`; only explicitly selected event proposal ids, including an optional `officialWebsiteUrl`, enter the row.
 - During website-import review, an organizer may replace the detected edition start date with another valid ISO date. The server validates it after membership/hash checks, upserts the corresponding `race_event_editions` row, and attaches imported formats to it. Matching rows in another year are not overwritten, while a missing format series reuses its `edition_group_id` when possible.
 - Organizer event writes remain edition-aware for selecting child rows, but no date-based cutoff blocks event or format maintenance.
 - The canonical event start/end range is stored in `race_event_editions`. The current edition is mirrored into `race_date` and `organizer_details.dateRange.endDate` for compatibility with catalog/mobile queries.

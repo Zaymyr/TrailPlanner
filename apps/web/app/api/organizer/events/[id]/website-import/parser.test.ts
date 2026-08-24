@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { buildOrganizerWebsiteImportPreview } from "../../../../../../lib/organizer-website-import";
+import {
+  buildOrganizerWebsiteImportPreview,
+  computeOrganizerWebsiteImportPreviewHash,
+} from "../../../../../../lib/organizer-website-import";
 import { getTraceDeTrailRaceData } from "../../../../../../lib/tracedetrail-race-import";
 
 vi.mock("server-only", () => ({}));
@@ -211,6 +214,57 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     });
   });
 
+  it("keeps nearby formats separate when their distinctive names are incompatible", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://nearby.example/") {
+        return htmlResponse("<html><head><title>Trail Double</title></head><body><p>26 septembre 2026</p></body></html>");
+      }
+      if (url === "https://nearby.example/formats") {
+        return htmlResponse(`
+          <h2>Cretes du Soleil</h2><p>30 km - D+ 1200 m</p>
+          <h2>Boucle des Forets</h2><p>31 km - D+ 900 m</p>
+        `);
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://nearby.example/", {
+      formatUrls: ["https://nearby.example/formats"],
+    });
+
+    expect(preview.races).toHaveLength(2);
+    expect(preview.races.map((race) => race.name)).toEqual(["Cretes du Soleil", "Boucle des Forets"]);
+    expect(preview.races.map((race) => race.distanceKm)).toEqual([30, 31]);
+  });
+
+  it("resolves conflicting fields from the more reliable structured source", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://reliability.example/") {
+        return htmlResponse("<html><head><title>Trail Fiable</title></head><body><p>26 septembre 2026</p></body></html>");
+      }
+      if (url === "https://reliability.example/summary") {
+        return htmlResponse("<p>Cime Noire 30 km - parcours - D+ 100 m - depart 9h</p>");
+      }
+      if (url === "https://reliability.example/formats") {
+        return htmlResponse("<h2>Cime Noire</h2><p>30 km - D+ 900 m</p>");
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://reliability.example/", {
+      formatUrls: ["https://reliability.example/summary", "https://reliability.example/formats"],
+    });
+
+    expect(preview.races).toHaveLength(1);
+    expect(preview.races[0]).toMatchObject({
+      name: "Cime Noire",
+      distanceKm: 30,
+      elevationGainM: 900,
+    });
+  });
+
   it("uses explicit format pages and keeps general-page logistics separate", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
@@ -336,7 +390,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     expect(preview.races[0].assessment?.score).toBeGreaterThan(preview.races[1].assessment?.score ?? 0);
   });
 
-  it("merges same-distance detections and keeps the first page name while GPX supplies elevation", async () => {
+  it("merges compatible same-distance detections and keeps the first page name while GPX supplies elevation", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
       if (url === "https://w45.example/") {
@@ -345,9 +399,9 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       if (url === "https://w45.example/format") {
         return htmlResponse(`
           <html><body>
-            <h1>Les points forts du W45 2026</h1>
+            <h1>W45</h1>
             <p>45,6 km · D+ 100 m</p>
-            <h2>Le retour – Sortir de Lure</h2>
+            <h2>Parcours W45</h2>
             <p>45,6 km · D+ 200 m</p>
             <a href="/w45.gpx">GPX</a>
           </body></html>
@@ -363,7 +417,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
 
     expect(preview.races).toHaveLength(1);
     expect(preview.races[0]).toMatchObject({
-      name: "Les points forts du W45 2026",
+      name: "W45",
       distanceKm: 45.6,
       elevationGainM: 100,
       hasReliableGpx: true,
@@ -436,6 +490,33 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       confidence: "high",
       sourceUrl: "https://tracedetrail.fr/fr/trace/316035",
     });
+  });
+
+  it("changes the preview hash when only the GPX content changes", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://hash.example/") {
+        return htmlResponse("<html><head><title>Hash Trail</title></head><body><p>26 septembre 2026</p></body></html>");
+      }
+      if (url === "https://hash.example/format") {
+        return htmlResponse('<h1>Hash 20</h1><p>20 km - D+ 800 m</p><a href="/hash.gpx">GPX</a>');
+      }
+      if (url === "https://hash.example/hash.gpx") return gpxResponse();
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://hash.example/", {
+      formatUrls: ["https://hash.example/format"],
+    });
+    const originalHash = computeOrganizerWebsiteImportPreviewHash(preview);
+    const changedGpxPreview = {
+      ...preview,
+      races: preview.races.map((race, index) =>
+        index === 0 ? { ...race, gpxContent: `${race.gpxContent}\n<!-- changed -->` } : race
+      ),
+    };
+
+    expect(computeOrganizerWebsiteImportPreviewHash(changedGpxPreview)).not.toBe(originalHash);
   });
 
   it("uses the event page date while explicit format pages may contain older editions", async () => {
