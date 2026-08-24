@@ -39,9 +39,9 @@ export const fr: MobileTranslations = {
     readyNotificationBody: "Une nouvelle version a été téléchargée. Appuie pour redémarrer l'application.",
   },
   reminders: {
-    inactivityTitle: "Ton prochain plan t'attend",
+    inactivityTitle: 'Ton prochain plan t’attend',
     inactivityBody: 'Cela fait quelques jours. Reviens voir ton plan pour reprendre ta préparation.',
-    unfinishedPlanTitle: "Ton plan n'est pas terminé",
+    unfinishedPlanTitle: 'Ton plan n’est pas terminé',
     unfinishedPlanBody: 'Reviens finaliser {name} et ajouter tes ravitos.',
   },
   plans: {

@@ -15,6 +15,8 @@ related_files:
   - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/route.ts
+  - apps/web/app/api/organizer/editions/[id]/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
@@ -102,6 +104,7 @@ Summary:
 - A membership grants service-route access to upload the event PNG thumbnail, upload a format thumbnail, preview/replace format GPX files, and delete a format for every race under the event.
 - That same membership also authorizes organizer edition-grouping flows on `races`: creating a brand-new format series, renaming `series_name`, duplicating a format into a new `edition_group_id`, or cloning a new yearly edition inside an existing `edition_group_id`.
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
+- Active membership also authorizes edition visibility changes and confirmed edition deletion. The route scopes the edition back to its parent event before mutating it; unlike whole-event deletion, this action is not owner-only.
 - That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
 - New organizer-created formats default to catalog-visible (`is_live = true`) but their Racebook defaults to hidden and unapproved.
 - Admin-confirmed import formats are the exception: they may start as hidden incomplete drafts. The same membership-gated race and GPX routes may complete their required-field markers later, while keeping the Racebook hidden.
@@ -146,6 +149,7 @@ order by created_at asc;
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.
+- Edition PATCH/DELETE must retain that same membership check. The browser's year retyping is a destructive-action guard, not an authorization boundary.
 - Membership authorizes maintenance and per-format publication requests only when the requested `race_id` belongs to the managed event, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. After admin approval, the race service route may change only `races.racebook_is_live`.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.

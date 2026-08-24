@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -97,6 +97,7 @@ where event_id = '<event-id>';
 - Moving or expanding the post-format organizer-announcement panel, or deleting an announcement from organizer history, must not add or remove event favorites.
 - Unread `NEW` badges come from `race_event_update_reads`, not from the favorite row.
 - Favorites follow the catalog event independently from Racebook publication; hiding every Racebook must not delete or hide the event favorite.
+- Hiding or deleting one edition must not remove the event favorite. The event appears in the mobile catalog only while at least one live format remains after the explicit embedded-relation filter.
 
 ## Related Docs
 

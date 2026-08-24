@@ -27,7 +27,7 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 - A point may stand alone or reference a source `race_aid_stations` row.
 - Copied `name` and `km` values form the durable relay snapshot; deleting a linked ravito only clears the optional link.
 - Legs are derived from start, ordered points, and finish rather than stored as rows, then rendered only in the mobile Racebook `Course` tab.
-- Relay cards remain isolated from the event-level `Services` tab and its category-card presentation.
+- Relay cards remain isolated from the event-level `Services` tab, its category-card presentation, and the compact website/emergency actions in the Racebook identity card.
 
 ## Columns
 

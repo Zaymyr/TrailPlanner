@@ -11,8 +11,10 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
+  - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/lib/public-races.ts
 related_tables:
   - races
@@ -61,7 +63,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 ## Foreign Keys
 
 - `event_id -> race_events(id)` is expected by current code; its original migration is not visible.
-- `edition_id -> race_event_editions(id) on delete set null`
+- `edition_id -> race_event_editions(id) on delete cascade`
 - `created_by -> auth.users(id)` for private/user-created races.
 - `racebook_publication_approved_by -> auth.users(id) on delete set null`
 - Child source stations reference `races(id)` with cascade delete.
@@ -86,6 +88,8 @@ Existing `races` policies control the whole row, including import status. Organi
 - Completing an imported draft sets `is_live = true`, leaves `is_public` unchanged, and keeps `racebook_is_live = false`.
 - The Organizer format PATCH route and GPX upload route recompute these markers too, so a draft completed outside the import review cannot remain stuck on sentinel values.
 - Racebook publication remains a separate reviewed action even when course data becomes complete.
+- A hidden parent edition forces both `is_live` and `racebook_is_live` false. Re-showing it restores `is_live` only for complete formats and never restores `racebook_is_live` automatically.
+- Deleting an edition deletes its format rows; saved plans survive through their separate `race_id on delete set null` relationship.
 - Relay legs are derived from start, ordered relay points, and finish; they are not separate race rows.
 
 ## Common Queries
@@ -117,6 +121,7 @@ where is_live = true
 - Do not set a draft live. The database constraint rejects both course and Racebook visibility.
 - Do not use `edition_group_id` as yearly edition membership; use `edition_id`.
 - Do not derive Racebook visibility from catalog completion or `is_live`.
+- Do not reintroduce `on delete set null` for `edition_id`; confirmed edition deletion must not leave organizer formats detached from every canonical year.
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
 
 ## Related Docs

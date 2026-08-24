@@ -36,6 +36,7 @@ const editionSchema = z.object({
   start_date: z.string(),
   end_date: z.string(),
   is_current: z.boolean(),
+  is_visible: z.boolean().default(true),
 });
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;

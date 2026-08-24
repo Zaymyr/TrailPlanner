@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - apps/web/lib/organizer-publication.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
+  - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/app/api/organizer/publication-requests/route.test.ts
   - apps/web/app/api/organizer/publication-requests/readiness.test.ts
   - apps/web/app/api/admin/event-publication-requests/route.ts
@@ -60,6 +61,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Organizer event/race routes never accept direct catalog `is_live` changes. The race route accepts `racebookIsLive` only after the format has an admin approval timestamp.
 - A directly delegated organizer receives the same membership-gated ability to maintain drafts and request publication, but assignment itself is not publication approval.
 - A request requires event name/location, a valid `race_event_editions` range for the requested format, and that format's non-empty name, positive distance, and non-negative D+.
+- The dashboard disables format publication controls while their edition is hidden. Database visibility triggers still force `racebook_is_live = false` if an older/pending approval completes after the edition was hidden.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
@@ -81,6 +83,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Keep the assignment form and publication review actions independent even though they share the admin Organizer tab.
 - Recheck readiness during admin approval because organizers can edit source data while a request is pending.
 - Never infer the requested format from `race_event_editions.is_current`; the request's `race_id` is authoritative and may legitimately belong to a historical or non-current selected edition.
+- Edition deletion cascades targeted requests with their deleted format. Edition hiding preserves durable approval/history but clears the live Racebook flag, which must be republished explicitly after the edition is shown again.
 - Keep publication readiness sourced from persisted race values; client-side GPX form synchronization is only immediate feedback and does not bypass server-side revalidation.
 - New public-schema tables require explicit grants as well as RLS.
 - Do not use `races.is_live` as the Racebook publication source of truth. Use `racebook_is_live`; approval provenance is `racebook_publication_approved_at` / `racebook_publication_approved_by`.

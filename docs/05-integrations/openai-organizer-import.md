@@ -49,6 +49,8 @@ OpenAI is called only for field resolutions containing incompatible applicable c
 
 The deterministic report remains usable if OpenAI is unavailable or abstains. It groups the event and each confirmed format separately, counts safe/review/conflict/missing fields, and keeps the current value beside every alternative, source, edition, document page, evidence, and confidence. An LLM choice is visibly recommended but remains unselected when claims conflict. Only a high-confidence, non-conflicting candidate that fills a missing current value is eligible for preselection. Confirmation may retain missing fields and create an incomplete draft format. No client receives the OpenAI key.
 
+Edition visibility and deletion remain ordinary organizer controls outside the LLM workflow. Deleting an edition cascades any import sessions scoped to it; a stale review can therefore no longer apply after deletion.
+
 ## Environment Variables
 
 - `OPENAI_API_KEY`: server-only API credential.
@@ -64,6 +66,7 @@ The deterministic report remains usable if OpenAI is unavailable or abstains. It
 - Preserve document page numbers in claims when the PDF parser exposes them. Unscoped format findings remain observations until a confirmed format can be identified conservatively.
 - Treat an unavailable, invalid, or `uncertain` LLM response as a review state, never as permission to invent a choice.
 - Never apply raw client values from the review payload. Verify the event/edition/session-bound signed field snapshot, expiry, field scope, target format, and selected claim ids first.
+- Never let an import proposal change edition visibility or request deletion. Those destructive controls require their dedicated membership-checked route and explicit organizer confirmation.
 
 ## Related Docs
 

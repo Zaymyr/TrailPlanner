@@ -17,6 +17,8 @@ related_files:
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -202,6 +204,10 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 `supabase/migrations/20260804152041_add_race_event_editions.sql` normalizes yearly event dates into `race_event_editions`, backfills rows from existing event/format dates, attaches formats through `races.edition_id`, restricts the table to service-role routes, and keeps legacy `race_events` date fields synchronized from the current edition. It also scopes publication approval to the current edition.
 
+`supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql` adds default-visible `race_event_editions.is_visible`, database triggers that force every format and Racebook hidden with its edition, and cascade deletion from an edition to its formats. Its service-role-only invoker-security deletion RPC rejects the last edition, atomically selects a replacement current edition, and leaves saved plans detached through their existing race foreign key.
+
+`supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql` repairs project-level default function grants by explicitly revoking execution on the new edition trigger functions and deletion RPC from `anon` and `authenticated`, while retaining service-role execution only for the deletion RPC.
+
 `supabase/migrations/20260820135823_add_racebook_publication_control.sql` separates course catalog visibility from Racebook publication. It adds `races.racebook_is_live` plus durable admin approval provenance, replaces the publication-review function, and adds the service-role-only admin event switch function. As a safety migration it keeps organizer-managed courses live in the catalog but resets their Racebooks to hidden/unapproved for one fresh admin validation pass.
 
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
@@ -264,6 +270,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
 - `races.edition_group_id` groups a format series across years; `races.edition_id` identifies the canonical event-year row. Do not substitute one for the other.
 - `race_event_editions` is service-role-only. Organizer writes must remain behind active membership checks in server routes.
+- Edition deletion must go through `delete_race_event_edition`; direct row deletion would lose the last-edition guard and replacement-current selection even though the format cascade would still apply.
 - Keep first Racebook approval in `race_event_publication_requests`; do not restore edition-review inserts or organizer writes to catalog `is_live`. Approved organizers may write only `racebook_is_live`.
 - Organizer dashboard JSONB columns are nullable progressive metadata. Keep public/mobile queries explicit when they should not expose organizer draft details.
 - Event-favorite and organizer-update migrations are intentionally event-scoped on `race_events`; do not move them to `races` without revisiting mobile catalog pinning and notification contracts.

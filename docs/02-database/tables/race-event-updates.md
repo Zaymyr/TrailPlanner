@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -101,6 +101,7 @@ Organizer deletion is performed by `DELETE /api/organizer/events/[id]/updates?up
 
 - Do not edit old runner-facing announcements in place; editing would make delivered push content misleading. The organizer UI may delete a row after confirmation, while historical push-delivery logs remain untouched.
 - The mobile event sheet now preloads only a short recent preview from the main catalog query so the sheet can render updates immediately; keep that embedded payload intentionally small.
+- The catalog's embedded formats are filtered to live rows. Hiding an edition removes its format actions/Racebooks but does not delete event announcement history; deleting the edition nulls a targeted update's `race_id` through the race foreign key.
 - Adding an event favorite from that sheet may close it so the catalog can reveal the newly pinned event and success toast; this must not load, reorder, or mark organizer announcements.
 - The mobile update panel belongs after every format action, uses a light-green treatment, and shows only the newest or deep-link-targeted update while collapsed so notification volume cannot bury the plan/Racebook choices.
 - The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.

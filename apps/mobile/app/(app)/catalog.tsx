@@ -495,7 +495,7 @@ export default function CatalogScreen() {
                 message,
                 created_at
               ),
-              races (
+              races!inner (
                 id,
                 name,
                 distance_km,
@@ -511,6 +511,7 @@ export default function CatalogScreen() {
               )
             `)
             .eq('is_live', true)
+            .eq('races.is_live', true)
             .order('created_at', { referencedTable: 'race_event_updates', ascending: false })
             .limit(ORGANIZER_UPDATES_PREVIEW_LIMIT, { referencedTable: 'race_event_updates' })
             .order('name'),

@@ -14,12 +14,14 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/app/api/organizer/events/route.ts
   - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
@@ -76,6 +78,7 @@ related_tables:
 - Event grouping: multiple `races` can belong to one event.
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
 - Event liveness: mobile and onboarding use event/race live state for course catalog visibility; it no longer determines Racebook visibility.
+- Edition liveness: `race_event_editions.is_visible` can hide one year by forcing only that edition's formats and Racebooks off while leaving the parent event and other years unchanged.
 - Organizer event: created catalog-visible, while its Racebook formats remain hidden until approved.
 - Organizer dashboard details: nullable JSONB for event end date, official website, structured emergency contact name/phone, common equipment, common bib pickup locations and dated time slots, access, services, partners, and runner notes.
 - Event favorite target: runners follow the whole event, not an individual race format.
@@ -153,10 +156,10 @@ Organizer portal writes also go through web service routes after checking `race_
 - Event equipment is inherited unless race JSON explicitly sets `mandatoryEquipment.overrideEnabled = true`. An explicit `false` wins over stale race items; only historical JSON where the flag is absent may infer an override from those differences.
 - Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must gate itself on live course state, `racebook_is_live = true`, and actual non-ravito organizer content. An emergency phone satisfies that content gate and opens through `tel:`; the official website and emergency contact are exposed only as conditional actions inside the identity card.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
-- Mobile catalog groups event races and also displays standalone races with no event. After a confirmed favorite addition, it scrolls to the event's new pinned position and shows a short success toast without changing the event query shape.
+- Mobile catalog groups event races and also displays standalone races with no event. Its nested event relation is explicitly inner-filtered to live formats, so hidden editions do not leak rows and events with no visible format do not render empty cards. After a confirmed favorite addition, it scrolls to the event's new pinned position and shows a short success toast.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
 - Mobile catalog root actions are presentation-only and do not change the observed event grouping query shape.
-- Mobile Racebook presentation keeps access start/finish and bib value widths responsive for readable long linked locations, groups bib pickup by location and then by day, shows each pickup address without a redundant numbered location heading, and stacks same-day ranges beneath one localized short weekday/day/month label with locale-specific hours. A populated parking value remains visible even when the format-level parking flag is false, while populated event services move into a fifth tab that is absent when no service detail exists. It conditionally exposes the official website in a narrow tile to the right of the race identity and the emergency phone in a separate full-width action row below that identity header. It shows ravito metric labels inline beside their values and presents water, solid food, assistance, and drop-bag flags as accessible icon-only buttons with one toggled inline label bubble. Pull-to-refresh repeats the existing read-only event, format, route, profile, and ravito reads so newly published organizer data appears without restarting the app; it does not change the event query or organizer-details contract.
+- Mobile Racebook presentation keeps access start/finish and bib value widths responsive for readable long linked locations, groups bib pickup by location and then by day, shows each pickup address without a redundant numbered location heading, and stacks same-day ranges beneath one localized short weekday/day/month label with locale-specific hours. A populated parking value remains visible even when the format-level parking flag is false, while populated event services move into a fifth tab that is absent when no service detail exists. It conditionally exposes the official website in a narrow tile to the right of the race identity without a forced-height wrapper and the emergency phone in a compact full-width row below that identity header; the row keeps `Urgence - nom - téléphone` on one line. It shows ravito metric labels inline beside their values and presents water, solid food, assistance, and drop-bag flags as accessible icon-only buttons with one toggled inline label bubble. Pull-to-refresh repeats the existing read-only event, format, route, profile, and ravito reads so newly published organizer data appears without restarting the app; it does not change the event query or organizer-details contract.
 - Each populated event service field is displayed as plain text in its own localized titled card inside the conditional mobile Racebook `Services` tab; this is presentation-only and does not change `organizer_details` storage.
 - Relay display is format-scoped: the Racebook reads `races.participation_mode` and published `race_relay_points`, then derives legs inside `Course` without changing event or nutrition data.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
@@ -207,6 +210,7 @@ from public.races;
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Organizer events remain public catalog rows independently from the admin Racebook publication review.
+- Do not set `race_events.is_live = false` to hide one edition; that would hide every year. Use the edition visibility route, which scopes changes to attached formats.
 - Keep favorites event-scoped. Organizer updates always retain an event id and may additionally carry a child format id for title and navigation context.
 - Keep the event-level catalog query narrow even with update previews: mobile should embed only the short recent history needed for instant sheet rendering, not the full announcement archive for every event.
 - Deleting a manual announcement is an organizer-history action scoped by event membership; it must not mutate the parent event, its formats, or its favorite audience.

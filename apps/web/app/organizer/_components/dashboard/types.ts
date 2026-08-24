@@ -104,6 +104,7 @@ export type RaceEventEdition = {
   start_date: string;
   end_date: string;
   is_current: boolean;
+  is_visible?: boolean;
 };
 
 export type GpxDetectedAidStation = {

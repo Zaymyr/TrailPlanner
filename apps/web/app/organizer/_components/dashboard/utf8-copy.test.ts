@@ -106,4 +106,16 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('label="Numéro d\'urgence"');
     expect(source).toContain('type="tel"');
   });
+
+  it("keeps edition visibility and year-confirmed deletion in the organizer header", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain('liveLabel="Édition visible"');
+    expect(source).toContain('draftLabel="Édition masquée"');
+    expect(source).toContain("deleteEditionConfirmation !== selectedEditionYear");
+    expect(source).toContain("Tape « {selectedEditionYear} » pour confirmer");
+  });
 });

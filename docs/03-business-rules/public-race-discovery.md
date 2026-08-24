@@ -1,9 +1,10 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - apps/web/lib/public-races.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/app/courses/page.tsx
@@ -25,6 +26,7 @@ This document defines which public race pages Pace Yourself may expose to search
 ## Key Concepts
 
 - Public race: a `races` row where both `is_live` and `is_public` are true.
+- Visible edition: a `race_event_editions` row whose `is_visible` flag permits its complete formats to keep `races.is_live = true`.
 - Event format: another public race attached to the same non-null `event_id`.
 - Similar race: a race from another event ordered by distance difference, then elevation difference when both elevations exist.
 - Indexable selection: a deterministic landing page based only on structured fields and containing at least five public races.
@@ -66,6 +68,7 @@ Existing race slugs remain canonical even when they contain generated suffixes. 
 ## Gotchas
 
 - Public course discovery continues to use `races.is_live` / `races.is_public` and live parent events. `races.racebook_is_live` controls only the mobile runner Racebook and must not remove an otherwise published course from SEO/catalog pages.
+- Hiding an edition is the deliberate exception: the database forces every attached `races.is_live` and `racebook_is_live` flag false, so that year's course pages disappear without hiding other editions of the event. Re-showing restores only complete course rows and not their Racebook flags.
 
 - Do not count races with missing distance toward a distance landing page.
 - Do not present another format from the same event as a similar independent race.

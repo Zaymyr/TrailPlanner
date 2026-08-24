@@ -17,6 +17,7 @@ related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260804152041_add_race_event_editions.sql
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -155,7 +156,7 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_edition_requests.event_id -> race_events(id) on delete cascade`
 - `race_event_edition_requests.user_id -> auth.users(id) on delete cascade`
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
-- `races.edition_id -> race_event_editions(id) on delete set null`
+- `races.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_organizers.event_id -> race_events(id) on delete cascade`
 - `race_event_organizers.user_id -> auth.users(id) on delete cascade`
 - `race_event_organizers.claim_id -> race_event_claims(id) on delete set null`
@@ -183,6 +184,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 
 - Do not restore `race_catalog` names from archived docs. Current code uses `races`.
 - Deleting a race should preserve saved plans. Use `race_id = null`, not cascade deletion.
+- Deleting an edition intentionally cascades through its `races` rows; the subsequent race deletion still preserves saved plans by nulling their source link. Do not change the edition FK back to `set null`.
 - The legacy coach/coachee relationship schema was removed by `20260618145940_remove_coach_features.sql`; do not build new relationships on the historical `coach_*` tables.
 - `plan_aid_stations.race_aid_station_id` is referenced by `GpxAidStationImporter`, but no visible migration creates it.
 - Do not cascade-delete public races when revoking organizer access; set `race_event_organizers.revoked_at`.
