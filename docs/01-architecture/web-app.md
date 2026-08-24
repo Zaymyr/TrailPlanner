@@ -114,6 +114,8 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
+  - apps/web/app/api/organizer/races/[id]/relay-points/route.ts
+  - apps/web/app/api/organizer/races/[id]/relay-points/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/app/api/location-search/route.ts
   - apps/web/lib/organizer-website-import.ts
@@ -127,6 +129,7 @@ related_tables:
   - plan_share_links
   - races
   - race_aid_stations
+  - race_relay_points
   - race_event_claims
   - race_event_organizers
   - race_event_publication_requests
@@ -271,7 +274,7 @@ The v1 organizer portal is web-only:
 - `/api/race-favorites` is the authenticated runner bridge for favoriting `race_events`, and `/api/race-events/[id]/updates` is the runner/mobile read route for the latest published organizer announcements on live events.
 - `/api/admin/organizer-claims` keeps legacy access-claim review and membership revocation, and lets a trusted admin attach an existing Supabase Auth e-mail to an event as an `organizer`. Auth-user lookup and membership writes stay server-side; direct assignment grants edit access without changing catalog/Racebook state. `/api/admin/event-publication-requests` returns the pending queue plus every event's current-edition Racebook state. Approval invokes the service-role-only review function; the admin event switch invokes a separate service-role-only function to publish or hide Racebooks.
 
-Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id`. Organizer-managed course rows remain catalog-visible. All writes stay behind active event membership checks; first Racebook publication validates the current edition, and later approved organizer toggles affect only the selected format's `racebook_is_live`.
+Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id`. Relay replacement uses its own service route after ravitos are saved so optional station links are stable. Organizer-managed course rows remain catalog-visible. All writes stay behind active event membership checks; first Racebook publication validates the current edition, and later approved organizer toggles affect only the selected format's `racebook_is_live`.
 
 The same approved-only dashboard exposes a manual `Notifier les coureurs` modal. The organizer selects the whole event or one format from the selected edition before sending. The route validates that the format belongs to the event, stores it as nullable `race_event_updates.race_id`, and uses the event or format name in the push title. Delivery still targets event followers; the payload includes `eventId`, `updateId`, optional `raceId`, and a catalog deep link. Delivery is logged in `push_notification_events` as `notification_kind = 'organizer-race-update'`. Each recent history card also has a compact delete cross; the `DELETE` handler repeats the organizer membership check and scopes the service-role deletion to both event id and update id.
 
@@ -335,6 +338,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep Racebook switch saves scoped to the switched format. Do not foreground-save an unrelated active draft before publishing or hiding another format.
 - Keep the organizer request body, server readiness query, stored publication request, and admin queue aligned on the same `race_id`; event-level inference reintroduces cross-edition publication bugs.
 - The Ravitos save plan must PATCH the active race details before PUTting aid stations because start/finish times live in `races.organizer_details.schedule`, not on `race_aid_stations`.
+- Relay-point writes must remain on the membership-checked service route. Do not grant organizer clients direct mutations or merge relay points into plan aid stations.
 - Keep autosave dirtiness and revisions scoped by event/race, serialize background writes for the same scope, and suppress only success feedback. Errors and `beforeunload` protection must remain visible until the relevant scope is clean.
 - Race sidecar and GPX loaders must compare their requested race id with the current active race before applying responses, because navigation no longer waits for prior network work.
 - Keep organizer header completion counts format-scoped. The event detail response must retain each format's persisted ravito count so selecting another tab cannot transfer completion points.

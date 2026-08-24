@@ -62,6 +62,8 @@ export type PublicationRequestRow = {
   created_at: string;
 };
 
+export type RaceParticipationMode = "solo" | "relay" | "solo_and_relay";
+
 export type RaceFormat = {
   id: string;
   edition_id?: string | null;
@@ -83,6 +85,7 @@ export type RaceFormat = {
   racebook_is_live?: boolean;
   racebook_publication_approved_at?: string | null;
   organizerDetails?: OrganizerRaceDetails;
+  participation_mode?: RaceParticipationMode | null;
 };
 
 export type ElevationPoint = {
@@ -143,6 +146,16 @@ export type AidStationDraft = {
   organizerDetails: OrganizerAidStationDetails;
 };
 
+export type RelayPointDraft = {
+  id?: string;
+  raceAidStationId?: string | null;
+  name: string;
+  distanceKm: number;
+  handoverTime: string;
+  cutoffTime: string;
+  notes: string;
+};
+
 export type StationProduct = {
   id: string;
   aidStationId: string;
@@ -163,6 +176,7 @@ export type RaceFormValues = {
   raceDate: string;
   thumbnailUrl: string;
   isLive: boolean;
+  participationMode: RaceParticipationMode | "";
   organizerDetails: OrganizerRaceDetails;
 };
 

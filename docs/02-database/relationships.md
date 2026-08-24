@@ -20,6 +20,7 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824152859_add_relay_course_points.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -27,6 +28,7 @@ related_tables:
   - races
   - organizer_import_sessions
   - race_aid_stations
+  - race_relay_points
   - race_aid_station_products
   - race_events
   - race_event_editions
@@ -90,6 +92,8 @@ User-owned tables include:
 Important relationships:
 
 - `race_aid_stations.race_id` references `races(id)` with cascade delete from the original catalog aid station table.
+- `race_relay_points.race_id` references `races(id)` with cascade delete.
+- `race_relay_points.race_aid_station_id` optionally references `race_aid_stations(id)` with `on delete set null`.
 - `race_plans.race_id` references `races(id)` with `on delete set null` after `supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql`.
 - `plan_aid_stations.plan_id` references `race_plans(id)` with cascade delete.
 - `plan_share_links.plan_id` references `race_plans(id)` with cascade delete.
@@ -197,5 +201,6 @@ Organizer access should be checked through an active `race_event_organizers` row
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
 - [race_aid_stations](tables/race-aid-stations.md)
+- [race_relay_points](tables/race-relay-points.md)
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)

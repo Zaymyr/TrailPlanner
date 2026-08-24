@@ -13,6 +13,7 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/lib/supabase.ts
@@ -26,6 +27,7 @@ related_tables:
   - plan_aid_stations
   - races
   - race_aid_stations
+  - race_relay_points
   - race_aid_station_products
   - race_event_claims
   - race_event_edition_requests
@@ -143,6 +145,13 @@ Declared through old `race_catalog_aid_stations` policies and renamed in `202603
 - Organizer service routes can manage source aid stations after checking active `race_event_organizers` membership for the parent event.
 - `solid_available` and `assistance_allowed` are columns on the existing table, so they inherit the same row policies as `water_available`.
 - `organizer_details` is also a column on the existing table and inherits the same row policies; no separate JSONB grants or policies were added.
+
+### `race_relay_points`
+
+- Public select requires the parent race to be public, course-live, and Racebook-live.
+- Parent owners, active event organizers, and trusted `app_metadata` admins can select managed rows.
+- Insert/update/delete grants are service-role-only; Organizer writes stay behind the membership-checked web route.
+- Indexes cover ordered parent-race reads and the optional aid-station foreign key.
 
 ### Organizer Portal Tables
 

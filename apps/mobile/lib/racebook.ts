@@ -132,6 +132,19 @@ type AidStationProduct = {
   orderIndex: number;
 };
 
+export type RaceParticipationMode = 'solo' | 'relay' | 'solo_and_relay';
+
+export type RacebookRelayPoint = {
+  id: string;
+  raceAidStationId: string | null;
+  name: string;
+  km: number;
+  handoverTime: string | null;
+  cutoffTime: string | null;
+  notes: string | null;
+  orderIndex: number;
+};
+
 export type RacebookAidStation = {
   id: string;
   name: string;
@@ -156,6 +169,7 @@ export type RacebookScreenData = {
     isLive: boolean;
     thumbnailUrl: string | null;
     location: string | null;
+    participationMode: RaceParticipationMode | null;
     organizerDetails: OrganizerRaceDetails;
   };
   event: {
@@ -184,6 +198,7 @@ export type RacebookScreenData = {
     runnerInfo: OrganizerRunnerInfoDetails;
   };
   aidStations: RacebookAidStation[];
+  relayPoints: RacebookRelayPoint[];
   canOpen: boolean;
 };
 
@@ -191,6 +206,7 @@ export type RacebookSignals = {
   raceIsLive: boolean | null | undefined;
   racebookIsLive: boolean | null | undefined;
   hasAidStations: boolean | null | undefined;
+  hasRelayCourse?: boolean | null;
   eventOrganizerDetails: unknown;
   raceOrganizerDetails: unknown;
 };
@@ -747,7 +763,7 @@ export function canShowRacebook(signals: RacebookSignals): boolean {
   const eventDetails = parseEventDetails(signals.eventOrganizerDetails);
   const raceDetails = parseRaceDetails(signals.raceOrganizerDetails);
 
-  return hasOrganizerContent(eventDetails, raceDetails);
+  return hasOrganizerContent(eventDetails, raceDetails) || signals.hasRelayCourse === true;
 }
 
 export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScreenData | null> {
@@ -766,6 +782,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       racebook_is_live,
       thumbnail_url,
       location_text,
+      participation_mode,
       organizer_details,
       race_events (
         id,
@@ -809,6 +826,14 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     .order('order_index', { ascending: true });
 
   if (stationError) return null;
+
+  const { data: relayPointRows, error: relayPointError } = await supabase
+    .from('race_relay_points')
+    .select('id,race_aid_station_id,name,km,handover_time,cutoff_time,notes,order_index')
+    .eq('race_id', raceId)
+    .order('order_index', { ascending: true });
+
+  if (relayPointError) return null;
 
   const eventRelation = Array.isArray(raceRow.race_events) ? raceRow.race_events[0] ?? null : raceRow.race_events ?? null;
   const eventDetails = parseEventDetails(eventRelation?.organizer_details);
@@ -861,9 +886,33 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     raceIsLive: raceRow.is_live,
     racebookIsLive: raceRow.racebook_is_live,
     hasAidStations: aidStations.length > 0,
+    hasRelayCourse:
+      raceRow.participation_mode === 'relay' || raceRow.participation_mode === 'solo_and_relay',
     eventOrganizerDetails: eventRelation?.organizer_details,
     raceOrganizerDetails: raceRow.organizer_details,
   });
+
+  const participationMode =
+    raceRow.participation_mode === 'solo' ||
+    raceRow.participation_mode === 'relay' ||
+    raceRow.participation_mode === 'solo_and_relay'
+      ? raceRow.participation_mode
+      : null;
+  const relayPoints = Array.isArray(relayPointRows)
+    ? relayPointRows
+        .map((row) => ({
+          id: String(row.id),
+          raceAidStationId: readText(row.race_aid_station_id),
+          name: readText(row.name) ?? '',
+          km: readNumber(row.km) ?? 0,
+          handoverTime: readText(row.handover_time),
+          cutoffTime: readText(row.cutoff_time),
+          notes: readText(row.notes),
+          orderIndex: readNumber(row.order_index) ?? 0,
+        }))
+        .filter((row) => row.name.length > 0 && row.km > 0 && row.km < Number(raceRow.distance_km))
+        .sort((left, right) => left.orderIndex - right.orderIndex || left.km - right.km)
+    : [];
 
   return {
     race: {
@@ -876,6 +925,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       isLive: raceRow.is_live === true,
       thumbnailUrl: readText(raceRow.thumbnail_url),
       location: readText(raceRow.location_text),
+      participationMode,
       organizerDetails: raceDetails,
     },
     event: {
@@ -889,6 +939,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     },
     runnerDetails,
     aidStations,
+    relayPoints,
     canOpen,
   };
 }

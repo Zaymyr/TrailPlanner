@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/races/route.ts
@@ -23,6 +24,7 @@ related_files:
 related_tables:
   - race_aid_stations
   - race_aid_station_products
+  - race_relay_points
   - races
   - plan_aid_stations
 ---
@@ -63,6 +65,7 @@ related_tables:
 
 - `race_id -> public.races(id)` after the `race_catalog` to `races` rename.
 - Referenced by `race_aid_station_products.race_aid_station_id` with cascade delete.
+- Optionally referenced by `race_relay_points.race_aid_station_id` with `on delete set null`.
 
 ## Indexes
 
@@ -94,6 +97,7 @@ Summary:
 - The organizer ravito tile now also surfaces the fixed `Départ` and `Arrivée` timing cards, but those values are not part of `race_aid_stations` and must not be persisted as synthetic rows.
 - Organizer GPX upload creates stations from waypoints only when a format has no existing source stations; existing station ids are preserved and must be edited through the ravito route.
 - Organizer field import leaves stations untouched unless the admin explicitly selects the `aidStations` field. That selection atomically replaces the whole set through the service-only apply RPC; omitted service flags keep the historical enabled defaults.
+- A ravito may be selected as a relay handover location, but its relay snapshot remains separate and does not change nutrition behavior.
 
 ## Common Queries
 
@@ -134,6 +138,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Missing `organizer_details` from legacy reads should be parsed as empty/default dashboard details, not treated as invalid station data.
 - The shared organizer-details parser also handles race equipment compatibility and event emergency-phone display normalization. Both behaviors are independent from station `organizer_details` and must not alter ravito rows.
 - The current organizer editor treats cumulative D+ / D- as GPX-derived metrics, not manual overrides; keep the preview interpolation contract aligned with saved station JSON.
+- Do not infer that every ravito is a handover or that every handover is a ravito.
 
 ## Related Docs
 

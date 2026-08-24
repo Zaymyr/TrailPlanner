@@ -30,6 +30,7 @@ const updateRaceSchema = z.object({
   raceDate: optionalPatchTextOrNull,
   thumbnailUrl: optionalPatchTextOrNull,
   organizerDetails: organizerRaceDetailsSchema.optional(),
+  participationMode: z.enum(["solo", "relay", "solo_and_relay"]).optional(),
   racebookIsLive: z.boolean().optional(),
 });
 
@@ -50,6 +51,7 @@ const raceRowSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   is_live: z.boolean(),
+  participation_mode: z.enum(["solo", "relay", "solo_and_relay"]).nullable().optional(),
   data_status: z.enum(["draft", "complete"]).optional().default("complete"),
   missing_required_fields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])).optional().default([]),
   racebook_is_live: z.boolean().default(false),
@@ -126,6 +128,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.raceDate !== undefined) updatePayload.race_date = parsedBody.data.raceDate;
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;
   if (parsedBody.data.organizerDetails !== undefined) updatePayload.organizer_details = parsedBody.data.organizerDetails;
+  if (parsedBody.data.participationMode !== undefined) updatePayload.participation_mode = parsedBody.data.participationMode;
   if (parsedBody.data.racebookIsLive !== undefined) updatePayload.racebook_is_live = parsedBody.data.racebookIsLive;
 
   const requiredFieldChanged =
@@ -171,6 +174,17 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (!response.ok) {
     console.error("Unable to update organizer race", await response.text());
     return jsonError("Unable to update race format.", 502);
+  }
+
+  if (parsedBody.data.participationMode === "solo") {
+    const relayCleanupResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_relay_points?race_id=eq.${parsedParams.data.id}`,
+      { method: "DELETE", headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
+    );
+    if (!relayCleanupResponse.ok) {
+      console.error("Unable to clear relay points after switching to solo", await relayCleanupResponse.text());
+      return jsonError("Format updated, but unable to clear relay points.", 502);
+    }
   }
 
   const updated = z.array(raceRowSchema).parse(await response.json())[0] ?? null;
