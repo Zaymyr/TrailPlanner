@@ -212,6 +212,10 @@ const decodeHtmlEntities = (value: string) =>
     .replace(/&quot;/gi, '"')
     .replace(/&#39;/gi, "'")
     .replace(/&apos;/gi, "'")
+    .replace(/&(?:rsquo|lsquo);/gi, "'")
+    .replace(/&(?:rdquo|ldquo);/gi, '"')
+    .replace(/&ndash;/gi, "–")
+    .replace(/&mdash;/gi, "—")
     .replace(/&lt;/gi, "<")
     .replace(/&gt;/gi, ">")
     .replace(/&amp;/gi, "&");
@@ -1419,6 +1423,12 @@ const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandi
   if (bothHaveDistance && Math.abs(left.distanceKm! - right.distanceKm!) > distanceToleranceKm) {
     return false;
   }
+  if (
+    left.sourceUrl === right.sourceUrl &&
+    normalizeComparableName(left.name) === normalizeComparableName(right.name)
+  ) {
+    return true;
+  }
   if (!leftIdentity || !rightIdentity) return false;
   if (left.key === right.key) return true;
   if (leftIdentity === rightIdentity) return true;
@@ -1758,8 +1768,10 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
   const rootPage = await fetchGenericHtmlPage(normalizedUrl);
   const pages = [rootPage];
   const rootEmbeddedTracks = extractEmbeddedGeoJsonTracks(rootPage);
-  const normalizedFormatUrls = normalizeFormatUrls(formatUrls).filter((formatUrl) => formatUrl !== normalizedUrl);
-  const discoveredFormatUrls = normalizedFormatUrls.length === 0
+  const submittedFormatUrls = normalizeFormatUrls(formatUrls);
+  const rootIsExplicitFormat = submittedFormatUrls.includes(normalizedUrl);
+  const normalizedFormatUrls = submittedFormatUrls.filter((formatUrl) => formatUrl !== normalizedUrl);
+  const discoveredFormatUrls = submittedFormatUrls.length === 0
     ? extractCandidatePageUrls(rootPage.html, normalizedUrl)
         .slice(1)
         .filter((candidateUrl) => {
@@ -1809,14 +1821,59 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
   const preferredYear = eventDate?.slice(0, 4) ?? null;
   const eventSiteUrl = pickFirst(absoluteUrl(normalizedUrl, toNonEmptyString(allJsonLdEvents[0]?.url)), normalizedUrl);
 
-  const formatJsonLdEvents = resolvedFormatPages.flatMap((page) => page.jsonLdEvents);
-  const jsonLdRaces = formatJsonLdEvents.map((event, index) => buildGenericRaceFromEvent(event, index, eventSiteUrl, ogImage));
-  const genericCandidates = resolvedFormatPages.flatMap((page) => [
-    ...parseCourseCandidatesFromHeadings(page, eventDate, eventLocation, ogImage),
-    ...parseCourseCandidatesFromNamedProse(page, eventDate, eventLocation, ogImage),
-    ...parseCourseCandidatesFromLines(page, eventDate, eventLocation, ogImage),
-    ...buildCandidatesFromEmbeddedGeoJson(page, extractEmbeddedGeoJsonTracks(page), eventDate, eventLocation, ogImage),
-  ]);
+  const buildFormatPageCandidates = (
+    page: GenericPageCandidate,
+    pageIndex: number,
+    embeddedTracks = extractEmbeddedGeoJsonTracks(page)
+  ) => {
+    const embeddedCandidates = buildCandidatesFromEmbeddedGeoJson(
+      page,
+      embeddedTracks,
+      eventDate,
+      eventLocation,
+      ogImage
+    );
+    const textualCandidates = [
+      ...parseCourseCandidatesFromHeadings(page, eventDate, eventLocation, ogImage),
+      ...parseCourseCandidatesFromTabPanels(page, eventDate, eventLocation, ogImage),
+      ...parseCourseCandidatesFromNamedProse(page, eventDate, eventLocation, ogImage),
+      ...parseCourseCandidatesFromLines(page, eventDate, eventLocation, ogImage),
+    ];
+    const anchoredTextualCandidates = embeddedCandidates.length === 0
+      ? textualCandidates
+      : textualCandidates.flatMap((candidate) => {
+          const matchingAnchors = embeddedCandidates.filter((anchor) =>
+            raceCandidatesMatch(anchor, candidate) || (
+              anchor.distanceKm !== null &&
+              candidate.distanceKm !== null &&
+              Math.abs(anchor.distanceKm - candidate.distanceKm) <= 1.5
+            )
+          );
+          if (matchingAnchors.length !== 1) return [];
+          const anchor = matchingAnchors[0];
+          return [{ ...candidate, key: anchor.key, name: anchor.name, seriesName: anchor.seriesName }];
+        });
+    const visibleCandidates = [...embeddedCandidates, ...anchoredTextualCandidates];
+    const jsonLdCandidates = page.jsonLdEvents.map((event, eventIndex) =>
+      buildGenericRaceCandidate({
+        ...buildGenericRaceFromEvent(event, pageIndex * 100 + eventIndex, page.url, ogImage),
+        sourceUrl: page.url,
+        sourceLabel: "jsonld",
+      })
+    );
+    const applicableJsonLdCandidates = visibleCandidates.length === 0
+      ? jsonLdCandidates
+      : jsonLdCandidates.filter((candidate) =>
+          visibleCandidates.some((visibleCandidate) => raceCandidatesMatch(visibleCandidate, candidate))
+        );
+    return [...applicableJsonLdCandidates, ...visibleCandidates];
+  };
+  const formatPageCandidates = resolvedFormatPages.flatMap((page, pageIndex) =>
+    buildFormatPageCandidates(page, pageIndex)
+  );
+  const rootExplicitPageCandidates = rootIsExplicitFormat
+    ? buildFormatPageCandidates(rootPage, 10_000, rootEmbeddedTracks)
+    : [];
   const rootTabCandidates = parseCourseCandidatesFromTabPanels(rootPage, eventDate, eventLocation, ogImage);
   const rootEmbeddedCandidates = buildCandidatesFromEmbeddedGeoJson(
     rootPage,
@@ -1825,24 +1882,19 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
     eventLocation,
     ogImage
   );
-  const relevantGenericCandidates = rootEmbeddedCandidates.length > 0
-    ? genericCandidates.filter((candidate) =>
+  const explicitFormatPagesAreAuthoritative = submittedFormatUrls.length > 0;
+  const relevantFormatPageCandidates = rootEmbeddedCandidates.length > 0 && !explicitFormatPagesAreAuthoritative
+    ? formatPageCandidates.filter((candidate) =>
         rootEmbeddedCandidates.some((rootCandidate) => raceCandidatesMatch(rootCandidate, candidate))
       )
-    : genericCandidates;
+    : formatPageCandidates;
 
   const merged = mergeRaceCandidates(
     [
-      ...jsonLdRaces.map((race) =>
-        buildGenericRaceCandidate({
-          ...race,
-          sourceUrl: eventSiteUrl ?? normalizedUrl,
-          sourceLabel: "jsonld",
-        })
-      ),
-      ...relevantGenericCandidates,
-      ...rootTabCandidates,
-      ...rootEmbeddedCandidates,
+      ...relevantFormatPageCandidates,
+      ...rootExplicitPageCandidates,
+      ...(explicitFormatPagesAreAuthoritative ? [] : rootTabCandidates),
+      ...(explicitFormatPagesAreAuthoritative ? [] : rootEmbeddedCandidates),
     ],
     preferredYear
   );

@@ -554,6 +554,9 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
           edition_id: editionId,
           created_by: "00000000-0000-0000-0000-000000000001",
           ...body,
+          expires_at: String(body.expires_at).replace("Z", "+00:00"),
+          created_at: "2026-08-24T12:00:00.123+00:00",
+          updated_at: "2026-08-24T12:00:00.123+00:00",
         };
         return buildJsonResponse([session], { status: 201 });
       }

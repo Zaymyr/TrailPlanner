@@ -37,7 +37,7 @@ This integration lets a trusted admin reconcile website, roadbook, and existing 
 
 `POST /api/organizer/events/[id]/website-import` is admin-only and separates discovery from enrichment. Discovery first returns every credible format candidate, including incomplete ones. Completeness and the former quality score remain review signals only: they cannot erase a format whose existence has been confirmed. Candidate consolidation requires compatible normalized identity evidence; distance proximity by itself never merges two detections or selects an existing format.
 
-After the admin confirms the format count and bindings, deterministic extraction emits source claims for website, structured data, GPX, paginated roadbook findings, current Organizer values, and previous-edition reference values. Field grouping uses symmetric concordance tolerances of `max(0.5 km, 2%)` for distance and `max(100 m, 8%)` for D+/D-. A previous-edition claim is contextual only and cannot be selected automatically.
+After the admin confirms the format count and bindings, deterministic extraction emits source claims for website, structured data, GPX, paginated roadbook findings, current Organizer values, and previous-edition reference values. A PDF finding keeps the matched datum inside a centered excerpt capped at 2,000 characters for evidence and 500 for its typed value. Equivalent document claims are deduplicated and capped at eight per scope and field for each document before reconciliation. Field grouping uses symmetric concordance tolerances of `max(0.5 km, 2%)` for distance and `max(100 m, 8%)` for D+/D-. A previous-edition claim is contextual only and cannot be selected automatically.
 
 OpenAI is called only for field resolutions containing incompatible applicable claims. The strict Structured Outputs schema contains no output value: every response must return exactly one decision per requested `resolutionId`, either `select` with a `selectedClaimId` already present in that resolution, or `uncertain` with no claim. Server-side semantic validation rejects missing/duplicate resolutions, invented claim ids, and attempts to select historical reference claims. Imported text remains wrapped as untrusted source data.
 
@@ -52,7 +52,7 @@ The deterministic report remains usable if OpenAI is unavailable or abstains. It
 
 - Do not let the LLM create, publish, or directly patch event/format rows.
 - Do not use distance, including an exact or rounded match, as the only evidence for candidate consolidation or existing-format binding.
-- Keep roadbook text bounded before sending it to the provider. Retain the temporary upload only for the active two-pass session, then delete it on apply, cancel, or expiry cleanup.
+- Keep roadbook excerpts and per-field claim counts bounded and deduplicated before schema validation or provider calls, so verbose multi-page PDFs cannot reject the complete discovery. Retain the temporary upload only for the active two-pass session, then delete it on apply, cancel, or expiry cleanup.
 - Preserve document page numbers in claims when the PDF parser exposes them. Unscoped format findings remain observations until a confirmed format can be identified conservatively.
 - Treat an unavailable, invalid, or `uncertain` LLM response as a review state, never as permission to invent a choice.
 - Never apply raw client values from the review payload. Verify the event/edition/session-bound signed field snapshot, expiry, field scope, target format, and selected claim ids first.
