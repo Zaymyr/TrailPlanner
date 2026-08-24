@@ -6,9 +6,13 @@ import {
   attachDocumentFindingsToFormats,
   buildOrganizerDocumentSourceClaims,
   reconcileOrganizerDocumentFindings,
+  ORGANIZER_DOCUMENT_EVIDENCE_MAX_CHARS,
+  ORGANIZER_DOCUMENT_MAX_CLAIMS_PER_SCOPE_FIELD,
   ORGANIZER_DOCUMENT_MAX_BYTES,
+  ORGANIZER_DOCUMENT_VALUE_MAX_CHARS,
   validateOrganizerDocument,
 } from "./organizer-document-import";
+import { sourceClaimSchema } from "./organizer-import-engine";
 
 describe("organizer document import", () => {
   it("accepts supported documents within the size limit", () => {
@@ -125,5 +129,44 @@ describe("organizer document import", () => {
     expect(claims.find((claim) => claim.field === "finishCutoffTime")?.value).toBe("18:30");
     expect(claims.find((claim) => claim.field === "emergencyContact")?.scope).toEqual({ kind: "event", scopeKey: "event" });
     expect(claims.find((claim) => claim.field === "liveTracking")?.scope).toEqual({ kind: "event", scopeKey: "event" });
+  });
+
+  it("keeps late matches from very long PDF lines in bounded, schema-valid claims", () => {
+    const longPdfLine = `${"Informations generales sans donnee de course. ".repeat(90)}Trail 56 km - depart a 04h30 - materiel obligatoire : veste impermeable`;
+    expect(longPdfLine.length).toBeGreaterThan(ORGANIZER_DOCUMENT_EVIDENCE_MAX_CHARS);
+
+    const findings = attachDocumentFindingsToFormats(extractOrganizerDocumentFindings(longPdfLine), ["Trail 56 km"]);
+    const claims = buildOrganizerDocumentSourceClaims(
+      { sourceId: "document-long-line", fileName: "roadbook-long-line.pdf", findings },
+      { "Trail 56 km": "format-56" }
+    );
+
+    expect(findings.every((finding) => finding.evidence.length <= ORGANIZER_DOCUMENT_EVIDENCE_MAX_CHARS)).toBe(true);
+    expect(findings.every((finding) => finding.value.length <= ORGANIZER_DOCUMENT_VALUE_MAX_CHARS)).toBe(true);
+    expect(claims.find((claim) => claim.field === "startTime")?.evidence).toContain("04h30");
+    expect(claims.find((claim) => claim.field === "mandatoryEquipment")?.evidence).toContain("materiel obligatoire");
+    expect(() => claims.forEach((claim) => sourceClaimSchema.parse(claim))).not.toThrow();
+  });
+
+  it("deduplicates and caps verbose multi-page document claims by scope and field", () => {
+    const findings = Array.from({ length: 120 }, (_, index) => attachDocumentFindingsToFormats(
+      extractOrganizerDocumentFindings(
+        `Trail 56 km - retrait des dossards guichet ${index % 12} a 16h`,
+        "format-unknown",
+        index + 1
+      ),
+      ["Trail 56 km"]
+    )).flat();
+    expect(findings.length).toBeGreaterThan(100);
+
+    const claims = buildOrganizerDocumentSourceClaims(
+      { sourceId: "document-verbose", fileName: "roadbook-120-pages.pdf", findings },
+      { "Trail 56 km": "format-56" }
+    );
+    const bibPickupClaims = claims.filter((claim) => claim.field === "bibPickup");
+
+    expect(bibPickupClaims).toHaveLength(ORGANIZER_DOCUMENT_MAX_CLAIMS_PER_SCOPE_FIELD);
+    expect(new Set(bibPickupClaims.map((claim) => JSON.stringify(claim.value))).size).toBe(bibPickupClaims.length);
+    expect(() => claims.forEach((claim) => sourceClaimSchema.parse(claim))).not.toThrow();
   });
 });

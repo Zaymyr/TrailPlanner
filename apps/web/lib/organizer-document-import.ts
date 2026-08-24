@@ -11,6 +11,9 @@ import {
 
 export const ORGANIZER_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024;
 export const ORGANIZER_DOCUMENT_MAX_COUNT = 8;
+export const ORGANIZER_DOCUMENT_EVIDENCE_MAX_CHARS = 2_000;
+export const ORGANIZER_DOCUMENT_VALUE_MAX_CHARS = 500;
+export const ORGANIZER_DOCUMENT_MAX_CLAIMS_PER_SCOPE_FIELD = 8;
 
 export type OrganizerDocumentSource = {
   sourceId: string;
@@ -48,6 +51,19 @@ export type OrganizerFindingComparison = {
 
 const SUPPORTED_MEDIA_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
+const boundedMatchExcerpt = (line: string, match: RegExpExecArray, maxChars: number) => {
+  if (line.length <= maxChars) return line;
+
+  const marker = "…";
+  const contentLength = maxChars - marker.length * 2;
+  const matchStart = match.index;
+  const matchEnd = matchStart + match[0].length;
+  const matchCenter = Math.floor((matchStart + matchEnd) / 2);
+  const start = Math.max(0, Math.min(line.length - contentLength, matchCenter - Math.floor(contentLength / 2)));
+  const end = start + contentLength;
+  return `${start > 0 ? marker : ""}${line.slice(start, end)}${end < line.length ? marker : ""}`;
+};
+
 export const extractOrganizerDocumentFindings = (
   text: string,
   scope: OrganizerDocumentFinding["scope"] = "format-unknown",
@@ -61,8 +77,20 @@ export const extractOrganizerDocumentFindings = (
     confidence: OrganizerDocumentFinding["confidence"] = "medium",
     findingScope: OrganizerDocumentFinding["scope"] = scope
   ) => {
-    lines.filter((line) => pattern.test(line)).slice(0, 8).forEach((line) => {
-      findings.push({ field, value: line, scope: findingScope, formatHint: null, confidence, evidence: line, page });
+    lines.flatMap((line) => {
+      pattern.lastIndex = 0;
+      const match = pattern.exec(line);
+      return match ? [{ line, match }] : [];
+    }).slice(0, 8).forEach(({ line, match }) => {
+      findings.push({
+        field,
+        value: boundedMatchExcerpt(line, match, ORGANIZER_DOCUMENT_VALUE_MAX_CHARS),
+        scope: findingScope,
+        formatHint: null,
+        confidence,
+        evidence: boundedMatchExcerpt(line, match, ORGANIZER_DOCUMENT_EVIDENCE_MAX_CHARS),
+        page,
+      });
     });
   };
 
@@ -213,32 +241,48 @@ const findingClaimValue = (
 export const buildOrganizerDocumentSourceClaims = (
   document: Pick<OrganizerDocumentSource, "sourceId" | "fileName" | "findings">,
   formatKeyByHint: Record<string, string> = {}
-): SourceClaim[] => document.findings.flatMap((finding) => {
-  const mapped = findingClaimValue(finding);
-  if (!mapped) return [];
-  const scope = finding.scope === "event"
-    ? { kind: "event" as const, scopeKey: "event" as const }
-    : finding.scope === "format" && finding.formatHint
-      ? { kind: "format" as const, scopeKey: formatKeyByHint[finding.formatHint] ?? finding.formatHint }
-      : null;
-  if (!scope) return [];
-  return [createSourceClaim({
-    scope,
-    field: mapped.field,
-    value: mapped.value,
-    source: {
-      sourceId: document.sourceId,
-      kind: "official-document",
-      label: document.fileName,
-      url: null,
-      page: finding.page,
-      edition: null,
-    },
-    evidence: finding.evidence,
-    confidence: finding.confidence,
-    claimRole: "candidate",
-  })];
-});
+): SourceClaim[] => {
+  const claims: SourceClaim[] = [];
+  const claimsByScopeField = new Map<string, SourceClaim[]>();
+
+  for (const finding of document.findings) {
+    const mapped = findingClaimValue(finding);
+    if (!mapped) continue;
+    const scope = finding.scope === "event"
+      ? { kind: "event" as const, scopeKey: "event" as const }
+      : finding.scope === "format" && finding.formatHint
+        ? { kind: "format" as const, scopeKey: formatKeyByHint[finding.formatHint] ?? finding.formatHint }
+        : null;
+    if (!scope) continue;
+
+    const groupKey = JSON.stringify([scope.kind, scope.scopeKey, mapped.field]);
+    const group = claimsByScopeField.get(groupKey) ?? [];
+    const isEquivalent = group.some((claim) => organizerClaimValuesAreConcordant(mapped.field, claim.value, mapped.value));
+    if (isEquivalent || group.length >= ORGANIZER_DOCUMENT_MAX_CLAIMS_PER_SCOPE_FIELD) continue;
+
+    const claim = createSourceClaim({
+      scope,
+      field: mapped.field,
+      value: mapped.value,
+      source: {
+        sourceId: document.sourceId,
+        kind: "official-document",
+        label: document.fileName,
+        url: null,
+        page: finding.page,
+        edition: null,
+      },
+      evidence: finding.evidence,
+      confidence: finding.confidence,
+      claimRole: "candidate",
+    });
+    group.push(claim);
+    claimsByScopeField.set(groupKey, group);
+    claims.push(claim);
+  }
+
+  return claims;
+};
 
 const renderPdfPageText = async (pageData: {
   pageNumber?: number;

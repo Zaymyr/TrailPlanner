@@ -104,6 +104,7 @@ order by expires_at;
 ## Gotchas
 
 - Do not expose session snapshots through direct authenticated Data API grants.
+- Parse session `timestamptz` values with ISO offset support: PostgREST may serialize UTC as `+00:00` instead of `Z`.
 - Do not accept client-provided database values outside the RPC allowlists.
 - Do not delete expired rows before their temporary Storage objects have been removed.
 - Explicit aid-station replacement changes station ids and cascades existing `race_aid_station_products` links; the review must make that replacement visible to the admin.

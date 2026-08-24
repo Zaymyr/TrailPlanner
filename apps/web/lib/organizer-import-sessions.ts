@@ -36,9 +36,9 @@ export const organizerImportSessionSchema = z.object({
   discovery_snapshot: z.unknown().nullable(),
   confirmed_formats: z.unknown().nullable(),
   field_snapshot: z.unknown().nullable(),
-  expires_at: z.string().datetime(),
-  created_at: z.string().datetime().optional(),
-  updated_at: z.string().datetime().optional(),
+  expires_at: z.string().datetime({ offset: true }),
+  created_at: z.string().datetime({ offset: true }).optional(),
+  updated_at: z.string().datetime({ offset: true }).optional(),
 });
 
 export type OrganizerImportSourceManifest = z.infer<typeof organizerImportSourceManifestSchema>;

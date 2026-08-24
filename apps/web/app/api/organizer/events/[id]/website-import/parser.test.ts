@@ -164,6 +164,103 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     });
   });
 
+  it("keeps every explicit XTrail format page distinct from an ambiguous root embedded route", async () => {
+    const formatPages = new Map([
+      ["https://xtrail.example/course/la-source/", { name: "La Source", distance: 15, elevation: 520 }],
+      ["https://xtrail.example/course/les-balcons/", { name: "Les Balcons", distance: 29, elevation: 1280 }],
+      ["https://xtrail.example/course/la-forteresse/", { name: "La Forteresse", distance: 50, elevation: 2300 }],
+    ]);
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://xtrail.example/") {
+        return htmlResponse(`
+          <html><head><title>XTrail 2026</title></head><body>
+            <h1>XTrail 2026</h1><p>26 septembre 2026</p>
+            <script>
+              waymark_viewer.load_json({"type":"FeatureCollection","features":[{"type":"Feature","properties":{"title":"XTrail 2026 (29km)","time":"2026-01-03T08:53:10+00:00"},"geometry":{"type":"LineString","coordinates":[[1.94,45.10,100],[1.95,45.11,300],[1.96,45.12,120]]}}]});
+            </script>
+          </body></html>
+        `);
+      }
+      const format = formatPages.get(url);
+      if (!format) throw new Error(`Unexpected URL ${url}`);
+      return htmlResponse(`
+        <html>
+          <head>
+            <script type="application/ld+json">
+              {"@context":"https://schema.org","@type":"SportsEvent","name":"XTrail 2026","startDate":"2026-09-26","description":"Parcours officiel XTrail"}
+            </script>
+          </head>
+          <body><h1>${format.name}</h1><p>${format.distance} km - D+ ${format.elevation} m - départ 9h00</p></body>
+        </html>
+      `);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview("https://xtrail.example/", {
+      formatUrls: [...formatPages.keys()],
+    });
+
+    expect(preview.races).toHaveLength(3);
+    expect(preview.races.map((race) => race.name)).toEqual(expect.arrayContaining([
+      "La Source",
+      "Les Balcons",
+      "La Forteresse",
+    ]));
+    expect(new Set(preview.races.map((race) => race.externalSiteUrl))).toEqual(new Set(formatPages.keys()));
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+
+  it("keeps the root XTrail format when that same URL is repeated with three explicit sibling formats", async () => {
+    const rootFormatUrl = "https://xtrail.example/course/les-balcons/";
+    const siblingPages = new Map([
+      ["https://xtrail.example/course/la-source/", { name: "La Source", distance: 15, elevation: 520 }],
+      ["https://xtrail.example/course/la-forteresse/", { name: "La Forteresse", distance: 50, elevation: 2300 }],
+      ["https://xtrail.example/course/l-ultra/", { name: "L'Ultra", distance: 80, elevation: 3900 }],
+    ]);
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === rootFormatUrl) {
+        return htmlResponse(`
+          <html><head><title>Les Balcons - XTrail 2026</title></head><body>
+            <h1>Les Balcons</h1><p>29 km - D+ 1280 m - 26 septembre 2026</p>
+            <p>Accès spectateurs à 2.5 km du départ.</p>
+            <script>
+              waymark_viewer.load_json({"type":"FeatureCollection","features":[{"type":"Feature","properties":{"title":"XTrail 2026 (29km)","time":"2026-01-03T08:53:10+00:00"},"geometry":{"type":"LineString","coordinates":[[1.94,45.10,100],[1.95,45.11,300],[1.96,45.12,120]]}}]});
+            </script>
+          </body></html>
+        `);
+      }
+      const format = siblingPages.get(url);
+      if (!format) throw new Error(`Unexpected URL ${url}`);
+      return htmlResponse(`
+        <html>
+          <head>
+            <script type="application/ld+json">
+              {"@context":"https://schema.org","@type":"SportsEvent","name":"XTrail 2026","startDate":"2026-09-26","description":"Parcours officiel XTrail"}
+            </script>
+          </head>
+          <body><h1>${format.name}</h1><p>${format.distance} km - D+ ${format.elevation} m - départ 9h00</p></body>
+        </html>
+      `);
+    });
+
+    const preview = await buildOrganizerWebsiteImportPreview(rootFormatUrl, {
+      formatUrls: [rootFormatUrl, ...siblingPages.keys()],
+    });
+
+    expect(preview.races).toHaveLength(4);
+    expect(preview.races.map((race) => race.name)).toEqual(expect.arrayContaining([
+      "Les Balcons",
+      "La Source",
+      "La Forteresse",
+      "L'Ultra",
+    ]));
+    expect(new Set(preview.races.map((race) => race.externalSiteUrl))).toEqual(
+      new Set([rootFormatUrl, ...siblingPages.keys()])
+    );
+    expect(fetch).toHaveBeenCalledTimes(4);
+  });
+
   it("groups named detections up to 1.5 km apart", async () => {
     vi.mocked(fetch).mockImplementation(async (input) => {
       const url = String(input);
@@ -386,7 +483,7 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
       formatUrls: ["https://scores.example/formats"],
     });
 
-    expect(preview.races.map((race) => race.name)).toEqual(["La Grande Traversée", "10 km", "10 km"]);
+    expect(preview.races.map((race) => race.name)).toEqual(["La Grande Traversée", "10 km"]);
     expect(preview.races[0].assessment?.score).toBeGreaterThan(preview.races[1].assessment?.score ?? 0);
   });
 

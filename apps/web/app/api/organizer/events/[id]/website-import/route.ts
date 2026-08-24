@@ -1754,12 +1754,15 @@ const handleOrganizerImportWorkflow = async (
           (claim) => claim.scope.kind === "format" && claim.scope.scopeKey === candidate.candidateKey
         );
         if (claims.length === 0) return candidate;
+        const boundedClaims = [...candidate.claims, ...claims].slice(0, 100);
         return formatCandidateSchema.parse({
           ...candidate,
-          claims: [...candidate.claims, ...claims],
+          claims: boundedClaims,
           evidence: [
             ...candidate.evidence,
-            ...claims.map((claim) => ({ ...claim.source, evidence: claim.evidence })),
+            ...boundedClaims
+              .filter((claim) => !candidate.claims.some((existing) => existing.claimId === claim.claimId))
+              .map((claim) => ({ ...claim.source, evidence: claim.evidence })),
           ].slice(0, 30),
         });
       });
@@ -1917,7 +1920,7 @@ const handleOrganizerImportWorkflow = async (
         eventId: event.id,
         editionId: session.edition_id,
         sessionId: session.id,
-        expiresAt: session.expires_at,
+        expiresAt: new Date(session.expires_at).toISOString(),
         eventReport,
         formatReports,
       });
@@ -2152,7 +2155,16 @@ const handleOrganizerImportWorkflow = async (
     if (request.action === "discover-formats") {
       await deleteTemporaryOrganizerImportDocuments(auth.serviceConfig, auth.user.id, request.documents);
     }
-    if (error instanceof z.ZodError) return jsonError("Le workflow d'import contient des données invalides.", 400);
+    if (error instanceof z.ZodError) {
+      console.error(
+        "Invalid organizer import workflow data",
+        error.issues.map((issue) => ({ code: issue.code, path: issue.path.join("."), message: issue.message }))
+      );
+      return jsonError(
+        "Une information extraite n'a pas pu être normalisée. Vérifie les sources ou réessaie sans le document concerné.",
+        400
+      );
+    }
     if (error instanceof Error && "code" in error) {
       const code = (error as { code?: string }).code;
       const status = code === "FETCH_FAILED" ? 502 : code === "AUTH_REQUIRED" ? 403 : code === "AUTH_FAILED" ? 401 : 422;
