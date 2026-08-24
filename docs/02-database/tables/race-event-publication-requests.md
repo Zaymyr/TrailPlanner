@@ -86,6 +86,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Do not use `races.is_live` as the Racebook publication source of truth. Use `racebook_is_live`; approval provenance is `racebook_publication_approved_at` / `racebook_publication_approved_by`.
 - Roadbook preview uploads use temporary private Storage and may be 25 MB each; they do not establish publication readiness or approval.
 - Admin-only claim reconciliation and the signed per-field import snapshot are pre-publication controls. Confirming formats may create hidden incomplete drafts, and applying selected claims may complete source fields, but neither action establishes Racebook readiness or approval; the publication route revalidates persisted data independently.
+- Source-role classification for additional URLs and PDFs is likewise review evidence only. It cannot publish a course, approve a Racebook, or create a publication request.
 
 ## Related Docs
 

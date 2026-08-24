@@ -29,6 +29,7 @@ export function EventInfoEditor({
   const missingEndDate = !eventForm.editionEndDate.trim();
   const invalidDateRange = Boolean(eventForm.editionStartDate && eventForm.editionEndDate && eventForm.editionEndDate < eventForm.editionStartDate);
   const officialWebsiteUrl = eventForm.organizerDetails.officialWebsiteUrl ?? "";
+  const emergencyContact = eventForm.organizerDetails.emergencyContact;
 
   return (
     <div className="grid gap-3 lg:grid-cols-[1fr_1fr_220px_170px_170px]">
@@ -79,6 +80,39 @@ export function EventInfoEditor({
       <p className="text-xs text-muted-foreground lg:col-span-5">
         Ces dates appartiennent à l'édition sélectionnée. Les formats les utilisent par défaut.
       </p>
+      <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5 lg:max-w-2xl">
+        <TextField
+          label="Contact d'urgence"
+          value={emergencyContact.name ?? ""}
+          onChange={(value) =>
+            onChange(
+              {
+                organizerDetails: {
+                  ...eventForm.organizerDetails,
+                  emergencyContact: { ...emergencyContact, name: value || null },
+                },
+              },
+              "event"
+            )
+          }
+        />
+        <TextField
+          label="Numéro d'urgence"
+          type="tel"
+          value={emergencyContact.phone ?? ""}
+          onChange={(value) =>
+            onChange(
+              {
+                organizerDetails: {
+                  ...eventForm.organizerDetails,
+                  emergencyContact: { ...emergencyContact, phone: value || null },
+                },
+              },
+              "event"
+            )
+          }
+        />
+      </div>
       <div className="space-y-2 lg:col-span-4">
         <Label>Image evenement (PNG)</Label>
         {eventForm.thumbnailUrl ? (

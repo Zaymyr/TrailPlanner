@@ -1,5 +1,6 @@
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { Colors } from '../../constants/colors';
@@ -11,9 +12,12 @@ export const unstable_settings = {
 };
 
 const ROOT_TAB_ROUTES = new Set(['profile', 'catalog', 'plans', 'nutrition']);
+const TAB_BAR_CONTENT_HEIGHT = 60;
+const TAB_BAR_MIN_BOTTOM_PADDING = 8;
 
 export default function AppLayout() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const plansTabLabel = locale === 'fr' ? 'Plans' : 'Plans';
@@ -98,8 +102,10 @@ export default function AppLayout() {
             backgroundColor: Colors.background,
             borderTopColor: Colors.border,
             borderTopWidth: 1,
-            height: 68,
-            paddingBottom: 8,
+            height:
+              TAB_BAR_CONTENT_HEIGHT +
+              Math.max(TAB_BAR_MIN_BOTTOM_PADDING, insets.bottom),
+            paddingBottom: Math.max(TAB_BAR_MIN_BOTTOM_PADDING, insets.bottom),
           },
           tabBarActiveTintColor: Colors.brandPrimary,
           tabBarInactiveTintColor: Colors.textMuted,

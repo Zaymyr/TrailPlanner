@@ -186,8 +186,19 @@ export const organizerEventDateRangeDetailsSchema = z
     endDate: null,
   });
 
+export const organizerEmergencyContactSchema = z
+  .object({
+    name: nullableText,
+    phone: nullableText,
+  })
+  .default({
+    name: null,
+    phone: null,
+  });
+
 export const organizerEventDetailsSchema = z.object({
   officialWebsiteUrl: nullableUrl,
+  emergencyContact: organizerEmergencyContactSchema,
   eventLocation: organizerLocationSchema,
   dateRange: organizerEventDateRangeDetailsSchema,
   mandatoryEquipment: organizerEquipmentDetailsSchema,

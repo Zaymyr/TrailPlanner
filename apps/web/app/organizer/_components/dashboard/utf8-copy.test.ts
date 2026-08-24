@@ -43,6 +43,15 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(websiteImportSection).toContain("Confirmer les formats");
     expect(websiteImportSection).toContain("Appliquer les choix");
     expect(websiteImportSection).toContain("brouillons masqués");
+    expect(websiteImportSection).toContain("URLs officielles supplémentaires");
+    expect(websiteImportSection).toContain("Sources analysées");
+    expect(websiteImportSection).toContain("information");
+    expect(websiteImportSection).toContain("étayée");
+    expect(websiteImportSection).toContain(
+      "page événement, règlement, programme, logistique, inscription, archive ou format"
+    );
+    expect(source).toContain("additionalUrls,");
+    expect(websiteImportSection).not.toContain("URLs de formats connues");
     forbiddenSequences.forEach((sequence) => {
       expect(websiteImportSection).not.toContain(sequence);
     });
@@ -85,5 +94,16 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).not.toContain('label="Libelle format"');
     expect(dashboardSource).toContain("seriesName: mergedForm.name");
     expect(dashboardSource).toContain("seriesName: newRaceForm.name");
+  });
+
+  it("keeps the emergency contact labels readable in event information", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain('label="Contact d\'urgence"');
+    expect(source).toContain('label="Numéro d\'urgence"');
+    expect(source).toContain('type="tel"');
   });
 });

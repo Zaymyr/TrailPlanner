@@ -78,6 +78,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
 - Unknown imported distance/D+ use zero only while the corresponding snake_case field is listed missing; an explicitly known flat D+ may be zero without being missing.
 - A confirmed new import format inherits the edition start date, uses legacy GPX placeholders without creating a file, and starts missing distance and D+.
+- A grounded named format from an event/format/regulation source can be confirmed even when its other claims are missing. Additional registration, results/archive, other, or unusable URLs cannot create the row.
 - Completing an imported draft sets `is_live = true`, leaves `is_public` unchanged, and keeps `racebook_is_live = false`.
 - The Organizer format PATCH route and GPX upload route recompute these markers too, so a draft completed outside the import review cannot remain stuck on sentinel values.
 - Racebook publication remains a separate reviewed action even when course data becomes complete.

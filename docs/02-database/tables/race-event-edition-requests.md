@@ -56,6 +56,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Do not couple direct organizer delegation to this retired workflow. Membership assignment and yearly edition creation remain separate operations.
 - Roadbook preview uploads may be 25 MB each because they use temporary private Storage and remain review-only; they do not create or reactivate an edition request.
 - The admin-only two-pass import binds its session directly to a canonical edition id. Format confirmation and signed field selections can affect only explicitly confirmed current rows under that edition; neither operation revives this retired request workflow.
+- Classifying additional official URLs or text PDFs may surface a date claim, but it never retargets the import session or creates a legacy edition request.
 
 ## Related Docs
 
