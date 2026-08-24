@@ -66,6 +66,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Normal scope navigation may save silently in the background, but requesting publication still waits for foreground persistence before the server readiness check.
+- The same race-scoped persistence includes `bibPickup.overrideEnabled` and its format fields, so leaving and reopening a format cannot replace an unsaved override with the event default.
 - That foreground wait applies only when the request switch belongs to the currently edited format. Dirty or incomplete work on another format remains independent and must not block the request.
 - Rejection leaves the already-hidden Racebook rows unchanged.
 - Approval publishes only the requested Racebook. Other editions, complete formats, and incomplete formats remain unchanged.

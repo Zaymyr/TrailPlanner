@@ -44,10 +44,11 @@ export const getModuleForTab = (tabId: string, currentModule: OrganizerModuleId)
   return tabId === EVENT_TAB_ID ? "event" : "formats";
 };
 
+export const RACE_DETAILS_MODULE_IDS: OrganizerModuleId[] = ["formats", "equipment", "bibPickup", "access"];
+
 export const buildOrganizerFormatSavePlan = (dirtyModules: ReadonlySet<OrganizerModuleId>) => {
   const saveAidStations = dirtyModules.has("aidStations");
-  const saveRaceDetails =
-    saveAidStations || ["formats", "equipment", "access"].some((moduleId) => dirtyModules.has(moduleId as OrganizerModuleId));
+  const saveRaceDetails = saveAidStations || RACE_DETAILS_MODULE_IDS.some((moduleId) => dirtyModules.has(moduleId));
 
   return { saveRaceDetails, saveAidStations };
 };
