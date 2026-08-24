@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-import-reconciliation.ts
@@ -31,7 +31,7 @@ This integration lets a trusted admin reconcile website, roadbook, and existing 
 
 Only a `match` with `high` confidence may prefill an existing target format. The admin can still change every selection before applying the import. Medium and low confidence decisions are displayed for review only. The normal server-side schema, edition-range, and score checks remain authoritative.
 
-The preview always shows the LLM execution state: completed, not executed because `OPENAI_API_KEY` is missing, or failed. A failed reconciliation leaves the deterministic preview available and explicitly states that no LLM proposal was used. No client receives the OpenAI key.
+The preview always shows the LLM execution state: completed, not executed because `OPENAI_API_KEY` is missing, or failed. A failed reconciliation now exposes a sanitized provider reason such as invalid key, quota/rate limit, missing model, malformed JSON, or another HTTP failure. A failed reconciliation leaves the deterministic preview available and explicitly states that no LLM proposal was used. No client receives the OpenAI key.
 
 ## Environment Variables
 

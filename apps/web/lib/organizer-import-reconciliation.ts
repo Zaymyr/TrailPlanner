@@ -51,6 +51,26 @@ type ReconciliationInput = {
 
 const MAX_DOCUMENT_TEXT_LENGTH = 16_000;
 
+export class OrganizerImportReconciliationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "OrganizerImportReconciliationError";
+  }
+}
+
+const getProviderErrorMessage = (status: number, body: unknown) => {
+  if (typeof body === "object" && body !== null && "error" in body) {
+    const providerError = (body as { error?: { message?: unknown; code?: unknown; type?: unknown } }).error;
+    const message = typeof providerError?.message === "string" ? providerError.message : null;
+    const code = typeof providerError?.code === "string" ? providerError.code : typeof providerError?.type === "string" ? providerError.type : null;
+    if (message) return code ? `${message} (${code})` : message;
+  }
+  if (status === 401) return "La clé OpenAI est refusée ou expirée.";
+  if (status === 429) return "Le quota ou la limite de débit OpenAI est atteint.";
+  if (status === 404) return "Le modèle OpenAI configuré est introuvable.";
+  return `OpenAI a refusé la demande (HTTP ${status}).`;
+};
+
 export async function reconcileOrganizerImportWithLlm(input: ReconciliationInput): Promise<OrganizerImportReconciliation | null> {
   const apiKey = process.env.OPENAI_API_KEY?.trim();
   if (!apiKey) return null;
@@ -90,18 +110,26 @@ export async function reconcileOrganizerImportWithLlm(input: ReconciliationInput
   });
 
   if (!response.ok) {
-    console.error("Organizer import LLM reconciliation failed", response.status, await response.text());
-    throw new Error("La réconciliation LLM est indisponible.");
+    const errorBody = await response.json().catch(() => null);
+    const message = getProviderErrorMessage(response.status, errorBody);
+    console.error("Organizer import LLM reconciliation failed", response.status, message);
+    throw new OrganizerImportReconciliationError(message);
   }
 
   const body = (await response.json().catch(() => null)) as { choices?: Array<{ message?: { content?: string | null } }> } | null;
   const content = body?.choices?.[0]?.message?.content;
-  if (!content) throw new Error("La réconciliation LLM n'a retourné aucune proposition.");
+  if (!content) throw new OrganizerImportReconciliationError("OpenAI n'a retourné aucune proposition.");
 
-  const parsed = reconciliationSchema.safeParse(JSON.parse(content));
+  let decoded: unknown;
+  try {
+    decoded = JSON.parse(content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, ""));
+  } catch {
+    throw new OrganizerImportReconciliationError("OpenAI a retourné un JSON illisible.");
+  }
+  const parsed = reconciliationSchema.safeParse(decoded);
   if (!parsed.success) {
     console.error("Invalid organizer import LLM reconciliation", parsed.error.flatten());
-    throw new Error("La réponse de réconciliation LLM est invalide.");
+    throw new OrganizerImportReconciliationError("OpenAI a retourné une structure de données invalide.");
   }
 
   return {
