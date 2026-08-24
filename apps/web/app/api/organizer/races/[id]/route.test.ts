@@ -100,6 +100,60 @@ describe("/api/organizer/races/[id] PATCH", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
+  it("keeps an incomplete imported format hidden until its required fields are completed", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      race_date: "2027-09-12",
+      data_status: "draft",
+      missing_required_fields: ["distance_km", "elevation_gain_m"],
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse([{
+      id: raceId,
+      edition_group_id: "33333333-3333-3333-3333-333333333333",
+      series_name: "Trail 42",
+      name: "Trail 42 2027",
+      event_id: eventId,
+      race_date: "2027-09-12",
+      distance_km: 42,
+      elevation_gain_m: 1800,
+      is_live: true,
+      data_status: "complete",
+      missing_required_fields: [],
+    }]));
+
+    const response = await PATCH(
+      patchRequest({ distanceKm: 42, elevationGainM: 1800 }),
+      { params: { id: raceId } }
+    );
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body))).toMatchObject({
+      distance_km: 42,
+      elevation_gain_m: 1800,
+      data_status: "complete",
+      missing_required_fields: [],
+      is_live: true,
+      racebook_is_live: false,
+    });
+  });
+
+  it("rejects Racebook publication while the imported format is still a draft", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      race_date: "2027-09-12",
+      data_status: "draft",
+      missing_required_fields: ["distance_km"],
+      racebook_publication_approved_at: "2026-08-20T12:00:00.000Z",
+    });
+
+    const response = await PATCH(patchRequest({ racebookIsLive: true }), { params: { id: raceId } });
+
+    expect(response.status).toBe(409);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("lets an approved organizer publish the Racebook", async () => {
     organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
       id: raceId,

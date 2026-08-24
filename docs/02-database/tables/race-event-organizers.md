@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -104,6 +104,7 @@ Summary:
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
 - That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
 - New organizer-created formats default to catalog-visible (`is_live = true`) but their Racebook defaults to hidden and unapproved.
+- Admin-confirmed import formats are the exception: they may start as hidden incomplete drafts. The same membership-gated race and GPX routes may complete their required-field markers later, while keeping the Racebook hidden.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
@@ -140,6 +141,7 @@ order by created_at asc;
 - Organizer dashboard JSONB fields do not change the membership model; keep using active `race_event_organizers` checks instead of field-level shortcuts.
 - `POST /api/organizer/events` creates an owner membership immediately after inserting a catalog-visible event. If membership insertion fails, the route deletes that newly created event.
 - Common-vs-format detail splitting is an application convention, not a new authorization boundary.
+- Format equipment uses a tri-state compatibility rule inside that convention: explicit `true` replaces event equipment, explicit `false` inherits it, and an absent legacy flag may infer an override from historical differences. This does not change membership authorization.
 - The current organizer UI treats bib pickup as event-only, including its `locations[]` and nested `slots[]`, and treats format access-section toggles plus ravito start/finish timing cards as ordinary race-detail edits; all of them still rely on the same active event-membership check.
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.

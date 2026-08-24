@@ -7,7 +7,9 @@ import {
   OrganizerImportReconciliationError,
   buildBalancedRoadbookPayload,
   reconcileOrganizerImportWithLlm,
+  resolveOrganizerFieldConflictsWithLlm,
 } from "../../../../../../lib/organizer-import-reconciliation";
+import { groupClaimsIntoFieldResolutions, type SourceClaim } from "../../../../../../lib/organizer-import-engine";
 import type { OrganizerWebsiteImportPreview, OrganizerWebsiteImportRace } from "../../../../../../lib/organizer-website-import";
 
 const TARGET_ID = "11111111-1111-4111-8111-111111111111";
@@ -170,5 +172,125 @@ describe("organizer import LLM reconciliation", () => {
     }] })]));
     await expect(reconcileOrganizerImportWithLlm({ preview: makePreview(), existingRaces: [existingRace], documents: [] }))
       .rejects.toThrow("structure de données invalide");
+  });
+});
+
+const makeSourceClaim = (overrides: Partial<SourceClaim>): SourceClaim => ({
+  claimId: "claim-document",
+  scope: { kind: "format", scopeKey: "format-42" },
+  field: "distanceKm",
+  value: 42,
+  source: {
+    sourceId: "roadbook",
+    kind: "official-document",
+    label: "Roadbook",
+    url: null,
+    page: 4,
+    edition: "2026",
+  },
+  evidence: "42 km",
+  confidence: "high",
+  claimRole: "candidate",
+  ...overrides,
+});
+
+describe("organizer import field conflict resolution", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllEnvs();
+  });
+
+  it("does not call OpenAI when no field is conflicting", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const fetchMock = vi.spyOn(globalThis, "fetch");
+    const resolutions = groupClaimsIntoFieldResolutions([makeSourceClaim({})]);
+
+    const result = await resolveOrganizerFieldConflictsWithLlm({ resolutions });
+
+    expect(result?.resolutions).toEqual([]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("asks only for conflicting fields and accepts a referenced applicable claimId", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const resolutions = groupClaimsIntoFieldResolutions([
+      makeSourceClaim({}),
+      makeSourceClaim({
+        claimId: "claim-current",
+        value: 50,
+        source: { sourceId: "current", kind: "current-data", label: "Actuel", url: null, page: null, edition: "2026" },
+        evidence: "50 km",
+        claimRole: "current",
+      }),
+    ]);
+    const fetchMock = mockOpenAi({
+      summary: "Le roadbook de l'édition courante prévaut.",
+      warnings: [],
+      resolutions: [{
+        resolutionId: resolutions[0].resolutionId,
+        decision: "select",
+        selectedClaimId: "claim-document",
+        confidence: "high",
+        rationale: "Le document officiel 2026 est explicite.",
+      }],
+    });
+
+    const result = await resolveOrganizerFieldConflictsWithLlm({ resolutions });
+
+    expect(result?.resolutions[0].selectedClaimId).toBe("claim-document");
+    const request = JSON.parse(fetchMock.mock.calls[0][1]?.body as string);
+    expect(request.response_format.json_schema).toMatchObject({ strict: true });
+    expect(request.response_format.json_schema.schema.properties.resolutions.items.properties).not.toHaveProperty("value");
+    expect(request.messages[1].content).toContain("claim-document");
+  });
+
+  it("accepts uncertainty and rejects invented or historical claim ids", async () => {
+    vi.stubEnv("OPENAI_API_KEY", "test-key");
+    const resolutions = groupClaimsIntoFieldResolutions([
+      makeSourceClaim({}),
+      makeSourceClaim({
+        claimId: "claim-current",
+        value: 50,
+        source: { sourceId: "current", kind: "current-data", label: "Actuel", url: null, page: null, edition: "2026" },
+        evidence: "50 km",
+        claimRole: "current",
+      }),
+      makeSourceClaim({
+        claimId: "claim-history",
+        value: 44,
+        source: { sourceId: "history", kind: "previous-edition", label: "2025", url: null, page: null, edition: "2025" },
+        evidence: "44 km",
+        claimRole: "reference",
+      }),
+    ]);
+    mockOpenAi({
+      summary: "Sources insuffisantes.",
+      warnings: [],
+      resolutions: [{
+        resolutionId: resolutions[0].resolutionId,
+        decision: "uncertain",
+        selectedClaimId: null,
+        confidence: "low",
+        rationale: "Les sources applicables restent contradictoires.",
+      }],
+    });
+
+    await expect(resolveOrganizerFieldConflictsWithLlm({ resolutions })).resolves.toMatchObject({
+      resolutions: [{ decision: "uncertain", selectedClaimId: null }],
+    });
+
+    vi.restoreAllMocks();
+    mockOpenAi({
+      summary: "Choix invalide.",
+      warnings: [],
+      resolutions: [{
+        resolutionId: resolutions[0].resolutionId,
+        decision: "select",
+        selectedClaimId: "claim-history",
+        confidence: "high",
+        rationale: "Historique.",
+      }],
+    });
+    await expect(resolveOrganizerFieldConflictsWithLlm({ resolutions })).rejects.toThrow("claimId inconnu ou non applicable");
   });
 });

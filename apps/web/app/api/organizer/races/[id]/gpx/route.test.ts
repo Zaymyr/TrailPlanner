@@ -128,6 +128,30 @@ describe("/api/organizer/races/[id]/gpx", () => {
       )
     ).toBe(false);
   });
+
+  it("completes an imported draft when the GPX supplies its missing metrics", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      data_status: "draft",
+      missing_required_fields: ["distance_km", "elevation_gain_m"],
+    });
+    const mockFetch = vi.mocked(fetch);
+    mockFetch
+      .mockResolvedValueOnce(new Response(null, { status: 200 }))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: raceId, gpx_storage_path: "new.gpx" }]))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: existingStationId }]));
+
+    const response = (await PUT(putRequest(), { params: { id: raceId } })) as Response;
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String(mockFetch.mock.calls[1]?.[1]?.body))).toMatchObject({
+      missing_required_fields: [],
+      data_status: "complete",
+      is_live: true,
+      racebook_is_live: false,
+    });
+  });
 });
 
 vi.mock("../../../../../../lib/http", () => ({

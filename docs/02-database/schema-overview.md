@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -10,6 +10,8 @@ related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
@@ -28,6 +30,7 @@ related_tables:
   - plan_share_links
   - plan_aid_stations
   - races
+  - organizer_import_sessions
   - race_aid_stations
   - race_aid_station_products
   - race_events
@@ -66,6 +69,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event publication request: organizer request for the first admin approval of one exact Racebook format, identified by `race_id`; course catalog visibility is independent.
 - Racebook publication: `races.racebook_is_live` controls runner visibility, while approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
+- Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.
+- Import draft: a confirmed `races` format may exist before distance or D+ is known; `data_status` and `missing_required_fields` keep those unknowns explicit and hidden.
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
@@ -87,6 +92,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `push_devices` | Expo push tokens and device metadata per user. |
 | `push_notification_events` | Push reminder send log and dedupe records. |
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
+| `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_edition_requests` | Retired audit rows from the former yearly-edition review gate. |
@@ -140,8 +146,10 @@ erDiagram
   USER_PROFILES ||--o{ PUSH_DEVICES : registers
   PUSH_DEVICES ||--o{ PUSH_NOTIFICATION_EVENTS : logs
   RACE_EVENTS ||--o{ RACES : groups
+  RACE_EVENTS ||--o{ ORGANIZER_IMPORT_SESSIONS : imports
   RACE_EVENTS ||--o{ RACE_EVENT_EDITIONS : has
   RACE_EVENT_EDITIONS ||--o{ RACES : contains
+  RACE_EVENT_EDITIONS ||--o{ ORGANIZER_IMPORT_SESSIONS : scopes
   RACE_EVENTS ||--o{ RACE_EVENT_CLAIMS : claimed_by
   RACE_EVENTS ||--o{ RACE_EVENT_EDITION_REQUESTS : renewed_by
   RACE_EVENTS ||--o{ RACE_EVENT_ORGANIZERS : managed_by
@@ -161,6 +169,8 @@ erDiagram
 - [plan_share_links](tables/plan-share-links.md)
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)
+- [races](tables/races.md)
+- [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)
 - [race_event_claims](tables/race-event-claims.md)
@@ -197,6 +207,8 @@ erDiagram
 - Organizer yearly editions are cloned directly as drafts. Admin validation is reserved for publication through `race_event_publication_requests`.
 - Do not conflate course catalog state with Racebook state: organizer-managed `race_events.is_live` and `races.is_live` remain true for catalog discovery, while new Racebooks default to hidden.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
+- Two-pass Organizer imports are the exception to the normal all-fields-at-create assumption: confirmation persists an incomplete format as a hidden draft, then atomic field application makes the course live only when its required missing-field list is empty. Racebook visibility remains false.
+- Temporary import sessions are not provenance history. Cleanup must remove Storage objects before deleting expired rows, and client roles must never receive direct table or RPC access.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.

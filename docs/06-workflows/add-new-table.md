@@ -1,10 +1,12 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - docs/02-database/schema-overview.md
   - docs/02-database/rls-policies.md
 related_tables: []
@@ -16,7 +18,7 @@ related_tables: []
 
 Use this workflow when adding a Supabase table to Pace Yourself.
 
-For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and mobile onboarding completion on `user_profiles.onboarding_completed_at`; both still require schema and business/auth-doc updates. `race_event_update_reads` is the current owner-scoped table example: it pairs explicit grants with RLS and a manual SQL policy check.
+For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and mobile onboarding completion on `user_profiles.onboarding_completed_at`; both still require schema and business/auth-doc updates. `race_event_update_reads` is the current owner-scoped table example. `organizer_import_sessions` is the service-only example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges.
 
 ## Key Concepts
 
@@ -34,7 +36,7 @@ For column-only migrations on existing tables, use the relevant table doc plus [
 rg -n "create table|alter table|create policy" supabase/migrations
 ```
 
-3. Create a timestamped migration in `supabase/migrations`.
+3. Run `npx supabase migration new <descriptive-name>` to create the timestamped migration; do not invent its filename manually.
 4. Define columns, constraints, defaults, indexes, triggers, and comments if useful.
 5. Enable RLS in the same migration.
 6. Add policies for every intended client operation.
@@ -54,6 +56,7 @@ npm run test
 
 If the policy is complex, add a manual SQL check under `supabase/tests/`.
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
+Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only tables and `SECURITY INVOKER` mutation RPCs.
 
 ## Do Not
 

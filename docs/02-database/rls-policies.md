@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -12,13 +12,16 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/tests/organizer_rls_checks.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
 related_tables:
   - race_plans
+  - organizer_import_sessions
   - plan_share_links
   - plan_aid_stations
   - races
@@ -52,7 +55,8 @@ This document describes the row-level security patterns used by Pace Yourself. U
 - `auth.role()`: role claim such as `anon`, `authenticated`, or `service_role`.
 - `app_metadata`: trusted auth metadata for role checks.
 - `user_metadata`: user-editable metadata; do not use for new authorization decisions.
-- SECURITY DEFINER RPC: Postgres function that can safely perform privileged work when written with tight checks.
+- SECURITY INVOKER RPC: preferred service-only mutation that retains the caller's privileges and transaction boundary.
+- SECURITY DEFINER RPC: exceptional privileged function that requires a fixed search path, narrow grants, and explicit authorization.
 
 ## Required Pattern
 
@@ -181,6 +185,16 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 - Insert/update checks require the product to be live and non-archived, created by the acting user, or admin-visible.
 
 Manual checks live in `supabase/tests/organizer_rls_checks.sql`.
+
+`organizer_import_sessions`:
+
+- RLS is enabled with no client policy.
+- `PUBLIC`, `anon`, and `authenticated` have no table privileges; only `service_role` can select or mutate rows.
+- `confirm_organizer_import_formats` and `apply_organizer_import_field_patches` are `SECURITY INVOKER`, reject non-allowlisted JSON, and grant execute only to `service_role`.
+- The field RPC validates every target against the session event, edition, confirmed format map, state, and expiry before applying one atomic transaction.
+- `configure_organizer_import_cleanup_cron` is the narrow SECURITY DEFINER exception required to read Vault and manage pg_cron. It grants execute only to `service_role`.
+
+Manual permission, constraint, draft-transition, and RPC checks live in `supabase/tests/organizer_import_sessions_checks.sql`.
 
 ### Event Favorites and Organizer Updates
 
@@ -325,6 +339,8 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
 - Adding `onboarding_completed_at` does not broaden profile visibility or mutation rights; do not add a separate policy for this column while the row remains owner-scoped.
 - Adding Racebook publication columns does not grant organizer table access. Keep approval RPCs service-role-only and organizer visibility changes behind active event-membership checks.
+- Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.
+- The cleanup cron must call the protected web route so Storage objects are removed before session rows. Never grant a database cleanup function direct delete access to `storage.objects`.
 
 ## Related Docs
 

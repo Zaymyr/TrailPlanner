@@ -5,6 +5,10 @@ import type {
   OrganizerRaceDetails,
 } from '../../../../lib/organizer-dashboard-details';
 import type { FuelProduct } from '../../../../lib/product-types';
+import type {
+  FormatCandidate,
+  OrganizerImportClaimValue,
+} from '../../../../lib/organizer-import-engine';
 
 export type MembershipRow = {
   id: string;
@@ -74,6 +78,8 @@ export type RaceFormat = {
   gpx_storage_path?: string | null;
   thumbnail_url?: string | null;
   is_live: boolean;
+  data_status?: "draft" | "complete";
+  missing_required_fields?: Array<"race_date" | "distance_km" | "elevation_gain_m">;
   racebook_is_live?: boolean;
   racebook_publication_approved_at?: string | null;
   organizerDetails?: OrganizerRaceDetails;
@@ -170,174 +176,101 @@ export type EventFormValues = {
   organizerDetails: OrganizerEventDetails;
 };
 
-export type WebsiteImportRaceMode = "create" | "update" | "ignore";
-
-export type WebsiteImportRaceSelection = {
-  mode: WebsiteImportRaceMode;
-  targetRaceId: string | null;
-  selectedProposalIds: string[];
-};
-
 export type WebsiteImportConfidence = "high" | "medium" | "low";
 
-export type WebsiteImportFinding = {
-  key: string;
-  label: string;
-  value: string | null;
-  required: boolean;
-  confidence: WebsiteImportConfidence | null;
-  sourceUrl: string | null;
-  sourceLabel: string | null;
+export type WebsiteImportValue = OrganizerImportClaimValue;
+
+export type WebsiteImportFormatCandidate = FormatCandidate;
+
+export type WebsiteImportDiscoveryWorkflow = {
+  sessionId: string;
+  step: "formats";
+  expiresAt: string;
+  candidates: WebsiteImportFormatCandidate[];
+  discoverySnapshot: unknown;
+  discoverySignature: string;
+  warnings?: string[];
 };
 
-export type WebsiteImportAssessment = {
-  score: number;
-  coverageScore: number;
-  reliabilityScore: number;
-  foundCount: number;
-  totalCount: number;
-  reliableCount: number;
-  findings: WebsiteImportFinding[];
-};
-
-export type WebsiteImportPreviewRace = {
-  key: string;
+export type WebsiteImportFormatDecision = {
+  groupId: string;
+  candidateKeys: string[];
+  mode: "create" | "bind-existing" | "ignore";
+  targetRaceId: string | null;
   name: string;
-  seriesName: string;
-  raceDate: string | null;
-  locationText: string | null;
-  distanceKm: number | null;
-  elevationGainM: number | null;
-  elevationLossM: number | null;
-  externalSiteUrl: string | null;
-  thumbnailUrl: string | null;
-  missingFields: string[];
-  warnings: string[];
-  suggestedTargetRaceId: string | null;
-  canCreate: boolean;
-  hasReliableGpx: boolean;
-  detectedAidStationCount: number;
-  assessment: WebsiteImportAssessment | null;
+  manual?: boolean;
 };
 
-export type WebsiteImportProposalValue =
-  | string
-  | number
-  | boolean
-  | null
-  | string[]
-  | Array<{
-      name: string;
-      distanceKm: number;
-      waterRefill: boolean | null;
-      solidRefill: boolean | null;
-      assistanceAllowed: boolean | null;
-    }>;
+export type WebsiteImportConfirmedFormat = {
+  formatKey: string;
+  candidateKeys: string[];
+  raceId: string;
+  name: string;
+  mode: "create" | "bind-existing";
+  dataStatus: "draft" | "complete";
+  missingRequiredFields: string[];
+};
 
-export type WebsiteImportFieldProposal = {
+export type WebsiteImportFieldsWorkflow = {
+  sessionId: string;
+  step: "fields";
+  confirmedFormats: WebsiteImportConfirmedFormat[];
+};
+
+export type WebsiteImportClaim = {
   id: string;
-  scope: "event" | "format";
-  previewRaceKey: string | null;
-  field: string;
-  label: string;
-  value: WebsiteImportProposalValue;
-  currentValue: WebsiteImportProposalValue;
-  sourceKind: "gpx" | "structured-data" | "html" | "pdf" | "llm";
-  sourceLabel: string;
-  sourceUrl: string | null;
+  value: WebsiteImportValue;
+  source: {
+    kind: string;
+    label: string;
+    url: string | null;
+    fileName: string | null;
+    page: number | null;
+    editionYear: string | null;
+  };
   evidence: string[];
   confidence: WebsiteImportConfidence;
-  comparison: "fill-missing" | "same" | "conflict" | "unverified";
-  recommended: boolean;
 };
 
-export type WebsiteImportProposalSnapshot = {
-  version: 1;
-  eventId: string;
-  previewHash: string;
-  expiresAt: string;
-  proposals: WebsiteImportFieldProposal[];
+export type WebsiteImportFieldResolution = {
+  field: string;
+  label: string;
+  currentValue: WebsiteImportValue;
+  claims: WebsiteImportClaim[];
+  recommendedClaimId: string | null;
+  status: "safe" | "review" | "conflict" | "missing";
+  reason: string;
 };
 
-export type WebsiteImportPreview = {
-  source: {
-    provider: "utmb" | "tracedetrail" | "generic";
-    url: string;
-    label: string;
-  };
-  previewHash: string;
-  event: {
-    name: string | null;
-    location: string | null;
-    raceDate: string | null;
-    officialWebsiteUrl: string | null;
-    thumbnailUrl: string | null;
-    logistics: {
-      mandatoryEquipment: string[];
-      shuttles: string | null;
-      startAddress: string | null;
-      officialParkings: string | null;
-    };
-  };
-  races: WebsiteImportPreviewRace[];
-  documents?: Array<{
-    sourceId: string;
-    fileName: string;
-    mediaType: string;
-    sizeBytes: number;
-    pageCount: number | null;
-    extractionMethod: "pdf-text" | "ocr-pending";
-    status: "extracted" | "ocr-pending" | "rejected";
-    message: string | null;
-    findings: Array<{
-      field: "distanceKm" | "elevationGainM" | "elevationLossM" | "startTime" | "bibPickup" | "cutoff" | "aidStations" | "mandatoryEquipment" | "emergencyContact" | "liveTracking";
-      value: string;
-      scope: "event" | "format" | "format-unknown";
-      formatHint: string | null;
-      confidence: "medium" | "low";
-      evidence: string;
-          alternatives: Array<{
-            field: "distanceKm" | "elevationGainM" | "elevationLossM" | "startTime" | "bibPickup" | "cutoff" | "aidStations" | "mandatoryEquipment" | "emergencyContact" | "liveTracking";
-            value: string;
-            scope: "event" | "format" | "format-unknown";
-            formatHint: string | null;
-            confidence: "medium" | "low";
-            evidence: string;
-          }>;
-          comparison: {
-            status: "concordant" | "conflict" | "unverified" | "fill-missing" | "same";
-            comparedValue: string | null;
-            comparedSource: "current-data" | "website" | "gpx" | null;
-          };
-    }>;
-  }>;
-  reconciliation?: {
-    status: "completed" | "unavailable" | "failed";
-    message: string;
-    summary: string;
-    warnings: string[];
-    raceMatches: Array<{
-      previewRaceKey: string;
-      targetRaceId: string | null;
-      decision: "match" | "separate" | "uncertain";
-      confidence: "high" | "medium" | "low";
-      rationale: string;
-      evidence: string[];
-      fieldChanges: Array<{
-        field: string;
-        importedValue: string | null;
-        currentValue: string | null;
-        action: "add" | "replace" | "keep" | "unknown";
-        rationale: string;
-        evidence: string[];
-      }>;
-    }>;
-  } | null;
-  proposalSnapshot: WebsiteImportProposalSnapshot;
-  proposalSignature: string;
-  missingFields: string[];
-  warnings: string[];
-  canApply: boolean;
+export type WebsiteImportFieldReport = {
+  scope: "event" | "format";
+  raceId?: string | null;
+  name: string;
+  resolutions: WebsiteImportFieldResolution[];
+};
+
+export type WebsiteImportReviewWorkflow = {
+  sessionId: string;
+  step: "review";
+  confirmedFormats: WebsiteImportConfirmedFormat[];
+  eventReport: WebsiteImportFieldReport;
+  formatReports: WebsiteImportFieldReport[];
+  fieldSnapshot: unknown;
+  fieldSignature: string;
+  warnings?: string[];
+};
+
+export type WebsiteImportWorkflow =
+  | WebsiteImportDiscoveryWorkflow
+  | WebsiteImportFieldsWorkflow
+  | WebsiteImportReviewWorkflow;
+
+export type WebsiteImportFieldSelection = {
+  scope: "event" | "format";
+  raceId?: string;
+  field: string;
+  decision: "claim" | "keep" | "missing";
+  claimId?: string;
 };
 
 export type ProductFormValues = {

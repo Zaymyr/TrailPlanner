@@ -1,5 +1,14 @@
 import pdfParse from "pdf-parse";
 
+import {
+  createSourceClaim,
+  organizerClaimValuesAreConcordant,
+  type OrganizerImportAidStationClaim,
+  type OrganizerImportClaimField,
+  type OrganizerImportClaimValue,
+  type SourceClaim,
+} from "./organizer-import-engine";
+
 export const ORGANIZER_DOCUMENT_MAX_BYTES = 25 * 1024 * 1024;
 export const ORGANIZER_DOCUMENT_MAX_COUNT = 8;
 
@@ -11,6 +20,7 @@ export type OrganizerDocumentSource = {
   pageCount: number | null;
   extractionMethod: "pdf-text" | "ocr-pending";
   text: string | null;
+  pages: Array<{ page: number; text: string }>;
   status: "extracted" | "ocr-pending" | "rejected";
   message: string | null;
   findings: OrganizerDocumentFinding[];
@@ -23,6 +33,7 @@ export type OrganizerDocumentFinding = {
   formatHint: string | null;
   confidence: "medium" | "low";
   evidence: string;
+  page: number | null;
 };
 export type OrganizerReconciledFinding = OrganizerDocumentFinding & {
   alternatives: OrganizerDocumentFinding[];
@@ -37,12 +48,21 @@ export type OrganizerFindingComparison = {
 
 const SUPPORTED_MEDIA_TYPES = new Set(["application/pdf", "image/jpeg", "image/png", "image/webp"]);
 
-export const extractOrganizerDocumentFindings = (text: string, scope: OrganizerDocumentFinding["scope"] = "format-unknown") => {
+export const extractOrganizerDocumentFindings = (
+  text: string,
+  scope: OrganizerDocumentFinding["scope"] = "format-unknown",
+  page: number | null = null
+) => {
   const findings: OrganizerDocumentFinding[] = [];
   const lines = text.split(/\n+/).map((line) => line.trim().replace(/\s+/g, " ")).filter(Boolean);
-  const addMatches = (field: OrganizerDocumentFinding["field"], pattern: RegExp, confidence: OrganizerDocumentFinding["confidence"] = "medium") => {
+  const addMatches = (
+    field: OrganizerDocumentFinding["field"],
+    pattern: RegExp,
+    confidence: OrganizerDocumentFinding["confidence"] = "medium",
+    findingScope: OrganizerDocumentFinding["scope"] = scope
+  ) => {
     lines.filter((line) => pattern.test(line)).slice(0, 8).forEach((line) => {
-      findings.push({ field, value: line, scope, formatHint: null, confidence, evidence: line });
+      findings.push({ field, value: line, scope: findingScope, formatHint: null, confidence, evidence: line, page });
     });
   };
 
@@ -54,8 +74,8 @@ export const extractOrganizerDocumentFindings = (text: string, scope: OrganizerD
   addMatches("cutoff", /(?:barrière|barriere|cut.?off|arrivée|arrivee).{0,120}\b\d{1,2}\s*h/i);
   addMatches("aidStations", /(?:ravit|ravito|ravitaillement).{0,100}\b(?:km\s*)?\d{1,3}(?:[.,]\d+)?/i);
   addMatches("mandatoryEquipment", /(?:matériel|materiel|équipement|equipement).{0,160}(?:obligatoire|requis)/i);
-  addMatches("emergencyContact", /(?:secours|urgence|pc course|téléphone.*organisation|telephone.*organisation).{0,120}/i, "low");
-  addMatches("liveTracking", /(?:suivi live|live tracking|suivre.*course|résultats|resultats).{0,120}/i, "low");
+  addMatches("emergencyContact", /(?:secours|urgence|pc course|téléphone.*organisation|telephone.*organisation).{0,120}/i, "low", "event");
+  addMatches("liveTracking", /(?:suivi live|live tracking|suivre.*course|résultats|resultats).{0,120}/i, "low", "event");
   return findings;
 };
 
@@ -135,12 +155,107 @@ const compareFindingWithFormats = (
     return { status: "fill-missing", comparedValue: null, comparedSource: null };
   }
   if (documentValue === null || referenceValue === null) return { status: "unverified", comparedValue: null, comparedSource: null };
-  const tolerance = finding.field === "distanceKm" ? 1 : 25;
   return {
-    status: Math.abs(documentValue - referenceValue) <= tolerance ? "concordant" : "conflict",
+    status: organizerClaimValuesAreConcordant(
+      finding.field as "distanceKm" | "elevationGainM" | "elevationLossM",
+      documentValue,
+      referenceValue
+    ) ? "concordant" : "conflict",
     comparedValue: `${referenceValue}${finding.field === "distanceKm" ? " km" : " m"}`,
     comparedSource: "current-data",
   };
+};
+
+const extractTime = (value: string) => {
+  const match = value.match(/\b([01]?\d|2[0-3])\s*(?:h|:|\.h)\s*([0-5]\d)?\b/i);
+  if (!match) return null;
+  return `${match[1].padStart(2, "0")}:${(match[2] ?? "00").padStart(2, "0")}`;
+};
+
+const findingClaimValue = (
+  finding: OrganizerDocumentFinding
+): { field: OrganizerImportClaimField; value: OrganizerImportClaimValue } | null => {
+  if (finding.field === "distanceKm" || finding.field === "elevationGainM" || finding.field === "elevationLossM") {
+    const value = extractMetricNumber(finding.field, finding.value);
+    return value === null ? null : { field: finding.field, value };
+  }
+  if (finding.field === "startTime") {
+    const value = extractTime(finding.value);
+    return value ? { field: "startTime", value } : null;
+  }
+  if (finding.field === "cutoff") {
+    if (!/(?:arrivée|arrivee|finish|fermeture\s+de\s+l['’]arrivée)/i.test(finding.evidence)) return null;
+    const value = extractTime(finding.value);
+    return value ? { field: "finishCutoffTime", value } : null;
+  }
+  if (finding.field === "bibPickup") return { field: "bibPickup", value: finding.value };
+  if (finding.field === "mandatoryEquipment") return { field: "mandatoryEquipment", value: [finding.value] };
+  if (finding.field === "emergencyContact") return { field: "emergencyContact", value: finding.value };
+  if (finding.field === "liveTracking") return { field: "liveTracking", value: finding.value };
+  if (finding.field === "aidStations") {
+    const distance = finding.value.match(/(?:ravitaillement|ravito)[^\d]{0,80}(?:km\s*)?(\d{1,3}(?:[.,]\d+)?)\b/i);
+    if (!distance) return null;
+    const distanceKm = Number(distance[1].replace(",", "."));
+    if (!Number.isFinite(distanceKm)) return null;
+    const nameMatch = finding.value.match(/((?:ravitaillement|ravito)[^\d]{0,60})/i);
+    const station: OrganizerImportAidStationClaim = {
+      name: nameMatch?.[1].trim().replace(/[-:;,]+$/, "") || `Ravitaillement km ${distanceKm}`,
+      distanceKm,
+      waterRefill: null,
+      solidRefill: null,
+      assistanceAllowed: null,
+    };
+    return { field: "aidStations", value: [station] };
+  }
+  return null;
+};
+
+export const buildOrganizerDocumentSourceClaims = (
+  document: Pick<OrganizerDocumentSource, "sourceId" | "fileName" | "findings">,
+  formatKeyByHint: Record<string, string> = {}
+): SourceClaim[] => document.findings.flatMap((finding) => {
+  const mapped = findingClaimValue(finding);
+  if (!mapped) return [];
+  const scope = finding.scope === "event"
+    ? { kind: "event" as const, scopeKey: "event" as const }
+    : finding.scope === "format" && finding.formatHint
+      ? { kind: "format" as const, scopeKey: formatKeyByHint[finding.formatHint] ?? finding.formatHint }
+      : null;
+  if (!scope) return [];
+  return [createSourceClaim({
+    scope,
+    field: mapped.field,
+    value: mapped.value,
+    source: {
+      sourceId: document.sourceId,
+      kind: "official-document",
+      label: document.fileName,
+      url: null,
+      page: finding.page,
+      edition: null,
+    },
+    evidence: finding.evidence,
+    confidence: finding.confidence,
+    claimRole: "candidate",
+  })];
+});
+
+const renderPdfPageText = async (pageData: {
+  pageNumber?: number;
+  getTextContent: (options: { normalizeWhitespace: boolean; disableCombineTextItems: boolean }) => Promise<{
+    items: Array<{ str?: string; transform?: number[] }>;
+  }>;
+}) => {
+  const content = await pageData.getTextContent({ normalizeWhitespace: false, disableCombineTextItems: false });
+  let lastY: number | undefined;
+  let text = "";
+  for (const item of content.items) {
+    const currentY = item.transform?.[5];
+    if (lastY === undefined || currentY === lastY) text += item.str ?? "";
+    else text += `\n${item.str ?? ""}`;
+    lastY = currentY;
+  }
+  return text;
 };
 
 type OrganizerDocumentFile = Pick<File, "name" | "size" | "type" | "arrayBuffer">;
@@ -165,6 +280,7 @@ export async function extractOrganizerDocument(file: OrganizerDocumentFile, sour
       pageCount: null,
       extractionMethod: "ocr-pending",
       text: null,
+      pages: [],
       status: "ocr-pending",
       message: "Image reçue. OCR à configurer avant extraction.",
       findings: [],
@@ -172,16 +288,32 @@ export async function extractOrganizerDocument(file: OrganizerDocumentFile, sour
   }
 
   try {
-    const parsed = await pdfParse(Buffer.from(await file.arrayBuffer()), { max: 100 });
+    const pages: Array<{ page: number; text: string }> = [];
+    const parsed = await pdfParse(Buffer.from(await file.arrayBuffer()), {
+      max: 100,
+      pagerender: async (pageData: Parameters<typeof renderPdfPageText>[0]) => {
+        const text = await renderPdfPageText(pageData);
+        pages.push({ page: pageData.pageNumber ?? pages.length + 1, text });
+        return text;
+      },
+    });
     const text = parsed.text.trim();
+    const normalizedPages = pages
+      .map((entry) => ({ ...entry, text: entry.text.trim() }))
+      .filter((entry) => entry.text.length > 0);
     return {
       ...base,
       pageCount: parsed.numpages,
       extractionMethod: "pdf-text",
       text: text || null,
+      pages: normalizedPages,
       status: text ? "extracted" : "ocr-pending",
       message: text ? null : "PDF sans texte exploitable. OCR nécessaire.",
-      findings: text ? extractOrganizerDocumentFindings(text) : [],
+      findings: text
+        ? normalizedPages.length > 0
+          ? normalizedPages.flatMap((entry) => extractOrganizerDocumentFindings(entry.text, "format-unknown", entry.page))
+          : extractOrganizerDocumentFindings(text)
+        : [],
     };
   } catch {
     return {
@@ -189,6 +321,7 @@ export async function extractOrganizerDocument(file: OrganizerDocumentFile, sour
       pageCount: null,
       extractionMethod: "ocr-pending",
       text: null,
+      pages: [],
       status: "rejected",
       message: "Impossible de lire ce PDF.",
       findings: [],

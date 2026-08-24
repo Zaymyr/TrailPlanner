@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - vercel.json
@@ -10,12 +10,15 @@ related_files:
   - apps/mobile/app.config.ts
   - supabase/migrations/20260504133000_schedule_push_reminders_with_supabase_cron.sql
   - supabase/migrations/20260504094253_fix_push_reminders_cron_auth.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - apps/web/app/api/cron/organizer-import-cleanup/route.ts
   - supabase/functions/push-register/index.ts
   - supabase/functions/push-reminders/index.ts
 related_tables:
   - push_devices
   - push_notification_events
   - rate_limit_entries
+  - organizer_import_sessions
 ---
 
 # Infrastructure
@@ -30,6 +33,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 - EAS: Expo build/update system for the mobile app.
 - Supabase project: Auth, Postgres, Storage, Edge Functions, and cron.
 - Vault-backed cron secret: secret used by pg_cron to call push reminder functions.
+- Organizer import cleanup: hourly pg_cron GET to the protected web route so Storage cleanup precedes row deletion.
 - Service role: server-only key used by trusted routes/functions.
 - Organizer import documents are currently selected in the browser and identified in the preview only; no document bucket or OCR provider is configured yet.
 - Organizer roadbooks use the private `organizer-imports` bucket. Browser uploads are restricted to the authenticated user's folder and to 25 MB PDF/JPEG/PNG/WebP files; the organizer website-import API removes them after analysis, including failures.
@@ -90,6 +94,7 @@ The repository uses Supabase for:
   - `push-register`
   - `push-reminders`
 - pg_cron daily push reminder scheduling.
+- pg_cron hourly organizer import cleanup scheduling.
 
 ## Scheduled Push Reminders
 
@@ -101,6 +106,12 @@ The push reminder schedule is declared in:
 Both migrations configure a `push-reminders-daily` cron job. The later migration fixes cron auth details. The job posts to `/functions/v1/push-reminders` with an `x-cron-secret` header sourced from Vault.
 
 The Edge Function validates the cron secret through a SECURITY DEFINER RPC before sending reminders.
+
+## Organizer Import Cleanup
+
+`20260824114439_add_organizer_import_sessions_and_drafts.sql` configures `organizer-import-cleanup-hourly` at minute 17 of each hour. `configure_organizer_import_cleanup_cron()` reads `web_app_url` and `cron_secret` from Vault and schedules a `net.http_get` request to `/api/cron/organizer-import-cleanup` with the bearer secret used by the web cron route.
+
+The route selects expired service-only sessions, deletes each temporary object named by its source manifest, and only then deletes the session row. The migration deliberately does not grant SQL direct access to delete `storage.objects`. If either Vault secret is absent, configuration emits a notice and leaves the job unscheduled.
 
 ## Rate Limiting
 
@@ -137,6 +148,7 @@ Document variable names, not secret values. Important names visible in code incl
 - `RESEND_API_KEY`
 - `OPENAI_API_KEY`
 - `OPENAI_ORGANIZER_IMPORT_MODEL`
+- `CRON_SECRET`
 - `REVENUECAT_*`
 - `EXPO_PUBLIC_REVENUECAT_*`
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
@@ -147,6 +159,8 @@ Document variable names, not secret values. Important names visible in code incl
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
+- Organizer cleanup additionally requires matching Vault values `web_app_url` and `cron_secret`; `cron_secret` must equal the web deployment's `CRON_SECRET`.
+- Do not replace the cleanup HTTP job with direct SQL deletion. The private Storage objects must be removed before their manifest row.
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.
 - Keep `organizer-imports` private and owner-folder-scoped. The browser can upload and make a best-effort cleanup request, but service-role cleanup in the analysis route is the mandatory deletion path.

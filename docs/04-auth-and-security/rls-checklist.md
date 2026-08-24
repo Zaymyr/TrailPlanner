@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-08-21
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -9,13 +9,16 @@ related_files:
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/tests/organizer_rls_checks.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
   - apps/web/app/api/plan-shares/crew-state/route.ts
 related_tables:
   - race_plans
+  - organizer_import_sessions
   - plan_share_links
   - races
   - race_events
@@ -87,6 +90,7 @@ Use:
 
 - `supabase/tests/organizer_rls_checks.sql` for event-membership and organizer station-product checks;
 - `supabase/tests/organizer_rls_checks.sql` for event membership, race-event favorites, format-scoped updates, and owner-only update read receipts;
+- `supabase/tests/organizer_import_sessions_checks.sql` for service-only session grants, invoker RPC privileges, strict JSON payloads, and draft constraints;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 
@@ -109,6 +113,7 @@ Use:
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 - Racebook publication is a column-only extension of `races`: existing row RLS remains, but first approval and admin-wide visibility changes stay service-role-only. New publication-request inserts must bind `race_id` to the same managed event, while organizer toggles require both active membership and a stored approval timestamp.
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
+- `organizer_import_sessions` is service-only workflow state: no client policy is intentional. Both mutation RPCs must remain `SECURITY INVOKER`, revoke `PUBLIC` execution, and validate session expiry/scope plus every JSON key before writing.
 
 ## Related Docs
 

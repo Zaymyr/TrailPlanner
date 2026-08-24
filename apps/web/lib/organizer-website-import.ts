@@ -1401,12 +1401,12 @@ const distinctiveRaceIdentityTokens = (identity: string) =>
   );
 
 const raceIdentityNamesAreCompatible = (leftIdentity: string, rightIdentity: string) => {
-  if (!leftIdentity || !rightIdentity) return true;
+  if (!leftIdentity || !rightIdentity) return false;
   if (leftIdentity === rightIdentity) return true;
 
   const leftTokens = distinctiveRaceIdentityTokens(leftIdentity);
   const rightTokens = distinctiveRaceIdentityTokens(rightIdentity);
-  if (leftTokens.size === 0 || rightTokens.size === 0) return true;
+  if (leftTokens.size === 0 || rightTokens.size === 0) return false;
 
   return Array.from(leftTokens).some((token) => rightTokens.has(token));
 };
@@ -1419,8 +1419,8 @@ const raceCandidatesMatch = (left: GenericRaceCandidate, right: GenericRaceCandi
   if (bothHaveDistance && Math.abs(left.distanceKm! - right.distanceKm!) > distanceToleranceKm) {
     return false;
   }
+  if (!leftIdentity || !rightIdentity) return false;
   if (left.key === right.key) return true;
-  if (!leftIdentity || !rightIdentity) return bothHaveDistance;
   if (leftIdentity === rightIdentity) return true;
 
   return bothHaveDistance && raceIdentityNamesAreCompatible(leftIdentity, rightIdentity);
@@ -1539,7 +1539,13 @@ const mergeRaceCandidates = (candidates: GenericRaceCandidate[], preferredYear: 
   for (const candidate of filteredCandidates) {
     const existingEntry = Array.from(keptByKey.entries()).find(([, existing]) => raceCandidatesMatch(existing, candidate));
     if (!existingEntry) {
-      keptByKey.set(candidate.key, candidate);
+      let uniqueKey = candidate.key;
+      let suffix = 2;
+      while (keptByKey.has(uniqueKey)) {
+        uniqueKey = `${candidate.key}:${suffix}`;
+        suffix += 1;
+      }
+      keptByKey.set(uniqueKey, uniqueKey === candidate.key ? candidate : { ...candidate, key: uniqueKey });
       continue;
     }
     const [existingKey, existing] = existingEntry;

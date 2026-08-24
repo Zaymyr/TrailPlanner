@@ -13,6 +13,8 @@ related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
@@ -33,6 +35,7 @@ related_files:
   - apps/web/app/api/race-events/[id]/updates/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/lib/organizer-website-import.ts
+  - apps/web/lib/organizer-import-engine.ts
   - apps/web/lib/organizer-import-proposals.ts
   - apps/web/lib/push.ts
   - apps/web/lib/public-races.ts
@@ -58,6 +61,7 @@ related_tables:
   - race_event_update_reads
   - race_event_editions
   - races
+  - organizer_import_sessions
   - user_favorite_race_events
 ---
 
@@ -79,7 +83,8 @@ related_tables:
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details` and `races.racebook_is_live` explicitly when deciding whether a runner-facing read-only Racebook page should be available.
 - Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
-- Website-import target: the admin-only organizer website import route enriches the selected organizer-owned `race_events` row and must never create a different event during that review flow, even when the generic importer inspects a bounded set of prioritized same-origin pages, scores candidate dates, and merges format data before building its preview. An LLM may propose an evidence-backed existing-format match, but cannot mutate the event or formats without the admin's explicit selection and confirmation. If website retrieval fails while roadbook documents are supplied, it returns the document review with a warning and leaves the event unchanged. Roadbooks are uploaded to private temporary Storage for analysis and deleted afterwards; they never become event-row data.
+- Website-import target: the admin-only organizer information import enriches only the selected `race_events` row and must never create a different event. It first confirms the number and identity of child formats, then reviews field-level source claims. Candidate existence is independent from completeness, distance alone never merges or binds formats, and OpenAI can only choose an already extracted applicable claim or abstain. Roadbooks remain temporary analysis sources and never become event-row data.
+- Two-pass import scope: `organizer_import_sessions.event_id` binds discovery, format confirmation, and field application to this exact event; the session trigger also requires its edition to belong here.
 - Missing provenance: table creation must be verified outside the visible migrations.
 - Organizer creation target: direct creators receive an active owner membership and can manage all formats under their new event immediately.
 - Admin delegation target: the admin Organizer tab lists event ids/names after trusted admin verification so an existing Auth account can receive an event-scoped `organizer` membership without changing the event row.
@@ -138,12 +143,14 @@ Organizer portal writes also go through web service routes after checking `race_
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass. After every format row, one light-green panel shows only the newest or targeted announcement while collapsed; tapping `View more` reveals the other messages and loads the longer history from the dedicated updates route when needed.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and should remain progressive JSON until the fields justify normalized tables. That JSON now includes structured geocoded location metadata for the event location plus `officialWebsiteUrl` in addition to the existing plain `location` text column. The website-import preview may propose that official URL after aggregating a few same-domain pages, but the row is still updated only after manual organizer confirmation.
 - The organizer event detail read embeds child `race_aid_stations(id)` only to derive an `aidStationCount` per returned format. The raw nested rows are removed from the API response, and the count keeps completion scoring tied to each format rather than the selected dashboard tab.
-- Generic website-import discovery may use a newer regulation to reject formats from an older linked parcours page and may consolidate duplicate format candidates by normalized business name before sorting them by final quality score, but these preview choices do not create or move an event row. Missing required format values such as D+ remain explicit instead of being inferred.
-- Website-import field provenance and confidence scores are transient preview data computed by the server. They are returned in an event-bound, preview-bound signed proposal snapshot and are not persisted in `race_events.organizer_details`; only explicitly selected event proposal ids, including an optional `officialWebsiteUrl`, enter the row.
+- Generic discovery may use a newer regulation to reject old-edition candidates and may consolidate detections only from compatible normalized identity evidence. Anonymous same-distance detections stay separate for admin confirmation. Missing values such as D+ remain explicit and do not invalidate confirmed format existence.
+- Import field provenance and confidence are represented as transient source claims. Current values and previous-edition context are claims too, but historical claims remain reference-only. Only explicitly selected applicable claim ids, including an optional `officialWebsiteUrl`, may enter the row.
 - During website-import review, an organizer may replace the detected edition start date with another valid ISO date. The server validates it after membership/hash checks, upserts the corresponding `race_event_editions` row, and attaches imported formats to it. Matching rows in another year are not overwritten, while a missing format series reuses its `edition_group_id` when possible.
+- Two-pass import confirmation persists every admin-confirmed new format immediately, even when distance or D+ is unknown. Those child rows remain hidden drafts until the allowlisted field RPC clears their explicit missing-field list; the parent event itself is never created, moved, or published by that confirmation.
 - Organizer event writes remain edition-aware for selecting child rows, but no date-based cutoff blocks event or format maintenance.
 - The canonical event start/end range is stored in `race_event_editions`. The current edition is mirrored into `race_date` and `organizer_details.dateRange.endDate` for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only and stores `bibPickup.locations[]`, each containing one canonical/geocoded address and `slots[]` with date, start time, and end time. The legacy `location`, `locationDetails`, and free-text `schedule` fields remain compatibility fallbacks. Format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
+- Event equipment is inherited unless race JSON explicitly sets `mandatoryEquipment.overrideEnabled = true`. An explicit `false` wins over stale race items; only historical JSON where the flag is absent may infer an override from those differences.
 - Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must gate itself on live course state, `racebook_is_live = true`, and actual non-ravito organizer content. Its presentation contract is otherwise unchanged.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event. After a confirmed favorite addition, it scrolls to the event's new pinned position and shows a short success toast without changing the event query shape.
@@ -212,6 +219,7 @@ from public.races;
 - Keep admin organizer review tolerant of missing yearly-edition joins: a failed `race_event_edition_requests -> race_events` read should not prevent the base event-claim review data from loading.
 - Keep the full event list used by direct organizer assignment behind the admin service route; do not expose draft events through a public or ordinary authenticated selector.
 - Keep generic website crawling bounded to prioritized same-origin pages. External registration, social, and activity-platform links are source references, not additional event pages to crawl into the `race_events` preview.
+- Expired import sessions cascade with event deletion, but normal cleanup must remove their temporary Storage objects before deleting session rows.
 
 - The membership rule has one server-verified admin exception. Do not turn the complete Organizer selector into an unfiltered authenticated or public `race_events` read.
 

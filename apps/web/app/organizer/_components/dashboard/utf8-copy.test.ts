@@ -33,18 +33,16 @@ describe("organizer dashboard UTF-8 copy", () => {
   it("keeps the website import review copy free from mojibake sequences", () => {
     const absolutePath = resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx");
     const source = readFileSync(absolutePath, "utf8").replace(/\r\n/g, "\n");
-    const start = source.indexOf("<Dialog open={websiteImportOpen");
+    const start = source.indexOf("<Dialog\n        open={websiteImportOpen");
     const end = source.lastIndexOf("\n    </div>\n  );");
     const websiteImportSection = source.slice(start, end);
 
     expect(start).toBeGreaterThanOrEqual(0);
     expect(end).toBeGreaterThan(start);
-    expect(websiteImportSection).toContain("Données trouvées");
-    expect(websiteImportSection).toContain("À renseigner manuellement");
-    expect(websiteImportSection).toContain("Récupéré");
-    expect(websiteImportSection).toContain("Manquant");
-    expect(websiteImportSection).toContain("Formats regroupés par distance");
-    expect(websiteImportSection).toContain("Date détectée");
+    expect(websiteImportSection).toContain("Découvrir les formats");
+    expect(websiteImportSection).toContain("Confirmer les formats");
+    expect(websiteImportSection).toContain("Appliquer les choix");
+    expect(websiteImportSection).toContain("brouillons masqués");
     forbiddenSequences.forEach((sequence) => {
       expect(websiteImportSection).not.toContain(sequence);
     });
@@ -65,17 +63,16 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain("Lieu différent de l&apos;événement");
   });
 
-  it("keeps document and assisted reconciliation evidence visible in the secondary review", () => {
+  it("keeps format and field evidence visible in the two-step review", () => {
     const absolutePath = resolve(process.cwd(), "app/organizer/_components/dashboard/website-import-review-details.tsx");
     const source = readFileSync(absolutePath, "utf8");
 
-    expect(source).toContain("Documents analysés");
-    expect(source).toContain("Rapprochement assisté");
-    expect(source).toContain("Comparaison champ par champ");
+    expect(source).toContain("Preuves d’existence");
+    expect(source).toContain("Étape 2 sur 2");
+    expect(source).toContain("Conflit");
     expect(source).toContain("Preuve :");
-    expect(source).toContain("ne modifient aucune donnée automatiquement");
-    expect(source).toContain("Champs à intégrer");
-    expect(source).toContain("remplace automatiquement la précédente");
+    expect(source).toContain("Laisser ce champ manquant");
+    expect(source).toContain("Les conflits ne sont jamais sélectionnés automatiquement");
   });
 
   it("exposes one format name field and synchronizes both persisted names", () => {

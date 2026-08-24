@@ -1,11 +1,13 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/tests/organizer_rls_checks.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/lib/supabase.ts
 related_tables: []
 ---
@@ -56,6 +58,7 @@ rollback;
 ```
 
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example for relationship-based policy checks. It also covers owner-scoped favorites, format/event consistency on updates, live-event visibility, and owner-only read receipts.
+Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended design is a service-only table with RLS enabled, no client policy, revoked client grants, and narrowly granted invoker RPCs.
 
 ## Do Not
 

@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-08-18
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -9,6 +9,8 @@ related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
+  - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
@@ -91,6 +93,7 @@ Summary:
 - When an organizer format has GPX preview data, cumulative D+ / D- on source ravitos are recomputed from that trace whenever the station km changes, then persisted back through the same aid-station route.
 - The organizer ravito tile now also surfaces the fixed `Départ` and `Arrivée` timing cards, but those values are not part of `race_aid_stations` and must not be persisted as synthetic rows.
 - Organizer GPX upload creates stations from waypoints only when a format has no existing source stations; existing station ids are preserved and must be edited through the ravito route.
+- Organizer field import leaves stations untouched unless the admin explicitly selects the `aidStations` field. That selection atomically replaces the whole set through the service-only apply RPC; omitted service flags keep the historical enabled defaults.
 
 ## Common Queries
 
@@ -126,8 +129,10 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Review-related columns need live-schema verification before new importer work.
 - Deleting and recreating a station changes its id and removes `race_aid_station_products` links through cascade; update existing rows when preserving product suggestions matters.
 - Do not use organizer GPX upload to replace existing stations; safe-mode waypoint import avoids breaking station-product links.
+- Explicit import replacement is intentionally destructive to station identity and cascades linked `race_aid_station_products`. The review must disclose this; omitting `aidStations` preserves the rows and links.
 - Missing service flags from legacy reads should be treated as enabled to preserve old catalog behavior.
 - Missing `organizer_details` from legacy reads should be parsed as empty/default dashboard details, not treated as invalid station data.
+- The shared organizer-details parser also handles race equipment compatibility. Its tri-state override normalization is independent from station `organizer_details` and must not alter ravito rows.
 - The current organizer editor treats cumulative D+ / D- as GPX-derived metrics, not manual overrides; keep the preview interpolation contract aligned with saved station JSON.
 
 ## Related Docs

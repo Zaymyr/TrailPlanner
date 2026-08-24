@@ -478,6 +478,230 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
   });
 });
 
+describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
+  const editionId = "55555555-5555-5555-5555-555555555555";
+  const raceId = "44444444-4444-4444-4444-444444444444";
+  const sessionId = "66666666-6666-6666-6666-666666666666";
+
+  beforeEach(() => {
+    vi.stubGlobal("fetch", vi.fn());
+    organizerMocks.buildPreview.mockResolvedValue({
+      source: { provider: "utmb", url: "https://utmb.world/races/example", label: "UTMB" },
+      event: {
+        name: "Grand Trail",
+        location: "Chamonix",
+        raceDate: "2026-08-20",
+        officialWebsiteUrl: "https://utmb.world/races/example",
+        thumbnailUrl: null,
+        logistics: { mandatoryEquipment: [], shuttles: null, startAddress: null, officialParkings: null },
+      },
+      races: [{
+        key: "race:42k",
+        name: "42K",
+        seriesName: "42K",
+        raceDate: "2026-08-20",
+        locationText: "Chamonix",
+        distanceKm: 42,
+        elevationGainM: 2400,
+        elevationLossM: 2200,
+        externalSiteUrl: "https://utmb.world/races/example/42k",
+        thumbnailUrl: null,
+        aidStations: [],
+        gpxContent: null,
+        gpxStorageLabel: null,
+        hasReliableGpx: false,
+        missingFields: [],
+      }],
+      missingFields: [],
+      warnings: [],
+      canApply: true,
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("creates an incomplete draft first, then completes it from signed field claims", async () => {
+    let session: Record<string, unknown> | null = null;
+    let race: Record<string, unknown> | null = null;
+    let applyRpcBody: Record<string, unknown> | null = null;
+    let sessionDeleted = false;
+    const eventPayload = () => [{
+      id: eventId,
+      name: "Grand Trail",
+      location: "Chamonix",
+      race_date: "2026-08-20",
+      organizer_details: {},
+      race_event_editions: [{
+        id: editionId,
+        edition_year: 2026,
+        start_date: "2026-08-20",
+        end_date: "2026-08-20",
+        is_current: true,
+      }],
+      races: race ? [race] : [],
+    }];
+
+    vi.mocked(fetch).mockImplementation(async (input, init) => {
+      const url = String(input);
+      if (url.includes("/rest/v1/race_events?")) return buildJsonResponse(eventPayload());
+      if (url.endsWith("/rest/v1/organizer_import_sessions") && init?.method === "POST") {
+        const body = JSON.parse(String(init.body));
+        session = {
+          id: sessionId,
+          event_id: eventId,
+          edition_id: editionId,
+          created_by: "00000000-0000-0000-0000-000000000001",
+          ...body,
+        };
+        return buildJsonResponse([session], { status: 201 });
+      }
+      if (url.includes("/rest/v1/organizer_import_sessions?") && (!init?.method || init.method === "GET")) {
+        return buildJsonResponse(sessionDeleted || !session ? [] : [session]);
+      }
+      if (url.includes("/rest/v1/organizer_import_sessions?") && init?.method === "PATCH") {
+        session = { ...session, ...JSON.parse(String(init.body)) };
+        return buildJsonResponse([session]);
+      }
+      if (url.includes("/rest/v1/organizer_import_sessions?") && init?.method === "DELETE") {
+        sessionDeleted = true;
+        return new Response(null, { status: 204 });
+      }
+      if (url.endsWith("/rest/v1/rpc/confirm_organizer_import_formats")) {
+        const body = JSON.parse(String(init?.body));
+        const format = body.p_formats[0];
+        race = {
+          id: raceId,
+          edition_id: editionId,
+          edition_group_id: raceId,
+          series_name: format.name,
+          name: format.name,
+          race_date: "2026-08-20",
+          distance_km: 0,
+          elevation_gain_m: 0,
+          elevation_loss_m: null,
+          external_site_url: null,
+          location_text: null,
+          thumbnail_url: null,
+          gpx_storage_path: null,
+          organizer_details: {},
+          is_live: false,
+          data_status: "draft",
+          missing_required_fields: ["distance_km", "elevation_gain_m"],
+        };
+        const confirmedFormat = {
+          formatKey: format.formatKey,
+          candidateKeys: format.candidateKeys,
+          raceId,
+          name: format.name,
+          mode: format.mode,
+          dataStatus: "draft",
+          missingRequiredFields: ["distance_km", "elevation_gain_m"],
+        };
+        session = { ...session, status: "formats_confirmed", confirmed_formats: [confirmedFormat] };
+        return buildJsonResponse({
+          sessionId,
+          formats: [confirmedFormat],
+          createdCount: 1,
+          boundExistingCount: 0,
+        });
+      }
+      if (url.endsWith("/rest/v1/rpc/apply_organizer_import_field_patches")) {
+        applyRpcBody = JSON.parse(String(init?.body));
+        return buildJsonResponse({
+          sessionId,
+          formatsUpdated: 1,
+          draftsRemaining: 0,
+          formatsCompleted: 1,
+        });
+      }
+      throw new Error(`Unexpected fetch: ${init?.method ?? "GET"} ${url}`);
+    });
+
+    const discoveryResponse = await POST(importRequest({
+      action: "discover-formats",
+      editionId,
+      url: "https://utmb.world/races/example",
+      formatUrls: [],
+      documents: [],
+    }), { params: { id: eventId } });
+    const discovery = await discoveryResponse.json();
+    expect(discoveryResponse.status, JSON.stringify(discovery)).toBe(200);
+    expect(discovery.workflow.candidates).toHaveLength(1);
+    expect(discovery.workflow.candidates[0]).toMatchObject({
+      candidateKey: "race:42k",
+      completeness: { missingRequiredFields: [] },
+    });
+
+    const tamperedSnapshot = {
+      ...discovery.workflow.discoverySnapshot,
+      candidates: discovery.workflow.discoverySnapshot.candidates.map(
+        (candidate: Record<string, unknown>) => ({ ...candidate, proposedName: "Format falsifié" })
+      ),
+    };
+    const tamperedResponse = await POST(importRequest({
+      action: "confirm-formats",
+      sessionId,
+      discoverySnapshot: tamperedSnapshot,
+      discoverySignature: discovery.workflow.discoverySignature,
+      confirmedFormats: [{ candidateKeys: ["race:42k"], mode: "create", name: "42K" }],
+    }), { params: { id: eventId } });
+    expect(tamperedResponse.status).toBe(409);
+    expect(race).toBeNull();
+
+    const confirmResponse = await POST(importRequest({
+      action: "confirm-formats",
+      sessionId,
+      discoverySnapshot: discovery.workflow.discoverySnapshot,
+      discoverySignature: discovery.workflow.discoverySignature,
+      confirmedFormats: [{ candidateKeys: ["race:42k"], mode: "create", name: "42K" }],
+    }), { params: { id: eventId } });
+    const confirmed = await confirmResponse.json();
+    expect(confirmResponse.status, JSON.stringify(confirmed)).toBe(200);
+    expect(confirmed.workflow.confirmedFormats[0]).toMatchObject({
+      raceId,
+      dataStatus: "draft",
+      missingRequiredFields: ["distance_km", "elevation_gain_m"],
+    });
+
+    const analyzeResponse = await POST(importRequest({
+      action: "analyze-fields",
+      sessionId,
+    }), { params: { id: eventId } });
+    const analysis = await analyzeResponse.json();
+    expect(analyzeResponse.status, JSON.stringify(analysis)).toBe(200);
+    const formatReport = analysis.workflow.formatReports[0];
+    const distance = formatReport.resolutions.find((resolution: { field: string }) => resolution.field === "distanceKm");
+    const elevation = formatReport.resolutions.find((resolution: { field: string }) => resolution.field === "elevationGainM");
+    expect(distance).toMatchObject({ status: "safe", currentValue: null });
+    expect(elevation).toMatchObject({ status: "safe", currentValue: null });
+
+    const applyResponse = await POST(importRequest({
+      action: "apply-fields",
+      sessionId,
+      fieldSnapshot: analysis.workflow.fieldSnapshot,
+      fieldSignature: analysis.workflow.fieldSignature,
+      selections: [
+        { scope: "format", raceId, field: "distanceKm", decision: "claim", claimId: distance.claims[0].id },
+        { scope: "format", raceId, field: "elevationGainM", decision: "claim", claimId: elevation.claims[0].id },
+      ],
+    }), { params: { id: eventId } });
+    const applied = await applyResponse.json();
+    expect(applyResponse.status, JSON.stringify(applied)).toBe(200);
+    expect(applied.applied).toMatchObject({ formatsCompleted: 1, draftsRemaining: 0 });
+    expect(applyRpcBody).toMatchObject({
+      p_session_id: sessionId,
+      p_race_patches: [{
+        raceId,
+        fields: { distanceKm: 42, elevationGainM: 2400 },
+        missingRequiredFields: [],
+      }],
+    });
+    expect(sessionDeleted).toBe(true);
+  });
+});
+
 vi.mock("../../../../../../lib/http", () => ({
   checkRateLimitAsync: () => Promise.resolve({ allowed: true, remaining: 5 }),
   withSecurityHeaders: (response: Response) => response,

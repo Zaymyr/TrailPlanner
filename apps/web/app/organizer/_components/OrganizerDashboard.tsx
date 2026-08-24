@@ -55,7 +55,12 @@ import {
   type OrganizerAidStationRow,
 } from "./dashboard/helpers";
 import { ProductPickerModal, ProductsEditor } from "./dashboard/products-editor";
-import { WebsiteImportProposalChoices, WebsiteImportReviewDetails } from "./dashboard/website-import-review-details";
+import {
+  buildInitialWebsiteImportFieldSelections,
+  buildInitialWebsiteImportFormatDecisions,
+  WebsiteImportFieldReview,
+  WebsiteImportFormatDiscoveryReview,
+} from "./dashboard/website-import-review-details";
 import {
   CompletionTabsPanel,
   OrganizerNoMembershipCard,
@@ -75,49 +80,36 @@ import type {
   RaceFormat,
   RaceFormValues,
   StationProduct,
-  WebsiteImportPreview,
-  WebsiteImportFieldProposal,
-  WebsiteImportRaceSelection,
+  WebsiteImportDiscoveryWorkflow,
+  WebsiteImportFieldSelection,
+  WebsiteImportFormatDecision,
+  WebsiteImportReviewWorkflow,
+  WebsiteImportWorkflow,
 } from "./dashboard/types";
 
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
-const WEBSITE_IMPORT_MINIMUM_SCORE = 70;
 const WEBSITE_IMPORT_MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
-const WEBSITE_IMPORT_REQUIRED_CREATE_FIELDS = new Set(["name", "raceDate", "distanceKm", "elevationGainM"]);
+const WEBSITE_IMPORT_DOCUMENT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
+  race_date: "date",
+  distance_km: "distance",
+  elevation_gain_m: "D+",
+};
 const EMPTY_DIRTY_MODULES = new Set<OrganizerModuleId>();
-
-const hasWebsiteImportProposalValue = (proposal: WebsiteImportFieldProposal) => {
-  if (proposal.value === null) return false;
-  if (typeof proposal.value === "string") return proposal.value.trim().length > 0;
-  if (Array.isArray(proposal.value)) return proposal.value.length > 0;
-  return true;
-};
-
-const getInitialWebsiteImportProposalIds = (
-  proposals: WebsiteImportFieldProposal[],
-  includeRequiredCreateFields = false
-) => {
-  const selectedByField = new Map<string, string>();
-  proposals.forEach((proposal) => {
-    const shouldSelect =
-      proposal.recommended ||
-      (includeRequiredCreateFields && WEBSITE_IMPORT_REQUIRED_CREATE_FIELDS.has(proposal.field) && hasWebsiteImportProposalValue(proposal));
-    if (!shouldSelect) return;
-    const currentId = selectedByField.get(proposal.field);
-    const currentProposal = currentId ? proposals.find((candidate) => candidate.id === currentId) : null;
-    if (!currentProposal || (!currentProposal.recommended && proposal.recommended)) selectedByField.set(proposal.field, proposal.id);
-  });
-  return Array.from(selectedByField.values());
-};
 
 type OrganizerImportDocumentReference = {
   path: string;
   fileName: string;
-  mediaType: string;
+  mediaType: (typeof WEBSITE_IMPORT_DOCUMENT_MIME_TYPES)[number];
   sizeBytes: number;
 };
+
+const isOrganizerImportDocumentMimeType = (
+  value: string
+): value is OrganizerImportDocumentReference["mediaType"] =>
+  WEBSITE_IMPORT_DOCUMENT_MIME_TYPES.some((mediaType) => mediaType === value);
 
 const getDocumentExtension = (document: File) => {
   const extension = document.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
@@ -162,6 +154,9 @@ const uploadTemporaryOrganizerImportDocuments = async ({
   const uploaded: OrganizerImportDocumentReference[] = [];
   try {
     for (const document of documents) {
+      if (!isOrganizerImportDocumentMimeType(document.type)) {
+        throw new Error(`Le format du document ${document.name} n’est pas pris en charge.`);
+      }
       const path = `${userId}/${crypto.randomUUID()}.${getDocumentExtension(document)}`;
       const response = await fetch(`${supabaseUrl}/storage/v1/object/organizer-imports/${path}`, {
         method: "POST",
@@ -187,13 +182,6 @@ type OrganizerSaveOptions = {
   reloadEvent?: boolean;
   scopeRevision?: number;
 };
-
-const websiteImportScoreTone = (score: number) =>
-  score >= 80
-    ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-    : score >= WEBSITE_IMPORT_MINIMUM_SCORE
-      ? "border-amber-300 bg-amber-50 text-amber-800"
-      : "border-red-300 bg-red-50 text-red-800";
 
 type OrganizerRaceEventUpdate = {
   id: string;
@@ -254,13 +242,13 @@ export function OrganizerDashboard({
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
   const [websiteImportFormatUrls, setWebsiteImportFormatUrls] = useState<string[]>([""]);
   const [websiteImportDocuments, setWebsiteImportDocuments] = useState<File[]>([]);
-  const [websiteImportPreview, setWebsiteImportPreview] = useState<WebsiteImportPreview | null>(null);
-  const [websiteImportEventDate, setWebsiteImportEventDate] = useState("");
-  const [websiteImportSelectedEventProposalIds, setWebsiteImportSelectedEventProposalIds] = useState<string[]>([]);
-  const [websiteImportSelections, setWebsiteImportSelections] = useState<Record<string, WebsiteImportRaceSelection>>({});
+  const [websiteImportWorkflow, setWebsiteImportWorkflow] = useState<WebsiteImportWorkflow | null>(null);
+  const [websiteImportFormatDecisions, setWebsiteImportFormatDecisions] = useState<WebsiteImportFormatDecision[]>([]);
+  const [websiteImportFieldSelections, setWebsiteImportFieldSelections] = useState<Record<string, WebsiteImportFieldSelection>>({});
   const [websiteImportError, setWebsiteImportError] = useState<string | null>(null);
-  const [websiteImportLoading, setWebsiteImportLoading] = useState(false);
-  const [websiteImportApplying, setWebsiteImportApplying] = useState(false);
+  const [websiteImportBusyAction, setWebsiteImportBusyAction] = useState<
+    "discover" | "confirm" | "analyze" | "apply" | null
+  >(null);
   const handledWebsiteImport = useRef<string | null>(null);
   const selectedEventIdRef = useRef<string | null>(null);
   const activeRaceIdRef = useRef<string | null>(null);
@@ -273,6 +261,14 @@ export function OrganizerDashboard({
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeEdition = getEventEdition(eventDetail, selectedEditionYear);
+  const websiteImportExistingRaces = useMemo(
+    () => (eventDetail?.races ?? []).filter((race) =>
+      activeEdition
+        ? race.edition_id === activeEdition.id || (!race.edition_id && getRaceEditionYearValue(race.race_date) === selectedEditionYear)
+        : false
+    ),
+    [activeEdition, eventDetail?.races, selectedEditionYear]
+  );
   const eventUpdateRaceOptions = (eventDetail?.races ?? []).filter(
     (race) => race.is_live && (!activeEdition || race.edition_id === activeEdition.id)
   );
@@ -401,13 +397,11 @@ export function OrganizerDashboard({
 
   useEffect(() => {
     if (websiteImportOpen) return;
-    setWebsiteImportPreview(null);
-    setWebsiteImportEventDate("");
-    setWebsiteImportSelectedEventProposalIds([]);
-    setWebsiteImportSelections({});
+    setWebsiteImportWorkflow(null);
+    setWebsiteImportFormatDecisions([]);
+    setWebsiteImportFieldSelections({});
     setWebsiteImportError(null);
-    setWebsiteImportLoading(false);
-    setWebsiteImportApplying(false);
+    setWebsiteImportBusyAction(null);
   }, [websiteImportOpen]);
 
   const loadOrganizerData = async () => {
@@ -922,7 +916,7 @@ export function OrganizerDashboard({
       }
       setEventForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
       showToast("success", "Image événement mise à jour.");
-      await loadEvent(selectedEventId, activeTab, websiteImportEventDate.slice(0, 4) || selectedEditionYear);
+      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -1438,18 +1432,21 @@ export function OrganizerDashboard({
 
   const openWebsiteImportDialog = () => {
     setWebsiteImportError(null);
-    setWebsiteImportPreview(null);
-    setWebsiteImportEventDate(eventForm.editionStartDate);
-    setWebsiteImportSelectedEventProposalIds([]);
-    setWebsiteImportSelections({});
+    setWebsiteImportWorkflow(null);
+    setWebsiteImportFormatDecisions([]);
+    setWebsiteImportFieldSelections({});
     setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
     setWebsiteImportFormatUrls([""]);
     setWebsiteImportDocuments([]);
     setWebsiteImportOpen(true);
   };
 
-  const previewWebsiteImport = useCallback(async (urlOverride?: string) => {
+  const discoverWebsiteImport = useCallback(async (urlOverride?: string) => {
     if (!selectedEventId || !accessToken) return;
+    if (!activeEdition?.id) {
+      setWebsiteImportError("Sélectionne une édition avant de lancer l’import.");
+      return;
+    }
     const url = (urlOverride ?? websiteImportUrl).trim();
     const formatUrls = websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean);
     if (!url && formatUrls.length === 0 && websiteImportDocuments.length === 0) {
@@ -1457,10 +1454,11 @@ export function OrganizerDashboard({
       return;
     }
 
-    setWebsiteImportLoading(true);
+    setWebsiteImportBusyAction("discover");
     setWebsiteImportError(null);
     setWebsiteImportUrl(url);
     let uploadedDocuments: OrganizerImportDocumentReference[] = [];
+    let discoverySucceeded = false;
     try {
       if (websiteImportDocuments.length > 0) {
         if (!session?.id) throw new Error("Session organisateur introuvable.");
@@ -1473,13 +1471,21 @@ export function OrganizerDashboard({
       const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ action: "preview", url, formatUrls, documents: uploadedDocuments }),
+        body: JSON.stringify({
+          action: "discover-formats",
+          url,
+          formatUrls,
+          documents: uploadedDocuments,
+          editionId: activeEdition.id,
+        }),
       });
-      const data = (await response.json().catch(() => null)) as { preview?: WebsiteImportPreview; message?: string } | null;
-      if (!response.ok || !data?.preview) {
-        setWebsiteImportPreview(null);
-        setWebsiteImportSelectedEventProposalIds([]);
-        setWebsiteImportSelections({});
+      const data = (await response.json().catch(() => null)) as
+        | { workflow?: WebsiteImportDiscoveryWorkflow; message?: string }
+        | null;
+      if (!response.ok || data?.workflow?.step !== "formats") {
+        setWebsiteImportWorkflow(null);
+        setWebsiteImportFormatDecisions([]);
+        setWebsiteImportFieldSelections({});
         setWebsiteImportError(
           data?.message ??
             (response.status === 413
@@ -1489,48 +1495,23 @@ export function OrganizerDashboard({
         return;
       }
 
-      setWebsiteImportPreview(data.preview);
-      setWebsiteImportEventDate(data.preview.event.raceDate ?? eventForm.editionStartDate);
-      const proposals = data.preview.proposalSnapshot.proposals;
-      setWebsiteImportSelectedEventProposalIds(
-        getInitialWebsiteImportProposalIds(proposals.filter((proposal) => proposal.scope === "event"))
+      discoverySucceeded = true;
+      setWebsiteImportWorkflow(data.workflow);
+      setWebsiteImportFormatDecisions(
+        buildInitialWebsiteImportFormatDecisions(data.workflow.candidates, websiteImportExistingRaces)
       );
-      setWebsiteImportSelections(
-        Object.fromEntries(
-          data.preview.races.map((race) => {
-            const mode: WebsiteImportRaceSelection["mode"] =
-              (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE
-                ? race.suggestedTargetRaceId
-                  ? "update"
-                  : race.canCreate
-                    ? "create"
-                    : "ignore"
-                : "ignore";
-            const raceProposals = proposals.filter(
-              (proposal) => proposal.scope === "format" && proposal.previewRaceKey === race.key
-            );
-            return [
-              race.key,
-              {
-                mode,
-                targetRaceId: race.suggestedTargetRaceId,
-                selectedProposalIds: getInitialWebsiteImportProposalIds(raceProposals, mode === "create"),
-              } satisfies WebsiteImportRaceSelection,
-            ];
-          })
-        )
-      );
+      setWebsiteImportFieldSelections({});
     } catch (caught) {
       console.error("Unable to preview organizer website import", caught);
-      setWebsiteImportPreview(null);
-      setWebsiteImportSelectedEventProposalIds([]);
-      setWebsiteImportSelections({});
+      setWebsiteImportWorkflow(null);
+      setWebsiteImportFormatDecisions([]);
+      setWebsiteImportFieldSelections({});
       setWebsiteImportError("La connexion au serveur a été interrompue pendant l'analyse. Réessaie dans quelques instants.");
     } finally {
-      await removeTemporaryOrganizerImportDocuments(uploadedDocuments, accessToken);
-      setWebsiteImportLoading(false);
+      if (!discoverySucceeded) await removeTemporaryOrganizerImportDocuments(uploadedDocuments, accessToken);
+      setWebsiteImportBusyAction(null);
     }
-  }, [accessToken, authHeaders, eventForm.editionStartDate, selectedEventId, session?.id, websiteImportDocuments, websiteImportFormatUrls, websiteImportUrl]);
+  }, [accessToken, activeEdition?.id, authHeaders, selectedEventId, session?.id, websiteImportDocuments, websiteImportExistingRaces, websiteImportFormatUrls, websiteImportUrl]);
 
   useEffect(() => {
     if (!requestedImportUrl || !requestedEventId || eventDetail?.id !== requestedEventId || !accessToken) return;
@@ -1538,93 +1519,219 @@ export function OrganizerDashboard({
     if (handledWebsiteImport.current === bootstrapKey) return;
     handledWebsiteImport.current = bootstrapKey;
     setWebsiteImportOpen(true);
-    setWebsiteImportEventDate(eventForm.editionStartDate);
-    void previewWebsiteImport(requestedImportUrl);
+    void discoverWebsiteImport(requestedImportUrl);
     window.history.replaceState({}, "", "/organizer");
-  }, [accessToken, eventDetail?.id, eventForm.editionStartDate, previewWebsiteImport, requestedEventId, requestedImportUrl]);
+  }, [accessToken, discoverWebsiteImport, eventDetail?.id, requestedEventId, requestedImportUrl]);
 
-  const hasApplicableWebsiteImportSelection =
-    websiteImportPreview &&
-    Boolean(websiteImportEventDate) &&
-    (websiteImportSelectedEventProposalIds.length > 0 ||
-      websiteImportPreview.races.some((race) => {
-        const selection = websiteImportSelections[race.key];
-        if (!selection || selection.mode === "ignore") return false;
-        if (selection.selectedProposalIds.length === 0) return false;
-        if (selection.mode === "create") return race.canCreate;
-        return selection.mode === "update" && Boolean(selection.targetRaceId);
-      }));
+  const analyzeWebsiteImportFields = async (sessionId: string) => {
+    if (!selectedEventId || !accessToken) return;
+    setWebsiteImportBusyAction("analyze");
+    setWebsiteImportError(null);
+    try {
+      const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "analyze-fields", sessionId }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { workflow?: WebsiteImportReviewWorkflow; message?: string }
+        | null;
+      if (!response.ok || data?.workflow?.step !== "review") {
+        setWebsiteImportError(data?.message ?? "Les formats ont été confirmés, mais l’analyse des champs a échoué. Relance l’analyse.");
+        return;
+      }
+      setWebsiteImportWorkflow(data.workflow);
+      setWebsiteImportFieldSelections(buildInitialWebsiteImportFieldSelections(data.workflow));
+    } catch (caught) {
+      console.error("Unable to analyze organizer import fields", caught);
+      setWebsiteImportError("Les formats ont été confirmés, mais l’analyse des champs a été interrompue.");
+    } finally {
+      setWebsiteImportBusyAction(null);
+    }
+  };
 
-  const websiteImportUsefulRaces =
-    websiteImportPreview?.races
-      .filter((race) => (race.assessment?.score ?? 0) >= WEBSITE_IMPORT_MINIMUM_SCORE)
-      .sort((left, right) => (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY)) ?? [];
-  const websiteImportDiscardedRaceCount = (websiteImportPreview?.races.length ?? 0) - websiteImportUsefulRaces.length;
+  const confirmWebsiteImportFormats = async () => {
+    if (!selectedEventId || !accessToken || websiteImportWorkflow?.step !== "formats") return;
+    const invalidDecision = websiteImportFormatDecisions.find(
+      (decision) =>
+        decision.mode !== "ignore" &&
+        (!decision.name.trim() || (decision.mode === "bind-existing" && !decision.targetRaceId))
+    );
+    if (invalidDecision) {
+      setWebsiteImportError("Chaque format conservé doit avoir un nom et, pour un rattachement, une cible existante.");
+      return;
+    }
+    if (!websiteImportFormatDecisions.some((decision) => decision.mode !== "ignore")) {
+      setWebsiteImportError("Confirme au moins un format, ou ajoute manuellement le format manquant.");
+      return;
+    }
 
-  const applyWebsiteImport = async () => {
-    if (!selectedEventId || !accessToken || !websiteImportPreview) return;
-    if (!(await saveBeforeNavigation())) return;
-
-    const raceSelections = websiteImportPreview.races.map((race) => ({
-      previewRaceKey: race.key,
-      mode: websiteImportSelections[race.key]?.mode ?? "ignore",
-      targetRaceId: websiteImportSelections[race.key]?.targetRaceId ?? null,
-      selectedProposalIds: websiteImportSelections[race.key]?.selectedProposalIds ?? [],
-    }));
-
-    setWebsiteImportApplying(true);
+    setWebsiteImportBusyAction("confirm");
     setWebsiteImportError(null);
     try {
       const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
-          action: "apply",
-          url: websiteImportPreview.source.url,
-          formatUrls: websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean),
-          previewHash: websiteImportPreview.previewHash,
-          eventRaceDate: websiteImportEventDate || undefined,
-          eventEditionEndDate: eventForm.editionEndDate || websiteImportEventDate || undefined,
-          selectedEditionYear,
-          proposalSnapshot: websiteImportPreview.proposalSnapshot,
-          proposalSignature: websiteImportPreview.proposalSignature,
-          selectedEventProposalIds: websiteImportSelectedEventProposalIds,
-          raceSelections,
+          action: "confirm-formats",
+          sessionId: websiteImportWorkflow.sessionId,
+          discoverySnapshot: websiteImportWorkflow.discoverySnapshot,
+          discoverySignature: websiteImportWorkflow.discoverySignature,
+          confirmedFormats: websiteImportFormatDecisions.map((decision) => ({
+            candidateKeys: decision.candidateKeys,
+            mode: decision.mode,
+            targetRaceId: decision.targetRaceId,
+            name: decision.name.trim() || "Format ignoré",
+          })),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as
+        | { workflow?: WebsiteImportWorkflow; message?: string }
+        | null;
+      if (!response.ok || data?.workflow?.step !== "fields") {
+        setWebsiteImportError(data?.message ?? "Impossible de confirmer les formats détectés.");
+        return;
+      }
+      setWebsiteImportWorkflow(data.workflow);
+      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
+      await analyzeWebsiteImportFields(data.workflow.sessionId);
+    } catch (caught) {
+      console.error("Unable to confirm organizer import formats", caught);
+      setWebsiteImportError("La confirmation des formats a été interrompue.");
+    } finally {
+      setWebsiteImportBusyAction((current) => current === "confirm" ? null : current);
+    }
+  };
+
+  const updateWebsiteImportFormatDecision = (
+    groupId: string,
+    change: Partial<WebsiteImportFormatDecision>
+  ) => {
+    setWebsiteImportFormatDecisions((current) =>
+      current.map((decision) => decision.groupId === groupId ? { ...decision, ...change } : decision)
+    );
+    setWebsiteImportError(null);
+  };
+
+  const addManualWebsiteImportFormat = () => {
+    setWebsiteImportFormatDecisions((current) => [
+      ...current,
+      {
+        groupId: `manual-${crypto.randomUUID()}`,
+        candidateKeys: [],
+        mode: "create",
+        targetRaceId: null,
+        name: `Format ${current.filter((decision) => decision.mode !== "ignore").length + 1}`,
+        manual: true,
+      },
+    ]);
+  };
+
+  const removeWebsiteImportFormatDecision = (groupId: string) => {
+    setWebsiteImportFormatDecisions((current) => current.filter((decision) => decision.groupId !== groupId));
+  };
+
+  const mergeWebsiteImportFormatDecision = (groupId: string, targetGroupId: string) => {
+    setWebsiteImportFormatDecisions((current) => {
+      const source = current.find((decision) => decision.groupId === groupId);
+      if (!source || groupId === targetGroupId) return current;
+      return current
+        .filter((decision) => decision.groupId !== groupId)
+        .map((decision) =>
+          decision.groupId === targetGroupId
+            ? { ...decision, candidateKeys: Array.from(new Set([...decision.candidateKeys, ...source.candidateKeys])) }
+            : decision
+        );
+    });
+  };
+
+  const separateWebsiteImportCandidate = (groupId: string, candidateKey: string) => {
+    if (websiteImportWorkflow?.step !== "formats") return;
+    const candidate = websiteImportWorkflow.candidates.find(
+      (item) => item.candidateKey === candidateKey
+    );
+    setWebsiteImportFormatDecisions((current) => {
+      const source = current.find((decision) => decision.groupId === groupId);
+      if (!source || source.candidateKeys.length < 2) return current;
+      return [
+        ...current.map((decision) =>
+          decision.groupId === groupId
+            ? { ...decision, candidateKeys: decision.candidateKeys.filter((key) => key !== candidateKey) }
+            : decision
+        ),
+        {
+          groupId: `candidate-${candidateKey}-${crypto.randomUUID()}`,
+          candidateKeys: [candidateKey],
+          mode: "create" as const,
+          targetRaceId: null,
+          name: candidate?.names[0] ?? "Format séparé",
+        },
+      ];
+    });
+  };
+
+  const closeWebsiteImportDialog = async () => {
+    if (websiteImportBusyAction !== null) return;
+    const sessionId = websiteImportWorkflow?.sessionId;
+    setWebsiteImportOpen(false);
+    if (!sessionId || !selectedEventId || !accessToken) return;
+    try {
+      await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "cancel", sessionId }),
+      });
+    } catch (caught) {
+      console.error("Unable to cancel organizer import session", caught);
+    }
+  };
+
+  const applyWebsiteImport = async () => {
+    if (!selectedEventId || !accessToken || websiteImportWorkflow?.step !== "review") return;
+    if (!(await saveBeforeNavigation())) return;
+
+    setWebsiteImportBusyAction("apply");
+    setWebsiteImportError(null);
+    try {
+      const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "apply-fields",
+          sessionId: websiteImportWorkflow.sessionId,
+          fieldSnapshot: websiteImportWorkflow.fieldSnapshot,
+          fieldSignature: websiteImportWorkflow.fieldSignature,
+          selections: Object.values(websiteImportFieldSelections),
         }),
       });
       const data = (await response.json().catch(() => null)) as
         | {
             applied?: {
               eventUpdated: boolean;
-              createdRaces: number;
-              updatedRaces: number;
-              gpxUploads: number;
-              hydratedAidStations: number;
+              formatsUpdated: number;
+              draftsRemaining: number;
+              formatsCompleted: number;
             };
             message?: string;
           }
         | null;
 
       if (!response.ok || !data?.applied) {
-        setWebsiteImportError(data?.message ?? "Impossible d'integrer les donnees detectees.");
+        setWebsiteImportError(data?.message ?? "Impossible d’intégrer les informations sélectionnées.");
         return;
       }
 
-      const created = data.applied.createdRaces ?? 0;
-      const updated = data.applied.updatedRaces ?? 0;
-      const gpxUploads = data.applied.gpxUploads ?? 0;
-      const aidStationsCount = data.applied.hydratedAidStations ?? 0;
       showToast(
         "success",
-        `Import integre: ${created} format(s) cree(s), ${updated} mis a jour, ${gpxUploads} GPX ajoute(s), ${aidStationsCount} ravito(s) hydrates.`
+        `Import appliqué : ${data.applied.formatsUpdated} format(s) enrichi(s), ${data.applied.formatsCompleted} complet(s), ${data.applied.draftsRemaining} brouillon(s) restant(s).`
       );
       setWebsiteImportOpen(false);
       await loadEvent(selectedEventId, activeTab, selectedEditionYear);
     } catch (caught) {
       console.error("Unable to apply organizer website import", caught);
-      setWebsiteImportError("Impossible d'integrer les donnees detectees.");
+      setWebsiteImportError("Impossible d’intégrer les informations sélectionnées.");
     } finally {
-      setWebsiteImportApplying(false);
+      setWebsiteImportBusyAction(null);
     }
   };
 
@@ -1637,7 +1744,10 @@ export function OrganizerDashboard({
 
   const tabs = [
     { id: EVENT_TAB_ID, label: "Événement" },
-    ...raceSeriesGroups.map((group) => ({ id: group.id, label: group.seriesName })),
+    ...raceSeriesGroups.map((group) => ({
+      id: group.id,
+      label: `${group.seriesName}${group.races.some((race) => race.data_status === "draft") ? " · brouillon" : ""}`,
+    })),
     { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
   const isEventTab = activeTab === EVENT_TAB_ID;
@@ -1738,28 +1848,37 @@ export function OrganizerDashboard({
               status={status}
             />
           ) : activeModule === "formats" ? (
-            <FormatsEditor
-              activeTab={activeTab}
-              activeRace={activeRace}
-              raceForm={raceForm}
-              newRaceForm={newRaceForm}
-              newRaceImageName={newRaceImageFile?.name ?? null}
-              newRaceGpxName={newRaceGpxFile?.name ?? null}
-              onRaceFormChange={(next) => updateRaceForm(next, "formats")}
-              onNewRaceFormChange={setNewRaceForm}
-              onCreateRace={createRace}
-              onUploadRaceImage={(event) => {
-                void uploadRaceImage(event);
-              }}
-              onSelectNewRaceImage={selectNewRaceImage}
-              onSelectNewRaceGpx={selectNewRaceGpx}
-              onUploadGpx={uploadGpx}
-              gpxPreview={gpxPreview}
-              status={status}
-              editionStartDate={eventForm.editionStartDate}
-              eventLocationText={eventForm.location}
-              eventLocation={eventForm.organizerDetails.eventLocation}
-            />
+            <div className="space-y-4">
+              {activeRace?.data_status === "draft" ? (
+                <p className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                  Brouillon masqué du catalogue. À compléter : {(activeRace.missing_required_fields ?? []).map(
+                    (field) => WEBSITE_IMPORT_REQUIRED_FIELD_LABELS[field] ?? field
+                  ).join(", ") || "informations minimales"}.
+                </p>
+              ) : null}
+              <FormatsEditor
+                activeTab={activeTab}
+                activeRace={activeRace}
+                raceForm={raceForm}
+                newRaceForm={newRaceForm}
+                newRaceImageName={newRaceImageFile?.name ?? null}
+                newRaceGpxName={newRaceGpxFile?.name ?? null}
+                onRaceFormChange={(next) => updateRaceForm(next, "formats")}
+                onNewRaceFormChange={setNewRaceForm}
+                onCreateRace={createRace}
+                onUploadRaceImage={(event) => {
+                  void uploadRaceImage(event);
+                }}
+                onSelectNewRaceImage={selectNewRaceImage}
+                onSelectNewRaceGpx={selectNewRaceGpx}
+                onUploadGpx={uploadGpx}
+                gpxPreview={gpxPreview}
+                status={status}
+                editionStartDate={eventForm.editionStartDate}
+                eventLocationText={eventForm.location}
+                eventLocation={eventForm.organizerDetails.eventLocation}
+              />
+            </div>
           ) : activeModule === "aidStations" ? (
             <AidStationsEditor
               activeRace={activeRace}
@@ -2027,393 +2146,234 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={websiteImportOpen && isAdmin} onOpenChange={setWebsiteImportOpen}>
+      <Dialog
+        open={websiteImportOpen && isAdmin}
+        onOpenChange={(open) => {
+          if (!open) void closeWebsiteImportDialog();
+          else setWebsiteImportOpen(true);
+        }}
+      >
         <DialogContent
           className={
-            websiteImportPreview
+            websiteImportWorkflow
               ? "!my-0 !flex h-[calc(100dvh-2rem)] min-h-0 w-[min(96vw,72rem)] !max-w-[72rem] flex-col overflow-hidden sm:h-[90dvh]"
               : "!flex max-h-[85dvh] min-h-0 w-[min(92vw,40rem)] !max-w-[40rem] flex-col overflow-hidden"
           }
         >
           <DialogHeader className="shrink-0">
-            <DialogTitle>Importer depuis le site officiel</DialogTitle>
+            <DialogTitle>Importer les informations officielles</DialogTitle>
             <DialogDescription>
-              Colle l&apos;URL du site de la course pour recuperer un recap des informations detectees avant integration.
+              {!websiteImportWorkflow
+                ? "Explore les pages et documents officiels. Tu confirmeras d’abord les formats, puis chaque information."
+                : websiteImportWorkflow.step === "formats"
+                  ? "Confirme le nombre de formats avant de créer les brouillons et d’analyser leurs informations."
+                  : "Valide les informations champ par champ à partir de leurs sources et preuves."}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="min-h-0 flex-1 touch-pan-y overflow-y-scroll overscroll-contain pr-2" tabIndex={0}>
+          <div className="min-h-0 flex-1 touch-pan-y overflow-y-auto overscroll-contain pr-2" tabIndex={0}>
             <div className="space-y-4 pb-2">
-            <div className="space-y-1">
-              <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">
-                URL générale de l’événement
-              </label>
-              <input
-                id="organizer-website-import-url"
-                type="url"
-                className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={websiteImportUrl}
-                placeholder="https://..."
-                onChange={(event) => setWebsiteImportUrl(event.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">Cette page sert uniquement aux informations communes : materiel, navettes, parkings et lieu de depart.</p>
-            </div>
-
-            <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div>
-                  <p className="text-sm font-medium text-foreground">URLs des formats</p>
-                  <p className="text-xs text-muted-foreground">Ajoute une page par format pour en identifier les donnees de parcours.</p>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 px-3 text-xs"
-                  onClick={() => setWebsiteImportFormatUrls((urls) => [...urls, ""])}
-                  disabled={websiteImportFormatUrls.length >= 12}
-                >
-                  Ajouter un format
-                </Button>
-              </div>
-              {websiteImportFormatUrls.map((formatUrl, index) => (
-                <div key={`website-import-format-url-${index}`} className="flex gap-2">
-                  <input
-                    aria-label={`URL du format ${index + 1}`}
-                    type="url"
-                    className="h-10 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                    value={formatUrl}
-                    placeholder={`https://.../format-${index + 1}`}
-                    onChange={(event) =>
-                      setWebsiteImportFormatUrls((urls) => urls.map((currentUrl, currentIndex) => (currentIndex === index ? event.target.value : currentUrl)))
-                    }
-                  />
-                  {websiteImportFormatUrls.length > 1 ? (
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className="h-10 px-3 text-xs"
-                      onClick={() => setWebsiteImportFormatUrls((urls) => urls.filter((_, currentIndex) => currentIndex !== index))}
-                      aria-label={`Retirer le format ${index + 1}`}
-                    >
-                      Retirer
-                    </Button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-
-            <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
-              <div>
-                <p className="text-sm font-medium text-foreground">Documents du roadbook</p>
-                <p className="text-xs text-muted-foreground">PDF ou images, 25 Mo maximum par document.</p>
-              </div>
-              <input
-                id="organizer-website-import-documents"
-                type="file"
-                accept="application/pdf,image/jpeg,image/png,image/webp"
-                multiple
-                className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
-                onChange={(event) => {
-                  const files = Array.from(event.target.files ?? []);
-                  const invalidFile = files.find((file) => file.size > WEBSITE_IMPORT_MAX_DOCUMENT_BYTES);
-                  if (invalidFile) {
-                    setWebsiteImportError(`Le document ${invalidFile.name} dépasse la limite de 25 Mo.`);
-                    return;
-                  }
-                  if (files.length > 8) {
-                    setWebsiteImportError("Ajoute au maximum 8 documents.");
-                    return;
-                  }
-                  setWebsiteImportDocuments(files);
-                  setWebsiteImportError(null);
-                }}
-              />
-              {websiteImportDocuments.length > 0 ? (
-                <ul className="space-y-1 text-xs text-muted-foreground">
-                  {websiteImportDocuments.map((document) => (
-                    <li key={`${document.name}-${document.size}`}>{document.name}</li>
-                  ))}
-                </ul>
-              ) : null}
-            </div>
-
-            {websiteImportError ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{websiteImportError}</p> : null}
-
-            {websiteImportPreview ? (
-              <div className="space-y-4 rounded-md border border-border/70 bg-background/70 p-4">
-                <div className="space-y-2">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-sm font-semibold text-foreground">Evenement detecte</p>
-                    <span className="text-xs text-muted-foreground">{websiteImportPreview.source.label}</span>
+              {!websiteImportWorkflow ? (
+                <>
+                  <div className="space-y-1">
+                    <label htmlFor="organizer-website-import-url" className="text-sm font-medium text-foreground">
+                      URL générale de l’événement
+                    </label>
+                    <input
+                      id="organizer-website-import-url"
+                      type="url"
+                      className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={websiteImportUrl}
+                      placeholder="https://..."
+                      onChange={(event) => setWebsiteImportUrl(event.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Le site général aide à découvrir les formats et les informations communes.
+                    </p>
                   </div>
-                  <div className="grid gap-2 text-sm text-foreground sm:grid-cols-2">
-                    <div className="rounded-md border border-border/60 bg-card p-3">
-                      <p className="font-medium">{websiteImportPreview.event.name ?? "Nom manquant"}</p>
-                      <p className="text-muted-foreground">{websiteImportPreview.event.location ?? "Lieu manquant"}</p>
-                      <div className="mt-3 space-y-1">
-                        <label htmlFor="organizer-website-import-event-date" className="text-xs font-medium text-foreground">
-                          Début de l&apos;édition importée
-                        </label>
+
+                  <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">URLs de formats connues</p>
+                        <p className="text-xs text-muted-foreground">Optionnel : ajoute les pages officielles déjà identifiées.</p>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        className="h-8 px-3 text-xs"
+                        onClick={() => setWebsiteImportFormatUrls((urls) => [...urls, ""])}
+                        disabled={websiteImportFormatUrls.length >= 12}
+                      >
+                        Ajouter une URL
+                      </Button>
+                    </div>
+                    {websiteImportFormatUrls.map((formatUrl, index) => (
+                      <div key={`website-import-format-url-${index}`} className="flex gap-2">
                         <input
-                          id="organizer-website-import-event-date"
-                          type="date"
-                          required
-                          className="h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                          value={websiteImportEventDate}
-                          onChange={(event) => setWebsiteImportEventDate(event.target.value)}
-                        />
-                        <p className="text-xs text-muted-foreground">
-                          Date détectée : {websiteImportPreview.event.raceDate ?? "aucune"}. Modifiable avant intégration.
-                        </p>
-                      </div>
-                    </div>
-                    <div className="rounded-md border border-border/60 bg-card p-3 text-muted-foreground">
-                      <p>{websiteImportPreview.event.officialWebsiteUrl ?? "Site officiel manquant"}</p>
-                      <p>{websiteImportUsefulRaces.length} format(s) exploitable(s)</p>
-                    </div>
-                  </div>
-                  {websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ||
-                  websiteImportPreview.event.logistics.startAddress ||
-                  websiteImportPreview.event.logistics.shuttles ||
-                  websiteImportPreview.event.logistics.officialParkings ||
-                  websiteImportPreview.warnings.length > 0 ? (
-                    <details className="rounded-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
-                      <summary className="cursor-pointer font-medium text-foreground">
-                        Informations secondaires ({websiteImportPreview.warnings.length + (websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ? 1 : 0) + (websiteImportPreview.event.logistics.startAddress ? 1 : 0) + (websiteImportPreview.event.logistics.shuttles ? 1 : 0) + (websiteImportPreview.event.logistics.officialParkings ? 1 : 0)})
-                      </summary>
-                      <div className="mt-2 space-y-1">
-                        {websiteImportPreview.warnings.map((warning, index) => <p key={`${warning}-${index}`}>{warning}</p>)}
-                        {websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ? <p>Matériel : {websiteImportPreview.event.logistics.mandatoryEquipment.join(" · ")}</p> : null}
-                        {websiteImportPreview.event.logistics.startAddress ? <p>Départ : {websiteImportPreview.event.logistics.startAddress}</p> : null}
-                        {websiteImportPreview.event.logistics.shuttles ? <p>Navettes : {websiteImportPreview.event.logistics.shuttles}</p> : null}
-                        {websiteImportPreview.event.logistics.officialParkings ? <p>Parkings : {websiteImportPreview.event.logistics.officialParkings}</p> : null}
-                      </div>
-                    </details>
-                  ) : null}
-                  <WebsiteImportProposalChoices
-                    preview={websiteImportPreview}
-                    scope="event"
-                    selectedProposalIds={websiteImportSelectedEventProposalIds}
-                    onSelectionChange={setWebsiteImportSelectedEventProposalIds}
-                  />
-                  <WebsiteImportReviewDetails
-                    preview={websiteImportPreview}
-                    existingRaces={eventDetail?.races ?? []}
-                  />
-                </div>
-
-                <div className="space-y-3">
-                  <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">Formats regroupés par distance</p>
-                      <p className="text-xs text-muted-foreground">Résumé des données détectées et des champs à compléter.</p>
-                    </div>
-                    {websiteImportDiscardedRaceCount > 0 ? (
-                      <p className="text-xs text-muted-foreground">
-                        {websiteImportDiscardedRaceCount} resultat(s) sous {WEBSITE_IMPORT_MINIMUM_SCORE}/100 masque(s)
-                      </p>
-                    ) : null}
-                  </div>
-                  {websiteImportUsefulRaces.map((race) => {
-                    const selection = websiteImportSelections[race.key] ?? { mode: "ignore", targetRaceId: null, selectedProposalIds: [] };
-                    const foundFindings = race.assessment?.findings.filter((finding) => finding.value && finding.key !== "gpx") ?? [];
-                    const missingFindings = race.assessment?.findings.filter((finding) => !finding.value && finding.key !== "gpx") ?? [];
-                    const hasImportableGpx = Boolean(race.assessment?.findings.find((finding) => finding.key === "gpx")?.value);
-                    const importRaceDate = websiteImportEventDate
-                      ? race.raceDate
-                        ? `${websiteImportEventDate.slice(0, 4)}${race.raceDate.slice(4)}`
-                        : websiteImportEventDate
-                      : race.raceDate;
-                    return (
-                      <div key={race.key} className="space-y-3 rounded-md border border-border/60 bg-card p-3">
-                        <div className="flex flex-wrap items-start justify-between gap-2">
-                          <div>
-                            <p className="text-xs font-semibold uppercase tracking-wide text-primary">
-                              {race.distanceKm !== null ? `Distance ${race.distanceKm} km` : "Distance à renseigner"}
-                            </p>
-                            <p className="mt-0.5 font-medium text-foreground">{race.name}</p>
-                            <p className="text-sm text-muted-foreground">
-                              {[importRaceDate, race.locationText, race.elevationGainM !== null ? `D+ ${race.elevationGainM} m` : null, race.elevationLossM !== null ? `D− ${race.elevationLossM} m` : null]
-                                .filter(Boolean)
-                                .join(" · ") || "Informations partielles"}
-                            </p>
-                          </div>
-                          <div className="flex items-start gap-2 text-right text-xs text-muted-foreground">
-                            {race.assessment ? (
-                              <div className={`rounded-md border px-2.5 py-1.5 ${websiteImportScoreTone(race.assessment.score)}`}>
-                                <p className="text-base font-semibold leading-none">{race.assessment.score}/100</p>
-                                <p className="mt-1">score global</p>
-                              </div>
-                            ) : null}
-                            <div>
-                              {race.detectedAidStationCount > 0 ? <p>{race.detectedAidStationCount} ravito(s)</p> : null}
-                            </div>
-                          </div>
-                        </div>
-                        {race.assessment ? (
-                          <div className="grid gap-3 lg:grid-cols-2">
-                            <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <p className="text-sm font-semibold text-emerald-900">Données trouvées</p>
-                                <p className="text-xs text-emerald-800">{foundFindings.length} champ(s)</p>
-                              </div>
-                              <div className="mt-3 space-y-1">
-                                {foundFindings.map((finding) => (
-                                  <div key={finding.key} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
-                                    <p className="font-medium text-foreground">{finding.label}</p>
-                                    <div className="min-w-0 text-right text-muted-foreground">
-                                      <span className="break-words">{finding.value}</span>
-                                      {finding.sourceUrl && finding.sourceLabel ? (
-                                        <a
-                                          className="ml-2 text-xs font-medium text-primary underline-offset-4 hover:underline"
-                                          href={finding.sourceUrl}
-                                          target="_blank"
-                                          rel="noreferrer"
-                                        >
-                                          Source
-                                        </a>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                ))}
-                                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
-                                  <p className="font-medium text-foreground">GPX</p>
-                                  <span className={hasImportableGpx ? "text-emerald-700" : "text-amber-700"}>{hasImportableGpx ? "Récupéré" : "Manquant"}</span>
-                                </div>
-                              </div>
-                            </div>
-                            <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3">
-                              <div className="flex items-baseline justify-between gap-2">
-                                <p className="text-sm font-semibold text-amber-900">À renseigner manuellement</p>
-                                <p className="text-xs text-amber-800">{missingFindings.length} champ(s)</p>
-                              </div>
-                              {missingFindings.length > 0 ? (
-                                <div className="mt-3 space-y-2">
-                                  {missingFindings.map((finding) => (
-                                    <div key={finding.key} className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                                      <p className="font-medium text-foreground">{finding.label}</p>
-                                      <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${finding.required ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-800"}`}>
-                                        {finding.required ? "Obligatoire" : "Facultatif"}
-                                      </span>
-                                    </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                <p className="mt-3 text-sm text-emerald-800">Aucune donnée complémentaire à saisir.</p>
-                              )}
-                            </div>
-                          </div>
-                        ) : null}
-                        <WebsiteImportProposalChoices
-                          preview={websiteImportPreview}
-                          scope="format"
-                          previewRaceKey={race.key}
-                          selectedProposalIds={selection.selectedProposalIds}
-                          onSelectionChange={(selectedProposalIds) =>
-                            setWebsiteImportSelections((current) => ({
-                              ...current,
-                              [race.key]: { ...(current[race.key] ?? selection), selectedProposalIds },
-                            }))
+                          aria-label={`URL du format ${index + 1}`}
+                          type="url"
+                          className="h-10 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                          value={formatUrl}
+                          placeholder={`https://.../format-${index + 1}`}
+                          onChange={(event) =>
+                            setWebsiteImportFormatUrls((urls) =>
+                              urls.map((currentUrl, currentIndex) => currentIndex === index ? event.target.value : currentUrl)
+                            )
                           }
                         />
-                        <div className="grid gap-3 sm:grid-cols-[160px_minmax(0,1fr)]">
-                          <select
-                            className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground"
-                            value={selection.mode}
-                            onChange={(event) =>
-                              setWebsiteImportSelections((current) => {
-                                const mode = event.target.value as WebsiteImportRaceSelection["mode"];
-                                const currentSelection = current[race.key] ?? selection;
-                                const raceProposals = websiteImportPreview.proposalSnapshot.proposals.filter(
-                                  (proposal) => proposal.scope === "format" && proposal.previewRaceKey === race.key
-                                );
-                                const initialCreateProposalIds =
-                                  mode === "create" ? getInitialWebsiteImportProposalIds(raceProposals, true) : [];
-                                const selectedFields = new Set(
-                                  currentSelection.selectedProposalIds
-                                    .map((id) => raceProposals.find((proposal) => proposal.id === id)?.field)
-                                    .filter((field): field is string => Boolean(field))
-                                );
-                                const additionalProposalIds = initialCreateProposalIds.filter((id) => {
-                                  const proposal = raceProposals.find((candidate) => candidate.id === id);
-                                  if (!proposal || selectedFields.has(proposal.field)) return false;
-                                  selectedFields.add(proposal.field);
-                                  return true;
-                                });
-                                const selectedProposalIds = [...currentSelection.selectedProposalIds, ...additionalProposalIds];
-                                return {
-                                  ...current,
-                                  [race.key]: {
-                                    mode,
-                                    targetRaceId:
-                                      mode === "update"
-                                        ? currentSelection.targetRaceId ?? race.suggestedTargetRaceId
-                                        : null,
-                                    selectedProposalIds,
-                                  },
-                                };
-                              })
-                            }
+                        {websiteImportFormatUrls.length > 1 ? (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-10 px-3 text-xs"
+                            onClick={() => setWebsiteImportFormatUrls((urls) => urls.filter((_, currentIndex) => currentIndex !== index))}
+                            aria-label={`Retirer l’URL du format ${index + 1}`}
                           >
-                            <option value="ignore">Ignorer</option>
-                            <option value="create" disabled={!race.canCreate}>
-                              Creer un format
-                            </option>
-                            <option value="update">Mettre a jour un format</option>
-                          </select>
-                          {selection.mode === "update" ? (
-                            <select
-                              className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground"
-                              value={selection.targetRaceId ?? ""}
-                              onChange={(event) =>
-                                setWebsiteImportSelections((current) => ({
-                                  ...current,
-                                  [race.key]: {
-                                    mode: "update",
-                                    targetRaceId: event.target.value || null,
-                                    selectedProposalIds: current[race.key]?.selectedProposalIds ?? selection.selectedProposalIds,
-                                  },
-                                }))
-                              }
-                            >
-                              <option value="">Choisir le format cible</option>
-                              {(eventDetail?.races ?? []).map((eventRace) => (
-                                <option key={eventRace.id} value={eventRace.id}>
-                                  {eventRace.series_name} · {eventRace.race_date?.slice(0, 10) ?? "Sans date"}
-                                </option>
-                              ))}
-                            </select>
-                          ) : (
-                            <div className="rounded-md border border-dashed border-border/60 px-3 py-2 text-xs text-muted-foreground">
-                              {selection.mode === "create"
-                                ? "Le format sera cree en brouillon sous cet evenement."
-                                : race.suggestedTargetRaceId
-                                  ? "Suggestion detectee pour une mise a jour, a activer si besoin."
-                                  : "Aucune cible selectionnee pour le moment."}
-                            </div>
-                          )}
-                        </div>
-                        {race.warnings.length > 0 ? <p className="text-xs text-amber-800">{race.warnings.join(" ")}</p> : null}
+                            Retirer
+                          </Button>
+                        ) : null}
                       </div>
-                    );
-                  })}
+                    ))}
+                  </div>
+
+                  <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">Documents officiels</p>
+                      <p className="text-xs text-muted-foreground">Règlement, roadbook, programme, PDF ou images · 25 Mo maximum par document.</p>
+                    </div>
+                    <input
+                      id="organizer-website-import-documents"
+                      type="file"
+                      accept="application/pdf,image/jpeg,image/png,image/webp"
+                      multiple
+                      className="block w-full text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-brand file:px-3 file:py-2 file:text-sm file:font-medium file:text-white"
+                      onChange={(event) => {
+                        const files = Array.from(event.target.files ?? []);
+                        const unsupportedFile = files.find((file) => !isOrganizerImportDocumentMimeType(file.type));
+                        if (unsupportedFile) {
+                          setWebsiteImportError(`Le format du document ${unsupportedFile.name} n’est pas pris en charge.`);
+                          return;
+                        }
+                        const invalidFile = files.find((file) => file.size > WEBSITE_IMPORT_MAX_DOCUMENT_BYTES);
+                        if (invalidFile) {
+                          setWebsiteImportError(`Le document ${invalidFile.name} dépasse la limite de 25 Mo.`);
+                          return;
+                        }
+                        if (files.length > 8) {
+                          setWebsiteImportError("Ajoute au maximum 8 documents.");
+                          return;
+                        }
+                        setWebsiteImportDocuments(files);
+                        setWebsiteImportError(null);
+                      }}
+                    />
+                    {websiteImportDocuments.length > 0 ? (
+                      <ul className="space-y-1 text-xs text-muted-foreground">
+                        {websiteImportDocuments.map((document) => (
+                          <li key={`${document.name}-${document.size}`}>{document.name}</li>
+                        ))}
+                      </ul>
+                    ) : null}
+                  </div>
+                </>
+              ) : null}
+
+              {websiteImportError ? (
+                <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{websiteImportError}</p>
+              ) : null}
+
+              {websiteImportWorkflow && "warnings" in websiteImportWorkflow && websiteImportWorkflow.warnings?.length ? (
+                <details className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                  <summary className="cursor-pointer font-medium">
+                    Points à vérifier ({websiteImportWorkflow.warnings.length})
+                  </summary>
+                  <div className="mt-2 space-y-1">
+                    {websiteImportWorkflow.warnings.map((warning, index) => <p key={`${warning}-${index}`}>{warning}</p>)}
+                  </div>
+                </details>
+              ) : null}
+
+              {websiteImportWorkflow?.step === "formats" ? (
+                <WebsiteImportFormatDiscoveryReview
+                  workflow={websiteImportWorkflow}
+                  decisions={websiteImportFormatDecisions}
+                  existingRaces={websiteImportExistingRaces}
+                  onChange={updateWebsiteImportFormatDecision}
+                  onAddManual={addManualWebsiteImportFormat}
+                  onMerge={mergeWebsiteImportFormatDecision}
+                  onSeparate={separateWebsiteImportCandidate}
+                  onRemove={removeWebsiteImportFormatDecision}
+                />
+              ) : null}
+
+              {websiteImportWorkflow?.step === "fields" ? (
+                <div className="space-y-3 rounded-lg border border-border/70 bg-card p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-foreground">Formats confirmés</p>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Les nouveaux formats existent maintenant comme brouillons masqués. L’analyse des champs peut être relancée sans les recréer.
+                    </p>
+                  </div>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    {websiteImportWorkflow.confirmedFormats.map((format) => (
+                      <div key={format.raceId} className="rounded-md border border-border/60 bg-background p-3">
+                        <p className="text-sm font-medium text-foreground">{format.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format.missingRequiredFields.length > 0
+                            ? `Brouillon · ${format.missingRequiredFields.map((field) => WEBSITE_IMPORT_REQUIRED_FIELD_LABELS[field] ?? field).join(", ")} à compléter`
+                            : "Informations minimales complètes"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ) : null}
+              ) : null}
+
+              {websiteImportWorkflow?.step === "review" ? (
+                <WebsiteImportFieldReview
+                  workflow={websiteImportWorkflow}
+                  selections={websiteImportFieldSelections}
+                  onSelectionChange={(key, selection) =>
+                    setWebsiteImportFieldSelections((current) => ({ ...current, [key]: selection }))
+                  }
+                />
+              ) : null}
             </div>
           </div>
 
           <DialogFooter className="shrink-0">
-            <Button type="button" variant="outline" onClick={() => setWebsiteImportOpen(false)} disabled={websiteImportLoading || websiteImportApplying}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void closeWebsiteImportDialog()}
+              disabled={websiteImportBusyAction !== null}
+            >
               Annuler
             </Button>
-            {websiteImportPreview ? (
-              <Button type="button" onClick={() => void applyWebsiteImport()} disabled={websiteImportApplying || !hasApplicableWebsiteImportSelection}>
-                {websiteImportApplying ? "Integration..." : "Valider l'integration"}
+            {!websiteImportWorkflow ? (
+              <Button type="button" onClick={() => void discoverWebsiteImport()} disabled={websiteImportBusyAction !== null}>
+                {websiteImportBusyAction === "discover" ? "Exploration..." : "Découvrir les formats"}
+              </Button>
+            ) : websiteImportWorkflow.step === "formats" ? (
+              <Button
+                type="button"
+                onClick={() => void confirmWebsiteImportFormats()}
+                disabled={websiteImportBusyAction !== null || !websiteImportFormatDecisions.some((decision) => decision.mode !== "ignore")}
+              >
+                {websiteImportBusyAction === "confirm" ? "Création des brouillons..." : "Confirmer les formats"}
+              </Button>
+            ) : websiteImportWorkflow.step === "fields" ? (
+              <Button
+                type="button"
+                onClick={() => void analyzeWebsiteImportFields(websiteImportWorkflow.sessionId)}
+                disabled={websiteImportBusyAction !== null}
+              >
+                {websiteImportBusyAction === "analyze" ? "Analyse..." : "Relancer l’analyse des champs"}
               </Button>
             ) : (
-              <Button type="button" onClick={() => void previewWebsiteImport()} disabled={websiteImportLoading}>
-                {websiteImportLoading ? "Analyse..." : "Lancer l'analyse"}
+              <Button type="button" onClick={() => void applyWebsiteImport()} disabled={websiteImportBusyAction !== null}>
+                {websiteImportBusyAction === "apply" ? "Application..." : "Appliquer les choix"}
               </Button>
             )}
           </DialogFooter>

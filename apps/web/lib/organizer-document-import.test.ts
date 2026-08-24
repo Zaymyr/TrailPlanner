@@ -4,6 +4,7 @@ import {
   extractOrganizerDocument,
   extractOrganizerDocumentFindings,
   attachDocumentFindingsToFormats,
+  buildOrganizerDocumentSourceClaims,
   reconcileOrganizerDocumentFindings,
   ORGANIZER_DOCUMENT_MAX_BYTES,
   validateOrganizerDocument,
@@ -47,7 +48,8 @@ describe("organizer document import", () => {
     const findings = extractOrganizerDocumentFindings("Départ 81 km à 4h00\nRavitaillement km 17\nPC Course 06 12 34 56 78");
 
     expect(findings.map((finding) => finding.field)).toEqual(["distanceKm", "startTime", "aidStations", "emergencyContact"]);
-    expect(findings.every((finding) => finding.scope === "format-unknown")).toBe(true);
+    expect(findings.filter((finding) => finding.field !== "emergencyContact").every((finding) => finding.scope === "format-unknown")).toBe(true);
+    expect(findings.find((finding) => finding.field === "emergencyContact")?.scope).toBe("event");
   });
 
   it("attaches findings to a known format only with a matching name or distance", () => {
@@ -91,5 +93,37 @@ describe("organizer document import", () => {
 
     expect(reconciled.find((finding) => finding.field === "distanceKm")?.comparison.status).toBe("concordant");
     expect(reconciled.find((finding) => finding.field === "elevationGainM")?.comparison.status).toBe("concordant");
+  });
+
+  it("preserves page evidence and exposes only typed, scoped document claims", () => {
+    const findings = attachDocumentFindingsToFormats(
+      extractOrganizerDocumentFindings(
+        "Trail 56 km - départ à 04h30\nTrail 56 km - ravitaillement km 17\nTrail 56 km - Arrivée fermée à 18h30\nPC Course 06 12 34 56 78\nSuivi live sur live.example.org",
+        "format-unknown",
+        7
+      ),
+      ["Trail 56 km"]
+    );
+    const claims = buildOrganizerDocumentSourceClaims(
+      { sourceId: "document-roadbook", fileName: "roadbook-2026.pdf", findings },
+      { "Trail 56 km": "format-56" }
+    );
+
+    expect(claims.find((claim) => claim.field === "startTime")).toMatchObject({
+      scope: { kind: "format", scopeKey: "format-56" },
+      value: "04:30",
+      source: { kind: "official-document", page: 7 },
+      evidence: "Trail 56 km - départ à 04h30",
+    });
+    expect(claims.find((claim) => claim.field === "aidStations")?.value).toEqual([{
+      name: "ravitaillement km",
+      distanceKm: 17,
+      waterRefill: null,
+      solidRefill: null,
+      assistanceAllowed: null,
+    }]);
+    expect(claims.find((claim) => claim.field === "finishCutoffTime")?.value).toBe("18:30");
+    expect(claims.find((claim) => claim.field === "emergencyContact")?.scope).toEqual({ kind: "event", scopeKey: "event" });
+    expect(claims.find((claim) => claim.field === "liveTracking")?.scope).toEqual({ kind: "event", scopeKey: "event" });
   });
 });
