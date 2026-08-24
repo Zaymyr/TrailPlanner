@@ -1025,9 +1025,12 @@ export default function RaceRacebookScreen() {
                     )
                   ) : null}
                   {showDistinctRaceDate ? (
-                    <Text style={styles.heroFormatDate}>
-                      {`${t.catalog.racebookFieldFormatDate} · ${formattedRaceDate}`}
-                    </Text>
+                    <View style={styles.heroRaceDayRow}>
+                      <Ionicons name="calendar-outline" size={18} color={Colors.brandPrimary} />
+                      <Text style={styles.heroRaceDayText}>
+                        {`${t.catalog.racebookFieldFormatDate} : ${formattedRaceDate}`}
+                      </Text>
+                    </View>
                   ) : null}
                   {participationLabel ? <Text style={styles.heroFormatDate}>{participationLabel}</Text> : null}
                 </View>
@@ -1534,6 +1537,26 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     minHeight: 32,
     justifyContent: 'center',
+  },
+  heroRaceDayRow: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+  },
+  heroRaceDayText: {
+    flexShrink: 1,
+    color: Colors.brandPrimary,
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '700',
   },
   heroFormatDate: {
     color: Colors.textSecondary,

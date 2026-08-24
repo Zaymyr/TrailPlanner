@@ -59,6 +59,13 @@ describe("organizer dashboard helpers", () => {
     expect(isOrganizerScopeSavePending(1, 4, 3)).toBe(false);
   });
 
+  it("persists format-specific bib pickup details", () => {
+    expect(buildOrganizerFormatSavePlan(new Set(["bibPickup"]))).toEqual({
+      saveRaceDetails: true,
+      saveAidStations: false,
+    });
+  });
+
   it("does not make another incomplete format block publication", () => {
     expect(shouldSaveActiveRaceBeforeRacebookChange("incomplete-race", "publishable-race")).toBe(false);
     expect(shouldSaveActiveRaceBeforeRacebookChange("publishable-race", "publishable-race")).toBe(true);

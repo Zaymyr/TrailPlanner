@@ -48,6 +48,7 @@ import {
   normalizeGpxPreview,
   normalizeOrganizerEventDetail,
   raceToForm,
+  RACE_DETAILS_MODULE_IDS,
   sortAidStationsByDistance,
   syncAidStationWithGpxPreview,
   syncAidStationsWithGpxPreview,
@@ -738,7 +739,7 @@ export function OrganizerDashboard({
           : current
       );
       if (!options.background) showToast("success", "Format mis à jour.");
-      clearDirty(["formats", "equipment", "access"], options.scopeRevision);
+      clearDirty(RACE_DETAILS_MODULE_IDS, options.scopeRevision);
       if (options.reloadEvent !== false) {
         await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
       }

@@ -609,7 +609,7 @@ export const fr: MobileTranslations = {
     racebookEmergencyShort: 'Urgence',
     racebookCallEmergency: "Appeler le numéro d'urgence",
     racebookFieldStartTime: 'Horaire de départ',
-    racebookFieldFormatDate: 'Date du format',
+    racebookFieldFormatDate: 'Jour de course',
     racebookParticipationSolo: 'Solo',
     racebookParticipationRelay: 'Relais',
     racebookParticipationSoloAndRelay: 'Solo et relais',
