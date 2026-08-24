@@ -104,6 +104,19 @@ type GenericPageCandidate = {
   dates: string[];
 };
 
+export type OrganizerOfficialSourceDocument = {
+  url: string;
+  title: string | null;
+  text: string;
+  isPrimary: boolean;
+  discovery: "primary" | "additional" | "discovered";
+};
+
+export type OrganizerWebsiteImportAnalysis = {
+  preview: OrganizerWebsiteImportPreview;
+  sourceDocuments: OrganizerOfficialSourceDocument[];
+};
+
 type GenericRaceCandidate = OrganizerWebsiteImportRace & {
   sourceUrl: string;
   sourceLabel: string;
@@ -142,6 +155,7 @@ const GENERIC_PAGE_HINT_PATTERN =
 const GENERIC_PAGE_LIMIT = 7;
 const GENERIC_FETCH_TIMEOUT_MS = 8_000;
 const GENERIC_HTML_LIMIT = 1_500_000;
+const GENERIC_SOURCE_TEXT_LIMIT = 40_000;
 
 const fetchGenericResource = async (url: string, init: RequestInit) => {
   const controller = new AbortController();
@@ -1756,7 +1770,10 @@ const normalizeFormatUrls = (formatUrls: string[]) =>
     )
   );
 
-const buildGenericPreview = async (url: string, formatUrls: string[] = []): Promise<OrganizerWebsiteImportPreview> => {
+const buildGenericAnalysis = async (
+  url: string,
+  options: { formatUrls?: string[]; additionalUrls?: string[] } = {}
+): Promise<OrganizerWebsiteImportAnalysis> => {
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(url);
@@ -1768,9 +1785,11 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
   const rootPage = await fetchGenericHtmlPage(normalizedUrl);
   const pages = [rootPage];
   const rootEmbeddedTracks = extractEmbeddedGeoJsonTracks(rootPage);
-  const submittedFormatUrls = normalizeFormatUrls(formatUrls);
+  const submittedFormatUrls = normalizeFormatUrls(options.formatUrls ?? []);
+  const submittedAdditionalUrls = normalizeFormatUrls(options.additionalUrls ?? []);
   const rootIsExplicitFormat = submittedFormatUrls.includes(normalizedUrl);
   const normalizedFormatUrls = submittedFormatUrls.filter((formatUrl) => formatUrl !== normalizedUrl);
+  const normalizedAdditionalUrls = submittedAdditionalUrls.filter((sourceUrl) => sourceUrl !== normalizedUrl);
   const discoveredFormatUrls = submittedFormatUrls.length === 0
     ? extractCandidatePageUrls(rootPage.html, normalizedUrl)
         .slice(1)
@@ -1780,10 +1799,14 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
           return !/\/course\/|\/les-epreuves\/?$/i.test(pathname);
         })
     : [];
-  const requestedFormatUrls = Array.from(new Set([...normalizedFormatUrls, ...discoveredFormatUrls])).slice(
-    0,
-    GENERIC_PAGE_LIMIT - 1
-  );
+  const suppliedSecondaryUrls = Array.from(
+    new Set([...normalizedFormatUrls, ...normalizedAdditionalUrls])
+  ).slice(0, 12);
+  const automaticDiscoveryCapacity = Math.max(0, GENERIC_PAGE_LIMIT - 1 - suppliedSecondaryUrls.length);
+  const requestedFormatUrls = Array.from(new Set([
+    ...suppliedSecondaryUrls,
+    ...discoveredFormatUrls.slice(0, automaticDiscoveryCapacity),
+  ]));
   const formatPages = await Promise.all(
     requestedFormatUrls.map((formatUrl) => fetchGenericHtmlPage(formatUrl).catch(() => null))
   );
@@ -1974,13 +1997,13 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
     warnings: [
       ...merged.warnings,
       ...(requestedFormatUrls.length > resolvedFormatPages.length
-        ? ["Certaines URLs de format n'ont pas pu etre analysees."]
+        ? ["Certaines URLs officielles n'ont pas pu etre analysees."]
         : []),
       ...(normalizedFormatUrls.length === 0 &&
       discoveredFormatUrls.length === 0 &&
       rootTabCandidates.length === 0 &&
       rootEmbeddedCandidates.length === 0
-        ? ["Aucun bloc de format ni page interne pertinente n'a ete detecte. Ajoute une URL par format pour completer l'analyse."]
+        ? ["Aucun bloc de format ni page interne pertinente n'a ete detecte. Ajoute une autre URL officielle pour completer l'analyse."]
         : []),
     ],
     canApply: races.length > 0,
@@ -1993,13 +2016,31 @@ const buildGenericPreview = async (url: string, formatUrls: string[] = []): Prom
     preview.warnings.push("Certains formats detectes sont incomplets et peuvent necessiter une reprise manuelle.");
   }
 
-  return preview;
+  const additionalUrlSet = new Set(normalizedAdditionalUrls);
+  return {
+    preview,
+    sourceDocuments: [rootPage, ...resolvedFormatPages].map((page) => ({
+      url: page.url,
+      title: page.title ?? page.ogTitle,
+      text: page.text.slice(0, GENERIC_SOURCE_TEXT_LIMIT),
+      isPrimary: page.url === normalizedUrl,
+      discovery: page.url === normalizedUrl
+        ? "primary" as const
+        : additionalUrlSet.has(page.url)
+          ? "additional" as const
+          : "discovered" as const,
+    })),
+  };
 };
 
-export async function buildOrganizerWebsiteImportPreview(
+export async function buildOrganizerWebsiteImportAnalysis(
   url: string,
-  options?: { traceCredentials?: { login: string; password: string } | null; formatUrls?: string[] }
-): Promise<OrganizerWebsiteImportPreview> {
+  options?: {
+    traceCredentials?: { login: string; password: string } | null;
+    formatUrls?: string[];
+    additionalUrls?: string[];
+  }
+): Promise<OrganizerWebsiteImportAnalysis> {
   let parsedUrl: URL;
   try {
     parsedUrl = new URL(url.trim());
@@ -2010,16 +2051,19 @@ export async function buildOrganizerWebsiteImportPreview(
   try {
     if (UTMB_HOST_PATTERN.test(parsedUrl.hostname)) {
       const preview = mapUtmbPreview(parsedUrl.toString(), await getUtmbRaceData(parsedUrl.toString()));
-      return preview;
+      return { preview, sourceDocuments: [] };
     }
     if (TRACE_DE_TRAIL_HOST_PATTERN.test(parsedUrl.hostname)) {
       const preview = mapTraceDeTrailPreview(
         parsedUrl.toString(),
         await getTraceDeTrailRaceData(parsedUrl.toString(), { credentials: options?.traceCredentials ?? null })
       );
-      return preview;
+      return { preview, sourceDocuments: [] };
     }
-    return await buildGenericPreview(parsedUrl.toString(), options?.formatUrls ?? []);
+    return await buildGenericAnalysis(parsedUrl.toString(), {
+      formatUrls: options?.formatUrls,
+      additionalUrls: options?.additionalUrls,
+    });
   } catch (error) {
     if (error instanceof UtmbImportError || error instanceof TraceDeTrailImportError) {
       throw new OrganizerWebsiteImportError(error.code, error.message);
@@ -2027,4 +2071,15 @@ export async function buildOrganizerWebsiteImportPreview(
     if (error instanceof OrganizerWebsiteImportError) throw error;
     throw new OrganizerWebsiteImportError("INVALID_DATA", "Impossible d'analyser le site de la course.");
   }
+}
+
+export async function buildOrganizerWebsiteImportPreview(
+  url: string,
+  options?: {
+    traceCredentials?: { login: string; password: string } | null;
+    formatUrls?: string[];
+    additionalUrls?: string[];
+  }
+): Promise<OrganizerWebsiteImportPreview> {
+  return (await buildOrganizerWebsiteImportAnalysis(url, options)).preview;
 }

@@ -81,6 +81,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
 - An admin-only website-import preview that falls back to supplied roadbook documents remains review-only; LLM reconciliation can recommend format matches but cannot create or update an edition. Apply requires an unexpired signed proposal snapshot and an explicit target format inside the selected edition. Those 25 MB-per-file temporary Storage objects are deleted after extraction, and an edition changes only after explicit admin confirmation.
 - Two-pass import sessions reference one edition and verify it belongs to the selected event. New confirmed format drafts inherit this edition's `start_date`; field apply cannot target a format in another edition.
+- Dates extracted from classified additional URLs or documents remain review evidence. Source intelligence cannot change `edition_id`, and registration/result dates are not promoted into edition claims.
 
 ## Common Queries
 

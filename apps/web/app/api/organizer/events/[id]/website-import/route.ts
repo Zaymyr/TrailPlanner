@@ -15,6 +15,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import {
+  buildOrganizerWebsiteImportAnalysis,
   buildOrganizerWebsiteImportPreview,
   computeOrganizerWebsiteImportPreviewHash,
   OrganizerWebsiteImportError,
@@ -63,11 +64,18 @@ import {
   fieldResolutionSchema,
   formatCandidateSchema,
   groupClaimsIntoFieldResolutions,
+  sourceClaimSchema,
   type FieldResolution,
   type OrganizerImportClaimValue,
   type OrganizerImportClaimField,
   type SourceClaim,
 } from "../../../../../../lib/organizer-import-engine";
+import {
+  analyzeOrganizerOfficialSources,
+  type OrganizerSourceAnalysis,
+  type OrganizerSourceAssertion,
+  type OrganizerSourceIntelligenceResult,
+} from "../../../../../../lib/organizer-source-intelligence";
 
 export const runtime = "nodejs";
 
@@ -113,6 +121,8 @@ const workflowRequestSchema = z.discriminatedUnion("action", [
     action: z.literal("discover-formats"),
     editionId: z.string().uuid(),
     url: z.union([z.string().trim().url(), z.literal("")]).default(""),
+    additionalUrls: z.array(z.string().trim().url()).max(12).default([]),
+    // Backward-compatible request input. New clients use additionalUrls because these pages are not necessarily formats.
     formatUrls: z.array(z.string().trim().url()).max(12).default([]),
     documents: z.array(temporaryDocumentReferenceSchema).max(ORGANIZER_DOCUMENT_MAX_COUNT).default([]),
   }),
@@ -293,6 +303,7 @@ const workflowDiscoverySnapshotSchema = z.object({
   editionId: z.string().uuid(),
   expiresAt: z.string().datetime(),
   candidates: z.array(formatCandidateSchema).max(30),
+  eventClaims: z.array(sourceClaimSchema).max(100).default([]),
 });
 
 const workflowPublicClaimSchema = z.object({
@@ -1016,11 +1027,310 @@ const buildDocumentFormatCandidates = (documents: ExtractedWorkflowDocument[]) =
   return [...new Map(candidates.map((candidate) => [candidate.candidateKey, candidate])).values()];
 };
 
+const sourceRoleLabels: Record<OrganizerSourceAnalysis["role"], string> = {
+  event_overview: "page générale de l’événement",
+  single_format: "page d’un format",
+  multi_format: "page de plusieurs formats",
+  regulation: "règlement",
+  schedule: "programme ou horaires",
+  logistics: "informations pratiques",
+  registration: "inscriptions",
+  results_archive: "résultats ou archives",
+  other: "autre source officielle",
+  unusable: "source inexploitable",
+};
+
+const normalizeSourceDate = (value: string) => {
+  const trimmed = value.trim();
+  const isoMatch = trimmed.match(/^\d{4}-\d{2}-\d{2}$/);
+  const numericMatch = trimmed.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/);
+  const monthNames: Record<string, string> = {
+    janvier: "01", fevrier: "02", mars: "03", avril: "04", mai: "05", juin: "06",
+    juillet: "07", aout: "08", septembre: "09", octobre: "10", novembre: "11", decembre: "12",
+  };
+  const normalized = trimmed.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const namedMatch = normalized.match(/^(\d{1,2})\s+([a-z]+)\s+(\d{4})$/);
+  const candidate = isoMatch
+    ? trimmed
+    : numericMatch
+      ? `${numericMatch[3]}-${numericMatch[2].padStart(2, "0")}-${numericMatch[1].padStart(2, "0")}`
+      : namedMatch && monthNames[namedMatch[2]]
+        ? `${namedMatch[3]}-${monthNames[namedMatch[2]]}-${namedMatch[1].padStart(2, "0")}`
+        : null;
+  if (!candidate) return null;
+  const date = new Date(`${candidate}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === candidate ? candidate : null;
+};
+
+const normalizeSourceTime = (value: string) => {
+  const match = value.trim().match(/^(\d{1,2})(?:\s*h\s*|:)(\d{0,2})$/i);
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] || "0");
+  return hours < 24 && minutes < 60
+    ? `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`
+    : null;
+};
+
+const sourceRoleAllowsAssertion = (analysis: OrganizerSourceAnalysis, assertion: OrganizerSourceAssertion) => {
+  if (["registration", "results_archive", "other", "unusable"].includes(analysis.role)) return false;
+  if (analysis.role === "schedule") {
+    return assertion.scope === "format" && ["name", "raceDate", "startTime", "finishCutoffTime"].includes(assertion.field);
+  }
+  if (analysis.role === "logistics") {
+    return ["locationText", "mandatoryEquipment"].includes(assertion.field);
+  }
+  return true;
+};
+
+const normalizeSourceAssertion = (
+  assertion: OrganizerSourceAssertion,
+  scope: "event" | "format"
+): { field: OrganizerImportClaimField; value: OrganizerImportClaimValue } | null => {
+  if (scope === "event") {
+    if (assertion.field === "name" && typeof assertion.value === "string") {
+      return { field: "name", value: assertion.value };
+    }
+    if (assertion.field === "locationText" && typeof assertion.value === "string") {
+      return { field: "location", value: assertion.value };
+    }
+    if (assertion.field === "mandatoryEquipment" && Array.isArray(assertion.value)) {
+      return { field: "mandatoryEquipment", value: assertion.value };
+    }
+    return null;
+  }
+
+  if (["distanceKm", "elevationGainM", "elevationLossM"].includes(assertion.field)) {
+    if (typeof assertion.value !== "number" || assertion.value < 0) return null;
+    if (assertion.field === "distanceKm" && assertion.value === 0) return null;
+    return { field: assertion.field, value: assertion.value };
+  }
+  if (assertion.field === "mandatoryEquipment") {
+    return Array.isArray(assertion.value) ? { field: assertion.field, value: assertion.value } : null;
+  }
+  if (assertion.field === "raceDate") {
+    return typeof assertion.value === "string" && normalizeSourceDate(assertion.value)
+      ? { field: assertion.field, value: normalizeSourceDate(assertion.value)! }
+      : null;
+  }
+  if (assertion.field === "startTime" || assertion.field === "finishCutoffTime") {
+    return typeof assertion.value === "string" && normalizeSourceTime(assertion.value)
+      ? { field: assertion.field, value: normalizeSourceTime(assertion.value)! }
+      : null;
+  }
+  return typeof assertion.value === "string"
+    ? { field: assertion.field, value: assertion.value }
+    : null;
+};
+
+const buildIntelligenceEvidenceSource = (
+  analysis: OrganizerSourceAnalysis,
+  evidence: string,
+  documents: ExtractedWorkflowDocument[]
+): SourceClaim["source"] => {
+  const documentPrefix = "urn:organizer-document:";
+  if (analysis.url.startsWith(documentPrefix)) {
+    let sourceId = analysis.url.slice(documentPrefix.length);
+    try { sourceId = decodeURIComponent(sourceId); } catch { /* Keep the bounded urn suffix. */ }
+    const document = documents.find((candidate) => candidate.sourceId === sourceId) ?? null;
+    const normalizedEvidence = evidence.replace(/\s+/g, " ").trim();
+    const page = document?.pages.find((candidate) =>
+      candidate.text.replace(/\s+/g, " ").includes(normalizedEvidence)
+    )?.page ?? null;
+    return {
+      sourceId,
+      kind: "official-document",
+      label: document?.fileName || analysis.title || "Document officiel",
+      url: null,
+      page,
+      edition: null,
+    };
+  }
+  return {
+    sourceId: analysis.url,
+    kind: "official-page",
+    label: `Source officielle · ${sourceRoleLabels[analysis.role]}`,
+    url: analysis.url,
+    page: null,
+    edition: null,
+  };
+};
+
+const buildSourceIntelligenceCandidates = (
+  analyses: OrganizerSourceAnalysis[],
+  existingRaces: EventRace[],
+  documents: ExtractedWorkflowDocument[]
+) => {
+  const eventClaims: SourceClaim[] = [];
+  const formatGroups = new Map<string, Array<{ analysis: OrganizerSourceAnalysis; assertion: OrganizerSourceAssertion }>>();
+  const formatEnrichmentGroups = new Map<string, Array<{ analysis: OrganizerSourceAnalysis; assertion: OrganizerSourceAssertion }>>();
+  const candidateRoles = new Set<OrganizerSourceAnalysis["role"]>([
+    "event_overview", "single_format", "multi_format", "regulation",
+  ]);
+
+  for (const analysis of analyses) {
+    for (const assertion of analysis.assertions) {
+      if (!sourceRoleAllowsAssertion(analysis, assertion)) continue;
+      if (assertion.scope === "event") {
+        const normalized = normalizeSourceAssertion(assertion, "event");
+        if (!normalized) continue;
+        eventClaims.push(createSourceClaim({
+          scope: { kind: "event", scopeKey: "event" },
+          ...normalized,
+          source: buildIntelligenceEvidenceSource(analysis, assertion.evidence, documents),
+          evidence: assertion.evidence,
+          confidence: analysis.confidence,
+          claimRole: "candidate",
+        }));
+        continue;
+      }
+      if (!assertion.formatName) continue;
+      const key = normalizeComparableName(assertion.formatName);
+      if (!key) continue;
+      const groups = candidateRoles.has(analysis.role) ? formatGroups : formatEnrichmentGroups;
+      const group = groups.get(key) ?? [];
+      group.push({ analysis, assertion });
+      groups.set(key, group);
+    }
+  }
+
+  const builtCandidates = [
+    ...[...formatGroups.entries()].map(([normalizedName, entries]) => ({ normalizedName, entries, canEstablishFormat: true })),
+    ...[...formatEnrichmentGroups.entries()].map(([normalizedName, entries]) => ({ normalizedName, entries, canEstablishFormat: false })),
+  ].flatMap(({ normalizedName, entries, canEstablishFormat }, groupIndex) => {
+    const names = Array.from(new Set(entries.map(({ assertion }) => assertion.formatName!).filter(Boolean)));
+    const proposedName = names[0];
+    if (!proposedName) return [];
+    const candidateKey = `source:${groupIndex}:${normalizedName.slice(0, 220)}`;
+    const claims = entries.flatMap(({ analysis, assertion }) => {
+      const normalized = normalizeSourceAssertion(assertion, "format");
+      if (!normalized) return [];
+      return [createSourceClaim({
+        scope: { kind: "format", scopeKey: candidateKey },
+        ...normalized,
+        source: buildIntelligenceEvidenceSource(analysis, assertion.evidence, documents),
+        evidence: assertion.evidence,
+        confidence: analysis.confidence,
+        claimRole: "candidate",
+      })];
+    });
+    if (!claims.some((claim) => claim.field === "name")) {
+      const first = entries[0];
+      claims.unshift(createSourceClaim({
+        scope: { kind: "format", scopeKey: candidateKey },
+        field: "name",
+        value: proposedName,
+        source: buildIntelligenceEvidenceSource(first.analysis, first.assertion.evidence, documents),
+        evidence: first.assertion.evidence,
+        confidence: first.analysis.confidence,
+        claimRole: "candidate",
+      }));
+    }
+    const evidence = entries.map(({ analysis, assertion }) => ({
+      ...buildIntelligenceEvidenceSource(analysis, assertion.evidence, documents),
+      evidence: assertion.evidence,
+    })).slice(0, 30);
+    const knownRequiredFields = (["name", "raceDate", "distanceKm", "elevationGainM"] as OrganizerImportClaimField[])
+      .filter((field) => claims.some((claim) => claim.field === field));
+    const missingRequiredFields = (["name", "raceDate", "distanceKm", "elevationGainM"] as OrganizerImportClaimField[])
+      .filter((field) => !knownRequiredFields.includes(field));
+    const raceDate = claims.find((claim) => claim.field === "raceDate" && typeof claim.value === "string")?.value;
+    const exactExisting = existingRaces.filter((race) =>
+      [race.name, race.series_name].some((name) => normalizeComparableName(name) === normalizedName)
+    );
+    return [{
+      canEstablishFormat,
+      candidate: formatCandidateSchema.parse({
+        candidateKey,
+        detectionKeys: [candidateKey],
+        names,
+        proposedName,
+        edition: {
+          date: typeof raceDate === "string" ? raceDate : null,
+          year: typeof raceDate === "string" ? raceDate.slice(0, 4) : null,
+        },
+        existenceConfidence: entries.some(({ analysis }) => analysis.confidence === "high")
+          ? "high"
+          : entries.some(({ analysis }) => analysis.confidence === "medium") ? "medium" : "low",
+        evidence,
+        claims: claims.slice(0, 100),
+        completeness: { knownRequiredFields, missingRequiredFields },
+        suggestedExistingRaceId: exactExisting.length === 1 ? exactExisting[0].id : null,
+      }),
+    }];
+  });
+  return {
+    eventClaims: [...new Map(eventClaims.map((claim) => [claim.claimId, claim])).values()],
+    candidates: builtCandidates.filter((entry) => entry.canEstablishFormat).map((entry) => entry.candidate),
+    enrichmentCandidates: builtCandidates.filter((entry) => !entry.canEstablishFormat).map((entry) => entry.candidate),
+  };
+};
+
+const mergeSourceIntelligenceCandidates = (
+  deterministicCandidates: Array<z.infer<typeof formatCandidateSchema>>,
+  intelligentCandidates: Array<z.infer<typeof formatCandidateSchema>>,
+  appendMissing = true
+) => {
+  const merged = [...deterministicCandidates];
+  for (const candidate of intelligentCandidates) {
+    const targetIndex = merged.findIndex((target) =>
+      target.names.some((name) => candidate.names.some((candidateName) =>
+        normalizeComparableName(name) === normalizeComparableName(candidateName)
+      ))
+    );
+    if (targetIndex < 0) {
+      if (appendMissing) merged.push(candidate);
+      continue;
+    }
+    const target = merged[targetIndex];
+    const reScopedClaims = candidate.claims.map((claim) => createSourceClaim({
+      ...claim,
+      scope: { kind: "format", scopeKey: target.candidateKey },
+    }));
+    const claims = [...target.claims, ...reScopedClaims]
+      .filter((claim, index, all) => all.findIndex((candidateClaim) => candidateClaim.claimId === claim.claimId) === index)
+      .slice(0, 100);
+    const requiredFields = ["name", "raceDate", "distanceKm", "elevationGainM"] as OrganizerImportClaimField[];
+    merged[targetIndex] = formatCandidateSchema.parse({
+      ...target,
+      detectionKeys: Array.from(new Set([...target.detectionKeys, ...candidate.detectionKeys])).slice(0, 30),
+      names: Array.from(new Set([...target.names, ...candidate.names])).slice(0, 30),
+      existenceConfidence: target.existenceConfidence === "high" || candidate.existenceConfidence === "high"
+        ? "high"
+        : target.existenceConfidence === "medium" || candidate.existenceConfidence === "medium" ? "medium" : "low",
+      evidence: [...target.evidence, ...candidate.evidence].slice(0, 30),
+      claims,
+      completeness: {
+        knownRequiredFields: requiredFields.filter((field) => claims.some((claim) => claim.field === field)),
+        missingRequiredFields: requiredFields.filter((field) => !claims.some((claim) => claim.field === field)),
+      },
+      suggestedExistingRaceId: target.suggestedExistingRaceId ?? candidate.suggestedExistingRaceId,
+    });
+  }
+  return merged;
+};
+
+const buildSourceAnalysisWarnings = (result: OrganizerSourceIntelligenceResult) => [
+  ...result.warnings,
+  ...(result.usedLlm ? ["Lecture assistée par IA utilisée pour les sources ambiguës ou incomplètes."] : []),
+];
+
+const buildSourceAudit = (result: OrganizerSourceIntelligenceResult) => result.sources.map((source) => ({
+  sourceUrl: source.url.startsWith("urn:organizer-document:") ? null : source.url,
+  title: source.title || null,
+  role: source.role,
+  roleLabel: sourceRoleLabels[source.role],
+  confidence: source.confidence,
+  evidence: source.evidence,
+  assertionCount: source.assertions.length,
+}));
+
 const loadWorkflowSources = async (
   auth: OrganizerAuth,
   event: EventContext,
   editionId: string,
-  manifest: z.infer<typeof organizerImportSourceManifestSchema>
+  manifest: z.infer<typeof organizerImportSourceManifestSchema>,
+  options: { analyzeOfficialSources?: boolean } = {}
 ) => {
   const temporaryDocuments = await loadTemporaryOrganizerImportDocuments(
     auth.serviceConfig,
@@ -1035,11 +1345,14 @@ const loadWorkflowSources = async (
 
   let preview = emptyWebsitePreview();
   let websiteWarning: string | null = null;
-  const primaryUrl = manifest.url || manifest.formatUrls[0] || "";
-  const additionalFormatUrls = manifest.url ? manifest.formatUrls : manifest.formatUrls.slice(1);
+  const primaryUrl = manifest.url || manifest.additionalUrls[0] || "";
+  const additionalUrls = manifest.url ? manifest.additionalUrls : manifest.additionalUrls.slice(1);
+  let sourceDocuments: Awaited<ReturnType<typeof buildOrganizerWebsiteImportAnalysis>>["sourceDocuments"] = [];
   if (primaryUrl) {
     try {
-      preview = await buildOrganizerWebsiteImportPreview(primaryUrl, { formatUrls: additionalFormatUrls });
+      const analysis = await buildOrganizerWebsiteImportAnalysis(primaryUrl, { additionalUrls });
+      preview = analysis.preview;
+      sourceDocuments = analysis.sourceDocuments;
     } catch (error) {
       if (temporaryDocuments.length === 0) throw error;
       console.error("Unable to analyze organizer website; using documents only", error);
@@ -1049,8 +1362,39 @@ const loadWorkflowSources = async (
   if (!primaryUrl || !preview.source.url) {
     preview = buildDocumentOnlyPreview({ ...event, race_date: edition.start_date });
   }
+  const sourceIntelligence: OrganizerSourceIntelligenceResult =
+    options.analyzeOfficialSources && (sourceDocuments.length > 0 || extractedDocuments.some((document) => document.text))
+      ? await analyzeOrganizerOfficialSources({
+          sources: [
+            ...sourceDocuments
+              .filter((source) => source.discovery !== "discovered")
+              .map((source) => ({
+                url: source.url,
+                title: source.title ?? "",
+                text: source.text,
+                isPrimary: source.isPrimary,
+              })),
+            ...extractedDocuments.flatMap((document) => document.text ? [{
+              url: `urn:organizer-document:${encodeURIComponent(document.sourceId)}`,
+              title: document.fileName,
+              text: document.text,
+              isPrimary: false,
+            }] : []),
+            ...sourceDocuments
+              .filter((source) => source.discovery === "discovered")
+              .map((source) => ({
+                url: source.url,
+                title: source.title ?? "",
+                text: source.text,
+                isPrimary: source.isPrimary,
+              })),
+          ],
+        })
+      : { sources: [], warnings: [], usedLlm: false };
   return {
     preview,
+    sourceDocuments,
+    sourceIntelligence,
     documents: attachWorkflowDocumentFindings(extractedDocuments, preview),
     websiteWarning,
   };
@@ -1120,7 +1464,8 @@ const buildWorkflowClaims = (
   event: EventContext,
   editionId: string,
   confirmedFormats: Array<z.infer<typeof workflowConfirmedSessionFormatSchema>>,
-  discoveryCandidates: Array<z.infer<typeof formatCandidateSchema>>
+  discoveryCandidates: Array<z.infer<typeof formatCandidateSchema>>,
+  discoveryEventClaims: SourceClaim[]
 ) => {
   const scopeKeyByPreviewRaceKey: Record<string, string> = {};
   for (const format of confirmedFormats) {
@@ -1162,7 +1507,7 @@ const buildWorkflowClaims = (
       }
     }
   }
-  const additionalClaims = documents.flatMap((document) => buildOrganizerDocumentSourceClaims({
+  const documentClaims = documents.flatMap((document) => buildOrganizerDocumentSourceClaims({
     ...document,
     findings: document.findings.map((finding) => {
       if (finding.scope === "format-unknown" && finding.field === "mandatoryEquipment") {
@@ -1182,6 +1527,26 @@ const buildWorkflowClaims = (
       return finding;
     }),
   }, formatKeyByHint));
+  const discoveredFormatClaims = discoveryCandidates.flatMap((candidate) => {
+    const targetScopeKey = scopeKeyByPreviewRaceKey[candidate.candidateKey];
+    if (!targetScopeKey) return [];
+    return candidate.claims.map((claim) => createSourceClaim({
+      ...claim,
+      scope: { kind: "format", scopeKey: targetScopeKey },
+    }));
+  });
+  const additionalClaimCounts = new Map<string, number>();
+  const additionalClaims = [
+    ...documentClaims,
+    ...discoveryEventClaims,
+    ...discoveredFormatClaims,
+  ].filter((claim) => {
+    const key = `${claim.scope.kind}:${claim.scope.scopeKey}:${claim.field}`;
+    const count = additionalClaimCounts.get(key) ?? 0;
+    if (count >= 12) return false;
+    additionalClaimCounts.set(key, count + 1);
+    return true;
+  });
 
   const edition = (event.race_event_editions ?? []).find((candidate) => candidate.id === editionId) ?? null;
   const previousFormats = confirmedFormats.flatMap((format) => {
@@ -1714,25 +2079,38 @@ const handleOrganizerImportWorkflow = async (
     if (request.action === "discover-formats") {
       const edition = (event.race_event_editions ?? []).find((candidate) => candidate.id === request.editionId);
       if (!edition) return jsonError("L'édition sélectionnée est inconnue.", 404);
-      if (!request.url && request.formatUrls.length === 0 && request.documents.length === 0) {
+      const additionalUrls = Array.from(new Set([...request.additionalUrls, ...request.formatUrls]));
+      if (!request.url && additionalUrls.length === 0 && request.documents.length === 0) {
         return jsonError("Ajoute au moins une URL ou un document officiel.", 400);
       }
       const sourceManifest = organizerImportSourceManifestSchema.parse({
         url: request.url,
-        formatUrls: request.formatUrls,
+        additionalUrls,
         documents: request.documents,
       });
-      const sources = await loadWorkflowSources(auth, event, request.editionId, sourceManifest);
+      const sources = await loadWorkflowSources(auth, event, request.editionId, sourceManifest, {
+        analyzeOfficialSources: true,
+      });
       const editionRaces = (event.races ?? []).filter((race) =>
         race.edition_id === edition.id || (!race.edition_id && race.race_date?.slice(0, 4) === String(edition.edition_year))
       );
-      const websiteCandidates = buildFormatCandidates(sources.preview, editionRaces.map((race) => ({
+      const deterministicWebsiteCandidates = buildFormatCandidates(sources.preview, editionRaces.map((race) => ({
         id: race.id,
         name: race.name,
         seriesName: race.series_name,
         raceDate: race.race_date ?? null,
         distanceKm: race.distance_km,
       })));
+      const intelligentSources = buildSourceIntelligenceCandidates(
+        sources.sourceIntelligence.sources,
+        editionRaces,
+        sources.documents
+      );
+      const websiteCandidates = mergeSourceIntelligenceCandidates(
+        mergeSourceIntelligenceCandidates(deterministicWebsiteCandidates, intelligentSources.candidates),
+        intelligentSources.enrichmentCandidates,
+        false
+      );
       const candidateKeyByHint = new Map<string, string>();
       for (const candidate of websiteCandidates) {
         for (const name of candidate.names) candidateKeyByHint.set(normalizeComparableName(name), candidate.candidateKey);
@@ -1773,6 +2151,7 @@ const handleOrganizerImportWorkflow = async (
         editionId: request.editionId,
         expiresAt: new Date(Date.now() + 2 * 60 * 60_000).toISOString(),
         candidates,
+        eventClaims: intelligentSources.eventClaims,
       });
       const session = await createOrganizerImportSession(auth, {
         eventId: event.id,
@@ -1790,6 +2169,7 @@ const handleOrganizerImportWorkflow = async (
           step: "formats",
           expiresAt: session.expires_at,
           candidates,
+          sourceAudit: buildSourceAudit(sources.sourceIntelligence),
           discoverySnapshot,
           discoverySignature: signWorkflowSnapshot(
             "discovery",
@@ -1798,6 +2178,7 @@ const handleOrganizerImportWorkflow = async (
           ),
           warnings: [
             ...(sources.websiteWarning ? [sources.websiteWarning] : []),
+            ...buildSourceAnalysisWarnings(sources.sourceIntelligence),
             ...candidates.flatMap((candidate) =>
               candidate.edition.year && candidate.edition.year !== String(edition.edition_year)
                 ? [`${candidate.proposedName} semble appartenir à l'édition ${candidate.edition.year}, pas à ${edition.edition_year}.`]
@@ -1903,7 +2284,8 @@ const handleOrganizerImportWorkflow = async (
         event,
         session.edition_id,
         confirmedFormats,
-        discoverySnapshot.candidates
+        discoverySnapshot.candidates,
+        discoverySnapshot.eventClaims
       );
       const groupedResolutions = groupClaimsIntoFieldResolutions(claims);
       const llmResult = await applyLlmConflictRecommendations(groupedResolutions);

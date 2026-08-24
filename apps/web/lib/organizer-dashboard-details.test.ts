@@ -5,7 +5,20 @@ import {
   buildRunnerOrganizerDetails,
   defaultOrganizerEventDetails,
   defaultOrganizerRaceDetails,
+  parseOrganizerEventDetails,
 } from "./organizer-dashboard-details";
+
+describe("parseOrganizerEventDetails", () => {
+  it("normalizes the official website and emergency contact", () => {
+    const details = parseOrganizerEventDetails({
+      officialWebsiteUrl: "https://grand-trail.example",
+      emergencyContact: { name: "PC course", phone: "06 12 34 56 78" },
+    });
+
+    expect(details.officialWebsiteUrl).toBe("https://grand-trail.example");
+    expect(details.emergencyContact).toEqual({ name: "PC course", phone: "06 12 34 56 78" });
+  });
+});
 
 describe("buildRunnerOrganizerDetails", () => {
   it("keeps event access locations when the race override is empty", () => {

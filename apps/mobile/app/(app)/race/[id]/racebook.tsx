@@ -8,9 +8,10 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
+import { FeedbackHeaderButton } from '../../../../components/feedback/FeedbackHeaderButton';
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
 import { Card } from '../../../../components/themed/Card';
@@ -24,7 +25,7 @@ import { fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../..
 import { fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 
-type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access';
+type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 
 type LabeledItem = {
   label: string;
@@ -92,6 +93,11 @@ function formatDateRange(startDate: string | null, endDate: string | null, local
   if (!start) return end;
   if (!end || start === end) return start;
   return `${start} – ${end}`;
+}
+
+function buildTelephoneUrl(phone: string): string | null {
+  const normalized = phone.trim().replace(/(?!^\+)[^\d]/g, '');
+  return normalized.length > 0 ? `tel:${normalized}` : null;
 }
 
 function formatBibPickupDate(value: string | null, locale: 'fr' | 'en'): string | null {
@@ -671,21 +677,6 @@ export default function RaceRacebookScreen() {
     }
   }, [id]);
 
-  const tabs = useMemo(
-    () => [
-      { key: 'gear' as const, label: t.catalog.racebookTabGear },
-      { key: 'bib' as const, label: t.catalog.racebookTabBib },
-      { key: 'course' as const, label: t.catalog.racebookTabCourse },
-      { key: 'access' as const, label: t.catalog.racebookTabAccess },
-    ],
-    [
-      t.catalog.racebookTabAccess,
-      t.catalog.racebookTabBib,
-      t.catalog.racebookTabCourse,
-      t.catalog.racebookTabGear,
-    ],
-  );
-
   const eventDateRange = formatDateRange(
     data?.event.raceDate ?? null,
     data?.event.organizerDetails.dateRange.endDate ?? null,
@@ -715,6 +706,9 @@ export default function RaceRacebookScreen() {
         : null;
   const weatherAlertIcon = weatherPlan === 'heat' ? 'thermometer-outline' : 'snow-outline';
   const lastMinuteMessage = data?.runnerDetails.services.lastMinuteMessage ?? null;
+  const officialWebsiteUrl = data?.event.organizerDetails.officialWebsiteUrl ?? null;
+  const emergencyContact = data?.event.organizerDetails.emergencyContact;
+  const emergencyTelephoneUrl = emergencyContact?.phone ? buildTelephoneUrl(emergencyContact.phone) : null;
 
   const runnerInfoLines = useMemo(() => {
     if (!data || data.runnerDetails.access.enabledSections.runnerInfo === false) return [];
@@ -739,6 +733,34 @@ export default function RaceRacebookScreen() {
       data.runnerDetails.services.note,
     ].filter((value): value is string => Boolean(value));
   }, [data]);
+
+  const tabs = useMemo(() => {
+    const availableTabs: Array<{ key: RacebookTabKey; label: string }> = [
+      { key: 'gear', label: t.catalog.racebookTabGear },
+      { key: 'bib', label: t.catalog.racebookTabBib },
+      { key: 'course', label: t.catalog.racebookTabCourse },
+      { key: 'access', label: t.catalog.racebookTabAccess },
+    ];
+
+    if (servicesLines.length > 0) {
+      availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices });
+    }
+
+    return availableTabs;
+  }, [
+    servicesLines.length,
+    t.catalog.racebookSectionServices,
+    t.catalog.racebookTabAccess,
+    t.catalog.racebookTabBib,
+    t.catalog.racebookTabCourse,
+    t.catalog.racebookTabGear,
+  ]);
+
+  useEffect(() => {
+    if (activeTab === 'services' && servicesLines.length === 0) {
+      setActiveTab('gear');
+    }
+  }, [activeTab, servicesLines.length]);
 
   const bibLocationGroups = useMemo(() => {
     if (!data) return [];
@@ -857,7 +879,7 @@ export default function RaceRacebookScreen() {
       },
       {
         title: t.catalog.racebookAccessParking,
-        lines: access.enabledSections.officialParkings && access.officialParkings ? [access.officialParkings] : [],
+        lines: access.officialParkings ? [access.officialParkings] : [],
       },
       {
         title: t.catalog.racebookAccessShuttles,
@@ -911,18 +933,38 @@ export default function RaceRacebookScreen() {
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
-    <ScrollView
-      contentContainerStyle={styles.container}
-      alwaysBounceVertical
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={handleRefresh}
-          tintColor={Colors.brandPrimary}
-          colors={[Colors.brandPrimary]}
-        />
-      }
-    >
+    <>
+      <Stack.Screen
+        options={{
+          headerRight: () => (
+            <FeedbackHeaderButton
+              contextLabel={t.catalog.racebookTitle}
+              leading={officialWebsiteUrl ? (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t.catalog.racebookOfficialWebsite}
+                  onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
+                  style={styles.headerIconButton}
+                >
+                  <Ionicons name="globe-outline" size={20} color={Colors.textPrimary} />
+                </Pressable>
+              ) : null}
+            />
+          ),
+        }}
+      />
+      <ScrollView
+        contentContainerStyle={styles.container}
+        alwaysBounceVertical
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={Colors.brandPrimary}
+            colors={[Colors.brandPrimary]}
+          />
+        }
+      >
       {loading ? (
         <View style={styles.centerState}>
           <ActivityIndicator color={Colors.brandPrimary} size="small" />
@@ -977,12 +1019,9 @@ export default function RaceRacebookScreen() {
               </View>
             </View>
 
-            {runnerInfoLines.length > 0 || servicesLines.length > 0 ? <View style={styles.heroDivider} /> : null}
+            {runnerInfoLines.length > 0 ? <View style={styles.heroDivider} /> : null}
             {runnerInfoLines.length > 0 ? (
               <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
-            ) : null}
-            {servicesLines.length > 0 ? (
-              <HeroDetailGroup title={t.catalog.racebookSectionServices} values={servicesLines} />
             ) : null}
           </Card>
 
@@ -992,6 +1031,28 @@ export default function RaceRacebookScreen() {
             <InlineAlertCard icon="megaphone-outline" title={t.catalog.racebookLastMinuteTitle} message={lastMinuteMessage} />
           ) : null}
 
+          {emergencyContact?.phone && emergencyTelephoneUrl ? (
+            <Card style={styles.emergencyCard}>
+              <View style={styles.emergencyHeader}>
+                <View style={styles.emergencyIconWrap}>
+                  <Ionicons name="call-outline" size={18} color={Colors.danger} />
+                </View>
+                <View style={styles.emergencyTextWrap}>
+                  <Text style={styles.emergencyTitle}>{t.catalog.racebookEmergencyContact}</Text>
+                  {emergencyContact.name ? <Text style={styles.emergencyName}>{emergencyContact.name}</Text> : null}
+                </View>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t.catalog.racebookCallEmergency}
+                  onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
+                  style={styles.emergencyCallButton}
+                >
+                  <DataText style={styles.emergencyPhone}>{emergencyContact.phone}</DataText>
+                </Pressable>
+              </View>
+            </Card>
+          ) : null}
+
           <View style={styles.tabsWrap}>
             {tabs.map((tab) => {
               const active = activeTab === tab.key;
@@ -999,10 +1060,21 @@ export default function RaceRacebookScreen() {
               return (
                 <Pressable
                   key={tab.key}
-                  style={[styles.tabButton, active && styles.tabButtonActive]}
+                  style={[
+                    styles.tabButton,
+                    tabs.length === 5 ? styles.tabButtonCompact : null,
+                    active && styles.tabButtonActive,
+                  ]}
                   onPress={() => setActiveTab(tab.key)}
                 >
-                  <Text style={[styles.tabButtonText, active && styles.tabButtonTextActive]} numberOfLines={1}>
+                  <Text
+                    style={[
+                      styles.tabButtonText,
+                      tabs.length === 5 ? styles.tabButtonTextCompact : null,
+                      active && styles.tabButtonTextActive,
+                    ]}
+                    numberOfLines={1}
+                  >
                     {tab.label}
                   </Text>
                 </Pressable>
@@ -1172,14 +1244,28 @@ export default function RaceRacebookScreen() {
                 </SectionCard>
               )
             ) : null}
+
+            {activeTab === 'services' ? (
+              <SectionCard title={t.catalog.racebookSectionServices}>
+                <InfoList values={servicesLines} />
+              </SectionCard>
+            ) : null}
           </View>
         </>
       ) : null}
-    </ScrollView>
+      </ScrollView>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     padding: 16,
     paddingBottom: 32,
@@ -1272,6 +1358,50 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  emergencyCard: {
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    borderColor: Colors.danger,
+  },
+  emergencyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  emergencyIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.dangerSurface,
+  },
+  emergencyTextWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  emergencyTitle: {
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  emergencyName: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  emergencyCallButton: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    backgroundColor: Colors.dangerSurface,
+  },
+  emergencyPhone: {
+    color: Colors.danger,
+    fontSize: 14,
+    fontWeight: '700',
+  },
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -1342,10 +1472,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandPrimary,
     borderColor: Colors.brandPrimary,
   },
+  tabButtonCompact: {
+    minWidth: 0,
+    paddingHorizontal: 4,
+  },
   tabButtonText: {
     color: Colors.textSecondary,
     fontSize: 12,
     fontWeight: '700',
+  },
+  tabButtonTextCompact: {
+    fontSize: 11,
   },
   tabButtonTextActive: {
     color: Colors.textOnBrand,

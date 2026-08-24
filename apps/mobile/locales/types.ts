@@ -589,6 +589,9 @@ export type MobileTranslations = {
     racebookSectionGearConditional: string;
     racebookSectionAdditionalInfo: string;
     racebookLastMinuteTitle: string;
+    racebookOfficialWebsite: string;
+    racebookEmergencyContact: string;
+    racebookCallEmergency: string;
     racebookFieldStartTime: string;
     racebookFieldFormatDate: string;
     racebookFieldStartLocation: string;

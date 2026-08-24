@@ -1448,9 +1448,9 @@ export function OrganizerDashboard({
       return;
     }
     const url = (urlOverride ?? websiteImportUrl).trim();
-    const formatUrls = websiteImportFormatUrls.map((formatUrl) => formatUrl.trim()).filter(Boolean);
-    if (!url && formatUrls.length === 0 && websiteImportDocuments.length === 0) {
-      setWebsiteImportError("Ajoute un site, une URL de format ou un document avant de lancer l'analyse.");
+    const additionalUrls = websiteImportFormatUrls.map((additionalUrl) => additionalUrl.trim()).filter(Boolean);
+    if (!url && additionalUrls.length === 0 && websiteImportDocuments.length === 0) {
+      setWebsiteImportError("Ajoute un site, une URL officielle supplémentaire ou un document avant de lancer l'analyse.");
       return;
     }
 
@@ -1474,7 +1474,7 @@ export function OrganizerDashboard({
         body: JSON.stringify({
           action: "discover-formats",
           url,
-          formatUrls,
+          additionalUrls,
           documents: uploadedDocuments,
           editionId: activeEdition.id,
         }),
@@ -2195,8 +2195,10 @@ export function OrganizerDashboard({
                   <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div>
-                        <p className="text-sm font-medium text-foreground">URLs de formats connues</p>
-                        <p className="text-xs text-muted-foreground">Optionnel : ajoute les pages officielles déjà identifiées.</p>
+                        <p className="text-sm font-medium text-foreground">URLs officielles supplémentaires</p>
+                        <p className="text-xs text-muted-foreground">
+                          Optionnel : ajoute une page événement, règlement, programme, logistique, inscription, archive ou format.
+                        </p>
                       </div>
                       <Button
                         type="button"
@@ -2211,11 +2213,11 @@ export function OrganizerDashboard({
                     {websiteImportFormatUrls.map((formatUrl, index) => (
                       <div key={`website-import-format-url-${index}`} className="flex gap-2">
                         <input
-                          aria-label={`URL du format ${index + 1}`}
+                          aria-label={`URL officielle supplémentaire ${index + 1}`}
                           type="url"
                           className="h-10 min-w-0 flex-1 rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                           value={formatUrl}
-                          placeholder={`https://.../format-${index + 1}`}
+                          placeholder={`https://.../page-officielle-${index + 1}`}
                           onChange={(event) =>
                             setWebsiteImportFormatUrls((urls) =>
                               urls.map((currentUrl, currentIndex) => currentIndex === index ? event.target.value : currentUrl)
@@ -2228,7 +2230,7 @@ export function OrganizerDashboard({
                             variant="outline"
                             className="h-10 px-3 text-xs"
                             onClick={() => setWebsiteImportFormatUrls((urls) => urls.filter((_, currentIndex) => currentIndex !== index))}
-                            aria-label={`Retirer l’URL du format ${index + 1}`}
+                            aria-label={`Retirer l’URL officielle supplémentaire ${index + 1}`}
                           >
                             Retirer
                           </Button>
@@ -2281,6 +2283,39 @@ export function OrganizerDashboard({
 
               {websiteImportError ? (
                 <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{websiteImportError}</p>
+              ) : null}
+
+              {websiteImportWorkflow?.step === "formats" && websiteImportWorkflow.sourceAudit?.length ? (
+                <details className="rounded-md border border-border/70 bg-card px-3 py-2 text-xs text-foreground" open>
+                  <summary className="cursor-pointer font-medium">
+                    Sources analysées ({websiteImportWorkflow.sourceAudit.length})
+                  </summary>
+                  <div className="mt-2 grid gap-2 sm:grid-cols-2">
+                    {websiteImportWorkflow.sourceAudit.map((source, index) => (
+                      <div key={`${source.sourceUrl ?? source.title ?? "source"}-${index}`} className="rounded-md border border-border/60 bg-muted/20 p-2">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            {source.sourceUrl ? (
+                              <a className="break-all font-medium text-primary underline-offset-2 hover:underline" href={source.sourceUrl} target="_blank" rel="noreferrer">
+                                {source.title || source.sourceUrl}
+                              </a>
+                            ) : (
+                              <p className="font-medium">{source.title || "Document officiel"}</p>
+                            )}
+                            <p className="text-muted-foreground">{source.roleLabel}</p>
+                          </div>
+                          <span className="rounded-full border border-border/70 bg-background px-2 py-0.5 text-[11px]">
+                            Confiance {source.confidence === "high" ? "forte" : source.confidence === "medium" ? "moyenne" : "faible"}
+                          </span>
+                        </div>
+                        <p className="mt-1 text-muted-foreground">
+                          {source.assertionCount} information{source.assertionCount > 1 ? "s" : ""} étayée{source.assertionCount > 1 ? "s" : ""}
+                        </p>
+                        {source.evidence[0] ? <p className="mt-1 line-clamp-2 text-foreground/80">« {source.evidence[0]} »</p> : null}
+                      </div>
+                    ))}
+                  </div>
+                </details>
               ) : null}
 
               {websiteImportWorkflow && "warnings" in websiteImportWorkflow && websiteImportWorkflow.warnings?.length ? (

@@ -182,6 +182,16 @@ export type WebsiteImportValue = OrganizerImportClaimValue;
 
 export type WebsiteImportFormatCandidate = FormatCandidate;
 
+export type WebsiteImportSourceAudit = {
+  sourceUrl: string | null;
+  title: string | null;
+  role: string;
+  roleLabel: string;
+  confidence: WebsiteImportConfidence;
+  evidence: string[];
+  assertionCount: number;
+};
+
 export type WebsiteImportDiscoveryWorkflow = {
   sessionId: string;
   step: "formats";
@@ -189,6 +199,7 @@ export type WebsiteImportDiscoveryWorkflow = {
   candidates: WebsiteImportFormatCandidate[];
   discoverySnapshot: unknown;
   discoverySignature: string;
+  sourceAudit?: WebsiteImportSourceAudit[];
   warnings?: string[];
 };
 

@@ -48,6 +48,7 @@ describe("/api/organizer/events/[id]", () => {
           is_live: false,
           organizer_details: {
             officialWebsiteUrl: "https://grand-trail.example",
+            emergencyContact: { name: "PC course", phone: "+33 6 12 34 56 78" },
             mandatoryEquipment: {
               weatherPlan: "cold",
               items: [{ id: "item-1", label: "Couverture de survie", required: true, cold: true, heat: false, note: null }],
@@ -92,6 +93,7 @@ describe("/api/organizer/events/[id]", () => {
       heat: false,
     });
     expect(payload.event.organizerDetails.officialWebsiteUrl).toBe("https://grand-trail.example");
+    expect(payload.event.organizerDetails.emergencyContact).toEqual({ name: "PC course", phone: "+33 6 12 34 56 78" });
     expect(payload.event.races[0].edition_group_id).toBe("33333333-3333-3333-3333-333333333333");
     expect(payload.event.races[0].external_site_url).toBe("https://grand-trail.example/42k");
     expect(payload.event.races[0].series_name).toBe("42K");
@@ -126,6 +128,7 @@ describe("/api/organizer/events/[id]", () => {
       organizerRequest({
         organizerDetails: {
           officialWebsiteUrl: "https://grand-trail.example",
+          emergencyContact: { name: "PC course", phone: "06 12 34 56 78" },
           mandatoryEquipment: {
             weatherPlan: "heat",
             items: [{ id: "item-1", label: "Casquette", required: false, cold: false, heat: true, note: null }],
@@ -141,6 +144,7 @@ describe("/api/organizer/events/[id]", () => {
     expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
       organizer_details: {
         officialWebsiteUrl: "https://grand-trail.example",
+        emergencyContact: { name: "PC course", phone: "06 12 34 56 78" },
         mandatoryEquipment: {
           weatherPlan: "heat",
           items: [{ label: "Casquette", required: false, cold: false, heat: true }],

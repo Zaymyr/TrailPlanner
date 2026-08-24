@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/lib/organizer-import-sessions.ts
+  - apps/web/lib/organizer-import-sessions.test.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/cron/organizer-import-cleanup/route.ts
 related_tables:
@@ -74,6 +75,7 @@ The two mutation RPCs are `SECURITY INVOKER`, have `search_path = ''`, revoke ex
 ## Business Invariants
 
 - A session cannot outlive its cleanup deadline for confirmation or apply.
+- `source_manifest.additionalUrls` stores supplemental official evidence pages without asserting that they are format pages. Grounded event claims and named-format claims from the bounded source-intelligence pass are signed into `discovery_snapshot` and reused for enrichment, avoiding a second LLM extraction call.
 - Confirmation is accepted only from `discovered`; apply is accepted only from `formats_confirmed` or `fields_analyzed`.
 - A race patch can target only a `raceId` recorded in the session's `confirmed_formats` and still attached to its event/edition.
 - Unknown JSON keys, duplicate targets, invalid types, and over-limit arrays reject the entire RPC transaction.
@@ -104,6 +106,7 @@ order by expires_at;
 ## Gotchas
 
 - Do not expose session snapshots through direct authenticated Data API grants.
+- New `source_manifest` JSON uses `additionalUrls`. The server parser still accepts legacy rows containing only `formatUrls`, normalizes them to `additionalUrls`, and never exposes the legacy key in its parsed result.
 - Parse session `timestamptz` values with ISO offset support: PostgREST may serialize UTC as `+00:00` instead of `Z`.
 - Do not accept client-provided database values outside the RPC allowlists.
 - Do not delete expired rows before their temporary Storage objects have been removed.

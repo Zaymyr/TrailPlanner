@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -29,6 +29,9 @@ related_files:
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/locales/types.ts
+  - apps/mobile/locales/fr.ts
+  - apps/mobile/locales/en.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/lib/webApi.ts
@@ -124,6 +127,7 @@ The layout also tracks auth analytics for signed-in and signed-out events.
 Required onboarding is registered as a non-tab screen in the app layout and hides the bottom tab bar until completion or an explicit confirmed skip. Setup steps expose a compact header skip action, while the final notification screen keeps its existing skip-step control; both normal completion and skipping persist `user_profiles.onboarding_completed_at` before the flow exits, while the gate retains legacy profile/favorite fallbacks.
 Catalog and onboarding race event rows share `apps/mobile/components/race/RaceEventSummaryCard.tsx` so the onboarding race choice uses the same event-card UX as the Courses tab.
 The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of always snapping to the default `plans` tab when a hidden detail route was pushed.
+The visible bottom tab bar derives its bottom padding and total height from `react-native-safe-area-context`. This keeps the four tab actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS.
 Organizer update pushes deep-link into the catalog with `eventId`, `updateId`, and an optional `raceId`. The catalog reopens the event sheet, loads an older targeted message when it is outside the preview, places that message first, and highlights the concerned format.
 Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTitle.tsx` with explicit title-container insets from `apps/mobile/app/(app)/_layout.tsx`. When a screen adds extra header actions, keep enough right inset for those icons so long French titles truncate cleanly instead of overlapping the header buttons on narrow iPhones.
 
@@ -188,9 +192,10 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - Hidden mobile detail headers should prefer one-line truncation over wrapping when the screen also shows custom left/right header actions; otherwise long French titles can overlap icons on compact iPhone widths.
 - Keep the tab navigator on history-based back behavior. Switching it back to `initialRoute` makes Android hardware back jump to `plans` from hidden plan/race detail screens instead of popping to the real previous screen.
+- Keep the visible tab bar height and bottom padding derived from the bottom safe-area inset. A fixed height can place the tab actions underneath Android's three-button system navigation area.
 - The mobile catalog has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details`: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. The entry point requires both course `is_live` and `racebook_is_live`, plus meaningful non-ravito organizer content; aid stations alone are not enough.
 - The mobile Racebook also parses additive geocoded organizer metadata for event/format, every structured bib-pickup location, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually. The `Dossard` tab groups pickup information by location, then by day; multiple time ranges on the same day are stacked below one localized short weekday/day/month label, with locale-specific hour formatting (`Ven. 4 sept.` and `10h00 – 12h00` in French). Legacy single-location/free-text schedules remain readable.
-- The mobile Racebook uses a compact identity card for event/format identity, event date range, optional distinct format date, location, runner information, and services; distance, D+, D-, and start-time metric pills are intentionally omitted from this synthesis. Its four read-only tabs are `Matériel`, `Dossard`, `Course`, and `Accès`: `Course` owns the start time in a light-green important-information row, finish-cutoff constraints in a critical row, the interactive GPX map, elevation profile, and aid stations; `Accès` owns linked start/finish locations plus parking, shuttles, road restrictions, map links, and access notes. Pulling down anywhere on the screen reloads the Racebook, profile, and route data while preserving the last successful content if that refresh fails.
+- The mobile Racebook uses a compact identity card for event/format identity, event date range, optional distinct format date, location, and runner information; distance, D+, D-, and start-time metric pills are intentionally omitted from this synthesis. Its four permanent read-only tabs are `Matériel`, `Dossard`, `Course`, and `Accès`, plus a fifth `Services` tab only when event service details exist. `Course` owns the start time in a light-green important-information row, finish-cutoff constraints in a critical row, the interactive GPX map, elevation profile, and aid stations; `Accès` owns linked start/finish locations plus parking, shuttles, road restrictions, map links, and access notes. A populated parking value remains runner-visible even when the format-level parking flag is false. When published, an event official website appears as a compact globe action in the native header beside feedback, and an emergency phone appears in a dedicated card whose number opens the platform phone app through `tel:`. Pulling down anywhere on the screen reloads the Racebook, profile, and route data while preserving the last successful content if that refresh fails.
 - Keep shared race-event display changes in `RaceEventSummaryCard.tsx` so catalog and onboarding do not drift visually.
 - Keep onboarding skip durable: write `user_profiles.onboarding_completed_at` before routing away, and retain the legacy durable-data fallback for profiles onboarded before the marker existed.
 - Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
@@ -206,6 +211,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
 - Keep `@react-native-google-signin/google-signin` excluded from iOS in both `apps/mobile/package.json` and `apps/mobile/react-native.config.js`, and keep it out of `apps/mobile/app.config.ts` plugins unless native Google Sign-In is intentionally enabled on iOS; otherwise `GoogleSignIn` can both pull `AppCheckCore` back into the iOS pod graph and trigger a Fabric launch crash from a partially registered `RNGoogleSignInButton` component.
 - Keep the mobile Racebook read-only. A course may remain in the catalog while its Racebook is hidden; both the catalog CTA and direct screen load must enforce `racebook_is_live = true` in addition to the existing live/content checks. It must not import organizer dashboard mutation logic or admin routes. The existing identity, four-tab, map, equipment, bib, course, access, and ravito presentation contract remains unchanged.
+- Keep the Racebook website and emergency actions conditional on parsed event JSON. Never construct a site link from unvalidated free text, and strip phone formatting before opening the `tel:` URL while preserving the organizer-facing display value.
 
 ## Related Docs
 

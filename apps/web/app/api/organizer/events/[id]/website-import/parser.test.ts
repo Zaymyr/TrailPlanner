@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
+  buildOrganizerWebsiteImportAnalysis,
   buildOrganizerWebsiteImportPreview,
   computeOrganizerWebsiteImportPreviewHash,
 } from "../../../../../../lib/organizer-website-import";
@@ -681,5 +682,62 @@ describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
     });
     expect(preview.races[0].assessment?.findings.find((finding) => finding.key === "aidStations")?.value).toContain("8 km");
     expect(preview.warnings.some((warning) => warning.includes("2025"))).toBe(true);
+  });
+
+  it("loads supplemental official URLs as classified source documents without making them authoritative formats", async () => {
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://sources.example/event") {
+        return htmlResponse(`
+          <html><head><title>Trail des Sources</title></head><body>
+            <p>Dimanche 4 octobre 2026</p>
+            <div role="tab" aria-controls="format-25">Source 25</div>
+            <div role="tabpanel" id="format-25"><p>25 km</p><p>900 m D+</p></div>
+          </body></html>
+        `);
+      }
+      if (url === "https://registration.example/inscriptions") {
+        return htmlResponse(`
+          <html><head><title>Inscriptions officielles</title></head><body>
+            <p>Inscriptions avant le 20 septembre 2026.</p>
+            <p>Retrait des dossards samedi de 16h a 19h.</p>
+          </body></html>
+        `);
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const analysis = await buildOrganizerWebsiteImportAnalysis("https://sources.example/event", {
+      additionalUrls: ["https://registration.example/inscriptions"],
+    });
+
+    expect(analysis.preview.races).toHaveLength(0);
+    expect(analysis.sourceDocuments).toEqual([
+      expect.objectContaining({ url: "https://sources.example/event", isPrimary: true, discovery: "primary" }),
+      expect.objectContaining({
+        url: "https://registration.example/inscriptions",
+        isPrimary: false,
+        discovery: "additional",
+      }),
+    ]);
+  });
+
+  it("keeps all twelve explicitly supplied official sources within the bounded crawl", async () => {
+    const additionalUrls = Array.from({ length: 12 }, (_, index) => `https://sources.example/officielle-${index + 1}`);
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://sources.example/evenement") {
+        return htmlResponse("<html><head><title>Trail des Sources</title></head><body>Edition 2026</body></html>");
+      }
+      if (additionalUrls.includes(url)) {
+        return htmlResponse(`<html><head><title>Source ${url.split("-").at(-1)}</title></head><body>Information officielle.</body></html>`);
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const analysis = await buildOrganizerWebsiteImportAnalysis("https://sources.example/evenement", { additionalUrls });
+
+    expect(analysis.sourceDocuments).toHaveLength(13);
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(13);
   });
 });

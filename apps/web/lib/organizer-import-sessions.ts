@@ -22,9 +22,13 @@ const temporaryDocumentSchema = z.object({
 
 export const organizerImportSourceManifestSchema = z.object({
   url: z.string().url().or(z.literal("")),
-  formatUrls: z.array(z.string().url()).default([]),
+  additionalUrls: z.array(z.string().url()).optional(),
+  formatUrls: z.array(z.string().url()).optional(),
   documents: z.array(temporaryDocumentSchema).default([]),
-});
+}).transform(({ additionalUrls, formatUrls, ...manifest }) => ({
+  ...manifest,
+  additionalUrls: additionalUrls ?? formatUrls ?? [],
+}));
 
 export const organizerImportSessionSchema = z.object({
   id: z.string().uuid(),

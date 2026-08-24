@@ -87,6 +87,11 @@ type OrganizerRunnerInfoDetails = {
 };
 
 type OrganizerEventDetails = {
+  officialWebsiteUrl: string | null;
+  emergencyContact: {
+    name: string | null;
+    phone: string | null;
+  };
   dateRange: {
     endDate: string | null;
   };
@@ -254,6 +259,11 @@ const DEFAULT_RUNNER_INFO: OrganizerRunnerInfoDetails = {
 };
 
 const DEFAULT_EVENT_DETAILS: OrganizerEventDetails = {
+  officialWebsiteUrl: null,
+  emergencyContact: {
+    name: null,
+    phone: null,
+  },
   dateRange: {
     endDate: null,
   },
@@ -445,8 +455,14 @@ function parseRunnerInfoDetails(value: unknown): OrganizerRunnerInfoDetails {
 function parseEventDetails(value: unknown): OrganizerEventDetails {
   const record = readRecord(value);
   const dateRange = readRecord(record.dateRange);
+  const emergencyContact = readRecord(record.emergencyContact);
 
   return {
+    officialWebsiteUrl: readText(record.officialWebsiteUrl),
+    emergencyContact: {
+      name: readText(emergencyContact.name),
+      phone: readText(emergencyContact.phone),
+    },
     dateRange: {
       endDate: readText(dateRange.endDate),
     },
@@ -526,7 +542,7 @@ function hasAccessContent(details: OrganizerAccessDetails): boolean {
   return hasAnyText([
     details.startAddress,
     details.finishAddress,
-    details.enabledSections.officialParkings ? details.officialParkings : null,
+    details.officialParkings,
     details.enabledSections.shuttles ? details.shuttles : null,
     details.enabledSections.shuttles ? details.shuttleSchedule : null,
     details.enabledSections.roadRestrictions ? details.roadRestrictions : null,
@@ -675,7 +691,10 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
 
 function hasOrganizerContent(eventDetails: OrganizerEventDetails, raceDetails: OrganizerRaceDetails): boolean {
   return (
-    hasAnyText([eventDetails.dateRange.endDate]) ||
+    hasAnyText([
+      eventDetails.dateRange.endDate,
+      eventDetails.emergencyContact.phone,
+    ]) ||
     hasLocationContent(eventDetails.eventLocation) ||
     hasLocationContent(raceDetails.raceLocation) ||
     hasEquipmentContent(eventDetails.mandatoryEquipment) ||

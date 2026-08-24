@@ -7,6 +7,7 @@ const eventId = "11111111-1111-1111-1111-111111111111";
 
 const organizerMocks = vi.hoisted(() => ({
   buildPreview: vi.fn(),
+  sourceDocuments: [] as Array<{ url: string; title: string | null; text: string; isPrimary: boolean; discovery: string }>,
 }));
 
 const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) =>
@@ -30,6 +31,7 @@ vi.mock("server-only", () => ({}));
 describe("/api/organizer/events/[id]/website-import preview", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    organizerMocks.sourceDocuments = [];
     organizerMocks.buildPreview.mockResolvedValue({
       source: { provider: "utmb", url: "https://utmb.world/races/example", label: "UTMB" },
       event: {
@@ -173,6 +175,7 @@ describe("/api/organizer/events/[id]/website-import preview", () => {
 describe("/api/organizer/events/[id]/website-import apply", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    organizerMocks.sourceDocuments = [];
     organizerMocks.buildPreview.mockResolvedValue({
       source: { provider: "generic", url: "https://example.com/race", label: "Site detecte" },
       event: {
@@ -485,6 +488,7 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
 
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    organizerMocks.sourceDocuments = [];
     organizerMocks.buildPreview.mockResolvedValue({
       source: { provider: "utmb", url: "https://utmb.world/races/example", label: "UTMB" },
       event: {
@@ -622,11 +626,18 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
       throw new Error(`Unexpected fetch: ${init?.method ?? "GET"} ${url}`);
     });
 
+    organizerMocks.sourceDocuments = [{
+      url: "https://registration.example/inscriptions",
+      title: "Inscriptions officielles",
+      text: "Inscriptions ouvertes. Tarif 60 euros. Retrait des dossards samedi de 16h a 19h.",
+      isPrimary: false,
+      discovery: "additional",
+    }];
     const discoveryResponse = await POST(importRequest({
       action: "discover-formats",
       editionId,
       url: "https://utmb.world/races/example",
-      formatUrls: [],
+      additionalUrls: ["https://registration.example/inscriptions"],
       documents: [],
     }), { params: { id: eventId } });
     const discovery = await discoveryResponse.json();
@@ -636,6 +647,15 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
       candidateKey: "race:42k",
       completeness: { missingRequiredFields: [] },
     });
+    expect(discovery.workflow.sourceAudit).toEqual([
+      expect.objectContaining({
+        sourceUrl: "https://registration.example/inscriptions",
+        role: "registration",
+        roleLabel: "inscriptions",
+        confidence: "high",
+        assertionCount: 0,
+      }),
+    ]);
 
     const tamperedSnapshot = {
       ...discovery.workflow.discoverySnapshot,
@@ -717,6 +737,10 @@ vi.mock("../../../../../../lib/organizer-website-import", async () => {
   return {
     ...original,
     buildOrganizerWebsiteImportPreview: organizerMocks.buildPreview,
+    buildOrganizerWebsiteImportAnalysis: async (...args: Parameters<typeof organizerMocks.buildPreview>) => ({
+      preview: await organizerMocks.buildPreview(...args),
+      sourceDocuments: organizerMocks.sourceDocuments,
+    }),
   };
 });
 
