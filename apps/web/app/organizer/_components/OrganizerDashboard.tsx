@@ -2093,137 +2093,6 @@ export function OrganizerDashboard({
 
             {websiteImportError ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{websiteImportError}</p> : null}
 
-            {websiteImportPreview?.documents?.length ? (
-              <div className="space-y-2 rounded-md border border-border/60 bg-muted/20 p-3">
-                <p className="text-sm font-medium text-foreground">Documents analysés</p>
-                {websiteImportPreview.documents.map((document) => (
-                  <div key={document.sourceId} className="space-y-2 text-xs">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-foreground">{document.fileName}</span>
-                      <span className="text-muted-foreground">
-                        {document.status === "extracted" ? `${document.pageCount ?? 0} page(s), texte extrait` : document.message ?? "OCR en attente"}
-                      </span>
-                    </div>
-                    {document.findings.length > 0 ? (
-                      <div className="space-y-1 border-l-2 border-brand/40 pl-3 text-muted-foreground">
-                        <p className="font-medium text-foreground">Observations à confirmer</p>
-                        {document.findings.map((finding, index) => (
-                          <div key={`${document.sourceId}-${finding.field}-${index}`}>
-                            <p>
-                              {finding.formatHint ? `${finding.formatHint} : ` : ""}{finding.value} <span className="text-amber-700">({finding.confidence})</span>
-                            </p>
-                            {finding.comparison.status !== "unverified" ? (
-                              <p className={finding.comparison.status === "conflict" ? "text-red-700" : "text-emerald-700"}>
-                                  {finding.comparison.status === "conflict"
-                                  ? "Différente, validation requise"
-                                  : finding.comparison.status === "fill-missing"
-                                    ? "Champ non renseigné, proposition disponible"
-                                    : finding.comparison.status === "same"
-                                      ? "Identique à la valeur actuelle"
-                                      : "Concordante"}
-                                {finding.comparison.comparedValue ? ` : ${finding.comparison.comparedValue}` : ""}
-                              </p>
-                            ) : null}
-                            {finding.alternatives.length > 0 ? (
-                              <p className="text-amber-700">Conflit : {finding.alternatives.map((alternative) => alternative.value).join(" / ")}</p>
-                            ) : null}
-                          </div>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {websiteImportPreview?.reconciliation ? (
-              <div className="space-y-3 rounded-md border border-brand/30 bg-brand/5 p-3 text-sm">
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="font-medium text-foreground">Réconciliation LLM</p>
-                    <p className="mt-1 text-muted-foreground">{websiteImportPreview.reconciliation.message}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{websiteImportPreview.reconciliation.summary}</p>
-                  </div>
-                  <span
-                    className={`rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                      websiteImportPreview.reconciliation.status === "completed"
-                        ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                        : websiteImportPreview.reconciliation.status === "failed"
-                          ? "border-red-300 bg-red-50 text-red-800"
-                          : "border-amber-300 bg-amber-50 text-amber-800"
-                    }`}
-                  >
-                    {websiteImportPreview.reconciliation.status === "completed"
-                      ? "Analyse terminée"
-                      : websiteImportPreview.reconciliation.status === "failed"
-                        ? "Analyse en échec"
-                        : "Analyse non exécutée"}
-                  </span>
-                </div>
-                {websiteImportPreview.reconciliation.raceMatches.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">Aucun rapprochement LLM n’est disponible. Les choix d’import restent entièrement manuels.</p>
-                ) : null}
-                {websiteImportPreview.reconciliation.raceMatches.map((match) => {
-                  const race = websiteImportPreview.races.find((candidate) => candidate.key === match.previewRaceKey);
-                  const target = eventDetail?.races.find((candidate) => candidate.id === match.targetRaceId);
-                  const tone =
-                    match.confidence === "high"
-                      ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                      : match.confidence === "medium"
-                        ? "border-amber-300 bg-amber-50 text-amber-800"
-                        : "border-red-300 bg-red-50 text-red-800";
-                  return (
-                    <div key={match.previewRaceKey} className="rounded-md border border-border/60 bg-card p-3 text-xs">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <p className="font-medium text-foreground">{race?.name ?? match.previewRaceKey}</p>
-                        <span className={`rounded-full border px-2 py-0.5 font-semibold ${tone}`}>
-                          {match.decision === "match" ? "Rapprochement" : match.decision === "separate" ? "Format distinct" : "À vérifier"} · {match.confidence}
-                        </span>
-                      </div>
-                      <p className="mt-2 text-muted-foreground">{match.rationale}</p>
-                      {target ? <p className="mt-1 text-foreground">Cible proposée : {target.name}</p> : null}
-                      {match.evidence.length > 0 ? <p className="mt-1 text-muted-foreground">Preuves : {match.evidence.join(" · ")}</p> : null}
-                      {match.fieldChanges.length > 0 ? (
-                        <div className="mt-3 space-y-2 border-t border-border/60 pt-3">
-                          <p className="font-medium text-foreground">Effet proposé sur les données</p>
-                          {match.fieldChanges.map((change) => {
-                            const changeTone =
-                              change.action === "add"
-                                ? "border-emerald-300 bg-emerald-50 text-emerald-800"
-                                : change.action === "replace"
-                                  ? "border-amber-300 bg-amber-50 text-amber-800"
-                                  : change.action === "keep"
-                                    ? "border-sky-300 bg-sky-50 text-sky-800"
-                                    : "border-red-300 bg-red-50 text-red-800";
-                            const label =
-                              change.action === "add"
-                                ? "Ajout"
-                                : change.action === "replace"
-                                  ? "Remplacement proposé"
-                                  : change.action === "keep"
-                                    ? "Valeur conservée"
-                                    : "À décider";
-                            return (
-                              <div key={`${match.previewRaceKey}-${change.field}`} className="rounded-md border border-border/60 bg-background p-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <p className="font-medium text-foreground">{change.field}</p>
-                                  <span className={`rounded-full border px-2 py-0.5 font-semibold ${changeTone}`}>{label}</span>
-                                </div>
-                                {change.currentValue ? <p className="mt-1 text-muted-foreground">Actuel : {change.currentValue}</p> : null}
-                                {change.importedValue ? <p className="mt-1 text-foreground">Importé : {change.importedValue}</p> : null}
-                                <p className="mt-1 text-muted-foreground">{change.rationale}</p>
-                                {change.evidence.length > 0 ? <p className="mt-1 text-muted-foreground">Preuves : {change.evidence.join(" · ")}</p> : null}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : null}
-                    </div>
-                  );
-                })}
-              </div>
-            ) : null}
-
             {websiteImportPreview ? (
               <div className="space-y-4 rounded-md border border-border/70 bg-background/70 p-4">
                 <div className="space-y-2">
@@ -2260,38 +2129,20 @@ export function OrganizerDashboard({
                   {websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ||
                   websiteImportPreview.event.logistics.startAddress ||
                   websiteImportPreview.event.logistics.shuttles ||
-                  websiteImportPreview.event.logistics.officialParkings ? (
-                    <div className="grid gap-2 text-xs text-foreground sm:grid-cols-2">
-                      {websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ? (
-                        <div className="rounded-md border border-border/60 bg-card p-3">
-                          <p className="font-medium">Materiel detecte</p>
-                          <p className="mt-1 text-muted-foreground">{websiteImportPreview.event.logistics.mandatoryEquipment.join(" · ")}</p>
-                        </div>
-                      ) : null}
-                      {websiteImportPreview.event.logistics.startAddress ? (
-                        <div className="rounded-md border border-border/60 bg-card p-3">
-                          <p className="font-medium">Lieu de depart</p>
-                          <p className="mt-1 text-muted-foreground">{websiteImportPreview.event.logistics.startAddress}</p>
-                        </div>
-                      ) : null}
-                      {websiteImportPreview.event.logistics.shuttles ? (
-                        <div className="rounded-md border border-border/60 bg-card p-3">
-                          <p className="font-medium">Navettes</p>
-                          <p className="mt-1 whitespace-pre-line text-muted-foreground">{websiteImportPreview.event.logistics.shuttles}</p>
-                        </div>
-                      ) : null}
-                      {websiteImportPreview.event.logistics.officialParkings ? (
-                        <div className="rounded-md border border-border/60 bg-card p-3">
-                          <p className="font-medium">Parkings</p>
-                          <p className="mt-1 whitespace-pre-line text-muted-foreground">{websiteImportPreview.event.logistics.officialParkings}</p>
-                        </div>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {websiteImportPreview.warnings.length > 0 ? (
-                    <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-xs text-amber-800">
-                      {websiteImportPreview.warnings.join(" ")}
-                    </div>
+                  websiteImportPreview.event.logistics.officialParkings ||
+                  websiteImportPreview.warnings.length > 0 ? (
+                    <details className="rounded-md border border-border/60 bg-card px-3 py-2 text-xs text-muted-foreground">
+                      <summary className="cursor-pointer font-medium text-foreground">
+                        Informations secondaires ({websiteImportPreview.warnings.length + (websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ? 1 : 0) + (websiteImportPreview.event.logistics.startAddress ? 1 : 0) + (websiteImportPreview.event.logistics.shuttles ? 1 : 0) + (websiteImportPreview.event.logistics.officialParkings ? 1 : 0)})
+                      </summary>
+                      <div className="mt-2 space-y-1">
+                        {websiteImportPreview.warnings.map((warning, index) => <p key={`${warning}-${index}`}>{warning}</p>)}
+                        {websiteImportPreview.event.logistics.mandatoryEquipment.length > 0 ? <p>Matériel : {websiteImportPreview.event.logistics.mandatoryEquipment.join(" · ")}</p> : null}
+                        {websiteImportPreview.event.logistics.startAddress ? <p>Départ : {websiteImportPreview.event.logistics.startAddress}</p> : null}
+                        {websiteImportPreview.event.logistics.shuttles ? <p>Navettes : {websiteImportPreview.event.logistics.shuttles}</p> : null}
+                        {websiteImportPreview.event.logistics.officialParkings ? <p>Parkings : {websiteImportPreview.event.logistics.officialParkings}</p> : null}
+                      </div>
+                    </details>
                   ) : null}
                 </div>
 
@@ -2299,7 +2150,7 @@ export function OrganizerDashboard({
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <div>
                       <p className="text-sm font-semibold text-foreground">Formats regroupés par distance</p>
-                      <p className="text-xs text-muted-foreground">Les informations trouvées sur plusieurs pages sont réunies dans le même format.</p>
+                      <p className="text-xs text-muted-foreground">Résumé des données détectées et des champs à compléter.</p>
                     </div>
                     {websiteImportDiscardedRaceCount > 0 ? (
                       <p className="text-xs text-muted-foreground">
@@ -2343,22 +2194,6 @@ export function OrganizerDashboard({
                             </div>
                           </div>
                         </div>
-                        <div
-                          className={`rounded-md border p-3 ${
-                            hasImportableGpx
-                              ? "border-emerald-300 bg-emerald-50 text-emerald-900"
-                              : "border-amber-300 bg-amber-50 text-amber-900"
-                          }`}
-                        >
-                          <p className="text-sm font-semibold">{hasImportableGpx ? "GPX récupéré" : "GPX manquant"}</p>
-                          <p className="mt-1 text-xs">
-                            {hasImportableGpx
-                              ? "Le tracé est importable. La distance, le D+ et le D− sont calculés depuis ce GPX."
-                              : race.hasReliableGpx
-                                ? "Des métriques fiables ont été trouvées, mais aucun fichier GPX importable n’a pu être récupéré. Ajoute-le manuellement si tu l’obtiens."
-                                : "Aucun fichier GPX ni aucune géométrie exploitable n’a été trouvé. Ajoute le GPX manuellement pour fiabiliser distance, D+ et D−."}
-                          </p>
-                        </div>
                         {race.assessment ? (
                           <div className="grid gap-3 lg:grid-cols-2">
                             <div className="rounded-md border border-emerald-200 bg-emerald-50/60 p-3">
@@ -2366,7 +2201,7 @@ export function OrganizerDashboard({
                                 <p className="text-sm font-semibold text-emerald-900">Données trouvées</p>
                                 <p className="text-xs text-emerald-800">{foundFindings.length} champ(s)</p>
                               </div>
-                              <div className="mt-3 space-y-2">
+                              <div className="mt-3 space-y-1">
                                 {foundFindings.map((finding) => (
                                   <div key={finding.key} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
                                     <p className="font-medium text-foreground">{finding.label}</p>
@@ -2385,6 +2220,10 @@ export function OrganizerDashboard({
                                     </div>
                                   </div>
                                 ))}
+                                <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
+                                  <p className="font-medium text-foreground">GPX</p>
+                                  <span className={hasImportableGpx ? "text-emerald-700" : "text-amber-700"}>{hasImportableGpx ? "Récupéré" : "Manquant"}</span>
+                                </div>
                               </div>
                             </div>
                             <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3">
