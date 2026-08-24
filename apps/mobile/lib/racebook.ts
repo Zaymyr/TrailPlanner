@@ -307,6 +307,27 @@ function readText(value: unknown): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+export function normalizeOrganizerPhoneNumber(value: string): string {
+  const trimmed = value.trim();
+  let digits = trimmed.replace(/\D/g, '');
+
+  if (digits.startsWith('00')) digits = digits.slice(2);
+  if (digits.startsWith('330') && digits.length === 12) digits = `33${digits.slice(3)}`;
+  if (digits.startsWith('0') && digits.length === 10) digits = `33${digits.slice(1)}`;
+
+  if (digits.startsWith('33') && digits.length === 11) {
+    const nationalNumber = digits.slice(2);
+    return `+33 ${nationalNumber[0]} ${nationalNumber.slice(1).match(/.{1,2}/g)?.join(' ') ?? ''}`.trim();
+  }
+
+  if (trimmed.startsWith('+') || trimmed.startsWith('00')) {
+    return digits.length > 0 ? `+${digits}` : trimmed;
+  }
+
+  if (digits.length <= 4) return digits || trimmed;
+  return digits.length > 0 ? digits.replace(/(\d{2})(?=\d)/g, '$1 ').trim() : trimmed;
+}
+
 function readBoolean(value: unknown, fallback: boolean): boolean {
   return typeof value === 'boolean' ? value : fallback;
 }
@@ -456,12 +477,13 @@ function parseEventDetails(value: unknown): OrganizerEventDetails {
   const record = readRecord(value);
   const dateRange = readRecord(record.dateRange);
   const emergencyContact = readRecord(record.emergencyContact);
+  const emergencyPhone = readText(emergencyContact.phone);
 
   return {
     officialWebsiteUrl: readText(record.officialWebsiteUrl),
     emergencyContact: {
       name: readText(emergencyContact.name),
-      phone: readText(emergencyContact.phone),
+      phone: emergencyPhone ? normalizeOrganizerPhoneNumber(emergencyPhone) : null,
     },
     dateRange: {
       endDate: readText(dateRange.endDate),

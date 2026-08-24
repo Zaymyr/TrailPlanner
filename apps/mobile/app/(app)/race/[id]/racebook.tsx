@@ -8,10 +8,9 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
-import { FeedbackHeaderButton } from '../../../../components/feedback/FeedbackHeaderButton';
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
 import { Card } from '../../../../components/themed/Card';
@@ -933,26 +932,6 @@ export default function RaceRacebookScreen() {
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
-    <>
-      <Stack.Screen
-        options={{
-          headerRight: () => (
-            <FeedbackHeaderButton
-              contextLabel={t.catalog.racebookTitle}
-              leading={officialWebsiteUrl ? (
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={t.catalog.racebookOfficialWebsite}
-                  onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
-                  style={styles.headerIconButton}
-                >
-                  <Ionicons name="globe-outline" size={20} color={Colors.textPrimary} />
-                </Pressable>
-              ) : null}
-            />
-          ),
-        }}
-      />
       <ScrollView
         contentContainerStyle={styles.container}
         alwaysBounceVertical
@@ -1017,6 +996,50 @@ export default function RaceRacebookScreen() {
                   ) : null}
                 </View>
               </View>
+              {officialWebsiteUrl || (emergencyContact?.phone && emergencyTelephoneUrl) ? (
+                <View style={styles.heroQuickActions}>
+                  {officialWebsiteUrl ? (
+                    <Pressable
+                      accessibilityRole="link"
+                      accessibilityLabel={t.catalog.racebookOfficialWebsite}
+                      onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
+                      style={({ pressed }) => [styles.heroQuickAction, pressed && styles.heroQuickActionPressed]}
+                    >
+                      <Ionicons name="globe-outline" size={20} color={Colors.brandPrimary} />
+                      <Text style={styles.heroQuickActionLabel} numberOfLines={2}>
+                        {t.catalog.racebookOfficialWebsiteShort}
+                      </Text>
+                    </Pressable>
+                  ) : null}
+                  {emergencyContact?.phone && emergencyTelephoneUrl ? (
+                    <Pressable
+                      accessibilityRole="link"
+                      accessibilityLabel={t.catalog.racebookCallEmergency}
+                      onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
+                      style={({ pressed }) => [
+                        styles.heroQuickAction,
+                        styles.heroEmergencyAction,
+                        pressed && styles.heroQuickActionPressed,
+                      ]}
+                    >
+                      <Ionicons name="call-outline" size={20} color={Colors.danger} />
+                      <View style={styles.heroQuickActionText}>
+                        <Text style={[styles.heroQuickActionLabel, styles.heroEmergencyLabel]} numberOfLines={1}>
+                          {t.catalog.racebookEmergencyShort}
+                        </Text>
+                        {emergencyContact.name ? (
+                          <Text style={styles.heroQuickActionName} numberOfLines={1}>
+                            {emergencyContact.name}
+                          </Text>
+                        ) : null}
+                        <DataText style={styles.heroEmergencyPhone} numberOfLines={1}>
+                          {emergencyContact.phone}
+                        </DataText>
+                      </View>
+                    </Pressable>
+                  ) : null}
+                </View>
+              ) : null}
             </View>
 
             {runnerInfoLines.length > 0 ? <View style={styles.heroDivider} /> : null}
@@ -1029,28 +1052,6 @@ export default function RaceRacebookScreen() {
 
           {lastMinuteMessage ? (
             <InlineAlertCard icon="megaphone-outline" title={t.catalog.racebookLastMinuteTitle} message={lastMinuteMessage} />
-          ) : null}
-
-          {emergencyContact?.phone && emergencyTelephoneUrl ? (
-            <Card style={styles.emergencyCard}>
-              <View style={styles.emergencyHeader}>
-                <View style={styles.emergencyIconWrap}>
-                  <Ionicons name="call-outline" size={18} color={Colors.danger} />
-                </View>
-                <View style={styles.emergencyTextWrap}>
-                  <Text style={styles.emergencyTitle}>{t.catalog.racebookEmergencyContact}</Text>
-                  {emergencyContact.name ? <Text style={styles.emergencyName}>{emergencyContact.name}</Text> : null}
-                </View>
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={t.catalog.racebookCallEmergency}
-                  onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
-                  style={styles.emergencyCallButton}
-                >
-                  <DataText style={styles.emergencyPhone}>{emergencyContact.phone}</DataText>
-                </Pressable>
-              </View>
-            </Card>
           ) : null}
 
           <View style={styles.tabsWrap}>
@@ -1254,18 +1255,10 @@ export default function RaceRacebookScreen() {
         </>
       ) : null}
       </ScrollView>
-    </>
   );
 }
 
 const styles = StyleSheet.create({
-  headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   container: {
     padding: 16,
     paddingBottom: 32,
@@ -1358,59 +1351,71 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  emergencyCard: {
-    paddingHorizontal: 12,
-    paddingVertical: 11,
-    borderColor: Colors.danger,
-  },
-  emergencyHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  emergencyIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.dangerSurface,
-  },
-  emergencyTextWrap: {
-    flex: 1,
-    minWidth: 0,
-  },
-  emergencyTitle: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  emergencyName: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  emergencyCallButton: {
-    minHeight: 40,
-    justifyContent: 'center',
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    backgroundColor: Colors.dangerSurface,
-  },
-  emergencyPhone: {
-    color: Colors.danger,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   heroHeader: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'stretch',
     gap: 12,
+    minHeight: 132,
   },
   heroHeaderText: {
     flex: 1,
     minWidth: 0,
     gap: 4,
+  },
+  heroQuickActions: {
+    width: 136,
+    alignSelf: 'stretch',
+    gap: 8,
+  },
+  heroQuickAction: {
+    flex: 1,
+    minHeight: 58,
+    paddingHorizontal: 10,
+    paddingVertical: 9,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 5,
+  },
+  heroEmergencyAction: {
+    borderColor: '#EDB8B2',
+    backgroundColor: Colors.dangerSurface,
+  },
+  heroQuickActionPressed: {
+    opacity: 0.68,
+  },
+  heroQuickActionText: {
+    width: '100%',
+    alignItems: 'center',
+    gap: 1,
+  },
+  heroQuickActionLabel: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    lineHeight: 15,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  heroEmergencyLabel: {
+    color: Colors.danger,
+  },
+  heroQuickActionName: {
+    maxWidth: '100%',
+    color: Colors.textSecondary,
+    fontSize: 10,
+    lineHeight: 13,
+    textAlign: 'center',
+  },
+  heroEmergencyPhone: {
+    maxWidth: '100%',
+    color: Colors.danger,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   heroKicker: {
     color: Colors.brandPrimary,

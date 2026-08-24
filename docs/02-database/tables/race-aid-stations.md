@@ -132,7 +132,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Explicit import replacement is intentionally destructive to station identity and cascades linked `race_aid_station_products`. The review must disclose this; omitting `aidStations` preserves the rows and links.
 - Missing service flags from legacy reads should be treated as enabled to preserve old catalog behavior.
 - Missing `organizer_details` from legacy reads should be parsed as empty/default dashboard details, not treated as invalid station data.
-- The shared organizer-details parser also handles race equipment compatibility. Its tri-state override normalization is independent from station `organizer_details` and must not alter ravito rows.
+- The shared organizer-details parser also handles race equipment compatibility and event emergency-phone display normalization. Both behaviors are independent from station `organizer_details` and must not alter ravito rows.
 - The current organizer editor treats cumulative D+ / D- as GPX-derived metrics, not manual overrides; keep the preview interpolation contract aligned with saved station JSON.
 
 ## Related Docs
