@@ -14,6 +14,8 @@ related_files:
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/lib/supabase.ts
@@ -173,6 +175,8 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 - RLS is enabled, but direct `anon` and `authenticated` privileges are revoked.
 - Only `service_role` can select or mutate rows; organizer API routes first enforce active event membership.
 - The current-edition trigger mirrors dates into legacy event fields, but does not grant client access.
+- `delete_race_event_edition` is `SECURITY INVOKER`, revoked from `PUBLIC`, and executable only by `service_role`; the edition route checks active event membership before invoking it.
+- Because this project's default ACL grants function execution directly to API roles, the repair migration also revokes `anon` and `authenticated` explicitly from the deletion RPC and both trigger functions.
 
 `race_event_publication_requests`:
 
@@ -348,6 +352,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
 - Adding `onboarding_completed_at` does not broaden profile visibility or mutation rights; do not add a separate policy for this column while the row remains owner-scoped.
 - Adding Racebook publication columns does not grant organizer table access. Keep approval RPCs service-role-only and organizer visibility changes behind active event-membership checks.
+- Edition visibility/deletion adds no client grant. Keep both operations on the membership-checked server route and keep the deletion RPC invoker-security/service-role-only.
 - Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.
 - The cleanup cron must call the protected web route so Storage objects are removed before session rows. Never grant a database cleanup function direct delete access to `storage.objects`.
 

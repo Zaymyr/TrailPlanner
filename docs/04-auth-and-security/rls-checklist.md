@@ -10,6 +10,8 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/lib/supabase.ts
@@ -58,6 +60,7 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 8. Grant table privileges only when the RLS policy should be reachable by that role.
 9. Keep service-role access in Next.js server routes or Supabase functions only.
 10. Add or update a test/manual SQL check when policy behavior is non-trivial.
+11. For service-only destructive RPCs, prefer `SECURITY INVOKER`, revoke `PUBLIC`, grant only `service_role`, and keep the user-to-parent authorization check in the server route.
 11. When adding columns to an existing RLS-protected table, confirm the existing row policies still match the new data sensitivity.
 
 ## Correct Parent Policy Shape
@@ -95,6 +98,9 @@ Use:
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 
 ## Gotchas
+
+- `delete_race_event_edition` intentionally relies on the service role's existing table privileges while preserving invoker security. Do not convert it to `SECURITY DEFINER` or grant it directly to authenticated clients.
+- This project has direct default `EXECUTE` grants for `anon` and `authenticated`; for every new service-only function, revoke those roles explicitly in addition to `PUBLIC`, then verify with `has_function_privilege`.
 
 - Service role bypasses RLS, so passing a service-route test does not prove client RLS works.
 - `anon` grants are intentional for anonymous Supabase users only when policies still bind to `auth.uid()`.

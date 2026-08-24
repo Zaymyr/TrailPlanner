@@ -1296,6 +1296,100 @@ export function OrganizerDashboard({
     markDirty(moduleId);
   };
 
+  const setEditionVisibility = async (isVisible: boolean) => {
+    if (!accessToken || !selectedEventId || !activeEdition) return false;
+    if (!(await saveBeforeNavigation())) return false;
+
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/editions/${activeEdition.id}`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ isVisible }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        edition?: { id: string; is_visible: boolean };
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.edition) {
+        showToast("error", data?.message ?? "Impossible de modifier la visibilité de l’édition.");
+        return false;
+      }
+
+      const editionId = activeEdition.id;
+      setEventDetail((current) => current?.id === selectedEventId
+        ? {
+            ...current,
+            editions: (current.editions ?? []).map((edition) =>
+              edition.id === editionId ? { ...edition, is_visible: isVisible } : edition
+            ),
+            races: current.races.map((race) =>
+              race.edition_id === editionId
+                ? {
+                    ...race,
+                    is_live: isVisible && race.data_status !== "draft",
+                    racebook_is_live: isVisible ? race.racebook_is_live : false,
+                  }
+                : race
+            ),
+          }
+        : current
+      );
+      showToast(
+        "success",
+        isVisible
+          ? "Édition visible. Les Racebooks restent masqués jusqu’à leur republication."
+          : "Édition et Racebooks associés masqués."
+      );
+      return true;
+    } catch (caught) {
+      console.error("Unable to update organizer edition visibility", caught);
+      showToast("error", "Impossible de modifier la visibilité de l’édition.");
+      return false;
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const deleteSelectedEdition = async () => {
+    if (!accessToken || !selectedEventId || !activeEdition) return false;
+
+    const deletedEditionId = activeEdition.id;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/editions/${deletedEditionId}`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      const data = (await response.json().catch(() => null)) as {
+        selectedEditionYear?: number;
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.selectedEditionYear) {
+        showToast("error", data?.message ?? "Impossible de supprimer l’édition.");
+        return false;
+      }
+
+      const nextYear = String(data.selectedEditionYear);
+      setSelectedEditionYear(nextYear);
+      setActiveTab(EVENT_TAB_ID);
+      setActiveModule("event");
+      setDirtyModulesByScope({});
+      dirtyRevisionByScopeRef.current = {};
+      showToast("success", "Édition et formats associés supprimés définitivement.");
+      await loadEvent(selectedEventId, EVENT_TAB_ID, nextYear);
+      return true;
+    } catch (caught) {
+      console.error("Unable to delete organizer edition", caught);
+      showToast("error", "Impossible de supprimer l’édition.");
+      return false;
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   const updateAidStation = (index: number, station: AidStationDraft) => {
     const syncedStation = syncAidStationWithGpxPreview(station, gpxPreview);
     setAidStations((current) =>
@@ -1828,6 +1922,8 @@ export function OrganizerDashboard({
         onRacebookVisibilityChange={(raceId, isLive) => {
           void setRacebookVisibility(raceId, isLive);
         }}
+        onEditionVisibilityChange={setEditionVisibility}
+        onDeleteEdition={deleteSelectedEdition}
         onDeleteEvent={deleteSelectedEvent}
       />
 

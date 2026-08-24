@@ -86,6 +86,8 @@ related_files:
   - apps/web/app/api/organizer/claims/route.test.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/edition-requests/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/route.ts
+  - apps/web/app/api/organizer/editions/[id]/route.test.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
   - apps/web/app/api/organizer/publication-requests/route.test.ts
   - apps/web/app/api/organizer/publication-requests/readiness.test.ts
@@ -248,6 +250,8 @@ The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib
 ### Organizer Portal
 
 The organizer header also exposes `Importer les informations`. That flow posts to `/api/organizer/events/[id]/website-import`, reuses the existing UTMB / Trace de Trail import adapters when possible, and falls back to generic HTML/JSON-LD extraction. It is review-first in two passes: source discovery writes no race data; confirming the final format list atomically binds existing rows or creates hidden drafts; applying reviewed fields later enriches only that event and those confirmed formats. It must never create another event row or publish a Racebook automatically. Historical drafts are importable even after the normal edition edit window has elapsed.
+
+The Organizer edition header reads `race_event_editions.is_visible`, exposes one edition-wide visibility switch, and places a compact delete cross directly beside the year selector. `PATCH /api/organizer/editions/[id]` hides or restores complete course rows after active membership validation; hiding always forces attached Racebooks off. `DELETE` requires the client confirmation dialog to match the selected year, invokes the atomic service-only deletion RPC, cleans up format GPX/images, and returns the remaining year the dashboard should select.
 
 The post-analysis recap uses a viewport-bounded flex dialog: its header and validation actions stay fixed while the center review panel owns vertical scrolling. The flex display is explicitly prioritized because the shared `cn` helper concatenates utility classes and does not resolve a route-level `flex` against the dialog primitive's default `grid` class.
 

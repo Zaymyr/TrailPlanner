@@ -8,11 +8,15 @@ related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/organizer/events/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
+  - apps/web/app/api/organizer/editions/[id]/route.ts
+  - apps/web/app/api/organizer/editions/[id]/route.test.ts
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/lib/organizer-publication.ts
@@ -35,6 +39,7 @@ related_tables:
 - One event can have many yearly editions.
 - One edition owns one inclusive start/end date range.
 - At most one edition is current per event; legacy event-date reads and the admin event-wide switch target it, while a format-specific publication request targets the requested race's own edition.
+- Each edition has an independent catalog visibility state. Hiding one edition hides every attached course format and Racebook without hiding other years of the same event.
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 
@@ -49,15 +54,16 @@ related_tables:
 | `start_date` | `date` | non-null | Canonical first day of the edition. |
 | `end_date` | `date` | non-null, not before start | Canonical last day of the edition. |
 | `is_current` | `boolean` | one true row per event at most | Edition mirrored to legacy event date fields and used by event-wide admin publication controls. |
+| `is_visible` | `boolean` | non-null, default `true` | Whether complete attached formats may remain visible in course discovery. |
 
 `races.edition_id` is nullable only for legacy or undated rows. New organizer formats must provide it.
 
 ## Foreign Keys
 
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
-- `races.edition_id -> race_event_editions(id) on delete set null`
+- `races.edition_id -> race_event_editions(id) on delete cascade`
 
-Deleting an event removes its editions. Deleting an edition detaches formats without deleting them.
+Deleting an event removes its editions. Deleting an edition removes its formats and their cascading source children; saved plans keep their snapshots because `race_plans.race_id` becomes null. The service-only deletion RPC rejects deletion of the event's only edition and promotes the newest remaining edition when the deleted row was current.
 
 ## Indexes
 
@@ -68,7 +74,7 @@ Deleting an event removes its editions. Deleting an edition detaches formats wit
 
 ## RLS Policies
 
-RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only `service_role` receives table privileges. Organizer routes must first validate active `race_event_organizers` membership and then perform edition writes server-side.
+RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only `service_role` receives table privileges and execute access to the invoker-security deletion RPC. Organizer routes must first validate active `race_event_organizers` membership and then perform edition writes server-side.
 
 ## Business Invariants
 
@@ -79,6 +85,9 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - Changing the current edition or its range mirrors `start_date` to `race_events.race_date` and `end_date` to `race_events.organizer_details.dateRange.endDate` for legacy catalog/mobile consumers.
 - Format-specific publication readiness and first approval follow `race_event_publication_requests.race_id -> races.edition_id`, even when that edition is not current.
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
+- Editions start visible by default. Setting `is_visible = false` forces `is_live = false` and `racebook_is_live = false` on every attached format, including later writes. Setting it true restores catalog visibility only for complete formats and deliberately leaves Racebooks hidden for explicit republication.
+- `delete_race_event_edition(uuid)` is a `SECURITY INVOKER`, service-role-only transaction boundary. It cascades the edition's formats, import sessions, and targeted publication requests, then returns the replacement edition selected by the organizer UI.
+- Project default ACLs grant function execution directly to API roles, so the follow-up repair migration explicitly revokes `anon` and `authenticated` from all three new functions; revoking only `PUBLIC` is insufficient in this project.
 - An admin-only website-import preview that falls back to supplied roadbook documents remains review-only; LLM reconciliation can recommend format matches but cannot create or update an edition. Apply requires an unexpired signed proposal snapshot and an explicit target format inside the selected edition. Those 25 MB-per-file temporary Storage objects are deleted after extraction, and an edition changes only after explicit admin confirmation.
 - Two-pass import sessions reference one edition and verify it belongs to the selected event. New confirmed format drafts inherit this edition's `start_date`; field apply cannot target a format in another edition.
 - Dates extracted from classified additional URLs or documents remain review evidence. Source intelligence cannot change `edition_id`, and registration/result dates are not promoted into edition claims.
@@ -86,7 +95,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 ## Common Queries
 
 ```sql
-select id, edition_year, start_date, end_date, is_current
+select id, edition_year, start_date, end_date, is_current, is_visible
 from race_event_editions
 where event_id = :event_id
 order by start_date desc;
@@ -108,6 +117,8 @@ where ree.event_id = :event_id
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.
 - Do not require a source edition lookup when the organizer explicitly disables duplication; source formats are needed only for the cloning branch.
 - A cloned/new edition may be course-visible while every attached Racebook is hidden. Do not derive Racebook visibility from edition currentness or `races.is_live`.
+- Do not detach formats when deleting an edition. The cascade is intentional so no yearless organizer course survives a confirmed edition deletion.
+- Do not republish Racebooks when an edition becomes visible again; hiding is destructive to their live flag, not to their durable approval timestamp.
 - Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.
 
 ## Related Docs

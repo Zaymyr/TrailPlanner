@@ -1,7 +1,7 @@
 ---
 title: Supabase Edge Functions
 scope: integration
-last_verified: 2026-07-30
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/functions/push-register/index.ts
@@ -69,7 +69,7 @@ Shared implementation:
 - checks inactivity after roughly 72 hours;
 - checks unfinished plans after roughly 24 hours;
 - writes `push_notification_events` for send logging and dedupe.
-- uses the same French inactivity and unfinished-plan reminder wording as the mobile client.
+- uses the same French inactivity and unfinished-plan reminder wording as the mobile client, including typographic apostrophes in both titles.
 
 ## Cron Scheduling
 
@@ -94,6 +94,7 @@ Important names:
 - The Edge Function service role must not be exposed to clients.
 - Cron auth depends on Supabase Vault setup, not just SQL files.
 - Push dedupe behavior depends on `push_notification_events`; do not remove logging as "noise."
+- Keep French reminder copy and punctuation aligned with `apps/mobile/locales/fr.ts`; authenticated users receive the Edge Function copy while the mobile client schedules the local fallback.
 - The two cron migrations are related; the later one repairs auth behavior.
 
 ## Related Docs

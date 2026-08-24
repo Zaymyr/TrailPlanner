@@ -1038,7 +1038,11 @@ export default function RaceRacebookScreen() {
                     accessibilityRole="link"
                     accessibilityLabel={t.catalog.racebookOfficialWebsite}
                     onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
-                    style={({ pressed }) => [styles.heroQuickAction, pressed && styles.heroQuickActionPressed]}
+                    style={({ pressed }) => [
+                      styles.heroQuickAction,
+                      styles.heroWebsiteAction,
+                      pressed && styles.heroQuickActionPressed,
+                    ]}
                   >
                     <Ionicons name="globe-outline" size={20} color={Colors.brandPrimary} />
                     <Text style={styles.heroQuickActionLabel} numberOfLines={2}>
@@ -1062,11 +1066,23 @@ export default function RaceRacebookScreen() {
               >
                 <Ionicons name="call-outline" size={20} color={Colors.danger} />
                 <View style={styles.heroQuickActionText}>
-                  <Text style={[styles.heroQuickActionLabel, styles.heroEmergencyLabel]} numberOfLines={1}>
-                    {t.catalog.racebookEmergencyShort}
-                  </Text>
-                  {emergencyContact.name ? <Text style={styles.heroQuickActionName}>{emergencyContact.name}</Text> : null}
-                  <DataText style={styles.heroEmergencyPhone}>{emergencyContact.phone}</DataText>
+                  <View style={styles.heroEmergencyLine}>
+                    <Text style={[styles.heroQuickActionLabel, styles.heroEmergencyLabel]} numberOfLines={1}>
+                      {t.catalog.racebookEmergencyShort}
+                    </Text>
+                    {emergencyContact.name ? (
+                      <>
+                        <Text style={styles.heroEmergencySeparator}>-</Text>
+                        <Text style={styles.heroEmergencyName} numberOfLines={1}>
+                          {emergencyContact.name}
+                        </Text>
+                      </>
+                    ) : null}
+                    <Text style={styles.heroEmergencySeparator}>-</Text>
+                    <DataText style={styles.heroEmergencyPhone} numberOfLines={1}>
+                      {emergencyContact.phone}
+                    </DataText>
+                  </View>
                 </View>
               </Pressable>
             ) : null}
@@ -1366,8 +1382,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   heroCard: {
-    gap: 14,
-    padding: 18,
+    gap: 8,
+    paddingHorizontal: 18,
+    paddingTop: 12,
+    paddingBottom: 18,
   },
   alertCard: {
     gap: 8,
@@ -1411,7 +1429,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'stretch',
     gap: 12,
-    minHeight: 132,
   },
   heroHeaderText: {
     flex: 1,
@@ -1421,7 +1438,6 @@ const styles = StyleSheet.create({
   heroQuickActions: {
     width: 116,
     alignSelf: 'stretch',
-    justifyContent: 'center',
     gap: 8,
   },
   heroQuickAction: {
@@ -1436,9 +1452,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 5,
   },
+  heroWebsiteAction: {
+    flex: 1,
+  },
   heroEmergencyAction: {
     width: '100%',
-    minHeight: 64,
+    minHeight: 48,
     paddingHorizontal: 14,
     flexDirection: 'row',
     justifyContent: 'flex-start',
@@ -1453,7 +1472,13 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     alignItems: 'flex-start',
-    gap: 1,
+  },
+  heroEmergencyLine: {
+    width: '100%',
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   heroQuickActionLabel: {
     color: Colors.brandPrimary,
@@ -1466,15 +1491,21 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     textAlign: 'left',
   },
-  heroQuickActionName: {
-    maxWidth: '100%',
+  heroEmergencySeparator: {
+    flexShrink: 0,
+    color: Colors.danger,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  heroEmergencyName: {
+    flexShrink: 1,
+    minWidth: 0,
     color: Colors.textSecondary,
-    fontSize: 10,
-    lineHeight: 13,
-    textAlign: 'left',
+    fontSize: 11,
+    lineHeight: 15,
   },
   heroEmergencyPhone: {
-    maxWidth: '100%',
+    flexShrink: 0,
     color: Colors.danger,
     fontSize: 11,
     lineHeight: 14,

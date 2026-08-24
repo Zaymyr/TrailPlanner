@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { cn } from "../../../../components/utils";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
-import { buildEditionYearOptions, formatEventDateRange, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
+import { buildEditionYearOptions, formatEventDateRange, getEventEdition, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RaceFormat } from "./types";
 import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
 
@@ -119,6 +119,8 @@ export function OrganizerSummaryHeader({
   onNotifyFollowers,
   onRequestPublication,
   onRacebookVisibilityChange,
+  onEditionVisibilityChange,
+  onDeleteEdition,
   onDeleteEvent,
 }: {
   selectedMembership: MembershipRow | null;
@@ -143,31 +145,37 @@ export function OrganizerSummaryHeader({
   onNotifyFollowers: () => void;
   onRequestPublication: (raceId: string) => void;
   onRacebookVisibilityChange: (raceId: string, isLive: boolean) => void;
+  onEditionVisibilityChange: (isVisible: boolean) => Promise<boolean>;
+  onDeleteEdition: () => Promise<boolean>;
   onDeleteEvent: () => Promise<boolean>;
 }) {
   const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
   const [duplicatePreviousEdition, setDuplicatePreviousEdition] = React.useState(true);
   const [deleteEventDialogOpen, setDeleteEventDialogOpen] = React.useState(false);
   const [deleteEventConfirmation, setDeleteEventConfirmation] = React.useState("");
+  const [deleteEditionDialogOpen, setDeleteEditionDialogOpen] = React.useState(false);
+  const [deleteEditionConfirmation, setDeleteEditionConfirmation] = React.useState("");
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
-  const raceRows = groupRacesBySeries(event?.races ?? []).map((group) => {
-    const activeEdition =
-      group.races.find((race) => getRaceEditionYear(race, event?.editions) === selectedEditionYear) ??
-      group.races[0] ??
-      null;
-    const activeProgress = activeEdition ? raceProgress.find((entry) => entry.id === activeEdition.id)?.score ?? 0 : 0;
-    return {
+  const raceRows = groupRacesBySeries(event?.races ?? []).flatMap((group) => {
+    const activeEdition = group.races.find(
+      (race) => getRaceEditionYear(race, event?.editions) === selectedEditionYear
+    ) ?? null;
+    if (!activeEdition) return [];
+    const activeProgress = raceProgress.find((entry) => entry.id === activeEdition.id)?.score ?? 0;
+    return [{
       id: group.id,
       label: group.seriesName,
       score: activeProgress,
       activeEdition,
-    };
+    }];
   });
   const isLive = event?.is_live !== false;
   const publicationPending = publicationRequestStates.some((request) => request.status === "pending");
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
+  const selectedEdition = getEventEdition(event, selectedEditionYear);
+  const editionIsVisible = selectedEdition?.is_visible !== false;
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -228,7 +236,7 @@ export function OrganizerSummaryHeader({
       <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
         <span className="inline-flex items-center gap-2 font-semibold text-foreground">
           <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
-          {isLive ? "Course visible" : "Course masquée"}
+          {isLive ? "Événement visible" : "Événement masqué"}
         </span>
         <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
       </div>
@@ -237,22 +245,38 @@ export function OrganizerSummaryHeader({
         {editionYearOptions.length > 0 ? (
           <div className="rounded-md border border-border/60 bg-background/50 p-2.5">
             <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="min-w-[9rem] max-w-[12rem] flex-1">
+              <div className="min-w-[9rem] max-w-[15rem] flex-1">
                 <label htmlFor="organizer-event-edition-select" className="text-sm font-medium text-foreground">
                   Édition
                 </label>
-                <select
-                  id="organizer-event-edition-select"
-                  className="mt-1 h-9 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
-                  value={selectedEditionYear}
-                  onChange={(event) => onSelectedEditionYearChange(event.target.value)}
-                >
-                  {editionYearOptions.map((option) => (
-                    <option key={option.value} value={option.value} disabled={option.disabled}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
+                <div className="mt-1 flex items-center gap-1.5">
+                  <select
+                    id="organizer-event-edition-select"
+                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                    value={selectedEditionYear}
+                    onChange={(event) => onSelectedEditionYearChange(event.target.value)}
+                  >
+                    {editionYearOptions.map((option) => (
+                      <option key={option.value} value={option.value} disabled={option.disabled}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    aria-label={`Supprimer l’édition ${selectedEditionYear}`}
+                    title={`Supprimer l’édition ${selectedEditionYear}`}
+                    onClick={() => {
+                      setDeleteEditionConfirmation("");
+                      setDeleteEditionDialogOpen(true);
+                    }}
+                    disabled={!selectedEdition || status !== "idle"}
+                    className="h-9 w-9 shrink-0 px-0 text-xl leading-none text-red-700 hover:bg-red-50 hover:text-red-800"
+                  >
+                    ×
+                  </Button>
+                </div>
               </div>
               <Button
                 type="button"
@@ -273,9 +297,15 @@ export function OrganizerSummaryHeader({
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </span>
           <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
-          <span className={cn("rounded-full border px-3 py-1 text-xs font-semibold", isLive ? "border-emerald-300 bg-emerald-50 text-emerald-700" : "border-border bg-muted text-muted-foreground")}>
-            {isLive ? "Course visible" : "Course masquée"}
-          </span>
+          <LiveToggle
+            checked={editionIsVisible}
+            disabled={!selectedEdition || status !== "idle"}
+            onChange={(checked) => {
+              void onEditionVisibilityChange(checked);
+            }}
+            liveLabel="Édition visible"
+            draftLabel="Édition masquée"
+          />
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => {
@@ -295,7 +325,7 @@ export function OrganizerSummaryHeader({
               {race.activeEdition?.racebook_publication_approved_at ? (
                 <LiveToggle
                   checked={race.activeEdition.racebook_is_live === true}
-                  disabled={status !== "idle"}
+                  disabled={!editionIsVisible || status !== "idle"}
                   onChange={(checked) => onRacebookVisibilityChange(race.activeEdition!.id, checked)}
                   liveLabel="Racebook publié"
                   draftLabel="Racebook masqué"
@@ -303,9 +333,9 @@ export function OrganizerSummaryHeader({
               ) : (
                 <LiveToggle
                   checked={false}
-                  disabled={racePublicationPending || status !== "idle"}
+                  disabled={!editionIsVisible || racePublicationPending || status !== "idle"}
                   onChange={() => onRequestPublication(race.activeEdition!.id)}
-                  draftLabel={racePublicationPending ? "Demande en cours" : "Demander la publication"}
+                  draftLabel={!editionIsVisible ? "Édition masquée" : racePublicationPending ? "Demande en cours" : "Demander la publication"}
                 />
               )}
             </div>
@@ -394,6 +424,63 @@ export function OrganizerSummaryHeader({
               </Button>
               <Button type="submit" disabled={status !== "idle"}>
                 {status === "saving" ? "Création..." : "Créer l’édition"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={deleteEditionDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteEditionDialogOpen(open);
+          if (!open) setDeleteEditionConfirmation("");
+        }}
+      >
+        <DialogContent>
+          <form
+            className="grid gap-5"
+            onSubmit={(submitEvent) => {
+              submitEvent.preventDefault();
+              if (deleteEditionConfirmation !== selectedEditionYear) return;
+              void onDeleteEdition().then((deleted) => {
+                if (deleted) {
+                  setDeleteEditionDialogOpen(false);
+                  setDeleteEditionConfirmation("");
+                }
+              });
+            }}
+          >
+            <DialogHeader>
+              <DialogTitle>Supprimer définitivement l’édition {selectedEditionYear} ?</DialogTitle>
+              <DialogDescription>
+                Tous les formats de cette édition, leurs Racebooks, GPX et données organisateur seront supprimés. Les plans déjà créés resteront disponibles sans lien vers leur course source. Cette action est irréversible.
+              </DialogDescription>
+            </DialogHeader>
+            <div>
+              <label htmlFor="organizer-delete-edition-confirmation" className="text-sm font-medium text-foreground">
+                Tape « {selectedEditionYear} » pour confirmer
+              </label>
+              <input
+                id="organizer-delete-edition-confirmation"
+                type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                value={deleteEditionConfirmation}
+                onChange={(changeEvent) => setDeleteEditionConfirmation(changeEvent.target.value)}
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setDeleteEditionDialogOpen(false)} disabled={status !== "idle"}>
+                Annuler
+              </Button>
+              <Button
+                type="submit"
+                disabled={deleteEditionConfirmation !== selectedEditionYear || status !== "idle"}
+                className="!bg-red-600 !text-white hover:!bg-red-700"
+              >
+                {status === "saving" ? "Suppression..." : "Supprimer l’édition"}
               </Button>
             </DialogFooter>
           </form>

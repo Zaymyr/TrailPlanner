@@ -22,6 +22,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/lib/organizer-website-import.ts
   - apps/web/lib/organizer-import-engine.ts
   - apps/web/lib/organizer-import-proposals.ts
@@ -152,6 +153,8 @@ For a brand-new organizer format, the add-format dashboard also uses the shared 
 
 Creating an empty yearly edition from the organizer dialog does not create or copy a GPX. GPX cloning occurs only when the organizer keeps edition duplication enabled; a later format added to an empty edition follows the normal pending-file upload flow above.
 
+Confirmed edition deletion cascades its format rows in the database, then the membership-checked edition route removes each deleted format's private `race-gpx` object and public format image. Saved plans retain their copied plan GPX snapshots and lose only the source `race_id` link.
+
 For an existing format, a successful replacement also copies the exact returned parser values back into the active distance, D+, and D- form fields before and after the event refresh. The refresh keeps the format's edition year selected, so a stable race id does not leave the client form showing stale pre-import metrics while the `races` row already contains the new values.
 
 The organizer information-import review distinguishes a genuinely importable GPX from provider-backed metrics that have no recoverable file. Distance/D+/D- and GPX availability become separate source claims. A GPX can corroborate or supply metrics only after its format identity is unambiguous; distance proximity by itself must not attach an anonymous trace to a named candidate across pages. Additional official URLs are classified as evidence sources rather than asserted formats, so a route or kilometer mention from registration, results, logistics, or another incompatible role cannot establish GPX ownership. A confirmed format may remain an incomplete draft without any GPX.
@@ -189,6 +192,8 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 - Waypoint-only files produce a `waypoint` point source and limited route geometry.
 - Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.
 - Catalog GPX and plan GPX live in different buckets.
+- Edition deletion removes source GPX objects only after the database transaction succeeds; never delete saved `plan-gpx` snapshots with the source edition.
+- Cloned editions may share a format thumbnail URL. Before deleting a `race-images` object, the edition route checks whether another remaining format still references that exact public URL.
 - A Trace de Trail GPX rebuilt from page geometry is not guaranteed to preserve every metadata field from the provider's original file.
 - Organizer GPX replacement updates source race data only; saved plans remain snapshots.
 - Keep the active organizer form synchronized from the successful GPX response; reloading the event alone does not rerun race-form initialization when the active race id is unchanged.

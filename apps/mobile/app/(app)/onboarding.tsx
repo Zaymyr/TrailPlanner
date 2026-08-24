@@ -871,7 +871,7 @@ export default function OnboardingScreen() {
             location,
             race_date,
             thumbnail_url,
-            races (
+            races!inner (
               id,
               name,
               distance_km,
@@ -884,6 +884,7 @@ export default function OnboardingScreen() {
             )
           `)
           .eq('is_live', true)
+          .eq('races.is_live', true)
           .order('name'),
         supabase
           .from('races')

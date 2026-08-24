@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-08-20
+last_verified: 2026-08-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -45,6 +45,7 @@ related_tables:
 - `push_notification_events` proves delivery attempts, not whether a runner saw the message; do not use it as read state.
 - Deleting an announcement through the membership-checked organizer route cascades its receipts; no orphan read state should remain.
 - The mobile catalog keeps message bodies to a short preview but may fetch lightweight update id/event references so an older unread message still keeps the event-level badge visible.
+- Edition visibility filters catalog formats, not read receipts. A receipt remains event/update-owned even when its former target format is hidden or deleted.
 - The toast and list scroll after a confirmed favorite addition are independent of announcement visibility and must not create read receipts.
 - Racebook visibility has no effect on read receipts: announcements remain event-scoped and use parent event liveness, even when a particular format's Racebook is hidden.
 
