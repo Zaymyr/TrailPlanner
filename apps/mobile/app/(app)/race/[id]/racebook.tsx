@@ -325,16 +325,13 @@ function BibPickupLocationList({
 }) {
   return (
     <View style={styles.bibLocationList}>
-      {groups.map((group, locationIndex) => (
+      {groups.map((group) => (
         <View key={group.key} style={styles.bibLocationCard}>
           <View style={styles.bibLocationHeader}>
             <View style={styles.bibLocationIcon}>
               <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
             </View>
             <View style={styles.bibLocationTextWrap}>
-              <Text style={styles.bibLocationLabel}>
-                {groups.length > 1 ? `${locationLabel} ${locationIndex + 1}` : locationLabel}
-              </Text>
               {group.actionUrl ? (
                 <Pressable
                   accessibilityRole="link"
@@ -720,18 +717,26 @@ export default function RaceRacebookScreen() {
     ].filter((value): value is string => Boolean(value));
   }, [data]);
 
-  const servicesLines = useMemo(() => {
+  const serviceSections = useMemo(() => {
     if (!data) return [];
 
     return [
-      data.runnerDetails.services.supporters,
-      data.runnerDetails.services.accommodations,
-      data.runnerDetails.services.restaurants,
-      data.runnerDetails.services.recovery,
-      data.runnerDetails.services.partners,
-      data.runnerDetails.services.note,
-    ].filter((value): value is string => Boolean(value));
-  }, [data]);
+      { title: t.catalog.racebookServiceSupporters, value: data.runnerDetails.services.supporters },
+      { title: t.catalog.racebookServiceAccommodations, value: data.runnerDetails.services.accommodations },
+      { title: t.catalog.racebookServiceRestaurants, value: data.runnerDetails.services.restaurants },
+      { title: t.catalog.racebookServiceRecovery, value: data.runnerDetails.services.recovery },
+      { title: t.catalog.racebookServicePartners, value: data.runnerDetails.services.partners },
+      { title: t.catalog.racebookSectionAdditionalInfo, value: data.runnerDetails.services.note },
+    ].filter((section): section is { title: string; value: string } => Boolean(section.value));
+  }, [
+    data,
+    t.catalog.racebookSectionAdditionalInfo,
+    t.catalog.racebookServiceAccommodations,
+    t.catalog.racebookServicePartners,
+    t.catalog.racebookServiceRecovery,
+    t.catalog.racebookServiceRestaurants,
+    t.catalog.racebookServiceSupporters,
+  ]);
 
   const tabs = useMemo(() => {
     const availableTabs: Array<{ key: RacebookTabKey; label: string }> = [
@@ -741,13 +746,13 @@ export default function RaceRacebookScreen() {
       { key: 'access', label: t.catalog.racebookTabAccess },
     ];
 
-    if (servicesLines.length > 0) {
+    if (serviceSections.length > 0) {
       availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices });
     }
 
     return availableTabs;
   }, [
-    servicesLines.length,
+    serviceSections.length,
     t.catalog.racebookSectionServices,
     t.catalog.racebookTabAccess,
     t.catalog.racebookTabBib,
@@ -756,10 +761,10 @@ export default function RaceRacebookScreen() {
   ]);
 
   useEffect(() => {
-    if (activeTab === 'services' && servicesLines.length === 0) {
+    if (activeTab === 'services' && serviceSections.length === 0) {
       setActiveTab('gear');
     }
-  }, [activeTab, servicesLines.length]);
+  }, [activeTab, serviceSections.length]);
 
   const bibLocationGroups = useMemo(() => {
     if (!data) return [];
@@ -851,6 +856,35 @@ export default function RaceRacebookScreen() {
     );
   }, [data]);
 
+  const relaySegments = useMemo(() => {
+    if (!data || data.race.participationMode === null || data.race.participationMode === 'solo') return [];
+    const boundaries = [
+      { name: t.catalog.racebookMapStart, km: 0, handoverTime: null, cutoffTime: null, notes: null },
+      ...data.relayPoints.map((point) => ({
+        name: point.name,
+        km: point.km,
+        handoverTime: point.handoverTime,
+        cutoffTime: point.cutoffTime,
+        notes: point.notes,
+      })),
+      { name: t.catalog.racebookMapFinish, km: data.race.distanceKm, handoverTime: null, cutoffTime: null, notes: null },
+    ];
+
+    return boundaries.slice(0, -1).map((start, index) => ({
+      start,
+      end: boundaries[index + 1],
+      distanceKm: Math.max(0, boundaries[index + 1].km - start.km),
+    }));
+  }, [data, t.catalog.racebookMapFinish, t.catalog.racebookMapStart]);
+
+  const participationLabel = data?.race.participationMode === 'solo'
+    ? t.catalog.racebookParticipationSolo
+    : data?.race.participationMode === 'relay'
+      ? t.catalog.racebookParticipationRelay
+      : data?.race.participationMode === 'solo_and_relay'
+        ? t.catalog.racebookParticipationSoloAndRelay
+        : null;
+
   const accessSections = useMemo(() => {
     if (!data) return [];
 
@@ -928,6 +962,7 @@ export default function RaceRacebookScreen() {
     courseConstraintLines.length > 0 ||
     routePreviewPoints.length >= 2 ||
     elevationProfile.length >= 2 ||
+    relaySegments.length > 0 ||
     (data?.aidStations.length ?? 0) > 0;
   const unavailable = !loading && (!data || !data.canOpen);
 
@@ -994,53 +1029,47 @@ export default function RaceRacebookScreen() {
                       {`${t.catalog.racebookFieldFormatDate} · ${formattedRaceDate}`}
                     </Text>
                   ) : null}
+                  {participationLabel ? <Text style={styles.heroFormatDate}>{participationLabel}</Text> : null}
                 </View>
               </View>
-              {officialWebsiteUrl || (emergencyContact?.phone && emergencyTelephoneUrl) ? (
+              {officialWebsiteUrl ? (
                 <View style={styles.heroQuickActions}>
-                  {officialWebsiteUrl ? (
-                    <Pressable
-                      accessibilityRole="link"
-                      accessibilityLabel={t.catalog.racebookOfficialWebsite}
-                      onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
-                      style={({ pressed }) => [styles.heroQuickAction, pressed && styles.heroQuickActionPressed]}
-                    >
-                      <Ionicons name="globe-outline" size={20} color={Colors.brandPrimary} />
-                      <Text style={styles.heroQuickActionLabel} numberOfLines={2}>
-                        {t.catalog.racebookOfficialWebsiteShort}
-                      </Text>
-                    </Pressable>
-                  ) : null}
-                  {emergencyContact?.phone && emergencyTelephoneUrl ? (
-                    <Pressable
-                      accessibilityRole="link"
-                      accessibilityLabel={t.catalog.racebookCallEmergency}
-                      onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
-                      style={({ pressed }) => [
-                        styles.heroQuickAction,
-                        styles.heroEmergencyAction,
-                        pressed && styles.heroQuickActionPressed,
-                      ]}
-                    >
-                      <Ionicons name="call-outline" size={20} color={Colors.danger} />
-                      <View style={styles.heroQuickActionText}>
-                        <Text style={[styles.heroQuickActionLabel, styles.heroEmergencyLabel]} numberOfLines={1}>
-                          {t.catalog.racebookEmergencyShort}
-                        </Text>
-                        {emergencyContact.name ? (
-                          <Text style={styles.heroQuickActionName} numberOfLines={1}>
-                            {emergencyContact.name}
-                          </Text>
-                        ) : null}
-                        <DataText style={styles.heroEmergencyPhone} numberOfLines={1}>
-                          {emergencyContact.phone}
-                        </DataText>
-                      </View>
-                    </Pressable>
-                  ) : null}
+                  <Pressable
+                    accessibilityRole="link"
+                    accessibilityLabel={t.catalog.racebookOfficialWebsite}
+                    onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
+                    style={({ pressed }) => [styles.heroQuickAction, pressed && styles.heroQuickActionPressed]}
+                  >
+                    <Ionicons name="globe-outline" size={20} color={Colors.brandPrimary} />
+                    <Text style={styles.heroQuickActionLabel} numberOfLines={2}>
+                      {t.catalog.racebookOfficialWebsiteShort}
+                    </Text>
+                  </Pressable>
                 </View>
               ) : null}
             </View>
+
+            {emergencyContact?.phone && emergencyTelephoneUrl ? (
+              <Pressable
+                accessibilityRole="link"
+                accessibilityLabel={t.catalog.racebookCallEmergency}
+                onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
+                style={({ pressed }) => [
+                  styles.heroQuickAction,
+                  styles.heroEmergencyAction,
+                  pressed && styles.heroQuickActionPressed,
+                ]}
+              >
+                <Ionicons name="call-outline" size={20} color={Colors.danger} />
+                <View style={styles.heroQuickActionText}>
+                  <Text style={[styles.heroQuickActionLabel, styles.heroEmergencyLabel]} numberOfLines={1}>
+                    {t.catalog.racebookEmergencyShort}
+                  </Text>
+                  {emergencyContact.name ? <Text style={styles.heroQuickActionName}>{emergencyContact.name}</Text> : null}
+                  <DataText style={styles.heroEmergencyPhone}>{emergencyContact.phone}</DataText>
+                </View>
+              </Pressable>
+            ) : null}
 
             {runnerInfoLines.length > 0 ? <View style={styles.heroDivider} /> : null}
             {runnerInfoLines.length > 0 ? (
@@ -1192,6 +1221,31 @@ export default function RaceRacebookScreen() {
                   />
                 ) : null}
 
+                {relaySegments.length > 0 ? (
+                  <SectionCard title={t.catalog.racebookSectionRelay}>
+                    <View style={styles.relaySegmentsList}>
+                      {relaySegments.map((segment, index) => (
+                        <View key={`${segment.start.name}-${segment.end.name}-${index}`} style={styles.relaySegmentCard}>
+                          <View style={styles.relaySegmentHeader}>
+                            <Text style={styles.relaySegmentKicker}>
+                              {t.catalog.racebookRelayLeg.replace('{number}', String(index + 1))}
+                            </Text>
+                            <DataText style={styles.relaySegmentDistance}>{formatStationDistance(segment.distanceKm)}</DataText>
+                          </View>
+                          <Text style={styles.relaySegmentTitle}>{`${segment.start.name} → ${segment.end.name}`}</Text>
+                          {segment.end.handoverTime ? (
+                            <Text style={styles.relaySegmentMeta}>{`${t.catalog.racebookRelayHandoverTime} · ${segment.end.handoverTime}`}</Text>
+                          ) : null}
+                          {segment.end.cutoffTime ? (
+                            <Text style={styles.relaySegmentMeta}>{`${t.catalog.racebookAidCutoffTime} · ${segment.end.cutoffTime}`}</Text>
+                          ) : null}
+                          {segment.end.notes ? <Text style={styles.noteText}>{segment.end.notes}</Text> : null}
+                        </View>
+                      ))}
+                    </View>
+                  </SectionCard>
+                ) : null}
+
                 {data.aidStations.length > 0 ? (
                   <SectionCard title={t.catalog.racebookSectionAidStations}>
                     <View style={styles.aidStationsWrap}>
@@ -1247,9 +1301,11 @@ export default function RaceRacebookScreen() {
             ) : null}
 
             {activeTab === 'services' ? (
-              <SectionCard title={t.catalog.racebookSectionServices}>
-                <InfoList values={servicesLines} />
-              </SectionCard>
+              serviceSections.map((section) => (
+                <SectionCard key={section.title} title={section.title}>
+                  <Text style={styles.serviceText}>{section.value}</Text>
+                </SectionCard>
+              ))
             ) : null}
           </View>
         </>
@@ -1363,12 +1419,12 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroQuickActions: {
-    width: 136,
+    width: 116,
     alignSelf: 'stretch',
+    justifyContent: 'center',
     gap: 8,
   },
   heroQuickAction: {
-    flex: 1,
     minHeight: 58,
     paddingHorizontal: 10,
     paddingVertical: 9,
@@ -1381,6 +1437,12 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   heroEmergencyAction: {
+    width: '100%',
+    minHeight: 64,
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    gap: 10,
     borderColor: '#EDB8B2',
     backgroundColor: Colors.dangerSurface,
   },
@@ -1388,8 +1450,9 @@ const styles = StyleSheet.create({
     opacity: 0.68,
   },
   heroQuickActionText: {
-    width: '100%',
-    alignItems: 'center',
+    flex: 1,
+    minWidth: 0,
+    alignItems: 'flex-start',
     gap: 1,
   },
   heroQuickActionLabel: {
@@ -1401,13 +1464,14 @@ const styles = StyleSheet.create({
   },
   heroEmergencyLabel: {
     color: Colors.danger,
+    textAlign: 'left',
   },
   heroQuickActionName: {
     maxWidth: '100%',
     color: Colors.textSecondary,
     fontSize: 10,
     lineHeight: 13,
-    textAlign: 'center',
+    textAlign: 'left',
   },
   heroEmergencyPhone: {
     maxWidth: '100%',
@@ -1415,7 +1479,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
     fontWeight: '700',
-    textAlign: 'center',
+    textAlign: 'left',
   },
   heroKicker: {
     color: Colors.brandPrimary,
@@ -1502,6 +1566,11 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 15,
     fontWeight: '700',
+  },
+  serviceText: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   emptyText: {
     color: Colors.textSecondary,
@@ -1634,13 +1703,6 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
     gap: 3,
-  },
-  bibLocationLabel: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
   bibLocationAction: {
     alignSelf: 'stretch',
@@ -1803,6 +1865,44 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',
+  },
+  relaySegmentsList: {
+    gap: 10,
+  },
+  relaySegmentCard: {
+    gap: 6,
+    padding: 14,
+    borderRadius: 16,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  relaySegmentHeader: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  relaySegmentKicker: {
+    color: Colors.brandPrimary,
+    fontSize: 11,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+  },
+  relaySegmentDistance: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+  relaySegmentTitle: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  relaySegmentMeta: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    lineHeight: 17,
   },
   aidStationsWrap: {
     gap: 12,

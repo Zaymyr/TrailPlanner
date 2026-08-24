@@ -30,6 +30,7 @@ const createRaceSchema = z.object({
   raceDate: z.string().trim().min(1),
   thumbnailUrl: optionalTextOrNull,
   organizerDetails: organizerRaceDetailsSchema.optional(),
+  participationMode: z.enum(["solo", "relay", "solo_and_relay"]).optional().default("solo"),
 });
 
 const raceRowSchema = z.object({
@@ -49,6 +50,7 @@ const raceRowSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   is_live: z.boolean(),
+  participation_mode: z.enum(["solo", "relay", "solo_and_relay"]).nullable().optional(),
   racebook_is_live: z.boolean().default(false),
   racebook_publication_approved_at: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
@@ -81,6 +83,7 @@ const cloneSourceRaceSchema = z.object({
   bounds_max_lat: z.number().nullable().optional(),
   bounds_max_lng: z.number().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
+  participation_mode: z.enum(["solo", "relay", "solo_and_relay"]).nullable().optional(),
 });
 
 const cloneAidStationSchema = z.object({
@@ -100,6 +103,17 @@ const cloneAidStationProductSchema = z.object({
   race_aid_station_id: z.string().uuid(),
   notes: z.string().nullable().optional(),
   order_index: z.number(),
+});
+
+const cloneRelayPointSchema = z.object({
+  id: z.string().uuid(),
+  race_aid_station_id: z.string().uuid().nullable().optional(),
+  name: z.string(),
+  km: z.number(),
+  handover_time: z.string().nullable().optional(),
+  cutoff_time: z.string().nullable().optional(),
+  notes: z.string().nullable().optional(),
+  order_index: z.number().int(),
 });
 
 const deleteClonedRace = async (serviceConfig: Parameters<typeof serviceHeaders>[0], raceId: string) => {
@@ -167,7 +181,7 @@ export async function POST(request: NextRequest) {
     }
 
     const sourceResponse = await fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsed.data.cloneFromRaceId}&select=id,event_id,edition_group_id,series_name,name,slug,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_path,gpx_hash,gpx_storage_path,gpx_sha256,min_alt_m,max_alt_m,start_lat,start_lng,bounds_min_lat,bounds_min_lng,bounds_max_lat,bounds_max_lng,organizer_details&limit=1`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsed.data.cloneFromRaceId}&select=id,event_id,edition_group_id,series_name,name,slug,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_path,gpx_hash,gpx_storage_path,gpx_sha256,min_alt_m,max_alt_m,start_lat,start_lng,bounds_min_lat,bounds_min_lng,bounds_max_lat,bounds_max_lng,organizer_details,participation_mode&limit=1`,
       {
         headers: serviceHeaders(auth.serviceConfig, ""),
         cache: "no-store",
@@ -202,6 +216,7 @@ export async function POST(request: NextRequest) {
     race_date: parsed.data.raceDate,
     thumbnail_url: parsed.data.thumbnailUrl,
     organizer_details: parsed.data.organizerDetails ?? null,
+    participation_mode: parsed.data.participationMode,
     gpx_path: `organizer/${parsed.data.eventId}/${raceId}.gpx`,
     gpx_hash: `manual:${raceId}`,
     gpx_storage_path: null,
@@ -219,6 +234,7 @@ export async function POST(request: NextRequest) {
     insertPayload.location_text = sourceRace.location_text;
     insertPayload.thumbnail_url = sourceRace.thumbnail_url;
     insertPayload.organizer_details = sourceRace.organizer_details ?? null;
+    insertPayload.participation_mode = sourceRace.participation_mode ?? parsed.data.participationMode;
     insertPayload.is_live = true;
     insertPayload.min_alt_m = sourceRace.min_alt_m ?? null;
     insertPayload.max_alt_m = sourceRace.max_alt_m ?? null;
@@ -382,6 +398,35 @@ export async function POST(request: NextRequest) {
           }
         }
       }
+
+      const sourceRelayPointsResponse = await fetch(
+        `${auth.serviceConfig.supabaseUrl}/rest/v1/race_relay_points?race_id=eq.${sourceRace.id}&select=id,race_aid_station_id,name,km,handover_time,cutoff_time,notes,order_index&order=order_index.asc`,
+        { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
+      );
+      if (!sourceRelayPointsResponse.ok) {
+        throw new Error(`Unable to load source relay points: ${await sourceRelayPointsResponse.text()}`);
+      }
+      const sourceRelayPoints = z.array(cloneRelayPointSchema).parse(await sourceRelayPointsResponse.json());
+      if (sourceRelayPoints.length > 0) {
+        const relayInsertResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_relay_points`, {
+          method: "POST",
+          headers: serviceHeaders(auth.serviceConfig),
+          body: JSON.stringify(sourceRelayPoints.map((point) => ({
+            race_id: raceId,
+            race_aid_station_id: point.race_aid_station_id ? stationIdMap.get(point.race_aid_station_id) ?? null : null,
+            name: point.name,
+            km: point.km,
+            handover_time: point.handover_time ?? null,
+            cutoff_time: point.cutoff_time ?? null,
+            notes: point.notes ?? null,
+            order_index: point.order_index,
+          }))),
+          cache: "no-store",
+        });
+        if (!relayInsertResponse.ok) {
+          throw new Error(`Unable to clone relay points: ${await relayInsertResponse.text()}`);
+        }
+      }
     } catch (error) {
       console.error("Unable to clone organizer race edition", error);
       if (clonedStoragePath) {
@@ -398,7 +443,7 @@ export async function POST(request: NextRequest) {
 
   const createdRace = z.array(raceRowSchema).parse(await response.json())[0];
   const reloadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_id,edition_group_id,series_name,name,slug,event_id,external_site_url,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,racebook_is_live,racebook_publication_approved_at,organizer_details&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,edition_id,edition_group_id,series_name,name,slug,event_id,external_site_url,distance_km,elevation_gain_m,elevation_loss_m,location_text,race_date,thumbnail_url,gpx_storage_path,is_live,participation_mode,racebook_is_live,racebook_publication_approved_at,organizer_details&limit=1`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",

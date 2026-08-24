@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
@@ -32,6 +33,7 @@ related_tables:
   - races
   - organizer_import_sessions
   - race_aid_stations
+  - race_relay_points
   - race_aid_station_products
   - race_events
   - race_event_editions
@@ -62,6 +64,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Plan share link: a public crew recap snapshot tied to a saved plan through a hashed token, with narrow crew-side tracking state.
 - Plan aid station: per-plan aid station snapshot.
 - Race aid station: catalog/private race aid station source, including water, solid, assistance service flags, and optional organizer detail JSON.
+- Race relay point: ordered handover metadata, optionally linked to a source aid station but independent from nutrition planning.
 - Organizer membership: event-scoped access through `race_event_organizers`.
 - Event edition: canonical yearly date range in `race_event_editions`, shared by every format for that event year.
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
@@ -94,6 +97,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
 | `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
+| `race_relay_points` | Ordered relay handover points, optionally linked to source aid stations. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_edition_requests` | Retired audit rows from the former yearly-edition review gate. |
 | `race_event_publication_requests` | Pending/approved/rejected per-format Racebook publication reviews, with nullable legacy event-level rows. |
@@ -139,6 +143,8 @@ erDiagram
   PRODUCTS ||--o{ AFFILIATE_OFFERS : has
   PRODUCTS ||--o{ RACE_AID_STATION_PRODUCTS : offered_at
   RACES ||--o{ RACE_AID_STATIONS : has
+  RACES ||--o{ RACE_RELAY_POINTS : has
+  RACE_AID_STATIONS o|--o{ RACE_RELAY_POINTS : locates
   RACES ||--o{ RACE_PLANS : imported_into
   RACE_AID_STATIONS ||--o{ RACE_AID_STATION_PRODUCTS : offers
   RACE_PLANS ||--o{ PLAN_AID_STATIONS : has
@@ -168,6 +174,7 @@ erDiagram
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
 - [race_aid_stations](tables/race-aid-stations.md)
+- [race_relay_points](tables/race-relay-points.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)
 - [races](tables/races.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)

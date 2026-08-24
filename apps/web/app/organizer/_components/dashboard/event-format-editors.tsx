@@ -9,7 +9,7 @@ import type { OrganizerModuleId } from "../completion";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
-import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues } from "./types";
+import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
 import { NumberField, TextField } from "./controls";
 
 export function EventInfoEditor({
@@ -312,6 +312,21 @@ function RaceForm({
               </div>
               <div className="lg:col-span-2">
                 <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
+              </div>
+              <div className="space-y-1 lg:col-span-12 lg:max-w-sm">
+                <Label>Type de participation</Label>
+                <select
+                  value={values.participationMode}
+                  onChange={(event) => onChange({ ...values, participationMode: event.target.value as RaceParticipationMode })}
+                  disabled={disabled}
+                  className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  <option value="" disabled>À confirmer</option>
+                  <option value="solo">Solo</option>
+                  <option value="relay">Relais</option>
+                  <option value="solo_and_relay">Solo et relais</option>
+                </select>
+                <p className="text-xs text-muted-foreground">Les points de passage du relais se renseignent ensuite dans Ravitos &amp; points de course.</p>
               </div>
               <div className="space-y-2 lg:col-span-4">
                 {editionStartDate ? (

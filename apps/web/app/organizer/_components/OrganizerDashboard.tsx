@@ -79,6 +79,7 @@ import type {
   ProductFormValues,
   RaceFormat,
   RaceFormValues,
+  RelayPointDraft,
   StationProduct,
   WebsiteImportDiscoveryWorkflow,
   WebsiteImportFieldSelection,
@@ -217,6 +218,7 @@ export function OrganizerDashboard({
   const [newEditionDate, setNewEditionDate] = useState("");
   const [newEditionEndDate, setNewEditionEndDate] = useState("");
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
+  const [relayPoints, setRelayPoints] = useState<RelayPointDraft[]>([]);
   const [expandedStationKey, setExpandedStationKey] = useState<string | null>(null);
   const [stationProducts, setStationProducts] = useState<StationProduct[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<FuelProduct[]>([]);
@@ -538,8 +540,9 @@ export function OrganizerDashboard({
 
   const loadRaceSidecar = async (raceId: string, previewOverride: GpxPreview | null = null) => {
     if (!accessToken) return;
-    const [aidResponse, productsResponse, catalogResponse] = await Promise.all([
+    const [aidResponse, relayResponse, productsResponse, catalogResponse] = await Promise.all([
       fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" }),
+      fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" }),
       fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" }),
       fetch("/api/products", { headers: authHeaders, cache: "no-store" }),
     ]);
@@ -549,6 +552,10 @@ export function OrganizerDashboard({
       if (activeRaceIdRef.current === raceId) {
         setAidStations(syncAidStationsWithGpxPreview(aidStationRowsToDrafts(data.aidStations ?? []), previewOverride));
       }
+    }
+    if (relayResponse.ok) {
+      const data = (await relayResponse.json()) as { relayPoints?: RelayPointDraft[] };
+      if (activeRaceIdRef.current === raceId) setRelayPoints(data.relayPoints ?? []);
     }
     if (productsResponse.ok) {
       const data = (await productsResponse.json()) as { products?: StationProduct[] };
@@ -581,11 +588,13 @@ export function OrganizerDashboard({
     if (!activeRace) {
       setRaceForm(createEmptyRaceForm());
       setAidStations([]);
+      setRelayPoints([]);
       setStationProducts([]);
       setGpxPreview(null);
       return;
     }
     setAidStations([]);
+    setRelayPoints([]);
     setStationProducts([]);
     setGpxPreview(null);
     setRaceForm(raceToForm(activeRace));
@@ -693,6 +702,7 @@ export function OrganizerDashboard({
           locationText: nextForm.locationText,
           raceDate: nextForm.raceDate,
           thumbnailUrl: nextForm.thumbnailUrl,
+          participationMode: nextForm.participationMode || undefined,
           organizerDetails: nextForm.organizerDetails,
         }),
       });
@@ -719,6 +729,7 @@ export function OrganizerDashboard({
                       location_text: nextForm.locationText,
                       race_date: nextForm.raceDate,
                       thumbnail_url: nextForm.thumbnailUrl,
+                      participation_mode: nextForm.participationMode || null,
                       organizerDetails: nextForm.organizerDetails,
                     }
                   : race
@@ -765,6 +776,7 @@ export function OrganizerDashboard({
           locationText: newRaceForm.locationText,
           raceDate: newRaceForm.raceDate,
           thumbnailUrl: newRaceForm.thumbnailUrl,
+          participationMode: newRaceForm.participationMode || "solo",
           organizerDetails: sanitizeRaceDetailsForSave(newRaceForm.organizerDetails),
         }),
       });
@@ -1097,6 +1109,16 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
         return false;
       }
+      const relayResponse = await fetch(`/api/organizer/races/${activeRace.id}/relay-points`, {
+        method: "PUT",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ relayPoints }),
+      });
+      const relayData = (await relayResponse.json().catch(() => null)) as { message?: string } | null;
+      if (!relayResponse.ok) {
+        showToast("error", relayData?.message ?? "Impossible d'enregistrer les points de relais.");
+        return false;
+      }
       setEventDetail((current) =>
         current?.id === selectedEventId
           ? {
@@ -1270,13 +1292,22 @@ export function OrganizerDashboard({
 
   const updateRaceForm = (next: Partial<RaceFormValues>, moduleId: OrganizerModuleId = "formats") => {
     setRaceForm((current) => ({ ...current, ...next }));
+    if (next.participationMode === "solo") setRelayPoints([]);
     markDirty(moduleId);
   };
 
   const updateAidStation = (index: number, station: AidStationDraft) => {
+    const syncedStation = syncAidStationWithGpxPreview(station, gpxPreview);
     setAidStations((current) =>
-      sortAidStationsByDistance(current.map((item, stationIndex) => (stationIndex === index ? syncAidStationWithGpxPreview(station, gpxPreview) : item)))
+      sortAidStationsByDistance(current.map((item, stationIndex) => (stationIndex === index ? syncedStation : item)))
     );
+    if (syncedStation.id) {
+      setRelayPoints((current) => current.map((point) =>
+        point.raceAidStationId === syncedStation.id
+          ? { ...point, name: syncedStation.name, distanceKm: syncedStation.distanceKm }
+          : point
+      ));
+    }
     markDirty("aidStations");
   };
 
@@ -1883,6 +1914,8 @@ export function OrganizerDashboard({
             <AidStationsEditor
               activeRace={activeRace}
               aidStations={aidStations}
+              participationMode={raceForm.participationMode}
+              relayPoints={relayPoints}
               startTime={raceForm.organizerDetails.schedule.startTime ?? ""}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
               expandedStationKey={expandedStationKey}
@@ -1917,6 +1950,51 @@ export function OrganizerDashboard({
                 setExpandedStationKey(nextKey);
                 markDirty("aidStations");
               }}
+              onAddRelayPoint={() => {
+                const finishDistance = Math.max(0.2, raceForm.distanceKm);
+                const lastDistance = Math.max(0, ...relayPoints.map((point) => point.distanceKm));
+                const suggestedDistance = lastDistance > 0
+                  ? lastDistance + Math.max(0.1, (finishDistance - lastDistance) / 2)
+                  : finishDistance / 2;
+                const distanceKm = Math.min(finishDistance - 0.1, Math.max(0.1, suggestedDistance));
+                setRelayPoints((current) => [
+                  ...current,
+                  {
+                    name: `Point de relais ${current.length + 1}`,
+                    distanceKm,
+                    raceAidStationId: null,
+                    handoverTime: "",
+                    cutoffTime: "",
+                    notes: "",
+                  },
+                ]);
+                markDirty("aidStations");
+              }}
+              onUpdateRelayPoint={(index, point) => {
+                setRelayPoints((current) => current.map((item, pointIndex) => pointIndex === index ? point : item));
+                markDirty("aidStations");
+              }}
+              onRemoveRelayPoint={(index) => {
+                setRelayPoints((current) => current.filter((_, pointIndex) => pointIndex !== index));
+                markDirty("aidStations");
+              }}
+              onToggleStationRelayPoint={(station, checked) => {
+                if (!station.id) return;
+                setRelayPoints((current) => checked
+                  ? [
+                      ...current,
+                      {
+                        name: station.name,
+                        distanceKm: station.distanceKm,
+                        raceAidStationId: station.id,
+                        handoverTime: "",
+                        cutoffTime: station.organizerDetails.cutoffTime ?? "",
+                        notes: "",
+                      },
+                    ]
+                  : current.filter((point) => point.raceAidStationId !== station.id));
+                markDirty("aidStations");
+              }}
               onStartTimeChange={(value) =>
                 updateRaceForm(
                   {
@@ -1941,6 +2019,10 @@ export function OrganizerDashboard({
               }
               onUpdateStation={updateAidStation}
               onRemoveStation={(index) => {
+                const stationId = aidStations[index]?.id;
+                if (stationId) {
+                  setRelayPoints((current) => current.map((point) => point.raceAidStationId === stationId ? { ...point, raceAidStationId: null } : point));
+                }
                 setAidStations((current) => current.filter((_, stationIndex) => stationIndex !== index));
                 markDirty("aidStations");
               }}

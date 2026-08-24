@@ -16,6 +16,7 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -23,6 +24,7 @@ related_tables:
   - race_plans
   - plan_share_links
   - races
+  - race_relay_points
   - organizer_import_sessions
   - race_events
   - race_event_claims
@@ -172,6 +174,8 @@ The migration deliberately does not use `races.created_by` for claimed public ra
 Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.sql`.
 
 `supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql` extends `race_aid_stations` with `solid_available` and `assistance_allowed`, both defaulting to `true`. It adds no new table, grants, foreign keys, or RLS policies; existing aid-station policies continue to control the rows.
+
+`supabase/migrations/20260824152859_add_relay_course_points.sql` adds nullable `races.participation_mode` plus normalized `race_relay_points`. A handover may link to a ravito with `on delete set null`; public reads require a published Racebook and mutations remain service-role-only.
 
 `supabase/migrations/20260618160000_add_organizer_dashboard_details.sql` extends existing organizer source tables with nullable JSONB:
 

@@ -17,6 +17,7 @@ related_files:
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
@@ -87,6 +88,8 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
+  - apps/web/app/api/organizer/races/[id]/relay-points/route.ts
+  - apps/web/app/api/organizer/races/[id]/relay-points/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/app/api/location-search/route.ts
   - apps/web/app/api/plans/route.ts
@@ -112,6 +115,7 @@ related_tables:
   - race_event_publication_requests
   - race_event_organizers
   - race_aid_stations
+  - race_relay_points
   - race_aid_station_products
   - race_events
   - race_event_updates
@@ -167,6 +171,7 @@ Organizers with an active event membership can:
 - see whether the selected event has all publication-required information through a compact status badge beside the event selector;
 - permanently delete the selected event from the red cross placed immediately before that selector, but only after typing the exact word `Supprimer` in the confirmation dialog; the server restricts this destructive action to the active owner membership (or a trusted admin), removes event-owned formats and Storage assets, and leaves saved runner plans detached from their deleted source formats;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and station-specific `race_aid_stations.organizer_details`;
+- classify formats as solo, relay, or both, then create standalone handover points or mark saved ravitos as handover locations;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
 
@@ -235,7 +240,9 @@ Published runner-facing surfaces resolve details as:
 - services and partners = event details.
 - key locations = plain text address plus optional geocoded `organizer_details` metadata for event, format, bib pickup, and start/finish access, rendered as GPS coordinates and Google Maps links when available.
 
-The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact. Its top identity card contains event/format identity, the event date range, an optional distinct format date, the best published location, and runner information, while distance, D+, D-, and start-time metric pills are omitted from this synthesis. Weather and last-minute messages remain dedicated compact alert cards immediately below it. The route-local tabs remain `Matériel`, `Dossard`, `Course`, and `Accès`, with a fifth `Services` tab only when event service details are populated. A published `officialWebsiteUrl` and emergency phone share a right-hand action panel beside the race name; each available action occupies an equal-height tile, while the native header retains only feedback. Tapping the emergency tile opens the platform phone application through a normalized `tel:` URL, and the optional contact name stays visible in the tile. French phone values are normalized to `+33 X XX XX XX XX` both when organizer details are saved and when older JSON is read. The emergency phone counts as meaningful non-ravito organizer content for the Racebook availability gate. Equipment is split into active required, active recommended, and weather-conditional inactive groups; `Dossard` groups every pickup location first, then groups its slots by day so same-day ranges share one localized short weekday/day/month label and use locale-specific hour formatting before documents and notes. `Course` owns the explicitly labeled start time as the first light-green important-information row, keeps the finish cutoff critical, and contains the remaining schedule constraints plus the stored GPX map, elevation profile, and source aid stations without rendering separate empty cards for missing course blocks. `Accès` begins with start/finish linked locations, then parking, shuttles, road restrictions, the published map URL, and access notes; a populated parking value is rendered even when the format-level parking flag is false. Published geocoded event, start, finish, or bib values remain tappable so runners can launch navigation directly. Equipment status badges stay inline and right-aligned, and weather-tagged items retain icon-only cold/heat markers while remaining muted whenever the active plan does not match. A native pull-to-refresh re-queries the complete published Racebook snapshot, profile, and route so organizer changes can appear without restarting the app; a failed refresh keeps the last successful snapshot visible.
+The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact. Its top identity card contains event/format identity, the event date range, an optional distinct format date, the best published location, and runner information, while distance, D+, D-, and start-time metric pills are omitted from this synthesis. Weather and last-minute messages remain dedicated compact alert cards immediately below it. The route-local tabs remain `Matériel`, `Dossard`, `Course`, and `Accès`, with a fifth `Services` tab only when event service details are populated. A published `officialWebsiteUrl` occupies a narrow action tile beside the race name, while the emergency phone uses a separate full-width action row immediately below the identity header; the native header retains only feedback. Tapping the emergency row opens the platform phone application through a normalized `tel:` URL, and the optional contact name stays visible without the narrow side-panel constraint. French phone values are normalized to `+33 X XX XX XX XX` both when organizer details are saved and when older JSON is read. The emergency phone counts as meaningful non-ravito organizer content for the Racebook availability gate. Equipment is split into active required, active recommended, and weather-conditional inactive groups; `Dossard` groups every pickup location first, renders its address directly without a redundant numbered location heading, then groups its slots by day so same-day ranges share one localized short weekday/day/month label and use locale-specific hour formatting before documents and notes. `Course` owns the explicitly labeled start time as the first light-green important-information row, keeps the finish cutoff critical, and contains the remaining schedule constraints plus the stored GPX map, elevation profile, and source aid stations without rendering separate empty cards for missing course blocks. `Accès` begins with start/finish linked locations, then parking, shuttles, road restrictions, the published map URL, and access notes; a populated parking value is rendered even when the format-level parking flag is false. Published geocoded event, start, finish, or bib values remain tappable so runners can launch navigation directly. Equipment status badges stay inline and right-aligned, and weather-tagged items retain icon-only cold/heat markers while remaining muted whenever the active plan does not match. A native pull-to-refresh re-queries the complete published Racebook snapshot, profile, and route so organizer changes can appear without restarting the app; a failed refresh keeps the last successful snapshot visible.
+
+Within the conditional `Services` tab, every populated event service category uses its own localized titled card. The organizer value is rendered as plain text rather than an unlabeled bullet.
 
 Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, a confirmed favorite addition shows a brief localized toast and scrolls to the newly pinned event, and unread previews add a `NEW` badge. In the event sheet, every format stays ahead of one light-green organizer-update panel; that panel initially shows only the newest (or deep-link-targeted) announcement, then reveals the other messages and longer history through `View more`. Pushes deep-link with event, optional format, and update ids so the sheet opens directly on the targeted message and highlights the concerned format. Identified runners persist read receipts only for messages displayed in the panel.
 
@@ -252,6 +259,8 @@ Aid station `organizer_details` stores cumulative D+/D-, cutoff time, drop-bag a
 On mobile, the Racebook keeps those ravito metrics in a compact right-hand column with each label inline beside its value. Water, solid food, assistance, and drop-bag services are icon-only buttons in the main ravito column; tapping one toggles a single inline information bubble with the service label, leaving more width and height for published products. Its access and bib information rows also size the value from its content: short values let the divider run to the value, while long linked locations keep a bounded width and wrap cleanly.
 
 Ravitos in the organizer editor are always ordered by ascending distance from the start, including after creating a station or changing its km manually. The organizer aid-station route persists `order_index` from that distance-based order so reloads keep the same sequence.
+
+Relay metadata is edited in the Ravitos module without changing nutrition semantics. A point may reference a saved ravito or stand alone. The dashboard derives legs from start, distance-sorted points, and finish. It saves ravitos before relay points, and switching a format to `solo` clears the relay collection. V1 exposes relay data only in the mobile Racebook; planner and nutrition calculations remain unchanged.
 
 ## Organizer Products
 
@@ -360,6 +369,7 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 - [race_event_claims](../02-database/tables/race-event-claims.md)
 - [race_event_organizers](../02-database/tables/race-event-organizers.md)
 - [race_aid_station_products](../02-database/tables/race-aid-station-products.md)
+- [race_relay_points](../02-database/tables/race-relay-points.md)
 - [Nutrition Algorithm](nutrition-algorithm.md)
 - [GPX Import](gpx-import.md)
 

@@ -87,6 +87,7 @@ export const createEmptyRaceForm = (): RaceFormValues => ({
   raceDate: "",
   thumbnailUrl: "",
   isLive: false,
+  participationMode: "solo",
   organizerDetails: cloneJson(defaultOrganizerRaceDetails),
 });
 
@@ -109,6 +110,7 @@ export const createRaceFormFromFormatDefaults = (race: RaceFormat, raceForm: Rac
   locationText: raceForm.locationText || race.location_text || "",
   raceDate: raceForm.raceDate || formatDate(race.race_date),
   thumbnailUrl: raceForm.thumbnailUrl || race.thumbnail_url || "",
+  participationMode: raceForm.participationMode || race.participation_mode || "solo",
   organizerDetails: cloneJson(raceForm.organizerDetails ?? race.organizerDetails ?? defaultOrganizerRaceDetails),
 });
 
@@ -351,6 +353,7 @@ export const raceToForm = (race: RaceFormat): RaceFormValues => ({
   raceDate: formatDate(race.race_date),
   thumbnailUrl: race.thumbnail_url ?? "",
   isLive: race.is_live,
+  participationMode: race.participation_mode ?? "",
   organizerDetails: cloneJson(race.organizerDetails ?? defaultOrganizerRaceDetails),
 });
 

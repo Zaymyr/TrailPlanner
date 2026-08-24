@@ -8,20 +8,33 @@ import type { FuelProduct } from "../../../../lib/product-types";
 import { NumberField, TextAreaField, TextField } from "./controls";
 import { formatKm } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
-import type { AidStationDraft, ProductFormValues, RaceFormat, StationProduct } from "./types";
+import type {
+  AidStationDraft,
+  ProductFormValues,
+  RaceFormat,
+  RaceParticipationMode,
+  RelayPointDraft,
+  StationProduct,
+} from "./types";
 
 export function AidStationsEditor({
   activeRace,
   aidStations,
+  participationMode,
+  relayPoints,
   startTime,
   finishCutoffTime,
   expandedStationKey,
   onExpandedStationKeyChange,
   onAddStation,
+  onAddRelayPoint,
   onStartTimeChange,
   onFinishCutoffTimeChange,
   onUpdateStation,
   onRemoveStation,
+  onUpdateRelayPoint,
+  onRemoveRelayPoint,
+  onToggleStationRelayPoint,
   stationProducts,
   productsById,
   productForm,
@@ -35,15 +48,21 @@ export function AidStationsEditor({
 }: {
   activeRace: RaceFormat | null;
   aidStations: AidStationDraft[];
+  participationMode: RaceParticipationMode | "";
+  relayPoints: RelayPointDraft[];
   startTime: string;
   finishCutoffTime: string;
   expandedStationKey: string | null;
   onExpandedStationKeyChange: (key: string | null) => void;
   onAddStation: () => void;
+  onAddRelayPoint: () => void;
   onStartTimeChange: (value: string) => void;
   onFinishCutoffTimeChange: (value: string) => void;
   onUpdateStation: (index: number, station: AidStationDraft) => void;
   onRemoveStation: (index: number) => void;
+  onUpdateRelayPoint: (index: number, point: RelayPointDraft) => void;
+  onRemoveRelayPoint: (index: number) => void;
+  onToggleStationRelayPoint: (station: AidStationDraft, checked: boolean) => void;
   stationProducts: StationProduct[];
   productsById: Map<string, FuelProduct>;
   productForm: ProductFormValues;
@@ -56,6 +75,13 @@ export function AidStationsEditor({
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
   if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
+  const relayEnabled = participationMode === "relay" || participationMode === "solo_and_relay";
+  const sortedRelayPoints = [...relayPoints].sort((left, right) => left.distanceKm - right.distanceKm);
+  const relayBoundaries = [
+    { name: "Départ", distanceKm: 0 },
+    ...sortedRelayPoints,
+    { name: "Arrivée", distanceKm: activeRace.distance_km },
+  ];
 
   return (
     <div className="space-y-4">
@@ -64,9 +90,16 @@ export function AidStationsEditor({
           <p className="font-semibold text-foreground">{activeRace.name}</p>
           <p className="text-sm text-muted-foreground">Vue ravitos compacte, avec départ, arrivée, produits et détails dans la même tuile.</p>
         </div>
-        <Button type="button" variant="outline" onClick={onAddStation}>
-          Ajouter un ravito
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          {relayEnabled ? (
+            <Button type="button" variant="outline" onClick={onAddRelayPoint}>
+              Ajouter un point de relais
+            </Button>
+          ) : null}
+          <Button type="button" variant="outline" onClick={onAddStation}>
+            Ajouter un ravito
+          </Button>
+        </div>
       </div>
 
       <FixedCourseCard
@@ -124,6 +157,14 @@ export function AidStationsEditor({
                         <StationServiceChip checked={station.waterRefill} label="Eau disponible" disabled={status === "saving"} onChange={(checked) => onUpdateStation(index, { ...station, waterRefill: checked })} />
                         <StationServiceChip checked={station.solidRefill} label="Solide disponible" disabled={status === "saving"} onChange={(checked) => onUpdateStation(index, { ...station, solidRefill: checked })} />
                         <StationServiceChip checked={station.assistanceAllowed} label="Assistance" disabled={status === "saving"} onChange={(checked) => onUpdateStation(index, { ...station, assistanceAllowed: checked })} />
+                        {relayEnabled ? (
+                          <StationServiceChip
+                            checked={Boolean(station.id && relayPoints.some((point) => point.raceAidStationId === station.id))}
+                            label="Point de relais"
+                            disabled={!station.id || status === "saving"}
+                            onChange={(checked) => onToggleStationRelayPoint(station, checked)}
+                          />
+                        ) : null}
                         <StationServiceChip
                           checked={details.dropBagAvailable}
                           label="Sac de délestage"
@@ -184,6 +225,65 @@ export function AidStationsEditor({
           })}
         </div>
       )}
+
+      {relayEnabled ? (
+        <section className="space-y-4 rounded-[1.5rem] border border-brand-border/70 bg-brand-surface/20 p-4">
+          <div>
+            <p className="font-semibold text-foreground">Points et tronçons du relais</p>
+            <p className="text-sm text-muted-foreground">Les tronçons sont construits automatiquement entre le départ, les points triés par kilomètre et l&apos;arrivée.</p>
+          </div>
+
+          {relayPoints.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point de relais : le Racebook indiquera un seul tronçon sur toute la course.</p>
+          ) : (
+            <div className="space-y-3">
+              {relayPoints.map((point, index) => {
+                const linkedStation = point.raceAidStationId ? aidStations.find((station) => station.id === point.raceAidStationId) : null;
+                return (
+                  <article key={point.id ?? `relay-${index}`} className="rounded-xl border border-border bg-background p-4">
+                    <div className="grid gap-3 lg:grid-cols-12">
+                      <div className="lg:col-span-4">
+                        <TextField label="Nom du point" value={point.name} onChange={(value) => onUpdateRelayPoint(index, { ...point, name: value })} disabled={Boolean(linkedStation)} />
+                      </div>
+                      <div className="lg:col-span-2">
+                        <NumberField label="Distance km" value={point.distanceKm} onChange={(value) => onUpdateRelayPoint(index, { ...point, distanceKm: value })} disabled={Boolean(linkedStation)} />
+                      </div>
+                      <div className="lg:col-span-2">
+                        <TextField label="Passage prévu" value={point.handoverTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, handoverTime: value })} />
+                      </div>
+                      <div className="lg:col-span-2">
+                        <TextField label="Barrière horaire" value={point.cutoffTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, cutoffTime: value })} />
+                      </div>
+                      <div className="flex items-end lg:col-span-2">
+                        <Button type="button" variant="ghost" className="w-full border border-red-200 bg-red-50 text-red-700 hover:bg-red-100" onClick={() => onRemoveRelayPoint(index)}>
+                          Retirer
+                        </Button>
+                      </div>
+                      <div className="lg:col-span-12">
+                        <TextAreaField label="Note de passage" value={point.notes} onChange={(value) => onUpdateRelayPoint(index, { ...point, notes: value })} />
+                      </div>
+                    </div>
+                    {linkedStation ? <p className="mt-2 text-xs text-muted-foreground">Lié au ravito {linkedStation.name}. Le nom et le kilomètre suivent ce ravito.</p> : null}
+                  </article>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+            {relayBoundaries.slice(0, -1).map((boundary, index) => {
+              const nextBoundary = relayBoundaries[index + 1];
+              return (
+                <div key={`${boundary.name}-${nextBoundary.name}-${index}`} className="rounded-xl border border-border bg-background px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tronçon {index + 1}</p>
+                  <p className="mt-1 font-semibold text-foreground">{boundary.name} → {nextBoundary.name}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">{formatKm(Math.max(0, nextBoundary.distanceKm - boundary.distanceKm))}</p>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
 
       <FixedCourseCard
         title="Arrivée"

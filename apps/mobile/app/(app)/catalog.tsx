@@ -35,6 +35,7 @@ type Race = {
   race_date?: string | null;
   is_live: boolean | null;
   racebook_is_live?: boolean | null;
+  participation_mode?: 'solo' | 'relay' | 'solo_and_relay' | null;
   has_aid_stations: boolean | null;
   gpx_storage_path: string | null;
   thumbnail_url?: string | null;
@@ -502,6 +503,7 @@ export default function CatalogScreen() {
                 race_date,
                 is_live,
                 racebook_is_live,
+                participation_mode,
                 has_aid_stations,
                 gpx_storage_path,
                 thumbnail_url,
@@ -514,13 +516,13 @@ export default function CatalogScreen() {
             .order('name'),
           supabase
             .from('races')
-            .select('id, name, distance_km, elevation_gain_m, race_date, is_live, has_aid_stations, gpx_storage_path, thumbnail_url')
+            .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
             .eq('is_live', true)
             .is('event_id', null),
           userId
             ? supabase
                 .from('races')
-                .select('id, name, distance_km, elevation_gain_m, race_date, is_live, has_aid_stations, gpx_storage_path, thumbnail_url')
+                .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
                 .eq('is_public', false)
                 .eq('created_by', userId)
             : Promise.resolve({ data: [], error: null }),
@@ -1163,6 +1165,8 @@ export default function CatalogScreen() {
                       raceIsLive: race.is_live,
                       racebookIsLive: race.racebook_is_live,
                       hasAidStations: race.has_aid_stations,
+                      hasRelayCourse:
+                        race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
                       eventOrganizerDetails: selectedEvent.organizer_details,
                       raceOrganizerDetails: race.organizer_details,
                     })
