@@ -33,7 +33,10 @@ import {
   ORGANIZER_DOCUMENT_MAX_COUNT,
   validateOrganizerDocument,
 } from "../../../../../../lib/organizer-document-import";
-import { reconcileOrganizerImportWithLlm } from "../../../../../../lib/organizer-import-reconciliation";
+import {
+  reconcileOrganizerImportWithLlm,
+  OrganizerImportReconciliationError,
+} from "../../../../../../lib/organizer-import-reconciliation";
 
 export const runtime = "nodejs";
 
@@ -746,7 +749,10 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       } catch (reconciliationError) {
         console.error("Organizer import LLM reconciliation unavailable", reconciliationError);
         reconciliationStatus = "failed";
-        reconciliationMessage = "La réconciliation LLM a échoué. Les données extraites restent disponibles sans proposition de rapprochement.";
+        reconciliationMessage =
+          reconciliationError instanceof OrganizerImportReconciliationError
+            ? reconciliationError.message
+            : "La réconciliation LLM a échoué. Les données extraites restent disponibles sans proposition de rapprochement.";
       }
       if (reconciliation) {
         const highConfidenceMatches = new Map(
