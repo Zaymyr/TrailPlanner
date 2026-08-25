@@ -86,6 +86,7 @@ export type RaceFormat = {
   racebook_publication_approved_at?: string | null;
   organizerDetails?: OrganizerRaceDetails;
   participation_mode?: RaceParticipationMode | null;
+  aidStationCount?: number;
 };
 
 export type ElevationPoint = {

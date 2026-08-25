@@ -19,10 +19,10 @@ const {
   mockSendOrganizerRaceUpdateNotifications: vi.fn(),
 }));
 
-const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) =>
+const buildJsonResponse = (payload: unknown, options: { status?: number; headers?: HeadersInit } = {}) =>
   new Response(JSON.stringify(payload), {
     status: options.status ?? 200,
-    headers: { "content-type": "application/json" },
+    headers: { "content-type": "application/json", ...options.headers },
   });
 
 const organizerRequest = (body?: Record<string, unknown>) =>
@@ -68,7 +68,7 @@ describe("/api/organizer/events/[id]/updates", () => {
 
   it("returns favorite count and recent updates for an organizer", async () => {
     vi.mocked(fetch)
-      .mockResolvedValueOnce(buildJsonResponse([{ user_id: organizerId }, { user_id: "other-user" }]))
+      .mockResolvedValueOnce(buildJsonResponse([{ user_id: organizerId }], { headers: { "content-range": "0-0/2" } }))
       .mockResolvedValueOnce(
         buildJsonResponse([
           {
@@ -88,6 +88,35 @@ describe("/api/organizer/events/[id]/updates", () => {
     expect(response.status).toBe(200);
     expect(payload.favoriteCount).toBe(2);
     expect(payload.updates).toHaveLength(1);
+    expect(fetch).toHaveBeenNthCalledWith(
+      1,
+      `https://supabase.example/rest/v1/user_favorite_race_events?event_id=eq.${eventId}&select=user_id&limit=1`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ Prefer: "count=exact", Range: "0-0" }),
+      })
+    );
+  });
+
+  it("returns zero when the exact count reports no favorites", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([], { headers: { "content-range": "*/0" } }))
+      .mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = await GET(organizerRequest(), { params: { id: eventId } });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.favoriteCount).toBe(0);
+  });
+
+  it("fails safely when Supabase omits the exact count", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ user_id: organizerId }]))
+      .mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = await GET(organizerRequest(), { params: { id: eventId } });
+
+    expect(response.status).toBe(502);
   });
 
   it("allows an organizer to create a published update and trigger push delivery", async () => {

@@ -55,8 +55,10 @@ related_files:
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/organizer/claims/route.ts
+  - apps/web/app/api/organizer/bootstrap/route.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
+  - apps/web/app/api/organizer/bootstrap/route.test.ts
   - apps/web/app/api/organizer/events/route.ts
   - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/edition-requests/route.test.ts
@@ -191,7 +193,7 @@ The selected edition year controls its canonical range and attached format rows,
 
 When the organizer adds a format, the creation form can queue its image and GPX before submission. GPX parsing still pre-fills course metrics and visuals. The format inherits the edition start date unless a different in-range date is enabled; after row creation, the existing image and GPX routes persist the pending files.
 
-Approved organizers can also publish a manual update from the top dashboard card through `Notifier les coureurs`. The modal requires a scope (`Tout l’événement` or one live format from the selected edition) and one short message. It creates one `race_event_updates` row, then sends push notifications only to users who favorited the event. Event-wide pushes use the event name in the title; format-specific pushes use the format name and carry both event and format ids. Recent messages in the same modal expose a small delete cross; after confirmation, the membership-checked route removes that event-scoped history row and its read receipts, without attempting to recall an already delivered push. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
+Approved organizers can also publish a manual update from the top dashboard card through `Notifier les coureurs`. The modal requires a scope (`Tout l’événement` or one live format from the selected edition) and one short message. It creates one `race_event_updates` row, then sends push notifications only to users who favorited the event. Event-wide pushes use the event name in the title; format-specific pushes use the format name and carry both event and format ids. Recent messages in the same modal expose a small delete cross; after confirmation, the membership-checked route removes that event-scoped history row and its read receipts, without attempting to recall an already delivered push. The modal's follower total comes from an exact Supabase aggregate count with a one-row response range, not from downloading the follower ids. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
 
 That same dashboard header now also exposes `Importer les informations`. The admin supplies an optional general event URL, additional official URLs, and/or official documents. Those additional URLs may point to an event overview, one or several formats, a regulation, program, logistics, registration, or archive; they are evidence sources and not asserted format identities. The server detects `UTMB`, `Trace de Trail`, or falls back to bounded generic HTML/JSON-LD extraction plus source classification. The first review shows every candidate with its edition, existence evidence/confidence, and missing required fields. It keeps a live final count while the admin corrects names, merges or separates detections, binds an existing format, adds a forgotten format, or ignores a false positive. The second review groups the event and every confirmed format, shows safe/review/conflict/missing counters, and offers exactly one choice per field: keep current, select a sourced claim, or leave missing.
 
@@ -222,6 +224,8 @@ Equipment, bib pickup, and access are split by tab in the UI. Bib pickup accepts
 Organizer access is event-scoped. An active membership grants access to every format under that event and no other event.
 
 Admins are the explicit exception to the membership boundary: trusted `app_metadata` admin status lets the existing Organizer routes read and mutate any event. For admins, `/api/organizer/claims` supplies every `race_events` row, live or draft and ordered by name, to the existing event selector; ordinary users still receive only their active memberships.
+
+The initial dashboard read uses `GET /api/organizer/bootstrap`. It preserves the four collections returned by `GET /api/organizer/claims` and adds the selected event detail after a single bearer-token verification. A requested `eventId` is accepted only when present in the caller's active membership set, or in the trusted admin's complete event selector. Without an explicit selection, the first selectable event is loaded; with no active membership, the event detail is `null`. Heavy format sidecars, GPX parsing, products, runner updates, and follower information are excluded from this bootstrap contract. GPX is requested only when Course or Ravitos needs it; ravito/relay/product sidecars and the catalog wait for Ravitos or Products; announcements and follower totals wait for the notification dialog. Until sidecars arrive, the completion header retains the persisted per-format ravito count returned by the event detail.
 
 ## Publication and Completion Rules
 
@@ -323,6 +327,8 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Direct organizer creation creates catalog-visible events and an immediate owner membership; this does not publish any Racebook.
 - Keep organizer import bootstrap query parsing in the `/organizer` server page unless the client dashboard is explicitly wrapped in Suspense; direct `useSearchParams` usage otherwise breaks the production static build.
+- Keep the initial Organizer bootstrap authorization tied to the active memberships already loaded in that request. A query-string `eventId` alone grants no access, and this response must stay free of GPX and module-specific sidecars.
+- Keep heavy Organizer data module-scoped. The event overview must remain usable without loading format GPX, source course points, products, announcements, or follower totals.
 - Do not let organizer switches grant approval. Before `racebook_publication_approved_at` exists they may only request review; after approval they may freely toggle `racebook_is_live` without changing catalog visibility.
 - Keep publication-switch persistence format-scoped. An incomplete dirty format may remain open without blocking the switch for another complete format; only the format whose switch is used must finish its foreground save first.
 - Keep first-publication readiness tied to the clicked `race_id` and that race's `edition_id`. The event's `is_current` edition may differ from the year selected in the dashboard and must not redirect or reject the request.

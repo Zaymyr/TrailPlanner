@@ -172,9 +172,8 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
         setSession(nextSession);
         void syncResendContactOnce(nextSession);
 
-        await refreshEntitlements(nextAccessToken);
-
         setIsLoading(false);
+        void refreshEntitlements(nextAccessToken);
         return true;
       } catch (error) {
         console.error("Unable to verify session", error);

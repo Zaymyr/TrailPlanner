@@ -1,12 +1,13 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-06-18
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
+  - apps/web/lib/entitlements-client.ts
   - apps/web/lib/supabase.ts
   - apps/web/lib/auth-storage.ts
   - apps/mobile/app/_layout.tsx
@@ -34,13 +35,14 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 1. Read [../04-auth-and-security/auth-flows.md](../04-auth-and-security/auth-flows.md).
 2. Check the web session context path in `apps/web/app/hooks/useVerifiedSession.tsx`.
 3. Check `/api/auth/session` response handling in `apps/web/app/api/auth/session/route.ts`.
-4. Verify whether the user is anonymous with `isAnonymousUser`.
-5. Confirm `ensureTrialStatus` can read/write `user_profiles`.
-6. If the issue is RLS, reproduce with authenticated JWT context or a manual SQL check.
-7. If service routes work but client queries fail, inspect policies and grants.
-8. If mobile differs, inspect `apps/mobile/app/_layout.tsx` and mobile session helpers.
-9. If the issue is Resend contact sync, confirm the session is not anonymous and then inspect `POST /api/resend/contact`.
-10. If the symptom is only bottom-tab availability during onboarding, inspect route options in `apps/mobile/app/(app)/_layout.tsx`; that is navigation-shell configuration, not an auth/session failure.
+4. Distinguish verified-session readiness from the asynchronous entitlement state: `isLoading` can be false while `isEntitlementsLoading` is still true.
+5. Verify whether the user is anonymous with `isAnonymousUser`.
+6. Confirm `ensureTrialStatus` can read/write `user_profiles`.
+7. If the issue is RLS, reproduce with authenticated JWT context or a manual SQL check.
+8. If service routes work but client queries fail, inspect policies and grants.
+9. If mobile differs, inspect `apps/mobile/app/_layout.tsx` and mobile session helpers.
+10. If the issue is Resend contact sync, confirm the session is not anonymous and then inspect `POST /api/resend/contact`.
+11. If the symptom is only bottom-tab availability during onboarding, inspect route options in `apps/mobile/app/(app)/_layout.tsx`; that is navigation-shell configuration, not an auth/session failure.
 
 ## Useful Searches
 
@@ -54,6 +56,7 @@ rg -n "resend/contact|syncResendContact|resendContactSynced" apps
 ## Do Not
 
 - Do not treat localStorage tokens as proof of auth.
+- Do not diagnose a still-loading entitlement request as a failed session when the verified session is already available.
 - Do not query `auth.users` from client code.
 - Do not use service-role success as proof that RLS is correct.
 - Do not add `user_metadata` admin checks.

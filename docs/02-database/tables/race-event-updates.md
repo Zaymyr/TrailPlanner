@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -75,6 +75,7 @@ Summary:
 - An active organizer may remove an obsolete or mistaken announcement from the public history after explicit confirmation. Deletion cannot recall push notifications already delivered.
 - Push dedupe relies on `organizer-race-update:<updateId>`, so re-sending the same stored update should not produce duplicate device logs.
 - Runner-facing history should show only these manual announcements, not every organizer mutation.
+- The organizer history response includes the event follower total as a Supabase exact count with a one-row response range; it must not materialize the complete `user_favorite_race_events` audience in the web process.
 
 ## Common Queries
 
@@ -109,6 +110,7 @@ Organizer deletion is performed by `DELETE /api/organizer/events/[id]/updates?up
 - Push delivery metadata belongs in `push_notification_events`, not in this table.
 - Runner read state belongs in `race_event_update_reads`; do not mutate an announcement when one runner views it.
 - Do not use `racebook_is_live` as the event-announcement visibility rule. Updates stay governed by parent event liveness and their existing optional live-format validation.
+- Treat a missing or malformed `Content-Range` on the exact-count request as an upstream failure rather than silently displaying an incorrect follower total.
 
 ## Related Docs
 
