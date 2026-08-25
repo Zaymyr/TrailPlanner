@@ -2129,9 +2129,9 @@ export function OrganizerDashboard({
         onSaveAll={() => {
           void saveAllDirty();
         }}
-        onNotifyFollowers={() => {
+        onNotifyFollowers={(raceId) => {
           setEventUpdateError(null);
-          setEventUpdateRaceId(null);
+          setEventUpdateRaceId(raceId ?? null);
           setEventUpdatesDialogOpen(true);
         }}
         onRequestPublication={(raceId) => {

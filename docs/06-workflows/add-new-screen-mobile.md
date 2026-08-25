@@ -64,6 +64,10 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Premium purchase UI that can trigger App Store review should keep the subscription summary plus both legal links close to the CTA: explicit title, duration, price, privacy policy, and Terms of Use (EULA).
 - Native changes require a new platform-compatible EAS Update runtime. The current release keeps iOS on `1.1.0` and uses the Android-specific `1.1.1` runtime for the Android 16 / API 36 binary.
 
+### Racebook Identity Presentation
+
+The identity card displays the formatted course date beneath the race name in the compact calendar metadata style, not the event date range. Keep metadata text compact with calendar/location icons, dot separators, and participation badges so it remains readable on one line when possible. The emergency row shows only `Urgence` and the optional contact name beside its localized outlined call action; retain the normalized phone solely for the `tel:` URL.
+
 ## Steps
 
 1. Read [../01-architecture/mobile-app.md](../01-architecture/mobile-app.md).

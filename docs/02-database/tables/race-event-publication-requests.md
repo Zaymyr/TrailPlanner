@@ -67,7 +67,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Normal scope navigation may save silently in the background, but requesting publication still waits for foreground persistence before the server readiness check.
 - The same race-scoped persistence includes `bibPickup.overrideEnabled` and its format fields, so leaving and reopening a format cannot replace an unsaved override with the event default.
-- That foreground wait applies only when the request switch belongs to the currently edited format. Dirty or incomplete work on another format remains independent and must not block the request.
+- That foreground wait applies only when the request button belongs to the currently edited format. Dirty or incomplete work on another format remains independent and must not block the request.
 - Rejection leaves the already-hidden Racebook rows unchanged.
 - Approval publishes only the requested Racebook. Other editions, complete formats, and incomplete formats remain unchanged.
 - Once approved, an organizer may freely publish or hide each approved Racebook. This does not create a new request and does not alter course catalog visibility.

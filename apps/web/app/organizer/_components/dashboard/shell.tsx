@@ -142,7 +142,7 @@ export function OrganizerSummaryHeader({
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
   onSaveAll: () => void;
-  onNotifyFollowers: () => void;
+  onNotifyFollowers: (raceId?: string) => void;
   onRequestPublication: (raceId: string) => void;
   onRacebookVisibilityChange: (raceId: string, isLive: boolean) => void;
   onEditionVisibilityChange: (isVisible: boolean) => Promise<boolean>;
@@ -309,35 +309,57 @@ export function OrganizerSummaryHeader({
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => {
+            const isApproved = Boolean(race.activeEdition?.racebook_publication_approved_at);
             const racePublicationPending = publicationRequestStates.some(
               (request) => request.status === "pending" && (!request.race_id || request.race_id === race.activeEdition?.id)
             );
             return (
             <div
               key={race.id}
-              className="grid gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
+              className="flex flex-col gap-2 rounded-md border border-border/60 bg-background/50 p-3 text-sm"
             >
-              <span className="min-w-0 font-medium text-foreground">
-                {race.label || "Format sans nom"}
-                {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
-              </span>
-              <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
-              {race.activeEdition?.racebook_publication_approved_at ? (
-                <LiveToggle
-                  checked={race.activeEdition.racebook_is_live === true}
-                  disabled={!editionIsVisible || status !== "idle"}
-                  onChange={(checked) => onRacebookVisibilityChange(race.activeEdition!.id, checked)}
-                  liveLabel="Racebook publié"
-                  draftLabel="Racebook masqué"
-                />
-              ) : (
-                <LiveToggle
-                  checked={false}
-                  disabled={!editionIsVisible || racePublicationPending || status !== "idle"}
-                  onChange={() => onRequestPublication(race.activeEdition!.id)}
-                  draftLabel={!editionIsVisible ? "Édition masquée" : racePublicationPending ? "Demande en cours" : "Demander la publication"}
-                />
-              )}
+              <div className="grid gap-3 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
+                <span className="min-w-0 font-medium text-foreground">
+                  {race.label || "Format sans nom"}
+                  {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
+                </span>
+                <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
+                {isApproved ? (
+                  <LiveToggle
+                    checked={race.activeEdition!.racebook_is_live === true}
+                    disabled={!editionIsVisible || status !== "idle"}
+                    onChange={(checked) => onRacebookVisibilityChange(race.activeEdition!.id, checked)}
+                    liveLabel="Racebook publié"
+                    draftLabel="Racebook masqué"
+                  />
+                ) : (
+                  <LiveToggle checked={false} disabled onChange={() => {}} draftLabel="Racebook non publié" />
+                )}
+              </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => onNotifyFollowers(race.activeEdition!.id)}
+                    disabled={status !== "idle"}
+                  >
+                    Notifier les coureurs
+                  </Button>
+                  <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
+                    {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
+                  </Button>
+                </div>
+                {!isApproved ? (
+                  <Button
+                    type="button"
+                    onClick={() => onRequestPublication(race.activeEdition!.id)}
+                    disabled={!editionIsVisible || racePublicationPending || status !== "idle"}
+                  >
+                    {racePublicationPending ? "Demande en cours" : "Demander la publication"}
+                  </Button>
+                ) : null}
+              </div>
             </div>
             );
           })
@@ -352,7 +374,7 @@ export function OrganizerSummaryHeader({
             Publication en attente de validation admin
           </span>
         ) : null}
-        <Button type="button" onClick={onNotifyFollowers} variant="outline" disabled={!event}>
+        <Button type="button" onClick={() => onNotifyFollowers()} variant="outline" disabled={!event}>
           Notifier les coureurs
         </Button>
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
