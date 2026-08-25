@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -279,6 +279,8 @@ The v1 organizer portal is web-only:
 - `/api/admin/organizer-claims` keeps legacy access-claim review and membership revocation, and lets a trusted admin attach an existing Supabase Auth e-mail to an event as an `organizer`. Auth-user lookup and membership writes stay server-side; direct assignment grants edit access without changing catalog/Racebook state. `/api/admin/event-publication-requests` returns the pending queue plus every event's current-edition Racebook state. Approval invokes the service-role-only review function; the admin event switch invokes a separate service-role-only function to publish or hide Racebooks.
 
 Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id`. Relay replacement uses its own service route after ravitos are saved so optional station links are stable. Organizer-managed course rows remain catalog-visible. All writes stay behind active event membership checks; first Racebook publication validates the current edition, and later approved organizer toggles affect only the selected format's `racebook_is_live`.
+
+Inside the format-level course-points editor, relay-capable formats separate `Ravitos` and `Relais` into local presentation tabs. `Ravitos` remains the default after a format or participation-mode change and owns the start/finish schedule cards plus station details; `Relais` owns only handover points and derived legs. Solo formats render the ravito view directly. This split is presentation-only and does not change the existing race-details, aid-station, or relay-point save order.
 
 The same approved-only dashboard exposes a manual `Notifier les coureurs` modal. The organizer selects the whole event or one format from the selected edition before sending. The route validates that the format belongs to the event, stores it as nullable `race_event_updates.race_id`, and uses the event or format name in the push title. Delivery still targets event followers; the payload includes `eventId`, `updateId`, optional `raceId`, and a catalog deep link. Delivery is logged in `push_notification_events` as `notification_kind = 'organizer-race-update'`. Each recent history card also has a compact delete cross; the `DELETE` handler repeats the organizer membership check and scopes the service-role deletion to both event id and update id.
 

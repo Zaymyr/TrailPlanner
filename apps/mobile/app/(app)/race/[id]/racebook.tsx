@@ -912,7 +912,8 @@ export default function RaceRacebookScreen() {
       },
       {
         title: t.catalog.racebookAccessParking,
-        lines: access.officialParkings ? [access.officialParkings] : [],
+        lines:
+          access.enabledSections.officialParkings && access.officialParkings ? [access.officialParkings] : [],
       },
       {
         title: t.catalog.racebookAccessShuttles,
@@ -1008,15 +1009,6 @@ export default function RaceRacebookScreen() {
                 <Heading variant="h2" style={styles.heroTitle}>
                   {data.race.name}
                 </Heading>
-                {participationLabels.length > 0 ? (
-                  <View style={styles.heroParticipationBadges}>
-                    {participationLabels.map((label) => (
-                      <View key={label} style={styles.heroParticipationBadge}>
-                        <Text style={styles.heroParticipationBadgeText}>{label}</Text>
-                      </View>
-                    ))}
-                  </View>
-                ) : null}
                 <View style={styles.heroMetaGroup}>
                   {eventDateRange ? <Text style={styles.heroMeta}>{eventDateRange}</Text> : null}
                   {headerLocation ? (
@@ -1032,6 +1024,15 @@ export default function RaceRacebookScreen() {
                     ) : (
                       <Text style={styles.heroMeta}>{headerLocation}</Text>
                     )
+                  ) : null}
+                  {participationLabels.length > 0 ? (
+                    <View style={styles.heroParticipationBadges}>
+                      {participationLabels.map((label) => (
+                        <View key={label} style={styles.heroParticipationBadge}>
+                          <Text style={styles.heroParticipationBadgeText}>{label}</Text>
+                        </View>
+                      ))}
+                    </View>
                   ) : null}
                   {showDistinctRaceDate ? (
                     <View style={styles.heroRaceDayRow}>

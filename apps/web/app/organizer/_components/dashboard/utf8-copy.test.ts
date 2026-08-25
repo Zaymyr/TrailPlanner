@@ -107,6 +107,21 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('type="tel"');
   });
 
+  it("separates aid stations and relay points into local views", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/aid-stations-editor.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain('{ id: "aidStations", label: "Ravitos" }');
+    expect(source).toContain('{ id: "relay", label: "Relais" }');
+    expect(source).toContain('activeView === "aidStations"');
+    expect(source).toContain('title="Départ"');
+    expect(source).toContain('title="Arrivée"');
+    expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
+    expect(source).not.toContain('" - Barrière à définir"');
+  });
+
   it("keeps edition visibility and year-confirmed deletion in the organizer header", () => {
     const source = readFileSync(
       resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"),
