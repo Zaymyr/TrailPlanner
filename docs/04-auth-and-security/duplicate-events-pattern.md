@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-06-18
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -67,6 +67,7 @@ Mobile listens to `supabase.auth.onAuthStateChange` in `apps/mobile/app/_layout.
 
 The layout also runs session side effects such as push registration and Resend contact sync behind in-flight refs and persistent client markers. These are not onboarding plan saves, but they follow the same idempotency principle because Supabase sessions can refresh or be observed more than once.
 Presentation-only route configuration in the layout, such as hiding the bottom tab bar for required onboarding, is not part of this duplicate-event guard pattern.
+Likewise, routing returning sessions to the Courses catalog without a Plans preload does not alter the session-event guards.
 
 ## Gotchas
 

@@ -61,6 +61,7 @@ The per-user contact route:
 - is called by `apps/mobile/lib/resendContactSync.ts` from `apps/mobile/app/_layout.tsx` after a mobile non-anonymous session is active.
 
 `apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding. Keep those route presentation changes independent from the Resend sync trigger.
+Its normal post-auth destination is the Courses catalog; changing that destination must not move or delay the identified-user contact sync.
 
 The admin bulk sync route:
 
