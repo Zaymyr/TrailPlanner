@@ -602,6 +602,7 @@ export type MobileTranslations = {
     racebookEmergencyContact: string;
     racebookEmergencyShort: string;
     racebookCallEmergency: string;
+    racebookCallAction: string;
     racebookFieldStartTime: string;
     racebookFieldFormatDate: string;
     racebookParticipationSolo: string;

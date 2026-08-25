@@ -1029,93 +1029,105 @@ export default function RaceRacebookScreen() {
                   {data.race.name}
                 </Heading>
                 <View style={styles.heroMetaGroup}>
-                  {eventDateRange ? <Text style={styles.heroMeta}>{eventDateRange}</Text> : null}
-                  {headerLocation ? (
-                    headerLocationUrl ? (
-                      <Pressable
-                        accessibilityRole="link"
-                        accessibilityLabel={`Ouvrir ${headerLocation}`}
-                        onPress={() => Linking.openURL(headerLocationUrl).catch(() => {})}
-                        style={styles.heroLocationAction}
-                      >
-                        <Text style={[styles.heroMeta, styles.tableValueLink]}>{headerLocation}</Text>
-                      </Pressable>
-                    ) : (
-                      <Text style={styles.heroMeta}>{headerLocation}</Text>
-                    )
+                  {eventDateRange ? (
+                    <View style={styles.heroMetaItem}>
+                      <Ionicons name="calendar-outline" size={20} color={Colors.brandPrimary} />
+                      <Text style={styles.heroMeta}>{eventDateRange}</Text>
+                    </View>
                   ) : null}
+                  {eventDateRange && (headerLocation || participationLabels.length > 0) ? (
+                    <Text style={styles.heroMetaSeparator}>•</Text>
+                  ) : null}
+                  {headerLocation ? (
+                    <View style={styles.heroMetaItem}>
+                      <Ionicons name="location-outline" size={21} color={Colors.brandPrimary} />
+                      {headerLocationUrl ? (
+                        <Pressable
+                          accessibilityRole="link"
+                          accessibilityLabel={`Ouvrir ${headerLocation}`}
+                          onPress={() => Linking.openURL(headerLocationUrl).catch(() => {})}
+                          style={styles.heroLocationAction}
+                        >
+                          <Text style={[styles.heroMeta, styles.tableValueLink]}>{headerLocation}</Text>
+                        </Pressable>
+                      ) : (
+                        <Text style={styles.heroMeta}>{headerLocation}</Text>
+                      )}
+                    </View>
+                  ) : null}
+                  {headerLocation && participationLabels.length > 0 ? <Text style={styles.heroMetaSeparator}>•</Text> : null}
                   {participationLabels.length > 0 ? (
                     <View style={styles.heroParticipationBadges}>
-                      {participationLabels.map((label) => (
-                        <View key={label} style={styles.heroParticipationBadge}>
-                          <Text style={styles.heroParticipationBadgeText}>{label}</Text>
+                      {participationLabels.map((label, index) => (
+                        <View key={label} style={styles.heroParticipationItem}>
+                          {index > 0 ? <Text style={styles.heroMetaSeparator}>•</Text> : null}
+                          <View style={styles.heroParticipationBadge}>
+                            <Text style={styles.heroParticipationBadgeText}>{label}</Text>
+                          </View>
                         </View>
                       ))}
                     </View>
                   ) : null}
-                  {showDistinctRaceDate ? (
-                    <View style={styles.heroRaceDayRow}>
-                      <Ionicons name="calendar-outline" size={18} color={Colors.brandPrimary} />
-                      <Text style={styles.heroRaceDayText}>
-                        {`${t.catalog.racebookFieldFormatDate} : ${formattedRaceDate}`}
-                      </Text>
-                    </View>
-                  ) : null}
                 </View>
+                {showDistinctRaceDate ? (
+                  <View style={styles.heroRaceDayRow}>
+                    <Ionicons name="calendar-outline" size={18} color={Colors.brandPrimary} />
+                    <Text style={styles.heroRaceDayText}>
+                      {`${t.catalog.racebookFieldFormatDate} : ${formattedRaceDate}`}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
               {officialWebsiteUrl ? (
-                <View style={styles.heroQuickActions}>
-                  <Pressable
-                    accessibilityRole="link"
-                    accessibilityLabel={t.catalog.racebookOfficialWebsite}
-                    onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
-                    style={({ pressed }) => [
-                      styles.heroQuickAction,
-                      styles.heroWebsiteAction,
-                      pressed && styles.heroQuickActionPressed,
-                    ]}
-                  >
-                    <Ionicons name="globe-outline" size={20} color={Colors.brandPrimary} />
-                    <Text style={styles.heroQuickActionLabel} numberOfLines={2}>
-                      {t.catalog.racebookOfficialWebsiteShort}
-                    </Text>
-                  </Pressable>
-                </View>
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t.catalog.racebookOfficialWebsite}
+                  onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
+                  style={({ pressed }) => [styles.heroWebsiteAction, pressed && styles.heroQuickActionPressed]}
+                >
+                  <Ionicons name="globe-outline" size={20} color={Colors.brandPrimary} />
+                  <Text style={styles.heroWebsiteActionLabel} numberOfLines={1}>
+                    {t.catalog.racebookOfficialWebsiteShort}
+                  </Text>
+                </Pressable>
               ) : null}
             </View>
 
             {emergencyContact?.phone && emergencyTelephoneUrl ? (
-              <Pressable
-                accessibilityRole="link"
-                accessibilityLabel={t.catalog.racebookCallEmergency}
-                onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
-                style={({ pressed }) => [
-                  styles.heroQuickAction,
-                  styles.heroEmergencyAction,
-                  pressed && styles.heroQuickActionPressed,
-                ]}
-              >
-                <Ionicons name="call-outline" size={20} color={Colors.danger} />
-                <View style={styles.heroQuickActionText}>
-                  <View style={styles.heroEmergencyLine}>
-                    <Text style={[styles.heroQuickActionLabel, styles.heroEmergencyLabel]} numberOfLines={1}>
-                      {t.catalog.racebookEmergencyShort}
-                    </Text>
-                    {emergencyContact.name ? (
-                      <>
-                        <Text style={styles.heroEmergencySeparator}>-</Text>
-                        <Text style={styles.heroEmergencyName} numberOfLines={1}>
-                          {emergencyContact.name}
-                        </Text>
-                      </>
-                    ) : null}
-                    <Text style={styles.heroEmergencySeparator}>-</Text>
-                    <DataText style={styles.heroEmergencyPhone} numberOfLines={1}>
-                      {emergencyContact.phone}
-                    </DataText>
+              <>
+                <View style={styles.heroDivider} />
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={t.catalog.racebookCallEmergency}
+                  onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
+                  style={({ pressed }) => [styles.heroEmergencyAction, pressed && styles.heroQuickActionPressed]}
+                >
+                  <Ionicons name="call-outline" size={26} color={Colors.danger} />
+                  <View style={styles.heroQuickActionText}>
+                    <View style={styles.heroEmergencyLine}>
+                      <Text style={styles.heroEmergencyLabel} numberOfLines={1}>
+                        {t.catalog.racebookEmergencyShort}
+                      </Text>
+                      {emergencyContact.name ? (
+                        <>
+                          <Text style={styles.heroEmergencySeparator}>-</Text>
+                          <Text style={styles.heroEmergencyName} numberOfLines={1}>
+                            {emergencyContact.name}
+                          </Text>
+                        </>
+                      ) : null}
+                      <Text style={styles.heroEmergencySeparator}>-</Text>
+                      <DataText style={styles.heroEmergencyPhone} numberOfLines={1}>
+                        {emergencyContact.phone}
+                      </DataText>
+                    </View>
                   </View>
-                </View>
-              </Pressable>
+                  <View style={styles.heroCallButton}>
+                    <Ionicons name="call-outline" size={18} color={Colors.brandPrimary} />
+                    <Text style={styles.heroCallButtonText}>{t.catalog.racebookCallAction}</Text>
+                  </View>
+                </Pressable>
+              </>
             ) : null}
 
             {runnerInfoLines.length > 0 ? <View style={styles.heroDivider} /> : null}
@@ -1442,10 +1454,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   heroCard: {
-    gap: 8,
-    paddingHorizontal: 18,
-    paddingTop: 12,
-    paddingBottom: 18,
+    gap: 16,
+    paddingHorizontal: 24,
+    paddingTop: 22,
+    paddingBottom: 20,
   },
   alertCard: {
     gap: 8,
@@ -1488,42 +1500,33 @@ const styles = StyleSheet.create({
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    gap: 12,
+    justifyContent: 'space-between',
+    gap: 16,
   },
   heroHeaderText: {
     flex: 1,
     minWidth: 0,
     gap: 4,
   },
-  heroQuickActions: {
-    alignSelf: 'flex-start',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  heroQuickAction: {
-    minHeight: 58,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-  },
   heroWebsiteAction: {
     alignSelf: 'flex-start',
+    minHeight: 46,
+    paddingHorizontal: 14,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   heroEmergencyAction: {
     width: '100%',
-    minHeight: 48,
-    paddingHorizontal: 14,
+    minHeight: 52,
+    paddingVertical: 2,
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    alignItems: 'center',
     gap: 10,
-    borderColor: '#EDB8B2',
-    backgroundColor: Colors.dangerSurface,
   },
   heroQuickActionPressed: {
     opacity: 0.68,
@@ -1540,22 +1543,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
-  heroQuickActionLabel: {
+  heroWebsiteActionLabel: {
     color: Colors.brandPrimary,
-    fontSize: 12,
-    lineHeight: 15,
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: '700',
-    textAlign: 'center',
   },
   heroEmergencyLabel: {
     color: Colors.danger,
+    flexShrink: 0,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
     textAlign: 'left',
   },
   heroEmergencySeparator: {
     flexShrink: 0,
     color: Colors.danger,
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 14,
+    lineHeight: 18,
   },
   heroEmergencyName: {
     flexShrink: 1,
@@ -1567,8 +1573,8 @@ const styles = StyleSheet.create({
   heroEmergencyPhone: {
     flexShrink: 0,
     color: Colors.danger,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 18,
     fontWeight: '700',
     textAlign: 'left',
   },
@@ -1588,34 +1594,42 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   heroMetaGroup: {
-    gap: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  heroMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  heroMetaSeparator: {
+    color: Colors.textSecondary,
+    fontSize: 14,
+    lineHeight: 20,
   },
   heroParticipationBadges: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     gap: 6,
-    marginTop: 2,
-    marginBottom: 2,
+  },
+  heroParticipationItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   heroParticipationBadge: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 9,
-    paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
+    paddingVertical: 2,
   },
   heroParticipationBadgeText: {
     color: Colors.brandPrimary,
-    fontSize: 11,
-    lineHeight: 14,
+    fontSize: 14,
+    lineHeight: 20,
     fontWeight: '700',
   },
   heroLocationAction: {
-    alignSelf: 'flex-start',
-    minHeight: 32,
-    justifyContent: 'center',
+    flexShrink: 1,
   },
   heroRaceDayRow: {
     alignSelf: 'flex-start',
@@ -1640,6 +1654,24 @@ const styles = StyleSheet.create({
   heroDivider: {
     height: 1,
     backgroundColor: Colors.border,
+  },
+  heroCallButton: {
+    flexShrink: 0,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  heroCallButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
+    lineHeight: 18,
+    fontWeight: '700',
   },
   heroDetailGroup: {
     gap: 8,
