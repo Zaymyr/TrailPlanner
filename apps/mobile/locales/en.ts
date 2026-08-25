@@ -610,6 +610,7 @@ export const en: MobileTranslations = {
     racebookEmergencyContact: 'Emergency contact',
     racebookEmergencyShort: 'Emergency',
     racebookCallEmergency: 'Call emergency number',
+    racebookCallAction: 'Call',
     racebookFieldStartTime: 'Start time',
     racebookFieldFormatDate: 'Race day',
     racebookParticipationSolo: 'Solo',
