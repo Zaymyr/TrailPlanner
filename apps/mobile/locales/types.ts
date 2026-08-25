@@ -583,6 +583,8 @@ export type MobileTranslations = {
     racebookSectionCourseProfile: string;
     racebookSectionAidStations: string;
     racebookSectionRelay: string;
+    racebookCourseTabRoute: string;
+    racebookCourseTabAidStations: string;
     racebookSectionCourseEssentials: string;
     racebookSectionCourseConstraints: string;
     racebookSectionGearRequired: string;
@@ -639,6 +641,7 @@ export type MobileTranslations = {
     racebookEmptyBib: string;
     racebookEmptyAccess: string;
     racebookEmptyCourse: string;
+    racebookEmptyAidStations: string;
     racebookEmptyCourseMap: string;
     racebookEmptyCourseProfile: string;
     racebookMapStart: string;

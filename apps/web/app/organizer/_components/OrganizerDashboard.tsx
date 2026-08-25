@@ -18,7 +18,7 @@ import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { buildOrganizerCompletion, type OrganizerCompletionSummary, type OrganizerModuleId } from "./completion";
 import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
-import { OrganizerToast } from "./dashboard/controls";
+import { OrganizerToast, ToggleChip } from "./dashboard/controls";
 import {
   clearOrganizerDataCache,
   invalidateOrganizerGpxPreviewCache,
@@ -2165,10 +2165,30 @@ export function OrganizerDashboard({
       ) : null}
 
       <Card className="rounded-lg">
-        <CardHeader className={activeModule === "formats" && activeRace ? "flex flex-row items-center justify-between gap-4 space-y-0" : undefined}>
+        <CardHeader
+          className={
+            (activeModule === "formats" || activeModule === "bibPickup") && activeRace
+              ? "flex flex-row items-center justify-between gap-4 space-y-0"
+              : undefined
+          }
+        >
           <div>
-            <CardTitle>{getModuleTitle(activeModule)}</CardTitle>
-            {activeModule !== "formats" ? <CardDescription>{getModuleDescription(activeModule)}</CardDescription> : null}
+            <CardTitle>
+              {activeRace && activeModule === "bibPickup"
+                ? `Retrait dossard - ${activeRace.name}`
+                : activeRace && activeModule === "access"
+                  ? `Accès - ${activeRace.name}`
+                  : getModuleTitle(activeModule)}
+            </CardTitle>
+            {activeModule !== "formats" ? (
+              <CardDescription>
+                {activeRace && activeModule === "bibPickup"
+                  ? "Par défaut, ce format utilise le retrait commun de l'événement."
+                  : activeRace && activeModule === "access"
+                    ? "Renseigne le départ, l'arrivée et active seulement les sections utiles à ce format."
+                    : getModuleDescription(activeModule)}
+              </CardDescription>
+            ) : null}
           </div>
           {activeModule === "formats" && activeRace ? (
             <Button
@@ -2180,6 +2200,22 @@ export function OrganizerDashboard({
             >
               Supprimer ce format
             </Button>
+          ) : activeModule === "bibPickup" && activeRace ? (
+            <ToggleChip
+              checked={raceForm.organizerDetails.bibPickup.overrideEnabled}
+              label="Retrait différent pour ce format"
+              onChange={(overrideEnabled) =>
+                updateRaceForm(
+                  {
+                    organizerDetails: {
+                      ...raceForm.organizerDetails,
+                      bibPickup: { ...raceForm.organizerDetails.bibPickup, overrideEnabled },
+                    },
+                  },
+                  "bibPickup"
+                )
+              }
+            />
           ) : null}
         </CardHeader>
         <CardContent>

@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 const organizerFiles = [
   "app/organizer/_components/dashboard/aid-stations-editor.tsx",
   "app/organizer/_components/dashboard/event-format-editors.tsx",
+  "app/organizer/_components/dashboard/detail-editors.tsx",
   "app/organizer/_components/dashboard/shell.tsx",
   "app/organizer/_components/dashboard/website-import-review-details.tsx",
 ];
@@ -116,6 +117,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('{ id: "aidStations", label: "Ravitos" }');
     expect(source).toContain('{ id: "relay", label: "Relais" }');
     expect(source).toContain('activeView === "aidStations"');
+    expect(source).toContain('md:absolute md:-top-[4.75rem] md:right-0');
     expect(source).toContain('title="Départ"');
     expect(source).toContain('title="Arrivée"');
     expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
@@ -123,6 +125,24 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).not.toContain('label="Passage prévu"');
     expect(source).not.toContain('label="Note de passage"');
     expect(source).not.toContain('" - Barrière à définir"');
+  });
+
+  it("keeps format detail modules free from redundant nested headings", () => {
+    const dashboardSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"),
+      "utf8"
+    );
+    const detailSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/detail-editors.tsx"),
+      "utf8"
+    );
+
+    expect(dashboardSource).toContain('`Retrait dossard - ${activeRace.name}`');
+    expect(dashboardSource).toContain('`Accès - ${activeRace.name}`');
+    expect(dashboardSource).toContain('label="Retrait différent pour ce format"');
+    expect(detailSource).toContain("showHeader={false}");
+    expect(detailSource).toContain("framed={false}");
+    expect(detailSource).not.toContain("<p className=\"font-semibold text-foreground\">Retrait dossard - {activeRace.name}</p>");
   });
 
   it("keeps edition visibility and year-confirmed deletion in the organizer header", () => {
