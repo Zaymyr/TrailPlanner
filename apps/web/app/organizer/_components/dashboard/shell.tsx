@@ -115,6 +115,7 @@ export function OrganizerSummaryHeader({
   completion,
   hasDirtyChanges,
   status,
+  activeRaceId,
   onSaveAll,
   onNotifyFollowers,
   onRequestPublication,
@@ -141,6 +142,7 @@ export function OrganizerSummaryHeader({
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
+  activeRaceId?: string | null;
   onSaveAll: () => void;
   onNotifyFollowers: (raceId?: string) => void;
   onRequestPublication: (raceId: string) => void;
@@ -176,6 +178,11 @@ export function OrganizerSummaryHeader({
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
   const selectedEdition = getEventEdition(event, selectedEditionYear);
   const editionIsVisible = selectedEdition?.is_visible !== false;
+  const activeRaceRow = activeRaceId ? raceRows.find((race) => race.activeEdition?.id === activeRaceId) ?? null : null;
+  const activeRaceIsApproved = Boolean(activeRaceRow?.activeEdition?.racebook_publication_approved_at);
+  const activeRacePublicationPending = publicationRequestStates.some(
+    (request) => request.status === "pending" && (!request.race_id || request.race_id === activeRaceId)
+  );
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -310,56 +317,27 @@ export function OrganizerSummaryHeader({
         {raceRows.length > 0 ? (
           raceRows.map((race) => {
             const isApproved = Boolean(race.activeEdition?.racebook_publication_approved_at);
-            const racePublicationPending = publicationRequestStates.some(
-              (request) => request.status === "pending" && (!request.race_id || request.race_id === race.activeEdition?.id)
-            );
             return (
             <div
               key={race.id}
-              className="flex flex-col gap-2 rounded-md border border-border/60 bg-background/50 p-3 text-sm"
+              className="grid gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
             >
-              <div className="grid gap-3 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
-                <span className="min-w-0 font-medium text-foreground">
-                  {race.label || "Format sans nom"}
-                  {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
-                </span>
-                <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
-                {isApproved ? (
-                  <LiveToggle
-                    checked={race.activeEdition!.racebook_is_live === true}
-                    disabled={!editionIsVisible || status !== "idle"}
-                    onChange={(checked) => onRacebookVisibilityChange(race.activeEdition!.id, checked)}
-                    liveLabel="Racebook publié"
-                    draftLabel="Racebook masqué"
-                  />
-                ) : (
-                  <LiveToggle checked={false} disabled onChange={() => {}} draftLabel="Racebook non publié" />
-                )}
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => onNotifyFollowers(race.activeEdition!.id)}
-                    disabled={status !== "idle"}
-                  >
-                    Notifier les coureurs
-                  </Button>
-                  <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
-                    {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
-                  </Button>
-                </div>
-                {!isApproved ? (
-                  <Button
-                    type="button"
-                    onClick={() => onRequestPublication(race.activeEdition!.id)}
-                    disabled={!editionIsVisible || racePublicationPending || status !== "idle"}
-                  >
-                    {racePublicationPending ? "Demande en cours" : "Demander la publication"}
-                  </Button>
-                ) : null}
-              </div>
+              <span className="min-w-0 font-medium text-foreground">
+                {race.label || "Format sans nom"}
+                {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
+              </span>
+              <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
+              {isApproved ? (
+                <LiveToggle
+                  checked={race.activeEdition!.racebook_is_live === true}
+                  disabled={!editionIsVisible || status !== "idle"}
+                  onChange={(checked) => onRacebookVisibilityChange(race.activeEdition!.id, checked)}
+                  liveLabel="Racebook publié"
+                  draftLabel="Racebook masqué"
+                />
+              ) : (
+                <LiveToggle checked={false} disabled onChange={() => {}} draftLabel="Racebook non publié" />
+              )}
             </div>
             );
           })
@@ -368,18 +346,28 @@ export function OrganizerSummaryHeader({
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap gap-2">
+      <div className="mt-4 flex flex-wrap items-center gap-2">
         {publicationPending ? (
           <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
             Publication en attente de validation admin
           </span>
         ) : null}
-        <Button type="button" onClick={() => onNotifyFollowers()} variant="outline" disabled={!event}>
+        <Button type="button" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} variant="outline" disabled={!event}>
           Notifier les coureurs
         </Button>
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
         </Button>
+        {activeRaceRow && !activeRaceIsApproved ? (
+          <Button
+            type="button"
+            className="ml-auto"
+            onClick={() => onRequestPublication(activeRaceId!)}
+            disabled={!editionIsVisible || activeRacePublicationPending || status !== "idle"}
+          >
+            {activeRacePublicationPending ? "Demande en cours" : "Demander la publication"}
+          </Button>
+        ) : null}
       </div>
 
       <Dialog open={newEditionDialogOpen} onOpenChange={setNewEditionDialogOpen}>

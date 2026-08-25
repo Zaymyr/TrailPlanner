@@ -2126,6 +2126,7 @@ export function OrganizerDashboard({
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
         status={status}
+        activeRaceId={activeRace?.id ?? null}
         onSaveAll={() => {
           void saveAllDirty();
         }}
