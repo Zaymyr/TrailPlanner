@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -27,7 +27,7 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 - A point may stand alone or reference a source `race_aid_stations` row.
 - Copied `name` and `km` values form the durable relay snapshot; deleting a linked ravito only clears the optional link.
 - Legs are derived from start, ordered points, and finish rather than stored as rows, then rendered only in the mobile Racebook `Course` tab.
-- Relay cards remain isolated from the event-level `Services` tab, its category-card presentation, and the Racebook identity card's compact website/emergency actions and emphasized race-day row.
+- Relay cards remain isolated from the event-level `Services` tab, its category-card presentation, and the Racebook identity card's compact website/emergency actions, participation badges, and emphasized race-day row. Mixed formats show separate `Solo` and `Relais` badges above the event date.
 
 ## Columns
 

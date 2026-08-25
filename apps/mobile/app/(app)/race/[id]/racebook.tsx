@@ -877,13 +877,13 @@ export default function RaceRacebookScreen() {
     }));
   }, [data, t.catalog.racebookMapFinish, t.catalog.racebookMapStart]);
 
-  const participationLabel = data?.race.participationMode === 'solo'
-    ? t.catalog.racebookParticipationSolo
+  const participationLabels = data?.race.participationMode === 'solo'
+    ? [t.catalog.racebookParticipationSolo]
     : data?.race.participationMode === 'relay'
-      ? t.catalog.racebookParticipationRelay
+      ? [t.catalog.racebookParticipationRelay]
       : data?.race.participationMode === 'solo_and_relay'
-        ? t.catalog.racebookParticipationSoloAndRelay
-        : null;
+        ? [t.catalog.racebookParticipationSolo, t.catalog.racebookParticipationRelay]
+        : [];
 
   const accessSections = useMemo(() => {
     if (!data) return [];
@@ -1008,6 +1008,15 @@ export default function RaceRacebookScreen() {
                 <Heading variant="h2" style={styles.heroTitle}>
                   {data.race.name}
                 </Heading>
+                {participationLabels.length > 0 ? (
+                  <View style={styles.heroParticipationBadges}>
+                    {participationLabels.map((label) => (
+                      <View key={label} style={styles.heroParticipationBadge}>
+                        <Text style={styles.heroParticipationBadgeText}>{label}</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null}
                 <View style={styles.heroMetaGroup}>
                   {eventDateRange ? <Text style={styles.heroMeta}>{eventDateRange}</Text> : null}
                   {headerLocation ? (
@@ -1032,7 +1041,6 @@ export default function RaceRacebookScreen() {
                       </Text>
                     </View>
                   ) : null}
-                  {participationLabel ? <Text style={styles.heroFormatDate}>{participationLabel}</Text> : null}
                 </View>
               </View>
               {officialWebsiteUrl ? (
@@ -1430,7 +1438,7 @@ const styles = StyleSheet.create({
   },
   heroHeader: {
     flexDirection: 'row',
-    alignItems: 'stretch',
+    alignItems: 'flex-start',
     gap: 12,
   },
   heroHeaderText: {
@@ -1439,8 +1447,8 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   heroQuickActions: {
-    width: 116,
-    alignSelf: 'stretch',
+    alignSelf: 'flex-start',
+    alignItems: 'flex-end',
     gap: 8,
   },
   heroQuickAction: {
@@ -1456,7 +1464,7 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   heroWebsiteAction: {
-    flex: 1,
+    alignSelf: 'flex-start',
   },
   heroEmergencyAction: {
     width: '100%',
@@ -1533,6 +1541,28 @@ const styles = StyleSheet.create({
   heroMetaGroup: {
     gap: 2,
   },
+  heroParticipationBadges: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  heroParticipationBadge: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+  },
+  heroParticipationBadgeText: {
+    color: Colors.brandPrimary,
+    fontSize: 11,
+    lineHeight: 14,
+    fontWeight: '700',
+  },
   heroLocationAction: {
     alignSelf: 'flex-start',
     minHeight: 32,
@@ -1557,12 +1587,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     lineHeight: 20,
     fontWeight: '700',
-  },
-  heroFormatDate: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-    fontWeight: '600',
   },
   heroDivider: {
     height: 1,
