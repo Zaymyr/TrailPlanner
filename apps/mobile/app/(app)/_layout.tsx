@@ -8,7 +8,7 @@ import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
 
 export const unstable_settings = {
-  initialRouteName: 'plans',
+  initialRouteName: 'catalog',
 };
 
 const ROOT_TAB_ROUTES = new Set(['profile', 'catalog', 'plans', 'nutrition']);
@@ -83,7 +83,7 @@ export default function AppLayout() {
   return (
     <Tabs
       backBehavior="history"
-      initialRouteName="plans"
+      initialRouteName="catalog"
       screenOptions={({ route }) => {
         const isRootTab = ROOT_TAB_ROUTES.has(route.name);
 

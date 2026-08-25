@@ -39,6 +39,8 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/constants.ts
   - apps/web/app/organizer/_components/dashboard/helpers.ts
   - apps/web/app/organizer/_components/dashboard/helpers.test.ts
+  - apps/web/app/organizer/_components/dashboard/data-cache.ts
+  - apps/web/app/organizer/_components/dashboard/data-cache.test.ts
   - apps/web/app/organizer/_components/dashboard/utf8-copy.test.ts
   - apps/web/app/organizer/_components/dashboard/website-import-review-details.tsx
   - apps/web/app/organizer/_components/dashboard/website-import-review-details.test.ts
@@ -227,6 +229,8 @@ Admins are the explicit exception to the membership boundary: trusted `app_metad
 
 The initial dashboard read uses `GET /api/organizer/bootstrap`. It preserves the four collections returned by `GET /api/organizer/claims` and adds the selected event detail after a single bearer-token verification. A requested `eventId` is accepted only when present in the caller's active membership set, or in the trusted admin's complete event selector. Without an explicit selection, the first selectable event is loaded; with no active membership, the event detail is `null`. Heavy format sidecars, GPX parsing, products, runner updates, and follower information are excluded from this bootstrap contract. GPX is requested only when Course or Ravitos needs it; ravito/relay/product sidecars and the catalog wait for Ravitos or Products; announcements and follower totals wait for the notification dialog. Until sidecars arrive, the completion header retains the persisted per-format ravito count returned by the event detail.
 
+Module-scoped reads reuse a route-local in-memory cache: the product catalog is fresh for 5 minutes, complete ravito/relay/station-product sidecars are isolated by race id for 2 minutes, and parsed GPX previews are isolated by race id plus `gpx_storage_path` for 10 minutes. A GPX path replacement therefore misses without comparing payload contents. Successful mutations invalidate the affected race snapshot; changing the authenticated user clears every Organizer cache entry.
+
 ## Publication and Completion Rules
 
 Creating a request through `/api/organizer/publication-requests` requires:
@@ -272,7 +276,7 @@ Ravitos in the organizer editor are always ordered by ascending distance from th
 
 Relay metadata is edited in the Ravitos module without changing nutrition semantics. A point may reference a saved ravito or stand alone. The dashboard derives legs from start, distance-sorted points, and finish. It saves ravitos before relay points, and switching a format to `solo` clears the relay collection. V1 exposes relay data only in the mobile Racebook; planner and nutrition calculations remain unchanged.
 
-For relay-capable formats, the module separates its content into local `Ravitos` and `Relais` tabs. The ravito view is always the initial view after changing format or participation mode and contains the start card, ordered ravito cards, and finish card; the relay view contains only handover points and derived legs. Solo formats do not show a relay tab. The tab choice is local presentation state and does not alter dirty tracking or save payloads.
+For relay-capable formats, the `Ravito / relais` module separates its content into local `Ravitos` and `Relais` tabs. The ravito view is always the initial view after changing format or participation mode and contains the start card, ordered ravito cards, and finish card. The relay view puts its compact derived legs in one horizontal row above the handover-point block; each point card exposes only its name, distance, cutoff, and compact delete cross. The optional persisted passage time and notes stay compatible with existing rows but are not edited in this interface. Solo formats do not show a relay tab. The tab choice is local presentation state and does not alter dirty tracking or save payloads.
 
 ## Organizer Products
 
@@ -329,6 +333,7 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 - Keep organizer import bootstrap query parsing in the `/organizer` server page unless the client dashboard is explicitly wrapped in Suspense; direct `useSearchParams` usage otherwise breaks the production static build.
 - Keep the initial Organizer bootstrap authorization tied to the active memberships already loaded in that request. A query-string `eventId` alone grants no access, and this response must stay free of GPX and module-specific sidecars.
 - Keep heavy Organizer data module-scoped. The event overview must remain usable without loading format GPX, source course points, products, announcements, or follower totals.
+- Keep Organizer cache invalidation aligned with mutations. Never reuse a sidecar snapshot after ravito, relay, or station-product writes; never reuse a GPX preview under a different `gpx_storage_path`; clear all route-local entries when the authenticated user changes.
 - Do not let organizer switches grant approval. Before `racebook_publication_approved_at` exists they may only request review; after approval they may freely toggle `racebook_is_live` without changing catalog visibility.
 - Keep publication-switch persistence format-scoped. An incomplete dirty format may remain open without blocking the switch for another complete format; only the format whose switch is used must finish its foreground save first.
 - Keep first-publication readiness tied to the clicked `race_id` and that race's `edition_id`. The event's `is_current` edition may differ from the year selected in the dashboard and must not redirect or reject the request.

@@ -503,7 +503,7 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
   const titles: Record<OrganizerModuleId, string> = {
     event: "Informations",
     formats: "Formats & GPX",
-    aidStations: "Ravitos & points de course",
+    aidStations: "Ravito / relais",
     equipment: "Matériel",
     bibPickup: "Dossard",
     access: "Accès",
@@ -517,7 +517,7 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
   const descriptions: Record<OrganizerModuleId, string> = {
     event: "Les informations principales qui cadrent l'événement.",
     formats: "Les formats restent en onglets, avec résumé et actions rapides.",
-    aidStations: "Départ, arrivée et ravitos dans une même vue.",
+    aidStations: "Départ, arrivée, ravitos et relais dans une même vue.",
     equipment: "Le matériel partagé se gère depuis l'événement, puis chaque course peut l'ajuster.",
     bibPickup: "Retrait dossard commun à tous les formats.",
     access: "Accès et sections optionnelles selon l'onglet actif.",

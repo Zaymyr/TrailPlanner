@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-05-27
+last_verified: 2026-08-25
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -85,6 +85,7 @@ The mobile PostHog client:
 
 `apps/mobile/app/_layout.tsx` is also the home for other session side effects such as push registration and Resend contact sync. Those side effects should stay separate from PostHog identify/reset calls.
 Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
+The normal cold-start destination is the Courses catalog; that routing decision does not change analytics identity initialization.
 
 ## Gotchas
 

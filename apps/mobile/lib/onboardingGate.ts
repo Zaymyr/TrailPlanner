@@ -84,5 +84,5 @@ export async function shouldOpenOnboarding(session: Session | null | undefined) 
 }
 
 export async function getPostAuthRoute(session: Session | null | undefined) {
-  return (await shouldOpenOnboarding(session)) ? '/(app)/onboarding' : '/(app)/plans';
+  return (await shouldOpenOnboarding(session)) ? '/(app)/onboarding' : '/(app)/catalog';
 }

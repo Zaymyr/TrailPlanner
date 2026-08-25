@@ -99,15 +99,7 @@ export function AidStationsEditor({
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap justify-between gap-2">
-        <div>
-          <p className="font-semibold text-foreground">{activeRace.name}</p>
-          <p className="text-sm text-muted-foreground">
-            {activeView === "aidStations"
-              ? "Départ, arrivée, produits et détails de chaque ravito."
-              : "Points de passage et tronçons du relais."}
-          </p>
-        </div>
+      <div className="flex flex-wrap justify-end gap-2">
         {activeView === "aidStations" ? (
           <Button type="button" variant="outline" onClick={onAddStation}>
             Ajouter un ravito
@@ -259,62 +251,62 @@ export function AidStationsEditor({
           />
         </>
       ) : (
-        <section className="space-y-4 rounded-[1.5rem] border border-brand-border/70 bg-brand-surface/20 p-4">
-          <div>
-            <p className="font-semibold text-foreground">Points et tronçons du relais</p>
-            <p className="text-sm text-muted-foreground">Les tronçons sont construits automatiquement entre le départ, les points triés par kilomètre et l&apos;arrivée.</p>
-          </div>
-
-          {relayPoints.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point de relais : le Racebook indiquera un seul tronçon sur toute la course.</p>
-          ) : (
-            <div className="space-y-3">
-              {relayPoints.map((point, index) => {
-                const linkedStation = point.raceAidStationId ? aidStations.find((station) => station.id === point.raceAidStationId) : null;
-                return (
-                  <article key={point.id ?? `relay-${index}`} className="rounded-xl border border-border bg-background p-4">
-                    <div className="grid gap-3 lg:grid-cols-12">
-                      <div className="lg:col-span-4">
-                        <TextField label="Nom du point" value={point.name} onChange={(value) => onUpdateRelayPoint(index, { ...point, name: value })} disabled={Boolean(linkedStation)} />
-                      </div>
-                      <div className="lg:col-span-2">
-                        <NumberField label="Distance km" value={point.distanceKm} onChange={(value) => onUpdateRelayPoint(index, { ...point, distanceKm: value })} disabled={Boolean(linkedStation)} />
-                      </div>
-                      <div className="lg:col-span-2">
-                        <TextField label="Passage prévu" value={point.handoverTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, handoverTime: value })} />
-                      </div>
-                      <div className="lg:col-span-2">
-                        <TextField label="Barrière horaire" value={point.cutoffTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, cutoffTime: value })} />
-                      </div>
-                      <div className="flex items-end lg:col-span-2">
-                        <Button type="button" variant="ghost" className="w-full border border-red-200 bg-red-50 text-red-700 hover:bg-red-100" onClick={() => onRemoveRelayPoint(index)}>
-                          Retirer
-                        </Button>
-                      </div>
-                      <div className="lg:col-span-12">
-                        <TextAreaField label="Note de passage" value={point.notes} onChange={(value) => onUpdateRelayPoint(index, { ...point, notes: value })} />
-                      </div>
-                    </div>
-                    {linkedStation ? <p className="mt-2 text-xs text-muted-foreground">Lié au ravito {linkedStation.name}. Le nom et le kilomètre suivent ce ravito.</p> : null}
-                  </article>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        <div className="space-y-4">
+          <div className="flex gap-2 overflow-x-auto pb-1" aria-label="Tronçons du relais">
             {relayBoundaries.slice(0, -1).map((boundary, index) => {
               const nextBoundary = relayBoundaries[index + 1];
               return (
-                <div key={`${boundary.name}-${nextBoundary.name}-${index}`} className="rounded-xl border border-border bg-background px-4 py-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tronçon {index + 1}</p>
-                  <p className="mt-1 font-semibold text-foreground">{boundary.name} → {nextBoundary.name}</p>
-                  <p className="mt-1 text-sm text-muted-foreground">{formatKm(Math.max(0, nextBoundary.distanceKm - boundary.distanceKm))}</p>
+                <div
+                  key={`${boundary.name}-${nextBoundary.name}-${index}`}
+                  className="flex min-w-fit shrink-0 items-center gap-2 rounded-lg border border-border bg-background px-3 py-2"
+                >
+                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">T{index + 1}</span>
+                  <span className="whitespace-nowrap text-xs font-semibold text-foreground">{boundary.name} → {nextBoundary.name}</span>
+                  <span className="whitespace-nowrap text-xs text-muted-foreground">{formatKm(Math.max(0, nextBoundary.distanceKm - boundary.distanceKm))}</span>
                 </div>
               );
             })}
           </div>
-        </section>
+
+          <section className="space-y-4 rounded-[1.5rem] border border-brand-border/70 bg-brand-surface/20 p-4">
+            <div>
+              <p className="font-semibold text-foreground">Points et tronçons du relais</p>
+              <p className="text-sm text-muted-foreground">Les tronçons sont construits automatiquement entre le départ, les points triés par kilomètre et l&apos;arrivée.</p>
+            </div>
+
+            {relayPoints.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point de relais : le Racebook indiquera un seul tronçon sur toute la course.</p>
+            ) : (
+              <div className="space-y-3">
+                {relayPoints.map((point, index) => {
+                  const linkedStation = point.raceAidStationId ? aidStations.find((station) => station.id === point.raceAidStationId) : null;
+                  return (
+                    <article key={point.id ?? `relay-${index}`} className="rounded-xl border border-border bg-background p-4">
+                      <div className="grid items-end gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(10rem,1fr)_2.5rem]">
+                        <TextField label="Nom du point" value={point.name} onChange={(value) => onUpdateRelayPoint(index, { ...point, name: value })} disabled={Boolean(linkedStation)} />
+                        <NumberField label="Distance km" value={point.distanceKm} onChange={(value) => onUpdateRelayPoint(index, { ...point, distanceKm: value })} disabled={Boolean(linkedStation)} />
+                        <TextField label="Barrière horaire" value={point.cutoffTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, cutoffTime: value })} />
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          className="h-10 w-10 shrink-0 px-0 text-red-600 hover:text-red-700"
+                          onClick={() => onRemoveRelayPoint(index)}
+                          aria-label={`Retirer ${point.name || "ce point de relais"}`}
+                          title="Retirer"
+                        >
+                          <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4 fill-current">
+                            <path d="M3.2 4.3 4.3 3.2 8 6.9l3.7-3.7 1.1 1.1L9.1 8l3.7 3.7-1.1 1.1L8 9.1l-3.7 3.7-1.1-1.1L6.9 8 3.2 4.3Z" />
+                          </svg>
+                        </Button>
+                      </div>
+                      {linkedStation ? <p className="mt-2 text-xs text-muted-foreground">Lié au ravito {linkedStation.name}. Le nom et le kilomètre suivent ce ravito.</p> : null}
+                    </article>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
       )}
     </div>
   );

@@ -71,10 +71,12 @@ After a web session is verified, `useVerifiedSession` exposes the verified sessi
 - syncs identified, non-anonymous users to Resend through the web API bridge.
 
 Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mobile/app/(auth)/signup.tsx`, and the guest onboarding account choice in `apps/mobile/app/(app)/onboarding.tsx`.
+The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 
 Non-auth onboarding steps, such as race/catalog selection UI, must not add separate session side effects; keep session, analytics identity, push registration, and Resend sync behavior in `_layout.tsx` or the existing dedicated helpers.
 The onboarding race chooser inner-filters event formats to `races.is_live = true`. This visibility filter is catalog behavior only and must not add a new authentication/session side effect.
 `apps/mobile/lib/onboardingGate.ts` decides whether required onboarding should reopen after auth. It first recognizes the explicit `user_profiles.onboarding_completed_at` marker written when onboarding is completed or deliberately skipped, while still treating legacy durable onboarding fields or favorite products as completion signals. It should fail closed on profile/favorites lookup errors so transient client issues do not bounce returning users back into a blank onboarding flow.
+When the gate does not require onboarding, the post-auth and cold-start destination is the `catalog` Courses tab.
 When onboarding does reopen for an identified user, `apps/mobile/app/(app)/onboarding.tsx` should hydrate existing `user_profiles` values and favorite products before the runner edits anything, so revisits do not appear empty or overwrite stored profile defaults unintentionally.
 The onboarding route is registered as a non-tab screen with the bottom tab bar hidden, so users do not get tab navigation access while completing the required flow.
 Mobile onboarding exposes a compact header action to skip the flow throughout the setup steps; the final notification screen keeps its existing explicit skip-step action. Skipping the full flow requires confirmation, persists `onboarding_completed_at` through the current owner-scoped profile policies, and then routes to the plans screen so the gate does not reopen on the next launch.

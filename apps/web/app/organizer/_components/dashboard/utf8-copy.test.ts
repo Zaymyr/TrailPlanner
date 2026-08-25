@@ -119,6 +119,9 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('title="Départ"');
     expect(source).toContain('title="Arrivée"');
     expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
+    expect(source).toContain('aria-label="Tronçons du relais"');
+    expect(source).not.toContain('label="Passage prévu"');
+    expect(source).not.toContain('label="Note de passage"');
     expect(source).not.toContain('" - Barrière à définir"');
   });
 

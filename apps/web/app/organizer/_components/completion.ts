@@ -231,8 +231,8 @@ const buildFormatProgressModules = (
     },
     {
       id: "aidStations",
-      title: "Ravitos",
-      description: "Départ, arrivée, ravitos, barrières et produits du format.",
+      title: "Ravito / relais",
+      description: "Départ, arrivée, ravitos, relais, barrières et produits du format.",
       level: "recommended",
       status:
         hasText(race.organizerDetails?.schedule.startTime) ||
@@ -361,8 +361,8 @@ export function buildOrganizerCompletion(
     },
     {
       id: "aidStations",
-      title: "Ravitos & points de course",
-      description: "Départ, arrivée, ravitos, barrières et produits officiels.",
+      title: "Ravito / relais",
+      description: "Départ, arrivée, ravitos, relais, barrières et produits officiels.",
       level: "recommended",
       status:
         activeRace &&

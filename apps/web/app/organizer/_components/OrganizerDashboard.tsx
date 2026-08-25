@@ -19,6 +19,19 @@ import { buildOrganizerCompletion, type OrganizerCompletionSummary, type Organiz
 import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
 import { OrganizerToast } from "./dashboard/controls";
+import {
+  clearOrganizerDataCache,
+  invalidateOrganizerGpxPreviewCache,
+  invalidateOrganizerRaceDataCache,
+  invalidateOrganizerRaceSidecarsCache,
+  readOrganizerGpxPreviewCache,
+  readOrganizerProductCatalogCache,
+  readOrganizerRaceSidecarsCache,
+  writeOrganizerGpxPreviewCache,
+  writeOrganizerProductCatalogCache,
+  writeOrganizerRaceSidecarsCache,
+  type OrganizerRaceSidecars,
+} from "./dashboard/data-cache";
 import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor, ServicesEditor } from "./dashboard/detail-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import {
@@ -224,7 +237,7 @@ export function OrganizerDashboard({
   const [stationProducts, setStationProducts] = useState<StationProduct[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<FuelProduct[]>([]);
   const [sidecarLoadedRaceId, setSidecarLoadedRaceId] = useState<string | null>(null);
-  const [gpxLoadedRaceId, setGpxLoadedRaceId] = useState<string | null>(null);
+  const [gpxLoadedRaceKey, setGpxLoadedRaceKey] = useState<string | null>(null);
   const [productPickerStationId, setProductPickerStationId] = useState<string | null>(null);
   const [productSearch, setProductSearch] = useState("");
   const [productStationId, setProductStationId] = useState<string | null>(null);
@@ -259,7 +272,11 @@ export function OrganizerDashboard({
   const activeRaceIdRef = useRef<string | null>(null);
   const dirtyRevisionByScopeRef = useRef<Record<string, number>>({});
   const backgroundSaveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
-  const catalogProductsLoadedRef = useRef(false);
+  const sidecarRequestsRef = useRef(new Map<string, Promise<OrganizerRaceSidecars | null>>());
+  const catalogProductsRequestRef = useRef<Promise<FuelProduct[] | null> | null>(null);
+  const gpxRequestsRef = useRef(new Map<string, Promise<GpxPreview | null>>());
+  const cacheOwnerIdRef = useRef<string | null>(null);
+  const cacheGenerationRef = useRef(0);
   const requestedBootstrapEventIdRef = useRef(requestedEventId);
   const skipNextEventLoadRef = useRef<string | null>(null);
 
@@ -289,6 +306,18 @@ export function OrganizerDashboard({
     activeSeries?.races[0] ??
     null;
   activeRaceIdRef.current = activeRace?.id ?? null;
+
+  useEffect(() => {
+    const ownerId = session?.id ?? null;
+    if (cacheOwnerIdRef.current === ownerId) return;
+    clearOrganizerDataCache();
+    cacheGenerationRef.current += 1;
+    sidecarRequestsRef.current.clear();
+    gpxRequestsRef.current.clear();
+    catalogProductsRequestRef.current = null;
+    cacheOwnerIdRef.current = ownerId;
+  }, [session?.id]);
+
   const activeDirtyScopeKey = getOrganizerDirtyScopeKey(selectedEventId, activeTab, activeRace?.id ?? null);
   const currentScopeDirtyModules = activeDirtyScopeKey
     ? dirtyModulesByScope[activeDirtyScopeKey] ?? EMPTY_DIRTY_MODULES
@@ -573,55 +602,124 @@ export function OrganizerDashboard({
     void loadEventUpdates(selectedEventId);
   }, [eventUpdatesDialogOpen, selectedEventId, accessToken, authHeaders]);
 
+  const applyRaceSidecars = (raceId: string, sidecars: OrganizerRaceSidecars, previewOverride: GpxPreview | null) => {
+    if (activeRaceIdRef.current !== raceId) return;
+    setAidStations(syncAidStationsWithGpxPreview(sidecars.aidStations, previewOverride));
+    setRelayPoints(sidecars.relayPoints);
+    setStationProducts(sidecars.stationProducts);
+    setSidecarLoadedRaceId(raceId);
+  };
+
   const loadRaceSidecar = async (raceId: string, previewOverride: GpxPreview | null = null) => {
     if (!accessToken) return;
-    const [aidResponse, relayResponse, productsResponse] = await Promise.all([
-      fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" }),
-      fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" }),
-      fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" }),
-    ]);
+    const cached = readOrganizerRaceSidecarsCache(raceId);
+    if (cached) {
+      applyRaceSidecars(raceId, cached, previewOverride);
+      return;
+    }
 
-    if (aidResponse.ok) {
-      const data = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
-      if (activeRaceIdRef.current === raceId) {
-        setAidStations(syncAidStationsWithGpxPreview(aidStationRowsToDrafts(data.aidStations ?? []), previewOverride));
-      }
+    let request = sidecarRequestsRef.current.get(raceId);
+    if (!request) {
+      const requestGeneration = cacheGenerationRef.current;
+      request = Promise.all([
+        fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" }),
+        fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" }),
+        fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" }),
+      ])
+        .then(async ([aidResponse, relayResponse, productsResponse]) => {
+          if (cacheGenerationRef.current !== requestGeneration) return null;
+          if (!aidResponse.ok || !relayResponse.ok || !productsResponse.ok) return null;
+          const [aidData, relayData, productsData] = (await Promise.all([
+            aidResponse.json(),
+            relayResponse.json(),
+            productsResponse.json(),
+          ])) as [
+            { aidStations?: OrganizerAidStationRow[] },
+            { relayPoints?: RelayPointDraft[] },
+            { products?: StationProduct[] },
+          ];
+          const sidecars: OrganizerRaceSidecars = {
+            aidStations: aidStationRowsToDrafts(aidData.aidStations ?? []),
+            relayPoints: relayData.relayPoints ?? [],
+            stationProducts: productsData.products ?? [],
+          };
+          if (cacheGenerationRef.current !== requestGeneration) return null;
+          writeOrganizerRaceSidecarsCache(raceId, sidecars);
+          return sidecars;
+        })
+        .finally(() => {
+          if (sidecarRequestsRef.current.get(raceId) === request) sidecarRequestsRef.current.delete(raceId);
+        });
+      sidecarRequestsRef.current.set(raceId, request);
     }
-    if (relayResponse.ok) {
-      const data = (await relayResponse.json()) as { relayPoints?: RelayPointDraft[] };
-      if (activeRaceIdRef.current === raceId) setRelayPoints(data.relayPoints ?? []);
-    }
-    if (productsResponse.ok) {
-      const data = (await productsResponse.json()) as { products?: StationProduct[] };
-      if (activeRaceIdRef.current === raceId) setStationProducts(data.products ?? []);
-    }
-    if (activeRaceIdRef.current === raceId) setSidecarLoadedRaceId(raceId);
+    const sidecars = await request;
+    if (sidecars) applyRaceSidecars(raceId, sidecars, previewOverride);
   };
 
   const loadCatalogProducts = async () => {
-    if (!accessToken || catalogProductsLoadedRef.current) return;
-    catalogProductsLoadedRef.current = true;
-    const response = await fetch("/api/products", { headers: authHeaders, cache: "no-store" });
-    if (!response.ok) {
-      catalogProductsLoadedRef.current = false;
+    if (!accessToken) return;
+    const cached = readOrganizerProductCatalogCache();
+    if (cached) {
+      setCatalogProducts(cached);
       return;
     }
-    const data = (await response.json()) as { products?: FuelProduct[] };
-    setCatalogProducts(data.products ?? []);
+    if (!catalogProductsRequestRef.current) {
+      const requestGeneration = cacheGenerationRef.current;
+      const request = fetch("/api/products", { headers: authHeaders, cache: "no-store" })
+        .then(async (response) => {
+          if (cacheGenerationRef.current !== requestGeneration) return null;
+          if (!response.ok) return null;
+          const data = (await response.json()) as { products?: FuelProduct[] };
+          const products = data.products ?? [];
+          if (cacheGenerationRef.current !== requestGeneration) return null;
+          writeOrganizerProductCatalogCache(products);
+          return products;
+        })
+        .finally(() => {
+          if (catalogProductsRequestRef.current === request) catalogProductsRequestRef.current = null;
+        });
+      catalogProductsRequestRef.current = request;
+    }
+    const products = await catalogProductsRequestRef.current;
+    if (products) setCatalogProducts(products);
   };
 
-  const loadRaceGpxPreview = async (raceId: string) => {
+  const loadRaceGpxPreview = async (raceId: string, gpxStoragePath: string) => {
     if (!accessToken) return;
-    try {
-      const response = await fetch(`/api/organizer/races/${raceId}/gpx`, { headers: authHeaders, cache: "no-store" });
-      if (activeRaceIdRef.current !== raceId) return;
-      if (!response.ok) {
-        setGpxPreview(null);
-        return;
+    const cached = readOrganizerGpxPreviewCache(raceId, gpxStoragePath);
+    if (cached) {
+      if (activeRaceIdRef.current === raceId) {
+        setGpxPreview(cached);
+        setGpxLoadedRaceKey(`${raceId}:${gpxStoragePath}`);
       }
-      const data = (await response.json().catch(() => null)) as GpxPreview | null;
-      setGpxPreview(normalizeGpxPreview(data));
-      setGpxLoadedRaceId(raceId);
+      return;
+    }
+    const requestKey = `${raceId}:${gpxStoragePath}`;
+    let request = gpxRequestsRef.current.get(requestKey);
+    if (!request) {
+      const requestGeneration = cacheGenerationRef.current;
+      request = fetch(`/api/organizer/races/${raceId}/gpx`, { headers: authHeaders, cache: "no-store" })
+        .then(async (response) => {
+          if (cacheGenerationRef.current !== requestGeneration) return null;
+          if (!response.ok) return null;
+          const data = (await response.json().catch(() => null)) as GpxPreview | null;
+          const preview = normalizeGpxPreview(data);
+          if (preview && cacheGenerationRef.current === requestGeneration) {
+            writeOrganizerGpxPreviewCache(raceId, gpxStoragePath, preview);
+          }
+          return preview;
+        })
+        .finally(() => {
+          if (gpxRequestsRef.current.get(requestKey) === request) gpxRequestsRef.current.delete(requestKey);
+        });
+      gpxRequestsRef.current.set(requestKey, request);
+    }
+    try {
+      const preview = await request;
+      if (activeRaceIdRef.current === raceId) {
+        setGpxPreview(preview);
+        if (preview) setGpxLoadedRaceKey(`${raceId}:${gpxStoragePath}`);
+      }
     } catch (caught) {
       console.error("Unable to load organizer GPX preview", caught);
       if (activeRaceIdRef.current === raceId) setGpxPreview(null);
@@ -636,7 +734,7 @@ export function OrganizerDashboard({
       setStationProducts([]);
       setGpxPreview(null);
       setSidecarLoadedRaceId(null);
-      setGpxLoadedRaceId(null);
+      setGpxLoadedRaceKey(null);
       return;
     }
     setAidStations([]);
@@ -644,7 +742,7 @@ export function OrganizerDashboard({
     setStationProducts([]);
     setGpxPreview(null);
     setSidecarLoadedRaceId(null);
-    setGpxLoadedRaceId(null);
+    setGpxLoadedRaceKey(null);
     setRaceForm(raceToForm(activeRace));
     setExpandedStationKey(null);
   }, [activeRace?.id]);
@@ -658,10 +756,10 @@ export function OrganizerDashboard({
     if (needsSidecar) void loadCatalogProducts();
 
     const needsGpx = activeModule === "formats" || activeModule === "aidStations";
-    if (needsGpx && activeRace.gpx_storage_path && gpxLoadedRaceId !== activeRace.id) {
-      void loadRaceGpxPreview(activeRace.id);
+    if (needsGpx && activeRace.gpx_storage_path && gpxLoadedRaceKey !== `${activeRace.id}:${activeRace.gpx_storage_path}`) {
+      void loadRaceGpxPreview(activeRace.id, activeRace.gpx_storage_path);
     }
-  }, [activeModule, activeRace?.id, activeRace?.gpx_storage_path, sidecarLoadedRaceId, gpxLoadedRaceId]);
+  }, [activeModule, activeRace?.id, activeRace?.gpx_storage_path, sidecarLoadedRaceId, gpxLoadedRaceKey]);
 
   useEffect(() => {
     const shiftOneYear = (value?: string | null) => {
@@ -700,7 +798,11 @@ export function OrganizerDashboard({
           organizerDetails: nextForm.organizerDetails,
         }),
       });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      const data = (await response.json().catch(() => null)) as {
+        event?: Partial<OrganizerEventDetail> & { id: string };
+        edition?: NonNullable<OrganizerEventDetail["editions"]>[number];
+        message?: string;
+      } | null;
       if (!response.ok) {
         showToast("error", data?.message ?? "Impossible d'enregistrer l'événement.");
         return false;
@@ -710,23 +812,18 @@ export function OrganizerDashboard({
         current?.id === selectedEventId
           ? {
               ...current,
-              name: nextForm.name,
-              location: nextForm.location,
-              race_date: activeEdition?.is_current ? nextForm.editionStartDate : current.race_date,
-              thumbnail_url: nextForm.thumbnailUrl,
-              organizerDetails: nextForm.organizerDetails,
-              editions: (current.editions ?? []).map((edition) =>
-                String(edition.edition_year) === selectedEditionYear
-                  ? { ...edition, start_date: nextForm.editionStartDate, end_date: nextForm.editionEndDate }
-                  : edition
-              ),
+              ...data?.event,
+              organizerDetails: data?.event?.organizerDetails ?? nextForm.organizerDetails,
+              editions: data?.edition
+                ? (current.editions ?? []).map((edition) => (edition.id === data.edition?.id ? data.edition : edition))
+                : current.editions,
               races: current.races,
             }
           : current
       );
       if (!options.background) showToast("success", "Événement mis à jour.");
       clearDirty(["event", "equipment", "bibPickup", "access", "services"], options.scopeRevision);
-      if (options.reloadEvent !== false) await loadEvent(selectedEventId, EVENT_TAB_ID);
+      if (options.reloadEvent === true) await loadEvent(selectedEventId, EVENT_TAB_ID);
       return true;
     } finally {
       if (!options.background) setStatus("idle");
@@ -762,7 +859,7 @@ export function OrganizerDashboard({
           organizerDetails: nextForm.organizerDetails,
         }),
       });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
       if (!response.ok) {
         showToast("error", data?.message ?? "Impossible d'enregistrer le format.");
         return false;
@@ -775,27 +872,20 @@ export function OrganizerDashboard({
               organizerDetails: current.organizerDetails,
               races: current.races.map((race) =>
                 race.id === activeRace.id
-                  ? {
-                      ...race,
-                      series_name: nextForm.seriesName,
-                      name: nextForm.name,
-                      distance_km: nextForm.distanceKm,
-                      elevation_gain_m: nextForm.elevationGainM,
-                      elevation_loss_m: toNumberOrNull(nextForm.elevationLossM),
-                      location_text: nextForm.locationText,
-                      race_date: nextForm.raceDate,
-                      thumbnail_url: nextForm.thumbnailUrl,
-                      participation_mode: nextForm.participationMode || null,
-                      organizerDetails: nextForm.organizerDetails,
-                    }
+                  ? { ...race, ...data?.race, aidStationCount: race.aidStationCount, organizerDetails: data?.race?.organizerDetails ?? nextForm.organizerDetails }
                   : race
               ),
             }
           : current
       );
+      if ((data?.race?.participation_mode ?? nextForm.participationMode) === "solo") {
+        const cachedSidecars = readOrganizerRaceSidecarsCache(activeRace.id);
+        if (cachedSidecars) writeOrganizerRaceSidecarsCache(activeRace.id, { ...cachedSidecars, relayPoints: [] });
+        setRelayPoints([]);
+      }
       if (!options.background) showToast("success", "Format mis à jour.");
       clearDirty(RACE_DETAILS_MODULE_IDS, options.scopeRevision);
-      if (options.reloadEvent !== false) {
+      if (options.reloadEvent === true) {
         await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
       }
       return true;
@@ -909,7 +999,9 @@ export function OrganizerDashboard({
       const formData = new FormData();
       formData.append("gpx", file);
       const response = await fetch(`/api/organizer/races/${raceId}/gpx`, { method: "PUT", headers: authHeaders, body: formData });
-      const data = (await response.json().catch(() => null)) as (GpxPreview & { message?: string; appliedAidStationCount?: number }) | null;
+      const data = (await response.json().catch(() => null)) as
+        | (GpxPreview & { race?: RaceFormat; message?: string; appliedAidStationCount?: number })
+        | null;
       if (!response.ok) {
         showToast("error", data?.message ?? "GPX invalide ou impossible Ã  importer.");
         return { ok: false };
@@ -937,7 +1029,26 @@ export function OrganizerDashboard({
       }
       const normalizedPreview = normalizeGpxPreview(data);
       setGpxPreview(normalizedPreview);
+      if (data?.race?.gpx_storage_path) setGpxLoadedRaceKey(`${activeRace.id}:${data.race.gpx_storage_path}`);
       setRaceForm((current) => applyGpxStatsToRaceForm(current, normalizedPreview?.stats));
+      if (data?.race) {
+        setEventDetail((current) =>
+          current?.id === selectedEventId
+            ? {
+                ...current,
+                races: current.races.map((race) =>
+                  race.id === activeRace.id
+                    ? { ...race, ...data.race, aidStationCount: race.aidStationCount, organizerDetails: race.organizerDetails }
+                    : race
+                ),
+              }
+            : current
+        );
+      }
+      invalidateOrganizerGpxPreviewCache(activeRace.id);
+      if (normalizedPreview && data?.race?.gpx_storage_path) {
+        writeOrganizerGpxPreviewCache(activeRace.id, data.race.gpx_storage_path, normalizedPreview);
+      }
       const detectedCount = data?.detectedAidStations?.length ?? 0;
       const appliedCount = data?.appliedAidStationCount ?? 0;
       showToast(
@@ -948,9 +1059,10 @@ export function OrganizerDashboard({
             ? "GPX importé. Waypoints détectés, ravitos existants préservés."
             : "GPX importé. Les plans existants restent des snapshots."
       );
-      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
-      setRaceForm((current) => applyGpxStatsToRaceForm(current, normalizedPreview?.stats));
-      await loadRaceSidecar(activeRace.id, normalizedPreview);
+      if (appliedCount > 0) {
+        invalidateOrganizerRaceSidecarsCache(activeRace.id);
+        await loadRaceSidecar(activeRace.id, normalizedPreview);
+      }
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -983,8 +1095,10 @@ export function OrganizerDashboard({
         return;
       }
       setEventForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
+      setEventDetail((current) =>
+        current?.id === selectedEventId ? { ...current, thumbnail_url: data.thumbnailUrl ?? current.thumbnail_url } : current
+      );
       showToast("success", "Image événement mise à jour.");
-      await loadEvent(selectedEventId, activeTab, selectedEditionYear);
     } finally {
       setStatus("idle");
       event.target.value = "";
@@ -992,8 +1106,8 @@ export function OrganizerDashboard({
   };
 
   const uploadRaceImageFile = async (raceId: string, file: File) => {
-    if (!accessToken) return false;
-    if (!validateRaceImage(file)) return false;
+    if (!accessToken) return null;
+    if (!validateRaceImage(file)) return null;
 
     setStatus("uploading");
     setError(null);
@@ -1009,7 +1123,7 @@ export function OrganizerDashboard({
       if (activeRace?.id === raceId) {
         setRaceForm((current) => ({ ...current, thumbnailUrl: data.thumbnailUrl ?? current.thumbnailUrl }));
       }
-      return true;
+      return data.thumbnailUrl;
     } finally {
       setStatus("idle");
     }
@@ -1019,10 +1133,17 @@ export function OrganizerDashboard({
     const file = event.target.files?.[0] ?? null;
     if (!file || !activeRace || !selectedEventId) return;
     try {
-      const uploaded = await uploadRaceImageFile(activeRace.id, file);
-      if (!uploaded) return;
+      const thumbnailUrl = await uploadRaceImageFile(activeRace.id, file);
+      if (!thumbnailUrl) return;
+      setEventDetail((current) =>
+        current?.id === selectedEventId
+          ? {
+              ...current,
+              races: current.races.map((race) => (race.id === activeRace.id ? { ...race, thumbnail_url: thumbnailUrl } : race)),
+            }
+          : current
+      );
       showToast("success", "Image du format mise Ã  jour.");
-      await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
     } finally {
       event.target.value = "";
     }
@@ -1102,10 +1223,13 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "Impossible de supprimer la course.");
         return;
       }
+      invalidateOrganizerRaceDataCache(activeRace.id);
+      setEventDetail((current) =>
+        current?.id === selectedEventId ? { ...current, races: current.races.filter((race) => race.id !== activeRace.id) } : current
+      );
       setActiveTab(EVENT_TAB_ID);
       setActiveModule("event");
       showToast("success", "Course supprimée.");
-      await loadEvent(selectedEventId, EVENT_TAB_ID);
     } finally {
       setStatus("idle");
     }
@@ -1129,6 +1253,7 @@ export function OrganizerDashboard({
       }
 
       const nextMemberships = memberships.filter((membership) => membership.event_id !== deletedEventId);
+      for (const race of eventDetail?.races ?? []) invalidateOrganizerRaceDataCache(race.id);
       setMemberships(nextMemberships);
       setSelectedEventId(nextMemberships[0]?.event_id ?? null);
       setEventDetail(null);
@@ -1160,7 +1285,7 @@ export function OrganizerDashboard({
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ aidStations }),
       });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      const data = (await response.json().catch(() => null)) as { aidStations?: OrganizerAidStationRow[]; message?: string } | null;
       if (!response.ok) {
         showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
         return false;
@@ -1170,7 +1295,7 @@ export function OrganizerDashboard({
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ relayPoints }),
       });
-      const relayData = (await relayResponse.json().catch(() => null)) as { message?: string } | null;
+      const relayData = (await relayResponse.json().catch(() => null)) as { relayPoints?: RelayPointDraft[]; message?: string } | null;
       if (!relayResponse.ok) {
         showToast("error", relayData?.message ?? "Impossible d'enregistrer les points de relais.");
         return false;
@@ -1186,8 +1311,16 @@ export function OrganizerDashboard({
           : current
       );
       if (!options.background) showToast("success", "Ravitos mis à jour.");
+      const savedAidStations = aidStationRowsToDrafts(data?.aidStations ?? []);
+      const savedStationIds = new Set(savedAidStations.map((station) => station.id).filter(Boolean));
+      const sidecars: OrganizerRaceSidecars = {
+        aidStations: savedAidStations,
+        relayPoints: relayData?.relayPoints ?? [],
+        stationProducts: stationProducts.filter((link) => savedStationIds.has(link.aidStationId)),
+      };
+      writeOrganizerRaceSidecarsCache(activeRace.id, sidecars);
+      applyRaceSidecars(activeRace.id, sidecars, gpxPreview);
       clearDirty(["aidStations"], options.scopeRevision);
-      if (!options.background) await loadRaceSidecar(activeRace.id);
       return true;
     } finally {
       if (!options.background) setStatus("idle");
@@ -1206,7 +1339,22 @@ export function OrganizerDashboard({
       showToast("error", data?.message ?? "Impossible de mettre à jour les produits.");
       return false;
     }
-    await loadRaceSidecar(activeRace.id);
+    const data = (await response.json().catch(() => null)) as { products?: StationProduct[] } | null;
+    const currentSidecars = readOrganizerRaceSidecarsCache(activeRace.id) ?? { aidStations, relayPoints, stationProducts };
+    const productsById = new Map([
+      ...catalogProducts.map((product) => [product.id, product] as const),
+      ...currentSidecars.stationProducts.flatMap((link) => (link.product ? [[link.productId, link.product] as const] : [])),
+    ]);
+    const replacement = (data?.products ?? []).map((link) => ({ ...link, product: productsById.get(link.productId) ?? null }));
+    const sidecars = {
+      ...currentSidecars,
+      stationProducts: [
+        ...currentSidecars.stationProducts.filter((link) => link.aidStationId !== aidStationId),
+        ...replacement,
+      ],
+    };
+    writeOrganizerRaceSidecarsCache(activeRace.id, sidecars);
+    applyRaceSidecars(activeRace.id, sidecars, gpxPreview);
     return true;
   };
 
@@ -1248,14 +1396,28 @@ export function OrganizerDashboard({
           product: productForm,
         }),
       });
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      const data = (await response.json().catch(() => null)) as {
+        product?: FuelProduct;
+        stationProduct?: StationProduct;
+        message?: string;
+      } | null;
       if (!response.ok) {
         showToast("error", data?.message ?? "Impossible de créer le produit.");
         return;
       }
+      if (data?.product && data.stationProduct) {
+        const currentSidecars = readOrganizerRaceSidecarsCache(activeRace.id) ?? { aidStations, relayPoints, stationProducts };
+        const sidecars = {
+          ...currentSidecars,
+          stationProducts: [...currentSidecars.stationProducts, { ...data.stationProduct, product: data.product }],
+        };
+        writeOrganizerRaceSidecarsCache(activeRace.id, sidecars);
+        applyRaceSidecars(activeRace.id, sidecars, gpxPreview);
+      } else {
+        invalidateOrganizerRaceSidecarsCache(activeRace.id);
+      }
       setProductForm(emptyProductForm);
       showToast("success", "Produit créé pour ce ravito.");
-      await loadRaceSidecar(activeRace.id);
     } finally {
       setStatus("idle");
     }
@@ -1278,18 +1440,12 @@ export function OrganizerDashboard({
     if (!selectedEventId) return false;
     const savePlan = buildOrganizerFormatSavePlan(currentScopeDirtyModules);
     if (savePlan.saveRaceDetails) {
-      const ok = await saveRace(undefined, {
-        ...scopedOptions,
-        reloadEvent: scopedOptions.reloadEvent ?? !savePlan.saveAidStations,
-      });
+      const ok = await saveRace(undefined, scopedOptions);
       if (!ok) return false;
     }
     if (savePlan.saveAidStations) {
       const ok = await saveAidStations(scopedOptions);
       if (!ok) return false;
-      if (scopedOptions.reloadEvent !== false) {
-        await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
-      }
       return true;
     }
     return true;
@@ -1428,6 +1584,10 @@ export function OrganizerDashboard({
         return false;
       }
 
+      const deletedRaceIds = (eventDetail?.races ?? [])
+        .filter((race) => race.edition_id === deletedEditionId)
+        .map((race) => race.id);
+      for (const raceId of deletedRaceIds) invalidateOrganizerRaceDataCache(raceId);
       const nextYear = String(data.selectedEditionYear);
       setSelectedEditionYear(nextYear);
       setActiveTab(EVENT_TAB_ID);
@@ -1774,6 +1934,7 @@ export function OrganizerDashboard({
         return;
       }
       setWebsiteImportWorkflow(data.workflow);
+      for (const race of eventDetail?.races ?? []) invalidateOrganizerRaceDataCache(race.id);
       await loadEvent(selectedEventId, activeTab, selectedEditionYear);
       await analyzeWebsiteImportFields(data.workflow.sessionId);
     } catch (caught) {
@@ -1907,6 +2068,7 @@ export function OrganizerDashboard({
         `Import appliqué : ${data.applied.formatsUpdated} format(s) enrichi(s), ${data.applied.formatsCompleted} complet(s), ${data.applied.draftsRemaining} brouillon(s) restant(s).`
       );
       setWebsiteImportOpen(false);
+      for (const race of eventDetail?.races ?? []) invalidateOrganizerRaceDataCache(race.id);
       await loadEvent(selectedEventId, activeTab, selectedEditionYear);
     } catch (caught) {
       console.error("Unable to apply organizer website import", caught);

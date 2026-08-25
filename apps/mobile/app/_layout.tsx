@@ -45,7 +45,6 @@ import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import { syncResendContactRegistration } from '../lib/resendContactSync';
-import { primePlansScreenBootstrap } from '../lib/plansScreenBootstrap';
 import {
   clearInactivityReminder,
   clearUnfinishedPlanReminder,
@@ -681,13 +680,6 @@ function RootLayoutContent() {
       void (async () => {
         try {
           const nextRoute = await getPostAuthRoute(session);
-          if (nextRoute === '/(app)/plans') {
-            try {
-              await primePlansScreenBootstrap(session);
-            } catch (error) {
-              console.error('Failed to preload plans screen during startup:', error);
-            }
-          }
           router.replace(nextRoute);
         } finally {
           initialRedirectInFlightRef.current = false;
@@ -707,13 +699,6 @@ function RootLayoutContent() {
     if (session && inAuthGroup && !isAnonymousSession(session)) {
       (async () => {
         const nextRoute = await getPostAuthRoute(session);
-        if (nextRoute === '/(app)/plans') {
-          try {
-            await primePlansScreenBootstrap(session);
-          } catch (error) {
-            console.error('Failed to preload plans screen after auth:', error);
-          }
-        }
         router.replace(nextRoute);
       })();
     }
