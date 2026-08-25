@@ -29,6 +29,10 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 - Legs are derived from start, ordered points, and finish rather than stored as rows, then rendered only in the mobile Racebook `Course` tab's conditional `Relais` sub-tab.
 - Relay cards remain isolated from the event-level `Services` tab, the flag-filtered optional content in `Accès`, its category-card presentation, and the Racebook identity card's compact website/emergency actions, flexible icon-and-separator metadata row, participation badges, and emphasized race-day row. Mixed formats show separate `Solo` and `Relais` badges in the metadata row.
 
+## Racebook Identity Presentation
+
+Relay participation badges stay in the compact metadata row beside the course-date and location information. The identity card does not display the event date range or the emergency phone number; the number remains available only through the localized call action.
+
 ## Columns
 
 | Column | Type | Purpose |

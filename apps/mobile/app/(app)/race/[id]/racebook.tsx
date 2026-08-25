@@ -681,8 +681,6 @@ export default function RaceRacebookScreen() {
     locale,
   );
   const formattedRaceDate = formatDate(data?.race.raceDate ?? null, locale);
-  const formattedEventStartDate = formatDate(data?.event.raceDate ?? null, locale);
-  const showDistinctRaceDate = Boolean(formattedRaceDate && formattedRaceDate !== formattedEventStartDate);
   const eventLocationDetails = data?.event.organizerDetails.eventLocation;
   const raceLocationDetails = data?.race.organizerDetails.raceLocation;
   const headerLocation =
@@ -1029,18 +1027,18 @@ export default function RaceRacebookScreen() {
                   {data.race.name}
                 </Heading>
                 <View style={styles.heroMetaGroup}>
-                  {eventDateRange ? (
+                  {formattedRaceDate ?? eventDateRange ? (
                     <View style={styles.heroMetaItem}>
-                      <Ionicons name="calendar-outline" size={20} color={Colors.brandPrimary} />
-                      <Text style={styles.heroMeta}>{eventDateRange}</Text>
+                      <Ionicons name="calendar-outline" size={18} color={Colors.brandPrimary} />
+                      <Text style={styles.heroMeta}>{formattedRaceDate ?? eventDateRange}</Text>
                     </View>
                   ) : null}
-                  {eventDateRange && (headerLocation || participationLabels.length > 0) ? (
+                  {(formattedRaceDate ?? eventDateRange) && (headerLocation || participationLabels.length > 0) ? (
                     <Text style={styles.heroMetaSeparator}>•</Text>
                   ) : null}
                   {headerLocation ? (
                     <View style={styles.heroMetaItem}>
-                      <Ionicons name="location-outline" size={21} color={Colors.brandPrimary} />
+                      <Ionicons name="location-outline" size={19} color={Colors.brandPrimary} />
                       {headerLocationUrl ? (
                         <Pressable
                           accessibilityRole="link"
@@ -1069,14 +1067,6 @@ export default function RaceRacebookScreen() {
                     </View>
                   ) : null}
                 </View>
-                {showDistinctRaceDate ? (
-                  <View style={styles.heroRaceDayRow}>
-                    <Ionicons name="calendar-outline" size={18} color={Colors.brandPrimary} />
-                    <Text style={styles.heroRaceDayText}>
-                      {`${t.catalog.racebookFieldFormatDate} : ${formattedRaceDate}`}
-                    </Text>
-                  </View>
-                ) : null}
               </View>
               {officialWebsiteUrl ? (
                 <Pressable
@@ -1116,10 +1106,6 @@ export default function RaceRacebookScreen() {
                           </Text>
                         </>
                       ) : null}
-                      <Text style={styles.heroEmergencySeparator}>-</Text>
-                      <DataText style={styles.heroEmergencyPhone} numberOfLines={1}>
-                        {emergencyContact.phone}
-                      </DataText>
                     </View>
                   </View>
                   <View style={styles.heroCallButton}>
@@ -1567,16 +1553,8 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     minWidth: 0,
     color: Colors.textSecondary,
-    fontSize: 11,
-    lineHeight: 15,
-  },
-  heroEmergencyPhone: {
-    flexShrink: 0,
-    color: Colors.danger,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
-    textAlign: 'left',
+    fontSize: 12,
+    lineHeight: 16,
   },
   heroKicker: {
     color: Colors.brandPrimary,
@@ -1590,42 +1568,42 @@ const styles = StyleSheet.create({
   },
   heroMeta: {
     color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
   },
   heroMetaGroup: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 6,
   },
   heroMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   heroMetaSeparator: {
     color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
   },
   heroParticipationBadges: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   heroParticipationItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   heroParticipationBadge: {
     paddingVertical: 2,
   },
   heroParticipationBadgeText: {
     color: Colors.brandPrimary,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 16,
     fontWeight: '700',
   },
   heroLocationAction: {

@@ -165,6 +165,10 @@ Organizer portal writes also go through web service routes after checking `race_
 - Relay display is format-scoped: the Racebook reads `races.participation_mode` and published `race_relay_points`, then derives legs inside the conditional `Relais` course sub-tab without changing event or nutrition data.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
+## Racebook Identity Presentation
+
+For the read-only mobile Racebook, render `races.race_date` as the compact calendar metadata beneath the race name rather than the event date range. Keep that metadata compact with calendar/location icons, dot separators, and participation badges. The emergency contact phone remains a normalized `tel:` action value: the card displays only the emergency label and optional name beside the localized outlined call action.
+
 ## Common Queries
 
 Observed admin/mobile query shape:

@@ -221,6 +221,10 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep the mobile Racebook read-only. A course may remain in the catalog while its Racebook is hidden; both the catalog CTA and direct screen load must enforce `racebook_is_live = true` in addition to the existing live/content checks. It must not import organizer dashboard mutation logic or admin routes. Preserve the identity, four primary tabs, conditional Services tab, and the `Course` sub-tabs that separate route visuals, ravitos, and conditional relay legs.
 - Keep the Racebook website and emergency actions conditional on parsed event JSON. Never construct a site link from unvalidated free text. Normalize French emergency numbers to the canonical `+33 X XX XX XX XX` display when organizer JSON is parsed, and strip display separators when opening the `tel:` URL.
 
+## Racebook Identity Presentation
+
+The identity card shows the formatted course date directly beneath the race name, using the compact calendar metadata style; the event date range is not displayed there. Its metadata uses smaller text, calendar/location icons, dot separators, and compact participation badges so more content fits on one row. The emergency row exposes only `Urgence` and the optional contact name beside the localized outlined call action; it keeps the normalized phone only for the `tel:` target and does not display it.
+
 ## Related Docs
 
 - [Overview](overview.md)
