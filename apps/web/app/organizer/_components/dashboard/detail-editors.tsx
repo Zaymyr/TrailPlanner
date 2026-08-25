@@ -78,6 +78,7 @@ export function EquipmentEditor({
           description="La liste est initialisée avec le matériel de l'événement. Tu peux ensuite la modifier pour ce format."
           equipment={raceDetails.mandatoryEquipment}
           sharedWeatherPlan={eventDetails.mandatoryEquipment.weatherPlan}
+          showHeader={false}
           onEquipmentChange={(mandatoryEquipment) => onRaceChange({ ...raceDetails, mandatoryEquipment: { ...mandatoryEquipment, overrideEnabled: true } })}
         />
       ) : null}
@@ -90,6 +91,7 @@ function EquipmentFields({
   equipment,
   weatherPlanEditable = false,
   sharedWeatherPlan,
+  showHeader = true,
   onEquipmentChange,
 }: {
   title: string;
@@ -97,6 +99,7 @@ function EquipmentFields({
   equipment: OrganizerEventDetails["mandatoryEquipment"];
   weatherPlanEditable?: boolean;
   sharedWeatherPlan?: OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"];
+  showHeader?: boolean;
   onEquipmentChange: (equipment: OrganizerEventDetails["mandatoryEquipment"]) => void;
 }) {
   const updateItems = (items: OrganizerEventDetails["mandatoryEquipment"]["items"]) => onEquipmentChange({ ...equipment, items });
@@ -109,10 +112,12 @@ function EquipmentFields({
 
   return (
     <section className={cn("space-y-4 rounded-lg border bg-background p-4", missingEquipment ? "border-amber-300" : "border-border")}>
-      <div>
-        <p className="font-semibold text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
+      {showHeader ? (
+        <div>
+          <p className="font-semibold text-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      ) : null}
       {weatherPlanEditable ? (
         <div className="space-y-2">
           <p className="text-sm font-medium text-foreground">Plan météo actif</p>
@@ -291,27 +296,18 @@ export function RaceBibPickupEditor({
   }
 
   const bib = raceDetails.bibPickup;
+  if (!bib.overrideEnabled) return null;
+
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-background p-4">
-      <div>
-        <p className="font-semibold text-foreground">Retrait dossard - {activeRace.name}</p>
-        <p className="text-sm text-muted-foreground">Par défaut, ce format utilise le retrait commun de l'événement.</p>
-      </div>
-      <ToggleChip
-        checked={bib.overrideEnabled}
-        label="Retrait différent pour ce format"
-        onChange={(overrideEnabled) => onRaceChange({ ...raceDetails, bibPickup: { ...bib, overrideEnabled } })}
-      />
-      {bib.overrideEnabled ? (
-        <BibPickupFields
-          title="Retrait spécifique au format"
-          description="Renseigne uniquement les différences applicables à ce format."
-          bib={bib}
-          hideLocationDetails
-          onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup: { ...bibPickup, overrideEnabled: true } })}
-        />
-      ) : null}
-    </section>
+    <BibPickupFields
+      title="Retrait spécifique au format"
+      description="Renseigne uniquement les différences applicables à ce format."
+      bib={bib}
+      hideLocationDetails
+      showHeader={false}
+      framed={false}
+      onBibChange={(bibPickup) => onRaceChange({ ...raceDetails, bibPickup: { ...bibPickup, overrideEnabled: true } })}
+    />
   );
 }
 
@@ -321,12 +317,16 @@ function BibPickupFields({
   bib,
   onBibChange,
   hideLocationDetails,
+  showHeader = true,
+  framed = true,
 }: {
   title: string;
   description: string;
   bib: OrganizerEventDetails["bibPickup"];
   onBibChange: (bib: OrganizerEventDetails["bibPickup"]) => void;
   hideLocationDetails?: boolean;
+  showHeader?: boolean;
+  framed?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
   const locations = getOrganizerBibPickupLocations(bib);
@@ -356,11 +356,13 @@ function BibPickupFields({
   const updateSlots = (locationIndex: number, slots: OrganizerBibPickupSlot[]) => updateLocation(locationIndex, { slots });
 
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-background p-4">
-      <div>
-        <p className="font-semibold text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
+    <section className={cn("space-y-4", framed && "rounded-lg border border-border bg-background p-4")}>
+      {showHeader ? (
+        <div>
+          <p className="font-semibold text-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-foreground">Lieux et créneaux</p>
@@ -512,7 +514,7 @@ export function AccessEditor({
   }
 
   return (
-    <section className="space-y-4 rounded-lg border border-border bg-background p-4">
+    <div className="space-y-4">
       <AccessFields
         title={`Accès - ${activeRace.name}`}
         description="Renseigne le départ, l'arrivée et active seulement les sections utiles à ce format."
@@ -520,11 +522,12 @@ export function AccessEditor({
         biasLocation={raceDetails.raceLocation.label ? raceDetails.raceLocation : eventDetails.eventLocation}
         onAccessChange={(access) => onRaceChange({ ...raceDetails, access })}
         formatMode
+        showHeader={false}
       />
       {raceDetails.access.enabledSections.runnerInfo ? (
         <RunnerInfoFields runnerInfo={raceDetails.runnerInfo} onRunnerInfoChange={(runnerInfo) => onRaceChange({ ...raceDetails, runnerInfo })} />
       ) : null}
-    </section>
+    </div>
   );
 }
 
@@ -536,6 +539,7 @@ function AccessFields({
   onAccessChange,
   formatMode = false,
   showRunnerInfoToggle = formatMode,
+  showHeader = true,
 }: {
   title: string;
   description: string;
@@ -544,6 +548,7 @@ function AccessFields({
   onAccessChange: (access: OrganizerEventDetails["access"]) => void;
   formatMode?: boolean;
   showRunnerInfoToggle?: boolean;
+  showHeader?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["access"]>) => onAccessChange({ ...access, ...next });
   const updateSection = (key: keyof OrganizerEventDetails["access"]["enabledSections"], checked: boolean) =>
@@ -558,10 +563,12 @@ function AccessFields({
 
   return (
     <section className="space-y-4">
-      <div>
-        <p className="font-semibold text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">{description}</p>
-      </div>
+      {showHeader ? (
+        <div>
+          <p className="font-semibold text-foreground">{title}</p>
+          <p className="text-sm text-muted-foreground">{description}</p>
+        </div>
+      ) : null}
       <div className="grid gap-3 md:grid-cols-2">
         <AddressAutocompleteField
           label="Adresse départ"

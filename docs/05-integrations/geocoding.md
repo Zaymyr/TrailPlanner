@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -45,6 +45,8 @@ Manual free text is still allowed. In that case the helper stores the label plus
 The add-format editor can queue a GPX before the format exists, but that upload remains separate from geocoding. Address autocomplete still owns only the canonical location string plus structured metadata. Edition start/end dates come from `race_event_editions`; switching year changes the selected edition and attached `races` rows without changing location ownership or duplicating the event location into format addresses.
 
 Format location now follows the same opt-in pattern as its date. `Lieu différent de l'événement` is unchecked by default, so a new format keeps `location_text` empty and inherits the event location at display time. Enabling it reveals `AddressAutocompleteField`; disabling it clears both the format text and the normalized `raceLocation` object.
+
+The format-level `Accès - <format>` context now lives in the main module header, and its address fields render directly in the module content instead of inside an extra enclosing card. This is presentation-only: the same `AddressAutocompleteField` instances, canonical strings, structured start/finish locations, and proximity bias remain unchanged.
 
 ## Provider Contract
 

@@ -25,6 +25,7 @@ import { fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
+type CourseTabKey = 'route' | 'aid-stations' | 'relay';
 
 type LabeledItem = {
   label: string;
@@ -604,6 +605,7 @@ export default function RaceRacebookScreen() {
   const router = useRouter();
   const { locale, t } = useI18n();
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
+  const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>('route');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(null);
@@ -885,6 +887,30 @@ export default function RaceRacebookScreen() {
         ? [t.catalog.racebookParticipationSolo, t.catalog.racebookParticipationRelay]
         : [];
 
+  const courseTabs = useMemo(() => {
+    const availableTabs: Array<{ key: CourseTabKey; label: string }> = [
+      { key: 'route', label: t.catalog.racebookCourseTabRoute },
+      { key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations },
+    ];
+
+    if (relaySegments.length > 0) {
+      availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
+    }
+
+    return availableTabs;
+  }, [
+    relaySegments.length,
+    t.catalog.racebookCourseTabAidStations,
+    t.catalog.racebookCourseTabRoute,
+    t.catalog.racebookSectionRelay,
+  ]);
+
+  useEffect(() => {
+    if (activeCourseTab === 'relay' && relaySegments.length === 0) {
+      setActiveCourseTab('route');
+    }
+  }, [activeCourseTab, relaySegments.length]);
+
   const accessSections = useMemo(() => {
     if (!data) return [];
 
@@ -958,13 +984,6 @@ export default function RaceRacebookScreen() {
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const bibPrimaryItems = bibItems.filter((item) => item.label !== t.catalog.racebookFieldBibDocuments);
   const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
-  const hasCourseContent =
-    courseItems.length > 0 ||
-    courseConstraintLines.length > 0 ||
-    routePreviewPoints.length >= 2 ||
-    elevationProfile.length >= 2 ||
-    relaySegments.length > 0 ||
-    (data?.aidStations.length ?? 0) > 0;
   const unavailable = !loading && (!data || !data.canOpen);
 
   return (
@@ -1233,23 +1252,53 @@ export default function RaceRacebookScreen() {
                   </SectionCard>
                 ) : null}
 
-                {routePreviewPoints.length >= 2 ? (
-                  <CourseMapCard
-                    title={t.catalog.racebookSectionCourseMap}
-                    points={routePreviewPoints}
-                    emptyMessage={t.catalog.racebookEmptyCourseMap}
-                  />
+                <View style={styles.courseTabsWrap} accessibilityRole="tablist">
+                  {courseTabs.map((tab) => {
+                    const active = activeCourseTab === tab.key;
+
+                    return (
+                      <Pressable
+                        key={tab.key}
+                        accessibilityRole="tab"
+                        accessibilityState={{ selected: active }}
+                        onPress={() => setActiveCourseTab(tab.key)}
+                        style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null]}
+                      >
+                        <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null]}>
+                          {tab.label}
+                        </Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {activeCourseTab === 'route' ? (
+                  routePreviewPoints.length >= 2 || elevationProfile.length >= 2 ? (
+                    <>
+                      {routePreviewPoints.length >= 2 ? (
+                        <CourseMapCard
+                          title={t.catalog.racebookSectionCourseMap}
+                          points={routePreviewPoints}
+                          emptyMessage={t.catalog.racebookEmptyCourseMap}
+                        />
+                      ) : null}
+
+                      {elevationProfile.length >= 2 ? (
+                        <CourseProfileCard
+                          title={t.catalog.racebookSectionCourseProfile}
+                          points={elevationProfile}
+                          emptyMessage={t.catalog.racebookEmptyCourseProfile}
+                        />
+                      ) : null}
+                    </>
+                  ) : (
+                    <SectionCard title={t.catalog.racebookCourseTabRoute}>
+                      <EmptyState message={t.catalog.racebookEmptyCourse} />
+                    </SectionCard>
+                  )
                 ) : null}
 
-                {elevationProfile.length >= 2 ? (
-                  <CourseProfileCard
-                    title={t.catalog.racebookSectionCourseProfile}
-                    points={elevationProfile}
-                    emptyMessage={t.catalog.racebookEmptyCourseProfile}
-                  />
-                ) : null}
-
-                {relaySegments.length > 0 ? (
+                {activeCourseTab === 'relay' && relaySegments.length > 0 ? (
                   <SectionCard title={t.catalog.racebookSectionRelay}>
                     <View style={styles.relaySegmentsList}>
                       {relaySegments.map((segment, index) => (
@@ -1274,36 +1323,35 @@ export default function RaceRacebookScreen() {
                   </SectionCard>
                 ) : null}
 
-                {data.aidStations.length > 0 ? (
+                {activeCourseTab === 'aid-stations' ? (
                   <SectionCard title={t.catalog.racebookSectionAidStations}>
-                    <View style={styles.aidStationsWrap}>
-                      {data.aidStations.map((station: RacebookAidStation, index: number) => (
-                        <AidStationCard
-                          key={station.id}
-                          station={station}
-                          previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
-                          copy={{
-                            aidProducts: t.catalog.racebookAidProducts,
-                            aidWater: t.catalog.racebookAidWater,
-                            aidFood: t.catalog.racebookAidFood,
-                            aidAssistance: t.catalog.racebookAidAssistance,
-                            aidDropBag: t.catalog.racebookAidDropBag,
-                            aidDistance: t.catalog.racebookAidDistance,
-                            aidElevationGain: t.catalog.racebookAidElevationGain,
-                            aidElevationLoss: t.catalog.racebookAidElevationLoss,
-                            aidCutoffTime: t.catalog.racebookAidCutoffTime,
-                          }}
-                        />
-                      ))}
-                    </View>
+                    {data.aidStations.length > 0 ? (
+                      <View style={styles.aidStationsWrap}>
+                        {data.aidStations.map((station: RacebookAidStation, index: number) => (
+                          <AidStationCard
+                            key={station.id}
+                            station={station}
+                            previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
+                            copy={{
+                              aidProducts: t.catalog.racebookAidProducts,
+                              aidWater: t.catalog.racebookAidWater,
+                              aidFood: t.catalog.racebookAidFood,
+                              aidAssistance: t.catalog.racebookAidAssistance,
+                              aidDropBag: t.catalog.racebookAidDropBag,
+                              aidDistance: t.catalog.racebookAidDistance,
+                              aidElevationGain: t.catalog.racebookAidElevationGain,
+                              aidElevationLoss: t.catalog.racebookAidElevationLoss,
+                              aidCutoffTime: t.catalog.racebookAidCutoffTime,
+                            }}
+                          />
+                        ))}
+                      </View>
+                    ) : (
+                      <EmptyState message={t.catalog.racebookEmptyAidStations} />
+                    )}
                   </SectionCard>
                 ) : null}
 
-                {!hasCourseContent ? (
-                  <SectionCard title={t.catalog.racebookTabCourse}>
-                    <EmptyState message={t.catalog.racebookEmptyCourse} />
-                  </SectionCard>
-                ) : null}
               </>
             ) : null}
 
@@ -1637,6 +1685,37 @@ const styles = StyleSheet.create({
   },
   contentWrap: {
     gap: 12,
+  },
+  courseTabsWrap: {
+    flexDirection: 'row',
+    alignSelf: 'stretch',
+    padding: 4,
+    gap: 4,
+    borderRadius: 14,
+    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  courseTabButton: {
+    flex: 1,
+    minHeight: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
+    borderRadius: 10,
+  },
+  courseTabButtonActive: {
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+  },
+  courseTabButtonText: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  courseTabButtonTextActive: {
+    color: Colors.brandPrimary,
   },
   sectionCard: {
     gap: 12,

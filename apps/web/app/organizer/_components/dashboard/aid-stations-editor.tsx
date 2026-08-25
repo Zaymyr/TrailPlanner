@@ -98,8 +98,8 @@ export function AidStationsEditor({
   ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap justify-end gap-2">
+    <div className="relative space-y-4">
+      <div className="flex flex-wrap justify-end gap-2 md:absolute md:-top-[4.75rem] md:right-0">
         {activeView === "aidStations" ? (
           <Button type="button" variant="outline" onClick={onAddStation}>
             Ajouter un ravito
