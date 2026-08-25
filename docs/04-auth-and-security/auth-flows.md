@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -10,6 +10,7 @@ related_files:
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
+  - apps/web/lib/entitlements-client.ts
   - apps/web/lib/auth-storage.ts
   - apps/web/lib/auth-errors.ts
   - apps/web/lib/supabase.ts
@@ -52,7 +53,7 @@ The route:
 5. Returns normalized user/session data.
 6. Sets HTTP-only auth cookies.
 
-After a web session is verified, `useVerifiedSession` also calls `POST /api/resend/contact` once per `userId + email` browser storage marker. That route re-validates the bearer token, skips anonymous users, and only syncs identified users into Resend Contacts.
+After a web session is verified, `useVerifiedSession` exposes the verified session immediately and refreshes premium entitlements in the background through their separate loading state. It also calls `POST /api/resend/contact` once per `userId + email` browser storage marker. That route re-validates the bearer token, skips anonymous users, and only syncs identified users into Resend Contacts.
 
 ## Web Password Sign-In Errors
 
@@ -99,6 +100,7 @@ Do not use `user_metadata` for new authorization decisions.
 ## Gotchas
 
 - Token storage exists in browser localStorage, but session verification is server-backed.
+- Session readiness does not imply that premium entitlements have finished loading; consumers that require the resolved rights must also observe `isEntitlementsLoading`.
 - Do not render Supabase Auth `msg` values directly; provider messages are not localized and can expose technical details.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Trial repair runs during session verification and must stay idempotent.

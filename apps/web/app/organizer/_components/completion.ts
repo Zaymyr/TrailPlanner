@@ -160,7 +160,7 @@ const buildFormatProgressModules = (
   eventDetails: OrganizerEventDetails,
   race: CompletionRace,
   aidStationCount: number,
-  stationProductCount: number
+  stationProductCount: number | null
 ): OrganizerModuleSummary[] => {
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, race.organizerDetails);
   const equipmentItems = runnerDetails.equipment.items;
@@ -240,7 +240,7 @@ const buildFormatProgressModules = (
         aidStationCount > 0
           ? "complete"
           : "empty",
-      countLabel: `${aidStationCount} ravito${aidStationCount > 1 ? "s" : ""}${aidStationCount > 0 ? ` - ${stationProductCount} produit${stationProductCount > 1 ? "s" : ""}` : ""}`,
+      countLabel: `${aidStationCount} ravito${aidStationCount > 1 ? "s" : ""}${aidStationCount > 0 && stationProductCount !== null ? ` - ${stationProductCount} produit${stationProductCount > 1 ? "s" : ""}` : ""}`,
     },
   ];
 };
@@ -249,7 +249,8 @@ export function buildOrganizerCompletion(
   event: CompletionEvent,
   activeRace: CompletionRace | null,
   aidStations: CompletionAidStation[],
-  stationProducts: CompletionStationProduct[]
+  stationProducts: CompletionStationProduct[],
+  persistedCounts?: { aidStations?: number; stationProducts?: number }
 ): OrganizerCompletionSummary {
   const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
   const activeEdition = getCompletionEdition(event, activeRace);
@@ -264,7 +265,7 @@ export function buildOrganizerCompletion(
       editionGroupId: race.edition_group_id,
       seriesName: race.series_name,
       name: race.name,
-      score: scoreModules(buildFormatProgressModules(eventDetails, race, race.aidStationCount ?? 0, 0)),
+      score: scoreModules(buildFormatProgressModules(eventDetails, race, race.aidStationCount ?? 0, null)),
     };
   });
   const raceProgressScore = raceProgress.length > 0 ? Math.round(raceProgress.reduce((total, race) => total + race.score, 0) / raceProgress.length) : 0;
@@ -276,7 +277,10 @@ export function buildOrganizerCompletion(
   const commonBibPickup = eventDetails.bibPickup;
   const commonAccess = eventDetails.access;
   const accessEnabledSections = access.enabledSections;
-  const linkedStationProductCount = stationProducts.length;
+  const activeAidStationCount = persistedCounts?.aidStations ?? aidStations.length;
+  const linkedStationProductCount = persistedCounts
+    ? persistedCounts.stationProducts ?? null
+    : stationProducts.length;
   const eventMissingLabels = compactMissingLabels([
     ["Nom", hasText(event.name)],
     ["Lieu", hasText(event.location)],
@@ -294,7 +298,7 @@ export function buildOrganizerCompletion(
     ? compactMissingLabels([
         ["Heure départ", hasText(activeRace.organizerDetails?.schedule.startTime)],
         ["Barrière arrivée", hasText(activeRace.organizerDetails?.schedule.finishCutoffTime)],
-        ["Ravitos", aidStations.length > 0],
+        ["Ravitos", activeAidStationCount > 0],
       ])
     : [];
   const commonEquipmentMissingLabels = compactMissingLabels([["Matériel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)]]);
@@ -364,10 +368,10 @@ export function buildOrganizerCompletion(
         activeRace &&
         (hasText(activeRace.organizerDetails?.schedule.startTime) ||
           hasText(activeRace.organizerDetails?.schedule.finishCutoffTime) ||
-          aidStations.length > 0)
+          activeAidStationCount > 0)
           ? "complete"
           : "empty",
-      countLabel: `${aidStations.length} ravito${aidStations.length > 1 ? "s" : ""}${aidStations.length > 0 ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
+      countLabel: `${activeAidStationCount} ravito${activeAidStationCount > 1 ? "s" : ""}${activeAidStationCount > 0 && linkedStationProductCount !== null ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
       missingLabels: aidStationMissingLabels,
     },
     {
@@ -525,7 +529,7 @@ export function buildOrganizerCompletion(
   ];
 
   const formatModules: OrganizerModuleSummary[] = activeRace
-    ? buildFormatProgressModules(eventDetails, activeRace, aidStations.length, stationProducts.length).map((module) => {
+    ? buildFormatProgressModules(eventDetails, activeRace, activeAidStationCount, linkedStationProductCount).map((module) => {
         if (module.id === "formats") return { ...module, missingLabels: formatMissingLabels };
         if (module.id === "equipment") return { ...module, missingLabels: formatEquipmentMissingLabels };
         if (module.id === "access") return { ...module, missingLabels: formatAccessMissingLabels };

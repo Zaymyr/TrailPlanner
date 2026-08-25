@@ -41,6 +41,12 @@ const raceRowSchema = z.object({
   is_live: z.boolean(),
 });
 
+const parseExactCount = (response: Response) => {
+  const contentRange = response.headers.get("content-range");
+  const total = contentRange?.match(/\/(\d+)$/)?.[1];
+  return total === undefined ? null : Number(total);
+};
+
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
@@ -53,9 +59,13 @@ export async function GET(request: NextRequest, context: { params: { id?: string
 
   const [favoritesResponse, updatesResponse] = await Promise.all([
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/user_favorite_race_events?event_id=eq.${parsedParams.data.id}&select=user_id`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/user_favorite_race_events?event_id=eq.${parsedParams.data.id}&select=user_id&limit=1`,
       {
-        headers: serviceHeaders(auth.serviceConfig, ""),
+        headers: {
+          ...serviceHeaders(auth.serviceConfig, ""),
+          Prefer: "count=exact",
+          Range: "0-0",
+        },
         cache: "no-store",
       }
     ),
@@ -76,12 +86,19 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     return jsonError("Unable to load event updates.", 502);
   }
 
-  const favorites = (await favoritesResponse.json().catch(() => [])) as Array<{ user_id?: string }>;
+  const favoriteCount = parseExactCount(favoritesResponse);
+  if (favoriteCount === null) {
+    console.error("Unable to load organizer event favorite count", {
+      contentRange: favoritesResponse.headers.get("content-range"),
+    });
+    return jsonError("Unable to load event updates.", 502);
+  }
+
   const updates = z.array(updateRowSchema).parse(await updatesResponse.json());
 
   return withSecurityHeaders(
     NextResponse.json({
-      favoriteCount: new Set(favorites.map((row) => row.user_id).filter((value): value is string => typeof value === "string")).size,
+      favoriteCount,
       updates,
     })
   );

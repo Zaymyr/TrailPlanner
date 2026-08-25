@@ -1,8 +1,9 @@
-import type { FormEvent, ReactNode } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 
 import { AidStationBadge } from "../../../../components/race-planner/AidStationBadge";
 import { ChevronDownIcon, ChevronUpIcon } from "../../../../components/race-planner/TimelineIcons";
 import { Button } from "../../../../components/ui/button";
+import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { NumberField, TextAreaField, TextField } from "./controls";
@@ -16,6 +17,8 @@ import type {
   RelayPointDraft,
   StationProduct,
 } from "./types";
+
+type EditorView = "aidStations" | "relay";
 
 export function AidStationsEditor({
   activeRace,
@@ -74,8 +77,19 @@ export function AidStationsEditor({
   onCreateProduct: (event: FormEvent<HTMLFormElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
-  if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
+  const [viewState, setViewState] = useState<{ scopeKey: string; view: EditorView }>({
+    scopeKey: "",
+    view: "aidStations",
+  });
   const relayEnabled = participationMode === "relay" || participationMode === "solo_and_relay";
+  const viewScopeKey = `${activeRace?.id ?? ""}:${participationMode}`;
+
+  useEffect(() => {
+    setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
+  }, [viewScopeKey]);
+
+  if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
+  const activeView = relayEnabled && viewState.scopeKey === viewScopeKey ? viewState.view : "aidStations";
   const sortedRelayPoints = [...relayPoints].sort((left, right) => left.distanceKm - right.distanceKm);
   const relayBoundaries = [
     { name: "Départ", distanceKm: 0 },
@@ -88,58 +102,68 @@ export function AidStationsEditor({
       <div className="flex flex-wrap justify-between gap-2">
         <div>
           <p className="font-semibold text-foreground">{activeRace.name}</p>
-          <p className="text-sm text-muted-foreground">Vue ravitos compacte, avec départ, arrivée, produits et détails dans la même tuile.</p>
+          <p className="text-sm text-muted-foreground">
+            {activeView === "aidStations"
+              ? "Départ, arrivée, produits et détails de chaque ravito."
+              : "Points de passage et tronçons du relais."}
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {relayEnabled ? (
-            <Button type="button" variant="outline" onClick={onAddRelayPoint}>
-              Ajouter un point de relais
-            </Button>
-          ) : null}
+        {activeView === "aidStations" ? (
           <Button type="button" variant="outline" onClick={onAddStation}>
             Ajouter un ravito
           </Button>
-        </div>
+        ) : (
+          <Button type="button" variant="outline" onClick={onAddRelayPoint}>
+            Ajouter un point de relais
+          </Button>
+        )}
       </div>
 
-      <FixedCourseCard
-        title="Départ"
-        subtitle="Heure de départ commune à ce format."
-        value={startTime}
-        label="Heure de départ"
-        onChange={onStartTimeChange}
-      />
+      {relayEnabled ? (
+        <TabsList
+          tabs={[
+            { id: "aidStations", label: "Ravitos" },
+            { id: "relay", label: "Relais" },
+          ]}
+          activeTab={activeView}
+          onTabChange={(view) => setViewState({ scopeKey: viewScopeKey, view: view as EditorView })}
+        />
+      ) : null}
 
-      {aidStations.length === 0 ? (
-        <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
-      ) : (
-        <div className="space-y-4">
-          {aidStations.map((station, index) => {
-            const key = station.id ?? `new-${index}`;
-            const isExpanded = expandedStationKey === key;
-            const productCount = station.id ? stationProducts.filter((link) => link.aidStationId === station.id).length : 0;
-            const details = station.organizerDetails;
+      {activeView === "aidStations" ? (
+        <>
+          <FixedCourseCard
+            title="Départ"
+            subtitle="Heure de départ commune à ce format."
+            value={startTime}
+            label="Heure de départ"
+            onChange={onStartTimeChange}
+          />
 
-            return (
-              <article
-                key={key}
-                className={cn(
-                  "overflow-hidden rounded-[1.5rem] border bg-card shadow-sm transition",
-                  isExpanded ? "border-brand-border bg-brand-surface/20 shadow-[0_12px_30px_-18px_rgba(16,185,129,0.55)]" : "border-border"
-                )}
-              >
+          {aidStations.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
+          ) : (
+            <div className="space-y-4">
+              {aidStations.map((station, index) => {
+                const key = station.id ?? `new-${index}`;
+                const isExpanded = expandedStationKey === key;
+                const productCount = station.id ? stationProducts.filter((link) => link.aidStationId === station.id).length : 0;
+                const details = station.organizerDetails;
+
+                return (
+                  <article
+                    key={key}
+                    className={cn(
+                      "overflow-hidden rounded-[1.5rem] border bg-card shadow-sm transition",
+                      isExpanded ? "border-brand-border bg-brand-surface/20 shadow-[0_12px_30px_-18px_rgba(16,185,129,0.55)]" : "border-border"
+                    )}
+                  >
                 <div className="flex flex-col gap-4 p-4 lg:flex-row lg:items-start lg:justify-between">
                   <div className="flex min-w-0 flex-1 gap-4">
                     <AidStationBadge step={index + 1} variant="ravito" />
                     <div className="min-w-0 flex-1 space-y-3">
                       <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="truncate text-lg font-semibold text-foreground">{station.name || `Ravito ${index + 1}`}</p>
-                          <p className="mt-1 text-sm text-muted-foreground">
-                            {formatKm(station.distanceKm)}
-                            {details.cutoffTime ? ` - Barrière ${details.cutoffTime}` : " - Barrière à définir"}
-                          </p>
-                        </div>
+                        <p className="min-w-0 truncate text-lg font-semibold text-foreground">{station.name || `Ravito ${index + 1}`}</p>
                         {!station.id ? <span className="rounded-full border border-dashed border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">À sauvegarder</span> : null}
                       </div>
 
@@ -220,13 +244,21 @@ export function AidStationsEditor({
                     }
                   />
                 ) : null}
-              </article>
-            );
-          })}
-        </div>
-      )}
+                  </article>
+                );
+              })}
+            </div>
+          )}
 
-      {relayEnabled ? (
+          <FixedCourseCard
+            title="Arrivée"
+            subtitle="Barrière horaire d'arrivée de ce format."
+            value={finishCutoffTime}
+            label="Barrière horaire d'arrivée"
+            onChange={onFinishCutoffTimeChange}
+          />
+        </>
+      ) : (
         <section className="space-y-4 rounded-[1.5rem] border border-brand-border/70 bg-brand-surface/20 p-4">
           <div>
             <p className="font-semibold text-foreground">Points et tronçons du relais</p>
@@ -283,15 +315,7 @@ export function AidStationsEditor({
             })}
           </div>
         </section>
-      ) : null}
-
-      <FixedCourseCard
-        title="Arrivée"
-        subtitle="Barrière horaire d'arrivée de ce format."
-        value={finishCutoffTime}
-        label="Barrière horaire d'arrivée"
-        onChange={onFinishCutoffTimeChange}
-      />
+      )}
     </div>
   );
 }
@@ -311,12 +335,12 @@ function FixedCourseCard({
 }) {
   return (
     <section className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm">
-      <div className="space-y-3">
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div>
           <p className="text-lg font-semibold text-foreground">{title}</p>
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
-        <div className="max-w-sm">
+        <div className="w-full md:max-w-sm">
           <TextField label={label} value={value} onChange={onChange} />
         </div>
       </div>

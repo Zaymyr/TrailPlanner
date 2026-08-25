@@ -580,7 +580,7 @@ function hasAccessContent(details: OrganizerAccessDetails): boolean {
   return hasAnyText([
     details.startAddress,
     details.finishAddress,
-    details.officialParkings,
+    details.enabledSections.officialParkings ? details.officialParkings : null,
     details.enabledSections.shuttles ? details.shuttles : null,
     details.enabledSections.shuttles ? details.shuttleSchedule : null,
     details.enabledSections.roadRestrictions ? details.roadRestrictions : null,
@@ -707,11 +707,21 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
       finishLocation: hasLocationContent(raceDetails.access.finishLocation)
         ? raceDetails.access.finishLocation
         : eventDetails.access.finishLocation,
-      officialParkings: mergePreferredText(eventDetails.access.officialParkings, raceDetails.access.officialParkings),
-      shuttles: mergePreferredText(eventDetails.access.shuttles, raceDetails.access.shuttles),
-      shuttleSchedule: mergePreferredText(eventDetails.access.shuttleSchedule, raceDetails.access.shuttleSchedule),
-      roadRestrictions: mergePreferredText(eventDetails.access.roadRestrictions, raceDetails.access.roadRestrictions),
-      mapUrl: mergePreferredText(eventDetails.access.mapUrl, raceDetails.access.mapUrl),
+      officialParkings: raceDetails.access.enabledSections.officialParkings
+        ? mergePreferredText(eventDetails.access.officialParkings, raceDetails.access.officialParkings)
+        : null,
+      shuttles: raceDetails.access.enabledSections.shuttles
+        ? mergePreferredText(eventDetails.access.shuttles, raceDetails.access.shuttles)
+        : null,
+      shuttleSchedule: raceDetails.access.enabledSections.shuttles
+        ? mergePreferredText(eventDetails.access.shuttleSchedule, raceDetails.access.shuttleSchedule)
+        : null,
+      roadRestrictions: raceDetails.access.enabledSections.roadRestrictions
+        ? mergePreferredText(eventDetails.access.roadRestrictions, raceDetails.access.roadRestrictions)
+        : null,
+      mapUrl: raceDetails.access.enabledSections.mapUrl
+        ? mergePreferredText(eventDetails.access.mapUrl, raceDetails.access.mapUrl)
+        : null,
       note: mergePreferredText(eventDetails.access.note, raceDetails.access.note),
       enabledSections: {
         officialParkings: raceDetails.access.enabledSections.officialParkings,
@@ -728,6 +738,8 @@ function buildRunnerDetails(eventDetails: OrganizerEventDetails, raceDetails: Or
 }
 
 function hasOrganizerContent(eventDetails: OrganizerEventDetails, raceDetails: OrganizerRaceDetails): boolean {
+  const runnerDetails = buildRunnerDetails(eventDetails, raceDetails);
+
   return (
     hasAnyText([
       eventDetails.dateRange.endDate,
@@ -738,8 +750,7 @@ function hasOrganizerContent(eventDetails: OrganizerEventDetails, raceDetails: O
     hasEquipmentContent(eventDetails.mandatoryEquipment) ||
     hasEquipmentContent(raceDetails.mandatoryEquipment) ||
     hasBibContent(eventDetails.bibPickup) ||
-    hasAccessContent(eventDetails.access) ||
-    hasAccessContent(raceDetails.access) ||
+    hasAccessContent(runnerDetails.access) ||
     hasServicesContent(eventDetails.services) ||
     hasRunnerInfoContent(raceDetails.runnerInfo) ||
     hasScheduleContent(raceDetails.schedule)

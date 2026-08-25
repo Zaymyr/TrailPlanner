@@ -1,10 +1,11 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - apps/web/package.json
+  - apps/web/tsconfig.json
   - apps/web/app/layout.tsx
   - apps/web/next.config.mjs
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
@@ -33,6 +34,7 @@ related_files:
   - apps/web/lib/carb-calculator-fun.ts
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
+  - apps/web/lib/entitlements-client.ts
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/lib/organizer-aid-station-products.ts
@@ -84,6 +86,8 @@ related_files:
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/organizer/claims/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
+  - apps/web/app/api/organizer/bootstrap/route.ts
+  - apps/web/app/api/organizer/bootstrap/route.test.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
@@ -172,6 +176,8 @@ The web app owns the browser planner, onboarding/account flows, admin catalog to
 
 The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser map bindings added under `apps/web` must stay compatible with React 18 until the app is upgraded; for Leaflet route previews that means staying on the React 18-compatible `react-leaflet` line rather than the React 19-only v5 releases.
 
+The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` files. Vitest remains responsible for compiling and running those tests; this prevents a web-only Next.js build from following test imports into mobile-only Expo modules whose dependencies are intentionally absent from the web deployment.
+
 `apps/web/next.config.mjs` enables:
 
 - optional MDX page support when MDX dependencies are available;
@@ -199,7 +205,7 @@ The client session entry point is `apps/web/app/hooks/useVerifiedSession.tsx`. I
 - reads and writes tokens through `apps/web/lib/auth-storage.ts`;
 - verifies access tokens by calling `apps/web/app/api/auth/session/route.ts`;
 - passes refresh tokens through the `x-refresh-token` header when needed;
-- fetches entitlements through `apps/web/lib/entitlements.ts`;
+- fetches entitlements through `apps/web/lib/entitlements-client.ts` after verification without keeping the verified-session loading state active;
 - triggers the authenticated Resend contact sync for identified, non-anonymous sessions;
 - clears planner local storage on sign-out.
 
@@ -264,6 +270,7 @@ GPX detection accepts explicit `.gpx` URLs, labeled download anchors, supported 
 The v1 organizer portal is web-only:
 
 - For a trusted admin, `/api/organizer/claims` replaces the membership-limited selector data with every `race_events` row ordered by name, including drafts. The downstream Organizer detail and mutation routes use the same admin bypass through `requireEventOrganizer`; non-admin selector data remains membership-scoped.
+- `GET /api/organizer/bootstrap` verifies the bearer token once, returns the same claims, memberships, edition requests, and publication requests as `GET /api/organizer/claims`, then includes the selected authorized event detail. It deliberately excludes GPX, products, ravitos, relay points, updates, and follower data. The client loads GPX only for the Course or Ravitos module, loads the race sidecars and product catalog only for Ravitos/Products, and loads runner updates/follower totals only when their dialog opens. An explicit `eventId` must belong to the returned active memberships, except for trusted admins whose selector represents the complete event catalog; without an id, the first selectable event is used, and `event` is `null` when none exists.
 
 - `/organizers` creates a new catalog-visible event through `POST /api/organizer/events` and immediately creates its active owner membership; its Racebooks remain hidden. It does not claim existing catalog events. With an official URL, the page redirects to `/organizer` with the new event selected and automatically opens its website-import analysis. The `/organizer` server page normalizes `eventId` and `importUrl` from its `searchParams` prop before passing them to the client dashboard, which keeps the route compatible with static generation without a client-side search-param bailout.
 - `/organizer` lets active event members maintain catalog-visible events, canonical `race_event_editions` ranges, and attached formats. Its compact edition header keeps the year selector beside a `Créer une nouvelle édition` button. The compatibility `/api/organizer/edition-requests` URL creates the edition either empty or with cloned formats and no longer writes the retired review table. Catalog liveness stays read-only. Each format's Racebook switch sends its own `raceId` for admin review before approval, then controls only that row's `racebook_is_live` afterward. Using one switch waits only for unsaved changes on that same format; an incomplete draft in another tab or a different current edition does not block the selected format's publication.
@@ -275,10 +282,13 @@ The v1 organizer portal is web-only:
 - The main header always shows "Mes courses" / "My races". It opens `/organizers` to let a new organizer create their first event, then opens `/organizer` after `/api/organizer/claims` reports at least one active membership.
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
 - `/api/organizer/*` routes verify the current Supabase user and then use the service role for authorized mutations.
+- `/api/organizer/events/[id]/updates` returns recent announcements plus an aggregate follower count. Its Supabase REST read requests `count=exact` with a one-row range, so the server does not transfer the full cross-user favorite list.
 - `/api/race-favorites` is the authenticated runner bridge for favoriting `race_events`, and `/api/race-events/[id]/updates` is the runner/mobile read route for the latest published organizer announcements on live events.
 - `/api/admin/organizer-claims` keeps legacy access-claim review and membership revocation, and lets a trusted admin attach an existing Supabase Auth e-mail to an event as an `organizer`. Auth-user lookup and membership writes stay server-side; direct assignment grants edit access without changing catalog/Racebook state. `/api/admin/event-publication-requests` returns the pending queue plus every event's current-edition Racebook state. Approval invokes the service-role-only review function; the admin event switch invokes a separate service-role-only function to publish or hide Racebooks.
 
 Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id`. Relay replacement uses its own service route after ravitos are saved so optional station links are stable. Organizer-managed course rows remain catalog-visible. All writes stay behind active event membership checks; first Racebook publication validates the current edition, and later approved organizer toggles affect only the selected format's `racebook_is_live`.
+
+Inside the format-level course-points editor, relay-capable formats separate `Ravitos` and `Relais` into local presentation tabs. `Ravitos` remains the default after a format or participation-mode change and owns the start/finish schedule cards plus station details; `Relais` owns only handover points and derived legs. Solo formats render the ravito view directly. This split is presentation-only and does not change the existing race-details, aid-station, or relay-point save order.
 
 The same approved-only dashboard exposes a manual `Notifier les coureurs` modal. The organizer selects the whole event or one format from the selected edition before sending. The route validates that the format belongs to the event, stores it as nullable `race_event_updates.race_id`, and uses the event or format name in the push title. Delivery still targets event followers; the payload includes `eventId`, `updateId`, optional `raceId`, and a catalog deep link. Delivery is logged in `push_notification_events` as `notification_kind = 'organizer-race-update'`. Each recent history card also has a compact delete cross; the `DELETE` handler repeats the organizer membership check and scopes the service-role deletion to both event id and update id.
 
@@ -319,6 +329,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 ## Gotchas
 
 - Do not store service-role keys in client code. `getSupabaseServiceConfig` is server-only by usage.
+- Keep verified-session readiness independent from the entitlement request. Premium consumers must use `isEntitlementsLoading` when they need to wait for effective rights; authenticated surfaces such as Organizer should not wait for that secondary request.
 - Do not expose `RESEND_API_KEY` to browser or mobile code; both clients must call server routes.
 - `planner_values` is intentionally flexible JSON. Validate route inputs, but do not assume every old plan has every current field.
 - `/api/race-catalog` and `/api/races` both write `races`, but the admin route creates public catalog rows and the user route creates private rows.
@@ -363,6 +374,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Public crew-state updates use the URL token as the secret. Keep the route rate-limited and avoid adding fields that would let a crew viewer edit the private plan.
 
 - Admin access to the complete Organizer event selector must continue to come from trusted `app_metadata` through `isAdminUser`; never broaden the catalog response for ordinary authenticated users.
+- Keep the Organizer bootstrap payload aligned with the existing claims and event-detail read contracts. Do not reintroduce a second authentication or membership lookup after the selected event has been derived from the already-authorized membership set.
+- Keep module-specific Organizer reads lazy. Opening the event overview must not download GPX, ravitos, relay points, product data, announcements, or follower totals; late responses must still be scoped to the active race before updating state.
 
 ## Related Docs
 

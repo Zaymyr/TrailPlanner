@@ -30,5 +30,11 @@
     ".next/types/**/*.ts",
     "vitest.config.ts"
   ],
-  "exclude": ["node_modules", "../../packages/**/*.native.ts", "../../packages/**/*.native.tsx"]
+  "exclude": [
+    "node_modules",
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "../../packages/**/*.native.ts",
+    "../../packages/**/*.native.tsx"
+  ]
 }

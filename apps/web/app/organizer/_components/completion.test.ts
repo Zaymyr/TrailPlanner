@@ -82,6 +82,23 @@ describe("organizer completion", () => {
     expect(completion.formatModules.find((module) => module.id === "bibPickup")?.title).toBe("Dossard");
   });
 
+  it("uses the persisted ravito count before lazy sidecars are loaded", () => {
+    const race = { ...baseEvent.races[0]!, aidStationCount: 3 };
+    const completion = buildOrganizerCompletion(
+      { ...baseEvent, races: [race] },
+      race,
+      [],
+      [],
+      { aidStations: race.aidStationCount }
+    );
+
+    const module = completion.formatModules.find((item) => item.id === "aidStations");
+    expect(module?.status).toBe("complete");
+    expect(module?.countLabel).toContain("3 ravitos");
+    expect(module?.countLabel).not.toContain("produit");
+    expect(module?.missingLabels).not.toContain("Ravitos");
+  });
+
   it("reports missing labels for event and format identity modules", () => {
     const incompleteRace = {
       ...baseEvent.races[0]!,

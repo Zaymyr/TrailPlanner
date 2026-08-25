@@ -1,10 +1,11 @@
 ---
 title: Session Management
 scope: auth
-last_verified: 2026-05-19
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - apps/web/app/hooks/useVerifiedSession.tsx
+  - apps/web/lib/entitlements-client.ts
   - apps/web/lib/auth-storage.ts
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
@@ -53,6 +54,8 @@ Persisting a session dispatches:
 
 After successful verification, the context calls `POST /api/resend/contact` for identified, non-anonymous users that have not already been marked in localStorage with `trailplanner.resendContactSynced:<userId>:<email>`.
 
+Successful verification sets the session loading state to ready before starting the entitlement refresh. Entitlements continue loading asynchronously and expose their own `isEntitlementsLoading` state, so authenticated surfaces that do not depend on premium rights are not held behind a second network request.
+
 ## Sign Out
 
 Clearing a session:
@@ -81,6 +84,7 @@ The route also sets HTTP-only cookies for web requests.
 - Session refresh can race across tabs; handlers must be idempotent.
 - Clearing planner storage on sign-out is intentional because anonymous/onboarding state can leak otherwise.
 - Keep access-token and refresh-token handling synchronized with mobile/web session expectations.
+- Do not use the verified-session `isLoading` flag as an entitlement-readiness signal; premium-gated consumers must observe `isEntitlementsLoading` as well.
 - Resend contact sync is best-effort and must not block session verification, entitlements refresh, or sign-out cleanup.
 
 ## Related Docs

@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -207,6 +207,7 @@ erDiagram
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
 - Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state. Organizer-confirmed announcement deletion removes the history row and cascades its receipts without changing favorites or previous push-delivery logs.
+- Organizer follower totals are computed by the Data API with an exact aggregate count and a one-row response range; the dashboard route must not download cross-user favorite rows to count them in application memory.
 - The mobile toast and scroll-to-pinned-event behavior happen only after the favorite API confirms the persisted id; they are presentation feedback and add no table fields or relationships.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.

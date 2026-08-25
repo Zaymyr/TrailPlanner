@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -68,6 +68,7 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only table
 - Do not rely on a service-role route as the only validation for a newly exposed table.
 - Do not forget explicit grants for tables accessed through Supabase REST/client APIs; RLS policies alone do not grant table privileges.
 - Do not add new grants or policies for a column-only marker when the existing owner-scoped row access remains the intended boundary.
+- Do not create a table or migration for a route-only query optimization such as replacing row materialization with a Data API exact count; document the access pattern in the existing schema/table docs instead.
 
 ## Related Docs
 

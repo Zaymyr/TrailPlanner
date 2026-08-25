@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-25
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -98,9 +98,11 @@ Summary:
 - The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks event, format, image, GPX, ravito, product, edition visibility/deletion, geocoded-location maintenance, and the event-level list of bib-pickup locations with their dated time slots, while first Racebook publication remains a separate admin-reviewed request carrying the clicked `race_id`. Before approval, the per-format switch requests publication; afterward it can publish or hide that Racebook. Hiding an edition forces all of its format and Racebook flags off; deleting it requires retyping the year and cannot remove the last edition. The switch waits for a save only when its own format is currently being edited, so another incomplete draft does not block it.
 - Trusted admins do not need claim or membership handoff: the claims dashboard endpoint returns all events as selector entries after its `app_metadata` admin check, while preserving membership-only selector data for ordinary users.
 - The same approved-only dashboard also owns the manual `Notifier les coureurs` action, including its whole-event/live-format selector and confirmed deletion of recent history entries. Pending or rejected claims must not unlock organizer update history, follower counts, sends, or deletes, and a format choice never changes that membership boundary.
+- After that membership check, the follower total is returned only as an exact aggregate count; the organizer route does not expose or transfer the individual favorite-owner ids.
 - The two-pass website-import review is reserved for trusted admins, independently from normal organizer membership. Its `additionalUrls` are classified official evidence sources, not claimed formats; even a grounded source classification cannot bypass admin authorization. Confirming discovered formats may atomically create hidden drafts for the selected edition; field claims, evidence, GPX status, and LLM recommendations remain review-only until the admin selects claim ids from an unexpired event/edition/session-bound signed snapshot. Neither existence confidence, completeness, signature, nor LLM confidence replaces authorization.
 - Roadbook selection is preview-only. Each document may be 25 MB because it is uploaded directly to a private, owner-folder-scoped Storage location, analyzed server-side, then deleted; it does not alter this membership boundary.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
+- Inside a relay-capable format's course-points editor, the local `Ravitos` / `Relais` view tabs remain presentation-only. They do not change the membership boundary or grant a separate mutation path; the existing organizer routes continue to authorize every save.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Inside that approved-only dashboard, a checked format-specific bib-pickup override is saved through the same race-details autosave queue as format, equipment, and access changes; changing scope must not clear the checkbox or its fields.
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.
