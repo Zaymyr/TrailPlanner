@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-26
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -145,7 +145,7 @@ order by created_at asc;
 - `POST /api/organizer/events` creates an owner membership immediately after inserting a catalog-visible event. If membership insertion fails, the route deletes that newly created event.
 - Common-vs-format detail splitting is an application convention, not a new authorization boundary.
 - Format equipment uses a tri-state compatibility rule inside that convention: explicit `true` replaces event equipment, explicit `false` inherits it, and an absent legacy flag may infer an override from historical differences. This does not change membership authorization.
-- The current organizer UI treats bib pickup as event-only, including its `locations[]` and nested `slots[]`, and treats format access-section toggles plus ravito start/finish timing cards as ordinary race-detail edits; all of them still rely on the same active event-membership check.
+- The current organizer UI inherits event bib pickup, equipment, and access by default. Each format can explicitly enable its own full override from the module header; those overrides, access-section toggles, and ravito start/finish timing cards remain ordinary race-detail edits behind the same active event-membership check.
 - Product picker UI does not grant access by itself; station-product API routes must keep checking active event membership before replacing product links.
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.

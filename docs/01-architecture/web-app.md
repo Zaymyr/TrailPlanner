@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-25
+last_verified: 2026-08-26
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -301,7 +301,7 @@ For a brand-new organizer format, the add-format form may hold a pending image a
 
 The completion shell intentionally omits a local "Avancement global" heading/helper line above the tabs. The active tab should stay larger and more contrasty than the inactive tabs, and desktop event tiles should fit on one row before wrapping.
 
-Format-level detail modules keep their context in the main card header instead of repeating it inside a nested panel. `Dossard` displays `Retrait dossard - <format>` with its override control right-aligned in that header, `Accès` displays `Accès - <format>`, and format equipment omits its redundant `Matériel - <format>` subheading. The enabled bib and access fields then render directly in the module content area without an extra enclosing card.
+Format-level detail modules keep their context in the main card header instead of repeating it inside a nested panel. `Dossard`, `Matériel`, and `Accès` display their `<module> - <format>` title with the corresponding format-specific override control right-aligned in that header. Their fields render directly in the module content area only while the override is enabled; otherwise the format inherits the event value.
 
 The equipment editor layout should keep each item on one compact flexible row so the material name, weather toggles, status radios, and delete action stay in the same horizontal flow whenever width allows.
 
@@ -351,7 +351,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
 - Keep the emergency contact at event scope as `organizer_details.emergencyContact`; its phone is display-normalized but remains simple operational JSON rather than a normalized user/contact record, and mobile turns the published value into a `tel:` action.
 - Course discovery and Racebook publication are separate contracts. Web catalog pages continue to use `is_live` / `is_public`; never substitute `racebook_is_live` into the SEO catalog filter.
-- Keep bib pickup at event level as the default, with `locations[]` entries that own their geocoded address and `slots[]`. A format may opt into a complete `races.organizer_details.bibPickup` replacement through `overrideEnabled`; that format module must participate in the race-scoped autosave plan so navigation cannot discard the checkbox or its fields. Equipment is inherited by default; a format's `mandatoryEquipment.overrideEnabled` must be explicitly checked before its stored full list is used or edited.
+- Keep bib pickup, equipment, and access at event level as the defaults. A format may opt into a complete replacement through the module's `overrideEnabled`; each override participates in the race-scoped autosave plan so navigation cannot discard the checkbox or its fields. Historical access JSON without the flag may still be treated as specific when it contains meaningful format data.
 - Preserve the tri-state compatibility of format equipment JSON: `true` is a full replacement, `false` is authoritative inheritance, and only a missing legacy flag may be inferred from old format-specific items or notes.
 - Keep the active weather plan on the event-level equipment JSON. Formats may retag items for `cold` / `heat`, but they must not choose a different active plan than the event.
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.

@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-08-24
+last_verified: 2026-08-26
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -51,7 +51,7 @@ The deterministic report remains usable if OpenAI is unavailable or abstains. It
 
 Edition visibility and deletion remain ordinary organizer controls outside the LLM workflow. Deleting an edition cascades any import sessions scoped to it; a stale review can therefore no longer apply after deletion.
 
-After import, manual format-specific bib-pickup overrides use the ordinary race-details autosave path. They are not import claims and must remain durable when the admin leaves and reopens a format.
+After import, manual format-specific bib-pickup, equipment, and access overrides use the ordinary race-details autosave path. They are not import claims and must remain durable when the admin leaves and reopens a format.
 
 ## Environment Variables
 

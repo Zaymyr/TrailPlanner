@@ -11,6 +11,9 @@ import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWa
 import {
   defaultOrganizerAidStationDetails,
   defaultOrganizerRaceDetails,
+  expandRaceAccessWithEvent,
+  expandRaceEquipmentWithCommon,
+  hasRaceAccessOverride,
   type OrganizerEventDetails,
 } from "../../../lib/organizer-dashboard-details";
 import type { FuelProduct } from "../../../lib/product-types";
@@ -2168,7 +2171,7 @@ export function OrganizerDashboard({
       <Card className="rounded-lg">
         <CardHeader
           className={
-            (activeModule === "formats" || activeModule === "bibPickup") && activeRace
+            (activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access") && activeRace
               ? "flex flex-row items-center justify-between gap-4 space-y-0"
               : undefined
           }
@@ -2177,6 +2180,8 @@ export function OrganizerDashboard({
             <CardTitle>
               {activeRace && activeModule === "bibPickup"
                 ? `Retrait dossard - ${activeRace.name}`
+                : activeRace && activeModule === "equipment"
+                  ? `Matériel - ${activeRace.name}`
                 : activeRace && activeModule === "access"
                   ? `Accès - ${activeRace.name}`
                   : getModuleTitle(activeModule)}
@@ -2185,8 +2190,10 @@ export function OrganizerDashboard({
               <CardDescription>
                 {activeRace && activeModule === "bibPickup"
                   ? "Par défaut, ce format utilise le retrait commun de l'événement."
+                  : activeRace && activeModule === "equipment"
+                    ? "Par défaut, ce format utilise le matériel commun de l'événement."
                   : activeRace && activeModule === "access"
-                    ? "Renseigne le départ, l'arrivée et active seulement les sections utiles à ce format."
+                    ? "Par défaut, ce format utilise les accès communs de l'événement."
                     : getModuleDescription(activeModule)}
               </CardDescription>
             ) : null}
@@ -2214,6 +2221,54 @@ export function OrganizerDashboard({
                     },
                   },
                   "bibPickup"
+                )
+              }
+            />
+          ) : activeModule === "equipment" && activeRace ? (
+            <ToggleChip
+              checked={raceForm.organizerDetails.mandatoryEquipment.overrideEnabled === true}
+              label="Matériel différent pour ce format"
+              onChange={(overrideEnabled) =>
+                updateRaceForm(
+                  {
+                    organizerDetails: {
+                      ...raceForm.organizerDetails,
+                      mandatoryEquipment: {
+                        ...(overrideEnabled
+                          ? expandRaceEquipmentWithCommon(
+                              eventForm.organizerDetails.mandatoryEquipment,
+                              raceForm.organizerDetails.mandatoryEquipment
+                            )
+                          : raceForm.organizerDetails.mandatoryEquipment),
+                        overrideEnabled,
+                      },
+                    },
+                  },
+                  "equipment"
+                )
+              }
+            />
+          ) : activeModule === "access" && activeRace ? (
+            <ToggleChip
+              checked={hasRaceAccessOverride(raceForm.organizerDetails.access)}
+              label="Accès différents pour ce format"
+              onChange={(overrideEnabled) =>
+                updateRaceForm(
+                  {
+                    organizerDetails: {
+                      ...raceForm.organizerDetails,
+                      access: {
+                        ...(overrideEnabled
+                          ? expandRaceAccessWithEvent(
+                              eventForm.organizerDetails.access,
+                              raceForm.organizerDetails.access
+                            )
+                          : raceForm.organizerDetails.access),
+                        overrideEnabled,
+                      },
+                    },
+                  },
+                  "access"
                 )
               }
             />
