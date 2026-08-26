@@ -67,7 +67,7 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
-- Requesting publication always saves any dirty foreground scope before the server readiness check runs.
+- Requesting publication always saves any dirty foreground scope, including a changed format access/equipment/bib override, before the server readiness check runs.
 - Rejection leaves the already-hidden Racebook rows unchanged.
 - Approval publishes every complete format of the requested current edition together; incomplete formats and other editions remain unchanged.
 - Once approved, an organizer may freely publish or hide each approved format's Racebook individually through its own on/off switch. This does not create a new request and does not alter course catalog visibility.

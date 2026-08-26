@@ -3,7 +3,7 @@ import type {
   OrganizerEventDetails,
   OrganizerRaceDetails,
 } from "../../../lib/organizer-dashboard-details";
-import { buildRunnerOrganizerDetails, defaultOrganizerEventDetails } from "../../../lib/organizer-dashboard-details";
+import { buildRunnerOrganizerDetails, defaultOrganizerEventDetails, hasRaceAccessOverride } from "../../../lib/organizer-dashboard-details";
 
 export type OrganizerModuleId =
   | "event"
@@ -227,7 +227,11 @@ const buildFormatProgressModules = (
         8,
         2
       ),
-      countLabel: hasText(race.organizerDetails?.access.startAddress) ? "Spécifique" : hasText(access.startAddress) ? "Hérité" : "Non renseigné",
+      countLabel: race.organizerDetails && hasRaceAccessOverride(race.organizerDetails.access)
+        ? "Spécifique"
+        : hasText(access.startAddress)
+          ? "Hérité de l'événement"
+          : "Non renseigné",
     },
     {
       id: "aidStations",

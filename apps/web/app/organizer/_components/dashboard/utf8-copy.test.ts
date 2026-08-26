@@ -138,8 +138,12 @@ describe("organizer dashboard UTF-8 copy", () => {
     );
 
     expect(dashboardSource).toContain('`Retrait dossard - ${activeRace.name}`');
+    expect(dashboardSource).toContain('`Matériel - ${activeRace.name}`');
     expect(dashboardSource).toContain('`Accès - ${activeRace.name}`');
     expect(dashboardSource).toContain('label="Retrait différent pour ce format"');
+    expect(dashboardSource).toContain('label="Matériel différent pour ce format"');
+    expect(dashboardSource).toContain('label="Accès différents pour ce format"');
+    expect(dashboardSource).toContain('activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access"');
     expect(detailSource).toContain("showHeader={false}");
     expect(detailSource).toContain("framed={false}");
     expect(detailSource).not.toContain("<p className=\"font-semibold text-foreground\">Retrait dossard - {activeRace.name}</p>");

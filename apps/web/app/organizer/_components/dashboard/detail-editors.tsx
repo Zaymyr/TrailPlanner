@@ -3,8 +3,8 @@ import { Input } from "../../../../components/ui/input";
 import { cn } from "../../../../components/utils";
 import {
   defaultOrganizerEventDetails,
-  expandRaceEquipmentWithCommon,
   getOrganizerBibPickupLocations,
+  hasRaceAccessOverride,
   type OrganizerBibPickupLocation,
   type OrganizerBibPickupSlot,
   type OrganizerEventDetails,
@@ -47,31 +47,9 @@ export function EquipmentEditor({
   }
 
   const hasEquipmentOverride = raceDetails.mandatoryEquipment.overrideEnabled;
-  const updateEquipmentOverride = (overrideEnabled: boolean) =>
-    onRaceChange({
-      ...raceDetails,
-      mandatoryEquipment: {
-        ...(overrideEnabled
-          ? expandRaceEquipmentWithCommon(eventDetails.mandatoryEquipment, raceDetails.mandatoryEquipment)
-          : raceDetails.mandatoryEquipment),
-        overrideEnabled,
-      },
-    });
 
   return (
     <div className="space-y-4">
-      <label className="flex items-start gap-3 rounded-lg border border-border bg-background p-4 text-sm">
-        <input
-          type="checkbox"
-          checked={hasEquipmentOverride}
-          onChange={(event) => updateEquipmentOverride(event.target.checked)}
-          className="mt-0.5 h-4 w-4"
-        />
-        <span>
-          <span className="block font-medium text-foreground">Matériel différent pour ce format</span>
-          <span className="block text-muted-foreground">Utiliser une liste spécifique au lieu du matériel de l'événement.</span>
-        </span>
-      </label>
       {hasEquipmentOverride ? (
         <EquipmentFields
           title={`Matériel - ${activeRace.name}`}
@@ -512,6 +490,8 @@ export function AccessEditor({
   if (!activeRace) {
     return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Sélectionne un format pour ajouter un accès ou une information spécifique.</p>;
   }
+
+  if (!hasRaceAccessOverride(raceDetails.access)) return null;
 
   return (
     <div className="space-y-4">

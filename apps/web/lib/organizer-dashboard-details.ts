@@ -98,6 +98,7 @@ export const organizerBibPickupDetailsSchema = z
 
 export const organizerAccessDetailsSchema = z
   .object({
+    overrideEnabled: z.boolean().optional(),
     startAddress: nullableText,
     startLocation: organizerLocationSchema,
     finishAddress: nullableText,
@@ -125,6 +126,7 @@ export const organizerAccessDetailsSchema = z
       }),
   })
   .default({
+    overrideEnabled: false,
     startAddress: null,
     startLocation: organizerLocationSchema.parse({}),
     finishAddress: null,
@@ -352,6 +354,41 @@ const mergePreferRace = <T extends Record<string, unknown>>(eventDetails: T, rac
   return merged;
 };
 
+const hasRaceAccessContent = (access: OrganizerEventDetails["access"]) =>
+  Boolean(
+    access.startAddress?.trim() ||
+      access.startLocation.label?.trim() ||
+      access.startLocation.googleMapsUrl ||
+      (access.startLocation.lat !== null && access.startLocation.lng !== null) ||
+      access.finishAddress?.trim() ||
+      access.finishLocation.label?.trim() ||
+      access.finishLocation.googleMapsUrl ||
+      (access.finishLocation.lat !== null && access.finishLocation.lng !== null) ||
+      access.officialParkings?.trim() ||
+      access.shuttles?.trim() ||
+      access.shuttleSchedule?.trim() ||
+      access.roadRestrictions?.trim() ||
+      access.mapUrl?.trim() ||
+      access.note?.trim() ||
+      Object.values(access.enabledSections).some((enabled) => !enabled)
+  );
+
+export const hasRaceAccessOverride = (access: OrganizerEventDetails["access"]) =>
+  access.overrideEnabled ?? hasRaceAccessContent(access);
+
+export const expandRaceAccessWithEvent = (
+  eventAccess: OrganizerEventDetails["access"],
+  raceAccess: OrganizerEventDetails["access"]
+): OrganizerEventDetails["access"] =>
+  hasRaceAccessContent(raceAccess)
+    ? raceAccess
+    : {
+        ...eventAccess,
+        startLocation: { ...eventAccess.startLocation },
+        finishLocation: { ...eventAccess.finishLocation },
+        enabledSections: { ...eventAccess.enabledSections },
+      };
+
 const buildEquipmentKey = (item: Pick<OrganizerEquipmentItem, "label" | "required" | "cold" | "heat">) =>
   `${item.label.trim().toLocaleLowerCase("fr-FR")}::${item.required ? "required" : "recommended"}::${item.cold ? "cold" : "base"}::${item.heat ? "heat" : "base"}`;
 
@@ -489,6 +526,14 @@ export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails,
       : hasLegacyEquipmentOverride
         ? [commonEquipment.note, race.mandatoryEquipment.note].filter(Boolean).join("\n") || null
         : commonEquipment.note;
+  const accessOverride = race.access.overrideEnabled;
+  const hasLegacyAccessOverride = accessOverride === undefined && hasRaceAccessContent(race.access);
+  const resolvedAccess =
+    accessOverride === true
+      ? race.access
+      : hasLegacyAccessOverride
+        ? mergePreferRace(eventDetails.access, race.access)
+        : eventDetails.access;
 
   return {
     commonEquipment,
@@ -505,7 +550,7 @@ export function buildRunnerOrganizerDetails(eventDetails: OrganizerEventDetails,
       raceItems: decorateEquipmentItemsWithWeatherPlan(raceSpecificEquipment.items, weatherPlan),
     },
     bibPickup: race.bibPickup.overrideEnabled ? race.bibPickup : eventDetails.bibPickup,
-    access: mergePreferRace(eventDetails.access, race.access),
+    access: resolvedAccess,
     services: eventDetails.services,
     schedule: race.schedule,
     runnerInfo: race.runnerInfo,

@@ -131,6 +131,7 @@ describe("organizer completion", () => {
         ...defaultOrganizerRaceDetails,
         access: {
           ...defaultOrganizerRaceDetails.access,
+          overrideEnabled: true,
           startAddress: "1 rue du départ",
           enabledSections: {
             ...defaultOrganizerRaceDetails.access.enabledSections,

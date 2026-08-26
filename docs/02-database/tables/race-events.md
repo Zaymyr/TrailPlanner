@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-08-25
+last_verified: 2026-08-26
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -153,7 +153,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Two-pass import confirmation persists every admin-confirmed new format immediately, even when distance or D+ is unknown. Those child rows remain hidden drafts until the allowlisted field RPC clears their explicit missing-field list; the parent event itself is never created, moved, or published by that confirmation.
 - Organizer event writes remain edition-aware for selecting child rows, but no date-based cutoff blocks event or format maintenance.
 - The canonical event start/end range is stored in `race_event_editions`. The current edition is mirrored into `race_date` and `organizer_details.dateRange.endDate` for compatibility with catalog/mobile queries.
-- Event organizer details are common defaults. In the current organizer UI, bib pickup is event-only and stores `bibPickup.locations[]`, each containing one canonical/geocoded address and `slots[]` with date, start time, and end time. The legacy `location`, `locationDetails`, and free-text `schedule` fields remain compatibility fallbacks. Format-specific differences belong in `races.organizer_details` and should be merged by runner-facing code only for the modules that still support overrides.
+- Event organizer details are common defaults. Bib pickup stores `bibPickup.locations[]`, each containing one canonical/geocoded address and `slots[]` with date, start time, and end time; the legacy `location`, `locationDetails`, and free-text `schedule` fields remain compatibility fallbacks. Bib pickup, equipment, and access are inherited until a format enables the corresponding complete override in `races.organizer_details`.
 - Event equipment is inherited unless race JSON explicitly sets `mandatoryEquipment.overrideEnabled = true`. An explicit `false` wins over stale race items; only historical JSON where the flag is absent may infer an override from those differences.
 - Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must gate itself on live course state, `racebook_is_live = true`, and actual non-ravito organizer content. An emergency phone satisfies that content gate and opens through `tel:`; the official website and emergency contact are exposed only as conditional actions inside the identity card.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
@@ -224,7 +224,7 @@ from public.races;
 - Organizer event/race mutation routes cannot set catalog live state. A publication request requires event name/location, the requested format's edition range, and that exact format's complete identity fields; admin approval rechecks and publishes only that Racebook, regardless of which edition is current.
 - Never hide a course merely because its Racebook is hidden. `race_events.is_live` / `races.is_live` are catalog state; `races.racebook_is_live` is the runner Racebook state.
 - Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
-- Do not store per-format equipment, dossard, or access differences on the event row.
+- Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Do not edit the legacy event date fields as canonical organizer dates; update `race_event_editions` and let its trigger mirror the current range.
 - Keep image upload validation in the server route; the database stores only the resulting URL.

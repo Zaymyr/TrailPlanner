@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-08-25
+last_verified: 2026-08-26
 ai_priority: medium
 related_files:
   - apps/web/app/api/location-search/route.ts
@@ -46,7 +46,7 @@ The add-format editor can queue a GPX before the format exists, but that upload 
 
 Format location now follows the same opt-in pattern as its date. `Lieu différent de l'événement` is unchecked by default, so a new format keeps `location_text` empty and inherits the event location at display time. Enabling it reveals `AddressAutocompleteField`; disabling it clears both the format text and the normalized `raceLocation` object.
 
-The format-level `Accès - <format>` context now lives in the main module header, and its address fields render directly in the module content instead of inside an extra enclosing card. This is presentation-only: the same `AddressAutocompleteField` instances, canonical strings, structured start/finish locations, and proximity bias remain unchanged.
+The format-level `Accès - <format>` context and `Accès différents pour ce format` toggle live in the main module header. The address fields render directly in the module content only when that override is enabled; enabling it starts from the event access value and preserves the same `AddressAutocompleteField` instances, canonical strings, structured start/finish locations, and proximity bias.
 
 ## Provider Contract
 
@@ -90,6 +90,7 @@ Each object stores:
 
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
 - Do not copy `eventLocation` into a new format merely to show inheritance; keep the race fields empty until the organizer explicitly enables a different location.
+- Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
 - Do not assume every historical organizer row has geocoded metadata or a `bibPickup.locations[]` array; old single-location rows should parse through the legacy fallback without losing their free-text schedule.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.

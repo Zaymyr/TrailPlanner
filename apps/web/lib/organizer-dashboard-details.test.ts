@@ -76,6 +76,7 @@ describe("buildRunnerOrganizerDetails", () => {
       ...defaultOrganizerRaceDetails,
       access: {
         ...defaultOrganizerRaceDetails.access,
+        overrideEnabled: true,
         finishAddress: "Ligne d'arrivée format 80K",
         finishLocation: buildOrganizerLocation({
           label: "Ligne d'arrivée format 80K, Annecy",
@@ -91,6 +92,41 @@ describe("buildRunnerOrganizerDetails", () => {
     expect(runnerDetails.access.finishAddress).toBe("Ligne d'arrivée format 80K");
     expect(runnerDetails.access.finishLocation.label).toBe("Ligne d'arrivée format 80K, Annecy");
     expect(runnerDetails.access.finishLocation.lng).toBe(6.130222);
+  });
+
+  it("inherits event access until the format override is explicitly enabled", () => {
+    const eventDetails = {
+      ...defaultOrganizerEventDetails,
+      access: { ...defaultOrganizerEventDetails.access, startAddress: "Départ commun" },
+    };
+    const raceDetails = {
+      ...defaultOrganizerRaceDetails,
+      access: { ...defaultOrganizerRaceDetails.access, overrideEnabled: false, startAddress: "Départ format" },
+    };
+
+    expect(buildRunnerOrganizerDetails(eventDetails, raceDetails).access.startAddress).toBe("Départ commun");
+    expect(
+      buildRunnerOrganizerDetails(eventDetails, {
+        ...raceDetails,
+        access: { ...raceDetails.access, overrideEnabled: true },
+      }).access.startAddress
+    ).toBe("Départ format");
+  });
+
+  it("preserves legacy format access values without an override flag", () => {
+    const eventDetails = {
+      ...defaultOrganizerEventDetails,
+      access: { ...defaultOrganizerEventDetails.access, startAddress: "Départ commun", officialParkings: "Parking commun" },
+    };
+    const raceDetails = {
+      ...defaultOrganizerRaceDetails,
+      access: { ...defaultOrganizerRaceDetails.access, overrideEnabled: undefined, startAddress: "Départ historique" },
+    };
+
+    const access = buildRunnerOrganizerDetails(eventDetails, raceDetails).access;
+
+    expect(access.startAddress).toBe("Départ historique");
+    expect(access.officialParkings).toBe("Parking commun");
   });
 
   it("uses format equipment only when its explicit override is enabled", () => {
