@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -19,6 +19,7 @@ related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
+  - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -213,6 +214,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
 
 `supabase/migrations/20260821143417_add_organizer_imports_bucket.sql` adds the private `organizer-imports` bucket with a 25 MB PDF/JPEG/PNG/WebP limit. Authenticated users may insert and delete only objects whose first path segment matches their own auth user id. The organizer website-import route uses service-role access to read and delete these temporary objects after analysis; no document is persisted as race-event data.
+
+`supabase/migrations/20260826090000_allow_event_level_publication_requests.sql` reverts the organizer insert policy so `race_id` may be null again, restoring one event-level publication request per event/current-edition. `review_race_event_publication_request` already supported this null-`race_id` branch (added in `20260820164141_target_racebook_publication_requests.sql`) by approving every complete format of the current edition at once, so no function changes were needed.
 
 `supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql` implements the database boundary for two-pass Organizer imports:
 

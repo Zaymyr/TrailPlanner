@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-26
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260804152041_add_race_event_editions.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -180,9 +181,9 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 `race_event_publication_requests`:
 
-- Active event members can insert pending requests for themselves only when `race_id` belongs to the same managed event, and can read their own requests.
+- Active event members can insert pending requests for themselves; `race_id` is null for the current event-level flow, or must belong to the same managed event for any legacy per-format row. Organizers can read their own requests.
 - Trusted admins read the queue through the service API.
-- Atomic first approval targets the stored `race_id`; the admin event-level Racebook switch still targets the current edition. Both invoker-security RPCs are executable only by `service_role`; organizers receive no direct table/RPC grant and mutate approved visibility only through a membership-checked service route.
+- Atomic approval of a null-`race_id` request publishes every complete format of the event's current edition together; a legacy non-null `race_id` still targets just that format. The admin event-level Racebook switch also targets the current edition. Both invoker-security RPCs are executable only by `service_role`; organizers receive no direct table/RPC grant and mutate approved visibility only through a membership-checked service route.
 
 `race_event_organizers`:
 
