@@ -13,6 +13,7 @@ const DEFAULT_STATE = "tmp/betrail-organizer-emails-state.json";
 const DEFAULT_LIMIT = 50;
 const DEFAULT_DELAY_MS = 1_500;
 const DEFAULT_MANUAL_TIMEOUT_MS = 5 * 60_000;
+const SHEET_SYNC_BATCH_SIZE = 50;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -100,14 +101,82 @@ export const canonicalizeRaceUrl = (value) => {
   }
 };
 
+const FRENCH_MONTHS = Object.freeze({
+  janvier: 1,
+  fevrier: 2,
+  mars: 3,
+  avril: 4,
+  mai: 5,
+  juin: 6,
+  juillet: 7,
+  aout: 8,
+  septembre: 9,
+  octobre: 10,
+  novembre: 11,
+  decembre: 12,
+});
+
+const isoDate = (year, month, day) => {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (date.getUTCFullYear() !== year || date.getUTCMonth() !== month - 1 || date.getUTCDate() !== day) return "";
+  return `${String(year).padStart(4, "0")}-${String(month).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+};
+
+export const normalizeExactEventDate = (value, expectedYear = null) => {
+  const raw = String(value ?? "").trim();
+  const normalized = raw.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  let match = normalized.match(/\b(20\d{2})-(\d{1,2})-(\d{1,2})(?=\D|$)/);
+  let year;
+  let month;
+  let day;
+
+  if (match) {
+    year = Number(match[1]);
+    month = Number(match[2]);
+    day = Number(match[3]);
+  } else if ((match = normalized.match(/\b(\d{1,2})[/.\-](\d{1,2})[/.\-](20\d{2})\b/))) {
+    day = Number(match[1]);
+    month = Number(match[2]);
+    year = Number(match[3]);
+  } else if ((match = normalized.match(/\b(\d{1,2})(?:er)?\s+(janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\s+(20\d{2})\b/))) {
+    day = Number(match[1]);
+    month = FRENCH_MONTHS[match[2]];
+    year = Number(match[3]);
+  } else {
+    return "";
+  }
+
+  if (expectedYear && year !== expectedYear) return "";
+  return isoDate(year, month, day);
+};
+
+export const chooseEventDate = (candidateGroups, raceUrl) => {
+  const expectedYearMatch = canonicalizeRaceUrl(raceUrl).match(/\/(20\d{2})(?:\/|$)/);
+  const expectedYear = expectedYearMatch ? Number(expectedYearMatch[1]) : null;
+  const groups = [candidateGroups?.structured, candidateGroups?.attributes, candidateGroups?.visible];
+
+  for (const group of groups) {
+    const dates = [...new Set((group ?? []).map((value) => normalizeExactEventDate(value, expectedYear)).filter(Boolean))];
+    if (dates.length === 1) return dates[0];
+  }
+  return "";
+};
+
 const isCompletedRecord = (record) => Boolean(record.status) && !record.status.startsWith("error:");
 
 const upsertRecord = (records, nextRecord) => {
   const canonicalUrl = canonicalizeRaceUrl(nextRecord.raceUrl);
   const normalized = { ...nextRecord, raceUrl: canonicalUrl };
   const index = records.findIndex((record) => canonicalizeRaceUrl(record.raceUrl) === canonicalUrl);
-  if (index === -1) records.push(normalized);
-  else records[index] = normalized;
+  if (index === -1) {
+    records.push(normalized);
+    return normalized;
+  }
+  records[index] = {
+    ...normalized,
+    sheetSyncStatus: nextRecord.sheetSyncStatus ?? records[index].sheetSyncStatus,
+  };
+  return records[index];
 };
 
 const parsePositiveInteger = (value, flag) => {
@@ -125,13 +194,15 @@ const parseArgs = (argv) => {
     delayMs: DEFAULT_DELAY_MS,
     manualTimeoutMs: DEFAULT_MANUAL_TIMEOUT_MS,
     chromePath: null,
+    sheetWebhookUrl: process.env.BETRAIL_SHEET_WEBHOOK_URL || null,
+    sheetWebhookToken: process.env.BETRAIL_SHEET_WEBHOOK_TOKEN || null,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];
 
-    if (["--calendar-url", "--output", "--state", "--limit", "--delay-ms", "--manual-timeout-ms", "--chrome-path"].includes(arg)) {
+    if (["--calendar-url", "--output", "--state", "--limit", "--delay-ms", "--manual-timeout-ms", "--chrome-path", "--sheet-webhook-url", "--sheet-webhook-token"].includes(arg)) {
       if (!next) throw new Error(`${arg} requiert une valeur.`);
 
       if (arg === "--calendar-url") args.calendarUrl = next;
@@ -141,6 +212,8 @@ const parseArgs = (argv) => {
       if (arg === "--delay-ms") args.delayMs = parsePositiveInteger(next, arg);
       if (arg === "--manual-timeout-ms") args.manualTimeoutMs = parsePositiveInteger(next, arg);
       if (arg === "--chrome-path") args.chromePath = next;
+      if (arg === "--sheet-webhook-url") args.sheetWebhookUrl = next;
+      if (arg === "--sheet-webhook-token") args.sheetWebhookToken = next;
       index += 1;
       continue;
     }
@@ -156,6 +229,12 @@ const parseArgs = (argv) => {
   const url = new URL(args.calendarUrl);
   if (url.protocol !== "https:" || !/(^|\.)betrail\.run$/i.test(url.hostname)) {
     throw new Error("--calendar-url doit etre une URL HTTPS du domaine betrail.run.");
+  }
+  if (Boolean(args.sheetWebhookUrl) !== Boolean(args.sheetWebhookToken)) {
+    throw new Error("La synchronisation Google Sheets requiert une URL et un jeton.");
+  }
+  if (args.sheetWebhookUrl && new URL(args.sheetWebhookUrl).protocol !== "https:") {
+    throw new Error("--sheet-webhook-url doit etre une URL HTTPS.");
   }
 
   return args;
@@ -173,6 +252,8 @@ Options:
       --chrome-path <chemin>     Executable Chrome/Chromium a utiliser.
       --output <chemin>          Fichier CSV. Par defaut : ${DEFAULT_OUTPUT}
       --state <chemin>           Historique anti-doublon. Par defaut : ${DEFAULT_STATE}
+      --sheet-webhook-url <url>  URL /exec du deploiement Apps Script.
+      --sheet-webhook-token <t>  Jeton genere par createScraperWebhookToken.
   -h, --help                     Afficher cette aide.
 
 Le script reprend automatiquement apres les courses deja presentes dans son historique.
@@ -214,6 +295,55 @@ const persistRecords = async (records, statePath, outputPath) => {
     "utf8",
   );
   await writeFile(outputPath, recordsToCsv(records), "utf8");
+};
+
+const syncRecordBatchToSheet = async (records, args) => {
+  const response = await fetch(args.sheetWebhookUrl, {
+    method: "POST",
+    headers: { "content-type": "application/json; charset=utf-8" },
+    body: JSON.stringify({
+      token: args.sheetWebhookToken,
+      records: records.map((record) => ({
+        raceName: record.raceName,
+        organizer: record.organizer,
+        emails: record.emails,
+        raceUrl: record.raceUrl,
+        date: record.date,
+      })),
+    }),
+    redirect: "follow",
+  });
+  const text = await response.text();
+  let result;
+  try {
+    result = JSON.parse(text);
+  } catch {
+    throw new Error(`reponse non JSON (${response.status})`);
+  }
+  if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
+  return result;
+};
+
+const syncPendingRecordsToSheet = async (records, args) => {
+  if (!args.sheetWebhookUrl) return;
+  const pending = records.filter((record) => record.emails.length > 0 && record.sheetSyncStatus !== "synced");
+  if (pending.length === 0) return;
+
+  console.error(`Synchronisation Google Sheets : ${pending.length} prospect(s) en attente.`);
+  for (let index = 0; index < pending.length; index += SHEET_SYNC_BATCH_SIZE) {
+    const batch = pending.slice(index, index + SHEET_SYNC_BATCH_SIZE);
+    try {
+      const result = await syncRecordBatchToSheet(batch, args);
+      batch.forEach((record) => { record.sheetSyncStatus = "synced"; });
+      console.error(
+        `Google Sheets : ${result.inserted} ajoute(s), ${result.updated} mis a jour, ${result.skipped} ignore(s).`,
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      batch.forEach((record) => { record.sheetSyncStatus = `error: ${message}`; });
+      console.error(`Synchronisation Google Sheets impossible : ${message}`);
+    }
+  }
 };
 
 const findChrome = (explicitPath) => {
@@ -436,6 +566,28 @@ const contactProbeExpression = `(() => {
   );
   const organizationContainer = organizationHeading?.closest('section, article, li, div');
   const organization = organizationContainer?.innerText?.replace(/\\s+/g, ' ').trim().slice(0, 500) || '';
+  const structuredDates = [];
+  const visitJsonLd = (value) => {
+    if (Array.isArray(value)) return value.forEach(visitJsonLd);
+    if (!value || typeof value !== 'object') return;
+    const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
+    if (types.some((type) => /event/i.test(String(type || ''))) && value.startDate) {
+      structuredDates.push(String(value.startDate));
+    }
+    if (value['@graph']) visitJsonLd(value['@graph']);
+  };
+  for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+    try { visitJsonLd(JSON.parse(script.textContent)); } catch {}
+  }
+  const attributeDates = [...document.querySelectorAll(
+    'time[datetime], [itemprop="startDate"][datetime], meta[itemprop="startDate"], meta[property*="start_time"], meta[property*="startDate"]'
+  )].map((element) => element.getAttribute('datetime') || element.getAttribute('content') || element.innerText || '');
+  const visibleText = document.body?.innerText || '';
+  const visibleDates = [
+    ...visibleText.matchAll(/\\b20\\d{2}-\\d{1,2}-\\d{1,2}\\b/g),
+    ...visibleText.matchAll(/\\b\\d{1,2}[/.\\-]\\d{1,2}[/.\\-]20\\d{2}\\b/g),
+    ...visibleText.matchAll(/\\b\\d{1,2}(?:er)?\\s+(?:janvier|f[ée]vrier|mars|avril|mai|juin|juillet|ao[ûu]t|septembre|octobre|novembre|d[ée]cembre)\\s+20\\d{2}\\b/gi),
+  ].map((match) => match[0]);
 
   for (const contact of contacts) {
     const href = contact.getAttribute('href') || '';
@@ -446,6 +598,7 @@ const contactProbeExpression = `(() => {
     raceName: document.querySelector('h1')?.innerText?.trim() || document.title.split('|')[0].trim(),
     date: document.querySelector('time[datetime]')?.getAttribute('datetime') || document.querySelector('time')?.innerText?.trim() || '',
     organization,
+    dateCandidates: { structured: structuredDates, attributes: attributeDates, visible: visibleDates },
     contactEmails,
     existingMailtos,
     contactCount: contacts.length,
@@ -483,7 +636,7 @@ const scrapeRace = async (client, raceUrl, manualTimeoutMs) => {
 
   return {
     raceName: before.raceName,
-    date: before.date,
+    date: chooseEventDate(before.dateCandidates, raceUrl),
     organizer: before.organization,
     emails,
     raceUrl,
@@ -502,6 +655,7 @@ const main = async () => {
   const completedUrls = new Set(
     records.filter(isCompletedRecord).map((record) => canonicalizeRaceUrl(record.raceUrl)).filter(Boolean),
   );
+  await syncPendingRecordsToSheet(records, args);
   await persistRecords(records, statePath, outputPath);
   console.error(`Historique charge : ${completedUrls.size} course(s) deja traitee(s).`);
   await mkdir(profilePath, { recursive: true });
@@ -552,8 +706,21 @@ const main = async () => {
       console.error(`[${index + 1}/${raceLinks.length}] ${raceUrl}`);
       try {
         const record = await scrapeRace(client, raceUrl, args.manualTimeoutMs);
-        upsertRecord(records, record);
+        const savedRecord = upsertRecord(records, record);
         if (record.emails.length > 0) newEmailsFound += 1;
+        if (args.sheetWebhookUrl && savedRecord.emails.length > 0) {
+          try {
+            const result = await syncRecordBatchToSheet([savedRecord], args);
+            savedRecord.sheetSyncStatus = "synced";
+            console.error(
+              `Google Sheets : ${result.inserted} ajoute(s), ${result.updated} mis a jour, ${result.skipped} ignore(s).`,
+            );
+          } catch (error) {
+            const message = error instanceof Error ? error.message : String(error);
+            savedRecord.sheetSyncStatus = `error: ${message}`;
+            console.error(`Synchronisation Google Sheets impossible : ${message}`);
+          }
+        }
       } catch (error) {
         upsertRecord(records, {
           raceName: "",
