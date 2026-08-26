@@ -1631,8 +1631,8 @@ export function OrganizerDashboard({
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
   };
 
-  const requestPublication = async (raceId: string) => {
-    if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
+  const requestPublication = async () => {
+    if (!(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId || !eventDetail) return;
 
     setStatus("saving");
@@ -1641,7 +1641,7 @@ export function OrganizerDashboard({
       const response = await fetch("/api/organizer/publication-requests", {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: selectedEventId, raceId }),
+        body: JSON.stringify({ eventId: selectedEventId }),
       });
       const data = (await response.json().catch(() => null)) as {
         publicationRequest?: PublicationRequestRow;
@@ -2135,8 +2135,8 @@ export function OrganizerDashboard({
           setEventUpdateRaceId(raceId ?? null);
           setEventUpdatesDialogOpen(true);
         }}
-        onRequestPublication={(raceId) => {
-          void requestPublication(raceId);
+        onRequestPublication={() => {
+          void requestPublication();
         }}
         onRacebookVisibilityChange={(raceId, isLive) => {
           void setRacebookVisibility(raceId, isLive);

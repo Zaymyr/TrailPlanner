@@ -145,7 +145,7 @@ export function OrganizerSummaryHeader({
   activeRaceId?: string | null;
   onSaveAll: () => void;
   onNotifyFollowers: (raceId?: string) => void;
-  onRequestPublication: (raceId: string) => void;
+  onRequestPublication: () => void;
   onRacebookVisibilityChange: (raceId: string, isLive: boolean) => void;
   onEditionVisibilityChange: (isVisible: boolean) => Promise<boolean>;
   onDeleteEdition: () => Promise<boolean>;
@@ -178,11 +178,8 @@ export function OrganizerSummaryHeader({
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
   const selectedEdition = getEventEdition(event, selectedEditionYear);
   const editionIsVisible = selectedEdition?.is_visible !== false;
-  const activeRaceRow = activeRaceId ? raceRows.find((race) => race.activeEdition?.id === activeRaceId) ?? null : null;
-  const activeRaceIsApproved = Boolean(activeRaceRow?.activeEdition?.racebook_publication_approved_at);
-  const activeRacePublicationPending = publicationRequestStates.some(
-    (request) => request.status === "pending" && (!request.race_id || request.race_id === activeRaceId)
-  );
+  const allFormatsApproved =
+    raceRows.length > 0 && raceRows.every((race) => Boolean(race.activeEdition?.racebook_publication_approved_at));
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -358,14 +355,14 @@ export function OrganizerSummaryHeader({
         <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
         </Button>
-        {activeRaceRow && !activeRaceIsApproved ? (
+        {raceRows.length > 0 ? (
           <Button
             type="button"
             className="ml-auto"
-            onClick={() => onRequestPublication(activeRaceId!)}
-            disabled={!editionIsVisible || activeRacePublicationPending || status !== "idle"}
+            onClick={onRequestPublication}
+            disabled={!editionIsVisible || publicationPending || allFormatsApproved || status !== "idle"}
           >
-            {activeRacePublicationPending ? "Demande en cours" : "Demander la publication"}
+            {publicationPending ? "Demande en cours" : allFormatsApproved ? "Tous les formats sont publiés" : "Demander la publication"}
           </Button>
         ) : null}
       </div>

@@ -36,6 +36,20 @@ const eventRow = (distanceKm: number) => ({
   ],
 });
 
+const eventRowWithCurrentEditionRace = (distanceKm: number) => {
+  const row = eventRow(25);
+  row.races = [
+    {
+      id: "55555555-5555-5555-5555-555555555555",
+      edition_id: "33333333-3333-3333-3333-333333333333",
+      name: "Les 2 Savoies",
+      distance_km: distanceKm,
+      elevation_gain_m: 2167,
+    },
+  ];
+  return row;
+};
+
 describe("organizer publication readiness", () => {
   afterEach(() => {
     vi.restoreAllMocks();
@@ -65,6 +79,26 @@ describe("organizer publication readiness", () => {
       "11111111-1111-1111-1111-111111111111",
       "44444444-4444-4444-4444-444444444444"
     );
+
+    expect(readiness).toMatchObject({ ok: false, status: 409 });
+  });
+
+  it("validates the current edition and any complete format when no raceId is given", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json([eventRowWithCurrentEditionRace(25)])));
+
+    await expect(
+      validateOrganizerEventPublication(serviceConfig, "11111111-1111-1111-1111-111111111111")
+    ).resolves.toEqual({
+      ok: true,
+      publishableRaceCount: 1,
+      raceId: null,
+    });
+  });
+
+  it("rejects the event-level request when the current edition has no complete format", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json([eventRowWithCurrentEditionRace(0)])));
+
+    const readiness = await validateOrganizerEventPublication(serviceConfig, "11111111-1111-1111-1111-111111111111");
 
     expect(readiness).toMatchObject({ ok: false, status: 409 });
   });

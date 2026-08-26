@@ -45,6 +45,33 @@ describe("/api/organizer/publication-requests POST", () => {
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("race_events"))).toBe(false);
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).includes("/rest/v1/races"))).toBe(false);
   });
+
+  it("creates one event-level request when no raceId is provided", async () => {
+    publicationMocks.validate.mockResolvedValue({ ok: true, publishableRaceCount: 2, raceId: null });
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json([{
+        id: "22222222-2222-2222-2222-222222222222",
+        created_at: "2026-07-29T10:00:00.000Z",
+        event_id: eventId,
+        race_id: null,
+        user_id: "00000000-0000-0000-0000-000000000001",
+        status: "pending",
+        reviewer_notes: null,
+      }], { status: 201 }));
+
+    const response = await POST(new NextRequest("http://localhost/api/organizer/publication-requests", {
+      method: "POST",
+      headers: { authorization: "Bearer user-token", "content-type": "application/json" },
+      body: JSON.stringify({ eventId }),
+    }));
+
+    expect(response.status).toBe(201);
+    expect((await response.json()).publicationRequest.race_id).toBeNull();
+    expect(publicationMocks.validate).toHaveBeenCalledWith(expect.anything(), eventId, undefined);
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("race_id=is.null");
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({ event_id: eventId, race_id: null });
+  });
 });
 
 vi.mock("../../../../lib/http", () => ({
