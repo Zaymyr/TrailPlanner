@@ -23,7 +23,17 @@ The same Apps Script project can receive prospects extracted by the local BeTrai
 3. Store the deployment `/exec` URL and secret locally as `BETRAIL_SHEET_WEBHOOK_URL` and `BETRAIL_SHEET_WEBHOOK_TOKEN`.
 4. Run the scraper normally. Records containing public email addresses are upserted into `Prospects` after each race.
 
-The secret is stored in Apps Script properties, not in the spreadsheet. Generating a new token immediately revokes the previous one. The webhook accepts at most 100 race records per request, deduplicates by normalized email, preserves populated prospect fields, and fills the exact event date only when the scraper found a complete `YYYY-MM-DD` date.
+The secret is stored in Apps Script properties, not in the spreadsheet. Generating a new token immediately revokes the previous one. The webhook accepts at most 100 race records per request, deduplicates by normalized email, preserves populated prospect fields, and fills the exact event date only when the scraper found a complete `YYYY-MM-DD` date. It can also fill an empty `event_week` and its historical-edition basis during a missing-date recovery pass.
+
+## Event-period planning
+
+The sheet keeps the scraped date in `outreach_event_date` and derives three planning fields:
+
+- `event_week` stores the ISO week number;
+- `outreach_planning_date` keeps a future exact date unchanged, or maps a past edition to the Monday of the same ISO week in the next applicable year;
+- `event_date_basis` identifies an exact date, a previous edition extrapolation, a manually supplied week, or a missing period.
+
+The queue uses `outreach_planning_date`, so a past 2026 edition can be scheduled at the same general period in 2027 without presenting the inferred Monday as a verified race date. When no source date exists, a reviewed ISO week from 1 to 53 may be entered manually in `event_week`; otherwise the prospect remains blocked.
 
 ## Safety model
 

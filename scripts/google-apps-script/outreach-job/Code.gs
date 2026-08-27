@@ -392,6 +392,7 @@ function upsertScrapedProspects_(records) {
   const headers = headerIndex_(values[0]);
   [
     'uuid', 'email', 'Organization name', 'Organization website', 'outreach_event_date',
+    'event_week', 'outreach_planning_date', 'event_date_basis',
     'outreach_days_to_event', 'outreach_eligible', 'outreach_selected_today',
     'outreach_queue_rank', 'outreach_block_reason', 'last_sent_email_at', 'replied_at',
     'hard_bounced_at', 'excluded', 'opted-out',
@@ -418,12 +419,16 @@ function upsertScrapedProspects_(records) {
       const organizationName = String(record.raceName || record.organizer || '').trim();
       const website = canonicalBetrailUrl_(record.raceUrl);
       const eventDate = parseIsoDate_(record.date);
+      const eventWeek = parseEventWeek_(record.eventWeek);
+      const eventDateBasis = String(record.eventDateBasis || '').trim().slice(0, 80);
       const existingRow = emailRows[email];
       if (existingRow) {
         let changed = false;
         const currentOrganization = sheet.getRange(existingRow, headers['Organization name'] + 1);
         const currentWebsite = sheet.getRange(existingRow, headers['Organization website'] + 1);
         const currentDate = sheet.getRange(existingRow, headers.outreach_event_date + 1);
+        const currentWeek = sheet.getRange(existingRow, headers.event_week + 1);
+        const currentBasis = sheet.getRange(existingRow, headers.event_date_basis + 1);
         if (!currentOrganization.getValue() && organizationName) {
           currentOrganization.setValue(organizationName);
           changed = true;
@@ -434,6 +439,11 @@ function upsertScrapedProspects_(records) {
         }
         if (!currentDate.getValue() && eventDate) {
           currentDate.setValue(eventDate).setNumberFormat('yyyy-mm-dd');
+          changed = true;
+        }
+        if (!currentDate.getValue() && !currentWeek.getValue() && eventWeek) {
+          currentWeek.setValue(eventWeek);
+          if (eventDateBasis) currentBasis.setValue(eventDateBasis);
           changed = true;
         }
         if (changed) result.updated += 1;
@@ -459,6 +469,10 @@ function upsertScrapedProspects_(records) {
       targetRange.setValues([row]);
       if (eventDate) sheet.getRange(rowNumber, headers.outreach_event_date + 1).setNumberFormat('yyyy-mm-dd');
       setOutreachFormulas_(sheet, rowNumber, headers);
+      if (!eventDate && eventWeek) {
+        sheet.getRange(rowNumber, headers.event_week + 1).setValue(eventWeek);
+        if (eventDateBasis) sheet.getRange(rowNumber, headers.event_date_basis + 1).setValue(eventDateBasis);
+      }
 
       emailRows[email] = rowNumber;
       result.inserted += 1;
@@ -476,6 +490,14 @@ function setOutreachFormulas_(sheet, rowNumber, headers) {
     SpreadsheetApp.CopyPasteType.PASTE_FORMULA,
     false,
   );
+
+  const planningStartColumn = headers.event_week + 1;
+  const planningColumnCount = headers.event_date_basis - headers.event_week + 1;
+  sheet.getRange(2, planningStartColumn, 1, planningColumnCount).copyTo(
+    sheet.getRange(rowNumber, planningStartColumn, 1, planningColumnCount),
+    SpreadsheetApp.CopyPasteType.PASTE_FORMULA,
+    false,
+  );
 }
 
 function normalizeQueueRankFormulas_(sheet) {
@@ -487,7 +509,7 @@ function normalizeQueueRankFormulas_(sheet) {
   formulas.forEach(function (formulaRow) {
     const normalized = String(formulaRow[0] || '')
       .replace(/\$K\$2:\$K\$\d+/g, '$K$2:$K')
-      .replace(/\$I\$2:\$I\$\d+/g, '$I$2:$I');
+      .replace(/\$U\$2:\$U\$\d+/g, '$U$2:$U');
     if (normalized !== formulaRow[0]) {
       formulaRow[0] = normalized;
       changed = true;
@@ -505,6 +527,11 @@ function parseIsoDate_(value) {
   const date = new Date(year, month - 1, day, 12, 0, 0);
   if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
   return date;
+}
+
+function parseEventWeek_(value) {
+  const week = Number(value);
+  return Number.isInteger(week) && week >= 1 && week <= 53 ? week : null;
 }
 
 function canonicalBetrailUrl_(value) {

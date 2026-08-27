@@ -8,6 +8,7 @@ const context = vm.createContext({ console });
 vm.runInContext(`${source}\n;globalThis.__testApi = {
   asBoolean_,
   markdownBodyToHtml_,
+  parseEventWeek_,
   parseIsoDate_,
   positiveInteger_,
   replaceOrganizationName_,
@@ -55,4 +56,7 @@ test('parses scheduling values conservatively', () => {
   assert.equal(api.timeToMinutes_('09:30'), 570);
   assert.equal(api.positiveInteger_('1', 150), 1);
   assert.equal(api.positiveInteger_('invalid', 150), 150);
+  assert.equal(api.parseEventWeek_('36'), 36);
+  assert.equal(api.parseEventWeek_('0'), null);
+  assert.equal(api.parseEventWeek_('54'), null);
 });

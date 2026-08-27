@@ -29,9 +29,22 @@ export const extractEmailAddresses = (value) => {
 const csvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
 export const recordsToCsv = (records) => {
-  const header = ["race_name", "date", "organizer", "emails", "race_url", "status"];
+  const header = [
+    "race_name", "date", "event_week", "event_date_basis", "event_week_source_date",
+    "organizer", "emails", "race_url", "status",
+  ];
   const rows = records.map((record) =>
-    [record.raceName, record.date, record.organizer, record.emails.join(";"), record.raceUrl, record.status]
+    [
+      record.raceName,
+      record.date,
+      record.eventWeek,
+      record.eventDateBasis,
+      record.eventWeekSourceDate,
+      record.organizer,
+      record.emails.join(";"),
+      record.raceUrl,
+      record.status,
+    ]
       .map(csvCell)
       .join(","),
   );
@@ -81,6 +94,9 @@ export const csvToRecords = (csv) => {
     .map((values) => ({
       raceName: value(values, "race_name"),
       date: value(values, "date"),
+      eventWeek: Number.parseInt(value(values, "event_week"), 10) || null,
+      eventDateBasis: value(values, "event_date_basis"),
+      eventWeekSourceDate: value(values, "event_week_source_date"),
       organizer: value(values, "organizer"),
       emails: extractEmailAddresses(value(values, "emails")),
       raceUrl: canonicalizeRaceUrl(value(values, "race_url")),
@@ -162,6 +178,33 @@ export const chooseEventDate = (candidateGroups, raceUrl) => {
   return "";
 };
 
+export const eventWeekFromIsoDate = (value) => {
+  const match = String(value ?? "").match(/^(20\d{2})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const dateOfMonth = Number(match[3]);
+  if (isoDate(year, month, dateOfMonth) !== value) return null;
+  const date = new Date(Date.UTC(year, month - 1, dateOfMonth));
+  if (Number.isNaN(date.getTime())) return null;
+  const day = date.getUTCDay() || 7;
+  date.setUTCDate(date.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+  return Math.ceil(((date - yearStart) / 86_400_000 + 1) / 7);
+};
+
+export const raceEditionUrlForYear = (raceUrl, year) => {
+  const canonicalUrl = canonicalizeRaceUrl(raceUrl);
+  if (!canonicalUrl || !Number.isInteger(year)) return "";
+  const url = new URL(canonicalUrl);
+  const parts = url.pathname.split("/");
+  const editionIndex = parts.findIndex((part) => /^20\d{2}$/.test(part));
+  if (editionIndex === -1) return "";
+  parts[editionIndex] = String(year);
+  url.pathname = parts.join("/");
+  return canonicalizeRaceUrl(url.href);
+};
+
 const isCompletedRecord = (record) => Boolean(record.status) && !record.status.startsWith("error:");
 
 const upsertRecord = (records, nextRecord) => {
@@ -175,6 +218,10 @@ const upsertRecord = (records, nextRecord) => {
   records[index] = {
     ...normalized,
     sheetSyncStatus: nextRecord.sheetSyncStatus ?? records[index].sheetSyncStatus,
+    eventWeek: nextRecord.eventWeek ?? records[index].eventWeek,
+    eventDateBasis: nextRecord.eventDateBasis ?? records[index].eventDateBasis,
+    eventWeekSourceDate: nextRecord.eventWeekSourceDate ?? records[index].eventWeekSourceDate,
+    dateLookupStatus: nextRecord.dateLookupStatus ?? records[index].dateLookupStatus,
   };
   return records[index];
 };
@@ -196,6 +243,8 @@ const parseArgs = (argv) => {
     chromePath: null,
     sheetWebhookUrl: process.env.BETRAIL_SHEET_WEBHOOK_URL || null,
     sheetWebhookToken: process.env.BETRAIL_SHEET_WEBHOOK_TOKEN || null,
+    retryMissingDates: false,
+    retryDateFailures: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -221,6 +270,16 @@ const parseArgs = (argv) => {
     if (arg === "--help" || arg === "-h") {
       printHelp();
       process.exit(0);
+    }
+
+    if (arg === "--retry-missing-dates") {
+      args.retryMissingDates = true;
+      continue;
+    }
+
+    if (arg === "--retry-date-failures") {
+      args.retryDateFailures = true;
+      continue;
     }
 
     throw new Error(`Option inconnue : ${arg}`);
@@ -254,6 +313,8 @@ Options:
       --state <chemin>           Historique anti-doublon. Par defaut : ${DEFAULT_STATE}
       --sheet-webhook-url <url>  URL /exec du deploiement Apps Script.
       --sheet-webhook-token <t>  Jeton genere par createScraperWebhookToken.
+      --retry-missing-dates      Revisiter seulement les contacts sans date ni semaine.
+      --retry-date-failures      Retenter les recherches de date deja infructueuses.
   -h, --help                     Afficher cette aide.
 
 Le script reprend automatiquement apres les courses deja presentes dans son historique.
@@ -309,6 +370,8 @@ const syncRecordBatchToSheet = async (records, args) => {
         emails: record.emails,
         raceUrl: record.raceUrl,
         date: record.date,
+        eventWeek: record.eventWeek,
+        eventDateBasis: record.eventDateBasis,
       })),
     }),
     redirect: "follow",
@@ -605,6 +668,32 @@ const contactProbeExpression = `(() => {
   };
 })()`;
 
+const dateProbeExpression = `(() => {
+  const structuredDates = [];
+  const visitJsonLd = (value) => {
+    if (Array.isArray(value)) return value.forEach(visitJsonLd);
+    if (!value || typeof value !== 'object') return;
+    const types = Array.isArray(value['@type']) ? value['@type'] : [value['@type']];
+    if (types.some((type) => /event/i.test(String(type || ''))) && value.startDate) {
+      structuredDates.push(String(value.startDate));
+    }
+    if (value['@graph']) visitJsonLd(value['@graph']);
+  };
+  for (const script of document.querySelectorAll('script[type="application/ld+json"]')) {
+    try { visitJsonLd(JSON.parse(script.textContent)); } catch {}
+  }
+  const attributeDates = [...document.querySelectorAll(
+    'time[datetime], [itemprop="startDate"][datetime], meta[itemprop="startDate"], meta[property*="start_time"], meta[property*="startDate"]'
+  )].map((element) => element.getAttribute('datetime') || element.getAttribute('content') || element.innerText || '');
+  const visibleText = document.body?.innerText || '';
+  const visibleDates = [
+    ...visibleText.matchAll(/\\b20\\d{2}-\\d{1,2}-\\d{1,2}\\b/g),
+    ...visibleText.matchAll(/\\b\\d{1,2}[/.\\-]\\d{1,2}[/.\\-]20\\d{2}\\b/g),
+    ...visibleText.matchAll(/\\b\\d{1,2}(?:er)?\\s+(?:janvier|f[Ã©e]vrier|mars|avril|mai|juin|juillet|ao[Ã»u]t|septembre|octobre|novembre|d[Ã©e]cembre)\\s+20\\d{2}\\b/gi),
+  ].map((match) => match[0]);
+  return { structured: structuredDates, attributes: attributeDates, visible: visibleDates };
+})()`;
+
 const revealProbeExpression = `(() => {
   const emailPattern = /[a-z0-9.!#$%&'*+/=?^_\`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+/gi;
   const emailsFrom = (value) => String(value || '').match(emailPattern) || [];
@@ -634,14 +723,56 @@ const scrapeRace = async (client, raceUrl, manualTimeoutMs) => {
   const fallback = before.contactCount > 0 ? after.mailtos : [];
   const emails = extractEmailAddresses([...preferred, ...fallback].join(" "));
 
+  const date = chooseEventDate(before.dateCandidates, raceUrl);
   return {
     raceName: before.raceName,
-    date: chooseEventDate(before.dateCandidates, raceUrl),
+    date,
+    eventWeek: eventWeekFromIsoDate(date),
+    eventDateBasis: date ? "date exacte" : "",
+    eventWeekSourceDate: date,
     organizer: before.organization,
     emails,
     raceUrl,
     status: emails.length > 0 ? "email_found" : before.contactCount > 0 ? "contact_without_email" : "contact_not_found",
   };
+};
+
+const recoverMissingEventPeriod = async (client, record, manualTimeoutMs) => {
+  const yearMatch = canonicalizeRaceUrl(record.raceUrl).match(/\/(20\d{2})(?:\/|$)/);
+  if (!yearMatch) return { dateLookupStatus: "unsupported_url" };
+
+  const editionYear = Number(yearMatch[1]);
+  let successfulPageCount = 0;
+  let lastError = null;
+
+  for (const historicalYear of [editionYear - 1, editionYear - 2]) {
+    const historicalUrl = raceEditionUrlForYear(record.raceUrl, historicalYear);
+    if (!historicalUrl) continue;
+    console.error(`  Recherche de periode sur l'edition ${historicalYear}...`);
+    try {
+      await navigate(client, historicalUrl);
+      await waitForBetrailPage(client, manualTimeoutMs);
+      const candidates = await client.evaluate(dateProbeExpression);
+      successfulPageCount += 1;
+      const sourceDate = chooseEventDate(candidates, historicalUrl);
+      const eventWeek = eventWeekFromIsoDate(sourceDate);
+      if (eventWeek) {
+        return {
+          eventWeek,
+          eventDateBasis: `édition ${historicalYear} extrapolée`,
+          eventWeekSourceDate: sourceDate,
+          dateLookupStatus: "found",
+        };
+      }
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+
+  if (successfulPageCount === 0 && lastError) {
+    return { dateLookupStatus: `error: ${lastError}` };
+  }
+  return { dateLookupStatus: "not_found" };
 };
 
 const main = async () => {
@@ -658,9 +789,27 @@ const main = async () => {
   await syncPendingRecordsToSheet(records, args);
   await persistRecords(records, statePath, outputPath);
   console.error(`Historique charge : ${completedUrls.size} course(s) deja traitee(s).`);
+
+  const dateRetryRecords = args.retryMissingDates
+    ? records.filter((record) => {
+      const hasWeek = Number.isInteger(Number(record.eventWeek)) && Number(record.eventWeek) >= 1 && Number(record.eventWeek) <= 53;
+      const lookupStatus = String(record.dateLookupStatus || "");
+      const mayRetry = !lookupStatus || lookupStatus.startsWith("error:") || args.retryDateFailures;
+      return record.emails?.length > 0 && !record.date && !hasWeek && mayRetry;
+    }).slice(0, args.limit)
+    : [];
+
+  if (args.retryMissingDates && dateRetryRecords.length === 0) {
+    console.error("Aucune course sans date ni semaine ne reste a revisiter.");
+    return;
+  }
   await mkdir(profilePath, { recursive: true });
 
   console.error("Ouverture de Chrome pour BeTrail...");
+  const firstRetryYear = dateRetryRecords[0]?.raceUrl.match(/\/(20\d{2})(?:\/|$)/)?.[1];
+  const initialUrl = args.retryMissingDates && firstRetryYear
+    ? raceEditionUrlForYear(dateRetryRecords[0].raceUrl, Number(firstRetryYear) - 1)
+    : args.calendarUrl;
   const chrome = spawn(
     chromePath,
     [
@@ -668,7 +817,7 @@ const main = async () => {
       `--user-data-dir=${profilePath}`,
       "--no-first-run",
       "--disable-default-apps",
-      args.calendarUrl,
+      initialUrl || args.calendarUrl,
     ],
     { stdio: "ignore" },
   );
@@ -680,6 +829,49 @@ const main = async () => {
     await client.connect();
     await client.send("Page.enable");
     await client.send("Runtime.enable");
+
+    if (args.retryMissingDates) {
+      await waitForBetrailPage(client, args.manualTimeoutMs);
+      let recoveredCount = 0;
+      for (const [index, record] of dateRetryRecords.entries()) {
+        console.error(`[${index + 1}/${dateRetryRecords.length}] ${record.raceName || record.raceUrl}`);
+        const recovered = await recoverMissingEventPeriod(client, record, args.manualTimeoutMs);
+        Object.assign(record, recovered);
+        if (recovered.eventWeek) {
+          recoveredCount += 1;
+          record.sheetSyncStatus = undefined;
+          console.error(
+            `  Semaine ${recovered.eventWeek} retrouvee depuis ${recovered.eventWeekSourceDate}.`,
+          );
+          if (args.sheetWebhookUrl) {
+            try {
+              const result = await syncRecordBatchToSheet([record], args);
+              record.sheetSyncStatus = "synced";
+              console.error(
+                `Google Sheets : ${result.inserted} ajoute(s), ${result.updated} mis a jour, ${result.skipped} ignore(s).`,
+              );
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              record.sheetSyncStatus = `error: ${message}`;
+              console.error(`Synchronisation Google Sheets impossible : ${message}`);
+            }
+          }
+        } else if (String(recovered.dateLookupStatus).startsWith("error:")) {
+          console.error(`  Recherche interrompue : ${recovered.dateLookupStatus.slice(7)}`);
+        } else {
+          console.error("  Aucune date historique fiable trouvee.");
+        }
+        await persistRecords(records, statePath, outputPath);
+        if (index < dateRetryRecords.length - 1) await sleep(args.delayMs);
+      }
+
+      console.error(
+        `Termine : ${recoveredCount}/${dateRetryRecords.length} periode(s) retrouvee(s). Relancez la meme commande pour le lot suivant.`,
+      );
+      console.error(`CSV : ${outputPath}`);
+      console.error(`Historique anti-doublon : ${statePath}`);
+      return;
+    }
 
     await waitForBetrailPage(client, args.manualTimeoutMs, { allowCalendar: true });
     const { allLinks, newLinks: raceLinks } = await collectRaceLinks(client, args.limit, completedUrls);

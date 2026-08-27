@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-08-26
+last_verified: 2026-08-27
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -30,6 +30,8 @@ related_tables: []
 - A persistent state file, `tmp/betrail-organizer-emails-state.json` by default, records every completed race URL. Later runs skip those URLs and continue until they find the requested number of new races.
 - Progress is saved to both the state file and cumulative CSV after every race. Rows whose status starts with `error:` remain eligible for a later retry.
 - Event dates are collected conservatively from Event JSON-LD, explicit date attributes, or one unambiguous complete date visible on the race page. Month-only and conflicting dates stay blank.
+- `--retry-missing-dates` revisits only email-bearing records that still lack both an exact date and an event week. It checks the two preceding BeTrail edition URLs and accepts the first unambiguous exact historical date as an approximate ISO week.
+- Outreach planning preserves that source date, derives its ISO week, and rolls a past edition forward to the same event week in the next applicable year. The derived Monday is only an internal planning anchor, not a claimed exact race date.
 - Output stays under the ignored `tmp/` directory by default and must be reviewed before any further use.
 
 ## Usage
@@ -68,8 +70,16 @@ Useful options:
 - `--state <path>` selects the persistent anti-duplicate history. Keep the same state path across regions and runs.
 - `--sheet-webhook-url <url>` selects the deployed Apps Script `/exec` endpoint. It can instead come from `BETRAIL_SHEET_WEBHOOK_URL`.
 - `--sheet-webhook-token <token>` authenticates that endpoint. It can instead come from `BETRAIL_SHEET_WEBHOOK_TOKEN`.
+- `--retry-missing-dates` processes the next limited batch of contacts without a date or week.
+- `--retry-date-failures` also revisits records previously marked `not_found`; transient errors are retried automatically.
 
-The CSV columns are `race_name`, `date`, `organizer`, `emails`, `race_url`, and `status`. Multiple addresses in one row are separated with semicolons. If a CSV from the earlier script version exists but no state file does, the script imports its race URLs automatically to initialize the history.
+Recover missing periods in batches without collecting the emails again:
+
+```bash
+node scripts/scrape-betrail-organizer-emails.mjs --retry-missing-dates --limit 200
+```
+
+The CSV columns are `race_name`, `date`, `event_week`, `event_date_basis`, `event_week_source_date`, `organizer`, `emails`, `race_url`, and `status`. Multiple addresses in one row are separated with semicolons. If a CSV from the earlier script version exists but no state file does, the script imports its race URLs automatically to initialize the history.
 
 ### Direct Google Sheet synchronization
 
@@ -81,7 +91,7 @@ After deploying the Apps Script project as a Web app:
 2. Store the returned token and `/exec` deployment URL as local environment variables.
 3. Run the scraper normally.
 
-Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. Existing prospects are matched by normalized email; populated organization, website, date, contact, reply, bounce, exclusion, and opt-out values are never overwritten. New prospects receive the same formulas, checkbox validation, and formatting as the existing queue.
+Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. Existing prospects are matched by normalized email; populated organization, website, date, event week, contact, reply, bounce, exclusion, and opt-out values are never overwritten. A recovered historical week fills `event_week` and records its edition in `event_date_basis`; new prospects receive the same formulas, checkbox validation, and formatting as the existing queue.
 
 ## Data Handling
 
@@ -125,6 +135,7 @@ Run `installOutreachJob` once from the Apps Script editor after deployment and O
 - stops unless `activation_envoi` is checked;
 - requires the template mode to remain `Brouillons`;
 - reads the enabled weekdays, start time, time zone, daily cap, and inter-draft delay from `Paramètres envoi`;
+- evaluates the send window against `outreach_planning_date`; exact future dates stay unchanged, while past editions use the same ISO event week in the next applicable year;
 - rechecks the selected prospect's contact, reply, bounce, exclusion, and opt-out fields;
 - searches Gmail for an existing sent message or reply from the same address;
 - creates at most one personalized draft;
@@ -140,11 +151,13 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 - Chrome uses `tmp/betrail-chrome-profile`, separate from the operator's everyday browser profile.
 - Changing `--output` does not start a fresh crawl: the default state file remains authoritative. Conversely, changing `--state` creates an independent history and can therefore allow duplicate processing.
 - A CSV queue is only an intermediate review artifact. Gmail or another sender must re-check replies and exclusions immediately before sending because those values can change after the export.
-- Never infer a precise future event date from a month or period label. Rows without `overloop_event_date_safe` remain blocked until a precise date is verified.
+- Never present `outreach_planning_date` as a verified race date when `event_date_basis` says it was extrapolated. It is the Monday of the known ISO event week and exists only to place outreach in the right order of magnitude.
+- Rows with neither an exact source date nor a reviewed `event_week` remain blocked. A week from 1 to 53 can be entered manually when another reliable source establishes the period.
 - Creating a draft does not prove that it was sent. `Historique envois` prevents duplicate drafts, but manual sending and replies still need reconciliation before an automatic-send mode is ever considered.
 - Gmail signatures are fetched through the Gmail advanced service. Non-BMP icons are converted to HTML entities before draft creation because `GmailApp.createDraft` can otherwise replace them. If the service or signature lookup is unavailable, the job creates the draft without a signature and logs a warning rather than blocking the queue.
 - The Apps Script web app URL is public by necessity, but every write requires the long token stored in Script Properties. Rotate it with `createScraperWebhookToken` if it is ever exposed.
 - Google Sheet synchronization only accepts exact event dates that match the year encoded in the BeTrail race-edition URL. Ambiguous dates stay empty and therefore remain blocked from outreach.
+- Historical recovery deliberately tries only the two preceding edition URLs. A renamed event, a changed BeTrail slug, or an edition without an exact date remains `not_found`; use `--retry-date-failures` only when a later retry is justified.
 
 ## Related Docs
 
