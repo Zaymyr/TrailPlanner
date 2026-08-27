@@ -341,7 +341,7 @@ values
     '7a110000-0000-4000-8000-000000000001',
     jsonb_build_object(
       'raceLocation', jsonb_build_object('label', 'Place du Gros Tilleul, Samoëns', 'lat', 46.0832, 'lng', 6.7264, 'googleMapsUrl', 'https://www.google.com/maps/search/?api=1&query=46.0832,6.7264', 'source', 'manual'),
-      'schedule', jsonb_build_object('startTime', '04:00', 'finishCutoffTime', '23:30', 'shuttleSchedule', null, 'cutoffNote', 'Barrières éliminatoires : Golèse 08:00, Joux Plane 12:00, base de vie Bostan 16:00, Vercland 21:00.', 'note', 'Appel en sas à 03:35, contrôle aléatoire du sac et briefing à 03:50.'),
+      'schedule', jsonb_build_object('startTime', '04:00', 'finishCutoffTime', '23:30', 'shuttleSchedule', null, 'cutoffNote', null, 'note', null),
       'mandatoryEquipment', jsonb_build_object('overrideEnabled', true, 'weatherPlan', 'normal', 'items', jsonb_build_array(
         jsonb_build_object('id', '82-headlamp', 'label', 'Deux lampes frontales en état de marche', 'required', true, 'cold', false, 'heat', false, 'note', 'Une lampe principale et une lampe de secours.'),
         jsonb_build_object('id', '82-battery', 'label', 'Batterie ou piles de rechange', 'required', true, 'cold', false, 'heat', false, 'note', null),

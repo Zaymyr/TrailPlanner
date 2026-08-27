@@ -21,6 +21,7 @@ related_files:
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
+  - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -231,6 +232,8 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 ### Racebook Showcase Data
 
 `supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql` is a data-only, idempotent showcase seed. It publishes the fictional `Trail TST` 2026 event with three complete formats (18 km, 42 km, and an 82 km solo/relay format), organizer JSONB details, ordered ravitos, official product links, and two relay handover points. The referenced cover and GPX objects live under `race-images/trail-tst/2026/` and `race-gpx/trail-tst/2026/`; repository copies live under `supabase/demo-assets/` so the fixture remains reproducible. It changes no table, grant, function, trigger, or RLS policy.
+
+`supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql` removes the two fictional free-text schedule constraint notes from the TST 82 showcase format. It preserves the representative start time, finish cutoff, ravitos, and per-station cutoff times, and changes no schema or access policy.
 
 ### Plan Recap Sharing
 

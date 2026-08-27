@@ -14,6 +14,7 @@ related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
+  - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
@@ -74,7 +75,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event publication request: organizer request for the first admin approval of one exact Racebook format, identified by `race_id`; course catalog visibility is independent.
 - Racebook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. Approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
-- Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema.
+- Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.
 - Import draft: a confirmed `races` format may exist before distance or D+ is known; `data_status` and `missing_required_fields` keep those unknowns explicit and hidden.
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
