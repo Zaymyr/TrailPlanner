@@ -2,9 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 
 import { Button } from "../../../components/ui/button";
 import { persistSessionToStorage } from "../../../lib/auth-storage";
+import { normalizeInternalReturnPath } from "../../../lib/organizer-acquisition";
 
 type SessionResponse = {
   user?: {
@@ -19,8 +21,13 @@ type Status = {
   isError?: boolean;
 };
 
-export default function AuthCallbackPage() {
+type AuthCallbackPageProps = {
+  searchParams?: { next?: string | string[] };
+};
+
+export default function AuthCallbackPage({ searchParams: routeSearchParams }: AuthCallbackPageProps) {
   const router = useRouter();
+  const returnPath = normalizeInternalReturnPath(routeSearchParams?.next);
   const [status, setStatus] = useState<Status>({
     message: "Signing you in...",
   });
@@ -86,11 +93,11 @@ export default function AuthCallbackPage() {
         console.error("Unable to fetch user session after OAuth", error);
       }
 
-      router.replace("/race-planner");
+      router.replace(returnPath as Route);
     };
 
     void persistSession();
-  }, [router, searchParams]);
+  }, [returnPath, router, searchParams]);
 
   const handleBackToSignIn = () => {
     router.push("/sign-in");

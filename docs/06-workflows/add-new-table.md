@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -19,6 +19,8 @@ related_tables: []
 Use this workflow when adding a Supabase table to Pace Yourself.
 
 For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and mobile onboarding completion on `user_profiles.onboarding_completed_at`; both still require schema and business/auth-doc updates. `race_event_update_reads` is the current owner-scoped table example. `organizer_import_sessions` is the service-only example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges.
+
+Data-only catalog/showcase migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document external Storage assets, and update the migration documentation.
 
 ## Key Concepts
 
@@ -69,6 +71,7 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only table
 - Do not forget explicit grants for tables accessed through Supabase REST/client APIs; RLS policies alone do not grant table privileges.
 - Do not add new grants or policies for a column-only marker when the existing owner-scoped row access remains the intended boundary.
 - Do not create a table or migration for a route-only query optimization such as replacing row materialization with a Data API exact count; document the access pattern in the existing schema/table docs instead.
+- Do not apply new-table DDL or policy steps to a data-only showcase seed; verify the existing table contracts and public visibility gates instead.
 
 ## Related Docs
 

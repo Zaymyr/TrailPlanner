@@ -1,13 +1,17 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
   - apps/web/lib/posthog-browser.ts
   - apps/web/app/posthog-provider.tsx
   - apps/web/app/analytics.tsx
+  - apps/web/app/organisateurs/organizer-landing-page.tsx
+  - apps/web/app/organizers/page.tsx
+  - apps/web/lib/google-analytics.ts
+  - apps/web/lib/organizer-acquisition.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
 related_tables: []
@@ -63,6 +67,10 @@ Vercel analytics are loaded through:
 - `@vercel/analytics`
 - `@vercel/speed-insights/next`
 
+## Organizer Acquisition
+
+The French `/organisateurs` landing page forwards only `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, and `utm_term` to `/organizers`. CTA clicks emit `organizer_landing_cta_clicked` with the CTA kind, placement, destination, and available attribution. A successful event creation emits `organizer_event_created` with the same attribution. Both use the existing consent-gated `trackGoogleAnalyticsEvent` bridge, so PostHog and Google Analytics receive nothing before analytics consent.
+
 ## Mobile PostHog
 
 Mobile configuration lives in `apps/mobile/lib/posthog.ts`.
@@ -92,6 +100,7 @@ The normal cold-start destination is the Courses catalog; that routing decision 
 - Never paste real PostHog keys into docs.
 - Do not include sensitive URL tokens in analytics paths.
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
+- Do not expand organizer attribution beyond the explicit UTM allowlist or persist campaign parameters in browser storage.
 - Use environment variable names, not values.
 - Do not use analytics identity as proof that a user should be synced to marketing contacts; Resend sync must validate the Supabase session separately.
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.

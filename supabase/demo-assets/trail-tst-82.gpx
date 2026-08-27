@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Pace Yourself demo" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Trail TST 82 - Ultra des Cimes</name></metadata>
+  <trk><name>Trail TST 82 - Ultra des Cimes</name><trkseg>
+    <trkpt lat="46.0832" lon="6.7264"><ele>710</ele></trkpt>
+    <trkpt lat="46.0970" lon="6.7000"><ele>980</ele></trkpt>
+    <trkpt lat="46.1170" lon="6.6790"><ele>1320</ele></trkpt>
+    <trkpt lat="46.1390" lon="6.6610"><ele>1710</ele></trkpt>
+    <trkpt lat="46.1600" lon="6.6660"><ele>2070</ele></trkpt>
+    <trkpt lat="46.1790" lon="6.6880"><ele>2260</ele></trkpt>
+    <trkpt lat="46.1900" lon="6.7200"><ele>1960</ele></trkpt>
+    <trkpt lat="46.1830" lon="6.7500"><ele>1620</ele></trkpt>
+    <trkpt lat="46.1660" lon="6.7770"><ele>1850</ele></trkpt>
+    <trkpt lat="46.1450" lon="6.7950"><ele>2140</ele></trkpt>
+    <trkpt lat="46.1220" lon="6.8020"><ele>1760</ele></trkpt>
+    <trkpt lat="46.0990" lon="6.7900"><ele>1370</ele></trkpt>
+    <trkpt lat="46.0790" lon="6.7690"><ele>1040</ele></trkpt>
+    <trkpt lat="46.0640" lon="6.7420"><ele>1220</ele></trkpt>
+    <trkpt lat="46.0600" lon="6.7110"><ele>1510</ele></trkpt>
+    <trkpt lat="46.0710" lon="6.6880"><ele>1180</ele></trkpt>
+    <trkpt lat="46.0832" lon="6.7264"><ele>710</ele></trkpt>
+  </trkseg></trk>
+</gpx>

@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -48,6 +48,7 @@ related_tables:
 - Edition visibility filters catalog formats, not read receipts. A receipt remains event/update-owned even when its former target format is hidden or deleted.
 - The toast and list scroll after a confirmed favorite addition are independent of announcement visibility and must not create read receipts.
 - Racebook visibility has no effect on read receipts: announcements remain event-scoped and use parent event liveness, even when a particular format's Racebook is hidden.
+- Showing an unpublished Racebook CTA to its active organizer must not create or alter announcement read receipts.
 
 ## Related Docs
 

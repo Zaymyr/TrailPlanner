@@ -205,6 +205,7 @@ export type RacebookScreenData = {
 export type RacebookSignals = {
   raceIsLive: boolean | null | undefined;
   racebookIsLive: boolean | null | undefined;
+  hasOrganizerAccess?: boolean;
   hasAidStations: boolean | null | undefined;
   hasRelayCourse?: boolean | null;
   eventOrganizerDetails: unknown;
@@ -768,8 +769,10 @@ function normalizeProductLabel(productRecord: Record<string, unknown>): string |
 }
 
 export function canShowRacebook(signals: RacebookSignals): boolean {
-  if (signals.raceIsLive !== true) return false;
-  if (signals.racebookIsLive !== true) return false;
+  if (signals.hasOrganizerAccess !== true) {
+    if (signals.raceIsLive !== true) return false;
+    if (signals.racebookIsLive !== true) return false;
+  }
 
   const eventDetails = parseEventDetails(signals.eventOrganizerDetails);
   const raceDetails = parseRaceDetails(signals.raceOrganizerDetails);
@@ -847,6 +850,19 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
   if (relayPointError) return null;
 
   const eventRelation = Array.isArray(raceRow.race_events) ? raceRow.race_events[0] ?? null : raceRow.race_events ?? null;
+  const { data: sessionData } = await supabase.auth.getSession();
+  const userId = sessionData.session?.user?.id ?? null;
+  const { data: organizerMembership } =
+    userId && eventRelation?.id
+      ? await supabase
+          .from('race_event_organizers')
+          .select('event_id')
+          .eq('event_id', eventRelation.id)
+          .eq('user_id', userId)
+          .is('revoked_at', null)
+          .maybeSingle()
+      : { data: null };
+
   const eventDetails = parseEventDetails(eventRelation?.organizer_details);
   const raceDetails = parseRaceDetails(raceRow.organizer_details);
   const runnerDetails = buildRunnerDetails(eventDetails, raceDetails);
@@ -896,6 +912,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
   const canOpen = canShowRacebook({
     raceIsLive: raceRow.is_live,
     racebookIsLive: raceRow.racebook_is_live,
+    hasOrganizerAccess: Boolean(organizerMembership),
     hasAidStations: aidStations.length > 0,
     hasRelayCourse:
       raceRow.participation_mode === 'relay' || raceRow.participation_mode === 'solo_and_relay',

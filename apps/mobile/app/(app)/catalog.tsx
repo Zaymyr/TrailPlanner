@@ -432,6 +432,7 @@ export default function CatalogScreen() {
   const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
   const [canFavoriteEvents, setCanFavoriteEvents] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [organizerEventIds, setOrganizerEventIds] = useState<Set<string>>(() => new Set());
   const [readUpdateIds, setReadUpdateIds] = useState<Set<string>>(() => new Set());
   const [eventUpdateRefs, setEventUpdateRefs] = useState<RaceEventUpdateRef[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<EventGroup | null>(null);
@@ -477,6 +478,7 @@ export default function CatalogScreen() {
           favoriteIdsResult,
           readUpdateIdsResult,
           eventUpdateRefsResult,
+          organizerMembershipsResult,
         ] = await Promise.all([
           supabase
             .from('race_events')
@@ -530,6 +532,13 @@ export default function CatalogScreen() {
           canUseFavorites ? fetchRaceFavoriteEventIds() : Promise.resolve([] as string[]),
           canUseFavorites && userId ? fetchReadRaceEventUpdateIds(userId) : Promise.resolve([] as string[]),
           canUseFavorites ? fetchRaceEventUpdateRefs() : Promise.resolve([] as RaceEventUpdateRef[]),
+          userId
+            ? supabase
+                .from('race_event_organizers')
+                .select('event_id')
+                .eq('user_id', userId)
+                .is('revoked_at', null)
+            : Promise.resolve({ data: [], error: null }),
         ]);
 
         if (cancelled) return;
@@ -577,6 +586,13 @@ export default function CatalogScreen() {
         setPersonalRaces(sortRaces((personalResult.data ?? []) as Race[]));
         setFavoriteEventIds(favoriteIds);
         setCurrentUserId(canUseFavorites ? userId : null);
+        setOrganizerEventIds(
+          new Set(
+            (organizerMembershipsResult.data ?? []).map((membership: { event_id: string }) =>
+              String(membership.event_id),
+            ),
+          ),
+        );
         setReadUpdateIds(new Set(readUpdateIdsResult));
         setEventUpdateRefs(eventUpdateRefsResult);
         setError(null);
@@ -1165,6 +1181,7 @@ export default function CatalogScreen() {
                     canShowRacebook({
                       raceIsLive: race.is_live,
                       racebookIsLive: race.racebook_is_live,
+                      hasOrganizerAccess: organizerEventIds.has(selectedEvent.id),
                       hasAidStations: race.has_aid_stations,
                       hasRelayCourse:
                         race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',

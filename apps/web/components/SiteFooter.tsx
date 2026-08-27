@@ -45,7 +45,7 @@ export function SiteFooter() {
           <Link className="transition hover:text-[hsl(var(--success))] dark:hover:text-emerald-200" href={partnersHref}>
             {partnersLabel}
           </Link>
-          <Link className="transition hover:text-[hsl(var(--success))] dark:hover:text-emerald-200" href="/organizers">
+          <Link className="transition hover:text-[hsl(var(--success))] dark:hover:text-emerald-200" href={"/organisateurs" as Route}>
             Organisateurs
           </Link>
           <Link className="transition hover:text-[hsl(var(--success))] dark:hover:text-emerald-200" href={"/a-propos" as Route}>

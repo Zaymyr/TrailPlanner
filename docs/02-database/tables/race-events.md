@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-08-26
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -83,7 +83,7 @@ related_tables:
 - Organizer dashboard details: nullable JSONB for event end date, official website, structured emergency contact name/phone, common equipment, common bib pickup locations and dated time slots, access, services, partners, and runner notes.
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can concern the whole event or one child format and are pushed to event followers.
-- Mobile Racebook contract: the mobile Courses tab reads `organizer_details` and `races.racebook_is_live` explicitly when deciding whether a runner-facing read-only Racebook page should be available.
+- Mobile Racebook contract: the mobile Courses tab reads `organizer_details` and `races.racebook_is_live` explicitly for ordinary runner access, and reads the current account's active `race_event_organizers` membership for an unpublished organizer preview.
 - Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
 - Website-import target: the admin-only organizer information import enriches only the selected `race_events` row and must never create a different event. It first confirms the number and identity of child formats, then reviews field-level source claims. Candidate existence is independent from completeness, distance alone never merges or binds formats, and OpenAI can only choose an already extracted applicable claim or abstain. Roadbooks remain temporary analysis sources and never become event-row data.
@@ -155,7 +155,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - The canonical event start/end range is stored in `race_event_editions`. The current edition is mirrored into `race_date` and `organizer_details.dateRange.endDate` for compatibility with catalog/mobile queries.
 - Event organizer details are common defaults. Bib pickup stores `bibPickup.locations[]`, each containing one canonical/geocoded address and `slots[]` with date, start time, and end time; the legacy `location`, `locationDetails`, and free-text `schedule` fields remain compatibility fallbacks. Bib pickup, equipment, and access are inherited until a format enables the corresponding complete override in `races.organizer_details`.
 - Event equipment is inherited unless race JSON explicitly sets `mandatoryEquipment.overrideEnabled = true`. An explicit `false` wins over stale race items; only historical JSON where the flag is absent may infer an override from those differences.
-- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; the screen must gate itself on live course state, `racebook_is_live = true`, and actual non-ravito organizer content. An emergency phone satisfies that content gate and opens through `tel:`; the official website and emergency contact are exposed only as conditional actions inside the identity card.
+- Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; ordinary access requires live course state and `racebook_is_live = true`, while an active event membership may bypass publication flags for preview. Actual non-ravito organizer content remains mandatory. An emergency phone satisfies that content gate and opens through `tel:`; the official website and emergency contact are exposed only as conditional actions inside the identity card.
 - Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event. Its nested event relation is explicitly inner-filtered to live formats, so hidden editions do not leak rows and events with no visible format do not render empty cards. After a confirmed favorite addition, it scrolls to the event's new pinned position and shows a short success toast.
 - Mobile catalog and onboarding share `RaceEventSummaryCard` for event-row presentation; the component consumes the same event/race shape and should not add database assumptions.
@@ -222,7 +222,7 @@ from public.races;
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
 - Treat the emergency contact phone as published operational information: keep it inside the Racebook contract, normalize French values to `+33 X XX XX XX XX` on web parsing and mobile compatibility reads, and remove separators from the `tel:` action value.
 - Organizer event/race mutation routes cannot set catalog live state. A publication request requires event name/location, the requested format's edition range, and that exact format's complete identity fields; admin approval rechecks and publishes only that Racebook, regardless of which edition is current.
-- Never hide a course merely because its Racebook is hidden. `race_events.is_live` / `races.is_live` are catalog state; `races.racebook_is_live` is the runner Racebook state.
+- Never hide a course merely because its Racebook is hidden. `race_events.is_live` / `races.is_live` are catalog state; `races.racebook_is_live` is the ordinary runner Racebook state. Organizer preview access comes only from active event membership and must not flip publication state.
 - Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
 - Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.

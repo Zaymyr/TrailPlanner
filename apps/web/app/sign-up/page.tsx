@@ -2,6 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 import { useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -11,6 +12,7 @@ import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
 import { redirectToAppleOAuth, redirectToGoogleOAuth } from "../../lib/oauth";
+import { buildAuthCallbackPath, normalizeInternalReturnPath } from "../../lib/organizer-acquisition";
 import { clearOnboardingFromLocalStorage, loadOnboardingFromLocalStorage } from "../../lib/supabase-onboarding";
 
 import { useI18n } from "../i18n-provider";
@@ -38,7 +40,11 @@ const createSignUpSchema = (authCopy: Translations["auth"]) =>
 
 type SignUpForm = z.infer<ReturnType<typeof createSignUpSchema>>;
 
-export default function SignUpPage() {
+type SignUpPageProps = {
+  searchParams?: { next?: string | string[] };
+};
+
+export default function SignUpPage({ searchParams }: SignUpPageProps) {
   const router = useRouter();
   const { t } = useI18n();
   const [formError, setFormError] = useState<string | null>(null);
@@ -46,6 +52,7 @@ export default function SignUpPage() {
   const [oauthError, setOauthError] = useState<string | null>(null);
 
   const signUpSchema = useMemo(() => createSignUpSchema(t.auth), [t]);
+  const returnPath = normalizeInternalReturnPath(searchParams?.next);
 
   const {
     register,
@@ -121,7 +128,7 @@ export default function SignUpPage() {
         }
 
         setFormMessage(t.auth.signUp.success);
-        router.push("/race-planner");
+        router.push(returnPath as Route);
         router.refresh();
         return;
       }
@@ -142,7 +149,7 @@ export default function SignUpPage() {
     setOauthError(null);
 
     try {
-      redirectToGoogleOAuth();
+      redirectToGoogleOAuth(buildAuthCallbackPath(returnPath));
     } catch (error) {
       console.error("Unable to start Google sign up", error);
       setOauthError(error instanceof Error ? error.message : "Unable to start Google sign up.");
@@ -153,7 +160,7 @@ export default function SignUpPage() {
     setOauthError(null);
 
     try {
-      redirectToAppleOAuth();
+      redirectToAppleOAuth(buildAuthCallbackPath(returnPath));
     } catch (error) {
       console.error("Unable to start Apple sign up", error);
       setOauthError(error instanceof Error ? error.message : "Unable to start Apple sign up.");

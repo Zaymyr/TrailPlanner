@@ -20,6 +20,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: toAbsoluteUrl("/calculateur-glucides-trail") },
     { url: toAbsoluteUrl("/a-propos") },
     { url: toAbsoluteUrl("/methodologie") },
+    { url: toAbsoluteUrl("/organisateurs") },
   ];
 
   const seenUrls = new Set<string>();

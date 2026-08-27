@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-26
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -20,6 +20,7 @@ related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
+  - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -227,6 +228,10 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privileges, RLS, strict payload rejection, draft creation, explicit station replacement, and the draft-to-live-course transition.
 
+### Racebook Showcase Data
+
+`supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql` is a data-only, idempotent showcase seed. It publishes the fictional `Trail TST` 2026 event with three complete formats (18 km, 42 km, and an 82 km solo/relay format), organizer JSONB details, ordered ravitos, official product links, and two relay handover points. The referenced cover and GPX objects live under `race-images/trail-tst/2026/` and `race-gpx/trail-tst/2026/`; repository copies live under `supabase/demo-assets/` so the fixture remains reproducible. It changes no table, grant, function, trigger, or RLS policy.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -285,6 +290,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Column-only onboarding markers on `user_profiles` must keep owner-scoped writes and must not use a fabricated profile preference as a completion signal.
 - Temporary organizer roadbooks belong only in `organizer-imports`, never in `race-gpx` or public image buckets. Keep owner-folder checks on browser upload/delete policies and service-route cleanup in a `finally` block.
 - Do not replace the Organizer cleanup HTTP job with a direct SQL row purge: deleting the manifest first can orphan temporary Storage objects.
+- Keep the `Trail TST` seed ids and Storage paths stable. Re-running the migration updates the showcase rows in place; changing ids or paths would create duplicate catalog entries or broken map/profile assets.
 
 ## Related Docs
 

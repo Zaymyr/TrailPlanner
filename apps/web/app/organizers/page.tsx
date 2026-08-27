@@ -1,12 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useState } from "react";
+import type { Route } from "next";
+import { FormEvent, useMemo, useState } from "react";
 
 import { Button } from "../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../components/ui/card";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
+import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
+import {
+  buildAuthHref,
+  buildOrganizerCreationHref,
+  extractOrganizerAttribution,
+} from "../../lib/organizer-acquisition";
 import { useVerifiedSession } from "../hooks/useVerifiedSession";
 
 const initialEventForm = {
@@ -17,11 +24,19 @@ const initialEventForm = {
   officialSiteUrl: "",
 };
 
-export default function OrganizersPage() {
+type OrganizersPageProps = {
+  searchParams?: Record<string, string | string[] | undefined>;
+};
+
+export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
   const { session, isLoading } = useVerifiedSession();
   const [eventForm, setEventForm] = useState(initialEventForm);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const attribution = useMemo(() => extractOrganizerAttribution(searchParams), [searchParams]);
+  const returnPath = useMemo(() => buildOrganizerCreationHref(attribution), [attribution]);
+  const signInHref = useMemo(() => buildAuthHref("/sign-in", returnPath), [returnPath]);
+  const signUpHref = useMemo(() => buildAuthHref("/sign-up", returnPath), [returnPath]);
 
   const submitEvent = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -52,6 +67,12 @@ export default function OrganizersPage() {
         setError(data?.message ?? "Impossible de créer l'événement.");
         return;
       }
+
+      trackGoogleAnalyticsEvent("organizer_event_created", {
+        event_category: "organizer_acquisition",
+        event_id: data.event.id,
+        ...attribution,
+      });
 
       const destination = new URL("/organizer", window.location.origin);
       destination.searchParams.set("eventId", data.event.id);
@@ -109,10 +130,10 @@ export default function OrganizersPage() {
               <div className="space-y-4 text-sm text-muted-foreground">
                 <p>Connecte-toi pour créer une course et obtenir immédiatement son accès organisateur.</p>
                 <div className="flex flex-wrap gap-2">
-                  <Link href="/sign-in">
+                  <Link href={signInHref as Route}>
                     <Button>Se connecter</Button>
                   </Link>
-                  <Link href="/sign-up">
+                  <Link href={signUpHref as Route}>
                     <Button variant="outline">Créer un compte</Button>
                   </Link>
                 </div>
