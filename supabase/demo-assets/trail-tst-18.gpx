@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Pace Yourself demo" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Trail TST 18 - Balcon des Erables</name></metadata>
+  <trk><name>Trail TST 18 - Balcon des Erables</name><trkseg>
+    <trkpt lat="46.0832" lon="6.7264"><ele>710</ele></trkpt>
+    <trkpt lat="46.0910" lon="6.7150"><ele>805</ele></trkpt>
+    <trkpt lat="46.1010" lon="6.7040"><ele>940</ele></trkpt>
+    <trkpt lat="46.1120" lon="6.6990"><ele>1090</ele></trkpt>
+    <trkpt lat="46.1235" lon="6.7060"><ele>1265</ele></trkpt>
+    <trkpt lat="46.1320" lon="6.7190"><ele>1410</ele></trkpt>
+    <trkpt lat="46.1260" lon="6.7350"><ele>1330</ele></trkpt>
+    <trkpt lat="46.1150" lon="6.7460"><ele>1210</ele></trkpt>
+    <trkpt lat="46.1030" lon="6.7500"><ele>1050</ele></trkpt>
+    <trkpt lat="46.0920" lon="6.7420"><ele>890</ele></trkpt>
+    <trkpt lat="46.0832" lon="6.7264"><ele>710</ele></trkpt>
+  </trkseg></trk>
+</gpx>

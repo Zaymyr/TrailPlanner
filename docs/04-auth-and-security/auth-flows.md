@@ -1,10 +1,12 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
+  - apps/web/app/sign-up/page.tsx
+  - apps/web/app/auth/callback/page.tsx
   - apps/web/app/sign-in/auth-errors.test.ts
   - apps/web/app/api/auth/signin/route.ts
   - apps/web/app/api/auth/session/route.ts
@@ -13,6 +15,9 @@ related_files:
   - apps/web/lib/entitlements-client.ts
   - apps/web/lib/auth-storage.ts
   - apps/web/lib/auth-errors.ts
+  - apps/web/lib/oauth.ts
+  - apps/web/lib/organizer-acquisition.ts
+  - apps/web/lib/organizer-acquisition.test.ts
   - apps/web/lib/supabase.ts
   - apps/mobile/app/_layout.tsx
   - apps/mobile/app/(app)/onboarding.tsx
@@ -59,6 +64,10 @@ After a web session is verified, `useVerifiedSession` exposes the verified sessi
 
 `apps/web/app/api/auth/signin/route.ts` converts Supabase password-sign-in failures into a small, stable error-code contract instead of forwarding provider messages. `apps/web/app/sign-in/page.tsx` maps `invalid_credentials` to the active locale and uses the localized generic sign-in error for every other failure. The invalid-credentials wording must stay generic about whether the email address exists.
 
+## Web Return Destinations
+
+The organizer acquisition flow may send `next=/organizers` through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only that exact internal pathname, retains only the five supported UTM parameters, and falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation.
+
 ## Mobile Auth
 
 `apps/mobile/app/_layout.tsx` listens to Supabase auth state. On active sessions it:
@@ -104,6 +113,7 @@ Do not use `user_metadata` for new authorization decisions.
 - Token storage exists in browser localStorage, but session verification is server-backed.
 - Session readiness does not imply that premium entitlements have finished loading; consumers that require the resolved rights must also observe `isEntitlementsLoading`.
 - Do not render Supabase Auth `msg` values directly; provider messages are not localized and can expose technical details.
+- Never pass an unvalidated `next` value to `router.push`, `router.replace`, or an OAuth callback URL.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Trial repair runs during session verification and must stay idempotent.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.

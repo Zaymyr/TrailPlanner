@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" creator="Pace Yourself demo" xmlns="http://www.topografix.com/GPX/1/1">
+  <metadata><name>Trail TST 42 - Traversee des Alpages</name></metadata>
+  <trk><name>Trail TST 42 - Traversee des Alpages</name><trkseg>
+    <trkpt lat="46.0832" lon="6.7264"><ele>710</ele></trkpt>
+    <trkpt lat="46.0950" lon="6.7080"><ele>920</ele></trkpt>
+    <trkpt lat="46.1100" lon="6.6940"><ele>1180</ele></trkpt>
+    <trkpt lat="46.1270" lon="6.6830"><ele>1460</ele></trkpt>
+    <trkpt lat="46.1430" lon="6.6900"><ele>1715</ele></trkpt>
+    <trkpt lat="46.1540" lon="6.7090"><ele>1930</ele></trkpt>
+    <trkpt lat="46.1610" lon="6.7330"><ele>1780</ele></trkpt>
+    <trkpt lat="46.1510" lon="6.7540"><ele>1560</ele></trkpt>
+    <trkpt lat="46.1360" lon="6.7690"><ele>1390</ele></trkpt>
+    <trkpt lat="46.1180" lon="6.7780"><ele>1210</ele></trkpt>
+    <trkpt lat="46.1010" lon="6.7690"><ele>1030</ele></trkpt>
+    <trkpt lat="46.0900" lon="6.7500"><ele>845</ele></trkpt>
+    <trkpt lat="46.0832" lon="6.7264"><ele>710</ele></trkpt>
+  </trkseg></trk>
+</gpx>

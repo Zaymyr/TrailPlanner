@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-26
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -51,7 +51,11 @@ related_files:
   - apps/web/app/api/admin/race-catalog/tracedetrail/importer.test.ts
   - apps/web/lib/tracedetrail-race-import.ts
   - apps/web/lib/organizer.ts
+  - apps/web/app/organisateurs/page.tsx
+  - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organizers/page.tsx
+  - apps/web/lib/organizer-acquisition.ts
+  - apps/web/lib/organizer-acquisition.test.ts
   - apps/web/app/organizer/page.tsx
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/app/organizer/_components/dashboard/types.ts
@@ -241,6 +245,8 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 
 ### Public SEO Routes
 
+`/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with the real TST course visual and a tabbed preview built from its published content, keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the embedded TST demonstration. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
+
 The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The catalog is rendered server-side and offers client-side name/location and distance filters. These filters do not create crawlable URL combinations.
 
 Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. Detail pages expose only published race/event facts, add `SportsEvent` and `BreadcrumbList` JSON-LD, and link to the planner, calculator, official source, other formats of the same event, and up to three similar races when available.
@@ -253,7 +259,7 @@ The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib
 
 `/a-propos` and `/methodologie` explain the product mission, editorial safeguards, calculator assumptions, source policy, and correction path. They are linked from the global footer and included in the sitemap to provide public trust and provenance signals.
 
-`sitemap.ts` includes the race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
+`sitemap.ts` includes the organizer landing page, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
 
 ### Organizer Portal
 

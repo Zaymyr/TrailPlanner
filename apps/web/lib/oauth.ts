@@ -36,10 +36,10 @@ export const redirectToOAuth = (provider: OAuthProvider, redirectPath?: string) 
   window.location.href = authorizeUrl;
 };
 
-export const redirectToGoogleOAuth = () => {
-  redirectToOAuth("google");
+export const redirectToGoogleOAuth = (redirectPath?: string) => {
+  redirectToOAuth("google", redirectPath);
 };
 
-export const redirectToAppleOAuth = () => {
-  redirectToOAuth("apple");
+export const redirectToAppleOAuth = (redirectPath?: string) => {
+  redirectToOAuth("apple", redirectPath);
 };

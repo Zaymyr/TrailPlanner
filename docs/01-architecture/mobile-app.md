@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -198,7 +198,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Hidden mobile detail headers should prefer one-line truncation over wrapping when the screen also shows custom left/right header actions; otherwise long French titles can overlap icons on compact iPhone widths.
 - Keep the tab navigator on history-based back behavior. Switching it back to `initialRoute` makes Android hardware back jump to `catalog` from hidden plan/race detail screens instead of popping to the real previous screen.
 - Keep the visible tab bar height and bottom padding derived from the bottom safe-area inset. A fixed height can place the tab actions underneath Android's three-button system navigation area.
-- The mobile catalog has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details`: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. The entry point requires both course `is_live` and `racebook_is_live`, plus meaningful non-ravito organizer content; aid stations alone are not enough.
+- The mobile catalog has an explicit runner-facing organizer contract for `race_events.organizer_details` / `races.organizer_details`: use `apps/mobile/lib/racebook.ts` to keep gating, parsing, and read-only composition aligned. Ordinary runners require both course `is_live` and `racebook_is_live`; an active event organizer resolved through `race_event_organizers` may preview before publication. Both paths still require meaningful non-ravito organizer content; aid stations alone are not enough.
 - The mobile Racebook also parses additive geocoded organizer metadata for event/format, every structured bib-pickup location, and start/finish access. When a published organizer location includes a Google Maps URL, the location value itself is rendered as an inline tappable link instead of forcing runners to copy/paste the address manually. A format date distinct from the event start date is emphasized in the identity card as a localized `Jour de course :` / `Race day:` calendar row. The `Dossard` tab groups pickup information by location, then by day; each address is shown directly without a redundant `Pickup location`/`Lieu de retrait` heading, and multiple time ranges on the same day are stacked below one localized short weekday/day/month label with locale-specific hour formatting (`Ven. 4 sept.` and `10h00 – 12h00` in French). Legacy single-location/free-text schedules remain readable.
 - The conditional mobile Racebook `Services` tab renders each populated category in its own titled card and displays organizer content as plain text without list bullets.
 - For relay or mixed formats, `Course` reads published `race_relay_points` and derives successive legs from start to finish. It displays handover time, cutoff, and notes in a conditional `Relais` course sub-tab without importing those points into nutrition or a saved plan.
@@ -218,7 +218,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
 - Keep `@react-native-google-signin/google-signin` excluded from iOS in both `apps/mobile/package.json` and `apps/mobile/react-native.config.js`, and keep it out of `apps/mobile/app.config.ts` plugins unless native Google Sign-In is intentionally enabled on iOS; otherwise `GoogleSignIn` can both pull `AppCheckCore` back into the iOS pod graph and trigger a Fabric launch crash from a partially registered `RNGoogleSignInButton` component.
-- Keep the mobile Racebook read-only. A course may remain in the catalog while its Racebook is hidden; both the catalog CTA and direct screen load must enforce `racebook_is_live = true` in addition to the existing live/content checks. It must not import organizer dashboard mutation logic or admin routes. Preserve the identity, four primary tabs, conditional Services tab, and the `Course` sub-tabs that separate route visuals, ravitos, and conditional relay legs.
+- Keep the mobile Racebook read-only. A course may remain in the catalog while its Racebook is hidden. The catalog CTA and direct screen load must enforce the public flags for runners and independently verify active event membership before granting an unpublished organizer preview. It must not import organizer dashboard mutation logic or admin routes. Preserve the identity, four primary tabs, conditional Services tab, and the `Course` sub-tabs that separate route visuals, ravitos, and conditional relay legs.
 - Keep the Racebook website and emergency actions conditional on parsed event JSON. Never construct a site link from unvalidated free text. Normalize French emergency numbers to the canonical `+33 X XX XX XX XX` display when organizer JSON is parsed, and strip display separators when opening the `tel:` URL.
 
 ## Racebook Identity Presentation

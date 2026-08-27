@@ -1,7 +1,7 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-08-24
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -19,6 +19,8 @@ related_tables: []
 Use this workflow when adding or changing row-level security policies.
 
 For column-only migrations on existing RLS-protected tables, first verify that the existing row policies cover the new data sensitivity. Add or change policies only when the new column changes who should be able to read or mutate the row. The organizer edition-grouping columns on `races` and the owner-only `user_profiles.onboarding_completed_at` marker are current examples that required verification but no new policy.
+
+The same rule applies to data-only showcase seeds: do not add a policy merely because rows are inserted. Verify that the seeded rows satisfy the existing visibility predicates and that no draft-only organizer detail becomes reachable unintentionally.
 
 ## Key Concepts
 
@@ -69,6 +71,7 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended desi
 - Do not grant `anon` to secret-link tables unless public direct table access is explicitly intended and documented.
 - Do not add separate policies for columns such as organizer detail JSONB when row-level access on the existing table is still the intended boundary.
 - Do not add a separate policy for owner-only profile markers such as `onboarding_completed_at`; preserve the existing profile row ownership boundary.
+- Do not weaken catalog or Racebook policies to expose demo rows; seed only rows that deliberately satisfy the existing public/live/approval gates.
 
 ## Related Docs
 

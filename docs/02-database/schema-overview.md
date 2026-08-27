@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-08-25
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -13,6 +13,7 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
@@ -71,8 +72,9 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
 - Event publication request: organizer request for the first admin approval of one exact Racebook format, identified by `race_id`; course catalog visibility is independent.
-- Racebook publication: `races.racebook_is_live` controls runner visibility, while approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
+- Racebook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. Approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
+- Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema.
 - Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.
 - Import draft: a confirmed `races` format may exist before distance or D+ is known; `data_status` and `missing_required_fields` keep those unknowns explicit and hidden.
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
@@ -215,8 +217,9 @@ erDiagram
 - Edition visibility is a parent invariant: a hidden edition forces all attached formats and Racebooks hidden. Confirmed edition deletion cascades its formats while saved plans retain snapshots with a null source link.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
 - Organizer yearly editions are cloned directly as drafts. Admin validation is reserved for publication through `race_event_publication_requests`.
-- Do not conflate course catalog state with Racebook state: organizer-managed `race_events.is_live` and `races.is_live` remain true for catalog discovery, while new Racebooks default to hidden.
+- Do not conflate course catalog state with Racebook state: organizer-managed `race_events.is_live` and `races.is_live` remain true for catalog discovery, while new Racebooks default to hidden from runners. The mobile organizer preview is membership-derived and does not mutate these flags.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
+- `Trail TST` is the deliberate runner-facing showcase exception: fixed migration ids, live flags, approval timestamps, and versioned Storage paths make the public fixture reproducible.
 - Two-pass Organizer imports are the exception to the normal all-fields-at-create assumption: confirmation persists an incomplete format as a hidden draft, then atomic field application makes the course live only when its required missing-field list is empty. Racebook visibility remains false.
 - Temporary import sessions are not provenance history. Cleanup must remove Storage objects before deleting expired rows, and client roles must never receive direct table or RPC access.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.

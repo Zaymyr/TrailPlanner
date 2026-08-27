@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-26
+last_verified: 2026-08-27
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -33,7 +33,11 @@ related_files:
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/lib/organizer-dashboard-details.test.ts
   - apps/web/lib/push.ts
+  - apps/web/app/organisateurs/page.tsx
+  - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organizers/page.tsx
+  - apps/web/lib/organizer-acquisition.ts
+  - apps/web/lib/organizer-acquisition.test.ts
   - apps/web/app/organizer/page.tsx
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/app/organizer/_components/dashboard/types.ts
@@ -139,7 +143,7 @@ related_tables:
 
 ## Purpose
 
-This document records the organizer portal rules: authenticated users create a catalog-visible event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile exposes a per-format Racebook only after its separate admin approval and publication flag are active.
+This document records the organizer portal rules: authenticated users create a catalog-visible event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile exposes each populated Racebook to its active organizers for preview while keeping runner access behind admin approval and the publication flag.
 
 ## Key Concepts
 
@@ -155,13 +159,19 @@ This document records the organizer portal rules: authenticated users create a c
 
 ## Direct Event Creation
 
+`/organisateurs` is the public French acquisition page. Its primary CTA forwards the supported campaign UTM parameters to `/organizers`; its secondary CTA opens the embedded TST Racebook demonstration. The landing does not create an event, claim, membership, or publication request.
+
 `/organizers` lets an authenticated user create an event from a name, optional location and official website URL, plus a required initial edition start/end range. `POST /api/organizer/events` inserts the catalog-visible event, creates its initial current `race_event_editions` row, then creates the active owner membership. Its Racebook formats remain hidden by default. Failure cleanup removes an event whose membership could not be created. Redirect bootstrap values remain passed from the `/organizer` server page as plain props.
+
+When an unauthenticated prospect arrives through the organizer landing, the creation page sends a validated organizer-only `next` destination through sign-in, sign-up, and OAuth. After successful auth the prospect returns to `/organizers` with only the supported UTM values, rather than being diverted to the runner planner. Successful creation records a consent-gated acquisition event before the existing dashboard redirect.
 
 The direct-creation flow deliberately does not let a user take control of an existing catalog event. Existing claims and the admin claim queue remain available only as a legacy audit/access-management path; new `/organizers` submissions do not add claim rows and do not wait for admin approval.
 
 The admin Organizer tab can also delegate an existing event directly to an existing Supabase Auth account. The admin selects the event and enters the account e-mail; the protected server route resolves an exact case-insensitive Auth e-mail match, creates an active `organizer` membership (or reactivates a revoked membership), and leaves event/format publication state unchanged. The delegated organizer can edit every edition and format under the event, but only an `owner` or trusted admin can permanently delete the event.
 
 Revoking access still sets `revoked_at` on the membership and blocks future organizer writes without removing the course from the catalog. Yearly editions and formats are catalog-visible, but each new Racebook starts hidden. Admin validation happens only after the organizer requests Racebook publication. Payment-based publication gating remains deferred and can later be added to that publication-review boundary.
+
+The same identified Supabase account can preview its event's populated Racebook in mobile before or after publication. Mobile resolves this exception from the active `race_event_organizers` membership created for the account e-mail; revoked memberships lose the preview immediately. This organizer-only preview does not change `races.racebook_is_live` and does not expose the draft to ordinary runners.
 
 ## Organizer Dashboard Rules
 
