@@ -8,7 +8,7 @@ const canonicalPath = "/organisateurs";
 const title = "Race Book numérique pour organisateurs de trails | Pace Yourself";
 const description =
   "Rassemblez parcours, horaires, ravitaillements, matériel et informations pratiques dans un Race Book mobile simple à consulter par vos coureurs.";
-const ogImage = new URL("/landing/organisateurs/trail-tst-cover.jpg", SITE_URL).toString();
+const ogImage = new URL("/landing/organisateurs/tst-course-ravitos.jpeg", SITE_URL).toString();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -22,7 +22,7 @@ export const metadata: Metadata = {
     siteName: "Pace Yourself",
     locale: "fr_FR",
     type: "website",
-    images: [{ url: ogImage, alt: "Trail TST, événement de démonstration Pace Yourself" }],
+    images: [{ url: ogImage, alt: "Race Book TST affichant les informations de course et les ravitaillements" }],
   },
   twitter: { card: "summary_large_image", title, description, images: [ogImage] },
   robots: { index: true, follow: true },
