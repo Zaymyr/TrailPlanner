@@ -245,7 +245,7 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 
 ### Public SEO Routes
 
-`/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with the real TST course visual and a tabbed preview built from its published content, keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the embedded TST demonstration. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
+`/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with four real TST mobile screenshots (course and aid stations, bib collection, equipment, and access), keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the embedded, accessible screenshot selector. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
 
 The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The catalog is rendered server-side and offers client-side name/location and distance filters. These filters do not create crawlable URL combinations.
 

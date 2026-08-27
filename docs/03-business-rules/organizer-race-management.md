@@ -159,7 +159,7 @@ This document records the organizer portal rules: authenticated users create a c
 
 ## Direct Event Creation
 
-`/organisateurs` is the public French acquisition page. Its primary CTA forwards the supported campaign UTM parameters to `/organizers`; its secondary CTA opens the embedded TST Racebook demonstration. The landing does not create an event, claim, membership, or publication request.
+`/organisateurs` is the public French acquisition page. Its primary CTA forwards the supported campaign UTM parameters to `/organizers`; its secondary CTA opens an embedded demonstration made from four real TST Racebook screenshots. Switching between the course, bib collection, equipment, and access views is presentational only. The landing does not create an event, claim, membership, or publication request.
 
 `/organizers` lets an authenticated user create an event from a name, optional location and official website URL, plus a required initial edition start/end range. `POST /api/organizer/events` inserts the catalog-visible event, creates its initial current `race_event_editions` row, then creates the active owner membership. Its Racebook formats remain hidden by default. Failure cleanup removes an event whose membership could not be created. Redirect bootstrap values remain passed from the `/organizer` server page as plain props.
 

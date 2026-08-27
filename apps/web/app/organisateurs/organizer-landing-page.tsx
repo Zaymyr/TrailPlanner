@@ -13,50 +13,47 @@ type OrganizerLandingPageProps = {
   creationHref: string;
 };
 
-type DemoKey = "course" | "dossards" | "materiel";
+type DemoKey = "course" | "dossards" | "materiel" | "acces";
 
 const demoViews: Array<{
   key: DemoKey;
   label: string;
   title: string;
   description: string;
-  highlights: Array<{ label: string; value: string }>;
+  image: string;
+  imageAlt: string;
 }> = [
   {
     key: "course",
     label: "Parcours & ravitos",
     title: "Le parcours et ses points clés",
     description: "Trace, profil, horaires, barrières et ravitaillements restent réunis dans une vue conçue pour le jour de course.",
-    highlights: [
-      { label: "Format", value: "TST 42 · Traversée des Alpages" },
-      { label: "Parcours", value: "42,6 km · 2 450 m D+" },
-      { label: "Ravitaillements", value: "4 postes détaillés" },
-      { label: "Suivi", value: "Trace, profil et barrières horaires" },
-    ],
+    image: "/landing/organisateurs/tst-course-ravitos.jpeg",
+    imageAlt: "Race Book TST affichant les horaires, barrières et ravitaillements du parcours Ultra des Cimes",
   },
   {
     key: "dossards",
     label: "Dossards & horaires",
     title: "Les informations à retrouver avant le départ",
     description: "Adresses, créneaux de retrait, documents et horaires sont accessibles sans rechercher un ancien email ou un PDF.",
-    highlights: [
-      { label: "Lieu principal", value: "Salle du Criou · Samoëns" },
-      { label: "Vendredi", value: "15:00 – 20:00" },
-      { label: "Samedi", value: "03:00 – 07:00" },
-      { label: "Contrôle", value: "Documents et matériel requis" },
-    ],
+    image: "/landing/organisateurs/tst-dossards.jpeg",
+    imageAlt: "Race Book TST affichant les lieux, horaires et documents nécessaires au retrait du dossard",
   },
   {
     key: "materiel",
-    label: "Matériel & accès",
-    title: "La logistique utile, jusque dans la poche",
-    description: "Matériel obligatoire, parkings, navettes et dernières consignes restent faciles à consulter sur mobile.",
-    highlights: [
-      { label: "Obligatoire", value: "Veste, téléphone, eau, couverture" },
-      { label: "Parking", value: "P1 Base de loisirs · P2 Grand Massif" },
-      { label: "Navettes", value: "Horaires et points de départ" },
-      { label: "Dernière consigne", value: "Accessible directement sur mobile" },
-    ],
+    label: "Matériel",
+    title: "Le matériel obligatoire clairement identifié",
+    description: "Chaque équipement obligatoire ou conseillé reste facile à vérifier avant de préparer son sac.",
+    image: "/landing/organisateurs/tst-materiel.jpeg",
+    imageAlt: "Race Book TST affichant la liste du matériel obligatoire et conseillé pour l’Ultra des Cimes",
+  },
+  {
+    key: "acces",
+    label: "Accès & navettes",
+    title: "Les accès et transports réunis au même endroit",
+    description: "Départ, arrivée, parkings, navettes et restrictions sont consultables directement depuis le Race Book.",
+    image: "/landing/organisateurs/tst-acces.jpeg",
+    imageAlt: "Race Book TST affichant les lieux de départ et d’arrivée, parkings, navettes et restrictions d’accès",
   },
 ];
 
@@ -149,16 +146,16 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
             </div>
             <p className="text-sm text-muted-foreground">Vos informations existent déjà. Pace Yourself les rend simplement plus faciles à retrouver.</p>
           </div>
-          <div className="mx-auto w-full max-w-[560px] lg:max-w-none">
+          <div className="mx-auto w-full max-w-[360px]">
             <div className="overflow-hidden rounded-[2rem] border border-border bg-card p-2 shadow-2xl shadow-[rgba(45,80,22,0.14)] sm:p-3">
               <Image
-                src="/landing/organisateurs/trail-tst-cover.jpg"
-                alt="Coureur sur le parcours alpin du Trail TST, événement de démonstration Pace Yourself"
-                width={1536}
-                height={1024}
+                src="/landing/organisateurs/tst-materiel.jpeg"
+                alt="Race Book TST affichant le matériel obligatoire et conseillé pour l’Ultra des Cimes"
+                width={712}
+                height={1600}
                 priority
-                sizes="(min-width: 1024px) 620px, 92vw"
-                className="aspect-[4/3] w-full rounded-[1.45rem] object-cover"
+                sizes="(min-width: 1024px) 360px, 82vw"
+                className="h-auto w-full rounded-[1.45rem]"
               />
             </div>
           </div>
@@ -242,26 +239,15 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
             <h3 className="text-2xl font-semibold text-foreground">{selectedDemo.title}</h3>
             <p className="leading-7 text-muted-foreground">{selectedDemo.description}</p>
           </div>
-          <div className="mx-auto w-full max-w-[430px] rounded-[2rem] border-[8px] border-foreground bg-background p-4 shadow-xl dark:border-emerald-950 sm:p-5">
-            <div className="overflow-hidden rounded-2xl border border-border bg-card">
-              <div className="relative h-32">
-                <Image src="/landing/organisateurs/trail-tst-cover.jpg" alt="" fill sizes="430px" className="object-cover" />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 to-transparent" aria-hidden />
-                <div className="absolute inset-x-4 bottom-3 text-white">
-                  <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/75">Race Book</p>
-                  <p className="text-lg font-semibold">Trail TST</p>
-                </div>
-              </div>
-              <div className="space-y-3 p-4">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand dark:text-emerald-200">{selectedDemo.label}</p>
-                {selectedDemo.highlights.map((highlight) => (
-                  <div key={highlight.label} className="rounded-xl border border-border bg-muted/55 p-3">
-                    <p className="text-xs font-medium text-muted-foreground">{highlight.label}</p>
-                    <p className="mt-1 text-sm font-semibold text-foreground">{highlight.value}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
+          <div className="mx-auto w-full max-w-[430px] overflow-hidden rounded-[2rem] border-[8px] border-foreground bg-background shadow-xl dark:border-emerald-950">
+            <Image
+              src={selectedDemo.image}
+              alt={selectedDemo.imageAlt}
+              width={712}
+              height={1600}
+              sizes="(min-width: 1024px) 430px, 88vw"
+              className="h-auto w-full"
+            />
           </div>
         </div>
       </section>
