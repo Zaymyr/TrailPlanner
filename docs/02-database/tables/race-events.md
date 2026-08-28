@@ -15,7 +15,9 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/tests/organizer_import_sessions_checks.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
@@ -65,6 +67,7 @@ related_tables:
   - races
   - organizer_import_sessions
   - user_favorite_race_events
+  - race_slug_redirects
 ---
 
 # `race_events`
@@ -134,6 +137,7 @@ Organizer portal writes also go through web service routes after checking `race_
 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
 - Public web pages must require `races.is_live = true` and `races.is_public = true`; related event enrichment must also require `race_events.is_live = true`.
+- Former course slugs use the same rule: `race_slug_redirects` is readable and the canonical race is returned only while the optional parent event remains live.
 - Event rows can also be created by `POST /api/organizer/events`; those rows are inserted with `is_live = true`, then linked to their creator through an active owner membership. Their Racebooks stay separately hidden.
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
 - Race rows can refer to an existing or newly created event.
@@ -210,6 +214,7 @@ from public.races;
 
 - Treat this table as live-schema-dependent until its create migration is found.
 - Keep public web selects explicit. Do not expose `organizer_details`, ownership, membership, or other operational fields through the SEO catalog without a deliberate runner-facing contract.
+- Never let a slug redirect bypass event visibility. A mapping under a hidden parent must resolve as not found until that event is public again.
 - Do not add docs that claim exact constraints for `race_events` without verification.
 - Code paths are real even though migration provenance is incomplete.
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
@@ -240,5 +245,6 @@ from public.races;
 
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)
+- [race_slug_redirects](race-slug-redirects.md)
 - [GPX Import](../../03-business-rules/gpx-import.md)
 - [Mobile App](../../01-architecture/mobile-app.md)

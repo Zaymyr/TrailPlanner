@@ -5,7 +5,7 @@ import { BlogCard } from "../../components/BlogCard";
 import { TagBadge } from "../../components/TagBadge";
 import { cn } from "../../components/utils";
 import { getAllPosts, getAllTags, type CompiledPost, type TagSummary } from "../../lib/blog/posts";
-import { localeToOgLocale, SITE_URL } from "../seo";
+import { localeToLanguageTag, localeToOgLocale, SITE_URL } from "../seo";
 
 export const dynamic = "force-static";
 
@@ -28,6 +28,9 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     alternates: {
       canonical: canonicalPath,
+      languages: {
+        [localeToLanguageTag("fr")]: canonicalPath,
+      },
     },
     openGraph: {
       title,

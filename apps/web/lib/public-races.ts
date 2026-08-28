@@ -26,6 +26,10 @@ const eventSchema = z.object({
   thumbnail_url: z.string().nullable(),
 });
 
+const raceSlugRedirectSchema = z.object({
+  race_id: z.string().uuid(),
+});
+
 export type PublicRace = {
   id: string;
   eventId: string | null;
@@ -38,6 +42,11 @@ export type PublicRace = {
   elevationGainM: number | null;
   thumbnailUrl: string | null;
   externalSiteUrl: string | null;
+};
+
+export type PublicRaceSlugResolution = {
+  race: PublicRace;
+  shouldRedirect: boolean;
 };
 
 const raceSelect = [
@@ -114,7 +123,9 @@ export async function getPublicRaces(): Promise<PublicRace[]> {
   ]);
   const eventsById = new Map(events.map((event) => [event.id, event]));
 
-  return races.map((race) => toPublicRace(race, race.event_id ? eventsById.get(race.event_id) : undefined));
+  return races
+    .filter((race) => !race.event_id || eventsById.has(race.event_id))
+    .map((race) => toPublicRace(race, race.event_id ? eventsById.get(race.event_id) : undefined));
 }
 
 export async function getPublicRace(slug: string): Promise<PublicRace | null> {
@@ -123,7 +134,12 @@ export async function getPublicRace(slug: string): Promise<PublicRace | null> {
     `races?select=${raceSelect}&slug=eq.${encodedSlug}&is_live=eq.true&is_public=eq.true&limit=1`,
     raceSchema,
   );
-  const race = races[0];
+  return loadPublicRace(races[0]);
+}
+
+const loadPublicRace = async (
+  race: z.infer<typeof raceSchema> | undefined,
+): Promise<PublicRace | null> => {
   if (!race) return null;
 
   const events = race.event_id
@@ -133,5 +149,29 @@ export async function getPublicRace(slug: string): Promise<PublicRace | null> {
       )
     : [];
 
+  // A format attached to an unpublished event must not become public merely
+  // because its own flags are still live.
+  if (race.event_id && !events[0]) return null;
+
   return toPublicRace(race, events[0]);
+};
+
+export async function resolvePublicRaceSlug(slug: string): Promise<PublicRaceSlugResolution | null> {
+  const race = await getPublicRace(slug);
+  if (race) return { race, shouldRedirect: false };
+
+  const encodedSlug = encodeURIComponent(slug);
+  const redirects = await fetchPublicRows(
+    `race_slug_redirects?select=race_id&old_slug=eq.${encodedSlug}&limit=1`,
+    raceSlugRedirectSchema,
+  );
+  const redirect = redirects[0];
+  if (!redirect) return null;
+
+  const races = await fetchPublicRows(
+    `races?select=${raceSelect}&id=eq.${encodeURIComponent(redirect.race_id)}&is_live=eq.true&is_public=eq.true&limit=1`,
+    raceSchema,
+  );
+  const canonicalRace = await loadPublicRace(races[0]);
+  return canonicalRace ? { race: canonicalRace, shouldRedirect: true } : null;
 }

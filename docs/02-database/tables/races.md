@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -12,10 +12,14 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/tests/organizer_import_sessions_checks.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/lib/public-races.ts
+  - scripts/audit-public-race-slugs.mjs
+  - scripts/audit-public-race-slugs.test.mjs
 related_tables:
   - races
   - race_events
@@ -24,6 +28,7 @@ related_tables:
   - race_aid_stations
   - race_relay_points
   - race_plans
+  - race_slug_redirects
 ---
 
 # `races`
@@ -69,6 +74,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 - Child source stations reference `races(id)` with cascade delete.
 - Child relay points reference `races(id)` with cascade delete.
 - Saved plans reference `races(id)` with `on delete set null`.
+- Former public slugs reference `races(id)` from `race_slug_redirects` with cascade delete.
 
 ## Indexes
 
@@ -91,6 +97,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - A hidden parent edition forces both `is_live` and `racebook_is_live` false. Re-showing it restores `is_live` only for complete formats and never restores `racebook_is_live` automatically.
 - Deleting an edition deletes its format rows; saved plans survive through their separate `race_id on delete set null` relationship.
 - Relay legs are derived from start, ordered relay points, and finish; they are not separate race rows.
+- A slug change atomically reserves the old value in `race_slug_redirects`; inserts and updates cannot reuse a reserved former slug.
 
 ## Common Queries
 
@@ -123,6 +130,7 @@ where is_live = true
 - Do not derive Racebook visibility from catalog completion or `is_live`.
 - Do not reintroduce `on delete set null` for `edition_id`; confirmed edition deletion must not leave organizer formats detached from every canonical year.
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
+- Do not bulk-update slugs without reviewing the read-only audit and using the service-only rename RPC after its migration is deployed.
 
 ## Related Docs
 
@@ -131,4 +139,5 @@ where is_live = true
 - [race_event_editions](race-event-editions.md)
 - [race_aid_stations](race-aid-stations.md)
 - [race_relay_points](race-relay-points.md)
+- [race_slug_redirects](race-slug-redirects.md)
 - [Schema Overview](../schema-overview.md)

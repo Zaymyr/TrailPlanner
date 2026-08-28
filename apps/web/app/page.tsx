@@ -1,5 +1,18 @@
+import type { Metadata } from "next";
+
 import { getAllPostMetadata } from "../lib/blog/posts";
 import { LandingPage } from "./landing-page";
+import { CANONICAL_PATH } from "./seo";
+
+export const metadata: Metadata = {
+  alternates: {
+    canonical: CANONICAL_PATH,
+    languages: {
+      "fr-FR": CANONICAL_PATH,
+      "x-default": CANONICAL_PATH,
+    },
+  },
+};
 
 type FeaturedGuideCard = {
   slug: string;

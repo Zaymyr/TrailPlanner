@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-08-26
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -17,8 +17,10 @@ related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
@@ -29,6 +31,7 @@ related_tables:
   - plan_share_links
   - plan_aid_stations
   - races
+  - race_slug_redirects
   - race_aid_stations
   - race_relay_points
   - race_aid_station_products
@@ -289,6 +292,7 @@ Declared in `20260504120000_add_push_notifications.sql`.
 
 ### Other Tables
 
+- `race_slug_redirects`: `anon` and `authenticated` can select only mappings whose target race is live/public and whose optional parent event is live. All mutations and the invoker-security rename RPC are service-role-only.
 - `affiliate_offers`: service role manages; authenticated users read active offers attached to live products.
 - `affiliate_click_events`: service role manages.
 - `affiliate_events`: service role manages; authenticated users insert events for self or anonymous session.
@@ -356,6 +360,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Edition visibility/deletion adds no client grant. Keep both operations on the membership-checked server route and keep the deletion RPC invoker-security/service-role-only.
 - Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.
 - The cleanup cron must call the protected web route so Storage objects are removed before session rows. Never grant a database cleanup function direct delete access to `storage.objects`.
+- Public slug resolution needs both a table `SELECT` grant and the parent-gated RLS policy. Never grant client mutation or RPC execution, and never rely on a redirect row alone to expose a hidden course.
 
 ## Related Docs
 
@@ -364,4 +369,5 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - [Schema Overview](schema-overview.md)
 - [Premium Grants](tables/premium-grants.md)
 - [Plan Share Links](tables/plan-share-links.md)
+- [Race Slug Redirects](tables/race-slug-redirects.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)

@@ -12,6 +12,9 @@ export const RACE_PLANNER_URL = new URL(RACE_PLANNER_PATH, SITE_URL).toString();
 export const localeToOgLocale = (locale: Locale): string =>
   locale === "fr" ? "fr_FR" : "en_US";
 
+export const localeToLanguageTag = (locale: Locale): string =>
+  locale === "fr" ? "fr-FR" : "en-US";
+
 export const buildLocaleMetaCopy = (locale: Locale) => {
   if (locale === "fr") {
     return {

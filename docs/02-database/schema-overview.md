@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -15,6 +15,8 @@ related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
   - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - docs/_archive/db/schema.sql
@@ -34,6 +36,7 @@ related_tables:
   - plan_share_links
   - plan_aid_stations
   - races
+  - race_slug_redirects
   - organizer_import_sessions
   - race_aid_stations
   - race_relay_points
@@ -71,6 +74,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer membership: event-scoped access through `race_event_organizers`.
 - Event edition: canonical yearly date range in `race_event_editions`, shared by every format for that event year.
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
+- Race slug redirect: a reserved former course slug targeting the stable race id so canonical renames do not break indexed URLs.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
 - Event publication request: organizer request for the first admin approval of one exact Racebook format, identified by `race_id`; course catalog visibility is independent.
 - Racebook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. Approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
@@ -113,6 +117,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
+| `race_slug_redirects` | Former course slugs mapped to stable race ids for visibility-gated permanent redirects. |
 | `rate_limit_entries` | DB-backed rate limit counters used by security-sensitive routes. |
 | `subscriptions` | Web Stripe and mobile RevenueCat entitlement rows. |
 | `user_favorite_race_events` | User-owned favorites for `race_events`, used for catalog pinning and organizer-update audience selection. |
@@ -150,6 +155,7 @@ erDiagram
   RACES ||--o{ RACE_RELAY_POINTS : has
   RACE_AID_STATIONS o|--o{ RACE_RELAY_POINTS : locates
   RACES ||--o{ RACE_PLANS : imported_into
+  RACES ||--o{ RACE_SLUG_REDIRECTS : redirects_to
   RACE_AID_STATIONS ||--o{ RACE_AID_STATION_PRODUCTS : offers
   RACE_PLANS ||--o{ PLAN_AID_STATIONS : has
   RACE_PLANS ||--o{ PLAN_SHARE_LINKS : shares
@@ -181,6 +187,7 @@ erDiagram
 - [race_relay_points](tables/race-relay-points.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)
 - [races](tables/races.md)
+- [race_slug_redirects](tables/race-slug-redirects.md)
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)
@@ -228,6 +235,7 @@ erDiagram
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.
 - Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
+- Former course slugs are reserved database-wide while their race exists. Resolve them through `race_slug_redirects.race_id`, then reapply the current public race/event visibility gates before redirecting.
 - The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
 - `user_profiles.onboarding_completed_at` is nullable for legacy compatibility. Mobile also recognizes existing durable onboarding data so older onboarded users are not forced through the flow again.
 

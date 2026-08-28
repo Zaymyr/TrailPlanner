@@ -51,6 +51,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [race_relay_points](02-database/tables/race-relay-points.md)
 - [race_aid_station_products](02-database/tables/race-aid-station-products.md)
 - [races](02-database/tables/races.md)
+- [race_slug_redirects](02-database/tables/race-slug-redirects.md)
 - [race_events](02-database/tables/race-events.md)
 - [race_event_editions](02-database/tables/race-event-editions.md)
 - [organizer_import_sessions](02-database/tables/organizer-import-sessions.md)

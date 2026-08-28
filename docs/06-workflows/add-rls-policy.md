@@ -1,15 +1,18 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/supabase.ts
-related_tables: []
+related_tables:
+  - race_slug_redirects
 ---
 
 # Add RLS Policy
@@ -29,6 +32,7 @@ The same rule applies to data-only showcase seeds: do not add a policy merely be
 - Admin check: trusted app metadata or server-side role check.
 - Service role: server-only bypass for trusted operations.
 - Secret-link access: public viewers resolve unguessable tokens through server code; table rows still use owner RLS.
+- Public child mapping: a directly readable row whose policy repeats every public visibility gate of its parent resource.
 
 ## Steps
 
@@ -61,6 +65,7 @@ rollback;
 
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example for relationship-based policy checks. It also covers owner-scoped favorites, format/event consistency on updates, live-event visibility, and owner-only read receipts.
 Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended design is a service-only table with RLS enabled, no client policy, revoked client grants, and narrowly granted invoker RPCs.
+Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping needs explicit anon/authenticated select grants, parent-visibility RLS, and service-only mutation functions.
 
 ## Do Not
 
@@ -72,6 +77,7 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended desi
 - Do not add separate policies for columns such as organizer detail JSONB when row-level access on the existing table is still the intended boundary.
 - Do not add a separate policy for owner-only profile markers such as `onboarding_completed_at`; preserve the existing profile row ownership boundary.
 - Do not weaken catalog or Racebook policies to expose demo rows; seed only rows that deliberately satisfy the existing public/live/approval gates.
+- Do not treat a redirect/mapping row as independent public authority. A hidden target or hidden parent must make the mapping unreadable, and application code must revalidate the target before responding.
 
 ## Related Docs
 
@@ -79,3 +85,4 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended desi
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
 - [Add New Table](add-new-table.md)
 - [Debug Supabase Auth](debug-supabase-auth.md)
+- [Race Slug Redirects](../02-database/tables/race-slug-redirects.md)
