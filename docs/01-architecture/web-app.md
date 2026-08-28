@@ -7,6 +7,10 @@ related_files:
   - apps/web/package.json
   - apps/web/tsconfig.json
   - apps/web/app/layout.tsx
+  - apps/web/app/page.tsx
+  - apps/web/app/seo.ts
+  - apps/web/app/seo.test.ts
+  - apps/web/app/localized-metadata.tsx
   - apps/web/next.config.mjs
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/hooks/useVerifiedSession.tsx
@@ -16,9 +20,18 @@ related_files:
   - apps/web/components/SiteFooter.tsx
   - apps/web/app/robots.ts
   - apps/web/app/sitemap.ts
+  - apps/web/app/sitemap.test.ts
   - apps/web/app/noindex-metadata.ts
+  - apps/web/app/blog/page.tsx
+  - apps/web/app/blog/[...slug]/page.tsx
+  - apps/web/app/blog/blog-jsonld.test.ts
+  - apps/web/components/BlogLayout.tsx
+  - apps/web/lib/blog/posts.tsx
+  - apps/web/lib/blog/posts.test.ts
+  - apps/web/lib/blog/posts-locale.test.ts
   - apps/web/app/courses/page.tsx
   - apps/web/app/courses/[slug]/page.tsx
+  - apps/web/app/courses/[slug]/page.test.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/distances/[category]/page.tsx
@@ -29,6 +42,7 @@ related_files:
   - apps/web/app/a-propos/page.tsx
   - apps/web/app/methodologie/page.tsx
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-races.test.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/lib/carb-calculator.ts
   - apps/web/lib/carb-calculator-fun.ts
@@ -54,6 +68,8 @@ related_files:
   - apps/web/app/organisateurs/page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organizers/page.tsx
+  - apps/web/app/organizers/layout.tsx
+  - apps/web/app/(planner)/race-planner/print/assistance/page.tsx
   - apps/web/lib/organizer-acquisition.ts
   - apps/web/lib/organizer-acquisition.test.ts
   - apps/web/app/organizer/page.tsx
@@ -153,6 +169,7 @@ related_tables:
   - subscriptions
   - push_devices
   - push_notification_events
+  - race_slug_redirects
 ---
 
 # Web App Architecture
@@ -245,11 +262,15 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 
 ### Public SEO Routes
 
+The canonical homepage is French-first even though the product name is English. Its server-rendered metadata advertises `fr-FR` plus an `x-default` pointing to the same canonical URL, and the client locale helper must not replace the homepage title, description, or canonical after hydration. This keeps crawler-visible language signals stable until a genuine server-rendered English homepage has its own URL.
+
+Blog frontmatter supports an explicit `locale` of `fr` or `en` and otherwise defaults to French. Article metadata, Open Graph locale, visible byline/CTA copy, `hreflang`, and `BlogPosting.inLanguage` all use that stored locale rather than guessing from accents or tags. `BlogPosting` identifies the verifiable Pace Yourself organization and its About page; no personal qualification is inferred.
+
 `/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with four real TST mobile screenshots (course and aid stations, bib collection, equipment, and access), keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the embedded, accessible screenshot selector. The selected screenshot is shown in full with a viewport-constrained height so the selector and preview remain usable together. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
 
 The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The catalog is rendered server-side and offers client-side name/location and distance filters. These filters do not create crawlable URL combinations.
 
-Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. Detail pages expose only published race/event facts, add `SportsEvent` and `BreadcrumbList` JSON-LD, and link to the planner, calculator, official source, other formats of the same event, and up to three similar races when available.
+Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. A former slug is looked up in `race_slug_redirects`, revalidated against the current race and optional parent-event visibility, and permanently redirected to the current canonical slug. Detail pages expose only published race/event facts, add `SportsEvent` and `BreadcrumbList` JSON-LD, and link to the planner, calculator, official source, other formats of the same event, and up to three similar races when available.
 
 `/courses/distances/[category]` provides crawlable discovery pages for short trails, 30–79 km trails, and ultra-trails. A category is generated, linked, and included in the sitemap only when at least five published races have a structured distance in its mutually exclusive range. Region pages remain disabled until the public race contract exposes normalized region or department data; free-text locations are not used to manufacture geographic landing pages.
 
@@ -259,7 +280,7 @@ The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib
 
 `/a-propos` and `/methodologie` explain the product mission, editorial safeguards, calculator assumptions, source policy, and correction path. They are linked from the global footer and included in the sitemap to provide public trust and provenance signals.
 
-`sitemap.ts` includes the organizer landing page, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
+`sitemap.ts` includes the organizer landing page, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. Blog discovery resolves `content/blog` from both the web workspace and monorepo/runtime ancestors and fails explicitly when the directory is absent, preventing a successful but empty blog sitemap. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, organizer-creation, planner-print, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
 
 ### Organizer Portal
 
@@ -338,6 +359,11 @@ Server routes generally use:
 See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-checklist.md) before changing a route that bypasses client RLS.
 
 ## Gotchas
+
+- Do not return an empty blog collection when `content/blog` cannot be located. The sitemap depends on explicit failure to expose a deployment/file-tracing problem instead of silently dropping every article URL.
+- Do not infer article language from accents or tags. French copy without accented characters previously received English bylines and CTAs; use validated frontmatter locale with the French default.
+- Keep `/organisateurs` as the indexable French acquisition page. `/organizers` is the authenticated creation workflow and `/race-planner/print/assistance` is a transient print view; both must remain `noindex`.
+- Never render stale race content at a former slug. Resolve its stable race id, verify current public visibility, then issue the permanent redirect before loading discovery links.
 
 - Do not store service-role keys in client code. `getSupabaseServiceConfig` is server-only by usage.
 - Keep verified-session readiness independent from the entitlement request. Premium consumers must use `isEntitlementsLoading` when they need to wait for effective rights; authenticated surfaces such as Organizer should not wait for that secondary request.

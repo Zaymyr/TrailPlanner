@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-08-24
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -22,11 +22,13 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
 related_tables:
   - race_plans
   - plan_share_links
   - plan_aid_stations
   - races
+  - race_slug_redirects
   - organizer_import_sessions
   - race_aid_stations
   - race_relay_points
@@ -96,6 +98,7 @@ Important relationships:
 - `race_relay_points.race_id` references `races(id)` with cascade delete.
 - `race_relay_points.race_aid_station_id` optionally references `race_aid_stations(id)` with `on delete set null`.
 - `race_plans.race_id` references `races(id)` with `on delete set null` after `supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql`.
+- `race_slug_redirects.race_id` references `races(id)` with cascade delete; every mapping targets the stable row rather than another slug.
 - `plan_aid_stations.plan_id` references `race_plans(id)` with cascade delete.
 - `plan_share_links.plan_id` references `race_plans(id)` with cascade delete.
 
@@ -107,6 +110,7 @@ The design is:
 4. Deleting a race detaches plans by setting `race_plans.race_id = null`, rather than deleting user plans.
 5. Deleting a saved plan deletes attached plan aid stations, push reminder rows, and share links.
 6. `race_event_editions` owns the yearly date range; `races.edition_id` attaches each format to that year, while `edition_group_id` still groups the same format series across years.
+7. Renaming a race records the old canonical slug transactionally; repeated renames accumulate direct mappings to the same race id without redirect chains.
 
 ## Product Relationships
 
@@ -194,6 +198,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - Public crew share links are plan children; deleting the plan must invalidate the public recap by cascading `plan_share_links`.
 - Deleting an approving admin must not delete or hide a course/Racebook row; the approval actor FK is intentionally `on delete set null` while the approval timestamp remains durable.
 - Explicit import replacement of `aidStations` deletes and recreates the source station set atomically. Because station products cascade by station id, the review must warn that selected replacement removes existing `race_aid_station_products`; omitting the field preserves every station and product link.
+- A deleted race removes its unusable slug mappings by cascade. While the race exists, former slugs remain reserved and cannot be reassigned to another row.
 
 ## Related Docs
 
@@ -204,5 +209,6 @@ Organizer access should be checked through an active `race_event_organizers` row
 - [plan_share_links](tables/plan-share-links.md)
 - [race_aid_stations](tables/race-aid-stations.md)
 - [race_relay_points](tables/race-relay-points.md)
+- [race_slug_redirects](tables/race-slug-redirects.md)
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)

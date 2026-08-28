@@ -1,15 +1,18 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/tests/organizer_import_sessions_checks.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - docs/02-database/schema-overview.md
   - docs/02-database/rls-policies.md
-related_tables: []
+related_tables:
+  - race_slug_redirects
 ---
 
 # Add New Table
@@ -58,7 +61,7 @@ npm run test
 
 If the policy is complex, add a manual SQL check under `supabase/tests/`.
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
-Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only tables and `SECURITY INVOKER` mutation RPCs.
+Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only tables and `SECURITY INVOKER` mutation RPCs. Use `supabase/tests/race_slug_redirects_checks.sql` for a public child mapping whose select policy inherits parent visibility while every mutation remains service-only.
 
 ## Do Not
 
@@ -72,6 +75,7 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only table
 - Do not add new grants or policies for a column-only marker when the existing owner-scoped row access remains the intended boundary.
 - Do not create a table or migration for a route-only query optimization such as replacing row materialization with a Data API exact count; document the access pattern in the existing schema/table docs instead.
 - Do not apply new-table DDL or policy steps to a data-only showcase seed; verify the existing table contracts and public visibility gates instead.
+- Do not expose a public redirect/mapping row merely because it exists; reapply all visibility gates of its target parent in RLS and again when loading the canonical resource.
 
 ## Related Docs
 
@@ -79,3 +83,4 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only table
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
 - [Add RLS Policy](add-rls-policy.md)
 - [Schema Overview](../02-database/schema-overview.md)
+- [Race Slug Redirects](../02-database/tables/race-slug-redirects.md)

@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -22,13 +22,16 @@ related_files:
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
   - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
+  - supabase/tests/race_slug_redirects_checks.sql
 related_tables:
   - race_plans
   - plan_share_links
   - races
+  - race_slug_redirects
   - race_relay_points
   - organizer_import_sessions
   - race_events
@@ -235,6 +238,12 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 
 `supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql` removes the two fictional free-text schedule constraint notes from the TST 82 showcase format. It preserves the representative start time, finish cutoff, ravitos, and per-station cutoff times, and changes no schema or access policy.
 
+### Public Course Slug Redirects
+
+`supabase/migrations/20260828161008_add_race_slug_redirects.sql` adds the durable `race_slug_redirects` mapping, a parent-visibility-gated public select policy, and explicit Data API grants. Its invoker-security trigger reserves every former slug during a race rename and rejects reuse on insert/update; the service-role-only `rename_race_slug(uuid, text)` RPC performs reviewed renames atomically.
+
+`supabase/tests/race_slug_redirects_checks.sql` is the rollback-only manual verification for grants, RLS, invoker security, repeated renames, anon visibility, hidden targets, and reserved-slug rejection. This change does not apply the migration or rename catalog rows automatically.
+
 ### Plan Recap Sharing
 
 `supabase/migrations/20260609091933_add_plan_share_links.sql` adds `plan_share_links` for public crew recap links generated from mobile saved plans.
@@ -294,6 +303,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Temporary organizer roadbooks belong only in `organizer-imports`, never in `race-gpx` or public image buckets. Keep owner-folder checks on browser upload/delete policies and service-route cleanup in a `finally` block.
 - Do not replace the Organizer cleanup HTTP job with a direct SQL row purge: deleting the manifest first can orphan temporary Storage objects.
 - Keep the `Trail TST` seed ids and Storage paths stable. Re-running the migration updates the showcase rows in place; changing ids or paths would create duplicate catalog entries or broken map/profile assets.
+- Never deploy course-slug edits before the redirect migration. Review the GET-only slug audit first, then use the service-only RPC for approved rows so the old URL and canonical target change in one transaction.
 
 ## Related Docs
 
@@ -302,3 +312,4 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - [Add New Table](../06-workflows/add-new-table.md)
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
+- [Race Slug Redirects](tables/race-slug-redirects.md)

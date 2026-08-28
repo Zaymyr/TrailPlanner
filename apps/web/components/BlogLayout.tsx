@@ -16,14 +16,12 @@ type BlogLayoutProps = {
   canonicalUrl: string;
   /** UUID race_catalog pour pré-charger la course dans le planner (optionnel). */
   catalogRaceId?: string;
-  /** Langue de l'article. Défaut : "en". */
-  locale?: "fr" | "en";
 };
 
 const formatUpdatedAt = (isoDate?: string): string | undefined =>
   isoDate ? formatBlogDate(isoDate) : undefined;
 
-const buildJsonLd = (post: CompiledPost, canonicalUrl: string, locale: "fr" | "en") => ({
+export const buildBlogPostingJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: post.meta.title,
@@ -32,20 +30,23 @@ const buildJsonLd = (post: CompiledPost, canonicalUrl: string, locale: "fr" | "e
   dateModified: post.meta.updatedAt ?? post.meta.date,
   url: canonicalUrl,
   mainEntityOfPage: canonicalUrl,
-  inLanguage: locale,
+  inLanguage: post.meta.locale === "fr" ? "fr-FR" : "en-US",
   wordCount: post.meta.readingTime.words,
   keywords: post.meta.tags,
-  articleBody: post.body,
   image: post.meta.image ? new URL(post.meta.image, SITE_URL).toString() : undefined,
   author: {
     "@type": "Organization",
     name: "Pace Yourself",
-    url: SITE_URL,
+    url: new URL("/a-propos", SITE_URL).toString(),
   },
   publisher: {
     "@type": "Organization",
     name: "Pace Yourself",
     url: SITE_URL,
+    logo: {
+      "@type": "ImageObject",
+      url: new URL("/branding/logo-icon-v2.png", SITE_URL).toString(),
+    },
   },
 });
 
@@ -80,6 +81,12 @@ const readingCopy = {
   },
 };
 
+export const getBlogLayoutCopy = (locale: "fr" | "en") => ({
+  cta: inlineCtaCopy[locale],
+  headerCta: headerCtaCopy[locale],
+  reading: readingCopy[locale],
+});
+
 const TagList = ({ tags }: { tags: string[] }) => {
   if (tags.length === 0) {
     return <TagBadge label="Untagged" variant="muted" />;
@@ -94,11 +101,10 @@ const TagList = ({ tags }: { tags: string[] }) => {
   );
 };
 
-export const BlogLayout = ({ post, canonicalUrl, catalogRaceId, locale = "en" }: BlogLayoutProps) => {
+export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProps) => {
+  const locale = post.meta.locale;
   const lastUpdated = formatUpdatedAt(post.meta.updatedAt);
-  const cta = inlineCtaCopy[locale];
-  const headerCta = headerCtaCopy[locale];
-  const reading = readingCopy[locale];
+  const { cta, headerCta, reading } = getBlogLayoutCopy(locale);
 
   return (
     <div className="mx-auto flex w-full max-w-6xl flex-col gap-10 px-4 pb-12 sm:px-6 lg:px-8">
@@ -113,6 +119,13 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId, locale = "en" }:
           )}
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+          <span>
+            {locale === "fr" ? "Par l’" : "By the "}
+            <Link className="font-medium text-foreground hover:text-brand hover:underline" href="/a-propos">
+              {locale === "fr" ? "équipe Pace Yourself" : "Pace Yourself team"}
+            </Link>
+          </span>
+          <span aria-hidden="true">•</span>
           <span>{reading.published} {formatBlogDate(post.meta.date)}</span>
           {lastUpdated && (
             <>
@@ -187,7 +200,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId, locale = "en" }:
         id={`blog-json-ld-${post.meta.slug}`}
         type="application/ld+json"
         strategy="afterInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildJsonLd(post, canonicalUrl, locale)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBlogPostingJsonLd(post, canonicalUrl)) }}
       />
     </div>
   );

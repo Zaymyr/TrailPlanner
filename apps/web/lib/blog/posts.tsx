@@ -1,13 +1,60 @@
+import fsSync from 'node:fs';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { evaluate } from '@mdx-js/mdx';
 import matter from 'gray-matter';
 import React from 'react';
 import { cache, type ReactElement, type ReactNode } from 'react';
 import * as runtime from 'react/jsx-runtime';
 
-export const BLOG_DIRECTORY = path.join(process.cwd(), 'content', 'blog');
+const MODULE_DIRECTORY = path.dirname(fileURLToPath(import.meta.url));
+
+const directoryAncestors = (startDirectory: string): string[] => {
+  const ancestors: string[] = [];
+  let currentDirectory = path.resolve(startDirectory);
+
+  while (true) {
+    ancestors.push(currentDirectory);
+    const parentDirectory = path.dirname(currentDirectory);
+
+    if (parentDirectory === currentDirectory) {
+      return ancestors;
+    }
+
+    currentDirectory = parentDirectory;
+  }
+};
+
+export const resolveBlogDirectory = (
+  workingDirectory = process.cwd(),
+  moduleDirectory = MODULE_DIRECTORY,
+): string => {
+  const searchRoots = Array.from(
+    new Set([
+      ...directoryAncestors(workingDirectory),
+      ...directoryAncestors(moduleDirectory),
+    ]),
+  );
+
+  for (const searchRoot of searchRoots) {
+    const candidates = [
+      path.join(searchRoot, 'content', 'blog'),
+      path.join(searchRoot, 'apps', 'web', 'content', 'blog'),
+    ];
+    const match = candidates.find((candidate) => fsSync.existsSync(candidate));
+
+    if (match) {
+      return match;
+    }
+  }
+
+  throw new Error(
+    `Unable to locate the blog content directory from ${workingDirectory}.`,
+  );
+};
+
+export const BLOG_DIRECTORY = resolveBlogDirectory();
 const WORDS_PER_MINUTE = 225;
 
 const normalizeDate = (value: string): string => new Date(value).toISOString();
@@ -16,6 +63,7 @@ export type PostFrontmatter = {
   title: string;
   description?: string;
   date: string;
+  locale?: "fr" | "en";
   updatedAt?: string;
   tags?: string[];
   canonical?: string;
@@ -33,6 +81,7 @@ export type PostMeta = {
   title: string;
   description?: string;
   date: string;
+  locale: "fr" | "en";
   updatedAt?: string;
   tags: string[];
   canonical?: string;
@@ -195,6 +244,7 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
     title: frontmatter.title,
     description: frontmatter.description,
     date: frontmatter.date,
+    locale: frontmatter.locale ?? "fr",
     updatedAt: frontmatter.updatedAt,
     tags,
     canonical: frontmatter.canonical,
@@ -239,7 +289,7 @@ const sanitizeTags = (tags?: unknown): string[] => {
 };
 
 const validateFrontmatter = (data: Record<string, unknown>, filePath: string): PostFrontmatter => {
-  const { title, description, date, updatedAt, tags, canonical, image, imageAlt } = data;
+  const { title, description, date, locale, updatedAt, tags, canonical, image, imageAlt } = data;
 
   if (typeof title !== 'string' || !title.trim()) {
     throw new Error(`Missing or invalid "title" in frontmatter for ${filePath}`);
@@ -255,6 +305,10 @@ const validateFrontmatter = (data: Record<string, unknown>, filePath: string): P
 
   if (typeof description !== 'undefined' && typeof description !== 'string') {
     throw new Error(`Invalid "description" in frontmatter for ${filePath}`);
+  }
+
+  if (typeof locale !== 'undefined' && locale !== 'fr' && locale !== 'en') {
+    throw new Error(`Invalid "locale" in frontmatter for ${filePath}`);
   }
 
   if (typeof canonical !== 'undefined' && typeof canonical !== 'string') {
@@ -277,6 +331,7 @@ const validateFrontmatter = (data: Record<string, unknown>, filePath: string): P
     title: title.trim(),
     description,
     date: normalizeDate(date),
+    locale: locale as "fr" | "en" | undefined,
     updatedAt: updatedAt ? normalizeDate(updatedAt) : undefined,
     tags: tags as string[] | undefined,
     canonical,

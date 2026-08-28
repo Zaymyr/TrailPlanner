@@ -1,10 +1,12 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-08-24
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/app/courses/page.tsx
@@ -12,9 +14,14 @@ related_files:
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts
+  - apps/web/lib/public-races.test.ts
+  - apps/web/app/courses/[slug]/page.test.ts
+  - scripts/audit-public-race-slugs.mjs
+  - scripts/audit-public-race-slugs.test.mjs
 related_tables:
   - race_events
   - races
+  - race_slug_redirects
 ---
 
 # Public Race Discovery
@@ -31,10 +38,11 @@ This document defines which public race pages Pace Yourself may expose to search
 - Similar race: a race from another event ordered by distance difference, then elevation difference when both elevations exist.
 - Indexable selection: a deterministic landing page based only on structured fields and containing at least five public races.
 - Normalized geography: explicit country, region, department and city fields, not a region guessed from `location` or `location_text`.
+- Former slug: a durable `race_slug_redirects.old_slug` mapping to the stable race id.
 
 ## Public Race Detail Pages
 
-Each public slug resolves to `/courses/[slug]`. The page may state only facts returned by the explicit public catalog query: name, parent event, date, display location, distance, elevation, thumbnail and official URL.
+Each current public slug resolves to `/courses/[slug]`. A known former slug reloads the target through the same current visibility checks, emits canonical metadata for the current URL, then returns a permanent redirect. Unknown mappings and targets that are no longer public remain not found and noindex. The page may state only facts returned by the explicit public catalog query: name, parent event, date, display location, distance, elevation, thumbnail and official URL.
 
 The page exposes `SportsEvent` and `BreadcrumbList` structured data. It links to:
 
@@ -63,7 +71,9 @@ Before regional pages are enabled, the schema and publication workflow must prov
 
 ## Slug Stability
 
-Existing race slugs remain canonical even when they contain generated suffixes. Renaming one requires a durable old-to-new mapping and a permanent redirect. Without that redirect contract, changing a slug would break indexed URLs and inbound links, so cosmetic slug cleanup is intentionally deferred.
+Existing race slugs remain canonical until a rename is explicitly approved. The durable mapping and permanent redirect contract now exists: the database trigger records every former slug against the stable race id, and the web route resolves directly to the current canonical slug without redirect chains.
+
+`scripts/audit-public-race-slugs.mjs` is the review-only preparation step. It reads published catalog data with an anon/publishable key, refuses elevated keys, reports technical slugs and deterministic French-readable proposals, resolves candidate collisions with location then a stable id suffix, and performs zero writes. A proposal is not authorization to rename; approved changes must use the service-only atomic RPC after the migration is deployed.
 
 ## Gotchas
 
@@ -76,9 +86,12 @@ Existing race slugs remain canonical even when they contain generated suffixes. 
 - Do not expose a thin landing page merely because its URL pattern exists; the five-race threshold is part of the indexation contract.
 - Do not derive regions or departments from display-location strings.
 - Keep all public queries restricted to explicit columns and published rows.
+- Never reuse a former slug for another race. It remains reserved in `race_slug_redirects` while the target race exists.
+- Do not run a slug migration from the dry-run script; it deliberately has no write path.
 
 ## Related Docs
 
 - [Web App](../01-architecture/web-app.md)
 - [race_events](../02-database/tables/race-events.md)
+- [race_slug_redirects](../02-database/tables/race-slug-redirects.md)
 - [Organizer Race Management](organizer-race-management.md)

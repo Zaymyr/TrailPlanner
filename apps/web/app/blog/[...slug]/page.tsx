@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 
 import { BlogLayout } from "../../../components/BlogLayout";
 import { getAllPostMetadata, getPostBySlug, type PostMeta } from "../../../lib/blog/posts";
-import { localeToOgLocale, SITE_URL } from "../../seo";
+import { localeToLanguageTag, localeToOgLocale, SITE_URL } from "../../seo";
 
 type PageProps = {
   params: {
@@ -17,12 +17,6 @@ const buildCanonicalUrl = (meta: PostMeta): string => new URL(meta.canonicalPath
 
 const normalizeSlugParam = (slug?: string[]): string | undefined =>
   Array.isArray(slug) && slug.length > 0 ? slug.join("/") : undefined;
-
-const inferPostLocale = (post: PostMeta): "fr" | "en" =>
-  /[àâçéèêëîïôùûüœ]/i.test(`${post.title} ${post.description ?? ""}`) ||
-  post.tags.some((tag) => ["français", "ravitaillement", "nuit"].includes(tag.toLowerCase()))
-    ? "fr"
-    : "en";
 
 export async function generateStaticParams() {
   const metas = await getAllPostMetadata();
@@ -55,9 +49,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const canonicalUrl = buildCanonicalUrl(post.meta);
-  const description = post.meta.description ?? "Insights from the Pace Yourself team.";
+  const description = post.meta.description ??
+    (post.meta.locale === "fr"
+      ? "Conseils de l’équipe Pace Yourself pour préparer votre prochaine course de trail."
+      : "Insights from the Pace Yourself team.");
   const ogImage = post.meta.image ? new URL(post.meta.image, SITE_URL).toString() : undefined;
-  const locale = inferPostLocale(post.meta);
+  const locale = post.meta.locale;
 
   return {
     metadataBase: new URL(SITE_URL),
@@ -65,6 +62,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description,
     alternates: {
       canonical: canonicalUrl,
+      languages: {
+        [localeToLanguageTag(locale)]: canonicalUrl,
+      },
     },
     openGraph: {
       title: post.meta.title,
@@ -114,14 +114,11 @@ export default async function BlogPostPage({ params }: PageProps) {
   const canonicalUrl = buildCanonicalUrl(post.meta);
   const catalogRaceId = CATALOG_RACE_MAP[post.meta.slug];
 
-  const locale = inferPostLocale(post.meta);
-
   return (
     <BlogLayout
       post={post}
       canonicalUrl={canonicalUrl}
       catalogRaceId={catalogRaceId}
-      locale={locale}
     />
   );
 }

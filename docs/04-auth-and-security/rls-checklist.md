@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-08-24
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -12,8 +12,10 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
+  - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
+  - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
@@ -23,6 +25,7 @@ related_tables:
   - organizer_import_sessions
   - plan_share_links
   - races
+  - race_slug_redirects
   - race_events
   - race_aid_stations
   - user_profiles
@@ -94,6 +97,7 @@ Use:
 - `supabase/tests/organizer_rls_checks.sql` for event-membership and organizer station-product checks;
 - `supabase/tests/organizer_rls_checks.sql` for event membership, race-event favorites, format-scoped updates, and owner-only update read receipts;
 - `supabase/tests/organizer_import_sessions_checks.sql` for service-only session grants, invoker RPC privileges, strict JSON payloads, and draft constraints;
+- `supabase/tests/race_slug_redirects_checks.sql` for public parent-gated redirect reads, service-only mutations/RPC execution, invoker security, and reserved-slug behavior;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 
@@ -101,6 +105,7 @@ Use:
 
 - `delete_race_event_edition` intentionally relies on the service role's existing table privileges while preserving invoker security. Do not convert it to `SECURITY DEFINER` or grant it directly to authenticated clients.
 - This project has direct default `EXECUTE` grants for `anon` and `authenticated`; for every new service-only function, revoke those roles explicitly in addition to `PUBLIC`, then verify with `has_function_privilege`.
+- Public child mappings such as `race_slug_redirects` need an explicit client `SELECT` grant plus an RLS `exists` check against every parent visibility gate. Keep all writes and the rename RPC service-role-only.
 
 - Service role bypasses RLS, so passing a service-route test does not prove client RLS works.
 - `anon` grants are intentional for anonymous Supabase users only when policies still bind to `auth.uid()`.
@@ -124,6 +129,7 @@ Use:
 ## Related Docs
 
 - [RLS Policies](../02-database/rls-policies.md)
+- [Race Slug Redirects](../02-database/tables/race-slug-redirects.md)
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
 - [Auth Flows](auth-flows.md)
 - [Schema Overview](../02-database/schema-overview.md)

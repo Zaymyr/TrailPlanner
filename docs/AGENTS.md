@@ -89,7 +89,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Business logic changes | `docs/03-business-rules/` |
 | Organizer portal / race organizer claims | `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/race-event-editions.md` + `docs/02-database/` + `docs/01-architecture/web-app.md` |
 | Relay formats / handover points | `docs/02-database/tables/race-relay-points.md` + `docs/02-database/tables/races.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
-| Public race pages / SEO selections | `docs/03-business-rules/public-race-discovery.md` + `docs/02-database/tables/race-events.md` + `docs/01-architecture/web-app.md` |
+| Public race pages / SEO selections | `docs/03-business-rules/public-race-discovery.md` + `docs/02-database/tables/race-events.md` + `docs/02-database/tables/race-slug-redirects.md` + `docs/01-architecture/web-app.md` |
 | Race favorites / organizer runner notifications | `docs/02-database/tables/user-favorite-race-events.md` + `docs/02-database/tables/race-event-updates.md` + `docs/02-database/tables/race-event-update-reads.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
 | Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/organizer-import-sessions.md` |

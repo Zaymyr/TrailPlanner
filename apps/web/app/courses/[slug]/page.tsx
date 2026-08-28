@@ -1,10 +1,11 @@
 import type { Metadata } from "next";
 import type { Route } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 
 import { Card, CardContent } from "../../../components/ui/card";
-import { getPublicRace, getPublicRaces } from "../../../lib/public-races";
+import type { PublicRace } from "../../../lib/public-races";
+import { getPublicRaces, resolvePublicRaceSlug } from "../../../lib/public-races";
 import { getOtherEventFormats, getSimilarRaces } from "../../../lib/race-discovery";
 import { SITE_URL } from "../../seo";
 import { PublicRaceLinks } from "../_components/PublicRaceLinks";
@@ -26,7 +27,7 @@ const formatDate = (date: string | null) => {
   return Number.isNaN(parsed.getTime()) ? null : dateFormatter.format(parsed);
 };
 
-const buildDescription = (race: Awaited<ReturnType<typeof getPublicRace>>) => {
+const buildDescription = (race: PublicRace | null) => {
   if (!race) return "Fiche d’une course de trail sur Pace Yourself.";
   const details = [
     race.distanceKm !== null ? `${race.distanceKm} km` : null,
@@ -43,8 +44,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const race = await getPublicRace(params.slug);
-  if (!race) return { title: "Course introuvable", robots: { index: false, follow: false } };
+  const resolution = await resolvePublicRaceSlug(params.slug);
+  if (!resolution) return { title: "Course introuvable", robots: { index: false, follow: false } };
+  const { race } = resolution;
 
   const canonicalPath = `/courses/${race.slug}`;
   const description = buildDescription(race);
@@ -63,8 +65,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function RacePage({ params }: PageProps) {
-  const [race, races] = await Promise.all([getPublicRace(params.slug), getPublicRaces()]);
-  if (!race) notFound();
+  const resolution = await resolvePublicRaceSlug(params.slug);
+  if (!resolution) notFound();
+  if (resolution.shouldRedirect) permanentRedirect(`/courses/${resolution.race.slug}`);
+
+  const { race } = resolution;
+  const races = await getPublicRaces();
 
   const formattedDate = formatDate(race.date);
   const canonicalUrl = new URL(`/courses/${race.slug}`, SITE_URL).toString();
