@@ -14,6 +14,17 @@ const DEFAULT_LIMIT = 50;
 const DEFAULT_DELAY_MS = 1_500;
 const DEFAULT_MANUAL_TIMEOUT_MS = 5 * 60_000;
 const SHEET_SYNC_BATCH_SIZE = 50;
+const SHEET_SYNC_LOCK_RETRY_COUNT = 6;
+const SHEET_SYNC_LOCK_RETRY_DELAY_MS = 5_000;
+export const SHEET_WEBHOOK_SCHEMA_VERSION = 2;
+
+export const assertSheetWebhookSchema = (result) => {
+  if (Number(result?.schemaVersion) !== SHEET_WEBHOOK_SCHEMA_VERSION) {
+    throw new Error(
+      `webhook Apps Script obsolete (schema attendue ${SHEET_WEBHOOK_SCHEMA_VERSION}, recue ${result?.schemaVersion ?? "absente"})`,
+    );
+  }
+};
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -358,33 +369,47 @@ const persistRecords = async (records, statePath, outputPath) => {
   await writeFile(outputPath, recordsToCsv(records), "utf8");
 };
 
-const syncRecordBatchToSheet = async (records, args) => {
-  const response = await fetch(args.sheetWebhookUrl, {
-    method: "POST",
-    headers: { "content-type": "application/json; charset=utf-8" },
-    body: JSON.stringify({
-      token: args.sheetWebhookToken,
-      records: records.map((record) => ({
-        raceName: record.raceName,
-        organizer: record.organizer,
-        emails: record.emails,
-        raceUrl: record.raceUrl,
-        date: record.date,
-        eventWeek: record.eventWeek,
-        eventDateBasis: record.eventDateBasis,
-      })),
-    }),
-    redirect: "follow",
-  });
-  const text = await response.text();
-  let result;
-  try {
-    result = JSON.parse(text);
-  } catch {
-    throw new Error(`reponse non JSON (${response.status})`);
+export const syncRecordBatchToSheet = async (records, args, dependencies = {}) => {
+  const fetchImpl = dependencies.fetchImpl || fetch;
+  const sleepImpl = dependencies.sleepImpl || sleep;
+  for (let attempt = 0; attempt <= SHEET_SYNC_LOCK_RETRY_COUNT; attempt += 1) {
+    const response = await fetchImpl(args.sheetWebhookUrl, {
+      method: "POST",
+      headers: { "content-type": "application/json; charset=utf-8" },
+      body: JSON.stringify({
+        token: args.sheetWebhookToken,
+        schemaVersion: SHEET_WEBHOOK_SCHEMA_VERSION,
+        records: records.map((record) => ({
+          raceName: record.raceName,
+          organizer: record.organizer,
+          emails: record.emails,
+          raceUrl: record.raceUrl,
+          date: record.date,
+          eventWeek: record.eventWeek,
+          eventDateBasis: record.eventDateBasis,
+        })),
+      }),
+      redirect: "follow",
+    });
+    const text = await response.text();
+    let result;
+    try {
+      result = JSON.parse(text);
+    } catch {
+      throw new Error(`reponse non JSON (${response.status})`);
+    }
+    if (result.error === "locked" && attempt < SHEET_SYNC_LOCK_RETRY_COUNT) {
+      console.error(
+        `Google Sheets occupe, nouvelle tentative ${attempt + 1}/${SHEET_SYNC_LOCK_RETRY_COUNT} dans 5 secondes...`,
+      );
+      await sleepImpl(SHEET_SYNC_LOCK_RETRY_DELAY_MS);
+      continue;
+    }
+    if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
+    assertSheetWebhookSchema(result);
+    return result;
   }
-  if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
-  return result;
+  throw new Error("locked");
 };
 
 const syncPendingRecordsToSheet = async (records, args) => {
@@ -403,6 +428,7 @@ const syncPendingRecordsToSheet = async (records, args) => {
       );
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
+      if (message.startsWith("webhook Apps Script obsolete")) throw error;
       batch.forEach((record) => { record.sheetSyncStatus = `error: ${message}`; });
       console.error(`Synchronisation Google Sheets impossible : ${message}`);
     }

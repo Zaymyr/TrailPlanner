@@ -10,6 +10,9 @@ import {
   normalizeExactEventDate,
   raceEditionUrlForYear,
   recordsToCsv,
+  assertSheetWebhookSchema,
+  SHEET_WEBHOOK_SCHEMA_VERSION,
+  syncRecordBatchToSheet,
 } from "./scrape-betrail-organizer-emails.mjs";
 
 test("extractEmailAddresses normalizes and deduplicates public addresses", () => {
@@ -99,4 +102,42 @@ test("chooseEventDate prefers an unambiguous structured date for the race editio
     ),
     "",
   );
+});
+
+test("rejects a stale Apps Script webhook before records are marked as synced", () => {
+  assert.equal(SHEET_WEBHOOK_SCHEMA_VERSION, 2);
+  assert.doesNotThrow(() => assertSheetWebhookSchema({ schemaVersion: 2 }));
+  assert.throws(
+    () => assertSheetWebhookSchema({ ok: true, inserted: 0, updated: 0, skipped: 50 }),
+    /webhook Apps Script obsolete/,
+  );
+});
+
+test("retries a temporarily locked Apps Script webhook", async () => {
+  const responses = [
+    { ok: true, status: 200, text: async () => JSON.stringify({ ok: false, error: "locked" }) },
+    {
+      ok: true,
+      status: 200,
+      text: async () => JSON.stringify({ ok: true, schemaVersion: 2, inserted: 0, updated: 1, skipped: 0 }),
+    },
+  ];
+  const waits = [];
+  const requests = [];
+  const result = await syncRecordBatchToSheet(
+    [{ raceName: "Trail test", emails: ["contact@example.org"], eventWeek: 34 }],
+    { sheetWebhookUrl: "https://example.test/exec", sheetWebhookToken: "secret" },
+    {
+      fetchImpl: async (url, options) => {
+        requests.push({ url, payload: JSON.parse(options.body) });
+        return responses.shift();
+      },
+      sleepImpl: async (milliseconds) => { waits.push(milliseconds); },
+    },
+  );
+
+  assert.equal(result.updated, 1);
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].payload.schemaVersion, 2);
+  assert.deepEqual(waits, [5_000]);
 });

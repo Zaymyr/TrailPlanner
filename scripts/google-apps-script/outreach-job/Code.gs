@@ -21,6 +21,15 @@ const OUTREACH_JOB = Object.freeze({
 const SCRAPER_WEBHOOK = Object.freeze({
   tokenProperty: 'BETRAIL_SCRAPER_WEBHOOK_TOKEN',
   maxRecordsPerRequest: 100,
+  schemaVersion: 2,
+});
+
+const GMAIL_RECONCILIATION = Object.freeze({
+  cursorProperty: 'OUTREACH_RECONCILIATION_CURSOR',
+  lastRunProperty: 'OUTREACH_RECONCILIATION_LAST_RUN',
+  defaultBatchSize: 20,
+  defaultIntervalMinutes: 5,
+  maxBatchSize: 100,
 });
 
 /**
@@ -43,6 +52,9 @@ function doPost(event) {
     if (!expectedToken || !constantTimeEquals_(String(payload.token || ''), expectedToken)) {
       return jsonResponse_({ ok: false, error: 'unauthorized' });
     }
+    if (Number(payload.schemaVersion) !== SCRAPER_WEBHOOK.schemaVersion) {
+      return jsonResponse_({ ok: false, error: 'unsupported_schema', schemaVersion: SCRAPER_WEBHOOK.schemaVersion });
+    }
     if (!Array.isArray(payload.records) || payload.records.length === 0) {
       return jsonResponse_({ ok: false, error: 'records_required' });
     }
@@ -54,7 +66,13 @@ function doPost(event) {
     if (!lock.tryLock(10000)) return jsonResponse_({ ok: false, error: 'locked' });
     try {
       const result = upsertScrapedProspects_(payload.records);
-      return jsonResponse_({ ok: true, inserted: result.inserted, updated: result.updated, skipped: result.skipped });
+      return jsonResponse_({
+        ok: true,
+        schemaVersion: SCRAPER_WEBHOOK.schemaVersion,
+        inserted: result.inserted,
+        updated: result.updated,
+        skipped: result.skipped,
+      });
     } finally {
       lock.releaseLock();
     }
@@ -100,9 +118,11 @@ function runOutreachJob() {
     const template = readKeyValueSheet_(spreadsheet, OUTREACH_JOB.templateSheet);
     const timezone = String(settings.fuseau_horaire || 'Europe/Paris');
     const now = new Date();
+    const historySheet = ensureHistorySheet_(spreadsheet);
+    const reconciliation = reconcileGmailActivity_(spreadsheet, historySheet, settings, now, timezone);
 
     if (!asBoolean_(settings.activation_envoi)) {
-      return { status: 'SKIPPED_DISABLED' };
+      return { status: 'SKIPPED_DISABLED', reconciliation: reconciliation };
     }
     if (normalize_(template.mode_envoi) !== 'brouillons') {
       throw new Error('Mode refusé : ce job accepte uniquement « Brouillons ».');
@@ -118,12 +138,11 @@ function runOutreachJob() {
       return { status: 'SKIPPED_BEFORE_START' };
     }
 
-    const historySheet = ensureHistorySheet_(spreadsheet);
     const history = readHistory_(historySheet);
     const dateKey = Utilities.formatDate(now, timezone, 'yyyy-MM-dd');
     const dailyLimit = positiveInteger_(settings.limite_quotidienne, 150);
     const createdToday = history.rows.filter(function (row) {
-      return row.runDate === dateKey && row.status === 'BROUILLON_CREE';
+      return row.runDate === dateKey && ['BROUILLON_CREE', 'RELANCE_BROUILLON_CREE'].indexOf(row.status) !== -1;
     }).length;
 
     if (createdToday >= dailyLimit) {
@@ -132,20 +151,53 @@ function runOutreachJob() {
 
     const delayMinutes = positiveInteger_(settings.delai_entre_envois_minutes, 1);
     const lastDraftAt = history.rows.reduce(function (latest, row) {
-      if (row.status !== 'BROUILLON_CREE' || !(row.createdAt instanceof Date)) return latest;
+      if (['BROUILLON_CREE', 'RELANCE_BROUILLON_CREE'].indexOf(row.status) === -1 || !(row.createdAt instanceof Date)) return latest;
       return !latest || row.createdAt > latest ? row.createdAt : latest;
     }, null);
     if (lastDraftAt && now.getTime() - lastDraftAt.getTime() < delayMinutes * 60000) {
       return { status: 'SKIPPED_DELAY' };
     }
 
+    const followupProspect = asBoolean_(settings.activation_relance)
+      ? findNextFollowupProspect_(spreadsheet, history.followupUuids, now, positiveInteger_(settings.delai_relance_jours, 7))
+      : null;
+    if (followupProspect) {
+      const followupActivity = inspectGmailActivity_(followupProspect.email);
+      syncProspectActivity_(requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet), followupProspect, followupActivity);
+      if (followupActivity.repliedAt && followupActivity.repliedAt > followupProspect.lastSentAt) {
+        appendHistory_(historySheet, now, dateKey, followupProspect, 'REPONSE_RECUE', '', 'Réponse détectée avant relance');
+        return { status: 'REPONSE_RECUE', email: followupProspect.email, reconciliation: reconciliation };
+      }
+      if (!followupActivity.sentMessage) {
+        return { status: 'RELANCE_IGNORE_SANS_FIL', email: followupProspect.email, reconciliation: reconciliation };
+      }
+
+      const followupBody = replaceOrganizationName_(String(template.corps_relance || ''), followupProspect.organizationName || '');
+      if (!followupBody.trim()) throw new Error('Template email : corps_relance est obligatoire quand les relances sont activées.');
+      const sender = String(template.expediteur || Session.getEffectiveUser().getEmail()).trim();
+      const signatureHtml = getGmailSignature_(sender);
+      const htmlBody = markdownBodyToHtml_(followupBody) + signatureHtml;
+      const plainBody = stripMarkdown_(followupBody) + stripHtml_(signatureHtml);
+      const draft = createThreadedFollowupDraft_(followupActivity.sentMessage, followupProspect.email, sender, plainBody, htmlBody);
+      appendHistory_(historySheet, now, dateKey, followupProspect, 'RELANCE_BROUILLON_CREE', draft.id, 'Brouillon de relance créé dans le fil Gmail');
+      return {
+        status: 'RELANCE_BROUILLON_CREE',
+        email: followupProspect.email,
+        draftId: draft.id,
+        createdToday: createdToday + 1,
+        reconciliation: reconciliation,
+      };
+    }
+
     const prospect = findNextProspect_(spreadsheet, history.terminalUuids);
     if (!prospect) return { status: 'SKIPPED_EMPTY_QUEUE' };
 
-    const gmailState = inspectGmailState_(prospect.email);
+    const gmailActivity = inspectGmailActivity_(prospect.email);
+    const gmailState = gmailActivity.sentAt ? 'IGNORE_DEJA_CONTACTE' : gmailActivity.repliedAt ? 'IGNORE_REPONSE_RECUE' : 'CLEAR';
     if (gmailState !== 'CLEAR') {
+      syncProspectActivity_(requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet), prospect, gmailActivity);
       appendHistory_(historySheet, now, dateKey, prospect, gmailState, '', 'Contrôle Gmail avant brouillon');
-      return { status: gmailState, email: prospect.email };
+      return { status: gmailState, email: prospect.email, reconciliation: reconciliation };
     }
 
     const organizationName = prospect.organizationName || '';
@@ -166,6 +218,7 @@ function runOutreachJob() {
       email: prospect.email,
       draftId: draft.getId(),
       createdToday: createdToday + 1,
+      reconciliation: reconciliation,
     };
   } catch (error) {
     recordJobError_(error);
@@ -219,12 +272,243 @@ function findNextProspect_(spreadsheet, terminalUuids) {
   })[0] || null;
 }
 
-function inspectGmailState_(email) {
+function inspectGmailActivity_(email) {
   const safeEmail = String(email).replace(/[^A-Za-z0-9@._+\-]/g, '');
-  if (!safeEmail) return 'IGNORE_EMAIL_INVALIDE';
-  if (GmailApp.search('in:sent to:(' + safeEmail + ')', 0, 1).length) return 'IGNORE_DEJA_CONTACTE';
-  if (GmailApp.search('from:(' + safeEmail + ') -in:sent', 0, 1).length) return 'IGNORE_REPONSE_RECUE';
-  return 'CLEAR';
+  if (!safeEmail) return { sentAt: null, repliedAt: null, sentMessage: null };
+  const sentMessage = findLatestGmailMessage_('in:sent to:(' + safeEmail + ')', function (message) {
+    return headerIncludesEmail_(message.getTo(), safeEmail)
+      || headerIncludesEmail_(message.getCc(), safeEmail)
+      || headerIncludesEmail_(message.getBcc(), safeEmail);
+  });
+  const replyMessage = findLatestGmailMessage_('from:(' + safeEmail + ') -in:sent', function (message) {
+    return headerIncludesEmail_(message.getFrom(), safeEmail);
+  });
+  return {
+    sentAt: sentMessage ? sentMessage.getDate() : null,
+    repliedAt: replyMessage ? replyMessage.getDate() : null,
+    sentMessage: sentMessage,
+  };
+}
+
+function findLatestGmailMessage_(query, predicate) {
+  return GmailApp.search(query, 0, 10).reduce(function (latest, thread) {
+    return thread.getMessages().reduce(function (current, message) {
+      if (message.isDraft() || (predicate && !predicate(message))) return current;
+      return !current || message.getDate() > current.getDate() ? message : current;
+    }, latest);
+  }, null);
+}
+
+function headerIncludesEmail_(value, email) {
+  const expected = normalize_(email);
+  return (String(value || '').match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/gi) || []).some(function (candidate) {
+    return normalize_(candidate) === expected;
+  });
+}
+
+function createThreadedFollowupDraft_(sentMessage, recipient, sender, plainBody, htmlBody) {
+  const message = Gmail.Users.Messages.get('me', sentMessage.getId(), {
+    format: 'metadata',
+    metadataHeaders: ['Message-ID', 'References', 'Subject'],
+  });
+  const headers = message && message.payload && message.payload.headers ? message.payload.headers : [];
+  const messageId = gmailHeaderValue_(headers, 'Message-ID');
+  const subject = gmailHeaderValue_(headers, 'Subject') || sentMessage.getSubject();
+  if (!messageId) throw new Error('Impossible de créer la relance : en-tête Message-ID Gmail manquant.');
+  const references = [gmailHeaderValue_(headers, 'References'), messageId].filter(Boolean).join(' ');
+  const raw = buildThreadedDraftRaw_({
+    recipient: recipient,
+    sender: sender,
+    subject: subject,
+    messageId: messageId,
+    references: references,
+    plainBody: plainBody,
+    htmlBody: htmlBody,
+  });
+  return Gmail.Users.Drafts.create({
+    message: {
+      threadId: message.threadId || sentMessage.getThread().getId(),
+      raw: Utilities.base64EncodeWebSafe(raw, Utilities.Charset.UTF_8).replace(/=+$/, ''),
+    },
+  }, 'me');
+}
+
+function gmailHeaderValue_(headers, name) {
+  const expected = normalize_(name);
+  const header = (headers || []).find(function (candidate) {
+    return normalize_(candidate && candidate.name) === expected;
+  });
+  return header ? String(header.value || '').replace(/[\r\n]+/g, ' ').trim() : '';
+}
+
+function buildThreadedDraftRaw_(input) {
+  const boundary = 'pace_yourself_' + Utilities.getUuid().replace(/-/g, '');
+  return [
+    'To: ' + String(input.recipient || '').replace(/[\r\n]+/g, ''),
+    'From: ' + String(input.sender || '').replace(/[\r\n]+/g, ''),
+    'Subject: ' + encodeMimeHeader_(String(input.subject || '').replace(/[\r\n]+/g, ' ')),
+    'In-Reply-To: ' + String(input.messageId || '').replace(/[\r\n]+/g, ' '),
+    'References: ' + String(input.references || '').replace(/[\r\n]+/g, ' '),
+    'MIME-Version: 1.0',
+    'Content-Type: multipart/alternative; boundary="' + boundary + '"',
+    '',
+    '--' + boundary,
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    String(input.plainBody || ''),
+    '',
+    '--' + boundary,
+    'Content-Type: text/html; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    '',
+    String(input.htmlBody || ''),
+    '',
+    '--' + boundary + '--',
+  ].join('\r\n');
+}
+
+function encodeMimeHeader_(value) {
+  const text = String(value || '');
+  return /[^\x20-\x7E]/.test(text)
+    ? '=?UTF-8?B?' + Utilities.base64Encode(text, Utilities.Charset.UTF_8) + '?='
+    : text;
+}
+
+function reconcileGmailActivity_(spreadsheet, historySheet, settings, now, timezone) {
+  const properties = PropertiesService.getScriptProperties();
+  const intervalMinutes = positiveInteger_(settings.intervalle_reconciliation_minutes, GMAIL_RECONCILIATION.defaultIntervalMinutes);
+  const lastRunAt = asDate_(properties.getProperty(GMAIL_RECONCILIATION.lastRunProperty));
+  if (lastRunAt && now.getTime() - lastRunAt.getTime() < intervalMinutes * 60000) {
+    return { checked: 0, sentUpdated: 0, repliesUpdated: 0, skipped: 'interval' };
+  }
+
+  const history = readHistory_(historySheet);
+  const prospectsSheet = requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet);
+  const values = prospectsSheet.getDataRange().getValues();
+  if (values.length < 2) return { checked: 0, sentUpdated: 0, repliesUpdated: 0 };
+
+  const headers = headerIndex_(values[0]);
+  ['uuid', 'email', 'Organization name', 'outreach_event_date', 'last_sent_email_at', 'replied_at'].forEach(function (header) {
+    if (headers[header] === undefined) throw new Error('Colonne Prospects manquante : ' + header);
+  });
+
+  const candidates = values.slice(1).map(function (row, offset) {
+    return {
+      rowNumber: offset + 2,
+      uuid: String(row[headers.uuid] || '').trim(),
+      email: String(row[headers.email] || '').trim(),
+      organizationName: String(row[headers['Organization name']] || '').trim(),
+      eventDate: row[headers.outreach_event_date] || '',
+      lastSentAt: asDate_(row[headers.last_sent_email_at]),
+      repliedAt: asDate_(row[headers.replied_at]),
+    };
+  }).filter(function (prospect) {
+    return prospect.uuid && prospect.email && (history.draftUuids[prospect.uuid] || prospect.lastSentAt);
+  });
+
+  if (candidates.length === 0) return { checked: 0, sentUpdated: 0, repliesUpdated: 0 };
+  const start = Math.max(0, Number(properties.getProperty(GMAIL_RECONCILIATION.cursorProperty)) || 0) % candidates.length;
+  const requestedBatchSize = positiveInteger_(settings.limite_reconciliation_par_execution, GMAIL_RECONCILIATION.defaultBatchSize);
+  const batchSize = Math.min(requestedBatchSize, GMAIL_RECONCILIATION.maxBatchSize, candidates.length);
+  const result = { checked: 0, sentUpdated: 0, repliesUpdated: 0 };
+  const dateKey = Utilities.formatDate(now, timezone, 'yyyy-MM-dd');
+
+  for (let offset = 0; offset < batchSize; offset += 1) {
+    const prospect = candidates[(start + offset) % candidates.length];
+    const activity = inspectGmailActivity_(prospect.email);
+    const changes = syncProspectActivity_(prospectsSheet, prospect, activity);
+    result.checked += 1;
+    if (changes.sentUpdated) {
+      result.sentUpdated += 1;
+      const latestDraft = history.latestDraftByUuid[prospect.uuid];
+      const status = latestDraft && latestDraft.status === 'RELANCE_BROUILLON_CREE'
+        && activity.sentAt >= latestDraft.createdAt ? 'RELANCE_ENVOYEE' : 'ENVOI_CONFIRME';
+      appendHistory_(historySheet, now, dateKey, prospect, status, '', 'Activité Gmail synchronisée vers Prospects');
+    }
+    if (changes.replyUpdated) {
+      result.repliesUpdated += 1;
+      appendHistory_(historySheet, now, dateKey, prospect, 'REPONSE_RECUE', '', 'Réponse Gmail synchronisée vers Prospects');
+    }
+  }
+
+  properties.setProperty(GMAIL_RECONCILIATION.cursorProperty, String((start + batchSize) % candidates.length));
+  properties.setProperty(GMAIL_RECONCILIATION.lastRunProperty, now.toISOString());
+  SpreadsheetApp.flush();
+  return result;
+}
+
+function syncProspectActivity_(sheet, prospect, activity) {
+  const headers = headerIndex_(sheet.getRange(1, 1, 1, sheet.getLastColumn()).getValues()[0]);
+  const sentAt = asDate_(activity.sentAt);
+  const repliedAt = asDate_(activity.repliedAt);
+  const currentSentAt = asDate_(prospect.lastSentAt);
+  const currentRepliedAt = asDate_(prospect.repliedAt);
+  const sentUpdated = Boolean(sentAt && (!currentSentAt || sentAt > currentSentAt));
+  const replyUpdated = Boolean(repliedAt && (!currentRepliedAt || repliedAt > currentRepliedAt)
+    && (!sentAt || repliedAt > (currentSentAt || sentAt)));
+
+  if (sentUpdated) {
+    sheet.getRange(prospect.rowNumber, headers.last_sent_email_at + 1).setValue(sentAt).setNumberFormat('yyyy-mm-dd hh:mm');
+    prospect.lastSentAt = sentAt;
+  }
+  if (replyUpdated) {
+    sheet.getRange(prospect.rowNumber, headers.replied_at + 1).setValue(repliedAt).setNumberFormat('yyyy-mm-dd hh:mm');
+    prospect.repliedAt = repliedAt;
+  }
+  return { sentUpdated: sentUpdated, replyUpdated: replyUpdated };
+}
+
+function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayDays) {
+  const sheet = requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet);
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return null;
+  const headers = headerIndex_(values[0]);
+  [
+    'uuid', 'email', 'Organization name', 'outreach_event_date', 'last_sent_email_at',
+    'replied_at', 'hard_bounced_at', 'excluded', 'opted-out',
+  ].forEach(function (header) {
+    if (headers[header] === undefined) throw new Error('Colonne Prospects manquante : ' + header);
+  });
+
+  const delayMs = delayDays * 86400000;
+  return values.slice(1).map(function (row, offset) {
+    return {
+      rowNumber: offset + 2,
+      uuid: String(row[headers.uuid] || '').trim(),
+      email: String(row[headers.email] || '').trim(),
+      organizationName: String(row[headers['Organization name']] || '').trim(),
+      eventDate: row[headers.outreach_event_date] || '',
+      lastSentAt: asDate_(row[headers.last_sent_email_at]),
+      repliedAt: asDate_(row[headers.replied_at]),
+      hardBouncedAt: asDate_(row[headers.hard_bounced_at]),
+      excluded: asBoolean_(row[headers.excluded]),
+      optedOut: asBoolean_(row[headers['opted-out']]),
+    };
+  }).filter(function (prospect) {
+    return isFollowupEligible_(prospect, followupUuids, now, delayMs);
+  }).sort(function (a, b) {
+    return a.lastSentAt - b.lastSentAt || a.rowNumber - b.rowNumber;
+  })[0] || null;
+}
+
+function isFollowupEligible_(prospect, followupUuids, now, delayMs) {
+  return Boolean(prospect.uuid
+    && prospect.email
+    && prospect.lastSentAt
+    && now.getTime() - prospect.lastSentAt.getTime() >= delayMs
+    && !prospect.repliedAt
+    && !prospect.hardBouncedAt
+    && !prospect.excluded
+    && !prospect.optedOut
+    && !followupUuids[prospect.uuid]);
+}
+
+function asDate_(value) {
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 function ensureHistorySheet_(spreadsheet) {
@@ -250,16 +534,31 @@ function readHistory_(sheet) {
       createdAt: row[0],
       runDate: String(row[1] || ''),
       uuid: String(row[2] || ''),
+      email: String(row[3] || ''),
       status: String(row[6] || ''),
     };
   });
   const terminalUuids = {};
+  const draftUuids = {};
+  const followupUuids = {};
+  const latestDraftByUuid = {};
   rows.forEach(function (row) {
     if (row.uuid && ['BROUILLON_CREE', 'IGNORE_DEJA_CONTACTE', 'IGNORE_REPONSE_RECUE'].indexOf(row.status) !== -1) {
       terminalUuids[row.uuid] = true;
     }
+    if (row.uuid && ['BROUILLON_CREE', 'RELANCE_BROUILLON_CREE'].indexOf(row.status) !== -1) {
+      draftUuids[row.uuid] = true;
+      if (!latestDraftByUuid[row.uuid] || row.createdAt > latestDraftByUuid[row.uuid].createdAt) latestDraftByUuid[row.uuid] = row;
+    }
+    if (row.uuid && ['RELANCE_BROUILLON_CREE', 'RELANCE_ENVOYEE'].indexOf(row.status) !== -1) followupUuids[row.uuid] = true;
   });
-  return { rows: rows, terminalUuids: terminalUuids };
+  return {
+    rows: rows,
+    terminalUuids: terminalUuids,
+    draftUuids: draftUuids,
+    followupUuids: followupUuids,
+    latestDraftByUuid: latestDraftByUuid,
+  };
 }
 
 function appendHistory_(sheet, now, dateKey, prospect, status, draftId, details) {
