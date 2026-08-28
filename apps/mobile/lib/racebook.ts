@@ -88,6 +88,8 @@ type OrganizerRunnerInfoDetails = {
 
 type OrganizerEventDetails = {
   officialWebsiteUrl: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
   emergencyContact: {
     name: string | null;
     phone: string | null;
@@ -277,6 +279,8 @@ const DEFAULT_RUNNER_INFO: OrganizerRunnerInfoDetails = {
 
 const DEFAULT_EVENT_DETAILS: OrganizerEventDetails = {
   officialWebsiteUrl: null,
+  instagramUrl: null,
+  facebookUrl: null,
   emergencyContact: {
     name: null,
     phone: null,
@@ -322,6 +326,11 @@ function readText(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function readUrl(value: unknown): string | null {
+  const text = readText(value);
+  return text && /^https?:\/\//i.test(text) ? text : null;
 }
 
 export function normalizeOrganizerPhoneNumber(value: string): string {
@@ -497,7 +506,9 @@ function parseEventDetails(value: unknown): OrganizerEventDetails {
   const emergencyPhone = readText(emergencyContact.phone);
 
   return {
-    officialWebsiteUrl: readText(record.officialWebsiteUrl),
+    officialWebsiteUrl: readUrl(record.officialWebsiteUrl),
+    instagramUrl: readUrl(record.instagramUrl),
+    facebookUrl: readUrl(record.facebookUrl),
     emergencyContact: {
       name: readText(emergencyContact.name),
       phone: emergencyPhone ? normalizeOrganizerPhoneNumber(emergencyPhone) : null,

@@ -29,6 +29,8 @@ export function EventInfoEditor({
   const missingEndDate = !eventForm.editionEndDate.trim();
   const invalidDateRange = Boolean(eventForm.editionStartDate && eventForm.editionEndDate && eventForm.editionEndDate < eventForm.editionStartDate);
   const officialWebsiteUrl = eventForm.organizerDetails.officialWebsiteUrl ?? "";
+  const instagramUrl = eventForm.organizerDetails.instagramUrl ?? "";
+  const facebookUrl = eventForm.organizerDetails.facebookUrl ?? "";
   const emergencyContact = eventForm.organizerDetails.emergencyContact;
 
   return (
@@ -63,6 +65,38 @@ export function EventInfoEditor({
               organizerDetails: {
                 ...eventForm.organizerDetails,
                 officialWebsiteUrl: value || null,
+              },
+            },
+            "event"
+          )
+        }
+      />
+      <TextField
+        label="Instagram"
+        type="url"
+        value={instagramUrl}
+        onChange={(value) =>
+          onChange(
+            {
+              organizerDetails: {
+                ...eventForm.organizerDetails,
+                instagramUrl: value || null,
+              },
+            },
+            "event"
+          )
+        }
+      />
+      <TextField
+        label="Facebook"
+        type="url"
+        value={facebookUrl}
+        onChange={(value) =>
+          onChange(
+            {
+              organizerDetails: {
+                ...eventForm.organizerDetails,
+                facebookUrl: value || null,
               },
             },
             "event"

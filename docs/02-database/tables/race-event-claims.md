@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -89,7 +89,7 @@ Summary:
 
 - A pending claim is not authorization.
 - Claims are retained for historical audit and existing admin workflows, but the current organizer onboarding UI does not create new claims or allow taking control of an existing catalog event.
-- The public `/organisateurs` landing and its UTM/auth return flow do not write this table; only the existing `/organizers` direct-creation route is reached after authentication.
+- The public `/organisateurs` landing and its UTM/auth return flow do not write this table; only the existing `/organizers` direct-creation route is reached after authentication. That page does not expose the admin-only URL importer and redirects a successful creation directly to the selected event without an import bootstrap parameter.
 - One user cannot keep multiple pending/approved claims for the same event.
 - Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
@@ -105,6 +105,7 @@ Summary:
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, and desktop event tiles should fit on one row before wrapping.
 - Inside a relay-capable format's `Ravito / relais` editor, the local `Ravitos` / `Relais` views remain presentation-only, including the title-aligned contextual add action, compact derived-leg row, and reduced handover fields. They do not change the membership boundary or grant a separate mutation path; the existing organizer routes continue to authorize every save.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
+- Inside that approved-only dashboard, editing the event's official website, Instagram URL, or Facebook URL remains an ordinary membership-checked event-details write; it does not create or approve a claim.
 - Inside that approved-only dashboard, the format-specific bib-pickup, equipment, and access overrides are right-aligned in their main `<module> - <format>` headers. Checked overrides are saved through the same race-details autosave queue; changing scope must not clear a checkbox or its fields. This presentation and inheritance behavior does not change the authorization boundary.
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.
 - Rejection stores review metadata but does not create membership.

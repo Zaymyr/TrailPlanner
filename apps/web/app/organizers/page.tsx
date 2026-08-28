@@ -21,7 +21,6 @@ const initialEventForm = {
   location: "",
   editionStartDate: "",
   editionEndDate: "",
-  officialSiteUrl: "",
 };
 
 type OrganizersPageProps = {
@@ -56,7 +55,6 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
           location: eventForm.location,
           editionStartDate: eventForm.editionStartDate,
           editionEndDate: eventForm.editionEndDate,
-          officialSiteUrl: eventForm.officialSiteUrl,
         }),
       });
       const data = (await response.json().catch(() => null)) as
@@ -76,9 +74,6 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
 
       const destination = new URL("/organizer", window.location.origin);
       destination.searchParams.set("eventId", data.event.id);
-      if (eventForm.officialSiteUrl.trim()) {
-        destination.searchParams.set("importUrl", eventForm.officialSiteUrl.trim());
-      }
       window.location.assign(destination.toString());
     } catch (caught) {
       console.error("Unable to create organizer event", caught);
@@ -96,19 +91,12 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
             Espace organisateurs
           </p>
           <h1 className="max-w-2xl text-3xl font-semibold tracking-tight text-foreground dark:text-slate-50 sm:text-4xl">
-            Crée ton événement, puis reconstruis ses formats depuis le site officiel.
+            Crée ton événement et renseigne ses formats depuis ton dashboard.
           </h1>
           <p className="max-w-xl text-sm leading-6 text-muted-foreground dark:text-slate-300">
             La fiche est créée immédiatement en brouillon et rattachée à ton compte. Aucun claim ni validation admin
             n&apos;est nécessaire pour commencer à la compléter.
           </p>
-          <div className="rounded-lg border border-brand-border bg-brand-surface p-4 text-sm leading-6 text-foreground">
-            <p className="font-semibold">Import depuis une URL</p>
-            <p className="mt-1 text-muted-foreground">
-              Après la création, l&apos;analyse du site s&apos;ouvre dans le dashboard. Tu pourras vérifier la date, les formats,
-              les données trouvées et leur fiabilité avant de les intégrer.
-            </p>
-          </div>
           {session ? (
             <Link href="/organizer">
               <Button variant="outline">Ouvrir mon dashboard</Button>
@@ -120,7 +108,7 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
           <CardHeader>
             <CardTitle>Ajouter une course</CardTitle>
             <CardDescription>
-              Crée la première édition avec sa plage de dates. Elle pourra être corrigée lors de l&apos;import.
+              Crée la première édition avec sa plage de dates, puis complète ses formats dans le dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -151,22 +139,6 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
                     placeholder="Trail du fort de Tamié"
                     required
                   />
-                </div>
-
-                <div className="space-y-1.5">
-                  <Label htmlFor="organizer-new-event-url">URL du site officiel</Label>
-                  <Input
-                    id="organizer-new-event-url"
-                    type="url"
-                    value={eventForm.officialSiteUrl}
-                    onChange={(changeEvent) =>
-                      setEventForm((current) => ({ ...current, officialSiteUrl: changeEvent.target.value }))
-                    }
-                    placeholder="https://www.exemple-course.fr/"
-                  />
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    Facultatif. Si elle est renseignée, le scraper sera proposé juste après la création.
-                  </p>
                 </div>
 
                 <div className="grid gap-4 sm:grid-cols-3">
@@ -213,8 +185,8 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
                 </div>
 
                 <div className="rounded-md border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
-                  L&apos;événement et les formats importés resteront en brouillon. La règle de paiement avant publication
-                  sera ajoutée dans un second temps.
+                  L&apos;événement et les formats ajoutés resteront en brouillon. La règle de paiement avant publication sera
+                  ajoutée dans un second temps.
                 </div>
 
                 {error ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}

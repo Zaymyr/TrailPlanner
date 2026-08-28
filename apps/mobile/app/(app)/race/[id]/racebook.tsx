@@ -703,6 +703,8 @@ export default function RaceRacebookScreen() {
   const weatherAlertIcon = weatherPlan === 'heat' ? 'thermometer-outline' : 'snow-outline';
   const lastMinuteMessage = data?.runnerDetails.services.lastMinuteMessage ?? null;
   const officialWebsiteUrl = data?.event.organizerDetails.officialWebsiteUrl ?? null;
+  const instagramUrl = data?.event.organizerDetails.instagramUrl ?? null;
+  const facebookUrl = data?.event.organizerDetails.facebookUrl ?? null;
   const emergencyContact = data?.event.organizerDetails.emergencyContact;
   const emergencyTelephoneUrl = emergencyContact?.phone ? buildTelephoneUrl(emergencyContact.phone) : null;
 
@@ -1068,18 +1070,43 @@ export default function RaceRacebookScreen() {
                   ) : null}
                 </View>
               </View>
-              {officialWebsiteUrl ? (
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={t.catalog.racebookOfficialWebsite}
-                  onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
-                  style={({ pressed }) => [styles.heroWebsiteAction, pressed && styles.heroQuickActionPressed]}
-                >
-                  <Ionicons name="globe-outline" size={20} color={Colors.brandPrimary} />
-                  <Text style={styles.heroWebsiteActionLabel} numberOfLines={1}>
-                    {t.catalog.racebookOfficialWebsiteShort}
-                  </Text>
-                </Pressable>
+              {officialWebsiteUrl || instagramUrl || facebookUrl ? (
+                <View style={styles.heroSocialActions}>
+                  {officialWebsiteUrl ? (
+                    <Pressable
+                      accessibilityRole="link"
+                      accessibilityLabel={t.catalog.racebookOfficialWebsite}
+                      onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
+                      style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
+                    >
+                      <Ionicons name="globe-outline" size={22} color={Colors.brandPrimary} />
+                    </Pressable>
+                  ) : null}
+                  {instagramUrl || facebookUrl ? (
+                    <View style={styles.heroSocialNetworks}>
+                      {instagramUrl ? (
+                        <Pressable
+                          accessibilityRole="link"
+                          accessibilityLabel="Instagram"
+                          onPress={() => Linking.openURL(instagramUrl).catch(() => {})}
+                          style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
+                        >
+                          <Ionicons name="logo-instagram" size={22} color={Colors.brandPrimary} />
+                        </Pressable>
+                      ) : null}
+                      {facebookUrl ? (
+                        <Pressable
+                          accessibilityRole="link"
+                          accessibilityLabel="Facebook"
+                          onPress={() => Linking.openURL(facebookUrl).catch(() => {})}
+                          style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
+                        >
+                          <Ionicons name="logo-facebook" size={22} color={Colors.brandPrimary} />
+                        </Pressable>
+                      ) : null}
+                    </View>
+                  ) : null}
+                </View>
               ) : null}
             </View>
 
@@ -1494,17 +1521,24 @@ const styles = StyleSheet.create({
     minWidth: 0,
     gap: 4,
   },
-  heroWebsiteAction: {
+  heroSocialActions: {
     alignSelf: 'flex-start',
+    alignItems: 'flex-end',
+    gap: 8,
+  },
+  heroSocialNetworks: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  heroSocialAction: {
+    width: 46,
     minHeight: 46,
-    paddingHorizontal: 14,
-    borderRadius: 24,
+    borderRadius: 23,
     borderWidth: 1,
     borderColor: Colors.brandBorder,
     backgroundColor: Colors.surface,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
   },
   heroEmergencyAction: {
     width: '100%',
@@ -1528,12 +1562,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-  },
-  heroWebsiteActionLabel: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
   },
   heroEmergencyLabel: {
     color: Colors.danger,
