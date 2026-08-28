@@ -239,14 +239,14 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
             <h3 className="text-2xl font-semibold text-foreground">{selectedDemo.title}</h3>
             <p className="leading-7 text-muted-foreground">{selectedDemo.description}</p>
           </div>
-          <div className="mx-auto w-full max-w-[430px] overflow-hidden rounded-[2rem] border-[8px] border-foreground bg-background shadow-xl dark:border-emerald-950">
+          <div className="mx-auto w-fit max-w-full overflow-hidden rounded-[1.5rem] border-[6px] border-foreground bg-background shadow-xl dark:border-emerald-950">
             <Image
               src={selectedDemo.image}
               alt={selectedDemo.imageAlt}
               width={712}
               height={1600}
-              sizes="(min-width: 1024px) 430px, 88vw"
-              className="h-auto w-full"
+              sizes="(min-width: 640px) 280px, 62vw"
+              className="h-auto max-h-[min(58vh,620px)] w-auto max-w-full object-contain"
             />
           </div>
         </div>
