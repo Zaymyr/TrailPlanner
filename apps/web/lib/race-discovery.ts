@@ -34,6 +34,66 @@ export const distanceLandingPages = [
 
 export type DistanceLandingPage = (typeof distanceLandingPages)[number];
 
+export type PublicRaceGroup = {
+  key: string;
+  eventId: string | null;
+  eventName: string | null;
+  races: PublicRace[];
+};
+
+const validDateTimestamp = (value: string | null) => {
+  if (!value) return Number.POSITIVE_INFINITY;
+  const timestamp = Date.parse(`${value.slice(0, 10)}T12:00:00Z`);
+  return Number.isNaN(timestamp) ? Number.POSITIVE_INFINITY : timestamp;
+};
+
+const compareRaceFormats = (left: PublicRace, right: PublicRace) =>
+  (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY) ||
+  left.name.localeCompare(right.name, "fr") ||
+  left.id.localeCompare(right.id);
+
+const compareRaceGroups = (left: PublicRaceGroup, right: PublicRaceGroup) => {
+  const leftDate = Math.min(...left.races.map((race) => validDateTimestamp(race.date)));
+  const rightDate = Math.min(...right.races.map((race) => validDateTimestamp(race.date)));
+  const leftName = left.eventName ?? left.races[0]?.name ?? "";
+  const rightName = right.eventName ?? right.races[0]?.name ?? "";
+
+  return leftDate - rightDate || leftName.localeCompare(rightName, "fr") || left.key.localeCompare(right.key);
+};
+
+/**
+ * Groups an already-public catalog by stable event identity. Standalone races
+ * deliberately stay independent; display names are never used as identities.
+ */
+export function groupPublicRacesByEvent(races: PublicRace[]): PublicRaceGroup[] {
+  const groups = new Map<string, PublicRaceGroup>();
+  const seenRaceIds = new Set<string>();
+
+  for (const race of races) {
+    if (seenRaceIds.has(race.id)) continue;
+    seenRaceIds.add(race.id);
+
+    const key = race.eventId ? `event:${race.eventId}` : `race:${race.id}`;
+    const existing = groups.get(key);
+    if (existing) {
+      existing.races.push(race);
+      if (!existing.eventName && race.eventName) existing.eventName = race.eventName;
+      continue;
+    }
+
+    groups.set(key, {
+      key,
+      eventId: race.eventId,
+      eventName: race.eventName,
+      races: [race],
+    });
+  }
+
+  return [...groups.values()]
+    .map((group) => ({ ...group, races: [...group.races].sort(compareRaceFormats) }))
+    .sort(compareRaceGroups);
+}
+
 export function getDistanceLandingPage(slug: string): DistanceLandingPage | null {
   return distanceLandingPages.find((page) => page.slug === slug) ?? null;
 }

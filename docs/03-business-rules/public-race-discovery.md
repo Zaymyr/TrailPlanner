@@ -53,6 +53,12 @@ The page exposes `SportsEvent` and `BreadcrumbList` structured data. It links to
 
 Missing distance, elevation, location or date stays visibly unconfirmed. The page must not generate course difficulty, expected duration, aid-station details, weather or nutrition claims from absent source data.
 
+## Catalog Event Grouping
+
+The `/courses` catalog groups published formats strictly by non-null `event_id`; a display name is never an identity and two homonymous events remain separate. Each standalone race with no event id stays in its own card. Event groups are ordered by their earliest valid format date, then French display name, while formats are ordered by numeric distance with unknown values last.
+
+Filtering happens before grouping, so an event card disappears when none of its formats matches. Every visible format remains a normal server-rendered link to `/courses/[slug]`. A date or location is promoted to the event header only when every visible format has the same non-null value; otherwise each format keeps its own fact and the header explicitly says that it varies.
+
 ## Prefiltered Landing Pages
 
 Distance pages use three mutually exclusive structured ranges:
@@ -82,6 +88,7 @@ Existing race slugs remain canonical until a rename is explicitly approved. The 
 
 - Do not count races with missing distance toward a distance landing page.
 - Do not present another format from the same event as a similar independent race.
+- Do not group catalog rows by `eventName`, course name, or location; only stable `eventId` may merge formats.
 - Similarity is a navigation aid, not a statement that courses have comparable terrain or difficulty.
 - Do not expose a thin landing page merely because its URL pattern exists; the five-race threshold is part of the indexation contract.
 - Do not derive regions or departments from display-location strings.
