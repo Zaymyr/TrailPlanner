@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-08-26
+last_verified: 2026-08-28
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -204,6 +204,7 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 - The organizer notification selector may target a live format after its GPX or metadata work is complete, but notification scope does not parse, copy, or mutate GPX data.
 - An incomplete GPX or unsaved GPX-related draft on one format must not block the publication switch of another complete format; foreground persistence is required only for the switched format.
 - Removing a sent organizer announcement from public history also leaves GPX files, parsed metrics, and ravito interpolation state unchanged.
+- Editing the event-level website, Instagram, or Facebook URL in the same Organizer information component does not change GPX parsing, storage, or format metrics.
 
 ## Related Docs
 

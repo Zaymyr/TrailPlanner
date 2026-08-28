@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-08-20
+last_verified: 2026-08-28
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -39,6 +39,7 @@ It:
 - remains visible in the always-expanded `Course` editor even though the separate organizer-side runner preview has been removed.
 - is independent from the format-location override; inheriting the event address does not change the uploaded GPX route or map bounds.
 - is also independent from the consolidated `Nom du format` input; synchronizing `name` and `series_name` changes only format identity text, not GPX geometry.
+- is independent from event-level website, Instagram, and Facebook fields rendered by the same Organizer information component.
 
 ## Gotchas
 

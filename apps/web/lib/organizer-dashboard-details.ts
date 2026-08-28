@@ -229,6 +229,8 @@ export const organizerEmergencyContactSchema = z
 
 export const organizerEventDetailsSchema = z.object({
   officialWebsiteUrl: nullableUrl,
+  instagramUrl: nullableUrl,
+  facebookUrl: nullableUrl,
   emergencyContact: organizerEmergencyContactSchema,
   eventLocation: organizerLocationSchema,
   dateRange: organizerEventDateRangeDetailsSchema,

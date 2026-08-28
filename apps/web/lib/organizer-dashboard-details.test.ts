@@ -9,13 +9,17 @@ import {
 } from "./organizer-dashboard-details";
 
 describe("parseOrganizerEventDetails", () => {
-  it("normalizes the official website and emergency contact", () => {
+  it("normalizes the event links and emergency contact", () => {
     const details = parseOrganizerEventDetails({
       officialWebsiteUrl: "https://grand-trail.example",
+      instagramUrl: "https://www.instagram.com/grandtrail",
+      facebookUrl: "https://www.facebook.com/grandtrail",
       emergencyContact: { name: "PC course", phone: "06 12 34 56 78" },
     });
 
     expect(details.officialWebsiteUrl).toBe("https://grand-trail.example");
+    expect(details.instagramUrl).toBe("https://www.instagram.com/grandtrail");
+    expect(details.facebookUrl).toBe("https://www.facebook.com/grandtrail");
     expect(details.emergencyContact).toEqual({ name: "PC course", phone: "+33 6 12 34 56 78" });
   });
 
