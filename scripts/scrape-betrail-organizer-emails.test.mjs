@@ -10,6 +10,8 @@ import {
   normalizeExactEventDate,
   raceEditionUrlForYear,
   recordsToCsv,
+  assertSheetWebhookSchema,
+  SHEET_WEBHOOK_SCHEMA_VERSION,
 } from "./scrape-betrail-organizer-emails.mjs";
 
 test("extractEmailAddresses normalizes and deduplicates public addresses", () => {
@@ -98,5 +100,14 @@ test("chooseEventDate prefers an unambiguous structured date for the race editio
       "https://www.betrail.run/race/example/2027",
     ),
     "",
+  );
+});
+
+test("rejects a stale Apps Script webhook before records are marked as synced", () => {
+  assert.equal(SHEET_WEBHOOK_SCHEMA_VERSION, 2);
+  assert.doesNotThrow(() => assertSheetWebhookSchema({ schemaVersion: 2 }));
+  assert.throws(
+    () => assertSheetWebhookSchema({ ok: true, inserted: 0, updated: 0, skipped: 50 }),
+    /webhook Apps Script obsolete/,
   );
 });

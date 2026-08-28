@@ -16,6 +16,8 @@ The installer creates a trigger that checks the queue every minute. It updates `
 
 After changing [`Code.gs`](Code.gs), replace the bound Apps Script editor content again and save it. The existing trigger continues to call `runOutreachJob`; rerun `installOutreachJob` only when the trigger or OAuth permissions need to be recreated.
 
+For webhook changes, also edit the existing Web app deployment and select **New version**. Merely saving the editor does not update the `/exec` deployment. The scraper verifies the webhook schema and stops with `webhook Apps Script obsolete` when its configured URL still points to an older deployment.
+
 ## BeTrail scraper webhook
 
 The same Apps Script project can receive prospects extracted by the local BeTrail scraper:
@@ -25,7 +27,7 @@ The same Apps Script project can receive prospects extracted by the local BeTrai
 3. Store the deployment `/exec` URL and secret locally as `BETRAIL_SHEET_WEBHOOK_URL` and `BETRAIL_SHEET_WEBHOOK_TOKEN`.
 4. Run the scraper normally. Records containing public email addresses are upserted into `Prospects` after each race.
 
-The secret is stored in Apps Script properties, not in the spreadsheet. Generating a new token immediately revokes the previous one. The webhook accepts at most 100 race records per request, deduplicates by normalized email, preserves populated prospect fields, and fills the exact event date only when the scraper found a complete `YYYY-MM-DD` date. It can also fill an empty `event_week` and its historical-edition basis during a missing-date recovery pass.
+The secret is stored in Apps Script properties, not in the spreadsheet. Generating a new token immediately revokes the previous one. The webhook accepts at most 100 race records per request, deduplicates by normalized email, preserves populated prospect fields, and fills the exact event date only when the scraper found a complete `YYYY-MM-DD` date. It can also fill an empty `event_week` and its historical-edition basis during a missing-date recovery pass. Each request and successful response carry a schema version so an obsolete deployment cannot silently report recovered weeks as synchronized.
 
 ## Event-period planning
 

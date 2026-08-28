@@ -13,6 +13,7 @@ const context = vm.createContext({
   },
 });
 vm.runInContext(`${source}\n;globalThis.__testApi = {
+  SCRAPER_WEBHOOK,
   asBoolean_,
   asDate_,
   buildThreadedDraftRaw_,
@@ -31,6 +32,10 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
 };`, context);
 
 const api = context.__testApi;
+
+test('publishes the scraper webhook schema expected by the local client', () => {
+  assert.equal(api.SCRAPER_WEBHOOK.schemaVersion, 2);
+});
 
 test('replaces the Liquid-style organization variable', () => {
   const template = "Un Race Book pour {{organization_name | default: ''}}";

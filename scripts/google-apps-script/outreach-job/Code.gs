@@ -21,6 +21,7 @@ const OUTREACH_JOB = Object.freeze({
 const SCRAPER_WEBHOOK = Object.freeze({
   tokenProperty: 'BETRAIL_SCRAPER_WEBHOOK_TOKEN',
   maxRecordsPerRequest: 100,
+  schemaVersion: 2,
 });
 
 const GMAIL_RECONCILIATION = Object.freeze({
@@ -51,6 +52,9 @@ function doPost(event) {
     if (!expectedToken || !constantTimeEquals_(String(payload.token || ''), expectedToken)) {
       return jsonResponse_({ ok: false, error: 'unauthorized' });
     }
+    if (Number(payload.schemaVersion) !== SCRAPER_WEBHOOK.schemaVersion) {
+      return jsonResponse_({ ok: false, error: 'unsupported_schema', schemaVersion: SCRAPER_WEBHOOK.schemaVersion });
+    }
     if (!Array.isArray(payload.records) || payload.records.length === 0) {
       return jsonResponse_({ ok: false, error: 'records_required' });
     }
@@ -62,7 +66,13 @@ function doPost(event) {
     if (!lock.tryLock(10000)) return jsonResponse_({ ok: false, error: 'locked' });
     try {
       const result = upsertScrapedProspects_(payload.records);
-      return jsonResponse_({ ok: true, inserted: result.inserted, updated: result.updated, skipped: result.skipped });
+      return jsonResponse_({
+        ok: true,
+        schemaVersion: SCRAPER_WEBHOOK.schemaVersion,
+        inserted: result.inserted,
+        updated: result.updated,
+        skipped: result.skipped,
+      });
     } finally {
       lock.releaseLock();
     }

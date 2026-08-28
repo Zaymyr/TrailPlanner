@@ -91,7 +91,7 @@ After deploying the Apps Script project as a Web app:
 2. Store the returned token and `/exec` deployment URL as local environment variables.
 3. Run the scraper normally.
 
-Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. Existing prospects are matched by normalized email; populated organization, website, date, event week, contact, reply, bounce, exclusion, and opt-out values are never overwritten. A recovered historical week fills `event_week` and records its edition in `event_date_basis`; new prospects receive the same formulas, checkbox validation, and formatting as the existing queue.
+Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. The scraper and web app exchange a schema version; when the configured `/exec` URL still runs an obsolete deployment, synchronization stops immediately with `webhook Apps Script obsolete` instead of falsely marking ignored rows as synchronized. Existing prospects are matched by normalized email; populated organization, website, date, event week, contact, reply, bounce, exclusion, and opt-out values are never overwritten. A recovered historical week fills `event_week` and records its edition in `event_date_basis`; new prospects receive the same formulas, checkbox validation, and formatting as the existing queue.
 
 ## Data Handling
 
@@ -161,6 +161,7 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 - Follow-ups use the latest sent Gmail thread for the prospect address. The job filters individual message headers after the Gmail thread search so an incoming reply in the same thread is not mistaken for a sent message.
 - Gmail signatures are fetched through the Gmail advanced service. Non-BMP icons are converted to HTML entities before draft creation because `GmailApp.createDraft` can otherwise replace them. If the service or signature lookup is unavailable, the job creates the draft without a signature and logs a warning rather than blocking the queue.
 - The Apps Script web app URL is public by necessity, but every write requires the long token stored in Script Properties. Rotate it with `createScraperWebhookToken` if it is ever exposed.
+- Saving `Code.gs` does not update an existing Web app by itself. After webhook changes, edit the deployment, choose a new version, and keep the corresponding `/exec` URL in `BETRAIL_SHEET_WEBHOOK_URL`; the schema check detects stale URLs before local sync state is changed.
 - Google Sheet synchronization only accepts exact event dates that match the year encoded in the BeTrail race-edition URL. Ambiguous dates stay empty and therefore remain blocked from outreach.
 - Historical recovery deliberately tries only the two preceding edition URLs. A renamed event, a changed BeTrail slug, or an edition without an exact date remains `not_found`; use `--retry-date-failures` only when a later retry is justified.
 
