@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-08-27
+last_verified: 2026-08-28
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -138,8 +138,12 @@ Run `installOutreachJob` once from the Apps Script editor after deployment and O
 - evaluates the send window against `outreach_planning_date`; exact future dates stay unchanged, while past editions use the same ISO event week in the next applicable year;
 - rechecks the selected prospect's contact, reply, bounce, exclusion, and opt-out fields;
 - searches Gmail for an existing sent message or reply from the same address;
+- reconciles Gmail activity in bounded rotating batches every five minutes by default, updating `last_sent_email_at` and `replied_at` in `Prospects` even when draft creation is disabled;
+- when `activation_relance` is checked, selects contacts whose last sent message is older than `delai_relance_jours`, then rechecks Gmail and creates at most one reply draft in the existing thread;
 - creates at most one personalized draft;
 - records the outcome in `Historique envois`, which the job creates when first installed.
+
+Initial drafts and follow-up drafts share the configured daily cap and inter-draft delay. A follow-up is blocked when Gmail contains a later reply, or when the prospect is bounced, excluded, opted out, already followed up, or has no sent Gmail thread. The default follow-up delay is seven days, but `activation_relance` stays unchecked until the follow-up copy has been reviewed.
 
 The one-minute trigger is a polling cadence, not an exact delivery guarantee. Apps Script can start a run slightly late. With a one-minute delay and a limit of 150, a full daily draft sequence takes at least two hours and thirty minutes.
 
@@ -153,7 +157,8 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 - A CSV queue is only an intermediate review artifact. Gmail or another sender must re-check replies and exclusions immediately before sending because those values can change after the export.
 - Never present `outreach_planning_date` as a verified race date when `event_date_basis` says it was extrapolated. It is the Monday of the known ISO event week and exists only to place outreach in the right order of magnitude.
 - Rows with neither an exact source date nor a reviewed `event_week` remain blocked. A week from 1 to 53 can be entered manually when another reliable source establishes the period.
-- Creating a draft does not prove that it was sent. `Historique envois` prevents duplicate drafts, but manual sending and replies still need reconciliation before an automatic-send mode is ever considered.
+- Creating a draft does not prove that it was sent. Gmail reconciliation confirms manual sends and replies, while `Historique envois` prevents duplicate initial and follow-up drafts. Reconciliation is deliberately batched and rotating to limit Gmail reads, so Sheet timestamps can lag Gmail by several minutes.
+- Follow-ups use the latest sent Gmail thread for the prospect address. The job filters individual message headers after the Gmail thread search so an incoming reply in the same thread is not mistaken for a sent message.
 - Gmail signatures are fetched through the Gmail advanced service. Non-BMP icons are converted to HTML entities before draft creation because `GmailApp.createDraft` can otherwise replace them. If the service or signature lookup is unavailable, the job creates the draft without a signature and logs a warning rather than blocking the queue.
 - The Apps Script web app URL is public by necessity, but every write requires the long token stored in Script Properties. Rotate it with `createScraperWebhookToken` if it is ever exposed.
 - Google Sheet synchronization only accepts exact event dates that match the year encoded in the BeTrail race-edition URL. Ambiguous dates stay empty and therefore remain blocked from outreach.
