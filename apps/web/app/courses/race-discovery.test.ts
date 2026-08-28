@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { PublicRace } from "../../lib/public-races";
 import {
   distanceLandingPages,
+  groupPublicRacesByEvent,
   getIndexableDistancePages,
   getOtherEventFormats,
   getSimilarRaces,
@@ -28,6 +29,106 @@ const makeRace = (overrides: Partial<PublicRace> & Pick<PublicRace, "id" | "slug
 };
 
 describe("race discovery", () => {
+  it("groups formats by stable event id and orders formats by distance", () => {
+    const eventId = "event-a";
+    const long = makeRace({
+      id: "long",
+      slug: "long",
+      name: "Ultra",
+      eventId,
+      eventName: "Festival du trail",
+      date: "2026-09-12",
+      distanceKm: 100,
+    });
+    const short = makeRace({
+      id: "short",
+      slug: "short",
+      name: "Trail court",
+      eventId,
+      eventName: "Festival du trail",
+      date: "2026-09-12",
+      distanceKm: 20,
+    });
+
+    expect(groupPublicRacesByEvent([long, short])).toEqual([
+      expect.objectContaining({
+        key: `event:${eventId}`,
+        eventId,
+        eventName: "Festival du trail",
+        races: [short, long],
+      }),
+    ]);
+  });
+
+  it("does not merge standalone races or distinct events with the same display name", () => {
+    const firstEvent = makeRace({
+      id: "event-race-a",
+      slug: "event-race-a",
+      name: "42 km",
+      eventId: "event-a",
+      eventName: "Trail des crêtes",
+    });
+    const secondEvent = makeRace({
+      id: "event-race-b",
+      slug: "event-race-b",
+      name: "80 km",
+      eventId: "event-b",
+      eventName: "Trail des crêtes",
+    });
+    const standaloneA = makeRace({ id: "standalone-a", slug: "standalone-a", name: "Course libre" });
+    const standaloneB = makeRace({ id: "standalone-b", slug: "standalone-b", name: "Course libre" });
+
+    expect(groupPublicRacesByEvent([firstEvent, secondEvent, standaloneA, standaloneB]).map((group) => group.key)).toEqual([
+      "race:standalone-a",
+      "race:standalone-b",
+      "event:event-a",
+      "event:event-b",
+    ]);
+  });
+
+  it("sorts event groups by their earliest date and leaves undated groups last", () => {
+    const later = makeRace({
+      id: "later",
+      slug: "later",
+      name: "Plus tard",
+      eventId: "event-later",
+      eventName: "Événement de septembre",
+      date: "2026-09-12",
+    });
+    const earlier = makeRace({
+      id: "earlier",
+      slug: "earlier",
+      name: "Plus tôt",
+      eventId: "event-earlier",
+      eventName: "Événement de juin",
+      date: "2026-06-03",
+    });
+    const undated = makeRace({ id: "undated", slug: "undated", name: "Sans date" });
+
+    expect(groupPublicRacesByEvent([undated, later, earlier]).map((group) => group.key)).toEqual([
+      "event:event-earlier",
+      "event:event-later",
+      "race:undated",
+    ]);
+  });
+
+  it("deduplicates repeated race rows without mutating the input", () => {
+    const race = makeRace({
+      id: "same-race",
+      slug: "same-race",
+      name: "Format unique",
+      eventId: "event-a",
+      eventName: "Événement",
+    });
+    const input = [race, { ...race }];
+
+    const groups = groupPublicRacesByEvent(input);
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0]?.races).toEqual([race]);
+    expect(input).toHaveLength(2);
+  });
+
   it("publishes only distance pages with enough structured races", () => {
     const races = Array.from({ length: MIN_INDEXABLE_RACES }, (_, index) =>
       makeRace({ id: `short-${index}`, slug: `short-${index}`, name: `Short ${index}`, distanceKm: 20 }),
