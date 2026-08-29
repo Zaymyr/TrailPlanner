@@ -21,6 +21,8 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
   encodeMimeHeader_,
   gmailHeaderValue_,
   headerIncludesEmail_,
+  followupTemplateKeyForMessage_,
+  originalMessageIncludesCourseTest_,
   isFollowupEligible_,
   markdownBodyToHtml_,
   parseEventWeek_,
@@ -111,6 +113,22 @@ test('matches the exact prospect address in Gmail message headers', () => {
   assert.equal(api.headerIncludesEmail_('Trail Club <contact@example.com>, autre@example.org', 'contact@example.com'), true);
   assert.equal(api.headerIncludesEmail_('another-contact@example.com', 'contact@example.com'), false);
   assert.equal(api.headerIncludesEmail_('', 'contact@example.com'), false);
+});
+
+test('chooses the follow-up copy from the actual first sent message', () => {
+  const legacyMessage = {
+    getSubject: () => 'Racebook mobile pour course et trail',
+    getPlainBody: () => 'Je cherche des organisations pilotes. Seriez-vous ouverts à un échange de 15 à 20 minutes ?',
+  };
+  const testCourseMessage = {
+    getSubject: () => 'Un Race Book mobile',
+    getPlainBody: () => 'Téléchargez l’application puis recherchez la course « TST ».',
+  };
+
+  assert.equal(api.followupTemplateKeyForMessage_(legacyMessage), 'corps_relance_premier_contact');
+  assert.equal(api.followupTemplateKeyForMessage_(testCourseMessage), 'corps_relance');
+  assert.equal(api.originalMessageIncludesCourseTest_('tester ce format sur un événement réel'), false);
+  assert.equal(api.originalMessageIncludesCourseTest_('ouvrir la course test'), true);
 });
 
 test('builds a threaded MIME draft without allowing header newlines', () => {

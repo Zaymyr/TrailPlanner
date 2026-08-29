@@ -49,6 +49,7 @@ The queue uses `outreach_planning_date`, so a past 2026 edition can be scheduled
 - Every terminal outcome is written to `Historique envois` to prevent duplicate drafts.
 - Gmail reconciliation updates `Prospects!last_sent_email_at` and `Prospects!replied_at` from actual Gmail messages. It runs in a rotating bounded batch every five minutes by default, including while draft creation is disabled.
 - `activation_relance` is off by default. When enabled, the job creates one reply draft in the existing Gmail thread after `delai_relance_jours` (ten business days, Monday through Friday, by default), only if no response, bounce, exclusion, opt-out, or earlier follow-up exists.
+- Before creating that draft, the job reads the first sent message. It uses `corps_relance` when that message already mentioned the TST/course-test flow; older presentation emails use `corps_relance_premier_contact`, which introduces the newer site and app resources, then invites the organizer to download the app and open TST before sharing feedback.
 - Public holidays are not excluded unless a holiday calendar is added explicitly; the business-day calculation currently skips weekends only.
 - Initial and follow-up drafts share `limite_quotidienne` and `delai_entre_envois_minutes`.
 - The scraper webhook never sends email and never changes contact/reply/exclusion fields on an existing prospect.
