@@ -255,6 +255,7 @@ export function OrganizerDashboard({
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [checkoutTarget, setCheckoutTarget] = useState<"racebook" | "pro" | null>(null);
+  const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
   const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
   const [eventUpdateError, setEventUpdateError] = useState<string | null>(null);
@@ -1699,11 +1700,27 @@ export function OrganizerDashboard({
   };
 
   const startCheckout = async (targetTier: "racebook" | "pro") => {
-    if (!(await saveBeforeNavigation())) return;
-    if (!accessToken || !selectedEventId || !activeEdition) return;
+    if (checkoutTarget !== null) return;
     setCheckoutTarget(targetTier);
+    setCheckoutError(null);
     setError(null);
     try {
+      if (!accessToken) {
+        const message = "Ta session a expiré. Reconnecte-toi avant de lancer le paiement.";
+        setCheckoutError(message);
+        showToast("error", message);
+        return;
+      }
+      if (!selectedEventId || !activeEdition) {
+        const message = "Sélectionne une édition avant de lancer le paiement.";
+        setCheckoutError(message);
+        showToast("error", message);
+        return;
+      }
+      if (!(await saveBeforeNavigation())) {
+        setCheckoutError("Le paiement n’a pas été lancé car les modifications en cours n’ont pas pu être enregistrées.");
+        return;
+      }
       const response = await fetch("/api/organizer/publication-checkout", {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -1711,10 +1728,19 @@ export function OrganizerDashboard({
       });
       const data = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
       if (!response.ok || !data?.url) {
-        showToast("error", data?.message ?? "Impossible d’ouvrir le paiement Stripe.");
+        const message = data?.message ?? "Impossible d’ouvrir le paiement Stripe.";
+        setCheckoutError(message);
+        showToast("error", message);
         return;
       }
       window.location.assign(data.url);
+    } catch (caught) {
+      console.error("Unable to start organizer checkout", caught);
+      const message = caught instanceof Error && caught.message
+        ? caught.message
+        : "Impossible de joindre le service de paiement. Vérifie ta connexion puis réessaie.";
+      setCheckoutError(message);
+      showToast("error", message);
     } finally {
       setCheckoutTarget(null);
     }
@@ -2617,7 +2643,13 @@ export function OrganizerDashboard({
         disabled={status === "saving"}
       />
 
-      <Dialog open={pricingDialogOpen} onOpenChange={setPricingDialogOpen}>
+      <Dialog
+        open={pricingDialogOpen}
+        onOpenChange={(open) => {
+          setPricingDialogOpen(open);
+          if (!open) setCheckoutError(null);
+        }}
+      >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
             <DialogTitle>{activeTier === "racebook" ? "Passer à RaceBook Pro" : "Publier cette édition"}</DialogTitle>
@@ -2625,6 +2657,11 @@ export function OrganizerDashboard({
               Le droit est permanent pour cette édition et couvre tous ses formats présents et futurs. Prix hors taxes, TVA calculée par Stripe.
             </DialogDescription>
           </DialogHeader>
+          {checkoutError ? (
+            <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              {checkoutError}
+            </p>
+          ) : null}
           {activeTier === "racebook" ? (
             <Card className="border-brand">
               <CardHeader>
