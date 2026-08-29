@@ -86,7 +86,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
     });
   });
 
-  it("rejects Racebook publication before admin approval", async () => {
+  it("rejects Racebook publication without an active paid or admin entitlement", async () => {
     organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
       id: raceId,
       event_id: eventId,
@@ -94,10 +94,11 @@ describe("/api/organizer/races/[id] PATCH", () => {
       racebook_publication_approved_at: null,
     });
 
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("RaceBook entitlement required.", { status: 400 }));
     const response = await PATCH(patchRequest({ racebookIsLive: true }), { params: { id: raceId } });
 
-    expect(response.status).toBe(409);
-    expect(fetch).not.toHaveBeenCalled();
+    expect(response.status).toBe(403);
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 
   it("keeps an incomplete imported format hidden until its required fields are completed", async () => {
@@ -162,8 +163,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
       racebook_publication_approved_at: "2026-08-20T12:00:00.000Z",
     });
     vi.mocked(fetch).mockResolvedValueOnce(
-      buildJsonResponse([
-        {
+      buildJsonResponse({
           id: raceId,
           edition_group_id: "33333333-3333-3333-3333-333333333333",
           series_name: "Trail 42",
@@ -174,14 +174,17 @@ describe("/api/organizer/races/[id] PATCH", () => {
           is_live: true,
           racebook_is_live: true,
           racebook_publication_approved_at: "2026-08-20T12:00:00.000Z",
-        },
-      ])
+        })
     );
 
     const response = await PATCH(patchRequest({ racebookIsLive: true }), { params: { id: raceId } });
 
     expect(response.status).toBe(200);
-    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body))).toEqual({ racebook_is_live: true });
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("/rpc/set_organizer_racebook_visibility");
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body))).toMatchObject({
+      p_race_id: raceId,
+      p_is_live: true,
+    });
   });
 });
 

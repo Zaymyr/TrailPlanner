@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -28,6 +28,10 @@ related_files:
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/lib/racebook.ts
   - supabase/tests/organizer_rls_checks.sql
+  - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/tests/organizer_edition_entitlements_checks.sql
+  - apps/web/lib/organizer-entitlements.ts
+  - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -143,7 +147,7 @@ related_tables:
 
 ## Purpose
 
-This document records the organizer portal rules: authenticated users create a catalog-visible event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile exposes each populated Racebook to its active organizers for preview while keeping runner access behind admin approval and the publication flag.
+This document records the organizer portal rules: authenticated users create a catalog-visible event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile exposes each populated Racebook to its active organizers for preview while keeping runner access behind the edition entitlement and publication flag.
 
 ## Key Concepts
 
@@ -196,7 +200,7 @@ Organizers with an active event membership can:
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
 
-The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card, with a small destructive cross immediately beside it, and `Créer une nouvelle édition` stays on the right. The cross opens a dialog that enables deletion only after the organizer retypes the selected year. The button opens a dialog for the start/end dates and a default-enabled `Dupliquer depuis l’édition précédente` checkbox; disabling it creates an empty edition. The edition card has its own visibility switch. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Each selected-edition format row shows a Racebook on/off switch that only ever controls in-app visibility: before approval it is a disabled, read-only indicator (never triggers a request), and only after admin approval does it become interactive and directly control `races.racebook_is_live`. Publication itself is requested once for the whole event through a single `Demander la publication` button in the dashboard's bottom action bar (alongside `Notifier les coureurs` and `Sauvegarder`); it always stays visible for the selected edition, carries a null `race_id` (event/current-edition level), and admin approval publishes every complete format of that edition together in one action — the organizer never validates format by format. The button becomes `Demande en cours` while the request is pending, and `Tous les formats sont publiés` once every format is approved. A hidden edition disables the switch and the button, and guarantees the Racebook flag stays false. A request always saves any dirty foreground work first, so unsaved changes on the currently open format cannot be silently skipped. `Notifier les coureurs` opens the same notification modal, pre-scoped to the currently open format when one is active. Completion remains independent from catalog and Racebook visibility.
+The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card, with a small destructive cross immediately beside it, and `Créer une nouvelle édition` stays on the right. The cross opens a dialog that enables deletion only after the organizer retypes the selected year. The button opens a dialog for the start/end dates: creating an empty edition is free, while duplication is available only with Pro. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Each selected-edition format row exposes its Racebook switch only when the edition has RaceBook or Pro. From Visibilité, the publication action opens the RaceBook 99 € HT / Pro 299 € HT offer dialog. RaceBook organizers keep `Notifier les coureurs` visible, but activating it opens the Pro upgrade at 200 € HT. After Stripe redirects back, the dashboard polls the trusted edition entitlement until the webhook confirms it; URL parameters never grant access. A hidden edition guarantees its Racebook flags stay false. Checkout saves dirty foreground work first, so unsaved changes cannot be silently skipped. Completion remains independent from catalog and Racebook visibility.
 
 Newly created years appear immediately in the event-level year selector and are editable without admin validation. Inside a format tab, the year remains driven only by the event-level selector; the format action bar does not repeat a local "Edition active" block.
 
@@ -206,7 +210,7 @@ The selected edition year controls its canonical range and attached format rows,
 
 When the organizer adds a format, the creation form can queue its image and GPX before submission. GPX parsing still pre-fills course metrics and visuals. The format inherits the edition start date unless a different in-range date is enabled; after row creation, the existing image and GPX routes persist the pending files.
 
-Approved organizers can also publish a manual update from the top dashboard card through `Notifier les coureurs`. The modal requires a scope (`Tout l’événement` or one live format from the selected edition) and one short message. It creates one `race_event_updates` row, then sends push notifications only to users who favorited the event. Event-wide pushes use the event name in the title; format-specific pushes use the format name and carry both event and format ids. Recent messages in the same modal expose a small delete cross; after confirmation, the membership-checked route removes that event-scoped history row and its read receipts, without attempting to recall an already delivered push. The modal's follower total comes from an exact Supabase aggregate count with a one-row response range, not from downloading the follower ids. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
+Organizers whose selected edition has Pro can publish a manual update from the top dashboard card through `Notifier les coureurs`. The modal requires a scope (`Tout l’événement` or one live format from the selected edition) and one short message. It creates one `race_event_updates` row, then sends push notifications only to users who favorited the event. Event-wide pushes use the event name in the title; format-specific pushes use the format name and carry both event and format ids. Recent messages in the same modal expose a small delete cross; after confirmation, the membership-checked route removes that event-scoped history row and its read receipts, without attempting to recall an already delivered push. The modal's follower total comes from an exact Supabase aggregate count with a one-row response range, not from downloading the follower ids. This action is intentionally separate from normal save/publish flows so tiny organizer edits never notify runners automatically.
 
 That same dashboard header now also exposes `Importer les informations`. The admin supplies an optional general event URL, additional official URLs, and/or official documents. Those additional URLs may point to an event overview, one or several formats, a regulation, program, logistics, registration, or archive; they are evidence sources and not asserted format identities. The server detects `UTMB`, `Trace de Trail`, or falls back to bounded generic HTML/JSON-LD extraction plus source classification. The first review shows every candidate with its edition, existence evidence/confidence, and missing required fields. It keeps a live final count while the admin corrects names, merges or separates detections, binds an existing format, adds a forgotten format, or ignores a false positive. The second review groups the event and every confirmed format, shows safe/review/conflict/missing counters, and offers exactly one choice per field: keep current, select a sourced claim, or leave missing.
 
@@ -250,7 +254,7 @@ Creating a request through `/api/organizer/publication-requests` requires:
 - event location plus the selected `race_event_editions.start_date` / `end_date` range;
 - at least one format with a non-empty name, `distance_km > 0`, and `elevation_gain_m >= 0`.
 
-The organizer event and race mutation routes ignore/reject direct live-state-only writes. Admin approval through `/api/admin/event-publication-requests` rechecks readiness and atomically marks the event plus complete formats live. Rejection leaves all source rows in their current state.
+The organizer event and race mutation routes ignore/reject direct catalog live-state writes. RaceBook publication goes through a membership-checked atomic RPC that rechecks the edition entitlement and format completeness. Legacy admin publication requests remain reviewable only for history; approving one grants Pro to its edition.
 
 Recommended modules improve the dashboard score but do not block publication: GPX, ravitos, equipment, bib pickup, and access/shuttles.
 
@@ -316,6 +320,12 @@ Planner `assistanceAllowed` is separate from organizer product presence: it says
 
 No mobile organizer editor exists in v1. Mobile can consume published organizer details through the read-only `race/[id]/racebook` screen only when the catalog format is live, `races.racebook_is_live = true`, and there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, hidden Racebook visibility, or admin powers.
 
+## Commercial Offer Supersession
+
+The current publication gate is edition-scoped Visibilité/RaceBook/Pro, documented in [Organizer Commercial Offers](organizer-commercial-offers.md). A paid or admin RaceBook entitlement replaces new admin publication requests: organizers can publish complete formats immediately after the webhook activates the edition. RaceBook keeps `Notifier les coureurs` visible as a 200 € HT Pro upgrade; server routes still refuse notifications, duplication, relay writes, official station products, and assisted import without Pro. Historical publication requests remain audit/compatibility data, and approving one grants Pro.
+
+Manual empty edition creation remains free and unlimited. Only cloning the previous edition requires Pro. An entitlement covers all current and later formats of the edition and every active organizer membership for the event.
+
 ## Gotchas
 
 - L'action `Importer les informations` accepte la sélection de plusieurs PDF/images dans l'interface. L'extraction PDF texte conserve le numéro de page lorsque le parseur le fournit. Une très longue ligne garde un extrait centré sur la donnée détectée, borné à 2 000 caractères pour la preuve et 500 pour la valeur; les claims documentaires équivalents sont dédupliqués et limités à huit par scope et champ pour chaque document afin qu'un roadbook verbeux ne rejette pas la découverte. Les images et PDF sans texte nécessitent encore un OCR ; aucune donnée n'est inventée en son absence.
@@ -332,7 +342,7 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 - Keep emergency contact data event-scoped in `race_events.organizer_details`; do not copy it into every format or expose it outside the deliberate published Racebook read.
 - Do not let the mobile Racebook bypass its three-part gate: catalog-live format, `racebook_is_live = true`, and meaningful organizer content. Direct links that fail any part must show the unavailable state.
 - Do not make the new route sketch or elevation-profile blocks part of the availability gate. They are best-effort visuals and must stay optional when stored GPX/elevation data is missing.
-- New organizer formats remain visible as courses (`is_live = true`) but start with `racebook_is_live = false` and no approval timestamp.
+- New organizer formats remain visible as courses (`is_live = true`) but start with `racebook_is_live = false`; first entitled publication records the durable unlock timestamp.
 - The two-pass import is the incomplete-format exception: a newly confirmed import format remains `data_status = draft` and `is_live = false` until date, distance, and D+ are known; completion restores course visibility only.
 - The normal Organizer format editor participates in the same lifecycle. Explicitly saving a missing date, distance, or D+ removes that key from `missing_required_fields`; the last required value changes the imported row to `complete`, restores `is_live`, and leaves `racebook_is_live = false`. Clearing a required date makes the row a hidden draft again. The dashboard exposes the draft state and the remaining required fields after reload.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
@@ -350,7 +360,7 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 - Keep the initial Organizer bootstrap authorization tied to the active memberships already loaded in that request. A query-string `eventId` alone grants no access, and this response must stay free of GPX and module-specific sidecars.
 - Keep heavy Organizer data module-scoped. The event overview must remain usable without loading format GPX, source course points, products, announcements, or follower totals.
 - Keep Organizer cache invalidation aligned with mutations. Never reuse a sidecar snapshot after ravito, relay, or station-product writes; never reuse a GPX preview under a different `gpx_storage_path`; clear all route-local entries when the authenticated user changes.
-- Do not let organizer switches grant approval. Before `racebook_publication_approved_at` exists they may only request review; after approval they may freely toggle `racebook_is_live` without changing catalog visibility.
+- Do not let browser switches grant entitlement. The service-only publication RPC checks RaceBook/Pro and atomically records legacy publication provenance on first publish.
 - Keep publication-switch persistence format-scoped. An incomplete dirty format may remain open without blocking the switch for another complete format; only the format whose switch is used must finish its foreground save first.
 - Keep first-publication readiness tied to the clicked `race_id` and that race's `edition_id`. The event's `is_current` edition may differ from the year selected in the dashboard and must not redirect or reject the request.
 - Do not bulk-duplicate common event details into every existing format. Equipment is inherited while `mandatoryEquipment.overrideEnabled` is false; only an explicitly checked format stores and uses its own full equipment list.

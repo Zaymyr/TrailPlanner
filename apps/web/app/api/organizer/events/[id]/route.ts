@@ -17,6 +17,7 @@ import {
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
+import { loadOrganizerEditionEntitlements } from "../../../../../lib/organizer-entitlements";
 
 const updateEventSchema = z.object({
   selectedEditionYear: z.string().regex(/^\d{4}$/).optional(),
@@ -116,9 +117,14 @@ const deleteStorageObject = async (
   }).catch(() => null);
 };
 
-const mapEventDetail = (event: z.infer<typeof eventDetailSchema>) => ({
+const mapEventDetail = (
+  event: z.infer<typeof eventDetailSchema>,
+  entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {}
+) => ({
   ...event,
-  editions: (event.race_event_editions ?? []).sort((left, right) => right.edition_year - left.edition_year),
+  editions: (event.race_event_editions ?? [])
+    .sort((left, right) => right.edition_year - left.edition_year)
+    .map((edition) => ({ ...edition, entitlement: entitlements[edition.id] ?? null })),
   organizerDetails: parseOrganizerEventDetails(event.organizer_details),
   races: (event.races ?? []).map((race) => {
     const { race_aid_stations: raceAidStations, ...raceFields } = race;
@@ -156,7 +162,12 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   const event = z.array(eventDetailSchema).parse(await response.json())[0] ?? null;
   if (!event) return jsonError("Event not found.", 404);
 
-  return withSecurityHeaders(NextResponse.json({ event: mapEventDetail(event) }));
+  const entitlements = await loadOrganizerEditionEntitlements(
+    auth.serviceConfig,
+    (event.race_event_editions ?? []).map((edition) => edition.id)
+  );
+
+  return withSecurityHeaders(NextResponse.json({ event: mapEventDetail(event, entitlements) }));
 }
 
 export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {

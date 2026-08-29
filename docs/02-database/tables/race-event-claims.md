@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -95,10 +95,10 @@ Summary:
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
 - Approved claims should leave the admin pending-review queue once that membership handoff succeeds; the admin tab shows those rows only through the active-access membership list.
 - The admin review queue should resolve organizer identity when possible (`user_profiles.full_name`, otherwise auth email, otherwise `user_id`) so reviewers are not triaging UUIDs alone.
-- Once membership exists, yearly editions may be created directly as drafts, either empty or by cloning the selected edition. Claims remain only an access-control exception for pre-existing catalog events; publication review is separate.
+- Once membership exists, yearly editions may be created directly as drafts. Empty creation is free; cloning requires Pro. Claims remain only an access-control exception for pre-existing catalog events, while publication rights come from the edition entitlement.
 - The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks event, format, image, GPX, ravito, product, edition visibility/deletion, geocoded-location maintenance, and the event-level list of bib-pickup locations with their dated time slots, while first Racebook publication remains a separate admin-reviewed request carrying the clicked `race_id`. Before approval, the per-format switch requests publication; afterward it can publish or hide that Racebook. Hiding an edition forces all of its format and Racebook flags off; deleting it requires retyping the year and cannot remove the last edition. The switch waits for a save only when its own format is currently being edited, so another incomplete draft does not block it.
 - Trusted admins do not need claim or membership handoff: the claims dashboard endpoint returns all events as selector entries after its `app_metadata` admin check, while preserving membership-only selector data for ordinary users.
-- The same approved-only dashboard also owns the manual `Notifier les coureurs` action, including its whole-event/live-format selector and confirmed deletion of recent history entries. Pending or rejected claims must not unlock organizer update history, follower counts, sends, or deletes, and a format choice never changes that membership boundary.
+- The same membership dashboard exposes `Notifier les coureurs`, but history, follower count, send, and delete operations additionally require the selected edition's Pro capability.
 - After that membership check, the follower total is returned only as an exact aggregate count; the organizer route does not expose or transfer the individual favorite-owner ids.
 - The two-pass website-import review is reserved for trusted admins, independently from normal organizer membership. Its `additionalUrls` are classified official evidence sources, not claimed formats; even a grounded source classification cannot bypass admin authorization. Confirming discovered formats may atomically create hidden drafts for the selected edition; field claims, evidence, GPX status, and LLM recommendations remain review-only until the admin selects claim ids from an unexpired event/edition/session-bound signed snapshot. Neither existence confidence, completeness, signature, nor LLM confidence replaces authorization.
 - Roadbook selection is preview-only. Each document may be 25 MB because it is uploaded directly to a private, owner-folder-scoped Storage location, analyzed server-side, then deleted; it does not alter this membership boundary.

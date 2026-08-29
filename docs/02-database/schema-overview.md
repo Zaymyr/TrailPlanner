@@ -44,6 +44,8 @@ related_tables:
   - race_aid_station_products
   - race_events
   - race_event_editions
+  - organizer_edition_entitlements
+  - organizer_edition_payments
   - race_event_claims
   - race_event_edition_requests
   - race_event_publication_requests
@@ -77,8 +79,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
 - Race slug redirect: a reserved former course slug targeting the stable race id so canonical renames do not break indexed URLs.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
-- Event publication request: organizer request for the first admin approval of one exact Racebook format, identified by `race_id`; course catalog visibility is independent.
-- Racebook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. Approval provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by` lets organizers toggle approved Racebooks later.
+- Event publication request: retained legacy audit row from the former admin-approval workflow; current paid publication does not enqueue a request.
+- Racebook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. An active edition RaceBook or Pro entitlement authorizes publication, and the first atomic publication stores durable unlock provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Final roadbook synchronization: the Les Amaz’Eaunes 2026 data-only migration corrects the canonical edition/format dates and organizer JSON while preserving unconfirmed course metrics and omitting unspecified ravito rows.
@@ -87,6 +89,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
+- Organizer edition entitlement: permanent Visibilité/RaceBook/Pro capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
 
 ## Tables
 
@@ -106,6 +109,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `push_notification_events` | Push reminder send log and dedupe records. |
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
 | `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
+| `organizer_edition_entitlements` | Current commercial tier for one organizer event edition. |
+| `organizer_edition_payments` | Stripe attempt/history ledger used to derive organizer edition rights. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_relay_points` | Ordered relay handover points, optionally linked to source aid stations. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
@@ -168,6 +173,8 @@ erDiagram
   RACE_EVENTS ||--o{ RACE_EVENT_EDITIONS : has
   RACE_EVENT_EDITIONS ||--o{ RACES : contains
   RACE_EVENT_EDITIONS ||--o{ ORGANIZER_IMPORT_SESSIONS : scopes
+  RACE_EVENT_EDITIONS ||--|| ORGANIZER_EDITION_ENTITLEMENTS : entitled_by
+  RACE_EVENT_EDITIONS ||--o{ ORGANIZER_EDITION_PAYMENTS : purchased_for
   RACE_EVENTS ||--o{ RACE_EVENT_CLAIMS : claimed_by
   RACE_EVENTS ||--o{ RACE_EVENT_EDITION_REQUESTS : renewed_by
   RACE_EVENTS ||--o{ RACE_EVENT_ORGANIZERS : managed_by
@@ -193,6 +200,8 @@ erDiagram
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)
+- [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
+- [organizer_edition_payments](tables/organizer-edition-payments.md)
 - [race_event_claims](tables/race-event-claims.md)
 - [race_event_edition_requests](tables/race-event-edition-requests.md)
 - [race_event_organizers](tables/race-event-organizers.md)
@@ -226,7 +235,7 @@ erDiagram
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.
 - Edition visibility is a parent invariant: a hidden edition forces all attached formats and Racebooks hidden. Confirmed edition deletion cascades its formats while saved plans retain snapshots with a null source link.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
-- Organizer yearly editions are cloned directly as drafts. Admin validation is reserved for publication through `race_event_publication_requests`.
+- Organizer yearly editions may be created manually without payment; cloning is a Pro capability. Historical publication requests remain audit data, while a paid/admin edition entitlement authorizes RaceBook publication directly.
 - Do not conflate course catalog state with Racebook state: organizer-managed `race_events.is_live` and `races.is_live` remain true for catalog discovery, while new Racebooks default to hidden from runners. The mobile organizer preview is membership-derived and does not mutate these flags.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
 - `Trail TST` is the deliberate runner-facing showcase exception: fixed migration ids, live flags, approval timestamps, and versioned Storage paths make the public fixture reproducible.

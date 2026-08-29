@@ -63,6 +63,7 @@ npm run test
 If the policy is complex, add a manual SQL check under `supabase/tests/`.
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
 Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only tables and `SECURITY INVOKER` mutation RPCs. Use `supabase/tests/race_slug_redirects_checks.sql` for a public child mapping whose select policy inherits parent visibility while every mutation remains service-only.
+The organizer entitlement/payment pair is the current service-only projection-plus-ledger example; its transition SQL check exercises recalculation separately from route/webhook tests.
 
 ## Do Not
 

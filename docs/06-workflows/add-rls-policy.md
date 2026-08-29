@@ -67,6 +67,7 @@ rollback;
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example for relationship-based policy checks. It also covers owner-scoped favorites, format/event consistency on updates, live-event visibility, and owner-only read receipts.
 Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended design is a service-only table with RLS enabled, no client policy, revoked client grants, and narrowly granted invoker RPCs.
 Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping needs explicit anon/authenticated select grants, parent-visibility RLS, and service-only mutation functions.
+Use `supabase/tests/organizer_edition_entitlements_checks.sql` with organizer offer route tests when a public child read depends on a service-only commercial entitlement.
 
 ## Do Not
 
@@ -79,6 +80,7 @@ Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping 
 - Do not add a separate policy for owner-only profile markers such as `onboarding_completed_at`; preserve the existing profile row ownership boundary.
 - Do not weaken catalog or Racebook policies to expose demo rows; seed only rows that deliberately satisfy the existing public/live/approval gates.
 - Do not treat a redirect/mapping row as independent public authority. A hidden target or hidden parent must make the mapping unreadable, and application code must revalidate the target before responding.
+- Do not expose payment or grant rows just to evaluate a public capability. Prefer a fixed-output, fixed-search-path helper and keep the sensitive tables service-only.
 
 ## Related Docs
 

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { defaultFuelType, fuelTypeSchema } from "./fuel-types";
 import type { FuelProduct } from "./product-types";
 import type { SupabaseServiceConfig } from "./supabase";
+import { loadOrganizerEditionEntitlements } from "./organizer-entitlements";
 
 export type SourceAidStation = {
   id: string;
@@ -179,8 +180,33 @@ export const loadOrganizerAidStationProductsForRaceIds = async (
     return {};
   }
 
+  const racesResponse = await fetch(
+    `${supabaseService.supabaseUrl}/rest/v1/races?id=in.(${uniqueRaceIds.join(
+      ","
+    )})&select=id,edition_id`,
+    {
+      headers: serviceHeaders(supabaseService.supabaseServiceRoleKey, ""),
+      cache: "no-store",
+    }
+  );
+  if (!racesResponse.ok) {
+    throw new Error(await racesResponse.text().catch(() => "Unable to load race edition entitlements"));
+  }
+  const raceRows = z.array(z.object({ id: z.string().uuid(), edition_id: z.string().uuid().nullable() })).parse(
+    await racesResponse.json()
+  );
+  const entitlements = await loadOrganizerEditionEntitlements(
+    supabaseService,
+    raceRows.flatMap((race) => (race.edition_id ? [race.edition_id] : []))
+  );
+  const proRaceIds = raceRows
+    .filter((race) => race.edition_id && entitlements[race.edition_id]?.tier === "pro" && entitlements[race.edition_id]?.status === "active")
+    .map((race) => race.id);
+
+  if (proRaceIds.length === 0) return {};
+
   const stationsResponse = await fetch(
-    `${supabaseService.supabaseUrl}/rest/v1/race_aid_stations?race_id=in.(${uniqueRaceIds.join(
+    `${supabaseService.supabaseUrl}/rest/v1/race_aid_stations?race_id=in.(${proRaceIds.join(
       ","
     )})&select=id,race_id,name,km&order=order_index.asc`,
     {
@@ -196,7 +222,7 @@ export const loadOrganizerAidStationProductsForRaceIds = async (
   const stations = z.array(sourceAidStationSchema).parse(await stationsResponse.json());
   const productsByRaceId = await loadOrganizerAidStationProductsForStations(supabaseService, stations);
 
-  uniqueRaceIds.forEach((raceId) => {
+  proRaceIds.forEach((raceId) => {
     productsByRaceId[raceId] ??= {};
   });
 

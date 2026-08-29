@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -137,6 +137,8 @@ It:
 - Public crew tracking state is intentionally separate from the plan snapshot. It may persist confirmed assistance passages and corrected departure time, but it must not feed back into `race_plans.planner_values`.
 
 ## Gotchas
+
+- Refresh organizer aid-station product overlays only for Pro source editions; entitlement changes must not mutate durable `planner_values`.
 
 - Do not save twice on Supabase email confirmation or duplicate session events.
 - Do not assume every saved plan has current planner JSON shape.

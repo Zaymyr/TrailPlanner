@@ -1,7 +1,7 @@
 ---
 title: plan_aid_stations Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -90,6 +90,8 @@ where plan_id = '<plan-id>';
 ```
 
 ## Gotchas
+
+- Pro organizer products remain a response/snapshot overlay and never become columns or automatic rows in `plan_aid_stations`.
 
 - Do not assume these rows stay in sync with `race_aid_stations`.
 - If adding `race_aid_station_id`, update RLS, importer docs, and migration docs together.

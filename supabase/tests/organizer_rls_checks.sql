@@ -289,7 +289,7 @@ begin
   end if;
 end $$;
 
--- Approved organizer can read their membership and attach aid-station products.
+-- Approved organizer can read their membership, but Pro mutations must use the gated server routes.
 select set_config('request.jwt.claim.sub', '10000000-0000-0000-0000-000000000001', true);
 select set_config(
   'request.jwt.claims',
@@ -304,15 +304,16 @@ begin
   end if;
 end $$;
 
-insert into public.race_aid_station_products (race_aid_station_id, product_id, notes, order_index)
-select station_id, product_id, 'Available at the aid station', 0
-from _organizer_rls_fixture;
-
 do $$
 begin
-  if (select count(*) from public.race_aid_station_products) <> 1 then
-    raise exception 'Expected organizer to attach one race aid station product.';
-  end if;
+  insert into public.race_aid_station_products (race_aid_station_id, product_id, notes, order_index)
+  select station_id, product_id, 'Must use Pro server route', 0
+  from _organizer_rls_fixture;
+
+  raise exception 'Expected direct organizer product mutation to be blocked.';
+exception
+  when insufficient_privilege or check_violation or with_check_option_violation then
+    null;
 end $$;
 
 with inserted_favorite as (
@@ -332,21 +333,16 @@ begin
   end if;
 end $$;
 
-with inserted_update as (
-  insert into public.race_event_updates (event_id, race_id, created_by, message)
-  select event_id, race_id, '10000000-0000-0000-0000-000000000001', 'Organizer RLS update check'
-  from _organizer_rls_fixture
-  returning id
-)
-update _organizer_rls_fixture
-set update_id = inserted_update.id
-from inserted_update;
-
 do $$
 begin
-  if not exists (select 1 from public.race_event_updates where id = (select update_id from _organizer_rls_fixture)) then
-    raise exception 'Expected organizer to create a race event update.';
-  end if;
+  insert into public.race_event_updates (event_id, race_id, created_by, message)
+  select event_id, race_id, '10000000-0000-0000-0000-000000000001', 'Must use Pro server route'
+  from _organizer_rls_fixture;
+
+  raise exception 'Expected direct organizer notification insert to be blocked.';
+exception
+  when insufficient_privilege or check_violation or with_check_option_violation then
+    null;
 end $$;
 
 insert into public.race_event_update_reads (update_id, user_id)

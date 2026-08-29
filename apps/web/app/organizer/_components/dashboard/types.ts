@@ -9,6 +9,7 @@ import type {
   FormatCandidate,
   OrganizerImportClaimValue,
 } from '../../../../lib/organizer-import-engine';
+import type { OrganizerEditionEntitlement } from '../../../../lib/organizer-entitlements';
 
 export type MembershipRow = {
   id: string;
@@ -106,6 +107,7 @@ export type RaceEventEdition = {
   end_date: string;
   is_current: boolean;
   is_visible?: boolean;
+  entitlement?: OrganizerEditionEntitlement | null;
 };
 
 export type GpxDetectedAidStation = {

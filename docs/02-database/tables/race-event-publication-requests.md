@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-26
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -33,7 +33,7 @@ related_tables:
 
 ## Purpose
 
-This table is the sole first-publication review gate for organizer Racebooks. Courses remain visible in the catalog. An organizer submits a single event-level request (`race_id` null) that covers the whole current edition; admin approval publishes every complete format of that edition together, in one action. The per-format `race_id` targeting added in `20260820164141_target_racebook_publication_requests.sql` remains supported by the review function for legacy/back-compat rows, but the organizer dashboard no longer creates them.
+This table is retained publication-review history. New organizer publication uses a paid/admin edition entitlement and does not create a request. Courses remain visible in the catalog. Existing event-level and per-format rows remain reviewable for compatibility; approving a legacy row also grants Pro to the relevant edition.
 
 ## Columns
 
@@ -54,23 +54,23 @@ This table is the sole first-publication review gate for organizer Racebooks. Co
 - Admin review is performed by a service-role API after trusted `app_metadata` admin authentication.
 - Admin access to every event through the Organizer selector does not synthesize publication requests; `/api/organizer/claims` still returns only the signed-in user's request rows, and the dedicated admin review route remains authoritative.
 - Direct admin e-mail assignment creates or reactivates an organizer membership only. It does not create a publication request or modify event/format live state.
+- New paid RaceBook publication bypasses this queue after the webhook activates the edition entitlement; no additional admin approval is required.
 - `review_race_event_publication_request` is invoker-security and executable only by `service_role`. When `race_id` is null, approval publishes every complete format of the event's current edition at once (`is_live`, `racebook_is_live`, approval provenance) and closes the request atomically. A non-null `race_id` (legacy rows only) still publishes just that one format.
 - `set_race_event_racebook_visibility` is also service-role-only. The admin event switch can publish complete current-edition Racebooks (granting approval and closing a pending request) or hide every Racebook under the event.
 
 ## Business Invariants
 
-- Organizer event/race routes never accept direct catalog `is_live` changes. The race route accepts `racebookIsLive` only after the format has an admin approval timestamp.
-- A directly delegated organizer receives the same membership-gated ability to maintain drafts and request publication, but assignment itself is not publication approval.
-- An event-level request requires event name/location plus a valid `race_event_editions` range for the current edition, and at least one of that edition's formats with a non-empty name, positive distance, and non-negative D+ (`validateOrganizerEventPublication` without a `raceId`).
-- The dashboard's single `Demander la publication` action stays visible for the whole selected edition (not gated by which format tab is open) and submits at most one request at a time for the event.
-- The dashboard disables the request button while the edition is hidden, while a request is already pending, or once every format of the edition is already approved. Database visibility triggers still force `racebook_is_live = false` if an older/pending approval completes after the edition was hidden.
+- Organizer event/race routes never accept direct catalog `is_live` changes. The race route accepts `racebookIsLive` only through the membership-checked entitlement RPC.
+- A directly delegated organizer receives the same event membership and therefore the edition capability purchased or granted for that event.
+- The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
+- The current dashboard publication action opens the edition offer dialog and never creates a publication-request row.
+- Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
-- Requesting publication always saves any dirty foreground scope, including a changed format access/equipment/bib override, before the server readiness check runs.
-- Rejection leaves the already-hidden Racebook rows unchanged.
-- Approval publishes every complete format of the requested current edition together; incomplete formats and other editions remain unchanged.
-- Once approved, an organizer may freely publish or hide each approved format's Racebook individually through its own on/off switch. This does not create a new request and does not alter course catalog visibility.
+- Starting checkout always saves any dirty foreground scope before the server readiness check runs.
+- Rejecting a legacy request leaves hidden Racebook rows unchanged.
+- Once the edition has RaceBook or Pro, an organizer may publish or hide each complete format individually. This does not create a request and does not alter course catalog visibility.
 - Publication does not send runner notifications automatically.
 - Sending or deleting a manual organizer announcement does not create, approve, reject, or reopen a Racebook publication request.
 - Format-specific manual notifications are available only for already-live formats in the selected edition. Draft formats must pass the publication workflow before they can be selected as runner notification context.

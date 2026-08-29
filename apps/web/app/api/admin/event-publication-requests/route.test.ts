@@ -12,7 +12,9 @@ describe("/api/admin/event-publication-requests PATCH", () => {
   });
 
   it("reviews publication through the atomic database function", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "11111111-1111-1111-1111-111111111111", status: "approved" }));
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json({ id: "11111111-1111-1111-1111-111111111111", status: "approved" }));
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
       method: "PATCH",
       headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
@@ -21,7 +23,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
 
     const response = await PATCH(request);
     expect(response.status).toBe(200);
-    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+    const [url, init] = vi.mocked(fetch).mock.calls[1] ?? [];
     expect(String(url)).toContain("/rpc/review_race_event_publication_request");
     expect(JSON.parse(init?.body as string)).toMatchObject({
       p_status: "approved",
@@ -86,7 +88,20 @@ describe("/api/admin/event-publication-requests PATCH", () => {
             },
           ],
         },
-      ]));
+      ]))
+      .mockResolvedValueOnce(Response.json([{
+        edition_id: "33333333-3333-3333-3333-333333333333",
+        tier: "racebook",
+        source: "stripe",
+        status: "active",
+      }]))
+      .mockResolvedValueOnce(Response.json([{
+        edition_id: "33333333-3333-3333-3333-333333333333",
+        status: "paid",
+        amount_total: 11880,
+        currency: "eur",
+        created_at: "2026-08-20T12:00:00Z",
+      }]));
 
     const response = await GET(new NextRequest("http://localhost/api/admin/event-publication-requests", {
       headers: { authorization: "Bearer admin-token" },
@@ -96,6 +111,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(response.status).toBe(200);
     expect(payload.events[0].races).toHaveLength(1);
     expect(payload.events[0].races[0].name).toBe("42 km");
+    expect(payload.events[0].entitlement.tier).toBe("racebook");
     expect(payload.publicationRequests[0].requested_race.name).toBe("42 km");
     expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("requested_race:races");
   });

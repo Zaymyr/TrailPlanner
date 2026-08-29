@@ -1,7 +1,7 @@
 ---
 title: subscriptions Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
@@ -68,6 +68,7 @@ Summary:
 - RevenueCat writes use provider `google` or `apple`.
 - Entitlement checks treat `active` and `trialing` as active when the period is missing or future, depending on code path.
 - Mobile RevenueCat sync clears Stripe ids by writing nulls for RevenueCat providers.
+- One-time organizer edition purchases are deliberately excluded; they use `organizer_edition_payments` and `organizer_edition_entitlements`.
 
 ## Common Queries
 
@@ -94,6 +95,7 @@ set stripe_customer_id = excluded.stripe_customer_id,
 - Product ID and active Stripe price ID are not literal repo constants; they come from `STRIPE_PRICE_ID` and Stripe dashboard metadata.
 - Do not write mobile purchases into a separate entitlement table. Sync them here.
 - A single primary key means a RevenueCat sync can replace the user's row; preserve intended provider behavior when changing sync code.
+- Never insert organizer RaceBook purchases into this runner entitlement snapshot.
 
 ## Related Docs
 

@@ -112,6 +112,7 @@ export function OrganizerSummaryHeader({
   onEditionEndDateChange,
   onRequestEdition,
   onImportWebsite,
+  importWebsiteLabel = "Importer les informations",
   completion,
   hasDirtyChanges,
   status,
@@ -139,6 +140,7 @@ export function OrganizerSummaryHeader({
   onEditionEndDateChange: (value: string) => void;
   onRequestEdition: (duplicatePreviousEdition: boolean) => Promise<boolean>;
   onImportWebsite?: () => void;
+  importWebsiteLabel?: string;
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
@@ -174,12 +176,11 @@ export function OrganizerSummaryHeader({
     }];
   });
   const isLive = event?.is_live !== false;
-  const publicationPending = publicationRequestStates.some((request) => request.status === "pending");
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
   const selectedEdition = getEventEdition(event, selectedEditionYear);
   const editionIsVisible = selectedEdition?.is_visible !== false;
-  const allFormatsApproved =
-    raceRows.length > 0 && raceRows.every((race) => Boolean(race.activeEdition?.racebook_publication_approved_at));
+  const editionTier = selectedEdition?.entitlement?.status === "active" ? selectedEdition.entitlement.tier : "visibility";
+  const canPublishRacebook = editionTier === "racebook" || editionTier === "pro";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -231,7 +232,7 @@ export function OrganizerSummaryHeader({
           </Link>
           {onImportWebsite ? (
             <Button type="button" variant="outline" onClick={onImportWebsite}>
-              Importer les informations
+              {importWebsiteLabel}
             </Button>
           ) : null}
         </div>
@@ -243,6 +244,18 @@ export function OrganizerSummaryHeader({
           {isLive ? "Événement visible" : "Événement masqué"}
         </span>
         <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
+        <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold">
+          {editionTier === "pro" ? "RaceBook Pro" : editionTier === "racebook" ? "RaceBook" : "Visibilité"}
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {selectedEdition?.entitlement?.source === "stripe"
+            ? "Paiement confirmé"
+            : selectedEdition?.entitlement?.source === "admin"
+              ? "Activation administrateur"
+              : selectedEdition?.entitlement?.source === "legacy_admin"
+                ? "Activation historique offerte"
+                : "Aucun paiement actif"}
+        </span>
       </div>
 
       <div className="mt-3 space-y-2">
@@ -286,7 +299,7 @@ export function OrganizerSummaryHeader({
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setDuplicatePreviousEdition(true);
+                  setDuplicatePreviousEdition(editionTier === "pro");
                   setNewEditionDialogOpen(true);
                 }}
                 disabled={status !== "idle"}
@@ -313,7 +326,7 @@ export function OrganizerSummaryHeader({
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => {
-            const isApproved = Boolean(race.activeEdition?.racebook_publication_approved_at);
+            const isApproved = canPublishRacebook;
             return (
             <div
               key={race.id}
@@ -344,11 +357,6 @@ export function OrganizerSummaryHeader({
       </div>
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
-        {publicationPending ? (
-          <span className="inline-flex items-center rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-            Publication en attente de validation admin
-          </span>
-        ) : null}
         <Button type="button" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} variant="outline" disabled={!event}>
           Notifier les coureurs
         </Button>
@@ -360,9 +368,9 @@ export function OrganizerSummaryHeader({
             type="button"
             className="ml-auto"
             onClick={onRequestPublication}
-            disabled={!editionIsVisible || publicationPending || allFormatsApproved || status !== "idle"}
+            disabled={!editionIsVisible || status !== "idle"}
           >
-            {publicationPending ? "Demande en cours" : allFormatsApproved ? "Tous les formats sont publiés" : "Demander la publication"}
+            {canPublishRacebook ? `Offre ${editionTier === "pro" ? "RaceBook Pro" : "RaceBook"} active` : "Publier le RaceBook"}
           </Button>
         ) : null}
       </div>
@@ -417,9 +425,10 @@ export function OrganizerSummaryHeader({
                 className="mt-0.5 h-4 w-4 rounded border-input accent-brand"
                 checked={duplicatePreviousEdition}
                 onChange={(event) => setDuplicatePreviousEdition(event.target.checked)}
+                disabled={editionTier !== "pro"}
               />
               <span>
-                <span className="block font-medium">Dupliquer depuis l’édition précédente</span>
+                <span className="block font-medium">Dupliquer depuis l’édition précédente {editionTier !== "pro" ? "— Pro" : ""}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
                   Reprend les formats de l’édition {selectedEditionYear} dans la nouvelle édition.
                 </span>

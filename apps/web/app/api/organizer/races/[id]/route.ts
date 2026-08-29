@@ -97,10 +97,6 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.racebookIsLive === true && (race.data_status ?? "complete") === "draft") {
     return jsonError("Complète les informations minimales du format avant de publier son Racebook.", 409);
   }
-  if (parsedBody.data.racebookIsLive === true && !race.racebook_publication_approved_at) {
-    return jsonError("La publication de ce Racebook doit d'abord être validée par un administrateur.", 409);
-  }
-
   if (parsedBody.data.raceDate !== undefined && parsedBody.data.raceDate !== null) {
     if (!race.edition_id) return jsonError("This format is not attached to an event edition.", 409);
     const editionResponse = await fetch(
@@ -129,7 +125,6 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;
   if (parsedBody.data.organizerDetails !== undefined) updatePayload.organizer_details = parsedBody.data.organizerDetails;
   if (parsedBody.data.participationMode !== undefined) updatePayload.participation_mode = parsedBody.data.participationMode;
-  if (parsedBody.data.racebookIsLive !== undefined) updatePayload.racebook_is_live = parsedBody.data.racebookIsLive;
 
   const requiredFieldChanged =
     parsedBody.data.raceDate !== undefined ||
@@ -156,7 +151,41 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     }
   }
 
-  if (Object.keys(updatePayload).length === 0) return jsonError("No fields to update.", 400);
+  let visibilityUpdated: z.infer<typeof raceRowSchema> | null = null;
+  if (parsedBody.data.racebookIsLive !== undefined) {
+    const visibilityResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_organizer_racebook_visibility`,
+      {
+        method: "POST",
+        headers: serviceHeaders(auth.serviceConfig),
+        body: JSON.stringify({
+          p_user_id: auth.user.id,
+          p_race_id: parsedParams.data.id,
+          p_is_live: parsedBody.data.racebookIsLive,
+        }),
+        cache: "no-store",
+      }
+    );
+    if (!visibilityResponse.ok) {
+      console.error("Unable to update organizer Racebook visibility", await visibilityResponse.text());
+      return jsonError(
+        parsedBody.data.racebookIsLive
+          ? "Une offre RaceBook active est requise pour publier ce format."
+          : "Impossible de masquer ce Racebook.",
+        403
+      );
+    }
+    visibilityUpdated = raceRowSchema.parse(await visibilityResponse.json());
+  }
+
+  if (Object.keys(updatePayload).length === 0) {
+    if (!visibilityUpdated) return jsonError("No fields to update.", 400);
+    return withSecurityHeaders(
+      NextResponse.json({
+        race: { ...visibilityUpdated, organizerDetails: parseOrganizerRaceDetails(visibilityUpdated.organizer_details) },
+      })
+    );
+  }
 
   const response = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,

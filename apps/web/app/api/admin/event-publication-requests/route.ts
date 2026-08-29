@@ -39,7 +39,24 @@ const publicationEventSchema = z.object({
     race_date: z.string().nullable().optional(),
     racebook_is_live: z.boolean(),
     racebook_publication_approved_at: z.string().nullable().optional(),
+    data_status: z.enum(["draft", "complete"]).nullable().optional(),
+    missing_required_fields: z.array(z.string()).nullable().optional(),
   })).nullable().optional(),
+});
+
+const entitlementSchema = z.object({
+  edition_id: z.string().uuid(),
+  tier: z.enum(["visibility", "racebook", "pro"]),
+  source: z.enum(["system", "stripe", "admin", "legacy_admin"]),
+  status: z.enum(["active", "revoked"]),
+});
+
+const paymentSchema = z.object({
+  edition_id: z.string().uuid(),
+  status: z.enum(["pending", "paid", "failed", "expired", "refunded", "disputed"]),
+  amount_total: z.number().nullable().optional(),
+  currency: z.string(),
+  created_at: z.string(),
 });
 
 const reviewSchema = z.object({
@@ -54,23 +71,41 @@ const visibilitySchema = z.object({
   isLive: z.boolean(),
 });
 
+const tierSchema = z.object({
+  action: z.literal("setEditionTier"),
+  editionId: z.string().uuid(),
+  tier: z.enum(["visibility", "racebook", "pro"]),
+});
+
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [response, eventsResponse] = await Promise.all([
+  const [response, eventsResponse, entitlementsResponse, paymentsResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?status=eq.pending&select=id,created_at,user_id,event_id,race_id,status,reviewer_notes,race_events(name,location,race_date),requested_race:races(name,race_date)&order=created_at.asc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at)&order=name.asc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at,data_status,missing_required_fields)&order=name.asc`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_entitlements?select=edition_id,tier,source,status`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?select=edition_id,status,amount_total,currency,created_at&order=created_at.desc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
   ]);
-  if (!response.ok || !eventsResponse.ok) return jsonError("Unable to load Racebook publication controls.", 502);
+  if (!response.ok || !eventsResponse.ok || !entitlementsResponse.ok || !paymentsResponse.ok) {
+    return jsonError("Unable to load Racebook publication controls.", 502);
+  }
 
   const publicationRequests = z.array(publicationRequestSchema).parse(await response.json());
+  const entitlements = z.array(entitlementSchema).parse(await entitlementsResponse.json());
+  const payments = z.array(paymentSchema).parse(await paymentsResponse.json());
   const events = z.array(publicationEventSchema).parse(await eventsResponse.json()).map((event) => {
     const currentEditionId = (event.race_event_editions ?? []).find((edition) => edition.is_current)?.id ?? null;
     return {
@@ -78,6 +113,9 @@ export async function GET(request: NextRequest) {
       name: event.name,
       location: event.location ?? null,
       race_date: event.race_date ?? null,
+      editionId: currentEditionId,
+      entitlement: entitlements.find((item) => item.edition_id === currentEditionId) ?? null,
+      payment: payments.find((item) => item.edition_id === currentEditionId) ?? null,
       races: (event.races ?? [])
         .filter((race) => !currentEditionId || race.edition_id === currentEditionId)
         .sort((left, right) => left.name.localeCompare(right.name, "fr")),
@@ -90,6 +128,20 @@ export async function PATCH(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const body = await request.json().catch(() => null);
+  const tier = tierSchema.safeParse(body);
+  if (tier.success) {
+    const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_entitlement`, {
+      method: "POST",
+      headers: serviceHeaders(auth.serviceConfig),
+      body: JSON.stringify({ p_edition_id: tier.data.editionId, p_admin_id: auth.user.id, p_tier: tier.data.tier }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      console.error("Unable to update organizer edition tier", await response.text());
+      return jsonError("Unable to update organizer edition tier.", 502);
+    }
+    return withSecurityHeaders(NextResponse.json({ entitlement: await response.json() }));
+  }
   const visibility = visibilitySchema.safeParse(body);
   if (visibility.success) {
     const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_race_event_racebook_visibility`, {
@@ -113,6 +165,15 @@ export async function PATCH(request: NextRequest) {
   const parsed = reviewSchema.safeParse(body);
   if (!parsed.success) return jsonError("Invalid publication review.", 400);
 
+  const legacyRequestResponse = parsed.data.status === "approved"
+    ? await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?id=eq.${parsed.data.requestId}&select=event_id,race_id&limit=1`, {
+        headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store",
+      })
+    : null;
+  const legacyRequest = legacyRequestResponse?.ok
+    ? z.array(z.object({ event_id: z.string().uuid(), race_id: z.string().uuid().nullable().optional() })).parse(await legacyRequestResponse.json())[0]
+    : null;
+
   const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/review_race_event_publication_request`, {
     method: "POST",
     headers: serviceHeaders(auth.serviceConfig),
@@ -127,6 +188,31 @@ export async function PATCH(request: NextRequest) {
   if (!response.ok) {
     console.error("Unable to review publication request", await response.text());
     return jsonError("Unable to review publication request.", response.status === 409 ? 409 : 502);
+  }
+
+  if (parsed.data.status === "approved" && legacyRequest) {
+    const editionResponse = await fetch(
+      legacyRequest.race_id
+        ? `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${legacyRequest.race_id}&select=edition_id&limit=1`
+        : `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?event_id=eq.${legacyRequest.event_id}&is_current=eq.true&select=id&limit=1`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (editionResponse.ok) {
+      const rows = (await editionResponse.json()) as Array<{ id?: string; edition_id?: string | null }>;
+      const editionId = rows[0]?.edition_id ?? rows[0]?.id ?? null;
+      if (editionId) {
+        const grantResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_entitlement`, {
+          method: "POST",
+          headers: serviceHeaders(auth.serviceConfig),
+          body: JSON.stringify({ p_edition_id: editionId, p_admin_id: auth.user.id, p_tier: "pro" }),
+          cache: "no-store",
+        });
+        if (!grantResponse.ok) {
+          console.error("Publication request approved but legacy Pro entitlement failed", await grantResponse.text());
+          return jsonError("Publication approved, but the Pro entitlement could not be applied.", 502);
+        }
+      }
+    }
   }
 
   return withSecurityHeaders(NextResponse.json({ publicationRequest: await response.json() }));

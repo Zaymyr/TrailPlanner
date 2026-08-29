@@ -111,6 +111,9 @@ describe("/api/organizer/edition-requests POST", () => {
 
 vi.mock("../races/route", () => ({ POST: raceRouteMocks.createRace }));
 vi.mock("../races/[id]/route", () => ({ DELETE: raceRouteMocks.deleteRace }));
+vi.mock("../../../../lib/organizer-entitlements", () => ({
+  requireOrganizerEditionCapability: () => Promise.resolve(true),
+}));
 vi.mock("../../../../lib/http", () => ({ withSecurityHeaders: (response: Response) => response }));
 vi.mock("../../../../lib/organizer", () => ({
   jsonError: (message: string, status: number) => Response.json({ message }, { status }),

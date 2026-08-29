@@ -95,12 +95,27 @@ type RaceEventOption = {
 };
 
 type RacebookPublicationEvent = RaceEventOption & {
+  editionId: string | null;
+  entitlement: {
+    edition_id: string;
+    tier: "visibility" | "racebook" | "pro";
+    source: "system" | "stripe" | "admin" | "legacy_admin";
+    status: "active" | "revoked";
+  } | null;
+  payment: {
+    status: "pending" | "paid" | "failed" | "expired" | "refunded" | "disputed";
+    amount_total?: number | null;
+    currency: string;
+    created_at: string;
+  } | null;
   races: Array<{
     id: string;
     name: string;
     race_date?: string | null;
     racebook_is_live: boolean;
     racebook_publication_approved_at?: string | null;
+    data_status?: "draft" | "complete" | null;
+    missing_required_fields?: string[] | null;
   }>;
 };
 
@@ -115,6 +130,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
   const [events, setEvents] = useState<RaceEventOption[]>([]);
   const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
+  const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "racebook" | "pro">("all");
   const [assignmentEmail, setAssignmentEmail] = useState("");
   const [assignmentEventId, setAssignmentEventId] = useState("");
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
@@ -289,6 +305,27 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
         setError(data?.message ?? "Impossible de modifier la visibilité des Racebooks.");
+        return;
+      }
+      await load();
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const setEditionTier = async (editionId: string, tier: "visibility" | "racebook" | "pro") => {
+    if (!accessToken) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/event-publication-requests", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ action: "setEditionTier", editionId, tier }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        setError(data?.message ?? "Impossible de modifier l’offre de l’édition.");
         return;
       }
       await load();
@@ -490,18 +527,36 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         <CardHeader>
           <CardTitle>Publication des Racebooks</CardTitle>
           <CardDescription>
-            Les courses restent visibles dans le catalogue. Ce contrôle affiche ou masque uniquement leurs Racebooks dans l’application.
+            Les courses restent visibles dans le catalogue. Les changements d’offre manuels sont audités et prioritaires sur Stripe.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
+          <div className="flex justify-end">
+            <select
+              aria-label="Filtrer par offre"
+              className="h-9 rounded-md border border-border bg-card px-3 text-sm"
+              value={tierFilter}
+              onChange={(event) => setTierFilter(event.target.value as typeof tierFilter)}
+            >
+              <option value="all">Toutes les offres</option>
+              <option value="visibility">Visibilité</option>
+              <option value="racebook">RaceBook</option>
+              <option value="pro">RaceBook Pro</option>
+            </select>
+          </div>
           {publicationEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune course disponible.</p>
           ) : (
-            publicationEvents.map((event) => {
+            publicationEvents.filter((event) => {
+              const tier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
+              return tierFilter === "all" || tier === tierFilter;
+            }).map((event) => {
               const pendingRequest = publicationRequests.find((request) => request.event_id === event.id) ?? null;
               const publishedCount = event.races.filter((race) => race.racebook_is_live).length;
               const approvedCount = event.races.filter((race) => race.racebook_publication_approved_at).length;
+              const completeCount = event.races.filter((race) => race.data_status !== "draft").length;
               const isLive = event.races.length > 0 && publishedCount === event.races.length;
+              const tier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
 
               return (
                 <div key={event.id} className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 md:flex-row md:items-center md:justify-between">
@@ -524,19 +579,39 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     </div>
                     <p className="text-sm text-muted-foreground">
                       {event.races.length} format(s) · {publishedCount} Racebook(s) affiché(s)
+                      {` · ${completeCount}/${event.races.length} complet(s)`}
                       {event.location ? ` · ${event.location}` : ""}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Paiement : {event.payment?.status ?? "aucun"}
+                      {event.entitlement?.source ? ` · source ${event.entitlement.source}` : ""}
                     </p>
                     {event.races.length > 0 ? (
                       <p className="truncate text-xs text-muted-foreground">{event.races.map((race) => race.name).join(" · ")}</p>
                     ) : null}
                   </div>
-                  <LiveToggle
-                    checked={isLive}
-                    disabled={status === "saving" || event.races.length === 0}
-                    onChange={(checked) => void setRacebookVisibility(event.id, checked)}
-                    liveLabel="Racebooks affichés"
-                    draftLabel="Racebooks masqués"
-                  />
+                  <div className="flex flex-wrap items-center gap-3">
+                    <select
+                      aria-label={`Offre de ${event.name}`}
+                      className="h-9 rounded-md border border-border bg-card px-3 text-sm"
+                      value={tier}
+                      disabled={status === "saving" || !event.editionId}
+                      onChange={(changeEvent) => {
+                        if (event.editionId) void setEditionTier(event.editionId, changeEvent.target.value as typeof tier);
+                      }}
+                    >
+                      <option value="visibility">Visibilité</option>
+                      <option value="racebook">RaceBook</option>
+                      <option value="pro">RaceBook Pro</option>
+                    </select>
+                    <LiveToggle
+                      checked={isLive}
+                      disabled={status === "saving" || event.races.length === 0 || tier === "visibility"}
+                      onChange={(checked) => void setRacebookVisibility(event.id, checked)}
+                      liveLabel="Racebooks affichés"
+                      draftLabel="Racebooks masqués"
+                    />
+                  </div>
                 </div>
               );
             })

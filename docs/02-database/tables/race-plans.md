@@ -1,7 +1,7 @@
 ---
 title: race_plans Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -111,6 +111,8 @@ where race_id = '<race-id>';
 ```
 
 ## Gotchas
+
+- A source edition downgrade suppresses current official ravito-product overlays but must not delete the saved plan or rewrite its stored fallback snapshot.
 
 - `catalog_race_id` is the old column name. Current migrations rename it to `race_id`.
 - `planner_values` can contain older shape variants. Hydration code must tolerate missing fields.

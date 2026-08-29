@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-08-27
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -41,6 +41,8 @@ related_tables:
 - Anonymous sessions do not write read receipts.
 
 ## Gotchas
+
+- Pro controls organizer history management and sends, not runner ownership of existing read receipts.
 
 - `push_notification_events` proves delivery attempts, not whether a runner saw the message; do not use it as read state.
 - Deleting an announcement through the membership-checked organizer route cascades its receipts; no orphan read state should remain.

@@ -43,7 +43,7 @@ related_tables:
 - Format row: one distance/course under a parent `race_events` event.
 - Edition membership: `edition_id` identifies the yearly event edition; `edition_group_id` groups the same format across years.
 - Catalog visibility: `is_live` and `is_public` control course discovery.
-- Racebook visibility: `racebook_is_live` is independent and requires durable admin approval.
+- Racebook visibility: `racebook_is_live` is independent and requires an active edition-level RaceBook or Pro entitlement; first publication atomically stores the durable unlock timestamp and organizer actor.
 - Import completeness: `data_status` and `missing_required_fields` distinguish incomplete formats from real zero values.
 
 ## Columns
