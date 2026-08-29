@@ -65,6 +65,7 @@ The migration grants Pro with source `legacy_admin` to editions that already con
 
 - Never price by participant count or format count.
 - Never use a checkout success query parameter as proof of payment.
+- The checkout CTA enters its loading state before saving pending organizer edits and surfaces missing session/edition, save, API, and network failures inside the pricing dialog; a failed client-side prerequisite must never look like an inert button.
 - Never grant notification, relay, duplication, or official-product access only in the browser; the server route or RLS boundary must enforce it too.
 - Do not reuse runner `subscriptions`, RevenueCat, trials, or `premium_grants` for organizer editions.
 - Hiding RaceBooks after invalidation must not hide the free catalog entry.
