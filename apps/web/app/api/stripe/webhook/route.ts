@@ -10,13 +10,120 @@ import {
 import { getSupabaseServiceConfig } from "../../../../lib/supabase";
 
 type StripeCheckoutSessionEventData = {
+  id?: string;
   customer?: string;
+  payment_intent?: string;
   subscription?: string;
   subscription_status?: string;
   status?: string;
   payment_status?: string;
   client_reference_id?: string;
   metadata?: Record<string, unknown>;
+  amount_subtotal?: number;
+  amount_total?: number;
+  currency?: string;
+  total_details?: { amount_tax?: number };
+};
+
+type StripeChargeEventData = {
+  payment_intent?: string;
+  amount_refunded?: number;
+  disputed?: boolean;
+  status?: string;
+};
+
+const serviceHeaders = (serviceConfig: NonNullable<ReturnType<typeof getSupabaseServiceConfig>>, contentType = "application/json") => ({
+  apikey: serviceConfig.supabaseServiceRoleKey,
+  Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+  ...(contentType ? { "Content-Type": contentType } : {}),
+});
+
+const isOrganizerCheckout = (payload: { metadata?: Record<string, unknown> }) =>
+  payload.metadata?.purchase_type === "organizer_edition" && typeof payload.metadata?.payment_id === "string";
+
+const updateOrganizerPayment = async (
+  paymentId: string,
+  updates: Record<string, unknown>,
+  options?: { recalculate?: boolean; onlyStatuses?: string[] }
+) => {
+  const serviceConfig = getSupabaseServiceConfig();
+  if (!serviceConfig) throw new Error("Supabase service configuration is missing.");
+  const response = await fetch(
+    `${serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?id=eq.${encodeURIComponent(paymentId)}${
+      options?.onlyStatuses?.length ? `&status=in.(${options.onlyStatuses.join(",")})` : ""
+    }&select=edition_id`,
+    {
+      method: "PATCH",
+      headers: { ...serviceHeaders(serviceConfig), Prefer: "return=representation" },
+      body: JSON.stringify({ ...updates, updated_at: new Date().toISOString() }),
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) throw new Error(`Unable to update organizer payment: ${await response.text()}`);
+  const rows = (await response.json()) as Array<{ edition_id?: string }>;
+  const editionId = rows[0]?.edition_id;
+  if (options?.recalculate && editionId) {
+    const recalculate = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/rpc/recalculate_organizer_edition_entitlement`, {
+      method: "POST",
+      headers: serviceHeaders(serviceConfig),
+      body: JSON.stringify({ p_edition_id: editionId }),
+      cache: "no-store",
+    });
+    if (!recalculate.ok) throw new Error(`Unable to recalculate organizer entitlement: ${await recalculate.text()}`);
+  }
+};
+
+const updateOrganizerPaymentByIntent = async (
+  paymentIntentId: string,
+  status: "paid" | "refunded" | "disputed",
+  onlyStatuses: string[]
+) => {
+  const serviceConfig = getSupabaseServiceConfig();
+  if (!serviceConfig) throw new Error("Supabase service configuration is missing.");
+  const response = await fetch(
+    `${serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?stripe_payment_intent_id=eq.${encodeURIComponent(
+      paymentIntentId
+    )}&select=id&limit=1`,
+    { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" }
+  );
+  if (!response.ok) throw new Error(`Unable to find organizer payment: ${await response.text()}`);
+  const payment = ((await response.json()) as Array<{ id?: string }>)[0];
+  if (payment?.id) {
+    await updateOrganizerPayment(
+      payment.id,
+      { status, invalidated_at: status === "paid" ? null : new Date().toISOString() },
+      { recalculate: true, onlyStatuses }
+    );
+  }
+};
+
+const handleOrganizerCheckout = async (
+  payload: StripeCheckoutSessionEventData,
+  eventType: "completed" | "async_succeeded" | "async_failed" | "expired"
+) => {
+  const paymentId = typeof payload.metadata?.payment_id === "string" ? payload.metadata.payment_id : null;
+  if (!paymentId) return;
+  const paid = payload.payment_status === "paid" || payload.payment_status === "no_payment_required";
+  const status = eventType === "expired" ? "expired" : eventType === "async_failed" ? "failed" : paid || eventType === "async_succeeded" ? "paid" : "pending";
+  await updateOrganizerPayment(
+    paymentId,
+    {
+      status,
+      stripe_checkout_session_id: payload.id,
+      stripe_payment_intent_id: payload.payment_intent,
+      stripe_customer_id: payload.customer,
+      amount_subtotal: payload.amount_subtotal,
+      amount_tax: payload.total_details?.amount_tax,
+      amount_total: payload.amount_total,
+      currency: payload.currency,
+      paid_at: status === "paid" ? new Date().toISOString() : undefined,
+      invalidated_at: status === "failed" || status === "expired" ? new Date().toISOString() : undefined,
+    },
+    {
+      recalculate: status === "paid",
+      onlyStatuses: status === "paid" ? ["pending", "failed", "expired", "paid"] : ["pending"],
+    }
+  );
 };
 
 const findUserByCustomer = async (customerId: string): Promise<string | null> => {
@@ -212,8 +319,48 @@ export async function POST(request: NextRequest) {
       await handleSubscriptionEvent(event.data.object as StripeSubscriptionEventData);
     }
 
-    if (event.type === "checkout.session.completed") {
-      await handleCheckoutSessionCompleted(event.data.object as StripeCheckoutSessionEventData);
+    if (
+      event.type === "checkout.session.completed" ||
+      event.type === "checkout.session.async_payment_succeeded" ||
+      event.type === "checkout.session.async_payment_failed" ||
+      event.type === "checkout.session.expired"
+    ) {
+      const checkout = event.data.object as StripeCheckoutSessionEventData;
+      if (isOrganizerCheckout(checkout)) {
+        const checkoutEventType =
+          event.type === "checkout.session.async_payment_succeeded"
+            ? "async_succeeded"
+            : event.type === "checkout.session.async_payment_failed"
+              ? "async_failed"
+              : event.type === "checkout.session.expired"
+                ? "expired"
+                : "completed";
+        await handleOrganizerCheckout(checkout, checkoutEventType);
+      } else if (event.type === "checkout.session.completed") {
+        await handleCheckoutSessionCompleted(checkout);
+      }
+    }
+
+    if (event.type === "charge.refunded" || event.type === "charge.dispute.created") {
+      const charge = event.data.object as StripeChargeEventData;
+      if (typeof charge.payment_intent === "string") {
+        await updateOrganizerPaymentByIntent(
+          charge.payment_intent,
+          event.type === "charge.refunded" ? "refunded" : "disputed",
+          event.type === "charge.refunded" ? ["paid", "disputed"] : ["paid"]
+        );
+      }
+    }
+
+    if (event.type === "charge.dispute.closed") {
+      const dispute = event.data.object as StripeChargeEventData;
+      if (typeof dispute.payment_intent === "string") {
+        await updateOrganizerPaymentByIntent(
+          dispute.payment_intent,
+          dispute.status === "won" ? "paid" : "disputed",
+          dispute.status === "won" ? ["disputed"] : ["paid", "disputed"]
+        );
+      }
     }
   } catch (error) {
     console.error("Stripe webhook handling error", error);

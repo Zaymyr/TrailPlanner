@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-08-27
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -63,8 +63,7 @@ See [../rls-policies.md](../rls-policies.md).
 Summary:
 
 - `anon` and `authenticated` can select rows only when the parent `race_events.is_live = true`.
-- Authenticated organizers and admins can insert rows for events they actively manage.
-- Public writes are not allowed. Confirmed organizer deletion goes through the membership-checked service route rather than a client `DELETE` grant/policy.
+- Direct authenticated inserts/deletes are not allowed. Creation, history reads, and confirmed deletion go through the membership-checked service route and require Pro for the selected edition.
 
 ## Business Invariants
 
@@ -96,7 +95,7 @@ insert into public.race_event_updates (event_id, race_id, created_by, message)
 values ('<event-id>', null, auth.uid(), 'Retrait des dossards dès 17h.');
 ```
 
-Organizer deletion is performed by `DELETE /api/organizer/events/[id]/updates?updateId=<update-id>`. The server verifies event membership and filters the service-role delete by both update id and event id.
+Organizer deletion includes both `updateId` and `editionId`. The server verifies event membership, the edition/event relationship, Pro, and filters the service-role delete by update and event ids.
 
 ## Gotchas
 

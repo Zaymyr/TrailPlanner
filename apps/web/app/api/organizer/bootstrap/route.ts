@@ -7,6 +7,7 @@ import {
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
 } from "../../../../lib/organizer-dashboard-details";
+import { loadOrganizerEditionEntitlements } from "../../../../lib/organizer-entitlements";
 import { isAdminUser } from "../../../../lib/supabase";
 
 const eventIdSchema = z.string().uuid();
@@ -108,9 +109,14 @@ const eventDetailSchema = z.object({
   })).nullable().optional(),
 });
 
-const mapEventDetail = (event: z.infer<typeof eventDetailSchema>) => ({
+const mapEventDetail = (
+  event: z.infer<typeof eventDetailSchema>,
+  entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {}
+) => ({
   ...event,
-  editions: (event.race_event_editions ?? []).sort((left, right) => right.edition_year - left.edition_year),
+  editions: (event.race_event_editions ?? [])
+    .sort((left, right) => right.edition_year - left.edition_year)
+    .map((edition) => ({ ...edition, entitlement: entitlements[edition.id] ?? null })),
   organizerDetails: parseOrganizerEventDetails(event.organizer_details),
   races: (event.races ?? []).map((race) => {
     const { race_aid_stations: raceAidStations, ...raceFields } = race;
@@ -194,7 +200,11 @@ export async function GET(request: NextRequest) {
 
     const eventRow = z.array(eventDetailSchema).parse(await eventResponse.json())[0] ?? null;
     if (!eventRow) return jsonError("Event not found.", 404);
-    event = mapEventDetail(eventRow);
+    const entitlements = await loadOrganizerEditionEntitlements(
+      auth.serviceConfig,
+      (eventRow.race_event_editions ?? []).map((edition) => edition.id)
+    );
+    event = mapEventDetail(eventRow, entitlements);
   }
 
   return withSecurityHeaders(

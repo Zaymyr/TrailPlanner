@@ -21,12 +21,15 @@ related_files:
   - apps/web/app/api/organizer/races/route.ts
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/lib/organizer-publication.ts
+  - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
 related_tables:
   - race_event_editions
   - race_events
   - races
   - race_event_publication_requests
   - organizer_import_sessions
+  - organizer_edition_entitlements
+  - organizer_edition_payments
 ---
 
 # race_event_editions
@@ -43,6 +46,7 @@ related_tables:
 - Each edition has an independent catalog visibility state. Hiding one edition hides every attached course format and Racebook without hiding other years of the same event.
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
+- One permanent commercial entitlement covers every current and future format attached to the edition.
 
 ## Columns
 
@@ -122,6 +126,7 @@ where ree.event_id = :event_id
 - Do not detach formats when deleting an edition. The cascade is intentional so no yearless organizer course survives a confirmed edition deletion.
 - Do not republish Racebooks when an edition becomes visible again; hiding is destructive to their live flag, not to their durable approval timestamp.
 - Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.
+- Manual edition creation is free. Cloning a source edition requires Pro and is enforced by the compatibility edition-requests route.
 
 ## Related Docs
 

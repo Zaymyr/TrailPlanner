@@ -172,8 +172,11 @@ function runOutreachJob() {
         return { status: 'RELANCE_IGNORE_SANS_FIL', email: followupProspect.email, reconciliation: reconciliation };
       }
 
-      const followupBody = replaceOrganizationName_(String(template.corps_relance || ''), followupProspect.organizationName || '');
-      if (!followupBody.trim()) throw new Error('Template email : corps_relance est obligatoire quand les relances sont activées.');
+      const followupTemplateKey = followupTemplateKeyForMessage_(followupActivity.sentMessage);
+      const followupBody = replaceOrganizationName_(String(template[followupTemplateKey] || ''), followupProspect.organizationName || '');
+      if (!followupBody.trim()) {
+        throw new Error('Template email : ' + followupTemplateKey + ' est obligatoire quand les relances sont activées.');
+      }
       const sender = String(template.expediteur || Session.getEffectiveUser().getEmail()).trim();
       const signatureHtml = getGmailSignature_(sender);
       const htmlBody = markdownBodyToHtml_(followupBody) + signatureHtml;
@@ -304,6 +307,26 @@ function headerIncludesEmail_(value, email) {
   return (String(value || '').match(/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/gi) || []).some(function (candidate) {
     return normalize_(candidate) === expected;
   });
+}
+
+function followupTemplateKeyForMessage_(sentMessage) {
+  const originalContent = [
+    sentMessage && typeof sentMessage.getSubject === 'function' ? sentMessage.getSubject() : '',
+    sentMessage && typeof sentMessage.getPlainBody === 'function' ? sentMessage.getPlainBody() : '',
+  ].join('\n');
+  return originalMessageIncludesCourseTest_(originalContent)
+    ? 'corps_relance'
+    : 'corps_relance_premier_contact';
+}
+
+function originalMessageIncludesCourseTest_(content) {
+  const normalized = normalize_(content)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+  return /\btst\b/.test(normalized)
+    || /course\s+(?:de\s+)?test/.test(normalized)
+    || /recherch(?:ez|er)\s+(?:la\s+)?course/.test(normalized)
+    || /ouvr(?:ez|ir)\s+(?:la\s+)?course/.test(normalized);
 }
 
 function createThreadedFollowupDraft_(sentMessage, recipient, sender, plainBody, htmlBody) {

@@ -48,13 +48,13 @@ export async function validateOrganizerEventPublication(
   const event = z.array(publicationEventSchema).parse(await response.json())[0] ?? null;
   if (!event) return { ok: false, message: "Event not found.", status: 404 };
 
-  if (!event.name?.trim()) return { ok: false, message: "Ajoute un nom avant de demander la publication.", status: 409 };
-  if (!event.location?.trim()) return { ok: false, message: "Ajoute un lieu avant de demander la publication.", status: 409 };
+  if (!event.name?.trim()) return { ok: false, message: "Ajoute un nom avant de publier cette édition.", status: 409 };
+  if (!event.location?.trim()) return { ok: false, message: "Ajoute un lieu avant de publier cette édition.", status: 409 };
 
   if (!raceId) {
     const currentEdition = (event.race_event_editions ?? []).find((edition) => edition.is_current) ?? null;
-    if (!currentEdition?.start_date) return { ok: false, message: "Ajoute une date de début à l’édition en cours avant de demander la publication.", status: 409 };
-    if (!currentEdition.end_date) return { ok: false, message: "Ajoute une date de fin à l’édition en cours avant de demander la publication.", status: 409 };
+    if (!currentEdition?.start_date) return { ok: false, message: "Ajoute une date de début à l’édition en cours avant de la publier.", status: 409 };
+    if (!currentEdition.end_date) return { ok: false, message: "Ajoute une date de fin à l’édition en cours avant de la publier.", status: 409 };
 
     const publishableRaces = (event.races ?? []).filter(
       (race) =>
@@ -66,7 +66,7 @@ export async function validateOrganizerEventPublication(
         race.elevation_gain_m >= 0
     );
     if (publishableRaces.length === 0) {
-      return { ok: false, message: "Complète au moins un format (nom, distance, D+) avant de demander la publication.", status: 409 };
+      return { ok: false, message: "Complète au moins un format (nom, distance, D+) avant de publier cette édition.", status: 409 };
     }
 
     return { ok: true, publishableRaceCount: publishableRaces.length, raceId: null };
@@ -76,8 +76,8 @@ export async function validateOrganizerEventPublication(
   if (!requestedRace) return { ok: false, message: "Format introuvable pour cet événement.", status: 404 };
   const requestedEdition = (event.race_event_editions ?? []).find((edition) => edition.id === requestedRace.edition_id) ?? null;
 
-  if (!requestedEdition?.start_date) return { ok: false, message: "Ajoute une date de début à cette édition avant de demander la publication.", status: 409 };
-  if (!requestedEdition.end_date) return { ok: false, message: "Ajoute une date de fin à cette édition avant de demander la publication.", status: 409 };
+  if (!requestedEdition?.start_date) return { ok: false, message: "Ajoute une date de début à cette édition avant de la publier.", status: 409 };
+  if (!requestedEdition.end_date) return { ok: false, message: "Ajoute une date de fin à cette édition avant de la publier.", status: 409 };
   if (
     !requestedRace.name?.trim() ||
     !Number.isFinite(requestedRace.distance_km) ||
@@ -89,4 +89,42 @@ export async function validateOrganizerEventPublication(
   }
 
   return { ok: true, publishableRaceCount: 1, raceId: requestedRace.id };
+}
+
+export async function validateOrganizerEditionPublication(
+  serviceConfig: OrganizerAuth["serviceConfig"],
+  eventId: string,
+  editionId: string
+): Promise<PublicationReadiness> {
+  const response = await fetch(
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_event_editions(id,start_date,end_date,is_current),races(id,edition_id,name,distance_km,elevation_gain_m)&limit=1`,
+    { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" }
+  );
+  if (!response.ok) {
+    console.error("Unable to verify organizer edition publication readiness", await response.text());
+    return { ok: false, message: "Unable to verify edition publication readiness.", status: 502 };
+  }
+  const event = z.array(publicationEventSchema).parse(await response.json())[0] ?? null;
+  if (!event) return { ok: false, message: "Event not found.", status: 404 };
+  if (!event.name?.trim()) return { ok: false, message: "Ajoute un nom avant de publier.", status: 409 };
+  if (!event.location?.trim()) return { ok: false, message: "Ajoute un lieu avant de publier.", status: 409 };
+
+  const edition = (event.race_event_editions ?? []).find((row) => row.id === editionId) ?? null;
+  if (!edition) return { ok: false, message: "Édition introuvable pour cet événement.", status: 404 };
+  if (!edition.start_date || !edition.end_date) {
+    return { ok: false, message: "Complète les dates de l’édition avant de publier.", status: 409 };
+  }
+  const publishableRaces = (event.races ?? []).filter(
+    (race) =>
+      race.edition_id === editionId &&
+      race.name?.trim() &&
+      Number.isFinite(race.distance_km) &&
+      race.distance_km > 0 &&
+      Number.isFinite(race.elevation_gain_m) &&
+      race.elevation_gain_m >= 0
+  );
+  if (publishableRaces.length === 0) {
+    return { ok: false, message: "Complète au moins un format (nom, distance, D+) avant de publier.", status: 409 };
+  }
+  return { ok: true, publishableRaceCount: publishableRaces.length, raceId: null };
 }

@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-08-20
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -280,6 +280,8 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - `other`
 
 ## Gotchas
+
+- Official organizer ravito-product overlays are available only when the source edition is Pro. A downgrade removes the live overlay without rewriting the runner's stored plan snapshot.
 
 - Planner UI product coverage is cumulative. Do not compute carbs/sodium coverage from only the products assigned to the current aid station.
 - Keep the quick calculator duration/tolerance interpolation independent from the full planner allocation. Changing its duration guideposts or tolerance mapping must update its tests and this documentation.

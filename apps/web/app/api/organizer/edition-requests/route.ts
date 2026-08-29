@@ -5,6 +5,7 @@ import { withSecurityHeaders } from "../../../../lib/http";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders } from "../../../../lib/organizer";
 import { POST as createRace } from "../races/route";
 import { DELETE as deleteRace } from "../races/[id]/route";
+import { requireOrganizerEditionCapability } from "../../../../lib/organizer-entitlements";
 
 const createEditionSchema = z.object({
   eventId: z.string().uuid(),
@@ -77,6 +78,9 @@ export async function POST(request: NextRequest) {
     if (!sourceEditionResponse.ok) return jsonError("Unable to inspect source edition.", 502);
     const sourceEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await sourceEditionResponse.json())[0]?.id ?? null;
     if (!sourceEditionId) return jsonError("Source edition not found.", 409);
+    if (!(await requireOrganizerEditionCapability(auth.serviceConfig, sourceEditionId, "edition.duplicate"))) {
+      return jsonError("RaceBook Pro est requis pour dupliquer une édition.", 403);
+    }
 
     const sourceResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/races?edition_id=eq.${sourceEditionId}&select=id,name,race_date&order=race_date.asc`,

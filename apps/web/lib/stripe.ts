@@ -9,6 +9,11 @@ const stripeConfigSchema = z.object({
   checkoutSuccessUrl: z.string().trim().url().optional(),
   checkoutCancelUrl: z.string().trim().url().optional(),
   billingReturnUrl: z.string().trim().url().optional(),
+  organizerRacebookPriceId: z.string().trim().min(1).optional(),
+  organizerProPriceId: z.string().trim().min(1).optional(),
+  organizerProUpgradePriceId: z.string().trim().min(1).optional(),
+  organizerCheckoutSuccessUrl: z.string().trim().url().optional(),
+  organizerCheckoutCancelUrl: z.string().trim().url().optional(),
 });
 
 export type StripeConfig = z.infer<typeof stripeConfigSchema>;
@@ -21,6 +26,11 @@ export const getStripeConfig = (): StripeConfig | null => {
     checkoutSuccessUrl: process.env.STRIPE_CHECKOUT_SUCCESS_URL,
     checkoutCancelUrl: process.env.STRIPE_CHECKOUT_CANCEL_URL,
     billingReturnUrl: process.env.STRIPE_BILLING_RETURN_URL,
+    organizerRacebookPriceId: process.env.STRIPE_ORGANIZER_RACEBOOK_PRICE_ID,
+    organizerProPriceId: process.env.STRIPE_ORGANIZER_PRO_PRICE_ID,
+    organizerProUpgradePriceId: process.env.STRIPE_ORGANIZER_PRO_UPGRADE_PRICE_ID,
+    organizerCheckoutSuccessUrl: process.env.STRIPE_ORGANIZER_CHECKOUT_SUCCESS_URL,
+    organizerCheckoutCancelUrl: process.env.STRIPE_ORGANIZER_CHECKOUT_CANCEL_URL,
   });
 
   if (!parsed.success) {
@@ -34,7 +44,8 @@ export const getStripeConfig = (): StripeConfig | null => {
 export const postStripeForm = async <T>(
   path: string,
   params: Record<string, string | undefined>,
-  secretKey: string
+  secretKey: string,
+  options?: { idempotencyKey?: string }
 ): Promise<T> => {
   const body = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -47,6 +58,7 @@ export const postStripeForm = async <T>(
     headers: {
       Authorization: `Bearer ${secretKey}`,
       "Content-Type": "application/x-www-form-urlencoded",
+      ...(options?.idempotencyKey ? { "Idempotency-Key": options.idempotencyKey } : {}),
     },
     body,
   });
@@ -56,6 +68,18 @@ export const postStripeForm = async <T>(
     throw new Error(text || `Stripe request failed for ${path}`);
   }
 
+  return (await response.json()) as T;
+};
+
+export const getStripeJson = async <T>(path: string, secretKey: string): Promise<T> => {
+  const response = await fetch(`https://api.stripe.com${path}`, {
+    headers: { Authorization: `Bearer ${secretKey}` },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Stripe request failed for ${path}`);
+  }
   return (await response.json()) as T;
 };
 

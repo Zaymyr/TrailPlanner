@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -9,9 +9,14 @@ related_files:
   - apps/web/app/api/stripe/portal/route.ts
   - apps/web/app/api/stripe/price/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
+  - apps/web/app/api/stripe/webhook/route.test.ts
+  - apps/web/app/api/organizer/publication-checkout/route.ts
+  - apps/web/app/api/organizer/publication-checkout/route.test.ts
   - apps/web/lib/entitlements.ts
 related_tables:
   - subscriptions
+  - organizer_edition_payments
+  - organizer_edition_entitlements
   - user_profiles
 ---
 
@@ -19,7 +24,7 @@ related_tables:
 
 ## Purpose
 
-This document describes the web billing flow backed by Stripe. Stripe is used for web subscriptions that feed the shared entitlement model.
+This document describes both runner web subscriptions and one-time organizer edition purchases. These two entitlement models remain separate.
 
 ## Key Concepts
 
@@ -39,6 +44,10 @@ This document describes the web billing flow backed by Stripe. Stripe is used fo
 - `STRIPE_CHECKOUT_SUCCESS_URL`
 - `STRIPE_CHECKOUT_CANCEL_URL`
 - `STRIPE_BILLING_RETURN_URL`
+- `STRIPE_ORGANIZER_RACEBOOK_PRICE_ID`
+- `STRIPE_ORGANIZER_PRO_PRICE_ID`
+- `STRIPE_ORGANIZER_PRO_UPGRADE_PRICE_ID`
+- optional organizer checkout success/cancel URL overrides
 
 Product ID and active price ID are not hardcoded in the repo.
 
@@ -85,6 +94,7 @@ Product ID and active price ID are not hardcoded in the repo.
 - handles `customer.subscription.updated`;
 - handles `customer.subscription.deleted`;
 - handles `checkout.session.completed`.
+- handles organizer async payment success/failure, Checkout expiry, charge refunds, and disputes.
 
 Subscription events upsert:
 
@@ -94,6 +104,14 @@ Subscription events upsert:
 - price id;
 - plan name from price or subscription metadata;
 - current period end.
+
+## Organizer Edition Checkout
+
+`/api/organizer/publication-checkout` accepts an event, edition, and target tier only. It verifies the authenticated non-anonymous user, active event membership, edition ownership, publication readiness, current entitlement, and absence of an incompatible active purchase. The server chooses and verifies the configured one-time EUR Price: RaceBook 99 € HT, direct Pro 299 € HT, or RaceBook-to-Pro upgrade 200 € HT.
+
+Checkout enables Stripe Tax, billing address and tax-id collection, and invoice creation. Metadata binds the payment row, edition, user, and transition. The webhook records subtotal, tax, total, currency, Customer, Session, and PaymentIntent before recalculating the effective edition entitlement. A browser success return never grants access by itself.
+
+Any refund event, including partial, marks its organizer transaction refunded; a new dispute marks a paid transaction disputed. Both recalculate the edition and can hide its RaceBooks without hiding its catalog formats. A dispute closed as won restores only a currently disputed transaction; a lost dispute remains invalid. Duplicate or out-of-order webhook delivery is safe because transitions are status-filtered and recalculation derives state from the complete valid ledger.
 
 ## Trial vs Paid Distinction
 
@@ -105,6 +123,8 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 - Do not expose Stripe secret keys client-side.
 - Webhook handling should remain idempotent; Stripe can retry events.
 - `checkout.session.completed` does not include all subscription details, so subscription update events are still important.
+- Organizer Price ids must be non-recurring EUR prices, use `tax_behavior=exclusive`, and carry the exact server-expected amounts; never accept a Price id or amount from the browser.
+- Organizer payments must not write `subscriptions` or runner Premium state.
 
 ## Related Docs
 
@@ -112,3 +132,4 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 - [Premium Entitlement](../03-business-rules/premium-entitlement.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [Session Management](../04-auth-and-security/session-management.md)
+- [Organizer Commercial Offers](../03-business-rules/organizer-commercial-offers.md)

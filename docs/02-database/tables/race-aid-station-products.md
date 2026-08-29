@@ -1,7 +1,7 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -64,16 +64,15 @@ See [../rls-policies.md](../rls-policies.md).
 
 Summary:
 
-- Rows are selectable when the parent race is public/live, user-owned, managed by an active event organizer, or admin-visible.
-- Organizers and admins can insert, update, and delete rows for stations under events they manage.
-- Insert/update checks only allow live non-archived products, products created by the acting user, or admin access.
+- Public rows require a public/live/published parent format whose edition is Pro. Owners, active event organizers, and admins retain managed preview reads.
+- Direct authenticated mutations are revoked. The service route checks membership plus `aid_station_products.manage` (Pro) before writing with service role.
 
 ## Business Invariants
 
 - The row stores product presence, order, and optional notes only. It does not store stock or quantities.
 - Organizer-created products stay `is_live = false`, `is_archived = false`, `is_official = false`, and `created_by = organizer user`.
 - Organizer-created products are not global catalog products and should not appear in `/api/products`.
-- Imported runner plans store organizer suggestions in `planner_values.organizerAidStationProducts` as fallback data; `/api/plans` refreshes the current links from `race_aid_station_products` into responses for plans with `race_id` without mutating the saved plan row. Web auto-fill can use ravito-scoped suggestions only when the runner enables the ravito-products option, favorites a product, or explicitly selects it. Selected suggestions become `supplies` with `source: "organizer"` so they remain distinct from personal crew handoffs.
+- Imported runner plans store Pro organizer suggestions in `planner_values.organizerAidStationProducts` as fallback data; `/api/plans` refreshes them only while the source edition remains Pro. Web auto-fill can use ravito-scoped suggestions only when the runner opts in, favorites a product, or explicitly selects it.
 - Organizer suggestions are not the same thing as planner `assistanceAllowed`. A station can offer official ravito products while still being unavailable to the runner's crew.
 - `race_aid_stations.solid_available` can describe official solid service even when no product links have been entered yet.
 - Organizer station-product replacement payloads may omit `notes` or send `notes = null`; the API normalizes empty notes to `null` and replaces the full ordered set for that station.

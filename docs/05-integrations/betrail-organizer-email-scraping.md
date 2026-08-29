@@ -140,6 +140,7 @@ Run `installOutreachJob` once from the Apps Script editor after deployment and O
 - searches Gmail for an existing sent message or reply from the same address;
 - reconciles Gmail activity in bounded rotating batches every five minutes by default, updating `last_sent_email_at` and `replied_at` in `Prospects` even when draft creation is disabled;
 - when `activation_relance` is checked, selects contacts whose last sent message is at least `delai_relance_jours` business days old, then rechecks Gmail and creates at most one reply draft in the existing thread;
+- reads the actual first sent message before drafting a follow-up: messages that explicitly proposed the TST/course-test flow use `corps_relance`, while older presentation emails use `corps_relance_premier_contact` to introduce the site and app links, then invite the organizer to open TST and share feedback;
 - creates at most one personalized draft;
 - records the outcome in `Historique envois`, which the job creates when first installed.
 
@@ -159,6 +160,7 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 - Rows with neither an exact source date nor a reviewed `event_week` remain blocked. A week from 1 to 53 can be entered manually when another reliable source establishes the period.
 - Creating a draft does not prove that it was sent. Gmail reconciliation confirms manual sends and replies, while `Historique envois` prevents duplicate initial and follow-up drafts. Reconciliation is deliberately batched and rotating to limit Gmail reads, so Sheet timestamps can lag Gmail by several minutes.
 - Follow-ups use the latest sent Gmail thread for the prospect address. The job filters individual message headers after the Gmail thread search so an incoming reply in the same thread is not mistaken for a sent message.
+- Follow-up copy is selected from explicit evidence in the original sent content. A generic phrase such as “tester ce format sur un événement réel” does not count as having already shared a course test; only an explicit TST/course-test instruction selects that template.
 - The follow-up business-day delay skips Saturdays and Sundays but does not currently know French public holidays.
 - Gmail signatures are fetched through the Gmail advanced service. Non-BMP icons are converted to HTML entities before draft creation because `GmailApp.createDraft` can otherwise replace them. If the service or signature lookup is unavailable, the job creates the draft without a signature and logs a warning rather than blocking the queue.
 - The Apps Script web app URL is public by necessity, but every write requires the long token stored in Script Properties. Rotate it with `createScraperWebhookToken` if it is ever exposed.

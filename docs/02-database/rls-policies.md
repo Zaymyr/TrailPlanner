@@ -139,7 +139,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Approved organizers manage public claimed races through service routes and `race_event_organizers`, not through `races.created_by`.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
 - `races.edition_group_id` and `races.series_name` inherit the same `races` row policies; the organizer edition-grouping migration adds no new grants or RLS branches.
-- Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the membership-checked service route, and the route permits `racebook_is_live = true` only when the trusted approval timestamp exists.
+- Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the membership-checked service route and atomic RPC, which requires the edition-level `racebook.publish` capability and records first-publication provenance.
 
 Some policy branches include legacy admin metadata checks. Do not copy them into new migrations.
 
@@ -155,7 +155,7 @@ Declared through old `race_catalog_aid_stations` policies and renamed in `202603
 
 ### `race_relay_points`
 
-- Public select requires the parent race to be public, course-live, and Racebook-live.
+- Public select requires the parent race to be public, course-live, Racebook-live, and covered by Pro.
 - Parent owners, active event organizers, and trusted `app_metadata` admins can select managed rows.
 - Insert/update/delete grants are service-role-only; Organizer writes stay behind the membership-checked web route.
 - Indexes cover ordered parent-race reads and the optional aid-station foreign key.
@@ -197,10 +197,9 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 `race_aid_station_products`:
 
-- Public/live race station product links are selectable.
+- Public/live station product links are selectable only for Pro editions; organizers/admins keep preview reads.
 - Race owners, active event organizers, and admins can select links for races they can manage.
-- Active event organizers and admins can insert, update, and delete station-product links.
-- Insert/update checks require the product to be live and non-archived, created by the acting user, or admin-visible.
+- Direct authenticated insert/update/delete is revoked. Pro-checked service routes perform organizer mutations with service role.
 
 Manual checks live in `supabase/tests/organizer_rls_checks.sql`.
 
@@ -213,6 +212,10 @@ Manual checks live in `supabase/tests/organizer_rls_checks.sql`.
 - `configure_organizer_import_cleanup_cron` is the narrow SECURITY DEFINER exception required to read Vault and manage pg_cron. It grants execute only to `service_role`.
 
 Manual permission, constraint, draft-transition, and RPC checks live in `supabase/tests/organizer_import_sessions_checks.sql`.
+
+### Organizer Commercial Rights
+
+`organizer_edition_entitlements` and `organizer_edition_payments` are RLS-enabled service-only tables with explicit client revokes. A fixed-search-path private function returns only whether an edition is Pro so public relay/product child policies can enforce the commercial gate without exposing payment or grant rows.
 
 ### Event Favorites and Organizer Updates
 
@@ -228,7 +231,7 @@ Declared in `20260629123858_add_race_event_favorites_and_updates.sql`.
 `race_event_updates`:
 
 - `anon` and `authenticated` can select rows only when the parent `race_events` row is live.
-- Authenticated organizers and admins can insert rows only for events they actively manage, with `created_by = auth.uid()`. When `race_id` is present, the policy also requires a live format belonging to the same event.
+- Direct authenticated inserts are revoked. The organizer server route requires the selected edition's `followers.notify` capability before writing and delivering push notifications.
 - No direct client update/delete path is documented; organizer writes are append-only through the server route.
 
 `race_event_update_reads`:

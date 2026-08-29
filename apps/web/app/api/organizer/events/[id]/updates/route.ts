@@ -10,10 +10,12 @@ import {
 } from "../../../../../../lib/organizer";
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../../../lib/http";
 import { sendOrganizerRaceUpdateNotifications } from "../../../../../../lib/push";
+import { requireOrganizerEditionCapability } from "../../../../../../lib/organizer-entitlements";
 
 const createUpdateSchema = z.object({
   message: z.string().trim().min(1).max(280),
   raceId: z.string().uuid().nullable().optional(),
+  editionId: z.string().uuid(),
 });
 
 const deleteUpdateSchema = z.object({
@@ -47,6 +49,24 @@ const parseExactCount = (response: Response) => {
   return total === undefined ? null : Number(total);
 };
 
+const requireProEdition = async (
+  auth: Exclude<Awaited<ReturnType<typeof requireOrganizerAuth>>, { error: NextResponse }>,
+  eventId: string,
+  editionId: string | null
+) => {
+  if (!editionId) return jsonError("Edition id is required.", 400);
+  const response = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?id=eq.${editionId}&event_id=eq.${eventId}&select=id&limit=1`,
+    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+  );
+  if (!response.ok) return jsonError("Unable to verify event edition.", 502);
+  if (((await response.json()) as unknown[]).length === 0) return jsonError("Event edition not found.", 404);
+  if (!(await requireOrganizerEditionCapability(auth.serviceConfig, editionId, "followers.notify"))) {
+    return jsonError("RaceBook Pro est requis pour notifier les coureurs.", 403);
+  }
+  return null;
+};
+
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
@@ -56,6 +76,13 @@ export async function GET(request: NextRequest, context: { params: { id?: string
 
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if (organizer !== true) return organizer.error;
+
+  const capabilityError = await requireProEdition(
+    auth,
+    parsedParams.data.id,
+    request.nextUrl.searchParams.get("editionId")
+  );
+  if (capabilityError) return capabilityError;
 
   const [favoritesResponse, updatesResponse] = await Promise.all([
     fetch(
@@ -126,6 +153,8 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const parsedBody = createUpdateSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid update payload.", 400);
+  const capabilityError = await requireProEdition(auth, parsedParams.data.id, parsedBody.data.editionId);
+  if (capabilityError) return capabilityError;
 
   const eventResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,name&limit=1`,
@@ -220,6 +249,13 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
 
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if (organizer !== true) return organizer.error;
+
+  const capabilityError = await requireProEdition(
+    auth,
+    parsedParams.data.id,
+    request.nextUrl.searchParams.get("editionId")
+  );
+  if (capabilityError) return capabilityError;
 
   const parsedQuery = deleteUpdateSchema.safeParse({
     updateId: request.nextUrl.searchParams.get("updateId"),

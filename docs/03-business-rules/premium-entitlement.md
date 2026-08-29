@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -92,6 +92,7 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 - Billing source rows all flow into `subscriptions`.
 - Premium grants are overrides, not subscriptions.
 - Plan creation routes must check effective entitlements before allowing extra saved plans.
+- Organizer per-edition Visibilité/RaceBook/Pro rights are a separate commercial model stored in `organizer_edition_entitlements`; they never elevate runner Premium.
 
 ## Gotchas
 
@@ -99,6 +100,7 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 - Do not fork mobile purchases into a new table unless changing the entitlement model deliberately.
 - Be careful with missing `current_period_end`; code paths differ in how permissive they are.
 - Stripe product/price identities are environment/dashboard configuration, not hardcoded repo facts.
+- Do not resolve organizer edition capabilities from `subscriptions`, RevenueCat, trial state, or `premium_grants`.
 
 ## Related Docs
 

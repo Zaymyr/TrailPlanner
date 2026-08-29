@@ -18,6 +18,7 @@ import {
 } from "../../../lib/organizer-dashboard-details";
 import type { FuelProduct } from "../../../lib/product-types";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
+import { supportEmail } from "../../support/copy";
 import { buildOrganizerCompletion, type OrganizerCompletionSummary, type OrganizerModuleId } from "./completion";
 import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
@@ -252,6 +253,8 @@ export function OrganizerDashboard({
   const [toast, setToast] = useState<{ id: number; type: "success" | "error"; message: string } | null>(null);
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
+  const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [checkoutTarget, setCheckoutTarget] = useState<"racebook" | "pro" | null>(null);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
   const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
   const [eventUpdateError, setEventUpdateError] = useState<string | null>(null);
@@ -280,6 +283,7 @@ export function OrganizerDashboard({
   const gpxRequestsRef = useRef(new Map<string, Promise<GpxPreview | null>>());
   const cacheOwnerIdRef = useRef<string | null>(null);
   const cacheGenerationRef = useRef(0);
+  const previousActiveTierRef = useRef<"visibility" | "racebook" | "pro">("visibility");
   const requestedBootstrapEventIdRef = useRef(requestedEventId);
   const skipNextEventLoadRef = useRef<string | null>(null);
 
@@ -289,6 +293,7 @@ export function OrganizerDashboard({
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeEdition = getEventEdition(eventDetail, selectedEditionYear);
+  const activeTier = activeEdition?.entitlement?.status === "active" ? activeEdition.entitlement.tier : "visibility";
   const websiteImportExistingRaces = useMemo(
     () => (eventDetail?.races ?? []).filter((race) =>
       activeEdition
@@ -524,10 +529,10 @@ export function OrganizerDashboard({
     void loadOrganizerData();
   }, [accessToken]);
 
-  const loadEventUpdates = async (eventId: string) => {
+  const loadEventUpdates = async (eventId: string, editionId: string) => {
     if (!accessToken) return;
     try {
-      const response = await fetch(`/api/organizer/events/${eventId}/updates`, { headers: authHeaders, cache: "no-store" });
+      const response = await fetch(`/api/organizer/events/${eventId}/updates?editionId=${encodeURIComponent(editionId)}`, { headers: authHeaders, cache: "no-store" });
       const data = (await response.json().catch(() => null)) as
         | {
             favoriteCount?: number;
@@ -587,6 +592,40 @@ export function OrganizerDashboard({
   }, [selectedEventId, accessToken]);
 
   useEffect(() => {
+    if (!selectedEventId || !accessToken || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("organizerPayment") !== "success") return;
+    const returnedEditionId = params.get("editionId");
+    const targetTier = params.get("targetTier");
+    if (!returnedEditionId || (targetTier !== "racebook" && targetTier !== "pro")) return;
+
+    let cancelled = false;
+    let attempts = 0;
+    const refreshEntitlement = async () => {
+      attempts += 1;
+      const response = await fetch(`/api/organizer/events/${selectedEventId}`, { headers: authHeaders, cache: "no-store" });
+      const data = (await response.json().catch(() => null)) as { event?: OrganizerEventDetail } | null;
+      if (cancelled || !response.ok || !data?.event) return;
+      const returnedEdition = (data.event.editions ?? []).find((edition) => edition.id === returnedEditionId);
+      if (returnedEdition?.entitlement?.status === "active" && returnedEdition.entitlement.tier === targetTier) {
+        applyLoadedEvent(data.event, activeTab, selectedEditionYear);
+        showToast("success", `L’offre ${targetTier === "pro" ? "RaceBook Pro" : "RaceBook"} est maintenant active.`);
+        params.delete("organizerPayment");
+        params.delete("targetTier");
+        params.delete("session_id");
+        window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
+        return;
+      }
+      if (attempts < 10) window.setTimeout(() => void refreshEntitlement(), 1_500);
+      else showToast("error", "Paiement reçu, activation encore en cours. Recharge la page dans quelques instants.");
+    };
+    void refreshEntitlement();
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedEventId, accessToken]);
+
+  useEffect(() => {
     if (!eventDetail || !selectedEditionYear) return;
     const edition = getEventEdition(eventDetail, selectedEditionYear);
     if (!edition) return;
@@ -599,11 +638,11 @@ export function OrganizerDashboard({
   }, [eventDetail?.id, selectedEditionYear]);
 
   useEffect(() => {
-    if (!eventUpdatesDialogOpen || !selectedEventId || !accessToken) return;
+    if (!eventUpdatesDialogOpen || !selectedEventId || !activeEdition?.id || !accessToken) return;
     setEventFavoriteCount(null);
     setEventUpdates([]);
-    void loadEventUpdates(selectedEventId);
-  }, [eventUpdatesDialogOpen, selectedEventId, accessToken, authHeaders]);
+    void loadEventUpdates(selectedEventId, activeEdition.id);
+  }, [eventUpdatesDialogOpen, selectedEventId, activeEdition?.id, accessToken, authHeaders]);
 
   const applyRaceSidecars = (raceId: string, sidecars: OrganizerRaceSidecars, previewOverride: GpxPreview | null) => {
     if (activeRaceIdRef.current !== raceId) return;
@@ -624,27 +663,30 @@ export function OrganizerDashboard({
     let request = sidecarRequestsRef.current.get(raceId);
     if (!request) {
       const requestGeneration = cacheGenerationRef.current;
-      request = Promise.all([
-        fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" }),
-        fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" }),
-        fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" }),
-      ])
-        .then(async ([aidResponse, relayResponse, productsResponse]) => {
+      request = fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" })
+        .then(async (aidResponse) => {
           if (cacheGenerationRef.current !== requestGeneration) return null;
-          if (!aidResponse.ok || !relayResponse.ok || !productsResponse.ok) return null;
-          const [aidData, relayData, productsData] = (await Promise.all([
-            aidResponse.json(),
-            relayResponse.json(),
-            productsResponse.json(),
-          ])) as [
-            { aidStations?: OrganizerAidStationRow[] },
-            { relayPoints?: RelayPointDraft[] },
-            { products?: StationProduct[] },
-          ];
+          if (!aidResponse.ok) return null;
+          const aidData = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
+          let relayPoints: RelayPointDraft[] = [];
+          let products: StationProduct[] = [];
+          if (activeTier === "pro") {
+            const [relayResponse, productsResponse] = await Promise.all([
+              fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" }),
+              fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" }),
+            ]);
+            if (!relayResponse.ok || !productsResponse.ok) return null;
+            const [relayData, productsData] = (await Promise.all([relayResponse.json(), productsResponse.json()])) as [
+              { relayPoints?: RelayPointDraft[] },
+              { products?: StationProduct[] },
+            ];
+            relayPoints = relayData.relayPoints ?? [];
+            products = productsData.products ?? [];
+          }
           const sidecars: OrganizerRaceSidecars = {
             aidStations: aidStationRowsToDrafts(aidData.aidStations ?? []),
-            relayPoints: relayData.relayPoints ?? [],
-            stationProducts: productsData.products ?? [],
+            relayPoints,
+            stationProducts: products,
           };
           if (cacheGenerationRef.current !== requestGeneration) return null;
           writeOrganizerRaceSidecarsCache(raceId, sidecars);
@@ -751,18 +793,28 @@ export function OrganizerDashboard({
   }, [activeRace?.id]);
 
   useEffect(() => {
+    const previousTier = previousActiveTierRef.current;
+    previousActiveTierRef.current = activeTier;
+    if (!activeRace || previousTier === activeTier || activeTier !== "pro") return;
+
+    invalidateOrganizerRaceSidecarsCache(activeRace.id);
+    sidecarRequestsRef.current.delete(activeRace.id);
+    setSidecarLoadedRaceId(null);
+  }, [activeRace?.id, activeTier]);
+
+  useEffect(() => {
     if (!activeRace) return;
     const needsSidecar = activeModule === "aidStations" || activeModule === "products";
     if (needsSidecar && sidecarLoadedRaceId !== activeRace.id) {
       void loadRaceSidecar(activeRace.id);
     }
-    if (needsSidecar) void loadCatalogProducts();
+    if (needsSidecar && activeTier === "pro") void loadCatalogProducts();
 
     const needsGpx = activeModule === "formats" || activeModule === "aidStations";
     if (needsGpx && activeRace.gpx_storage_path && gpxLoadedRaceKey !== `${activeRace.id}:${activeRace.gpx_storage_path}`) {
       void loadRaceGpxPreview(activeRace.id, activeRace.gpx_storage_path);
     }
-  }, [activeModule, activeRace?.id, activeRace?.gpx_storage_path, sidecarLoadedRaceId, gpxLoadedRaceKey]);
+  }, [activeModule, activeRace?.id, activeRace?.gpx_storage_path, activeTier, sidecarLoadedRaceId, gpxLoadedRaceKey]);
 
   useEffect(() => {
     const shiftOneYear = (value?: string | null) => {
@@ -1293,15 +1345,19 @@ export function OrganizerDashboard({
         showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
         return false;
       }
-      const relayResponse = await fetch(`/api/organizer/races/${activeRace.id}/relay-points`, {
-        method: "PUT",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ relayPoints }),
-      });
-      const relayData = (await relayResponse.json().catch(() => null)) as { relayPoints?: RelayPointDraft[]; message?: string } | null;
-      if (!relayResponse.ok) {
-        showToast("error", relayData?.message ?? "Impossible d'enregistrer les points de relais.");
-        return false;
+      let savedRelayPoints: RelayPointDraft[] = [];
+      if (activeTier === "pro") {
+        const relayResponse = await fetch(`/api/organizer/races/${activeRace.id}/relay-points`, {
+          method: "PUT",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ relayPoints }),
+        });
+        const relayData = (await relayResponse.json().catch(() => null)) as { relayPoints?: RelayPointDraft[]; message?: string } | null;
+        if (!relayResponse.ok) {
+          showToast("error", relayData?.message ?? "Impossible d'enregistrer les points de relais.");
+          return false;
+        }
+        savedRelayPoints = relayData?.relayPoints ?? [];
       }
       setEventDetail((current) =>
         current?.id === selectedEventId
@@ -1318,7 +1374,7 @@ export function OrganizerDashboard({
       const savedStationIds = new Set(savedAidStations.map((station) => station.id).filter(Boolean));
       const sidecars: OrganizerRaceSidecars = {
         aidStations: savedAidStations,
-        relayPoints: relayData?.relayPoints ?? [],
+        relayPoints: savedRelayPoints,
         stationProducts: stationProducts.filter((link) => savedStationIds.has(link.aidStationId)),
       };
       writeOrganizerRaceSidecarsCache(activeRace.id, sidecars);
@@ -1634,31 +1690,33 @@ export function OrganizerDashboard({
     setActiveModule((currentModule) => getModuleForTab(nextTab, currentModule));
   };
 
-  const requestPublication = async () => {
-    if (!(await saveBeforeNavigation())) return;
-    if (!accessToken || !selectedEventId || !eventDetail) return;
+  const requestPublication = () => {
+    if (activeTier === "pro") {
+      showToast("success", "L’offre RaceBook Pro est active pour cette édition.");
+      return;
+    }
+    setPricingDialogOpen(true);
+  };
 
-    setStatus("saving");
+  const startCheckout = async (targetTier: "racebook" | "pro") => {
+    if (!(await saveBeforeNavigation())) return;
+    if (!accessToken || !selectedEventId || !activeEdition) return;
+    setCheckoutTarget(targetTier);
     setError(null);
     try {
-      const response = await fetch("/api/organizer/publication-requests", {
+      const response = await fetch("/api/organizer/publication-checkout", {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: selectedEventId }),
+        body: JSON.stringify({ eventId: selectedEventId, editionId: activeEdition.id, targetTier }),
       });
-      const data = (await response.json().catch(() => null)) as {
-        publicationRequest?: PublicationRequestRow;
-        message?: string;
-      } | null;
-      if (!response.ok || !data?.publicationRequest) {
-        showToast("error", data?.message ?? "Impossible d'envoyer la demande de publication.");
+      const data = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
+      if (!response.ok || !data?.url) {
+        showToast("error", data?.message ?? "Impossible d’ouvrir le paiement Stripe.");
         return;
       }
-
-      showToast("success", "Demande de publication envoyée à l'administrateur.");
-      setPublicationRequests((current) => [data.publicationRequest!, ...current]);
+      window.location.assign(data.url);
     } finally {
-      setStatus("idle");
+      setCheckoutTarget(null);
     }
   };
 
@@ -1697,7 +1755,7 @@ export function OrganizerDashboard({
   };
 
   const submitEventUpdate = async () => {
-    if (!selectedEventId || !accessToken) return;
+    if (!selectedEventId || !activeEdition?.id || !accessToken) return;
 
     const message = eventUpdateMessage.trim();
     if (!message) {
@@ -1715,7 +1773,7 @@ export function OrganizerDashboard({
       const response = await fetch(`/api/organizer/events/${selectedEventId}/updates`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ message, raceId: eventUpdateRaceId }),
+        body: JSON.stringify({ message, raceId: eventUpdateRaceId, editionId: activeEdition?.id }),
       });
       const data = (await response.json().catch(() => null)) as
         | {
@@ -1735,7 +1793,7 @@ export function OrganizerDashboard({
       setEventUpdateMessage("");
       setEventUpdateRaceId(null);
       setEventUpdatesDialogOpen(false);
-      await loadEventUpdates(selectedEventId);
+      if (activeEdition?.id) await loadEventUpdates(selectedEventId, activeEdition.id);
     } catch (caught) {
       console.error("Unable to create organizer event update", caught);
       setEventUpdateError("Impossible d'envoyer la notification.");
@@ -1752,7 +1810,7 @@ export function OrganizerDashboard({
     setEventUpdateError(null);
     try {
       const response = await fetch(
-        `/api/organizer/events/${selectedEventId}/updates?updateId=${encodeURIComponent(update.id)}`,
+        `/api/organizer/events/${selectedEventId}/updates?updateId=${encodeURIComponent(update.id)}&editionId=${encodeURIComponent(activeEdition?.id ?? "")}`,
         {
           method: "DELETE",
           headers: authHeaders,
@@ -2125,7 +2183,17 @@ export function OrganizerDashboard({
         onEditionDateChange={setNewEditionDate}
         onEditionEndDateChange={setNewEditionEndDate}
         onRequestEdition={requestNewEdition}
-        onImportWebsite={isAdmin ? openWebsiteImportDialog : undefined}
+        onImportWebsite={
+          isAdmin
+            ? openWebsiteImportDialog
+            : activeTier === "pro"
+              ? () => {
+                  const subject = `Import assisté — ${eventDetail?.name ?? "événement"} — édition ${selectedEditionYear}`;
+                  window.location.assign(`mailto:${supportEmail}?subject=${encodeURIComponent(subject)}`);
+                }
+              : undefined
+        }
+        importWebsiteLabel={isAdmin ? "Importer les informations" : "Demander un import assisté"}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
         status={status}
@@ -2134,12 +2202,16 @@ export function OrganizerDashboard({
           void saveAllDirty();
         }}
         onNotifyFollowers={(raceId) => {
+          if (activeTier !== "pro") {
+            setPricingDialogOpen(true);
+            return;
+          }
           setEventUpdateError(null);
           setEventUpdateRaceId(raceId ?? null);
           setEventUpdatesDialogOpen(true);
         }}
         onRequestPublication={() => {
-          void requestPublication();
+          requestPublication();
         }}
         onRacebookVisibilityChange={(raceId, isLive) => {
           void setRacebookVisibility(raceId, isLive);
@@ -2321,7 +2393,7 @@ export function OrganizerDashboard({
               activeRace={activeRace}
               aidStations={aidStations}
               participationMode={raceForm.participationMode}
-              relayPoints={relayPoints}
+              relayPoints={activeTier === "pro" ? relayPoints : []}
               startTime={raceForm.organizerDetails.schedule.startTime ?? ""}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
               expandedStationKey={expandedStationKey}
@@ -2357,6 +2429,10 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onAddRelayPoint={() => {
+                if (activeTier !== "pro") {
+                  setPricingDialogOpen(true);
+                  return;
+                }
                 const finishDistance = Math.max(0.2, raceForm.distanceKm);
                 const lastDistance = Math.max(0, ...relayPoints.map((point) => point.distanceKm));
                 const suggestedDistance = lastDistance > 0
@@ -2385,6 +2461,10 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onToggleStationRelayPoint={(station, checked) => {
+                if (activeTier !== "pro") {
+                  setPricingDialogOpen(true);
+                  return;
+                }
                 if (!station.id) return;
                 setRelayPoints((current) => checked
                   ? [
@@ -2432,11 +2512,15 @@ export function OrganizerDashboard({
                 setAidStations((current) => current.filter((_, stationIndex) => stationIndex !== index));
                 markDirty("aidStations");
               }}
-              stationProducts={stationProducts}
+              stationProducts={activeTier === "pro" ? stationProducts : []}
               productsById={productsById}
               productForm={productForm}
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
+                if (activeTier !== "pro") {
+                  setPricingDialogOpen(true);
+                  return;
+                }
                 setProductSearch("");
                 setProductPickerStationId(stationId);
               }}
@@ -2478,6 +2562,14 @@ export function OrganizerDashboard({
               onEventChange={(details) => updateEventDetails(details, "access")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "access")}
             />
+          ) : activeModule === "products" && activeTier !== "pro" ? (
+            <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
+              <p className="font-semibold text-foreground">Produits officiels aux ravitaillements — RaceBook Pro</p>
+              <p className="mt-2 text-sm text-muted-foreground">Passe à Pro pour gérer les produits disponibles et les intégrer au plan nutritionnel des coureurs.</p>
+              <Button type="button" className="mt-4" onClick={() => setPricingDialogOpen(true)}>
+                Découvrir RaceBook Pro
+              </Button>
+            </div>
           ) : activeModule === "products" ? (
             <ProductsEditor
               aidStations={aidStations}
@@ -2524,6 +2616,55 @@ export function OrganizerDashboard({
         }}
         disabled={status === "saving"}
       />
+
+      <Dialog open={pricingDialogOpen} onOpenChange={setPricingDialogOpen}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle>{activeTier === "racebook" ? "Passer à RaceBook Pro" : "Publier cette édition"}</DialogTitle>
+            <DialogDescription>
+              Le droit est permanent pour cette édition et couvre tous ses formats présents et futurs. Prix hors taxes, TVA calculée par Stripe.
+            </DialogDescription>
+          </DialogHeader>
+          {activeTier === "racebook" ? (
+            <Card className="border-brand">
+              <CardHeader>
+                <CardTitle>RaceBook Pro — complément de 200 € HT</CardTitle>
+                <CardDescription>Notifications coureurs, duplication, relais, produits aux ravitaillements et import assisté.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null}>
+                  {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Passer à Pro pour 200 € HT"}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              <Card>
+                <CardHeader>
+                  <CardTitle>RaceBook — 99 € HT</CardTitle>
+                  <CardDescription>Publication mobile, parcours, horaires, ravitaillements, matériel, dossards, accès et informations pratiques.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button type="button" variant="outline" onClick={() => void startCheckout("racebook")} disabled={checkoutTarget !== null}>
+                    {checkoutTarget === "racebook" ? "Ouverture de Stripe…" : "Choisir RaceBook"}
+                  </Button>
+                </CardContent>
+              </Card>
+              <Card className="border-brand shadow-sm">
+                <CardHeader>
+                  <CardTitle>RaceBook Pro — 299 € HT</CardTitle>
+                  <CardDescription>Tout RaceBook, plus notifications, duplication, relais, produits aux ravitaillements et import assisté.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null}>
+                    {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Choisir RaceBook Pro"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={eventUpdatesDialogOpen} onOpenChange={setEventUpdatesDialogOpen}>
         <DialogContent>

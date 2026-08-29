@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-08-24
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - vercel.json
@@ -12,6 +12,8 @@ related_files:
   - supabase/migrations/20260504094253_fix_push_reminders_cron_auth.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - apps/web/app/api/cron/organizer-import-cleanup/route.ts
+  - apps/web/lib/stripe.ts
+  - apps/web/app/api/organizer/publication-checkout/route.ts
   - supabase/functions/push-register/index.ts
   - supabase/functions/push-reminders/index.ts
 related_tables:
@@ -139,6 +141,11 @@ Document variable names, not secret values. Important names visible in code incl
 - `STRIPE_CHECKOUT_SUCCESS_URL`
 - `STRIPE_CHECKOUT_CANCEL_URL`
 - `STRIPE_BILLING_RETURN_URL`
+- `STRIPE_ORGANIZER_RACEBOOK_PRICE_ID`
+- `STRIPE_ORGANIZER_PRO_PRICE_ID`
+- `STRIPE_ORGANIZER_PRO_UPGRADE_PRICE_ID`
+- `STRIPE_ORGANIZER_CHECKOUT_SUCCESS_URL` (optional)
+- `STRIPE_ORGANIZER_CHECKOUT_CANCEL_URL` (optional)
 - `NEXT_PUBLIC_POSTHOG_KEY`
 - `NEXT_PUBLIC_POSTHOG_TOKEN`
 - `NEXT_PUBLIC_POSTHOG_HOST`
@@ -156,6 +163,7 @@ Document variable names, not secret values. Important names visible in code incl
 ## Gotchas
 
 - Never commit actual environment values into docs.
+- Organizer Stripe Price ids must point to active, one-time EUR prices at exactly 99 €, 299 €, and 200 € excluding tax; the server rejects mismatched Price configuration.
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.

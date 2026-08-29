@@ -23,6 +23,7 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -46,6 +47,8 @@ related_tables:
   - user_profiles
   - subscriptions
   - premium_grants
+  - organizer_edition_entitlements
+  - organizer_edition_payments
 ---
 
 # Database Relationships
@@ -177,6 +180,10 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `organizer_import_sessions.event_id -> race_events(id) on delete cascade`
 - `organizer_import_sessions.edition_id -> race_event_editions(id) on delete cascade`
 - `organizer_import_sessions.created_by -> auth.users(id) on delete cascade`
+- `organizer_edition_entitlements.edition_id -> race_event_editions(id) on delete cascade`
+- `organizer_edition_entitlements.granted_by -> auth.users(id) on delete set null`
+- `organizer_edition_payments.edition_id -> race_event_editions(id) on delete cascade`
+- `organizer_edition_payments.purchaser_user_id -> auth.users(id) on delete set null`
 
 Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Claimed catalog race rows should not be reassigned through `races.created_by`.
 
@@ -199,6 +206,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - Deleting an approving admin must not delete or hide a course/Racebook row; the approval actor FK is intentionally `on delete set null` while the approval timestamp remains durable.
 - Explicit import replacement of `aidStations` deletes and recreates the source station set atomically. Because station products cascade by station id, the review must warn that selected replacement removes existing `race_aid_station_products`; omitting the field preserves every station and product link.
 - A deleted race removes its unusable slug mappings by cascade. While the race exists, former slugs remain reserved and cannot be reassigned to another row.
+- Edition deletion also removes its entitlement and payment ledger. Membership remains event-scoped, so every active organizer consumes the same edition capability.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -152,6 +152,9 @@ related_files:
   - apps/web/app/api/stripe/checkout/route.ts
   - apps/web/lib/location-utils.ts
   - apps/web/lib/push.ts
+  - apps/web/lib/organizer-entitlements.ts
+  - apps/web/app/api/organizer/publication-checkout/route.ts
+  - apps/web/app/api/organizer/publication-checkout/route.test.ts
 related_tables:
   - race_plans
   - plan_share_links
@@ -316,7 +319,7 @@ The v1 organizer portal is web-only:
 - `/api/race-favorites` is the authenticated runner bridge for favoriting `race_events`, and `/api/race-events/[id]/updates` is the runner/mobile read route for the latest published organizer announcements on live events.
 - `/api/admin/organizer-claims` keeps legacy access-claim review and membership revocation, and lets a trusted admin attach an existing Supabase Auth e-mail to an event as an `organizer`. Auth-user lookup and membership writes stay server-side; direct assignment grants edit access without changing catalog/Racebook state. `/api/admin/event-publication-requests` returns the pending queue plus every event's current-edition Racebook state. Approval invokes the service-role-only review function; the admin event switch invokes a separate service-role-only function to publish or hide Racebooks.
 
-Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id`. Relay replacement uses its own service route after ravitos are saved so optional station links are stable. Organizer-managed course rows remain catalog-visible. All writes stay behind active event membership checks; first Racebook publication validates the current edition, and later approved organizer toggles affect only the selected format's `racebook_is_live`.
+Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id`. Organizer-managed course rows remain catalog-visible. RaceBook/Pro publication and Pro-only relay/product mutations stay behind active membership plus centralized edition capability checks.
 
 Inside the format-level `Ravito / relais` editor, relay-capable formats separate `Ravitos` and `Relais` into local presentation tabs. `Ravitos` remains the default after a format or participation-mode change and owns the start/finish schedule cards plus station details. The contextual add action is aligned with the module title on medium and larger screens so the local tabs can begin immediately below the header; on smaller screens it remains in normal document flow. `Relais` shows compact derived legs in one horizontal row above the handover-point editor; handover cards expose only the point name, distance, cutoff, and a compact delete cross, while the persisted optional passage time and notes remain outside the current editor. Solo formats render the ravito view directly. This split is presentation-only and does not change the existing race-details, aid-station, or relay-point save order.
 
@@ -340,6 +343,9 @@ Stripe routes live under `apps/web/app/api/stripe`:
 - `portal/route.ts`: creates billing portal sessions.
 - `price/route.ts`: fetches the configured Stripe price and caches it for 5 minutes.
 - `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`.
+- `organizer/publication-checkout/route.ts`: creates one-time 99/299/200 € HT edition checkouts selected entirely by the server.
+
+The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, and disputes, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears.
 
 RevenueCat routes live under `apps/web/app/api/revenuecat`. They synchronize mobile purchases into the same `subscriptions` table with provider `google` or `apple`.
 
@@ -405,6 +411,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer event image upload accepts PNG only in v1; the client must call the server route instead of writing to Storage directly.
 - Keep organizer dashboard French labels UTF-8 clean end-to-end, especially in `event-format-editors.tsx`; mojibake such as `Ã©` is a real regression on the event tab because those strings are rendered directly.
 - Do not auto-send runner notifications on organizer save or publish. The manual event-update route is the only intended push trigger for this v1.
+- The manual notification route additionally requires the selected edition's Pro capability; RaceBook UI must offer the 200 € HT upgrade instead of attempting the send.
 - Organizer update deletion must stay on the authenticated server route. Do not grant broad client delete access to `race_event_updates`, and do not treat deletion as a recall of already delivered pushes.
 - Public plan share pages are unauthenticated by design, but they must display only the bounded snapshot in `plan_share_links`, not live editable plan data.
 - Public plan share pages are standalone in `RootChrome` and force light theme variables so a visitor's saved dark preference does not affect crew readability.

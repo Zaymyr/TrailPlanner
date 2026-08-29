@@ -6,6 +6,7 @@ import { DELETE, GET, POST } from "./route";
 const eventId = "11111111-1111-1111-1111-111111111111";
 const organizerId = "00000000-0000-0000-0000-000000000001";
 const updateId = "22222222-2222-2222-2222-222222222222";
+const editionId = "44444444-4444-4444-4444-444444444444";
 
 const {
   mockRequireEventOrganizer,
@@ -26,7 +27,7 @@ const buildJsonResponse = (payload: unknown, options: { status?: number; headers
   });
 
 const organizerRequest = (body?: Record<string, unknown>) =>
-  new NextRequest(`http://localhost/api/organizer/events/${eventId}/updates`, {
+  new NextRequest(`http://localhost/api/organizer/events/${eventId}/updates${body ? "" : `?editionId=${editionId}`}`, {
     method: body ? "POST" : "GET",
     headers: {
       authorization: "Bearer organizer-token",
@@ -36,7 +37,7 @@ const organizerRequest = (body?: Record<string, unknown>) =>
   });
 
 const organizerDeleteRequest = (id = updateId) =>
-  new NextRequest(`http://localhost/api/organizer/events/${eventId}/updates?updateId=${id}`, {
+  new NextRequest(`http://localhost/api/organizer/events/${eventId}/updates?updateId=${id}&editionId=${editionId}`, {
     method: "DELETE",
     headers: { authorization: "Bearer organizer-token" },
   });
@@ -68,6 +69,7 @@ describe("/api/organizer/events/[id]/updates", () => {
 
   it("returns favorite count and recent updates for an organizer", async () => {
     vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId }]))
       .mockResolvedValueOnce(buildJsonResponse([{ user_id: organizerId }], { headers: { "content-range": "0-0/2" } }))
       .mockResolvedValueOnce(
         buildJsonResponse([
@@ -89,7 +91,7 @@ describe("/api/organizer/events/[id]/updates", () => {
     expect(payload.favoriteCount).toBe(2);
     expect(payload.updates).toHaveLength(1);
     expect(fetch).toHaveBeenNthCalledWith(
-      1,
+      2,
       `https://supabase.example/rest/v1/user_favorite_race_events?event_id=eq.${eventId}&select=user_id&limit=1`,
       expect.objectContaining({
         headers: expect.objectContaining({ Prefer: "count=exact", Range: "0-0" }),
@@ -99,6 +101,7 @@ describe("/api/organizer/events/[id]/updates", () => {
 
   it("returns zero when the exact count reports no favorites", async () => {
     vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId }]))
       .mockResolvedValueOnce(buildJsonResponse([], { headers: { "content-range": "*/0" } }))
       .mockResolvedValueOnce(buildJsonResponse([]));
 
@@ -111,6 +114,7 @@ describe("/api/organizer/events/[id]/updates", () => {
 
   it("fails safely when Supabase omits the exact count", async () => {
     vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId }]))
       .mockResolvedValueOnce(buildJsonResponse([{ user_id: organizerId }]))
       .mockResolvedValueOnce(buildJsonResponse([]));
 
@@ -121,6 +125,7 @@ describe("/api/organizer/events/[id]/updates", () => {
 
   it("allows an organizer to create a published update and trigger push delivery", async () => {
     vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId }]))
       .mockResolvedValueOnce(buildJsonResponse([{ id: eventId, name: "Grand Trail" }]))
       .mockResolvedValueOnce(
         buildJsonResponse(
@@ -138,7 +143,7 @@ describe("/api/organizer/events/[id]/updates", () => {
         )
       );
 
-    const response = await POST(organizerRequest({ message: "Retrait des dossards dès 17h." }), { params: { id: eventId } });
+    const response = await POST(organizerRequest({ message: "Retrait des dossards dès 17h.", editionId }), { params: { id: eventId } });
     const payload = await response.json();
 
     expect(response.status).toBe(201);
@@ -156,6 +161,7 @@ describe("/api/organizer/events/[id]/updates", () => {
   it("targets one format and uses its name for push delivery", async () => {
     const raceId = "33333333-3333-3333-3333-333333333333";
     vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId }]))
       .mockResolvedValueOnce(buildJsonResponse([{ id: eventId, name: "Grand Trail" }]))
       .mockResolvedValueOnce(buildJsonResponse([{ id: raceId, event_id: eventId, name: "Le 42 km", is_live: true }]))
       .mockResolvedValueOnce(
@@ -165,7 +171,7 @@ describe("/api/organizer/events/[id]/updates", () => {
         )
       );
 
-    const response = await POST(organizerRequest({ message: "Départ à 7h.", raceId }), { params: { id: eventId } });
+    const response = await POST(organizerRequest({ message: "Départ à 7h.", raceId, editionId }), { params: { id: eventId } });
 
     expect(response.status).toBe(201);
     expect(mockSendOrganizerRaceUpdateNotifications).toHaveBeenCalledWith({
@@ -179,7 +185,7 @@ describe("/api/organizer/events/[id]/updates", () => {
   });
 
   it("rejects an empty message", async () => {
-    const response = await POST(organizerRequest({ message: "   " }), { params: { id: eventId } });
+    const response = await POST(organizerRequest({ message: "   ", editionId }), { params: { id: eventId } });
     const payload = await response.json();
 
     expect(response.status).toBe(400);
@@ -192,14 +198,16 @@ describe("/api/organizer/events/[id]/updates", () => {
       error: Response.json({ message: "Forbidden." }, { status: 403 }),
     });
 
-    const response = await POST(organizerRequest({ message: "Message" }), { params: { id: eventId } });
+    const response = await POST(organizerRequest({ message: "Message", editionId }), { params: { id: eventId } });
 
     expect(response.status).toBe(403);
     expect(fetch).not.toHaveBeenCalled();
   });
 
   it("allows an organizer to delete an update from the managed event", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId }]))
+      .mockResolvedValueOnce(
       buildJsonResponse([
         {
           id: updateId,
@@ -224,7 +232,9 @@ describe("/api/organizer/events/[id]/updates", () => {
   });
 
   it("returns not found when the update does not belong to the managed event", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse([]));
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(buildJsonResponse([{ id: editionId }]))
+      .mockResolvedValueOnce(buildJsonResponse([]));
 
     const response = await DELETE(organizerDeleteRequest(), { params: { id: eventId } });
 
@@ -250,6 +260,10 @@ vi.mock("../../../../../../lib/http", () => ({
 
 vi.mock("../../../../../../lib/push", () => ({
   sendOrganizerRaceUpdateNotifications: mockSendOrganizerRaceUpdateNotifications,
+}));
+
+vi.mock("../../../../../../lib/organizer-entitlements", () => ({
+  requireOrganizerEditionCapability: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../../lib/organizer", async () => {

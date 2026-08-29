@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -141,6 +141,8 @@ where fuel_type = 'electrolyte'
 ```
 
 ## Gotchas
+
+- Linking products as official organizer ravito availability is Pro-only and route-mediated; product ownership or `is_official` alone does not grant that edition capability.
 
 - Do not add `water_ml` to `products` just to support hydration planning. The current algorithm treats water as segment/carry demand.
 - `fuel_type` is a Postgres enum. Adding a type requires a migration and app type update.

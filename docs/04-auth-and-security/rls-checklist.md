@@ -64,8 +64,9 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 8. Grant table privileges only when the RLS policy should be reachable by that role.
 9. Keep service-role access in Next.js server routes or Supabase functions only.
 10. Add or update a test/manual SQL check when policy behavior is non-trivial.
-11. For service-only destructive RPCs, prefer `SECURITY INVOKER`, revoke `PUBLIC`, grant only `service_role`, and keep the user-to-parent authorization check in the server route.
-11. When adding columns to an existing RLS-protected table, confirm the existing row policies still match the new data sensitivity.
+11. For commercial capabilities, enforce the entitlement on the service route and repeat it in direct RLS/read overlays where a client could bypass that route.
+12. For service-only destructive RPCs, prefer `SECURITY INVOKER`, revoke `PUBLIC`, grant only `service_role`, and keep the user-to-parent authorization check in the server route.
+13. When adding columns to an existing RLS-protected table, confirm the existing row policies still match the new data sensitivity.
 
 ## Correct Parent Policy Shape
 
@@ -124,7 +125,8 @@ Use:
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.
 - `user_profiles.onboarding_completed_at` is a column-only owner datum. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
-- Racebook publication is a column-only extension of `races`: existing row RLS remains, but first approval and admin-wide visibility changes stay service-role-only. New publication-request inserts must bind `race_id` to the same managed event, while organizer toggles require both active membership and a stored approval timestamp.
+- Racebook publication remains behind service routes: organizer toggles require active event membership, a complete format, and an active edition-level `racebook.publish` capability. The atomic RPC writes durable unlock provenance on first publication; legacy publication requests remain service-only audit data.
+- Superseding organizer-offer rule: paid publication uses a service-only edition entitlement and atomic RPC. Notification, relay, and station-product clients have no direct mutation grant; public Pro overlays use only the narrow private boolean helper.
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
 - `organizer_import_sessions` is service-only workflow state: no client policy is intentional. Both mutation RPCs must remain `SECURITY INVOKER`, revoke `PUBLIC` execution, and validate session expiry/scope plus every JSON key before writing.
 

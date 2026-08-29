@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -127,6 +127,8 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 ```
 
 ## Gotchas
+
+- Base ravito editing remains available without Pro. Relay linkage and official station products are separate Pro capabilities and must not block ordinary station saves.
 
 - Old docs and migrations call the parent table `race_catalog`; current code uses `races`.
 - Code uses `distanceKm`; the database column is `km`.

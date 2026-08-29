@@ -24,6 +24,7 @@ related_files:
   - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
+  - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -48,6 +49,8 @@ related_tables:
   - user_profiles
   - subscriptions
   - premium_grants
+  - organizer_edition_entitlements
+  - organizer_edition_payments
 ---
 
 # Migrations
@@ -233,6 +236,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privileges, RLS, strict payload rejection, draft creation, explicit station replacement, and the draft-to-live-course transition.
 
+`supabase/migrations/20260829115507_add_organizer_edition_offers.sql` adds service-only organizer entitlement and Stripe transaction tables, backfills Pro for already approved/published editions, and initializes other editions at Visibilité. Its invoker RPCs recalculate rights, publish paid RaceBooks, and audit admin changes. It also removes direct authenticated notification, relay, and station-product mutations. `supabase/tests/organizer_edition_entitlements_checks.sql` verifies the base, upgrade, and refund transitions.
+
 ### Racebook Showcase Data
 
 `supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql` is a data-only, idempotent showcase seed. It publishes the fictional `Trail TST` 2026 event with three complete formats (18 km, 42 km, and an 82 km solo/relay format), organizer JSONB details, ordered ravitos, official product links, and two relay handover points. The referenced cover and GPX objects live under `race-images/trail-tst/2026/` and `race-gpx/trail-tst/2026/`; repository copies live under `supabase/demo-assets/` so the fixture remains reproducible. It changes no table, grant, function, trigger, or RLS policy.
@@ -297,6 +302,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - `race_event_editions` is service-role-only. Organizer writes must remain behind active membership checks in server routes.
 - Edition deletion must go through `delete_race_event_edition`; direct row deletion would lose the last-edition guard and replacement-current selection even though the format cascade would still apply.
 - Keep first Racebook approval in `race_event_publication_requests`; do not restore edition-review inserts or organizer writes to catalog `is_live`. Approved organizers may write only `racebook_is_live`.
+- Superseding rule: new publication authorization comes from the edition entitlement, not a new admin request. Historical publication requests remain for audit and compatibility approvals, which now grant Pro.
 - Organizer dashboard JSONB columns are nullable progressive metadata. Keep public/mobile queries explicit when they should not expose organizer draft details.
 - Event-favorite and organizer-update migrations are intentionally event-scoped on `race_events`; do not move them to `races` without revisiting mobile catalog pinning and notification contracts.
 - Do not use ownership columns such as `created_by` as a proxy for catalog state when a dedicated metadata field exists. `products.is_official` is the source of truth for official/shared catalog rows.

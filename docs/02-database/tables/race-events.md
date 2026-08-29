@@ -214,6 +214,8 @@ from public.races;
 
 ## Gotchas
 
+- Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
+
 - Keep event bib pickup as the default source. A format-level pickup is active only when `overrideEnabled` is explicitly true; absent/false values preserve the event fallback, and the format variant does not require geocoded metadata.
 
 - Treat this table as live-schema-dependent until its create migration is found.
@@ -231,7 +233,7 @@ from public.races;
 - Deleting a manual announcement is an organizer-history action scoped by event membership; it must not mutate the parent event, its formats, or its favorite audience.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.
 - Treat the emergency contact phone as published operational information: keep it inside the Racebook contract, normalize French values to `+33 X XX XX XX XX` on web parsing and mobile compatibility reads, and remove separators from the `tel:` action value.
-- Organizer event/race mutation routes cannot set catalog live state. A publication request requires event name/location, the requested format's edition range, and that exact format's complete identity fields; admin approval rechecks and publishes only that Racebook, regardless of which edition is current.
+- Organizer event/race mutation routes cannot set catalog live state. Organizer checkout requires event name/location, the selected edition range, and at least one complete format; an active edition RaceBook or Pro entitlement then permits publishing each complete Racebook without admin review.
 - Never hide a course merely because its Racebook is hidden. `race_events.is_live` / `races.is_live` are catalog state; `races.racebook_is_live` is the ordinary runner Racebook state. Organizer preview access comes only from active event membership and must not flip publication state.
 - Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
 - Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.

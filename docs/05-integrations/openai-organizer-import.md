@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-08-26
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -59,6 +59,8 @@ After import, manual format-specific bib-pickup, equipment, and access overrides
 - `OPENAI_ORGANIZER_IMPORT_MODEL`: optional model override; defaults to `gpt-4.1-mini`.
 
 ## Gotchas
+
+- The self-service complex import route remains admin-only. Pro organizers receive an assisted-import contact CTA; Pro does not authorize direct LLM import execution.
 
 - Do not let the LLM create, publish, or directly patch event/format rows.
 - Do not treat `additionalUrls` as asserted format identities. Only grounded named-format evidence from a compatible source role may add a candidate; unnamed distance observations remain unscoped.

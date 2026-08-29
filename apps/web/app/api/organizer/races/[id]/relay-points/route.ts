@@ -9,6 +9,7 @@ import {
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
+import { requireOrganizerRaceCapability } from "../../../../../../lib/organizer-entitlements";
 
 const relayPointRowSchema = z.object({
   id: z.string().uuid(),
@@ -73,6 +74,9 @@ export async function GET(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
+  if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "relay.manage"))) {
+    return jsonError("RaceBook Pro est requis pour gérer les relais.", 403);
+  }
 
   const result = await loadRelayPoints(auth.serviceConfig, parsedParams.data.id);
   if (!("points" in result)) {
@@ -92,6 +96,9 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
+  if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "relay.manage"))) {
+    return jsonError("RaceBook Pro est requis pour gérer les relais.", 403);
+  }
 
   const parsedBody = updateRelayPointsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid relay points.", 400);

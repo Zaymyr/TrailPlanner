@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-08-26
+last_verified: 2026-08-29
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -38,7 +38,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - `/api/organizer/claims` continues to return only the current user's legacy edition-request rows even when its event selector is expanded to the full catalog for an admin; selector access does not revive or broaden this retired workflow.
 - Ordinary format saves, including checked format-specific bib-pickup, equipment, or access overrides, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
 - Per-format publication switches also stay independent from this retired workflow and from other dirty format scopes: only the switched format may require a foreground save, and its new publication request stores that exact `race_id` rather than inferring the event's current edition.
-- Removing the standalone `Dupliquer ce format` action does not affect edition duplication: the new-edition dialog still clones the selected source edition when `duplicatePreviousEdition` is enabled.
+- Removing the standalone `Dupliquer ce format` action does not affect edition duplication, but the compatibility route now requires the source edition's Pro capability when `duplicatePreviousEdition` is enabled. Creating an empty edition remains free.
 - The format location override is independent from edition selection and does not read or write this retired request table.
 - Consolidating the Organizer format name input keeps `name` and `series_name` synchronized but does not change edition creation or the stable `edition_group_id` copied across years.
 - The runner-notification format selector reads live formats from the currently selected canonical edition; it does not create, reactivate, or consult legacy edition requests.

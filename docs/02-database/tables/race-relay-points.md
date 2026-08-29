@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -45,9 +45,9 @@ Relay participation badges stay in the compact metadata row beside the course-da
 
 ## RLS Policies
 
-- Public reads require the parent race to be public, course-live, and Racebook-live.
+- Public reads require the parent race to be public, course-live, Racebook-live, and attached to a Pro edition.
 - Owners, active event organizers, and trusted `app_metadata` admins can read managed rows, which lets the mobile organizer preview include relay legs before Racebook publication.
-- Mutations are service-role-only; Organizer routes enforce event membership first.
+- Mutations are service-role-only; Organizer routes enforce event membership and `relay.manage` (Pro).
 
 ## Business Invariants
 

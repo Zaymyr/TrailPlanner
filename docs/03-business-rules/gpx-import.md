@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -177,6 +177,8 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 <!-- CONFLICT: this component references race_aid_stations.needs_review, race_aid_stations.last_gpx_import_at, and plan_aid_stations.race_aid_station_id, but visible migrations in this repo do not create those columns. -->
 
 ## Gotchas
+
+- Organizer official-product overlays are capability-gated separately from GPX/ravito import. Non-Pro formats keep their route and stations but expose no official-product overlay.
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
 - Keep `GPX récupéré` tied to importable GPX content, not only to reliable provider metrics; some adapters can know distance/elevation without returning a file.

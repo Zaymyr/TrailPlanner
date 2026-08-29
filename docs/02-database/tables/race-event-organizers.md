@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -137,6 +137,8 @@ order by created_at asc;
 
 ## Gotchas
 
+- Membership is event-scoped, but commercial rights are edition-scoped. Every active member shares the selected edition's entitlement; membership alone does not unlock paid capabilities.
+
 - Do not authorize organizer edits with `races.created_by`; claimed catalog races deliberately avoid user ownership.
 - Do not physically delete public race/event rows when an organizer account is deleted or revoked.
 - JWT admin checks must use `app_metadata`, not `user_metadata`.
@@ -150,7 +152,7 @@ order by created_at asc;
 - Event image, race image, race delete, and GPX routes are also source mutations/reads and must keep checking active event membership.
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.
 - Edition PATCH/DELETE must retain that same membership check. The browser's year retyping is a destructive-action guard, not an authorization boundary.
-- Membership authorizes maintenance and per-format publication requests only when the requested `race_id` belongs to the managed event, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. After admin approval, the race service route may change only `races.racebook_is_live`.
+- Membership authorizes event maintenance and use of edition capabilities only for the managed event, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. With an active RaceBook or Pro entitlement, the race service route may change only `races.racebook_is_live`.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.
 - Supabase Auth e-mail lookup for direct assignment must remain in the admin-only server route with the service credential. Never expose the Auth Admin user list or service credential to the browser.
