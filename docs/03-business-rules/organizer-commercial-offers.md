@@ -53,7 +53,7 @@ The organizer offer is purchased once per event edition. It is independent from 
 
 The checkout route accepts only `eventId`, `editionId`, and target `racebook|pro`. After authentication, active membership, edition ownership, and publication-readiness checks, the server selects one configured non-recurring EUR Price with exclusive tax behavior: 99 €, 299 €, or the 200 € upgrade. Stripe Checkout collects billing address and tax id, enables automatic tax and invoice creation, and carries payment/edition/user/tier metadata.
 
-The success URL is not authorization. The dashboard polls its normal organizer event read until the Stripe webhook has marked the transaction paid and recalculated the entitlement.
+The success URL is not authorization. The dashboard polls its normal organizer event read until the Stripe webhook has marked the transaction paid and recalculated the entitlement. Opening the pricing dialog captures a stable event/edition context, displayed to the organizer and reused by checkout even when the current editor view resolves the edition through a format's `edition_id`.
 
 Any refund, including a partial refund event, or open/lost dispute invalidates its transaction. A dispute later closed as won restores the disputed payment. Refunding an upgrade returns the edition to RaceBook when its base purchase remains paid. Invalidating a RaceBook or direct-Pro purchase returns the edition to Visibilité and hides every attached RaceBook without hiding the catalog formats. Active admin or legacy-admin grants remain authoritative.
 
@@ -66,6 +66,7 @@ The migration grants Pro with source `legacy_admin` to editions that already con
 - Never price by participant count or format count.
 - Never use a checkout success query parameter as proof of payment.
 - The checkout CTA enters its loading state before saving pending organizer edits and surfaces missing session/edition, save, API, and network failures inside the pricing dialog; a failed client-side prerequisite must never look like an inert button.
+- Never infer the billed edition only from transient editor state after the pricing dialog is open; capture its event id, edition id, year, and effective tier when opening the dialog.
 - Never grant notification, relay, duplication, or official-product access only in the browser; the server route or RLS boundary must enforce it too.
 - Do not reuse runner `subscriptions`, RevenueCat, trials, or `premium_grants` for organizer editions.
 - Hiding RaceBooks after invalidation must not hide the free catalog entry.

@@ -211,6 +211,14 @@ type OrganizerRaceEventUpdate = {
   created_by?: string | null;
 };
 
+type OrganizerPricingContext = {
+  eventId: string;
+  eventName: string;
+  editionId: string;
+  editionYear: string;
+  tier: "visibility" | "racebook" | "pro";
+};
+
 export function OrganizerDashboard({
   requestedEventId = null,
   requestedImportUrl = null,
@@ -254,6 +262,7 @@ export function OrganizerDashboard({
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [pricingContext, setPricingContext] = useState<OrganizerPricingContext | null>(null);
   const [checkoutTarget, setCheckoutTarget] = useState<"racebook" | "pro" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
@@ -1696,6 +1705,33 @@ export function OrganizerDashboard({
       showToast("success", "L’offre RaceBook Pro est active pour cette édition.");
       return;
     }
+    openPricingDialog();
+  };
+
+  const openPricingDialog = () => {
+    const editionId =
+      activeEdition?.id ??
+      activeRace?.edition_id ??
+      eventDetail?.races.find((race) =>
+        getRaceEditionYear(race, eventDetail.editions ?? []) === selectedEditionYear
+      )?.edition_id ??
+      null;
+    const context = selectedEventId && editionId
+      ? {
+          eventId: selectedEventId,
+          eventName: eventForm.name || eventDetail?.name || "Événement",
+          editionId,
+          editionYear: selectedEditionYear,
+          tier: activeTier,
+        }
+      : null;
+
+    setPricingContext(context);
+    setCheckoutError(
+      context
+        ? null
+        : "Impossible d’identifier l’édition sélectionnée. Recharge la page puis réessaie."
+    );
     setPricingDialogOpen(true);
   };
 
@@ -1711,8 +1747,8 @@ export function OrganizerDashboard({
         showToast("error", message);
         return;
       }
-      if (!selectedEventId || !activeEdition) {
-        const message = "Sélectionne une édition avant de lancer le paiement.";
+      if (!pricingContext) {
+        const message = "Impossible d’identifier l’événement et l’édition à facturer. Recharge la page puis réessaie.";
         setCheckoutError(message);
         showToast("error", message);
         return;
@@ -1724,7 +1760,11 @@ export function OrganizerDashboard({
       const response = await fetch("/api/organizer/publication-checkout", {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: selectedEventId, editionId: activeEdition.id, targetTier }),
+        body: JSON.stringify({
+          eventId: pricingContext.eventId,
+          editionId: pricingContext.editionId,
+          targetTier,
+        }),
       });
       const data = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
       if (!response.ok || !data?.url) {
@@ -2229,7 +2269,7 @@ export function OrganizerDashboard({
         }}
         onNotifyFollowers={(raceId) => {
           if (activeTier !== "pro") {
-            setPricingDialogOpen(true);
+            openPricingDialog();
             return;
           }
           setEventUpdateError(null);
@@ -2456,7 +2496,7 @@ export function OrganizerDashboard({
               }}
               onAddRelayPoint={() => {
                 if (activeTier !== "pro") {
-                  setPricingDialogOpen(true);
+                  openPricingDialog();
                   return;
                 }
                 const finishDistance = Math.max(0.2, raceForm.distanceKm);
@@ -2488,7 +2528,7 @@ export function OrganizerDashboard({
               }}
               onToggleStationRelayPoint={(station, checked) => {
                 if (activeTier !== "pro") {
-                  setPricingDialogOpen(true);
+                  openPricingDialog();
                   return;
                 }
                 if (!station.id) return;
@@ -2544,7 +2584,7 @@ export function OrganizerDashboard({
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
                 if (activeTier !== "pro") {
-                  setPricingDialogOpen(true);
+                  openPricingDialog();
                   return;
                 }
                 setProductSearch("");
@@ -2592,7 +2632,7 @@ export function OrganizerDashboard({
             <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
               <p className="font-semibold text-foreground">Produits officiels aux ravitaillements — RaceBook Pro</p>
               <p className="mt-2 text-sm text-muted-foreground">Passe à Pro pour gérer les produits disponibles et les intégrer au plan nutritionnel des coureurs.</p>
-              <Button type="button" className="mt-4" onClick={() => setPricingDialogOpen(true)}>
+              <Button type="button" className="mt-4" onClick={openPricingDialog}>
                 Découvrir RaceBook Pro
               </Button>
             </div>
@@ -2647,22 +2687,31 @@ export function OrganizerDashboard({
         open={pricingDialogOpen}
         onOpenChange={(open) => {
           setPricingDialogOpen(open);
-          if (!open) setCheckoutError(null);
+          if (!open) {
+            setCheckoutError(null);
+            setPricingContext(null);
+          }
         }}
       >
         <DialogContent className="max-w-3xl">
           <DialogHeader>
-            <DialogTitle>{activeTier === "racebook" ? "Passer à RaceBook Pro" : "Publier cette édition"}</DialogTitle>
+            <DialogTitle>{pricingContext?.tier === "racebook" ? "Passer à RaceBook Pro" : "Publier cette édition"}</DialogTitle>
             <DialogDescription>
               Le droit est permanent pour cette édition et couvre tous ses formats présents et futurs. Prix hors taxes, TVA calculée par Stripe.
             </DialogDescription>
           </DialogHeader>
+          {pricingContext ? (
+            <div className="rounded-md border bg-muted/40 px-3 py-2">
+              <p className="font-medium text-foreground">{pricingContext.eventName}</p>
+              <p className="text-sm text-muted-foreground">Édition {pricingContext.editionYear}</p>
+            </div>
+          ) : null}
           {checkoutError ? (
             <p role="alert" className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
               {checkoutError}
             </p>
           ) : null}
-          {activeTier === "racebook" ? (
+          {pricingContext?.tier === "racebook" ? (
             <Card className="border-brand">
               <CardHeader>
                 <CardTitle>RaceBook Pro — complément de 200 € HT</CardTitle>
