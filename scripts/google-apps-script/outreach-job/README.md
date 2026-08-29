@@ -45,10 +45,11 @@ The queue uses `outreach_planning_date`, so a past 2026 edition can be scheduled
 - `Paramètres envoi!activation_envoi` must be checked before the job does any work.
 - `Template email!mode_envoi` must remain `Brouillons`.
 - Each run creates at most one draft.
-- Existing sent mail, replies, bounces, exclusions, opt-outs, the daily cap, and the configured delay are rechecked.
+- Existing sent mail, replies, bounces, exclusions, opt-outs, the organizer name, the daily cap, and the configured delay are rechecked.
 - Every terminal outcome is written to `Historique envois` to prevent duplicate drafts.
 - Gmail reconciliation updates `Prospects!last_sent_email_at` and `Prospects!replied_at` from actual Gmail messages. It runs in a rotating bounded batch every five minutes by default, including while draft creation is disabled.
-- `activation_relance` is off by default. When enabled, the job creates one reply draft in the existing Gmail thread after `delai_relance_jours` (seven days by default), only if no response, bounce, exclusion, opt-out, or earlier follow-up exists.
+- `activation_relance` is off by default. When enabled, the job creates one reply draft in the existing Gmail thread after `delai_relance_jours` (ten business days, Monday through Friday, by default), only if no response, bounce, exclusion, opt-out, or earlier follow-up exists.
+- Public holidays are not excluded unless a holiday calendar is added explicitly; the business-day calculation currently skips weekends only.
 - Initial and follow-up drafts share `limite_quotidienne` and `delai_entre_envois_minutes`.
 - The scraper webhook never sends email and never changes contact/reply/exclusion fields on an existing prospect.
 - Gmail signature icons outside the basic Unicode plane are encoded as HTML entities so Gmail preserves them in generated drafts.

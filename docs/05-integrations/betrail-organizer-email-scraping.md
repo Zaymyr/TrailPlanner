@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -139,11 +139,11 @@ Run `installOutreachJob` once from the Apps Script editor after deployment and O
 - rechecks the selected prospect's contact, reply, bounce, exclusion, and opt-out fields;
 - searches Gmail for an existing sent message or reply from the same address;
 - reconciles Gmail activity in bounded rotating batches every five minutes by default, updating `last_sent_email_at` and `replied_at` in `Prospects` even when draft creation is disabled;
-- when `activation_relance` is checked, selects contacts whose last sent message is older than `delai_relance_jours`, then rechecks Gmail and creates at most one reply draft in the existing thread;
+- when `activation_relance` is checked, selects contacts whose last sent message is at least `delai_relance_jours` business days old, then rechecks Gmail and creates at most one reply draft in the existing thread;
 - creates at most one personalized draft;
 - records the outcome in `Historique envois`, which the job creates when first installed.
 
-Initial drafts and follow-up drafts share the configured daily cap and inter-draft delay. A follow-up is blocked when Gmail contains a later reply, or when the prospect is bounced, excluded, opted out, already followed up, or has no sent Gmail thread. The default follow-up delay is seven days, but `activation_relance` stays unchecked until the follow-up copy has been reviewed.
+Initial drafts and follow-up drafts share the configured daily cap and inter-draft delay. A follow-up is blocked when Gmail contains a later reply, or when the prospect has no organizer name, is bounced, excluded, opted out, already followed up, or has no sent Gmail thread. The default follow-up delay is ten business days. Business days are Monday through Friday; public holidays are not excluded unless a holiday calendar is added explicitly. `activation_relance` stays unchecked until the follow-up copy has been reviewed.
 
 The one-minute trigger is a polling cadence, not an exact delivery guarantee. Apps Script can start a run slightly late. With a one-minute delay and a limit of 150, a full daily draft sequence takes at least two hours and thirty minutes.
 
@@ -159,6 +159,7 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 - Rows with neither an exact source date nor a reviewed `event_week` remain blocked. A week from 1 to 53 can be entered manually when another reliable source establishes the period.
 - Creating a draft does not prove that it was sent. Gmail reconciliation confirms manual sends and replies, while `Historique envois` prevents duplicate initial and follow-up drafts. Reconciliation is deliberately batched and rotating to limit Gmail reads, so Sheet timestamps can lag Gmail by several minutes.
 - Follow-ups use the latest sent Gmail thread for the prospect address. The job filters individual message headers after the Gmail thread search so an incoming reply in the same thread is not mistaken for a sent message.
+- The follow-up business-day delay skips Saturdays and Sundays but does not currently know French public holidays.
 - Gmail signatures are fetched through the Gmail advanced service. Non-BMP icons are converted to HTML entities before draft creation because `GmailApp.createDraft` can otherwise replace them. If the service or signature lookup is unavailable, the job creates the draft without a signature and logs a warning rather than blocking the queue.
 - The Apps Script web app URL is public by necessity, but every write requires the long token stored in Script Properties. Rotate it with `createScraperWebhookToken` if it is ever exposed.
 - Saving `Code.gs` does not update an existing Web app by itself. After webhook changes, edit the deployment, choose a new version, and keep the corresponding `/exec` URL in `BETRAIL_SHEET_WEBHOOK_URL`; the schema check detects stale URLs before local sync state is changed.

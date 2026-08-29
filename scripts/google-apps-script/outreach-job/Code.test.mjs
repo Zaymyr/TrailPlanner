@@ -14,6 +14,7 @@ const context = vm.createContext({
 });
 vm.runInContext(`${source}\n;globalThis.__testApi = {
   SCRAPER_WEBHOOK,
+  addBusinessDays_,
   asBoolean_,
   asDate_,
   buildThreadedDraftRaw_,
@@ -79,11 +80,12 @@ test('parses scheduling values conservatively', () => {
   assert.equal(api.parseEventWeek_('54'), null);
 });
 
-test('selects a follow-up only after the configured delay and without a blocking state', () => {
-  const now = new Date('2026-08-28T12:00:00Z');
+test('selects a follow-up only after ten business days and without a blocking state', () => {
+  const now = new Date('2026-09-03T12:00:00Z');
   const prospect = {
     uuid: 'prospect-1',
     email: 'organizer@example.com',
+    organizationName: 'Trail des Anges',
     lastSentAt: new Date('2026-08-20T12:00:00Z'),
     repliedAt: null,
     hardBouncedAt: null,
@@ -91,10 +93,12 @@ test('selects a follow-up only after the configured delay and without a blocking
     optedOut: false,
   };
 
-  assert.equal(api.isFollowupEligible_(prospect, {}, now, 7 * 86400000), true);
-  assert.equal(api.isFollowupEligible_({ ...prospect, repliedAt: new Date('2026-08-21T12:00:00Z') }, {}, now, 7 * 86400000), false);
-  assert.equal(api.isFollowupEligible_(prospect, { 'prospect-1': true }, now, 7 * 86400000), false);
-  assert.equal(api.isFollowupEligible_({ ...prospect, lastSentAt: new Date('2026-08-27T12:00:00Z') }, {}, now, 7 * 86400000), false);
+  assert.equal(api.addBusinessDays_(prospect.lastSentAt, 10).toISOString(), '2026-09-03T12:00:00.000Z');
+  assert.equal(api.isFollowupEligible_(prospect, {}, now, 10), true);
+  assert.equal(api.isFollowupEligible_({ ...prospect, repliedAt: new Date('2026-08-21T12:00:00Z') }, {}, now, 10), false);
+  assert.equal(api.isFollowupEligible_(prospect, { 'prospect-1': true }, now, 10), false);
+  assert.equal(api.isFollowupEligible_({ ...prospect, lastSentAt: new Date('2026-08-21T12:00:00Z') }, {}, now, 10), false);
+  assert.equal(api.isFollowupEligible_({ ...prospect, organizationName: '' }, {}, now, 10), false);
 });
 
 test('normalizes spreadsheet date values used by reconciliation', () => {

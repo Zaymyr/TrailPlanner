@@ -1,12 +1,13 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -23,7 +24,7 @@ Use this workflow when adding or changing row-level security policies.
 
 For column-only migrations on existing RLS-protected tables, first verify that the existing row policies cover the new data sensitivity. Add or change policies only when the new column changes who should be able to read or mutate the row. The organizer edition-grouping columns on `races` and the owner-only `user_profiles.onboarding_completed_at` marker are current examples that required verification but no new policy.
 
-The same rule applies to data-only showcase seeds: do not add a policy merely because rows are inserted. Verify that the seeded rows satisfy the existing visibility predicates and that no draft-only organizer detail becomes reachable unintentionally.
+The same rule applies to data-only showcase seeds and final-roadbook corrections: do not add a policy merely because rows are inserted or updated. Verify that the affected rows satisfy the existing visibility predicates and that no draft-only organizer detail becomes reachable unintentionally. The Les Amaz’Eaunes 2026 synchronization changes no grants, policies, ownership, or publication state.
 
 ## Key Concepts
 
