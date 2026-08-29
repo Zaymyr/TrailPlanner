@@ -159,7 +159,7 @@ function runOutreachJob() {
     }
 
     const followupProspect = asBoolean_(settings.activation_relance)
-      ? findNextFollowupProspect_(spreadsheet, history.followupUuids, now, positiveInteger_(settings.delai_relance_jours, 7))
+      ? findNextFollowupProspect_(spreadsheet, history.followupUuids, now, positiveInteger_(settings.delai_relance_jours, 10))
       : null;
     if (followupProspect) {
       const followupActivity = inspectGmailActivity_(followupProspect.email);
@@ -459,7 +459,7 @@ function syncProspectActivity_(sheet, prospect, activity) {
   return { sentUpdated: sentUpdated, replyUpdated: replyUpdated };
 }
 
-function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayDays) {
+function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayBusinessDays) {
   const sheet = requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet);
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return null;
@@ -471,7 +471,6 @@ function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayDays) {
     if (headers[header] === undefined) throw new Error('Colonne Prospects manquante : ' + header);
   });
 
-  const delayMs = delayDays * 86400000;
   return values.slice(1).map(function (row, offset) {
     return {
       rowNumber: offset + 2,
@@ -486,17 +485,29 @@ function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayDays) {
       optedOut: asBoolean_(row[headers['opted-out']]),
     };
   }).filter(function (prospect) {
-    return isFollowupEligible_(prospect, followupUuids, now, delayMs);
+    return isFollowupEligible_(prospect, followupUuids, now, delayBusinessDays);
   }).sort(function (a, b) {
     return a.lastSentAt - b.lastSentAt || a.rowNumber - b.rowNumber;
   })[0] || null;
 }
 
-function isFollowupEligible_(prospect, followupUuids, now, delayMs) {
+function addBusinessDays_(value, businessDays) {
+  const date = new Date(value.getTime());
+  let remaining = positiveInteger_(businessDays, 10);
+  while (remaining > 0) {
+    date.setDate(date.getDate() + 1);
+    const day = date.getDay();
+    if (day !== 0 && day !== 6) remaining -= 1;
+  }
+  return date;
+}
+
+function isFollowupEligible_(prospect, followupUuids, now, delayBusinessDays) {
   return Boolean(prospect.uuid
     && prospect.email
+    && prospect.organizationName
     && prospect.lastSentAt
-    && now.getTime() - prospect.lastSentAt.getTime() >= delayMs
+    && now.getTime() >= addBusinessDays_(prospect.lastSentAt, delayBusinessDays).getTime()
     && !prospect.repliedAt
     && !prospect.hardBouncedAt
     && !prospect.excluded

@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -13,6 +13,7 @@ related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
@@ -98,6 +99,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - Deleting an edition deletes its format rows; saved plans survive through their separate `race_id on delete set null` relationship.
 - Relay legs are derived from start, ordered relay points, and finish; they are not separate race rows.
 - A slug change atomically reserves the old value in `race_slug_redirects`; inserts and updates cannot reuse a reserved former slug.
+- Final-roadbook data corrections may update confirmed dates and organizer JSON without replacing more precise existing metrics when the source only gives rounded format labels. The Les Amaz’Eaunes 2026 migration therefore preserves stored distance and elevation values and does not create unspecified ravito rows.
 
 ## Common Queries
 

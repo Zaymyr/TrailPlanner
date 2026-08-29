@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -23,6 +23,7 @@ related_files:
   - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
   - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -237,6 +238,10 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 `supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql` is a data-only, idempotent showcase seed. It publishes the fictional `Trail TST` 2026 event with three complete formats (18 km, 42 km, and an 82 km solo/relay format), organizer JSONB details, ordered ravitos, official product links, and two relay handover points. The referenced cover and GPX objects live under `race-images/trail-tst/2026/` and `race-gpx/trail-tst/2026/`; repository copies live under `supabase/demo-assets/` so the fixture remains reproducible. It changes no table, grant, function, trigger, or RLS policy.
 
 `supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql` removes the two fictional free-text schedule constraint notes from the TST 82 showcase format. It preserves the representative start time, finish cutoff, ravitos, and per-station cutoff times, and changes no schema or access policy.
+
+### Final Organizer Roadbook Data
+
+`supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql` is an idempotent data-only synchronization for the final Les Amaz’Eaunes 2026 roadbook. It moves the canonical edition and all five format dates to 13 September 2026, preserves existing distances and elevation values that the roadbook does not refine, and updates confirmed start times, warm-ups, bib pickup, access, parking, road restrictions, equipment, safety, and service details. It does not invent course geometry or ravito locations, and changes no table, grant, function, trigger, or RLS policy.
 
 ### Public Course Slug Redirects
 

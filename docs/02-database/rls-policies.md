@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -18,6 +18,7 @@ related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -346,6 +347,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - For product catalog UX, do not derive "official/shared" from `created_by is null`. Ownership and catalog curation are separate concerns.
 - Data-only official product imports do not require new policies when they only set catalog metadata and live visibility on the existing `products` table.
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
+- Data-only final-roadbook corrections on existing `race_events`, `race_event_editions`, and `races` rows reuse their current policies and grants; the Les Amaz’Eaunes 2026 synchronization adds no client access or policy branch.
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 - Event-favorite ownership and organizer-update audience selection are separate concerns. Do not grant organizers direct read access to follower rows just because they can send updates.
