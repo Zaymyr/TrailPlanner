@@ -338,6 +338,8 @@ Logos are required raster uploads (PNG, JPEG, WebP, or AVIF, 5 MB maximum) store
 
 The public presentation route exposes active placements and counted redirect URLs, never the target website field. Redirects validate the sponsor/race edition pair, increment only one aggregate counter through an atomic RPC under a per-sponsor/network-hash rate limit, and continue to the sponsor site if counting fails. No impression or individual runner history is stored.
 
+On mobile, loading placements use a full-height RaceBook loading composition: a runner advances along the progress track above one or two large stacked sponsor panels that together occupy roughly one third of the viewport. The layout reserves those panels before the lightweight sponsor lookup completes, then replaces them with the returned logos immediately; an empty or failed lookup collapses to the ordinary loader and adds no sponsor delay. This presentation does not change placement limits, edition scope, click counting, or the existing 2.5-second minimum gate once sponsor logos are ready.
+
 ## Mobile Scope
 
 No mobile organizer editor exists in v1. Mobile can consume published organizer details through the read-only `race/[id]/racebook` screen only when the catalog format is live, `races.racebook_is_live = true`, and there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, hidden Racebook visibility, or admin powers.
