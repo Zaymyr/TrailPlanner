@@ -66,7 +66,9 @@ The fictitious Trail TST assets are reproducible under `supabase/demo-assets/spo
 
 ## Mobile Presentation
 
-The RaceBook reserves a two-panel loading composition while the sponsor lookup is pending. Returned loading logos are shown in large stacked cards occupying roughly one third of the available viewport, beneath an animated runner progress track. An empty or failed lookup removes the reserved sponsor area and does not activate the 2.5-second sponsor gate. This is presentation-only and does not add impression tracking or expose direct destination URLs.
+The RaceBook reserves one unified loading panel with two vertical logo slots while the sponsor lookup is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears. The presentation does not add impression tracking or expose direct destination URLs.
+
+Banner placements use an automatic horizontal carousel whenever at least two active sponsors exist. It presents one sponsor per viewport-sized slide for three seconds, transitions over 520 ms, and loops through a duplicate first slide; reduced-motion users receive the manual horizontal list instead. The carousel still preserves database order, the ten-sponsor cap, and counted redirect links.
 
 ## Gotchas
 
@@ -74,7 +76,9 @@ The RaceBook reserves a two-panel loading composition while the sponsor lookup i
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.
 - Sponsor configuration is not Pro-gated, but runners see it only when the selected RaceBook is accessible.
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
-- Keep the mobile loading panels reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
+- Keep the mobile loading panel and its two slots reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
+- Keep the compact banner carousel independent from aggregate row-width measurement; every active banner sponsor must rotate even when several logos could technically fit at once.
+- Keep sponsor timing independent from route-local `Accès` expansion state; opening a parking or shuttle row must not restart the banner or sponsor gate.
 
 ## Related Docs
 

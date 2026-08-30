@@ -561,6 +561,7 @@ export type MobileTranslations = {
     racebookCta: string;
     racebookTitle: string;
     racebookLoading: string;
+    racebookLoadingTitle: string;
     racebookSponsorsSupportedBy: string;
     racebookSponsorsBannerLabel: string;
     racebookUnavailableTitle: string;
@@ -626,6 +627,15 @@ export type MobileTranslations = {
     racebookAccessRestrictions: string;
     racebookAccessMap: string;
     racebookAccessNote: string;
+    racebookAccessEssential: string;
+    racebookAccessImportantInfo: string;
+    racebookAccessSameLocation: string;
+    racebookAccessGettingThere: string;
+    racebookAccessOpenMaps: string;
+    racebookAccessOpenGeneralMap: string;
+    racebookAccessShowDetails: string;
+    racebookAccessHideDetails: string;
+    racebookAccessSchedule: string;
     racebookGearRequired: string;
     racebookGearRecommended: string;
     racebookGearColdWeather: string;

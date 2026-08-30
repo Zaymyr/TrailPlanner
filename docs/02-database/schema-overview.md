@@ -236,6 +236,7 @@ erDiagram
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
+- Hiding the repeated multi-format helper sentence on Courses event cards is a presentation-only option on the shared summary card; onboarding may still show it, and neither path changes catalog queries.
 - Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state. Organizer-confirmed announcement deletion removes the history row and cascades its receipts without changing favorites or previous push-delivery logs.
 - Organizer follower totals are computed by the Data API with an exact aggregate count and a one-row response range; the dashboard route must not download cross-user favorite rows to count them in application memory.
 - The mobile toast and scroll-to-pinned-event behavior happen only after the favorite API confirms the persisted id; they are presentation feedback and add no table fields or relationships.

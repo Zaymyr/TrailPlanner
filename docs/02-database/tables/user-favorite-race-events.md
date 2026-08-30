@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-08-27
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -99,6 +99,7 @@ where event_id = '<event-id>';
 - Favorites follow the catalog event independently from Racebook publication; hiding every Racebook must not delete or hide the event favorite.
 - Organizer-only preview access is derived from `race_event_organizers`, not favorites; it must not pin the event or change notification audience membership.
 - Hiding or deleting one edition must not remove the event favorite. The event appears in the mobile catalog only while at least one live format remains after the explicit embedded-relation filter.
+- The Courses card may hide its repeated multi-format helper sentence to reduce density; the favorite control, pinning order, and event scope remain unchanged.
 
 ## Related Docs
 
