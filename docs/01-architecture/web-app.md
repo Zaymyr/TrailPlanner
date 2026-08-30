@@ -437,6 +437,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep the Organizer bootstrap payload aligned with the existing claims and event-detail read contracts. Do not reintroduce a second authentication or membership lookup after the selected event has been derived from the already-authorized membership set.
 - Keep module-specific Organizer reads lazy. Opening the event overview must not download GPX, ravitos, relay points, product data, announcements, or follower totals; late responses must still be scoped to the active race before updating state.
 - Keep sponsor reads in the same lazy model: switching editions must discard the prior edition list/summary, and mobile/public clients must never receive direct `website_url` values or table access.
+- Treat the sponsor summary as absent until both an active edition and that edition's lazy response exist. On the initial render, two missing optional ids are not a matching edition and must resolve to zero sponsors/clicks.
 - Treat route-local Organizer cache values as immutable snapshots. Invalidate race data after relevant mutations and clear the complete cache at a user-session boundary so organizer-scoped products or draft course data cannot cross accounts.
 
 ## Related Docs
