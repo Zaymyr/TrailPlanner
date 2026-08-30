@@ -33,6 +33,8 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 
 Relay participation badges stay in the compact metadata row beside the course-date and location information. The identity card does not display the event date range or the emergency phone number; the number remains available only through the localized call action.
 
+The full-height runner-progress and sponsor loading composition is presentation-only and remains independent from relay-point reads and derived legs.
+
 ## Columns
 
 | Column | Type | Purpose |

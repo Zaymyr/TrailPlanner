@@ -10,6 +10,7 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -96,6 +97,119 @@ function SponsorChip({ sponsor, compact = false }: { sponsor: RacebookSponsor; c
     >
       {content}
     </Pressable>
+  );
+}
+
+function FeaturedSponsor({ sponsor }: { sponsor: RacebookSponsor }) {
+  const content = (
+    <View style={styles.featuredSponsorCard}>
+      <Image
+        source={{ uri: sponsor.logoUrl }}
+        style={styles.featuredSponsorLogo}
+        resizeMode="contain"
+        accessibilityLabel={sponsor.name}
+      />
+      <Text numberOfLines={1} style={styles.featuredSponsorName}>{sponsor.name}</Text>
+    </View>
+  );
+
+  if (!sponsor.clickUrl) return content;
+  return (
+    <Pressable
+      accessibilityRole="link"
+      accessibilityLabel={sponsor.name}
+      onPress={() => Linking.openURL(sponsor.clickUrl!).catch(() => {})}
+      style={({ pressed }) => [styles.featuredSponsorPressable, pressed && styles.sponsorPressed]}
+    >
+      {content}
+    </Pressable>
+  );
+}
+
+function RacebookLoadingScreen({
+  progress,
+  sponsors,
+  sponsorLabel,
+  loadingLabel,
+  viewportHeight,
+  sponsorLookupDone,
+}: {
+  progress: number;
+  sponsors: RacebookSponsor[];
+  sponsorLabel: string;
+  loadingLabel: string;
+  viewportHeight: number;
+  sponsorLookupDone: boolean;
+}) {
+  const animatedProgress = useRef(new Animated.Value(progress)).current;
+  const highestProgress = useRef(progress);
+  const [trackWidth, setTrackWidth] = useState(0);
+  const safeProgress = Math.max(0, Math.min(1, progress));
+  const sponsorAreaHeight = Math.max(220, Math.min(320, viewportHeight * 0.34));
+
+  useEffect(() => {
+    const nextProgress = Math.max(highestProgress.current, safeProgress);
+    highestProgress.current = nextProgress;
+    const animation = Animated.timing(animatedProgress, {
+      toValue: nextProgress,
+      duration: 260,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+    });
+    animation.start();
+    return () => animation.stop();
+  }, [animatedProgress, safeProgress]);
+
+  const progressWidth = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+    extrapolate: 'clamp',
+  });
+  const runnerTranslateX = animatedProgress.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, Math.max(0, trackWidth - 34)],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View style={styles.loadingScreen}>
+      <View style={styles.loadingProgressBlock}>
+        <View
+          style={styles.loadingProgressTrack}
+          onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
+          accessible
+          accessibilityRole="progressbar"
+          accessibilityValue={{ min: 0, max: 100, now: Math.round(safeProgress * 100) }}
+        >
+          <Animated.View style={[styles.loadingProgressFill, { width: progressWidth }]} />
+          <Animated.View style={[styles.loadingRunner, { transform: [{ translateX: runnerTranslateX }] }]}>
+            <Ionicons name="walk" size={21} color={Colors.textOnBrand} />
+          </Animated.View>
+        </View>
+        <View style={styles.loadingProgressCopy}>
+          <Text style={styles.loadingText}>{loadingLabel}</Text>
+          <DataText style={styles.loadingPercent}>{Math.round(safeProgress * 100)}%</DataText>
+        </View>
+      </View>
+
+      {sponsors.length > 0 || !sponsorLookupDone ? (
+        <View style={[styles.featuredSponsors, { minHeight: sponsorAreaHeight }]}>
+          <Text style={styles.sponsorLoadingLabel}>{sponsorLabel}</Text>
+          <View style={styles.featuredSponsorStack}>
+            {sponsors.length > 0 ? (
+              sponsors.map((sponsor) => <FeaturedSponsor key={sponsor.id} sponsor={sponsor} />)
+            ) : (
+              <>
+                <View style={styles.featuredSponsorPlaceholder} />
+                <View style={styles.featuredSponsorPlaceholder} />
+              </>
+            )}
+          </View>
+        </View>
+      ) : null}
+
+      <ActivityIndicator color={Colors.brandPrimary} size="small" />
+    </View>
   );
 }
 
@@ -700,6 +814,7 @@ export default function RaceRacebookScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
   const { locale, t } = useI18n();
+  const { height: viewportHeight } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
   const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>('route');
   const [loading, setLoading] = useState(true);
@@ -710,6 +825,24 @@ export default function RaceRacebookScreen() {
   const [sponsorPresentation, setSponsorPresentation] = useState<RacebookSponsorPresentation>(EMPTY_RACEBOOK_SPONSORS);
   const [sponsorGateDone, setSponsorGateDone] = useState(false);
   const [sponsorSplashVisible, setSponsorSplashVisible] = useState(false);
+  const [sponsorLookupDone, setSponsorLookupDone] = useState(false);
+  const [loadingProgress, setLoadingProgress] = useState(0.06);
+  const [loadingExitDone, setLoadingExitDone] = useState(false);
+
+  useEffect(() => {
+    if (!loading && sponsorGateDone) {
+      setLoadingProgress(1);
+      const completionTimer = setTimeout(() => setLoadingExitDone(true), 300);
+      return () => clearTimeout(completionTimer);
+    }
+
+    setLoadingExitDone(false);
+    const progressTimer = setInterval(() => {
+      setLoadingProgress((current) => Math.min(0.92, current + 0.055));
+    }, 180);
+
+    return () => clearInterval(progressTimer);
+  }, [loading, sponsorGateDone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -721,14 +854,19 @@ export default function RaceRacebookScreen() {
       setLoading(false);
       setSponsorPresentation(EMPTY_RACEBOOK_SPONSORS);
       setSponsorSplashVisible(false);
+      setSponsorLookupDone(true);
       setSponsorGateDone(true);
+      setLoadingExitDone(false);
       return;
     }
 
     setLoading(true);
     setSponsorPresentation(EMPTY_RACEBOOK_SPONSORS);
     setSponsorSplashVisible(false);
+    setSponsorLookupDone(false);
     setSponsorGateDone(false);
+    setLoadingProgress(0.06);
+    setLoadingExitDone(false);
 
     Promise.all([
       fetchRaceRacebookData(id),
@@ -765,10 +903,13 @@ export default function RaceRacebookScreen() {
 
         if (sponsorTimer) clearTimeout(sponsorTimer);
         setSponsorPresentation(presentation);
+        setSponsorLookupDone(true);
         if (presentation.loadingSponsors.length === 0) {
           setSponsorGateDone(true);
           return;
         }
+
+        setSponsorSplashVisible(true);
 
         await Promise.allSettled(
           presentation.loadingSponsors.map((sponsor) =>
@@ -780,7 +921,6 @@ export default function RaceRacebookScreen() {
         );
         if (cancelled) return;
 
-        setSponsorSplashVisible(true);
         sponsorFrame = requestAnimationFrame(() => {
           sponsorTimer = setTimeout(() => {
             if (!cancelled) setSponsorGateDone(true);
@@ -788,7 +928,10 @@ export default function RaceRacebookScreen() {
         });
       })
       .catch(() => {
-        if (!cancelled) setSponsorGateDone(true);
+        if (!cancelled) {
+          setSponsorLookupDone(true);
+          setSponsorGateDone(true);
+        }
       });
 
     return () => {
@@ -1129,12 +1272,12 @@ export default function RaceRacebookScreen() {
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const bibPrimaryItems = bibItems.filter((item) => item.label !== t.catalog.racebookFieldBibDocuments);
   const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
-  const showLoading = loading || !sponsorGateDone;
+  const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
 
   return (
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[styles.container, showLoading && { minHeight: Math.max(520, viewportHeight - 120) }]}
         alwaysBounceVertical
         refreshControl={
           <RefreshControl
@@ -1146,20 +1289,15 @@ export default function RaceRacebookScreen() {
         }
       >
       {showLoading ? (
-        <View style={styles.centerState}>
-          {sponsorSplashVisible && sponsorPresentation.loadingSponsors.length > 0 ? (
-            <>
-              <Text style={styles.sponsorLoadingLabel}>{t.catalog.racebookSponsorsSupportedBy}</Text>
-              <View style={styles.sponsorLoadingRow}>
-                {sponsorPresentation.loadingSponsors.map((sponsor) => (
-                  <SponsorChip key={sponsor.id} sponsor={sponsor} />
-                ))}
-              </View>
-            </>
-          ) : null}
-          <ActivityIndicator color={Colors.brandPrimary} size="small" />
-          <Text style={styles.loadingText}>{t.catalog.racebookLoading}</Text>
-        </View>
+        <RacebookLoadingScreen
+          key={id ?? 'missing-racebook'}
+          progress={loadingProgress}
+          sponsors={sponsorSplashVisible ? sponsorPresentation.loadingSponsors : []}
+          sponsorLabel={t.catalog.racebookSponsorsSupportedBy}
+          loadingLabel={t.catalog.racebookLoading}
+          viewportHeight={viewportHeight}
+          sponsorLookupDone={sponsorLookupDone}
+        />
       ) : unavailable ? (
         <View style={styles.centerState}>
           <View style={styles.emptyIconWrap}>
@@ -1586,9 +1724,63 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 14,
   },
+  loadingScreen: {
+    flex: 1,
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 22,
+    gap: 24,
+  },
+  loadingProgressBlock: {
+    width: '100%',
+    gap: 12,
+  },
+  loadingProgressTrack: {
+    width: '100%',
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: Colors.surfaceMuted,
+  },
+  loadingProgressFill: {
+    height: '100%',
+    borderRadius: 999,
+    backgroundColor: Colors.brandLight,
+  },
+  loadingRunner: {
+    position: 'absolute',
+    top: -11,
+    left: 0,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandPrimary,
+    borderWidth: 3,
+    borderColor: Colors.background,
+  },
+  loadingProgressCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   loadingText: {
     color: Colors.textSecondary,
     fontSize: 14,
+  },
+  loadingPercent: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  featuredSponsors: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
   },
   sponsorLoadingLabel: {
     color: Colors.textSecondary,
@@ -1597,14 +1789,50 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  sponsorLoadingRow: {
+  featuredSponsorStack: {
     width: '100%',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flex: 1,
+    gap: 12,
+  },
+  featuredSponsorPressable: {
+    flex: 1,
+    width: '100%',
+  },
+  featuredSponsorCard: {
+    flex: 1,
+    width: '100%',
+    minHeight: 96,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 18,
-    marginBottom: 8,
+    gap: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surface,
+  },
+  featuredSponsorLogo: {
+    width: '82%',
+    maxWidth: 260,
+    flex: 1,
+    minHeight: 58,
+  },
+  featuredSponsorName: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  featuredSponsorPlaceholder: {
+    flex: 1,
+    width: '100%',
+    minHeight: 96,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+    opacity: 0.62,
   },
   sponsorChip: {
     maxWidth: 150,

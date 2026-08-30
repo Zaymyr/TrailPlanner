@@ -17,6 +17,7 @@ related_files:
   - apps/web/app/api/racebook-sponsors/route.test.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.test.ts
   - apps/web/app/organizer/_components/dashboard/sponsors-editor.tsx
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
 related_tables:
@@ -63,12 +64,17 @@ Organizer logos use `race-images/organizer-sponsors/{editionId}/` and accept PNG
 
 The fictitious Trail TST assets are reproducible under `supabase/demo-assets/sponsors/`, uploaded to `race-images/trail-tst/2026/sponsors/`, and seeded idempotently for edition `7a110000-0000-4000-8000-000000000002`.
 
+## Mobile Presentation
+
+The RaceBook reserves a two-panel loading composition while the sponsor lookup is pending. Returned loading logos are shown in large stacked cards occupying roughly one third of the available viewport, beneath an animated runner progress track. An empty or failed lookup removes the reserved sponsor area and does not activate the 2.5-second sponsor gate. This is presentation-only and does not add impression tracking or expose direct destination URLs.
+
 ## Gotchas
 
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.
 - Sponsor configuration is not Pro-gated, but runners see it only when the selected RaceBook is accessible.
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
+- Keep the mobile loading panels reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
 
 ## Related Docs
 
