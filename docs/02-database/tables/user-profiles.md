@@ -1,7 +1,7 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-08-04
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
@@ -12,6 +12,7 @@ related_files:
   - supabase/migrations/20260525094919_add_sign_in_metrics_to_user_profiles.sql
   - supabase/migrations/20260618145940_remove_coach_features.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
+  - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - apps/web/lib/trial-server.ts
   - apps/web/lib/entitlements.ts
 related_tables:
@@ -38,7 +39,9 @@ related_tables:
 | `user_id` | `uuid` | primary key, default `auth.uid()` | Auth user/profile id. |
 | `created_at` | `timestamptz` | not null, default UTC `now()` | Creation time. |
 | `updated_at` | `timestamptz` | not null, trigger-maintained | Last update time. |
-| `onboarding_completed_at` | `timestamptz` | nullable | Time mobile onboarding was completed or explicitly skipped. |
+| `onboarding_completed_at` | `timestamptz` | nullable | Legacy timestamp retained for completed Plan onboarding. |
+| `plan_onboarding_status` | `text` | not null, default `pending`, checked enum | Plan guided-tour state. |
+| `racebook_onboarding_status` | `text` | not null, default `pending`, checked enum | RaceBook guided-tour state. |
 | `full_name` | `text` | nullable | User display name. |
 | `role` | `text` | nullable | Legacy/profile role used in some admin checks. |
 | `age` | `integer` | nullable, check `age >= 0` | Legacy age field. |
@@ -82,7 +85,8 @@ Summary:
 - `handle_new_user_profile` runs after auth user creation and uses SECURITY DEFINER to insert or repair trial fields.
 - `ensureTrialStatus` repairs missing profile/trial fields on session verification.
 - Sign-in metrics are updated by `public.increment_user_sign_in(...)`, called from server auth sign-in flow.
-- Mobile onboarding writes `onboarding_completed_at` only after a successful completion save or an explicit confirmed skip.
+- Each mobile tour uses `pending`, `in_progress`, `skipped`, or `completed`. The Profile dot disappears only when both are `completed`.
+- `onboarding_completed_at` is retained for legacy Plan completion and is no longer written by skip actions.
 
 <!-- CONFLICT: archived docs/app-rules-and-logic.md says trial duration is 14 days; current code and migration use 15 days. -->
 
@@ -110,6 +114,7 @@ where user_id = '<user-id>';
 - Use `birth_date` for new age-related work unless maintaining legacy `age`.
 - Trial fields can be missing for older users; server code repairs them.
 - Legacy onboarded profiles can have a null `onboarding_completed_at`; the mobile gate keeps recognizing existing onboarding profile fields and favorite products for backward compatibility.
+- The status migration marks Plan completed for every existing profile and intentionally leaves RaceBook pending; profiles created afterward default both tours to pending.
 - Profile `role` exists, but new auth decisions should prefer trusted `app_metadata` or server-side checks.
 - Sign-in metrics are best-effort and currently incremented on credential sign-in route; include this caveat in admin analytics interpretation.
 

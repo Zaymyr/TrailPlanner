@@ -24,6 +24,7 @@ related_files:
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
+  - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/lib/organizer-aid-station-products.ts
@@ -136,7 +137,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `subscriptions` | Web Stripe and mobile RevenueCat entitlement rows. |
 | `user_favorite_race_events` | User-owned favorites for `race_events`, used for catalog pinning and organizer-update audience selection. |
 | `user_favorite_products` | User favorites for products. |
-| `user_profiles` | App profile, explicit mobile onboarding completion, trial fields, defaults, sign-in metrics, and body metrics. |
+| `user_profiles` | App profile, independent Plan/RaceBook onboarding statuses, legacy completion, trial fields, defaults, sign-in metrics, and body metrics. |
 
 Removed legacy tables:
 
@@ -260,7 +261,7 @@ erDiagram
 - Public plan recap links store a bounded JSON snapshot plus limited `crew_state` in `plan_share_links`; raw URL tokens are not stored, only SHA-256 hashes.
 - Former course slugs are reserved database-wide while their race exists. Resolve them through `race_slug_redirects.race_id`, then reapply the current public race/event visibility gates before redirecting.
 - The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
-- `user_profiles.onboarding_completed_at` is nullable for legacy compatibility. Mobile also recognizes existing durable onboarding data so older onboarded users are not forced through the flow again.
+- `user_profiles.onboarding_completed_at` remains nullable legacy Plan state. New mobile gating and the Profile dot use the two checked per-tour status columns; skipped is deliberately distinct from completed.
 
 ## Related Docs
 

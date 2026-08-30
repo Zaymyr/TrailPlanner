@@ -541,6 +541,19 @@ export type MobileTranslations = {
     skipOnboardingConfirmTitle: string;
     skipOnboardingConfirmBody: string;
     skipOnboardingError: string;
+    tours: {
+      choiceTitle: string; choiceSubtitle: string; planChoiceTitle: string; planChoiceBody: string;
+      racebookChoiceTitle: string; racebookChoiceBody: string; discoverLater: string;
+      chooseRaceTitle: string; chooseRaceBody: string; openRacebookTitle: string;
+      openRacebookBody: string; noRacebookBody: string; productsTitle: string;
+      productsBody: string; continueToPlan: string; exploreRacebookTitle: string;
+      exploreRacebookBody: string; unavailableTitle: string; unavailableBody: string;
+      understood: string; skip: string; profileTitle: string; profileSubtitle: string;
+      planTitle: string; racebookTitle: string; statusPending: string;
+      statusInProgress: string; statusSkipped: string; statusCompleted: string;
+      actionStart: string; actionResume: string; actionReview: string;
+      profileDotLabel: string;
+    };
   };
   catalog: {
     searchPlaceholder: string;

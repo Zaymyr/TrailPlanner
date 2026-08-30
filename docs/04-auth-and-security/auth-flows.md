@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-08-27
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -84,11 +84,9 @@ The session shell resolves required onboarding before navigation; otherwise it o
 
 Non-auth onboarding steps, such as race/catalog selection UI, must not add separate session side effects; keep session, analytics identity, push registration, and Resend sync behavior in `_layout.tsx` or the existing dedicated helpers.
 The onboarding race chooser inner-filters event formats to `races.is_live = true`. This visibility filter is catalog behavior only and must not add a new authentication/session side effect.
-`apps/mobile/lib/onboardingGate.ts` decides whether required onboarding should reopen after auth. It first recognizes the explicit `user_profiles.onboarding_completed_at` marker written when onboarding is completed or deliberately skipped, while still treating legacy durable onboarding fields or favorite products as completion signals. It should fail closed on profile/favorites lookup errors so transient client issues do not bounce returning users back into a blank onboarding flow.
-When the gate does not require onboarding, the post-auth and cold-start destination is the `catalog` Courses tab.
+`apps/mobile/lib/onboardingGate.ts` decides whether the initial chooser or an in-progress tour should reopen after auth. Two durable owner-scoped statuses distinguish Plan and RaceBook. The gate shows the chooser only while both are untouched, resumes a stored in-progress stage on cold start, and otherwise opens Courses. The status migration marks Plan completed for existing profiles while leaving RaceBook pending; profiles created afterward start with both tours pending.
 When onboarding does reopen for an identified user, `apps/mobile/app/(app)/onboarding.tsx` should hydrate existing `user_profiles` values and favorite products before the runner edits anything, so revisits do not appear empty or overwrite stored profile defaults unintentionally.
-The onboarding route is registered as a non-tab screen with the bottom tab bar hidden, so users do not get tab navigation access while completing the required flow.
-Mobile onboarding exposes a compact header action to skip the flow throughout the setup steps; the final notification screen keeps its existing explicit skip-step action. Skipping the full flow requires confirmation, persists `onboarding_completed_at` through the current owner-scoped profile policies, and then routes to the plans screen so the gate does not reopen on the next launch.
+The Plan setup route hides the bottom tab bar. Once a tour reaches Courses, Nutrition, Plan, or RaceBook, the real route and ordinary tab navigation remain available with a contextual guide. Skipping persists that tour as `skipped`; dismissing the initial chooser skips both. Neither action is treated as completion.
 
 Social sign-in is split into hooks:
 
@@ -118,7 +116,7 @@ Do not use `user_metadata` for new authorization decisions.
 - Trial repair runs during session verification and must stay idempotent.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.
 - Do not key the mobile onboarding gate off a single nullable profile field. Returning users can have partial profiles, and reopening onboarding with empty local state risks resaving nulls over durable defaults.
-- A skip action must persist `user_profiles.onboarding_completed_at` before navigation. An in-memory route bypass alone expires and would force the runner back into onboarding later.
+- A skip action must persist the relevant per-tour status before navigation. AsyncStorage is only a resume cursor, never the durable completion source.
 - Do not render Google sign-in on iOS builds; App Review devices should only see the Apple social login path.
 - For Apple ID-token auth, send Apple the hashed nonce challenge and Supabase the raw nonce. The Apple authorization code is not a provider access token for Supabase `signInWithIdToken`.
 - Anonymous Apple identity linking can return existing-account wording when the Apple ID was used in an earlier review attempt; keep that path recoverable through direct Apple ID-token sign-in plus the pending guest-merge flow.

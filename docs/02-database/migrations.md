@@ -29,6 +29,7 @@ related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
+  - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -171,6 +172,14 @@ Mobile onboarding completion migration:
   - adds nullable `user_profiles.onboarding_completed_at`;
   - reuses existing owner select/insert/update policies and grants;
   - leaves legacy rows null so the mobile gate can continue its durable-data fallback.
+
+Independent mobile onboarding status migration:
+
+- `supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql`
+  - adds checked, non-null Plan and RaceBook status columns;
+  - marks Plan completed for every profile that existed when the migration ran;
+  - leaves RaceBook pending so existing runners can discover it;
+  - reuses the existing owner-scoped profile policies and grants.
 
 ### Race Events and Catalog Enrichment
 

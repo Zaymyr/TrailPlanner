@@ -42,6 +42,8 @@ related_tables:
 
 ## Gotchas
 
+- Guided catalog use does not mark announcements read differently and does not change the owner-scoped receipt contract.
+
 - Pro controls organizer history management and sends, not runner ownership of existing read receipts.
 
 - `push_notification_events` proves delivery attempts, not whether a runner saw the message; do not use it as read state.

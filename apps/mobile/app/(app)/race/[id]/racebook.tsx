@@ -21,6 +21,7 @@ import { Card } from '../../../../components/themed/Card';
 import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
+import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
@@ -34,6 +35,7 @@ import {
   type RacebookSponsorPresentation,
 } from '../../../../lib/racebookSponsors';
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
+import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardingStatus';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'aid-stations' | 'relay';
@@ -879,9 +881,13 @@ function AidStationCard({
   station,
   previousStation,
   copy,
+  expanded,
+  onToggle,
 }: {
   station: RacebookAidStation;
   previousStation?: RacebookAidStation;
+  expanded: boolean;
+  onToggle: () => void;
   copy: {
     aidProducts: string;
     aidWater: string;
@@ -925,83 +931,142 @@ function AidStationCard({
     ...(station.organizerDetails.cutoffTime ? [{ label: copy.aidCutoffTime, value: station.organizerDetails.cutoffTime }] : []),
   ];
 
+  useEffect(() => {
+    if (!expanded) setActiveServiceLabel(null);
+  }, [expanded]);
+
+  const summaryMetrics = metricItems.slice(1);
+
   return (
     <View style={styles.aidStationCard}>
-      <View style={styles.aidStationLayout}>
-        <View style={styles.aidStationMainColumn}>
-          <View style={styles.aidStationHeader}>
-            <View style={styles.aidStationTitleWrap}>
-              <Text style={styles.aidStationName}>{station.name}</Text>
-            </View>
-          </View>
-
-          {serviceItems.length > 0 ? (
-            <View style={styles.serviceInfoGroup}>
-              <View style={styles.serviceIconRow}>
-                {serviceItems.map((item) => (
-                  <ServiceIconButton
-                    key={`${station.id}-${item.label}`}
-                    icon={item.icon}
-                    label={item.label}
-                    active={activeServiceLabel === item.label}
-                    onPress={() => {
-                      setActiveServiceLabel((current) => (current === item.label ? null : item.label));
-                    }}
-                  />
-                ))}
-              </View>
-              {activeServiceLabel ? (
-                <View style={styles.serviceTooltip} accessibilityLiveRegion="polite">
-                  <Text style={styles.serviceTooltipText}>{activeServiceLabel}</Text>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={[
+          station.name,
+          formatStationDistance(station.km),
+          ...serviceItems.map((item) => item.label),
+          ...summaryMetrics.map((item) => `${item.label} ${item.value}`),
+        ].join(', ')}
+        accessibilityState={{ expanded }}
+        onPress={onToggle}
+        style={({ pressed }) => [styles.aidStationSummary, pressed ? styles.aidStationSummaryPressed : null]}
+      >
+        <View style={styles.aidStationSummaryMain}>
+          <Text style={styles.aidStationName} numberOfLines={1}>
+            {station.name}
+          </Text>
+          {serviceItems.length > 0 || summaryMetrics.length > 0 ? (
+            <View style={styles.aidStationSummaryMeta}>
+              {serviceItems.length > 0 ? (
+                <View style={styles.serviceSummaryRow}>
+                  {serviceItems.map((item) => (
+                    <View key={`${station.id}-summary-${item.label}`} style={styles.serviceSummaryIcon}>
+                      <Ionicons name={item.icon} size={13} color={Colors.brandPrimary} />
+                    </View>
+                  ))}
                 </View>
               ) : null}
+              {summaryMetrics.map((item) => (
+                <DataText
+                  key={`${station.id}-summary-${item.label}`}
+                  numberOfLines={1}
+                  style={[
+                    styles.aidStationSummaryMetric,
+                    item.tone === 'gain' ? styles.segmentGainText : null,
+                    item.tone === 'loss' ? styles.segmentLossText : null,
+                  ]}
+                >
+                  {item.label} {item.value}
+                </DataText>
+              ))}
             </View>
-          ) : null}
-
-          {station.products.length > 0 ? (
-            <View style={styles.inlineBlock}>
-              <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
-              <ChipRow values={station.products.map((product) => product.label)} />
-            </View>
-          ) : null}
-
-          {station.organizerDetails.organizerNote || station.notes ? (
-            <Text style={styles.noteText}>{station.organizerDetails.organizerNote ?? station.notes}</Text>
           ) : null}
         </View>
-
-        <View style={styles.aidStationMetricsColumn}>
-          {metricItems.map((item) => (
-            <View key={`${station.id}-${item.label}`} style={styles.metricRow}>
-              <Text style={styles.metricLabel} numberOfLines={1}>
-                {item.label}
-              </Text>
-              <DataText
-                numberOfLines={1}
-                style={[
-                  styles.metricValue,
-                  item.tone === 'gain' ? styles.segmentGainText : null,
-                  item.tone === 'loss' ? styles.segmentLossText : null,
-                ]}
-              >
-                {item.value}
-              </DataText>
-            </View>
-          ))}
+        <View style={styles.aidStationSummaryAction}>
+          <DataText style={styles.aidStationSummaryDistance}>{formatStationDistance(station.km)}</DataText>
+          <Ionicons
+            name={expanded ? 'chevron-up' : 'chevron-down'}
+            size={18}
+            color={Colors.textSecondary}
+          />
         </View>
-      </View>
+      </Pressable>
+
+      {expanded ? (
+        <View style={styles.aidStationExpandedContent}>
+          <View style={styles.aidStationLayout}>
+            <View style={styles.aidStationMainColumn}>
+              {serviceItems.length > 0 ? (
+                <View style={styles.serviceInfoGroup}>
+                  <View style={styles.serviceIconRow}>
+                    {serviceItems.map((item) => (
+                      <ServiceIconButton
+                        key={`${station.id}-${item.label}`}
+                        icon={item.icon}
+                        label={item.label}
+                        active={activeServiceLabel === item.label}
+                        onPress={() => {
+                          setActiveServiceLabel((current) => (current === item.label ? null : item.label));
+                        }}
+                      />
+                    ))}
+                  </View>
+                  {activeServiceLabel ? (
+                    <View style={styles.serviceTooltip} accessibilityLiveRegion="polite">
+                      <Text style={styles.serviceTooltipText}>{activeServiceLabel}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {station.products.length > 0 ? (
+                <View style={styles.inlineBlock}>
+                  <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
+                  <ChipRow values={station.products.map((product) => product.label)} />
+                </View>
+              ) : null}
+
+              {station.organizerDetails.organizerNote || station.notes ? (
+                <Text style={styles.noteText}>{station.organizerDetails.organizerNote ?? station.notes}</Text>
+              ) : null}
+            </View>
+
+            <View style={styles.aidStationMetricsColumn}>
+              {metricItems.map((item) => (
+                <View key={`${station.id}-${item.label}`} style={styles.metricRow}>
+                  <Text style={styles.metricLabel} numberOfLines={1}>
+                    {item.label}
+                  </Text>
+                  <DataText
+                    numberOfLines={1}
+                    style={[
+                      styles.metricValue,
+                      item.tone === 'gain' ? styles.segmentGainText : null,
+                      item.tone === 'loss' ? styles.segmentLossText : null,
+                    ]}
+                  >
+                    {item.value}
+                  </DataText>
+                </View>
+              ))}
+            </View>
+          </View>
+        </View>
+      ) : null}
     </View>
   );
 }
 
 export default function RaceRacebookScreen() {
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, onboarding } = useLocalSearchParams<{ id?: string; onboarding?: 'racebook' }>();
   const router = useRouter();
   const navigation = useNavigation();
   const { locale, t } = useI18n();
   const { height: viewportHeight } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
   const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>('route');
+  const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(null);
+  const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(null);
@@ -1474,7 +1539,20 @@ export default function RaceRacebookScreen() {
     };
   }, [navigation, showLoading]);
 
+  async function finishRacebookOnboarding(completed: boolean) {
+    setOnboardingBusy(true);
+    try {
+      if (completed) await completeOnboarding('racebook');
+      else await skipOnboardingKind('racebook', 'racebook');
+      router.replace(id ? `/(app)/race/${id}/racebook` : '/(app)/catalog');
+    } catch (caught) {
+      console.error('Unable to finish RaceBook onboarding:', caught);
+      setOnboardingBusy(false);
+    }
+  }
+
   return (
+    <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={[styles.container, showLoading && { minHeight: Math.max(520, viewportHeight - 120) }]}
         alwaysBounceVertical
@@ -1852,6 +1930,10 @@ export default function RaceRacebookScreen() {
                             key={station.id}
                             station={station}
                             previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
+                            expanded={expandedAidStationId === station.id}
+                            onToggle={() => {
+                              setExpandedAidStationId((current) => (current === station.id ? null : station.id));
+                            }}
                             copy={{
                               aidProducts: t.catalog.racebookAidProducts,
                               aidWater: t.catalog.racebookAidWater,
@@ -1920,10 +2002,34 @@ export default function RaceRacebookScreen() {
         </>
       ) : null}
       </ScrollView>
+      {onboarding === 'racebook' && !showLoading ? (
+        <OnboardingGuideCard
+          title={
+            unavailable
+              ? t.onboarding.tours.unavailableTitle
+              : t.onboarding.tours.exploreRacebookTitle
+          }
+          body={
+            unavailable
+              ? t.onboarding.tours.unavailableBody
+              : t.onboarding.tours.exploreRacebookBody
+          }
+          actionLabel={unavailable ? undefined : t.onboarding.tours.understood}
+          onAction={unavailable ? undefined : () => void finishRacebookOnboarding(true)}
+          skipLabel={t.onboarding.tours.skip}
+          onSkip={() => void finishRacebookOnboarding(false)}
+          busy={onboardingBusy}
+        />
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: Colors.background,
+  },
   container: {
     padding: 16,
     paddingBottom: 32,
@@ -2886,11 +2992,52 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   aidStationCard: {
-    padding: 14,
     borderRadius: 16,
     backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  aidStationSummary: {
+    minHeight: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  aidStationSummaryPressed: {
+    backgroundColor: Colors.brandSurface,
+  },
+  aidStationSummaryMain: {
+    flex: 1,
+    gap: 7,
+  },
+  aidStationSummaryMeta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 7,
+  },
+  aidStationSummaryAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  aidStationSummaryDistance: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  aidStationSummaryMetric: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  aidStationExpandedContent: {
+    padding: 14,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
   },
   aidStationLayout: {
     flexDirection: 'row',
@@ -2900,12 +3047,6 @@ const styles = StyleSheet.create({
   aidStationMainColumn: {
     flex: 1,
     gap: 10,
-  },
-  aidStationHeader: {
-    gap: 6,
-  },
-  aidStationTitleWrap: {
-    gap: 8,
   },
   aidStationName: {
     flex: 1,
@@ -2944,6 +3085,21 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+  },
+  serviceSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  serviceSummaryIcon: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 11,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
   },
   serviceIconButton: {
     width: 40,

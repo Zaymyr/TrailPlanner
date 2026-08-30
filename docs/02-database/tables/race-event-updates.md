@@ -99,6 +99,8 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Gotchas
 
+- The catalog onboarding parameter is presentation/navigation state only; organizer-update loading, targeting, visibility, and read behavior stay unchanged.
+
 - Do not edit old runner-facing announcements in place; editing would make delivered push content misleading. The organizer UI may delete a row after confirmation, while historical push-delivery logs remain untouched.
 - The mobile event sheet now preloads only a short recent preview from the main catalog query so the sheet can render updates immediately; keep that embedded payload intentionally small.
 - The catalog's embedded formats are filtered to live rows. Hiding an edition removes its format actions/Racebooks but does not delete event announcement history; deleting the edition nulls a targeted update's `race_id` through the race foreign key.

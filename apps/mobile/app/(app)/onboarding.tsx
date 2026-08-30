@@ -13,7 +13,7 @@ import {
   Image
 } from 'react-native';
 import { Text } from '../../components/themed/Text';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
@@ -40,6 +40,12 @@ import { noteReviewOnboardingCompleted, noteReviewPlanCreated } from '../../lib/
 import { markOnboardingJustCompleted } from '../../lib/onboardingGate';
 import { createOnboardingDemoPlan } from '../../lib/onboardingDemoPlan';
 import { captureAnalyticsEvent } from '../../lib/posthog';
+import {
+  saveOnboardingProgress,
+  skipOnboardingChoice,
+  skipOnboardingKind,
+  startOnboarding,
+} from '../../lib/onboardingStatus';
 import {
   buildGpxImportErrorMessage,
   createPrivateRace,
@@ -369,9 +375,11 @@ function OnboardingShell({
 
 export default function OnboardingScreen() {
   const { locale, t } = useI18n();
+  const { flow } = useLocalSearchParams<{ flow?: string }>();
   const pendingTransition = getPendingOnboardingTransition();
   const [step, setStep] = useState(0);
   const [skippingOnboarding, setSkippingOnboarding] = useState(false);
+  const [choiceBusy, setChoiceBusy] = useState(false);
   const [fullName, setFullName] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState(1.5);
   const [session, setSession] = useState<Session | null>(null);
@@ -1166,6 +1174,7 @@ export default function OnboardingScreen() {
         default_water_ml_per_hour: parsedDefaultWaterPerHour,
         default_sodium_mg_per_hour: parsedDefaultSodiumPerHour,
         onboarding_completed_at: new Date().toISOString(),
+        plan_onboarding_status: 'completed',
       },
       { onConflict: 'user_id' },
     );
@@ -1373,22 +1382,10 @@ export default function OnboardingScreen() {
         throw new Error('Unable to resolve a session while skipping onboarding');
       }
 
-      const { error } = await supabase.from('user_profiles').upsert(
-        {
-          user_id: userId,
-          onboarding_completed_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id' },
-      );
-
-      if (error) {
-        throw error;
-      }
-
+      await skipOnboardingKind('plan', `setup_${Math.max(step, 1)}`);
       markOnboardingJustCompleted(userId);
       clearPendingOnboardingTransition();
-      captureAnalyticsEvent('onboarding skipped', { step: Math.max(step, 1) });
-      router.replace('/(app)/plans');
+      router.replace('/(app)/catalog');
     } catch (error) {
       console.error('Unable to skip onboarding:', error);
       Alert.alert(t.common.error, t.onboarding.skipOnboardingError);
@@ -1429,10 +1426,71 @@ export default function OnboardingScreen() {
     setStep(4);
   }
 
-  function handleTargetsContinue() {
+  async function handleTargetsContinue() {
+    const personalStep = validatePersonalStep();
+    if (!personalStep) return;
     const performanceStep = validatePerformanceStep();
     if (!performanceStep) return;
-    setStep(5);
+
+    setSaving(true);
+    try {
+      const currentSession = await ensureAppSession();
+      const userId = currentSession?.user.id;
+      if (!userId) throw new Error('Unable to resolve onboarding user');
+
+      const { error } = await supabase.from('user_profiles').upsert(
+        {
+          user_id: userId,
+          full_name: fullName.trim() || null,
+          water_bag_liters: waterBagLiters,
+          utmb_index: performanceStep.parsedUtmbIndex,
+          comfortable_flat_pace_min_per_km: performanceStep.comfortableFlatPaceMinPerKm,
+          weight_kg: personalStep.parsedWeightKg,
+          height_cm: personalStep.parsedHeightCm,
+          default_carbs_g_per_hour: performanceStep.parsedDefaultCarbsPerHour,
+          default_water_ml_per_hour: performanceStep.parsedDefaultWaterPerHour,
+          default_sodium_mg_per_hour: performanceStep.parsedDefaultSodiumPerHour,
+          plan_onboarding_status: 'in_progress',
+        },
+        { onConflict: 'user_id' },
+      );
+      if (error) throw error;
+
+      await saveOnboardingProgress({ kind: 'plan', stage: 'catalog' });
+      router.replace('/(app)/catalog?onboarding=plan');
+    } catch (error) {
+      console.error('Unable to continue plan onboarding in catalog:', error);
+      Alert.alert(t.common.error, t.onboarding.skipOnboardingError);
+      setSaving(false);
+    }
+  }
+
+  async function handleChooseOnboarding(kind: 'plan' | 'racebook') {
+    setChoiceBusy(true);
+    try {
+      await startOnboarding(kind);
+      router.replace(
+        kind === 'plan'
+          ? '/(app)/onboarding?flow=plan'
+          : '/(app)/catalog?onboarding=racebook',
+      );
+    } catch (error) {
+      console.error('Unable to start onboarding:', error);
+      Alert.alert(t.common.error, t.onboarding.skipOnboardingError);
+      setChoiceBusy(false);
+    }
+  }
+
+  async function handleSkipChoice() {
+    setChoiceBusy(true);
+    try {
+      await skipOnboardingChoice();
+      router.replace('/(app)/catalog');
+    } catch (error) {
+      console.error('Unable to skip onboarding choice:', error);
+      Alert.alert(t.common.error, t.onboarding.skipOnboardingError);
+      setChoiceBusy(false);
+    }
   }
 
   function handleRaceContinue() {
@@ -1691,6 +1749,54 @@ export default function OnboardingScreen() {
 
         <TouchableOpacity style={styles.secondaryButton} onPress={handleCreateAnotherPlan}>
           <Text style={styles.secondaryButtonText}>{t.onboarding.completionNewPlanCta}</Text>
+        </TouchableOpacity>
+      </OnboardingShell>
+    );
+  }
+
+  if (flow !== 'plan') {
+    const copy = t.onboarding.tours;
+
+    return (
+      <OnboardingShell step={1} totalSteps={1} stepLabel={t.onboarding.stepLabel}>
+        <Text style={styles.title}>{copy.choiceTitle}</Text>
+        <Text style={styles.subtitle}>{copy.choiceSubtitle}</Text>
+        <TouchableOpacity
+          disabled={choiceBusy}
+          onPress={() => void handleChooseOnboarding('plan')}
+          style={styles.phaseCard}
+        >
+          <View style={styles.phaseBadge}>
+            <Ionicons name="map-outline" size={20} color={Colors.brandPrimary} />
+          </View>
+          <View style={styles.phaseBody}>
+            <Text style={styles.phaseTitle}>{copy.planChoiceTitle}</Text>
+            <Text style={styles.phaseText}>{copy.planChoiceBody}</Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          disabled={choiceBusy}
+          onPress={() => void handleChooseOnboarding('racebook')}
+          style={styles.phaseCard}
+        >
+          <View style={styles.phaseBadge}>
+            <Ionicons name="book-outline" size={20} color={Colors.brandPrimary} />
+          </View>
+          <View style={styles.phaseBody}>
+            <Text style={styles.phaseTitle}>{copy.racebookChoiceTitle}</Text>
+            <Text style={styles.phaseText}>{copy.racebookChoiceBody}</Text>
+          </View>
+        </TouchableOpacity>
+        <TouchableOpacity
+          disabled={choiceBusy}
+          onPress={() => void handleSkipChoice()}
+          style={styles.secondaryButton}
+        >
+          {choiceBusy ? (
+            <ActivityIndicator color={Colors.brandPrimary} />
+          ) : (
+            <Text style={styles.secondaryButtonText}>{copy.discoverLater}</Text>
+          )}
         </TouchableOpacity>
       </OnboardingShell>
     );

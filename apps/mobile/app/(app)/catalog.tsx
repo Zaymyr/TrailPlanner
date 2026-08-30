@@ -18,6 +18,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
+import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import { Colors } from '../../constants/colors';
@@ -25,6 +26,7 @@ import { useI18n } from '../../lib/i18n';
 import { isAnonymousSession } from '../../lib/appSession';
 import { canShowRacebook } from '../../lib/racebook';
 import { supabase } from '../../lib/supabase';
+import { saveOnboardingProgress, skipOnboardingKind } from '../../lib/onboardingStatus';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
 
 type Race = {
@@ -423,7 +425,13 @@ export default function CatalogScreen() {
     eventId: selectedEventIdParam,
     raceId: selectedRaceIdParam,
     updateId: selectedUpdateIdParam,
-  } = useLocalSearchParams<{ eventId?: string; raceId?: string; updateId?: string }>();
+    onboarding: onboardingMode,
+  } = useLocalSearchParams<{
+    eventId?: string;
+    raceId?: string;
+    updateId?: string;
+    onboarding?: 'plan' | 'racebook';
+  }>();
   const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
@@ -454,11 +462,38 @@ export default function CatalogScreen() {
   const listRef = useRef<FlatList<EventGroup>>(null);
   const favoriteToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  function handleCreatePlan(catalogRaceId: string) {
+  async function handleCreatePlan(catalogRaceId: string) {
+    if (onboardingMode === 'plan') {
+      await saveOnboardingProgress({ kind: 'plan', stage: 'nutrition', selectedRaceId: catalogRaceId });
+      router.replace('/(app)/nutrition?onboarding=plan');
+      return;
+    }
     router.push({
       pathname: '/(app)/plan/new',
       params: { catalogRaceId },
     });
+  }
+
+  const publishedRacebookCount = useMemo(
+    () => eventGroups.reduce(
+      (count, event) => count + event.races.filter((race) => canShowRacebook({
+        raceIsLive: race.is_live,
+        racebookIsLive: race.racebook_is_live,
+        hasOrganizerAccess: false,
+        hasAidStations: race.has_aid_stations,
+        hasRelayCourse: race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
+        eventOrganizerDetails: event.organizer_details,
+        raceOrganizerDetails: race.organizer_details,
+      })).length,
+      0,
+    ),
+    [eventGroups],
+  );
+
+  async function handleSkipGuidedCatalog() {
+    if (!onboardingMode) return;
+    await skipOnboardingKind(onboardingMode, 'catalog');
+    router.replace('/(app)/catalog');
   }
 
   function fetchEvents() {
@@ -1049,6 +1084,25 @@ export default function CatalogScreen() {
         includeRaceRequest
       />
 
+      {onboardingMode ? (
+        <OnboardingGuideCard
+          title={
+            onboardingMode === 'plan'
+              ? t.onboarding.tours.chooseRaceTitle
+              : t.onboarding.tours.openRacebookTitle
+          }
+          body={
+            onboardingMode === 'plan'
+              ? t.onboarding.tours.chooseRaceBody
+              : publishedRacebookCount > 0
+                ? t.onboarding.tours.openRacebookBody
+                : t.onboarding.tours.noRacebookBody
+          }
+          skipLabel={t.onboarding.tours.skip}
+          onSkip={() => void handleSkipGuidedCatalog()}
+        />
+      ) : null}
+
       <Modal
         visible={filtersOpen}
         animationType="slide"
@@ -1182,7 +1236,10 @@ export default function CatalogScreen() {
                     canShowRacebook({
                       raceIsLive: race.is_live,
                       racebookIsLive: race.racebook_is_live,
-                      hasOrganizerAccess: organizerEventIds.has(selectedEvent.id),
+                      hasOrganizerAccess:
+                        onboardingMode === 'racebook'
+                          ? false
+                          : organizerEventIds.has(selectedEvent.id),
                       hasAidStations: race.has_aid_stations,
                       hasRelayCourse:
                         race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
@@ -1194,6 +1251,19 @@ export default function CatalogScreen() {
                   }
                   onSecondaryPress={() => {
                     setSelectedEvent(null);
+                    if (onboardingMode === 'racebook') {
+                      void saveOnboardingProgress({
+                        kind: 'racebook',
+                        stage: 'racebook',
+                        selectedRaceId: race.id,
+                      }).then(() => {
+                        router.push({
+                          pathname: '/(app)/race/[id]/racebook',
+                          params: { id: race.id, onboarding: 'racebook' },
+                        });
+                      });
+                      return;
+                    }
                     router.push({
                       pathname: '/(app)/race/[id]/racebook',
                       params: { id: race.id },
