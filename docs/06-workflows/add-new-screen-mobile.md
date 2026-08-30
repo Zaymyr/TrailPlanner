@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-08-28
+last_verified: 2026-08-30
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -18,6 +18,8 @@ related_files:
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/racebookSponsors.ts
+  - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/mobile/locales/types.ts
   - apps/mobile/locales/fr.ts
   - apps/mobile/locales/en.ts
@@ -28,6 +30,7 @@ related_files:
   - apps/mobile/app.config.ts
 related_tables:
   - race_relay_points
+  - race_event_edition_sponsors
 ---
 
 # Add New Mobile Screen
@@ -52,6 +55,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item. Use `href: null` alone when the screen should keep the bottom navigation visible; add `tabBarStyle: { display: 'none' }` only for flows that should hide the bar. The default root tab is `catalog`. Preserve the tab navigator's history-based back behavior so Android hardware back returns to the actual previous screen after these hidden routes are pushed.
 - Compact detail routes under an existing stack, such as `race/[id]/racebook`, can keep a route-local tab bar/state machine. Keep the Racebook entry point hidden until the course format is live, `racebook_is_live` is true, and real organizer content exists; aid stations alone should not unlock it. Preserve the existing identity card: its flexible metadata row uses calendar/location icons, dot separators, and compact `Solo` and/or `Relais` badges, with two separate badges for mixed formats. Keep its emphasized localized format-date row when that date differs from the event start date, alerts, four permanent tabs, conditional Services tab, responsive location, route, ravito, and pull-to-refresh behavior. Inside `Course`, keep important schedule information above the compact `Tracé` / `Ravitos` / conditional `Relais` sub-tabs so the map/profile and long station lists no longer share one continuous scroll. In `Dossard`, render each pickup address directly without a repeated numbered location heading. In `Accès`, honor every format-level enabled flag before exposing saved parking, shuttle, road-restriction, or map content. Keep feedback in the native header; render conditional official-site, Instagram, and Facebook actions as accessible icon-only outlined controls beside the identity, then separate the emergency row with a divider. That row keeps `Urgence - nom - téléphone` on one line beside a localized outlined call action, and uses the display-normalized phone without separators for its `tel:` URL.
 - The Racebook publication requirement above applies to ordinary runners. An active organizer of the parent event may preview the same populated Racebook before publication after both the catalog and direct screen load verify `race_event_organizers`; aid stations alone still do not unlock it.
+- RaceBook sponsors come from the lightweight web API bridge in parallel with the main snapshot. Keep the 2.5-second gate conditional on ready loading sponsors, skip it on pull-to-refresh, and respect reduced motion in the compact banner.
 - Relay segments belong in the conditional `Relais` sub-tab of the existing Racebook `Course` tab. Derive them from published relay points instead of creating another route or treating handovers as nutrition stations.
 - In the Racebook `Services` tab, keep each populated category in its own titled card and render its content as plain text without list bullets.
 - Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code. Preserve per-checkpoint assistance availability in the generated snapshot so recap screens can highlight crew handoff points, mute no-assistance points, and avoid showing a product handoff block where the crew cannot be present.

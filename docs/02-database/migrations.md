@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -25,10 +25,14 @@ related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/racebook_sponsors_checks.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -43,6 +47,7 @@ related_tables:
   - race_event_updates
   - race_event_update_reads
   - race_event_editions
+  - race_event_edition_sponsors
   - race_aid_station_products
   - products
   - user_favorite_race_events
@@ -238,9 +243,15 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 
 `supabase/migrations/20260829115507_add_organizer_edition_offers.sql` adds service-only organizer entitlement and Stripe transaction tables, backfills Pro for already approved/published editions, and initializes other editions at Visibilité. Its invoker RPCs recalculate rights, publish paid RaceBooks, and audit admin changes. It also removes direct authenticated notification, relay, and station-product mutations. `supabase/tests/organizer_edition_entitlements_checks.sql` verifies the base, upgrade, and refund transitions.
 
+`supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql` repairs events/formats created after the original edition backfill: it creates missing event-year editions, attaches every dated event format, selects a current edition when absent, and installs an invoker trigger that atomically upserts future missing memberships under a per-event transaction advisory lock. It changes no client table grants or RLS policy.
+
+`supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql` adds service-only `race_event_edition_sponsors`, ordered loading/banner placements, aggregate click counts, and an atomic race/edition-validated redirect increment RPC. RLS and explicit privilege revokes keep clients behind server routes. A transaction advisory lock plus trigger enforces ten sponsors per edition and two active loading sponsors even under concurrent writes. `supabase/tests/racebook_sponsors_checks.sql` verifies RLS, privileges, both limits, and the atomic increment inside a rollback transaction.
+
 ### Racebook Showcase Data
 
 `supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql` is a data-only, idempotent showcase seed. It publishes the fictional `Trail TST` 2026 event with three complete formats (18 km, 42 km, and an 82 km solo/relay format), organizer JSONB details, ordered ravitos, official product links, and two relay handover points. The referenced cover and GPX objects live under `race-images/trail-tst/2026/` and `race-gpx/trail-tst/2026/`; repository copies live under `supabase/demo-assets/` so the fixture remains reproducible. It changes no table, grant, function, trigger, or RLS policy.
+
+`supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql` idempotently adds the fictitious Nivalis Outdoor and Torrent Libre loading/banner sponsors plus the banner-only Refuge 1800 sponsor to the shared Trail TST 2026 edition. Their transparent raster emblems live under `supabase/demo-assets/sponsors/` and `race-images/trail-tst/2026/sponsors/`; all target URLs use identified `example.com` demo links and counters start at zero.
 
 `supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql` removes the two fictional free-text schedule constraint notes from the TST 82 showcase format. It preserves the representative start time, finish cutoff, ravitos, and per-station cutoff times, and changes no schema or access policy.
 
@@ -314,6 +325,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Temporary organizer roadbooks belong only in `organizer-imports`, never in `race-gpx` or public image buckets. Keep owner-folder checks on browser upload/delete policies and service-route cleanup in a `finally` block.
 - Do not replace the Organizer cleanup HTTP job with a direct SQL row purge: deleting the manifest first can orphan temporary Storage objects.
 - Keep the `Trail TST` seed ids and Storage paths stable. Re-running the migration updates the showcase rows in place; changing ids or paths would create duplicate catalog entries or broken map/profile assets.
+- Keep sponsor schema and showcase seed migrations separate: the first establishes security/invariants, while the idempotent TST data migration assumes the fixed demo edition already exists.
 - Never deploy course-slug edits before the redirect migration. Review the GET-only slug audit first, then use the service-only RPC for approved rows so the old URL and canonical target change in one transaction.
 
 ## Related Docs

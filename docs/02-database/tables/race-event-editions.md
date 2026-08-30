@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -22,6 +22,11 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/route.ts
   - apps/web/lib/organizer-publication.ts
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
+  - supabase/tests/organizer_edition_entitlements_checks.sql
 related_tables:
   - race_event_editions
   - race_events
@@ -30,6 +35,7 @@ related_tables:
   - organizer_import_sessions
   - organizer_edition_entitlements
   - organizer_edition_payments
+  - race_event_edition_sponsors
 ---
 
 # race_event_editions
@@ -47,6 +53,7 @@ related_tables:
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 - One permanent commercial entitlement covers every current and future format attached to the edition.
+- One optional ordered sponsor list also covers every current and future format attached to the edition, independently from the commercial tier.
 
 ## Columns
 
@@ -67,8 +74,10 @@ related_tables:
 
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
 - `races.edition_id -> race_event_editions(id) on delete cascade`
+- `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
 
 Deleting an event removes its editions. Deleting an edition removes its formats and their cascading source children; saved plans keep their snapshots because `race_plans.race_id` becomes null. The service-only deletion RPC rejects deletion of the event's only edition and promotes the newest remaining edition when the deleted row was current.
+Sponsor rows follow the edition cascade. The organizer deletion routes read their public `race-images` paths before deletion and remove those Storage objects after the database transaction succeeds.
 
 ## Indexes
 
@@ -87,6 +96,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - `end_date >= start_date`.
 - A format date edited through organizer routes must lie inside its edition range.
 - Database triggers also reject edition range updates that exclude an attached format, event/edition mismatches, and out-of-range format writes from any service path.
+- A dated event format inserted without `edition_id` is assigned before validation to an atomically upserted `(event_id, edition_year)` row. A transaction advisory lock serializes first-edition creation per event, and the migration backfills existing orphaned formats.
 - Changing the current edition or its range mirrors `start_date` to `race_events.race_date` and `end_date` to `race_events.organizer_details.dateRange.endDate` for legacy catalog/mobile consumers.
 - Data corrections that move every attached format outside the old range must first widen the edition, update the format dates, then narrow the canonical range. The Les Amaz’Eaunes 2026 roadbook migration uses this guarded sequence to move the edition from 11–13 September to the confirmed single race day on 13 September.
 - Format-specific publication readiness and first approval follow `race_event_publication_requests.race_id -> races.edition_id`, even when that edition is not current.
@@ -118,7 +128,7 @@ where ree.event_id = :event_id
 ## Gotchas
 
 - Do not use `race_events.race_date` as the canonical organizer edition date; it is a compatibility mirror.
-- Do not infer edition membership only from the year of `races.race_date` in new writes; persist `races.edition_id`.
+- Application writes should persist `races.edition_id`. The database uses the format year only as a service-side compatibility repair when a dated event format arrives without one.
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.
 - Do not require a source edition lookup when the organizer explicitly disables duplication; source formats are needed only for the cloning branch.

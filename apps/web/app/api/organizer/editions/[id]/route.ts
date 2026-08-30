@@ -30,6 +30,8 @@ const editionRaceSchema = z.object({
   thumbnail_url: z.string().nullable().optional(),
 });
 
+const editionSponsorSchema = z.object({ logo_url: z.string().url() });
+
 const deleteResultSchema = z.object({
   deleted_edition_id: z.string().uuid(),
   next_edition_id: z.string().uuid(),
@@ -133,6 +135,13 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   if (!racesResponse.ok) return jsonError("Unable to load edition formats before delete.", 502);
   const races = z.array(editionRaceSchema).parse(await racesResponse.json());
 
+  const sponsorsResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?edition_id=eq.${parsedParams.data.id}&select=logo_url`,
+    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+  );
+  if (!sponsorsResponse.ok) return jsonError("Unable to load edition sponsors before delete.", 502);
+  const sponsors = z.array(editionSponsorSchema).parse(await sponsorsResponse.json());
+
   const deleteResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/delete_race_event_edition`,
     {
@@ -164,6 +173,10 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     if (imagePath && !(await isRaceImageStillReferenced(auth.serviceConfig, imageUrl))) {
       storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", imagePath));
     }
+  }
+  for (const sponsor of sponsors) {
+    const sponsorImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, sponsor.logo_url);
+    if (sponsorImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", sponsorImagePath));
   }
   await Promise.all(storageDeletes);
 

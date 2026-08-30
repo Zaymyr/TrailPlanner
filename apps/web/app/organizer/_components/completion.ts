@@ -13,7 +13,8 @@ export type OrganizerModuleId =
   | "bibPickup"
   | "access"
   | "products"
-  | "services";
+  | "services"
+  | "sponsors";
 
 export type OrganizerModuleLevel = "required" | "recommended" | "optional";
 export type OrganizerModuleStatus = "empty" | "incomplete" | "complete";
@@ -254,7 +255,7 @@ export function buildOrganizerCompletion(
   activeRace: CompletionRace | null,
   aidStations: CompletionAidStation[],
   stationProducts: CompletionStationProduct[],
-  persistedCounts?: { aidStations?: number; stationProducts?: number }
+  persistedCounts?: { aidStations?: number; stationProducts?: number; sponsors?: number; sponsorClicks?: number }
 ): OrganizerCompletionSummary {
   const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
   const activeEdition = getCompletionEdition(event, activeRace);
@@ -285,6 +286,8 @@ export function buildOrganizerCompletion(
   const linkedStationProductCount = persistedCounts
     ? persistedCounts.stationProducts ?? null
     : stationProducts.length;
+  const sponsorCount = persistedCounts?.sponsors ?? 0;
+  const sponsorClicks = persistedCounts?.sponsorClicks ?? 0;
   const eventMissingLabels = compactMissingLabels([
     ["Nom", hasText(event.name)],
     ["Lieu", hasText(event.location)],
@@ -448,6 +451,14 @@ export function buildOrganizerCompletion(
       ),
       countLabel: hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
     },
+    {
+      id: "sponsors",
+      title: "Sponsors",
+      description: "Logos mis en avant dans le RaceBook de cette édition.",
+      level: "optional",
+      status: sponsorCount > 0 ? "complete" : "empty",
+      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Optionnel",
+    },
   ];
 
   const eventModules: OrganizerModuleSummary[] = [
@@ -529,6 +540,14 @@ export function buildOrganizerCompletion(
         1
       ),
       countLabel: hasText(services.partners) ? "Partenaires renseignés" : "Optionnel",
+    },
+    {
+      id: "sponsors",
+      title: "Sponsors",
+      description: "Chargement et bandeau du RaceBook pour l'édition.",
+      level: "optional",
+      status: sponsorCount > 0 ? "complete" : "empty",
+      countLabel: sponsorCount > 0 ? `${sponsorCount} sponsor${sponsorCount > 1 ? "s" : ""} · ${sponsorClicks} clic${sponsorClicks > 1 ? "s" : ""}` : "Optionnel",
     },
   ];
 

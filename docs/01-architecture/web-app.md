@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -90,6 +90,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/sponsors-editor.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -114,6 +115,11 @@ related_files:
   - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
+  - apps/web/app/api/racebook-sponsors/route.ts
+  - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
+  - apps/web/lib/racebook-sponsors.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
   - apps/web/app/api/organizer/publication-requests/route.test.ts
   - apps/web/app/api/organizer/publication-requests/readiness.test.ts
@@ -173,6 +179,7 @@ related_tables:
   - push_devices
   - push_notification_events
   - race_slug_redirects
+  - race_event_edition_sponsors
 ---
 
 # Web App Architecture
@@ -291,6 +298,8 @@ For trusted admins, the organizer header also exposes `Importer les informations
 
 The Organizer edition header reads `race_event_editions.is_visible`, exposes one edition-wide visibility switch, and places a compact delete cross directly beside the year selector. `PATCH /api/organizer/editions/[id]` hides or restores complete course rows after active membership validation; hiding always forces attached Racebooks off. `DELETE` requires the client confirmation dialog to match the selected year, invokes the atomic service-only deletion RPC, cleans up format GPX/images, and returns the remaining year the dashboard should select.
 
+The paid-publication dialog captures the selected event id, canonical edition id, year, and effective tier when it opens, displays the event/year context, and reuses that stable snapshot for checkout. Dated legacy/imported formats missing `edition_id` are repaired by the canonical-edition backfill rather than billed from a year-only browser guess.
+
 The post-analysis recap uses a viewport-bounded flex dialog: its header and validation actions stay fixed while the center review panel owns vertical scrolling. The flex display is explicitly prioritized because the shared `cn` helper concatenates utility classes and does not resolve a route-level `flex` against the dialog primitive's default `grid` class.
 
 Each detected format carries existence evidence plus a separate completeness summary. Scores may help order the review but are not a visibility or creation threshold. The first step exposes all credible candidates so the admin can confirm the count, merge/split detections, bind an existing format, add a missing format, or ignore a false positive. A candidate remains confirmable without date, distance, D+, or GPX.
@@ -334,6 +343,12 @@ The completion shell intentionally omits a local "Avancement global" heading/hel
 Format-level detail modules keep their context in the main card header instead of repeating it inside a nested panel. `Dossard`, `Matériel`, and `Accès` display their `<module> - <format>` title with the corresponding format-specific override control right-aligned in that header. Their fields render directly in the module content area only while the override is enabled; otherwise the format inherits the event value.
 
 The equipment editor layout should keep each item on one compact flexible row so the material name, weather toggles, status radios, and delete action stay in the same horizontal flow whenever width allows.
+
+### RaceBook Sponsor Routes
+
+The optional Organizer `Sponsors` tile is lazy: opening it reads the selected edition's list, while metadata blur/save, placement toggles, ordering, logo replacement, and deletion use membership-checked edition routes. The same tile reports active rows and aggregate raw clicks. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
+
+Mobile calls the lightweight public `/api/racebook-sponsors?raceId=...` route in parallel with the main RaceBook data. Public access requires the same live race/event/RaceBook flags; an authenticated active organizer can preview. The response exposes only active placement DTOs and counted redirect URLs. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target.
 
 ### Billing and Entitlements
 
@@ -421,6 +436,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Admin access to the complete Organizer event selector must continue to come from trusted `app_metadata` through `isAdminUser`; never broaden the catalog response for ordinary authenticated users.
 - Keep the Organizer bootstrap payload aligned with the existing claims and event-detail read contracts. Do not reintroduce a second authentication or membership lookup after the selected event has been derived from the already-authorized membership set.
 - Keep module-specific Organizer reads lazy. Opening the event overview must not download GPX, ravitos, relay points, product data, announcements, or follower totals; late responses must still be scoped to the active race before updating state.
+- Keep sponsor reads in the same lazy model: switching editions must discard the prior edition list/summary, and mobile/public clients must never receive direct `website_url` values or table access.
 - Treat route-local Organizer cache values as immutable snapshots. Invalidate race data after relevant mutations and clear the complete cache at a user-session boundary so organizer-scoped products or draft course data cannot cross accounts.
 
 ## Related Docs

@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -50,6 +50,8 @@ OpenAI is called only for field resolutions containing incompatible applicable c
 The deterministic report remains usable if OpenAI is unavailable or abstains. It groups the event and each confirmed format separately, counts safe/review/conflict/missing fields, and keeps the current value beside every alternative, source, edition, document page, evidence, and confidence. An LLM choice is visibly recommended but remains unselected when claims conflict. Only a high-confidence, non-conflicting candidate that fills a missing current value is eligible for preselection. Confirmation may retain missing fields and create an incomplete draft format. No client receives the OpenAI key.
 
 Edition visibility and deletion remain ordinary organizer controls outside the LLM workflow. Deleting an edition cascades any import sessions scoped to it; a stale review can therefore no longer apply after deletion.
+
+Every dated format persisted by a service-side import must resolve to a canonical `race_event_editions` row. The database assignment trigger repairs a missing event/year edition atomically; the LLM never chooses an edition id or billing target.
 
 After import, manual format-specific bib-pickup, equipment, and access overrides use the ordinary race-details autosave path. They are not import claims and must remain durable when the admin leaves and reopens a format.
 

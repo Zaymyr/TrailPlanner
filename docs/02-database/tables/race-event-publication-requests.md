@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -69,6 +69,7 @@ This table is retained publication-review history. New organizer publication use
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Starting checkout always saves any dirty foreground scope before the server readiness check runs.
+- The checkout popup captures and displays the selected event and canonical edition when it opens. It never substitutes a transient year string for the billed `edition_id`.
 - Rejecting a legacy request leaves hidden Racebook rows unchanged.
 - Once the edition has RaceBook or Pro, an organizer may publish or hide each complete format individually. This does not create a request and does not alter course catalog visibility.
 - Publication does not send runner notifications automatically.

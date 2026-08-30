@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -17,6 +17,10 @@ related_files:
   - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
+  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
+  - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
@@ -44,6 +48,7 @@ related_tables:
   - race_aid_station_products
   - race_events
   - race_event_editions
+  - race_event_edition_sponsors
   - organizer_edition_entitlements
   - organizer_edition_payments
   - race_event_claims
@@ -76,6 +81,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Race relay point: ordered handover metadata, optionally linked to a source aid station but independent from nutrition planning.
 - Organizer membership: event-scoped access through `race_event_organizers`.
 - Event edition: canonical yearly date range in `race_event_editions`, shared by every format for that event year.
+- Edition sponsor: an ordered loading/banner placement shared by every format in one edition, with only an aggregate raw-click counter.
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
 - Race slug redirect: a reserved former course slug targeting the stable race id so canonical renames do not break indexed URLs.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
@@ -121,6 +127,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_event_update_reads` | Owner-scoped receipts recording which organizer announcements a runner has seen. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
 | `race_event_editions` | Canonical yearly start/end date ranges and catalog visibility for organizer events, with one current edition per event. |
+| `race_event_edition_sponsors` | Ordered edition-scoped RaceBook loading/banner sponsors and aggregate redirect counts. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
@@ -172,6 +179,7 @@ erDiagram
   RACE_EVENTS ||--o{ ORGANIZER_IMPORT_SESSIONS : imports
   RACE_EVENTS ||--o{ RACE_EVENT_EDITIONS : has
   RACE_EVENT_EDITIONS ||--o{ RACES : contains
+  RACE_EVENT_EDITIONS ||--o{ RACE_EVENT_EDITION_SPONSORS : promotes
   RACE_EVENT_EDITIONS ||--o{ ORGANIZER_IMPORT_SESSIONS : scopes
   RACE_EVENT_EDITIONS ||--|| ORGANIZER_EDITION_ENTITLEMENTS : entitled_by
   RACE_EVENT_EDITIONS ||--o{ ORGANIZER_EDITION_PAYMENTS : purchased_for
@@ -200,6 +208,7 @@ erDiagram
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)
+- [race_event_edition_sponsors](tables/race-event-edition-sponsors.md)
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
 - [organizer_edition_payments](tables/organizer-edition-payments.md)
 - [race_event_claims](tables/race-event-claims.md)
@@ -233,12 +242,14 @@ erDiagram
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.
+- Dated event formats cannot remain orphaned from `race_event_editions`: an idempotent backfill repairs existing rows and an invoker trigger atomically assigns future service-side inserts that omit `edition_id`.
 - Edition visibility is a parent invariant: a hidden edition forces all attached formats and Racebooks hidden. Confirmed edition deletion cascades its formats while saved plans retain snapshots with a null source link.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
 - Organizer yearly editions may be created manually without payment; cloning is a Pro capability. Historical publication requests remain audit data, while a paid/admin edition entitlement authorizes RaceBook publication directly.
 - Do not conflate course catalog state with Racebook state: organizer-managed `race_events.is_live` and `races.is_live` remain true for catalog discovery, while new Racebooks default to hidden from runners. The mobile organizer preview is membership-derived and does not mutate these flags.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
 - `Trail TST` is the deliberate runner-facing showcase exception: fixed migration ids, live flags, approval timestamps, and versioned Storage paths make the public fixture reproducible.
+- RaceBook sponsors remain service-only rows. The database serializes edition writes to enforce ten total and two active loading sponsors; clients receive only server-filtered placements and counted redirect URLs.
 - Two-pass Organizer imports are the exception to the normal all-fields-at-create assumption: confirmation persists an incomplete format as a hidden draft, then atomic field application makes the course live only when its required missing-field list is empty. Racebook visibility remains false.
 - Temporary import sessions are not provenance history. Cleanup must remove Storage objects before deleting expired rows, and client roles must never receive direct table or RPC access.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.

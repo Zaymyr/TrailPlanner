@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -24,6 +24,8 @@ related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -36,6 +38,7 @@ related_tables:
   - race_aid_station_products
   - race_events
   - race_event_editions
+  - race_event_edition_sponsors
   - race_event_claims
   - race_event_edition_requests
   - race_event_publication_requests
@@ -113,7 +116,9 @@ The design is:
 4. Deleting a race detaches plans by setting `race_plans.race_id = null`, rather than deleting user plans.
 5. Deleting a saved plan deletes attached plan aid stations, push reminder rows, and share links.
 6. `race_event_editions` owns the yearly date range; `races.edition_id` attaches each format to that year, while `edition_group_id` still groups the same format series across years.
+   Dated event formats created without `edition_id` are backfilled and future service-side inserts are attached atomically to the matching event/year edition.
 7. Renaming a race records the old canonical slug transactionally; repeated renames accumulate direct mappings to the same race id without redirect chains.
+8. `race_event_edition_sponsors.edition_id` makes sponsor presentation common to every format in the edition; deleting the edition cascades its sponsor rows while the organizer route removes their Storage logos.
 
 ## Product Relationships
 
@@ -164,6 +169,7 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_edition_requests.user_id -> auth.users(id) on delete cascade`
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
 - `races.edition_id -> race_event_editions(id) on delete cascade`
+- `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_organizers.event_id -> race_events(id) on delete cascade`
 - `race_event_organizers.user_id -> auth.users(id) on delete cascade`
 - `race_event_organizers.claim_id -> race_event_claims(id) on delete set null`
@@ -207,6 +213,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - Explicit import replacement of `aidStations` deletes and recreates the source station set atomically. Because station products cascade by station id, the review must warn that selected replacement removes existing `race_aid_station_products`; omitting the field preserves every station and product link.
 - A deleted race removes its unusable slug mappings by cascade. While the race exists, former slugs remain reserved and cannot be reassigned to another row.
 - Edition deletion also removes its entitlement and payment ledger. Membership remains event-scoped, so every active organizer consumes the same edition capability.
+- Sponsor clicks belong to the edition sponsor row rather than to a race or runner. The redirect RPC verifies the requested race shares that edition before incrementing.
 
 ## Related Docs
 
