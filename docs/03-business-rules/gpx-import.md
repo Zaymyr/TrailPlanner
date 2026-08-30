@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -179,6 +179,7 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 ## Gotchas
 
 - Organizer official-product overlays are capability-gated separately from GPX/ravito import. Non-Pro formats keep their route and stations but expose no official-product overlay.
+- A dated event format must have a canonical `edition_id`. The database assignment trigger creates or reuses the matching event/year edition for service-side catalog/import inserts; GPX parsing itself must not infer the commercial checkout target.
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
 - Keep `GPX récupéré` tied to importable GPX content, not only to reliable provider metrics; some adapters can know distance/elevation without returning a file.

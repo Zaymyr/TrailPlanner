@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -92,6 +92,7 @@ Summary:
 - The public `/organisateurs` landing and its UTM/auth return flow do not write this table; only the existing `/organizers` direct-creation route is reached after authentication. That page does not expose the admin-only URL importer and redirects a successful creation directly to the selected event without an import bootstrap parameter.
 - One user cannot keep multiple pending/approved claims for the same event.
 - Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
+- Legacy claimed events with dated formats but no canonical edition are repaired by the edition backfill; claim membership alone is never used as a substitute checkout edition id.
 - Admin approval should create or reactivate a matching `race_event_organizers` row.
 - Approved claims should leave the admin pending-review queue once that membership handoff succeeds; the admin tab shows those rows only through the active-access membership list.
 - The admin review queue should resolve organizer identity when possible (`user_profiles.full_name`, otherwise auth email, otherwise `user_id`) so reviewers are not triaging UUIDs alone.

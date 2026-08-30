@@ -3,6 +3,32 @@
 
 begin;
 
+do $$
+begin
+  if exists (
+    select 1
+    from public.races race_row
+    where race_row.event_id is not null
+      and race_row.race_date is not null
+      and race_row.edition_id is null
+  ) then
+    raise exception 'Every dated event format must be attached to a canonical edition.';
+  end if;
+
+  if exists (
+    select 1
+    from public.races race_row
+    join public.race_event_editions edition_row on edition_row.id = race_row.edition_id
+    where race_row.event_id is distinct from edition_row.event_id
+      or (
+        race_row.race_date is not null
+        and extract(year from race_row.race_date)::smallint is distinct from edition_row.edition_year
+      )
+  ) then
+    raise exception 'Format and edition event/year membership must remain consistent.';
+  end if;
+end $$;
+
 create temp table _organizer_offer_fixture (edition_id uuid not null) on commit drop;
 
 with available_year as (

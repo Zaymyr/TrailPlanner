@@ -73,6 +73,7 @@ import {
   type OrganizerAidStationRow,
 } from "./dashboard/helpers";
 import { ProductPickerModal, ProductsEditor } from "./dashboard/products-editor";
+import { SponsorsEditor } from "./dashboard/sponsors-editor";
 import {
   buildInitialWebsiteImportFieldSelections,
   buildInitialWebsiteImportFormatDecisions,
@@ -272,6 +273,7 @@ export function OrganizerDashboard({
   const [eventUpdateDeletingId, setEventUpdateDeletingId] = useState<string | null>(null);
   const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
+  const [sponsorSummary, setSponsorSummary] = useState<{ editionId: string; sponsors: number; clicks: number } | null>(null);
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
   const [websiteImportFormatUrls, setWebsiteImportFormatUrls] = useState<string[]>([""]);
@@ -354,9 +356,13 @@ export function OrganizerDashboard({
   const hasDirtyChanges = dirtyModules.size > 0;
   const hasAnyDirtyChanges = Object.values(dirtyModulesByScope).some((modules) => modules.size > 0);
   const currentPublicationRequests = publicationRequests.filter((request) => request.event_id === selectedEventId);
-  const showToast = (type: "success" | "error", message: string) => {
+  const showToast = useCallback((type: "success" | "error", message: string) => {
     setToast({ id: Date.now(), type, message });
-  };
+  }, []);
+  const handleSponsorSummaryChange = useCallback((summary: { sponsors: number; clicks: number }) => {
+    if (!activeEdition?.id) return;
+    setSponsorSummary({ editionId: activeEdition.id, ...summary });
+  }, [activeEdition?.id]);
 
   const formatUpdateDate = (value: string) => {
     const date = new Date(value);
@@ -395,8 +401,10 @@ export function OrganizerDashboard({
     return buildOrganizerCompletion(eventDraft, activeRaceForCompletion, aidStations, stationProducts, {
       aidStations: sidecarLoadedRaceId === activeRace?.id ? aidStations.length : activeRace?.aidStationCount ?? 0,
       stationProducts: sidecarLoadedRaceId === activeRace?.id ? stationProducts.length : undefined,
+      sponsors: sponsorSummary?.editionId === activeEdition?.id ? sponsorSummary.sponsors : 0,
+      sponsorClicks: sponsorSummary?.editionId === activeEdition?.id ? sponsorSummary.clicks : 0,
     });
-  }, [activeRace?.aidStationCount, activeRace?.id, activeRaceForCompletion, aidStations, eventDraft, sidecarLoadedRaceId, stationProducts]);
+  }, [activeEdition?.id, activeRace?.aidStationCount, activeRace?.id, activeRaceForCompletion, aidStations, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
 
   const markDirty = (moduleId: OrganizerModuleId) => {
     if (!activeDirtyScopeKey) return;
@@ -836,6 +844,7 @@ export function OrganizerDashboard({
     };
     setNewEditionDate(shiftOneYear(activeEdition?.start_date));
     setNewEditionEndDate(shiftOneYear(activeEdition?.end_date));
+    setSponsorSummary(null);
   }, [activeEdition?.id, activeEdition?.start_date, activeEdition?.end_date]);
 
   useEffect(() => {
@@ -2659,6 +2668,14 @@ export function OrganizerDashboard({
             />
           ) : activeModule === "services" ? (
             <ServicesEditor details={eventForm.organizerDetails} onChange={(details) => updateEventDetails(details, "services")} />
+          ) : activeModule === "sponsors" && isEventTab && activeEdition?.id ? (
+            <SponsorsEditor
+              key={activeEdition.id}
+              editionId={activeEdition.id}
+              authHeaders={authHeaders}
+              onSummaryChange={handleSponsorSummaryChange}
+              onToast={showToast}
+            />
           ) : null}
         </CardContent>
       </Card>

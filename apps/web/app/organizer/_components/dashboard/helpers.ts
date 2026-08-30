@@ -509,6 +509,7 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
     access: "Accès",
     products: "Produits",
     services: "Services",
+    sponsors: "Sponsors",
   };
   return titles[moduleId];
 }
@@ -523,6 +524,7 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
     access: "Accès et sections optionnelles selon l'onglet actif.",
     products: "Produits officiels disponibles par ravito.",
     services: "Informations optionnelles utiles aux coureurs.",
+    sponsors: "Logos et liens visibles pendant le chargement et dans le bandeau du RaceBook.",
   };
   return descriptions[moduleId];
 }

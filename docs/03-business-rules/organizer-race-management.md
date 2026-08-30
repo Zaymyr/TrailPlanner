@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -27,8 +27,14 @@ related_files:
   - apps/mobile/components/race/RacebookLeafletMap.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/racebookSponsors.ts
+  - apps/mobile/lib/racebookSponsorPresentation.ts
   - supabase/tests/organizer_rls_checks.sql
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
+  - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
@@ -62,6 +68,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/sponsors-editor.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
@@ -75,6 +82,11 @@ related_files:
   - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
+  - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
+  - apps/web/app/api/racebook-sponsors/route.ts
+  - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
+  - apps/web/lib/racebook-sponsors.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
   - apps/web/app/api/organizer/publication-requests/route.test.ts
   - apps/web/app/api/organizer/publication-requests/readiness.test.ts
@@ -141,6 +153,7 @@ related_tables:
   - organizer_import_sessions
   - products
   - user_favorite_race_events
+  - race_event_edition_sponsors
 ---
 
 # Organizer Race Management
@@ -199,6 +212,7 @@ Organizers with an active event membership can:
 - classify formats as solo, relay, or both, then create standalone handover points or mark saved ravitos as handover locations;
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
+- configure up to ten edition-scoped RaceBook sponsors, with at most two active on loading, independent loading/banner placements, ordering, logo replacement, activation, deletion, and aggregate click totals;
 
 The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card, with a small destructive cross immediately beside it, and `Créer une nouvelle édition` stays on the right. The cross opens a dialog that enables deletion only after the organizer retypes the selected year. The button opens a dialog for the start/end dates: creating an empty edition is free, while duplication is available only with Pro. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Each selected-edition format row exposes its Racebook switch only when the edition has RaceBook or Pro. From Visibilité, the publication action opens the RaceBook 99 € HT / Pro 299 € HT offer dialog. RaceBook organizers keep `Notifier les coureurs` visible, but activating it opens the Pro upgrade at 200 € HT. After Stripe redirects back, the dashboard polls the trusted edition entitlement until the webhook confirms it; URL parameters never grant access. A hidden edition guarantees its Racebook flags stay false. Checkout saves dirty foreground work first, so unsaved changes cannot be silently skipped. Completion remains independent from catalog and Racebook visibility.
 
@@ -316,6 +330,14 @@ Auto-fill must keep organizer products out of its default product pool. On web, 
 
 Planner `assistanceAllowed` is separate from organizer product presence: it says whether the runner's crew can hand over personal products. Organizer suggestions remain official ravito context and should not be treated as crew availability.
 
+## RaceBook Sponsors
+
+Sponsors are optional and scoped to the selected canonical edition, so all its formats share the same presentation. The sixth event tile loads its list only when opened, reports active sponsor and aggregate raw-click totals, and supports up to ten rows. Name and optional HTTP(S) website metadata save on blur or explicit save; activation and loading/banner placements save immediately. Dirty metadata keeps `beforeunload` protection armed until the sponsor route confirms persistence, and edition changes remount the editor so one edition's list cannot flash or leak into another. The UI disables a third active loading placement, while the route and database trigger repeat the limit.
+
+Logos are required raster uploads (PNG, JPEG, WebP, or AVIF, 5 MB maximum) stored under `race-images/organizer-sponsors/{editionId}/`. Organizer routes verify active parent-event membership for every read/write and clean replaced or deleted objects. Edition/event deletion also collects sponsor logo paths before the database cascade and removes them afterward. Sponsor configuration has no additional Pro restriction, but ordinary runners receive the presentation only while the corresponding RaceBook passes its normal visibility gate.
+
+The public presentation route exposes active placements and counted redirect URLs, never the target website field. Redirects validate the sponsor/race edition pair, increment only one aggregate counter through an atomic RPC under a per-sponsor/network-hash rate limit, and continue to the sponsor site if counting fails. No impression or individual runner history is stored.
+
 ## Mobile Scope
 
 No mobile organizer editor exists in v1. Mobile can consume published organizer details through the read-only `race/[id]/racebook` screen only when the catalog format is live, `races.racebook_is_live = true`, and there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, hidden Racebook visibility, or admin powers.
@@ -325,6 +347,8 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 The current publication gate is edition-scoped Visibilité/RaceBook/Pro, documented in [Organizer Commercial Offers](organizer-commercial-offers.md). A paid or admin RaceBook entitlement replaces new admin publication requests: organizers can publish complete formats immediately after the webhook activates the edition. RaceBook keeps `Notifier les coureurs` visible as a 200 € HT Pro upgrade; server routes still refuse notifications, duplication, relay writes, official station products, and assisted import without Pro. Historical publication requests remain audit/compatibility data, and approving one grants Pro.
 
 Manual empty edition creation remains free and unlimited. Only cloning the previous edition requires Pro. An entitlement covers all current and later formats of the edition and every active organizer membership for the event.
+
+The pricing dialog snapshots and displays the selected event and canonical edition before checkout. A database backfill attaches legacy/imported dated formats that were created without `edition_id`, and an invoker trigger atomically creates or reuses the matching event/year edition for future service-side inserts.
 
 ## Gotchas
 

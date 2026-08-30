@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-08-28
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -29,6 +29,8 @@ related_files:
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/racebookSponsors.ts
+  - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/mobile/locales/types.ts
   - apps/mobile/locales/fr.ts
   - apps/mobile/locales/en.ts
@@ -46,6 +48,7 @@ related_tables:
   - race_event_updates
   - race_event_update_reads
   - race_relay_points
+  - race_event_edition_sponsors
 ---
 
 # Mobile App Architecture
@@ -177,6 +180,12 @@ The runner-facing subscription surfaces now keep App Store review compliance det
 
 `apps/mobile/components/race/GpxImportPreviewModal.tsx` now reuses `apps/mobile/components/race/GpxRoutePreviewCard.tsx` to show a compact mobile-native route sketch before confirming the import. That preview is intentionally dependency-light: it uses the parsed GPX points plus `react-native-svg`, not a browser map runtime, so it is safe inside the Expo app and ready to be reused later anywhere mobile receives organizer route geometry.
 
+## RaceBook Sponsors
+
+The RaceBook starts its full data request and the lightweight `/api/racebook-sponsors` request in parallel. When one or two loading sponsors exist, mobile preloads their logos, starts a 2.5-second minimum presentation only after that composition is ready, and opens the content when both the data and minimum duration are complete. A failed or empty sponsor response keeps the ordinary loader without a sponsor delay, and pull-to-refresh reloads only RaceBook data so the sponsor interstitial is not replayed.
+
+Active banner sponsors render in a roughly 44 dp strip before the identity card, with 24 dp logos and native text. One sponsor is centered without animation. Multiple overflowing sponsors scroll slowly; system reduced-motion preference switches this to a manually scrollable horizontal list. Only rows with a redirect URL are pressable, and all sponsor links open the counted server redirect rather than a direct target.
+
 ## Plan Share Links
 
 `apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. The mobile app never generates database rows directly for public links and never handles service-role keys.
@@ -219,6 +228,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
 - Keep `@react-native-google-signin/google-signin` excluded from iOS in both `apps/mobile/package.json` and `apps/mobile/react-native.config.js`, and keep it out of `apps/mobile/app.config.ts` plugins unless native Google Sign-In is intentionally enabled on iOS; otherwise `GoogleSignIn` can both pull `AppCheckCore` back into the iOS pod graph and trigger a Fabric launch crash from a partially registered `RNGoogleSignInButton` component.
 - Keep the mobile Racebook read-only. A course may remain in the catalog while its Racebook is hidden. The catalog CTA and direct screen load must enforce the public flags for runners and independently verify active event membership before granting an unpublished organizer preview. It must not import organizer dashboard mutation logic or admin routes. Preserve the identity, four primary tabs, conditional Services tab, and the `Course` sub-tabs that separate route visuals, ravitos, and conditional relay legs.
+- Keep sponsor requests server-mediated and edition-scoped. Never expose direct sponsor table access or the destination website URL, never replay the 2.5-second sponsor gate on refresh, and keep reduced-motion users on the manual banner list.
 - Keep the Racebook website, Instagram, Facebook, and emergency actions conditional on parsed event JSON. Accept only HTTP(S) link values and never construct a link from unvalidated free text. Keep icon-only social actions accessible with labels. Normalize French emergency numbers to the canonical `+33 X XX XX XX XX` display when organizer JSON is parsed, and strip display separators when opening the `tel:` URL.
 
 ## Racebook Identity Presentation

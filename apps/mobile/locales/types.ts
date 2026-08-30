@@ -561,6 +561,8 @@ export type MobileTranslations = {
     racebookCta: string;
     racebookTitle: string;
     racebookLoading: string;
+    racebookSponsorsSupportedBy: string;
+    racebookSponsorsBannerLabel: string;
     racebookUnavailableTitle: string;
     racebookUnavailableBody: string;
     createPlan: string;

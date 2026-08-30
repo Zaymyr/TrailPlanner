@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -54,6 +54,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Do not restore organizer inserts or add new review UI for this table.
 - Do not interpret old `approved` rows as current publication approval; publication uses `race_event_publication_requests`.
 - When optional edition duplication is enabled, cloned `races` rows must attach through `edition_id`, preserve their cross-year `edition_group_id`, and start with hidden/unapproved Racebook publication state even though the course row is catalog-visible. An empty edition legitimately has no attached format until the organizer adds one.
+- Dated service-side format inserts that arrive without `edition_id` are attached by the canonical-edition trigger; this safety net does not revive the retired edition-request workflow.
 - Hiding or deleting an already-created edition is not a review request. Both are immediate membership-checked organizer actions, while deleting the event's only edition is rejected.
 - Do not pass a race id where the dashboard refresh expects an edition year; media and GPX refreshes must retain the year derived from `races.race_date` without reviving edition-review state.
 - Do not couple direct organizer delegation to this retired workflow. Membership assignment and yearly edition creation remain separate operations.

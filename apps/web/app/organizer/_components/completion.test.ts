@@ -99,6 +99,18 @@ describe("organizer completion", () => {
     expect(module?.missingLabels).not.toContain("Ravitos");
   });
 
+  it("shows edition sponsor and aggregate click counts on the optional tile", () => {
+    const completion = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], [], {
+      sponsors: 3,
+      sponsorClicks: 12,
+    });
+
+    const module = completion.eventModules.find((item) => item.id === "sponsors");
+    expect(module?.status).toBe("complete");
+    expect(module?.countLabel).toContain("3 sponsors");
+    expect(module?.countLabel).toContain("12 clics");
+  });
+
   it("reports missing labels for event and format identity modules", () => {
     const incompleteRace = {
       ...baseEvent.races[0]!,

@@ -569,6 +569,8 @@ export const en: MobileTranslations = {
     racebookCta: 'Racebook',
     racebookTitle: 'Racebook',
     racebookLoading: 'Loading racebook...',
+    racebookSponsorsSupportedBy: 'Supported by',
+    racebookSponsorsBannerLabel: 'Sponsors',
     racebookUnavailableTitle: 'Info unavailable',
     racebookUnavailableBody: 'This format does not have published organizer content for mobile yet.',
     createPlan: 'Create plan',

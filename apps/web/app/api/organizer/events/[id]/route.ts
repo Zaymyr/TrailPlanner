@@ -90,6 +90,7 @@ const eventDetailSchema = z.object({
 const eventDeleteReadSchema = z.object({
   id: z.string().uuid(),
   thumbnail_url: z.string().nullable().optional(),
+  race_event_editions: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
   races: z.array(z.object({
     id: z.string().uuid(),
     gpx_storage_path: z.string().nullable().optional(),
@@ -305,12 +306,23 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   }
 
   const eventReadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,thumbnail_url,races(id,gpx_storage_path,thumbnail_url)&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,thumbnail_url,race_event_editions(id),races(id,gpx_storage_path,thumbnail_url)&limit=1`,
     { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
   );
   if (!eventReadResponse.ok) return jsonError("Unable to load event before delete.", 502);
   const eventRow = z.array(eventDeleteReadSchema).parse(await eventReadResponse.json())[0] ?? null;
   if (!eventRow) return jsonError("Event not found.", 404);
+
+  const editionIds = (eventRow.race_event_editions ?? []).map((edition) => edition.id);
+  let sponsorLogos: string[] = [];
+  if (editionIds.length > 0) {
+    const sponsorsResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?edition_id=in.(${editionIds.join(",")})&select=logo_url`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!sponsorsResponse.ok) return jsonError("Unable to load event sponsors before delete.", 502);
+    sponsorLogos = z.array(z.object({ logo_url: z.string().url() })).parse(await sponsorsResponse.json()).map((row) => row.logo_url);
+  }
 
   if ((eventRow.races?.length ?? 0) > 0) {
     const racesDeleteResponse = await fetch(
@@ -338,6 +350,10 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   }
   const eventImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, eventRow.thumbnail_url);
   if (eventImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", eventImagePath));
+  for (const sponsorLogo of sponsorLogos) {
+    const sponsorImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, sponsorLogo);
+    if (sponsorImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", sponsorImagePath));
+  }
   await Promise.all(storageDeletes);
 
   return withSecurityHeaders(NextResponse.json({ deleted: true, eventId: parsedParams.data.id }));

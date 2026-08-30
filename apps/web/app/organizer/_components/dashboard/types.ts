@@ -210,6 +210,19 @@ export type WebsiteImportSourceAudit = {
   assertionCount: number;
 };
 
+export type OrganizerSponsor = {
+  id: string;
+  editionId: string;
+  name: string;
+  logoUrl: string;
+  websiteUrl: string | null;
+  isActive: boolean;
+  showOnLoading: boolean;
+  showInBanner: boolean;
+  position: number;
+  clickCount: number;
+};
+
 export type WebsiteImportDiscoveryWorkflow = {
   sessionId: string;
   step: "formats";

@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -19,6 +19,8 @@ related_files:
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
+  - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -39,6 +41,7 @@ related_tables:
   - race_event_claims
   - race_event_edition_requests
   - race_event_editions
+  - race_event_edition_sponsors
   - race_event_publication_requests
   - race_event_organizers
   - race_event_publication_requests
@@ -182,6 +185,13 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 - The current-edition trigger mirrors dates into legacy event fields, but does not grant client access.
 - `delete_race_event_edition` is `SECURITY INVOKER`, revoked from `PUBLIC`, and executable only by `service_role`; the edition route checks active event membership before invoking it.
 - Because this project's default ACL grants function execution directly to API roles, the repair migration also revokes `anon` and `authenticated` explicitly from the deletion RPC and both trigger functions.
+
+`race_event_edition_sponsors`:
+
+- RLS is enabled with no client policy, and table privileges are revoked from `PUBLIC`, `anon`, and `authenticated`.
+- Only `service_role` can select or mutate sponsor rows. Organizer routes first require active membership on the edition's parent event; the public mobile route applies the RaceBook live gate or organizer-preview exception.
+- `increment_racebook_sponsor_click(uuid, uuid)` is `SECURITY INVOKER`, executable only by `service_role`, and increments only when the sponsor is active, has a target, and shares the requested race's edition.
+- Only one aggregate `click_count` is stored. The route hashes the network identifier only for transient rate-limit selection and stores no identity or individual click row.
 
 `race_event_publication_requests`:
 
@@ -366,6 +376,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.
 - The cleanup cron must call the protected web route so Storage objects are removed before session rows. Never grant a database cleanup function direct delete access to `storage.objects`.
 - Public slug resolution needs both a table `SELECT` grant and the parent-gated RLS policy. Never grant client mutation or RPC execution, and never rely on a redirect row alone to expose a hidden course.
+- RaceBook sponsor presentation and redirects must remain server-mediated. Do not grant public table reads merely because logos and names eventually appear on a live RaceBook.
 
 ## Related Docs
 

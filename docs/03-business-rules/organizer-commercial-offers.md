@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -12,6 +12,7 @@ related_files:
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/admin/event-publication-requests/route.ts
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
 related_tables:
   - organizer_edition_entitlements
@@ -67,6 +68,7 @@ The migration grants Pro with source `legacy_admin` to editions that already con
 - Never use a checkout success query parameter as proof of payment.
 - The checkout CTA enters its loading state before saving pending organizer edits and surfaces missing session/edition, save, API, and network failures inside the pricing dialog; a failed client-side prerequisite must never look like an inert button.
 - Never infer the billed edition only from transient editor state after the pricing dialog is open; capture its event id, edition id, year, and effective tier when opening the dialog.
+- A dated event format cannot be sold without a canonical edition id. Backfill orphaned formats and let the database assignment trigger create/reuse future event-year editions before opening checkout.
 - Never grant notification, relay, duplication, or official-product access only in the browser; the server route or RLS boundary must enforce it too.
 - Do not reuse runner `subscriptions`, RevenueCat, trials, or `premium_grants` for organizer editions.
 - Hiding RaceBooks after invalidation must not hide the free catalog entry.

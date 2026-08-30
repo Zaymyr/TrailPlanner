@@ -5,6 +5,8 @@ last_verified: 2026-08-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - supabase/tests/organizer_edition_entitlements_checks.sql
   - apps/web/lib/organizer-entitlements.ts
 related_tables:
   - organizer_edition_entitlements
@@ -51,6 +53,7 @@ RLS is enabled with no client grants. Only service role can read or mutate rows.
 ## Business Invariants
 
 - Every newly inserted edition receives a Visibilité row through a trigger.
+- The canonical-edition repair creates missing edition rows before attaching dated formats, so the existing entitlement trigger also initializes their Visibilité projection.
 - Active admin and legacy-admin sources override Stripe recalculation.
 - Returning to Visibilité hides attached RaceBooks but does not change catalog visibility.
 - Legacy approved/published editions are backfilled Pro.
@@ -72,4 +75,3 @@ where edition_id = :edition_id;
 
 - [organizer_edition_payments](organizer-edition-payments.md)
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)
-
