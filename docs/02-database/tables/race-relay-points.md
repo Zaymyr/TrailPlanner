@@ -27,7 +27,7 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 - A point may stand alone or reference a source `race_aid_stations` row.
 - Copied `name` and `km` values form the durable relay snapshot; deleting a linked ravito only clears the optional link.
 - Legs are derived from start, ordered points, and finish rather than stored as rows, then rendered only in the mobile Racebook `Course` tab's conditional `Relais` sub-tab.
-- Relay cards remain isolated from the event-level `Services` tab, the flag-filtered optional content and route-local transport expansion state in `Accès`, and the Racebook identity card's compact icon-only website/social actions, emergency action, flexible icon-and-separator metadata row, participation badges, and emphasized race-day row. Mixed formats show separate `Solo` and `Relais` badges in the metadata row.
+- Relay cards remain isolated from the event-level `Services` tab, the flag-filtered optional content and route-local transport expansion state in `Accès`, the single-open ravito accordion state, and the Racebook identity card's compact icon-only website/social actions, emergency action, flexible icon-and-separator metadata row, participation badges, and emphasized race-day row. Mixed formats show separate `Solo` and `Relais` badges in the metadata row.
 
 ## Racebook Identity Presentation
 
@@ -61,6 +61,8 @@ The post-load automatic sponsor carousel likewise remains independent from relay
 - The Organizer endpoint distance-sorts and replaces the ordered collection.
 
 ## Gotchas
+
+- RaceBook onboarding is presentation-only and leaves relay-point loading and the conditional Relais tab unchanged.
 
 - A handover is not necessarily a ravito, and a ravito is not necessarily a handover.
 - Do not copy relay points into `plan_aid_stations` or nutrition calculations in this first version.

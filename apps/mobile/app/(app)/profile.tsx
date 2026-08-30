@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -6,6 +6,8 @@ import {
   View
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { Text } from '../../components/themed/Text';
 import { Colors } from '../../constants/colors';
 import { SpotlightTutorial, TutorialTarget } from '../../components/help/SpotlightTutorial';
@@ -16,6 +18,7 @@ import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimator
 import { ProfileLanguageSection } from '../../components/profile/ProfileLanguageSection';
 import { ProfilePerformanceSection } from '../../components/profile/ProfilePerformanceSection';
 import { ProfilePersonalSection } from '../../components/profile/ProfilePersonalSection';
+import { ProfileOnboardingSection } from '../../components/profile/ProfileOnboardingSection';
 import { ProfilePremiumSection } from '../../components/profile/ProfilePremiumSection';
 import { ProfileSaveButton } from '../../components/profile/ProfileSaveButton';
 import { ProfileTabs } from '../../components/profile/ProfileTabs';
@@ -24,9 +27,19 @@ import { normalizeBirthDateInput, WATER_BAG_OPTIONS } from '../../components/pro
 import { type ProfileTutorialTargetKey, useProfileTutorial } from '../../hooks/useProfileTutorial';
 import { useProfileScreen } from '../../hooks/useProfileScreen';
 import { type TutorialStep } from '../../lib/helpTutorial';
+import {
+  addOnboardingStatusListener,
+  DEFAULT_ONBOARDING_STATUSES,
+  loadOnboardingStatuses,
+  startOnboarding,
+  type OnboardingKind,
+  type OnboardingStatuses,
+} from '../../lib/onboardingStatus';
 
 export default function ProfileScreen() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+  const [onboardingStatuses, setOnboardingStatuses] = useState<OnboardingStatuses>(DEFAULT_ONBOARDING_STATUSES);
   const {
     locale,
     setLocale,
@@ -123,6 +136,25 @@ export default function ProfileScreen() {
     formatChangelogVersionMeta,
     loadingSpinnerColor,
   } = useProfileScreen();
+
+  const refreshOnboardingStatuses = useCallback(() => {
+    void loadOnboardingStatuses().then(setOnboardingStatuses).catch((caught) => {
+      console.error('Unable to load profile onboarding statuses:', caught);
+    });
+  }, []);
+
+  useFocusEffect(refreshOnboardingStatuses);
+  useEffect(() => addOnboardingStatusListener(setOnboardingStatuses), []);
+
+  const launchOnboarding = useCallback(async (kind: OnboardingKind) => {
+    const replay = onboardingStatuses[kind] === 'completed';
+    await startOnboarding(kind, replay);
+    router.push(
+      kind === 'plan'
+        ? '/(app)/onboarding?flow=plan'
+        : '/(app)/catalog?onboarding=racebook',
+    );
+  }, [onboardingStatuses, router]);
 
   const tutorialSteps = useMemo<TutorialStep<ProfileTutorialTargetKey>[]>(
     () => [
@@ -254,6 +286,11 @@ export default function ProfileScreen() {
               onChangeBirthDate={(value) => handleChangeBirthDate(normalizeBirthDateInput(value))}
               onChangeWeightKg={handleChangeWeightKg}
               onChangeHeightCm={handleChangeHeightCm}
+            />
+            <ProfileOnboardingSection
+              copy={t.onboarding.tours}
+              statuses={onboardingStatuses}
+              onLaunch={(kind) => void launchOnboarding(kind)}
             />
           </TutorialTarget>
         ) : null}

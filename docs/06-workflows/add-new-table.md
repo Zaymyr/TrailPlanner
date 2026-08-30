@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -22,7 +22,7 @@ related_tables:
 
 Use this workflow when adding a Supabase table to Pace Yourself.
 
-For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and mobile onboarding completion on `user_profiles.onboarding_completed_at`; both still require schema and business/auth-doc updates. `race_event_update_reads` is the current owner-scoped table example. `organizer_import_sessions` is the service-only example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges.
+For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name` and the checked Plan/RaceBook onboarding statuses on `user_profiles`; both still require schema and business/auth-doc updates. `race_event_update_reads` is the current owner-scoped table example. `organizer_import_sessions` is the service-only example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges.
 
 Data-only catalog/showcase/roadbook migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document any external Storage assets, and update the migration documentation. The Les Amaz’Eaunes 2026 final-roadbook synchronization is the current data-correction example and adds no table.
 

@@ -72,13 +72,15 @@ Banner placements use an automatic horizontal carousel whenever at least two act
 
 ## Gotchas
 
+- The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.
+
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.
 - Sponsor configuration is not Pro-gated, but runners see it only when the selected RaceBook is accessible.
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
 - Keep the mobile loading panel and its two slots reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
 - Keep the compact banner carousel independent from aggregate row-width measurement; every active banner sponsor must rotate even when several logos could technically fit at once.
-- Keep sponsor timing independent from route-local `Accès` expansion state; opening a parking or shuttle row must not restart the banner or sponsor gate.
+- Keep sponsor timing independent from route-local expansion state; opening a parking, shuttle, or ravito accordion row must not restart the banner or sponsor gate.
 
 ## Related Docs
 

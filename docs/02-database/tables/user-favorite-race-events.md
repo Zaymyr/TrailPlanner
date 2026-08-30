@@ -88,6 +88,8 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
+- Guided onboarding reuses the catalog without changing event-favorite ownership, pinning, or notification audience semantics.
+
 - Keep this table tied to `race_events`, not `races`; the mobile UX follows the whole event card.
 - The FK targets `user_profiles(user_id)`, so profile bootstrap must exist before creating favorites.
 - Do not expose cross-user favorite lists to organizers directly; organizer UI should show only aggregate counts.

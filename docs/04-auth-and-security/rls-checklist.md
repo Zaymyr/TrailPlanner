@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
+  - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
@@ -129,7 +130,7 @@ Use:
 - Secret-link tables such as `plan_share_links` still need owner RLS. Public viewers should resolve unguessable tokens through server/service-role code, not direct `anon` table grants.
 - Re-sharing a plan can update an existing `plan_share_links` snapshot, so the service route must verify both bearer-token identity and parent-plan ownership before update as well as insert.
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.
-- `user_profiles.onboarding_completed_at` is a column-only owner datum. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
+- Mobile onboarding markers and per-tour statuses are column-only owner data. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 - Racebook publication remains behind service routes: organizer toggles require active event membership, a complete format, and an active edition-level `racebook.publish` capability. The atomic RPC writes durable unlock provenance on first publication; legacy publication requests remain service-only audit data.
 - Superseding organizer-offer rule: paid publication uses a service-only edition entitlement and atomic RPC. Notification, relay, and station-product clients have no direct mutation grant; public Pro overlays use only the narrow private boolean helper.

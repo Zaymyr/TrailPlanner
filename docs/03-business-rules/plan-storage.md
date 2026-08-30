@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-08-29
+last_verified: 2026-08-30
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -104,6 +104,8 @@ Catalog imports copy source `race_aid_stations` service flags into `planner_valu
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans. On GET, plans with `race_id` receive the current `race_aid_station_products` mapped into `planner_values.organizerAidStationProducts` in the response only. This read-time overlay does not update the database row.
 
 Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`.
+
+The mobile Plan onboarding now uses the ordinary Courses and Nutrition screens, then calls the standard `plan/new` catalog import. A successful `race_plans` insert marks the Plan tour completed and opens the existing editor tutorial; a failed insert leaves the tour in progress and does not create a false completion.
 
 When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
 

@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react';
+import { StyleSheet, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +8,13 @@ import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderBu
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
+import {
+  addOnboardingStatusListener,
+  DEFAULT_ONBOARDING_STATUSES,
+  hasPendingOnboarding,
+  loadOnboardingStatuses,
+} from '../../lib/onboardingStatus';
+import { supabase } from '../../lib/supabase';
 
 export const unstable_settings = {
   initialRouteName: 'catalog',
@@ -22,6 +31,25 @@ export default function AppLayout() {
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const plansTabLabel = locale === 'fr' ? 'Plans' : 'Plans';
   const nutritionLabel = 'Nutrition';
+  const [showProfileOnboardingDot, setShowProfileOnboardingDot] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const applyStatuses = (statuses = DEFAULT_ONBOARDING_STATUSES) => {
+      if (!cancelled) setShowProfileOnboardingDot(hasPendingOnboarding(statuses));
+    };
+    const refresh = () => {
+      void loadOnboardingStatuses().then(applyStatuses).catch(() => undefined);
+    };
+    refresh();
+    const removeStatusListener = addOnboardingStatusListener(applyStatuses);
+    const { data: authListener } = supabase.auth.onAuthStateChange(() => refresh());
+    return () => {
+      cancelled = true;
+      removeStatusListener();
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
   const getHeaderTitle = (routeName: string) => {
     switch (routeName) {
       case 'profile':
@@ -122,7 +150,12 @@ export default function AppLayout() {
           title: t.profile.title,
           tabBarLabel: t.profile.title,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person" size={size} color={color} />
+            <View style={styles.profileIconWrap}>
+              <Ionicons name="person" size={size} color={color} />
+              {showProfileOnboardingDot ? (
+                <View accessibilityLabel={t.onboarding.tours.profileDotLabel} style={styles.onboardingDot} />
+              ) : null}
+            </View>
           ),
         }}
       />
@@ -208,4 +241,19 @@ export default function AppLayout() {
     </Tabs>
   );
 }
+
+const styles = StyleSheet.create({
+  profileIconWrap: { position: 'relative' },
+  onboardingDot: {
+    position: 'absolute',
+    right: -4,
+    top: -2,
+    width: 9,
+    height: 9,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: Colors.background,
+    backgroundColor: Colors.danger,
+  },
+});
 

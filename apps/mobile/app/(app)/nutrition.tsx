@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { Text } from '../../components/themed/Text';
 import { NutritionContent } from '../../components/nutrition/NutritionContent';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
@@ -8,8 +9,17 @@ import { Colors } from '../../constants/colors';
 import { useNutritionScreen } from '../../hooks/useNutritionScreen';
 import { useI18n } from '../../lib/i18n';
 import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
+import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
+import {
+  loadOnboardingProgress,
+  saveOnboardingProgress,
+  skipOnboardingKind,
+} from '../../lib/onboardingStatus';
 
 export default function NutritionScreen() {
+  const router = useRouter();
+  const { onboarding } = useLocalSearchParams<{ onboarding?: 'plan' }>();
+  const [onboardingBusy, setOnboardingBusy] = useState(false);
   const insets = useSafeAreaInsets();
   const { locale } = useI18n();
   const {
@@ -95,6 +105,35 @@ export default function NutritionScreen() {
     [locale],
   );
 
+  async function continuePlanOnboarding() {
+    setOnboardingBusy(true);
+    try {
+      const progress = await loadOnboardingProgress();
+      if (!progress?.selectedRaceId) throw new Error('Missing onboarding race');
+      await saveOnboardingProgress({
+        kind: 'plan',
+        stage: 'plan',
+        selectedRaceId: progress.selectedRaceId,
+      });
+      router.replace(
+        `/(app)/plan/new?catalogRaceId=${progress.selectedRaceId}&onboarding=plan`,
+      );
+    } catch (caught) {
+      console.error('Unable to continue plan onboarding:', caught);
+      setOnboardingBusy(false);
+    }
+  }
+
+  async function skipPlanOnboarding() {
+    setOnboardingBusy(true);
+    try {
+      await skipOnboardingKind('plan', 'nutrition');
+      router.replace('/(app)/nutrition');
+    } finally {
+      setOnboardingBusy(false);
+    }
+  }
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -166,6 +205,18 @@ export default function NutritionScreen() {
         contextLabel="Nutrition"
         help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
       />
+
+      {onboarding === 'plan' ? (
+        <OnboardingGuideCard
+          title={t.onboarding.tours.productsTitle}
+          body={t.onboarding.tours.productsBody}
+          actionLabel={t.onboarding.tours.continueToPlan}
+          onAction={() => void continuePlanOnboarding()}
+          skipLabel={t.onboarding.tours.skip}
+          onSkip={() => void skipPlanOnboarding()}
+          busy={onboardingBusy}
+        />
+      ) : null}
     </View>
   );
 }

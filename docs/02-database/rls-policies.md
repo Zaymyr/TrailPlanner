@@ -13,6 +13,7 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
+  - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -276,7 +277,7 @@ Declared in `20250624103000_add_user_profiles.sql`.
 - Users can update own profile.
 
 The auth trigger in `20260408100000_initialize_trial_profile_on_user_created.sql` uses SECURITY DEFINER to create/repair profile rows after auth user creation.
-`user_profiles.onboarding_completed_at` is a column-only addition. It inherits the same owner select/insert/update policies; mobile writes it using the active user's session and an explicit `user_id` filter/upsert ownership key.
+The legacy `user_profiles.onboarding_completed_at` marker and the Plan/RaceBook status columns are owner-only column additions. They inherit the same profile select/insert/update policies; mobile writes them using the active user's session and explicit ownership key/filter.
 
 ### `subscriptions`
 
@@ -370,7 +371,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public share links still need owner RLS even though the public page uses service role; route code must verify parent plan ownership before creating a link.
 - Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
-- Adding `onboarding_completed_at` does not broaden profile visibility or mutation rights; do not add a separate policy for this column while the row remains owner-scoped.
+- Adding onboarding markers/statuses does not broaden profile visibility or mutation rights; do not add separate policies while the row remains owner-scoped.
 - Adding Racebook publication columns does not grant organizer table access. Keep approval RPCs service-role-only and organizer visibility changes behind active event-membership checks.
 - Edition visibility/deletion adds no client grant. Keep both operations on the membership-checked server route and keep the deletion RPC invoker-security/service-role-only.
 - Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.

@@ -18,6 +18,7 @@ import { captureAnalyticsEvent } from '../../../lib/posthog';
 import { fetchRaceAidStations, fetchRaceElevationProfile } from '../../../lib/raceProfile';
 import { clearUnfinishedPlanReminder, syncUnfinishedPlanReminder } from '../../../lib/reminderNotifications';
 import { supabase } from '../../../lib/supabase';
+import { completeOnboarding } from '../../../lib/onboardingStatus';
 
 type RaceInfo = {
   id: string;
@@ -107,7 +108,11 @@ function buildPlannerValues(values: PlanFormValues) {
 }
 
 export default function NewPlanScreen() {
-  const { raceId, catalogRaceId } = useLocalSearchParams<{ raceId?: string; catalogRaceId?: string }>();
+  const { raceId, catalogRaceId, onboarding } = useLocalSearchParams<{
+    raceId?: string;
+    catalogRaceId?: string;
+    onboarding?: 'plan';
+  }>();
   const resolvedRaceId = raceId ?? catalogRaceId ?? null;
   const planCreationSource = catalogRaceId ? 'catalog' : raceId ? 'preselected_race' : 'selector';
   const router = useRouter();
@@ -178,9 +183,21 @@ export default function NewPlanScreen() {
         distance_km: race.distance_km,
         elevation_gain_m: race.elevation_gain_m,
       });
+      if (onboarding === 'plan') {
+        await completeOnboarding('plan');
+        const { error: legacyOnboardingError } = await supabase
+          .from('user_profiles')
+          .update({ onboarding_completed_at: new Date().toISOString() })
+          .eq('user_id', uid);
+        if (legacyOnboardingError) {
+          console.warn('Unable to update legacy onboarding completion marker', legacyOnboardingError);
+        }
+        router.replace(`/(app)/plan/${data.id}/edit?showHelp=1`);
+        return;
+      }
       router.replace(`/(app)/plan/${data.id}/edit`);
     },
-    [planCreationSource, resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
+    [onboarding, planCreationSource, resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const loadRaceSeed = useCallback(async () => {
