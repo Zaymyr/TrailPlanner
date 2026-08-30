@@ -401,8 +401,14 @@ export function OrganizerDashboard({
     return buildOrganizerCompletion(eventDraft, activeRaceForCompletion, aidStations, stationProducts, {
       aidStations: sidecarLoadedRaceId === activeRace?.id ? aidStations.length : activeRace?.aidStationCount ?? 0,
       stationProducts: sidecarLoadedRaceId === activeRace?.id ? stationProducts.length : undefined,
-      sponsors: sponsorSummary?.editionId === activeEdition?.id ? sponsorSummary.sponsors : 0,
-      sponsorClicks: sponsorSummary?.editionId === activeEdition?.id ? sponsorSummary.clicks : 0,
+      sponsors:
+        sponsorSummary !== null && sponsorSummary.editionId === activeEdition?.id
+          ? sponsorSummary.sponsors
+          : 0,
+      sponsorClicks:
+        sponsorSummary !== null && sponsorSummary.editionId === activeEdition?.id
+          ? sponsorSummary.clicks
+          : 0,
     });
   }, [activeEdition?.id, activeRace?.aidStationCount, activeRace?.id, activeRaceForCompletion, aidStations, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
 
