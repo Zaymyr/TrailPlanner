@@ -1013,6 +1013,7 @@ export default function CatalogScreen() {
             singleFormatLabel={t.catalog.singleFormatLabel}
             multipleFormatsLabel={t.catalog.multipleFormatsLabel}
             chooseFormatHint={t.catalog.chooseFormatHint}
+            showChooseFormatHint={false}
             favoriteLabel={locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites'}
             unfavoriteLabel={locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites'}
             isFavorite={favoriteEventIds.includes(event.id)}

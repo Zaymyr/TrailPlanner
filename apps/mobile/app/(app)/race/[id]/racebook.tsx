@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
-  ActivityIndicator,
   Animated,
   Easing,
   Image,
@@ -13,7 +12,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
@@ -53,11 +52,19 @@ type MetricItem = {
   tone?: 'neutral' | 'gain' | 'loss';
 };
 
-type AccessSection = {
+type AccessLocationItem = {
+  key: string;
+  label: string;
+  value: string;
+  actionUrl: string | null;
+};
+
+type AccessTransportItem = {
+  key: 'parking' | 'shuttles';
+  icon: keyof typeof Ionicons.glyphMap;
   title: string;
-  items?: LabeledItem[];
-  lines?: string[];
-  linkUrl?: string | null;
+  description: string;
+  schedule?: string | null;
 };
 
 type BibPickupSlot = RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number];
@@ -102,7 +109,7 @@ function SponsorChip({ sponsor, compact = false }: { sponsor: RacebookSponsor; c
 
 function FeaturedSponsor({ sponsor }: { sponsor: RacebookSponsor }) {
   const content = (
-    <View style={styles.featuredSponsorCard}>
+    <View style={styles.featuredSponsorRow}>
       <Image
         source={{ uri: sponsor.logoUrl }}
         style={styles.featuredSponsorLogo}
@@ -133,6 +140,7 @@ function RacebookLoadingScreen({
   loadingLabel,
   viewportHeight,
   sponsorLookupDone,
+  title,
 }: {
   progress: number;
   sponsors: RacebookSponsor[];
@@ -140,12 +148,13 @@ function RacebookLoadingScreen({
   loadingLabel: string;
   viewportHeight: number;
   sponsorLookupDone: boolean;
+  title: string;
 }) {
   const animatedProgress = useRef(new Animated.Value(progress)).current;
   const highestProgress = useRef(progress);
   const [trackWidth, setTrackWidth] = useState(0);
   const safeProgress = Math.max(0, Math.min(1, progress));
-  const sponsorAreaHeight = Math.max(220, Math.min(320, viewportHeight * 0.34));
+  const sponsorAreaHeight = Math.max(228, Math.min(292, viewportHeight * 0.31));
 
   useEffect(() => {
     const nextProgress = Math.max(highestProgress.current, safeProgress);
@@ -173,6 +182,10 @@ function RacebookLoadingScreen({
 
   return (
     <View style={styles.loadingScreen}>
+      <View style={styles.loadingIntro}>
+        <Heading variant="h3" style={styles.loadingTitle}>{title}</Heading>
+      </View>
+
       <View style={styles.loadingProgressBlock}>
         <View
           style={styles.loadingProgressTrack}
@@ -183,7 +196,7 @@ function RacebookLoadingScreen({
         >
           <Animated.View style={[styles.loadingProgressFill, { width: progressWidth }]} />
           <Animated.View style={[styles.loadingRunner, { transform: [{ translateX: runnerTranslateX }] }]}>
-            <Ionicons name="walk" size={21} color={Colors.textOnBrand} />
+            <Ionicons name="walk" size={27} color={Colors.brandPrimary} />
           </Animated.View>
         </View>
         <View style={styles.loadingProgressCopy}>
@@ -195,28 +208,36 @@ function RacebookLoadingScreen({
       {sponsors.length > 0 || !sponsorLookupDone ? (
         <View style={[styles.featuredSponsors, { minHeight: sponsorAreaHeight }]}>
           <Text style={styles.sponsorLoadingLabel}>{sponsorLabel}</Text>
-          <View style={styles.featuredSponsorStack}>
+          <View style={styles.featuredSponsorPanel}>
             {sponsors.length > 0 ? (
-              sponsors.map((sponsor) => <FeaturedSponsor key={sponsor.id} sponsor={sponsor} />)
+              sponsors.map((sponsor, index) => (
+                <View key={sponsor.id} style={styles.featuredSponsorSlot}>
+                  {index > 0 ? <View style={styles.featuredSponsorDivider} /> : null}
+                  <FeaturedSponsor sponsor={sponsor} />
+                </View>
+              ))
             ) : (
               <>
-                <View style={styles.featuredSponsorPlaceholder} />
-                <View style={styles.featuredSponsorPlaceholder} />
+                <View style={styles.featuredSponsorSlot}>
+                  <View style={styles.featuredSponsorPlaceholder} />
+                </View>
+                <View style={styles.featuredSponsorSlot}>
+                  <View style={styles.featuredSponsorDivider} />
+                  <View style={styles.featuredSponsorPlaceholder} />
+                </View>
               </>
             )}
           </View>
         </View>
       ) : null}
-
-      <ActivityIndicator color={Colors.brandPrimary} size="small" />
     </View>
   );
 }
 
 function SponsorBanner({ sponsors, label }: { sponsors: RacebookSponsor[]; label: string }) {
   const translateX = useRef(new Animated.Value(0)).current;
-  const [containerWidth, setContainerWidth] = useState(0);
-  const [rowWidth, setRowWidth] = useState(0);
+  const activeSlideIndex = useRef(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const [reduceMotion, setReduceMotion] = useState(false);
 
   useEffect(() => {
@@ -229,18 +250,32 @@ function SponsorBanner({ sponsors, label }: { sponsors: RacebookSponsor[]; label
   useEffect(() => {
     translateX.stopAnimation();
     translateX.setValue(0);
-    if (reduceMotion || sponsors.length < 2 || rowWidth <= containerWidth || rowWidth <= 0) return;
-    const animation = Animated.loop(
+    activeSlideIndex.current = 0;
+    if (reduceMotion || sponsors.length < 2 || viewportWidth <= 0) return;
+
+    const carouselTimer = setInterval(() => {
+      const nextIndex = activeSlideIndex.current + 1;
       Animated.timing(translateX, {
-        toValue: -rowWidth,
-        duration: Math.max(8_000, rowWidth * 35),
-        easing: Easing.linear,
+        toValue: -nextIndex * viewportWidth,
+        duration: 520,
+        easing: Easing.inOut(Easing.cubic),
         useNativeDriver: true,
-      }),
-    );
-    animation.start();
-    return () => animation.stop();
-  }, [containerWidth, reduceMotion, rowWidth, sponsors.length, translateX]);
+      }).start(({ finished }) => {
+        if (!finished) return;
+        if (nextIndex === sponsors.length) {
+          translateX.setValue(0);
+          activeSlideIndex.current = 0;
+          return;
+        }
+        activeSlideIndex.current = nextIndex;
+      });
+    }, 3_000);
+
+    return () => {
+      clearInterval(carouselTimer);
+      translateX.stopAnimation();
+    };
+  }, [reduceMotion, sponsors.length, translateX, viewportWidth]);
 
   if (sponsors.length === 0) return null;
   if (reduceMotion || sponsors.length === 1) {
@@ -254,19 +289,30 @@ function SponsorBanner({ sponsors, label }: { sponsors: RacebookSponsor[]; label
     );
   }
 
+  const carouselSponsors = [...sponsors, sponsors[0]];
+
   return (
-    <View style={styles.sponsorBanner} onLayout={(event) => setContainerWidth(event.nativeEvent.layout.width)}>
+    <View style={styles.sponsorBanner}>
       <Text style={styles.sponsorBannerLabel}>{label}</Text>
-      <View style={styles.sponsorBannerViewport}>
+      <View
+        style={styles.sponsorBannerViewport}
+        onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
+      >
         <Animated.View style={[styles.sponsorBannerAnimatedRow, { transform: [{ translateX }] }]}>
-          <View style={styles.sponsorBannerRow} onLayout={(event) => setRowWidth(event.nativeEvent.layout.width)}>
-            {sponsors.map((sponsor) => <SponsorChip key={sponsor.id} sponsor={sponsor} compact />)}
-          </View>
-          {rowWidth > containerWidth ? (
-            <View pointerEvents="none" accessibilityElementsHidden importantForAccessibility="no-hide-descendants" style={styles.sponsorBannerRow}>
-              {sponsors.map((sponsor) => <SponsorChip key={`copy-${sponsor.id}`} sponsor={sponsor} compact />)}
-            </View>
-          ) : null}
+          {carouselSponsors.map((sponsor, index) => {
+            const loopCopy = index === sponsors.length;
+            return (
+              <View
+                key={loopCopy ? `loop-${sponsor.id}` : sponsor.id}
+                pointerEvents={loopCopy ? 'none' : 'auto'}
+                accessibilityElementsHidden={loopCopy}
+                importantForAccessibility={loopCopy ? 'no-hide-descendants' : 'auto'}
+                style={[styles.sponsorBannerSlide, { width: viewportWidth }]}
+              >
+                <SponsorChip sponsor={sponsor} compact />
+              </View>
+            );
+          })}
         </Animated.View>
       </View>
     </View>
@@ -457,6 +503,144 @@ function InlineAlertCard({
         </Text>
       </View>
     </View>
+  );
+}
+
+function AccessPriorityCard({ title, items }: { title: string; items: Array<{ label: string; value: string }> }) {
+  return (
+    <View style={styles.accessPriorityCard}>
+      <View style={styles.accessPriorityHeader}>
+        <View style={styles.accessPriorityIcon}>
+          <Ionicons name="alert-circle-outline" size={18} color={Colors.warning} />
+        </View>
+        <Text style={styles.accessPriorityTitle}>{title}</Text>
+      </View>
+      <View style={styles.accessPriorityList}>
+        {items.map((item, index) => (
+          <View key={item.label} style={[styles.accessPriorityItem, index > 0 ? styles.accessPriorityItemBorder : null]}>
+            <Text style={styles.accessPriorityLabel}>{item.label}</Text>
+            <Text style={styles.accessPriorityText}>{item.value}</Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function AccessLocationsCard({
+  title,
+  locations,
+  generalMapUrl,
+  openMapsLabel,
+  openGeneralMapLabel,
+}: {
+  title: string;
+  locations: AccessLocationItem[];
+  generalMapUrl: string | null;
+  openMapsLabel: string;
+  openGeneralMapLabel: string;
+}) {
+  return (
+    <SectionCard title={title}>
+      <View style={styles.accessLocationList}>
+        {locations.map((location, index) => (
+          <View key={location.key} style={[styles.accessLocationItem, index > 0 ? styles.accessLocationItemBorder : null]}>
+            <View style={styles.accessLocationIcon}>
+              <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
+            </View>
+            <View style={styles.accessLocationContent}>
+              <Text style={styles.accessLocationLabel}>{location.label}</Text>
+              <Text style={styles.accessLocationValue}>{location.value}</Text>
+              {location.actionUrl ? (
+                <Pressable
+                  accessibilityRole="link"
+                  accessibilityLabel={`${openMapsLabel} - ${location.label}`}
+                  onPress={() => Linking.openURL(location.actionUrl!).catch(() => {})}
+                  style={({ pressed }) => [styles.accessMapAction, pressed ? styles.accessActionPressed : null]}
+                >
+                  <Ionicons name="navigate-outline" size={15} color={Colors.brandPrimary} />
+                  <Text style={styles.accessMapActionText}>{openMapsLabel}</Text>
+                </Pressable>
+              ) : null}
+            </View>
+          </View>
+        ))}
+      </View>
+      {generalMapUrl ? (
+        <Pressable
+          accessibilityRole="link"
+          accessibilityLabel={openGeneralMapLabel}
+          onPress={() => Linking.openURL(generalMapUrl).catch(() => {})}
+          style={({ pressed }) => [styles.accessGeneralMapAction, pressed ? styles.accessActionPressed : null]}
+        >
+          <Ionicons name="map-outline" size={17} color={Colors.textOnBrand} />
+          <Text style={styles.accessGeneralMapActionText}>{openGeneralMapLabel}</Text>
+        </Pressable>
+      ) : null}
+    </SectionCard>
+  );
+}
+
+function AccessTransportCard({
+  title,
+  items,
+  expanded,
+  onToggle,
+  showDetailsLabel,
+  hideDetailsLabel,
+  scheduleLabel,
+}: {
+  title: string;
+  items: AccessTransportItem[];
+  expanded: Record<AccessTransportItem['key'], boolean>;
+  onToggle: (key: AccessTransportItem['key']) => void;
+  showDetailsLabel: string;
+  hideDetailsLabel: string;
+  scheduleLabel: string;
+}) {
+  return (
+    <SectionCard title={title}>
+      <View style={styles.accessTransportList}>
+        {items.map((item, index) => {
+          const isExpanded = expanded[item.key];
+          return (
+            <Pressable
+              key={item.key}
+              accessibilityRole="button"
+              accessibilityState={{ expanded: isExpanded }}
+              accessibilityLabel={`${item.title} - ${isExpanded ? hideDetailsLabel : showDetailsLabel}`}
+              onPress={() => onToggle(item.key)}
+              style={({ pressed }) => [
+                styles.accessTransportItem,
+                index > 0 ? styles.accessTransportItemBorder : null,
+                pressed ? styles.accessActionPressed : null,
+              ]}
+            >
+              <View style={styles.accessTransportHeader}>
+                <View style={styles.accessTransportIcon}>
+                  <Ionicons name={item.icon} size={18} color={Colors.brandPrimary} />
+                </View>
+                <View style={styles.accessTransportHeading}>
+                  <Text style={styles.accessTransportTitle}>{item.title}</Text>
+                  <Text style={styles.accessTransportHint}>{isExpanded ? hideDetailsLabel : showDetailsLabel}</Text>
+                </View>
+                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textSecondary} />
+              </View>
+              <Text numberOfLines={isExpanded ? undefined : 2} style={styles.accessTransportText}>{item.description}</Text>
+              {isExpanded && item.schedule ? (
+                <View style={styles.accessScheduleRow}>
+                  <Ionicons name="time-outline" size={16} color={Colors.brandPrimary} />
+                  <View style={styles.accessScheduleContent}>
+                    <Text style={styles.accessScheduleLabel}>{scheduleLabel}</Text>
+                    <Text style={styles.accessScheduleText}>{item.schedule}</Text>
+                  </View>
+                </View>
+              ) : null}
+            </Pressable>
+          );
+        })}
+      </View>
+    </SectionCard>
   );
 }
 
@@ -813,6 +997,7 @@ function AidStationCard({
 export default function RaceRacebookScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const router = useRouter();
+  const navigation = useNavigation();
   const { locale, t } = useI18n();
   const { height: viewportHeight } = useWindowDimensions();
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
@@ -828,6 +1013,10 @@ export default function RaceRacebookScreen() {
   const [sponsorLookupDone, setSponsorLookupDone] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0.06);
   const [loadingExitDone, setLoadingExitDone] = useState(false);
+  const [expandedAccessTransport, setExpandedAccessTransport] = useState<Record<AccessTransportItem['key'], boolean>>({
+    parking: false,
+    shuttles: false,
+  });
 
   useEffect(() => {
     if (!loading && sponsorGateDone) {
@@ -1199,67 +1388,66 @@ export default function RaceRacebookScreen() {
     }
   }, [activeCourseTab, relaySegments.length]);
 
-  const accessSections = useMemo(() => {
-    if (!data) return [];
+  const accessPresentation = useMemo(() => {
+    if (!data) return null;
 
     const access = data.runnerDetails.access;
-
-    const sections: AccessSection[] = [
-      {
-        title: t.catalog.racebookAccessLocations,
-        items: [
+    const normalizedStart = access.startAddress?.trim().toLocaleLowerCase().replace(/\s+/g, ' ') ?? '';
+    const normalizedFinish = access.finishAddress?.trim().toLocaleLowerCase().replace(/\s+/g, ' ') ?? '';
+    const sameLocation = Boolean(normalizedStart && normalizedStart === normalizedFinish);
+    const locations: AccessLocationItem[] = sameLocation
+      ? [{
+          key: 'start-finish',
+          label: t.catalog.racebookAccessSameLocation,
+          value: access.startAddress!,
+          actionUrl: access.startLocation.googleMapsUrl ?? access.finishLocation.googleMapsUrl,
+        }]
+      : [
           access.startAddress
-            ? {
-                label: t.catalog.racebookFieldStartLocation,
-                value: access.startAddress,
-                actionUrl: access.startLocation.googleMapsUrl,
-              }
+            ? { key: 'start', label: t.catalog.racebookFieldStartLocation, value: access.startAddress, actionUrl: access.startLocation.googleMapsUrl }
             : null,
           access.finishAddress
-            ? {
-                label: t.catalog.racebookFieldFinishLocation,
-                value: access.finishAddress,
-                actionUrl: access.finishLocation.googleMapsUrl,
-              }
+            ? { key: 'finish', label: t.catalog.racebookFieldFinishLocation, value: access.finishAddress, actionUrl: access.finishLocation.googleMapsUrl }
             : null,
-        ].filter((value): value is LabeledItem => Boolean(value)),
-      },
-      {
+        ].filter((value): value is AccessLocationItem => Boolean(value));
+    const priorityItems = [
+      access.note ? { label: t.catalog.racebookAccessImportantInfo, value: access.note } : null,
+      access.enabledSections.roadRestrictions && access.roadRestrictions
+        ? { label: t.catalog.racebookAccessRestrictions, value: access.roadRestrictions }
+        : null,
+    ].filter((value): value is { label: string; value: string } => Boolean(value));
+    const transportItems: AccessTransportItem[] = [];
+    if (access.enabledSections.officialParkings && access.officialParkings) {
+      transportItems.push({
+        key: 'parking',
+        icon: 'car-outline',
         title: t.catalog.racebookAccessParking,
-        lines:
-          access.enabledSections.officialParkings && access.officialParkings ? [access.officialParkings] : [],
-      },
-      {
+        description: access.officialParkings,
+      });
+    }
+    if (access.enabledSections.shuttles && (access.shuttles || access.shuttleSchedule)) {
+      transportItems.push({
+        key: 'shuttles',
+        icon: 'bus-outline',
         title: t.catalog.racebookAccessShuttles,
-        lines:
-          access.enabledSections.shuttles
-            ? [access.shuttles, access.shuttleSchedule].filter((value): value is string => Boolean(value))
-            : [],
-      },
-      {
-        title: t.catalog.racebookAccessRestrictions,
-        lines:
-          access.enabledSections.roadRestrictions && access.roadRestrictions ? [access.roadRestrictions] : [],
-      },
-      {
-        title: t.catalog.racebookAccessMap,
-        lines: access.enabledSections.mapUrl && access.mapUrl ? [access.mapUrl] : [],
-        linkUrl: access.enabledSections.mapUrl ? access.mapUrl : null,
-      },
-      {
-        title: t.catalog.racebookAccessNote,
-        lines: access.note ? [access.note] : [],
-      },
-    ];
+        description: access.shuttles ?? access.shuttleSchedule!,
+        schedule: access.shuttles ? access.shuttleSchedule : null,
+      });
+    }
 
-    return sections.filter((section) => (section.items?.length ?? 0) > 0 || (section.lines?.length ?? 0) > 0);
+    return {
+      locations,
+      priorityItems,
+      transportItems,
+      generalMapUrl: access.enabledSections.mapUrl ? access.mapUrl : null,
+      hasContent: locations.length > 0 || priorityItems.length > 0 || transportItems.length > 0 || Boolean(access.enabledSections.mapUrl && access.mapUrl),
+    };
   }, [
     data,
-    t.catalog.racebookAccessLocations,
-    t.catalog.racebookAccessMap,
-    t.catalog.racebookAccessNote,
+    t.catalog.racebookAccessImportantInfo,
     t.catalog.racebookAccessParking,
     t.catalog.racebookAccessRestrictions,
+    t.catalog.racebookAccessSameLocation,
     t.catalog.racebookAccessShuttles,
     t.catalog.racebookFieldFinishLocation,
     t.catalog.racebookFieldStartLocation,
@@ -1274,6 +1462,17 @@ export default function RaceRacebookScreen() {
   const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
+
+  useEffect(() => {
+    const tabsNavigation = navigation.getParent();
+    navigation.setOptions({ headerRight: showLoading ? () => null : undefined });
+    tabsNavigation?.setOptions({ tabBarStyle: showLoading ? { display: 'none' } : undefined });
+
+    return () => {
+      navigation.setOptions({ headerRight: undefined });
+      tabsNavigation?.setOptions({ tabBarStyle: undefined });
+    };
+  }, [navigation, showLoading]);
 
   return (
       <ScrollView
@@ -1295,6 +1494,7 @@ export default function RaceRacebookScreen() {
           sponsors={sponsorSplashVisible ? sponsorPresentation.loadingSponsors : []}
           sponsorLabel={t.catalog.racebookSponsorsSupportedBy}
           loadingLabel={t.catalog.racebookLoading}
+          title={t.catalog.racebookLoadingTitle}
           viewportHeight={viewportHeight}
           sponsorLookupDone={sponsorLookupDone}
         />
@@ -1676,19 +1876,32 @@ export default function RaceRacebookScreen() {
             ) : null}
 
             {activeTab === 'access' ? (
-              accessSections.length > 0 ? (
-                accessSections.map((section) => (
-                  <SectionCard key={section.title} title={section.title}>
-                    {section.items && section.items.length > 0 ? <LabeledInfoList items={section.items} emphasis /> : null}
-                    {section.linkUrl && section.lines?.[0]?.startsWith('http') ? (
-                      <Pressable onPress={() => Linking.openURL(section.linkUrl!).catch(() => {})}>
-                        <Text style={styles.linkText}>{section.lines[0]}</Text>
-                      </Pressable>
-                    ) : section.lines && section.lines.length > 0 ? (
-                      <InfoList values={section.lines} />
-                    ) : null}
-                  </SectionCard>
-                ))
+              accessPresentation?.hasContent ? (
+                <>
+                  {accessPresentation.priorityItems.length > 0 ? (
+                    <AccessPriorityCard title={t.catalog.racebookAccessEssential} items={accessPresentation.priorityItems} />
+                  ) : null}
+                  {accessPresentation.locations.length > 0 || accessPresentation.generalMapUrl ? (
+                    <AccessLocationsCard
+                      title={t.catalog.racebookAccessLocations}
+                      locations={accessPresentation.locations}
+                      generalMapUrl={accessPresentation.generalMapUrl}
+                      openMapsLabel={t.catalog.racebookAccessOpenMaps}
+                      openGeneralMapLabel={t.catalog.racebookAccessOpenGeneralMap}
+                    />
+                  ) : null}
+                  {accessPresentation.transportItems.length > 0 ? (
+                    <AccessTransportCard
+                      title={t.catalog.racebookAccessGettingThere}
+                      items={accessPresentation.transportItems}
+                      expanded={expandedAccessTransport}
+                      onToggle={(key) => setExpandedAccessTransport((current) => ({ ...current, [key]: !current[key] }))}
+                      showDetailsLabel={t.catalog.racebookAccessShowDetails}
+                      hideDetailsLabel={t.catalog.racebookAccessHideDetails}
+                      scheduleLabel={t.catalog.racebookAccessSchedule}
+                    />
+                  ) : null}
+                </>
               ) : (
                 <SectionCard title={t.catalog.racebookTabAccess}>
                   <EmptyState message={t.catalog.racebookEmptyAccess} />
@@ -1728,10 +1941,20 @@ const styles = StyleSheet.create({
     flex: 1,
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     paddingHorizontal: 8,
-    paddingVertical: 22,
-    gap: 24,
+    paddingTop: 28,
+    paddingBottom: 20,
+    gap: 26,
+  },
+  loadingIntro: {
+    width: '100%',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  loadingTitle: {
+    color: Colors.textPrimary,
+    textAlign: 'center',
   },
   loadingProgressBlock: {
     width: '100%',
@@ -1739,7 +1962,7 @@ const styles = StyleSheet.create({
   },
   loadingProgressTrack: {
     width: '100%',
-    height: 12,
+    height: 7,
     borderRadius: 999,
     backgroundColor: Colors.surfaceMuted,
   },
@@ -1750,16 +1973,13 @@ const styles = StyleSheet.create({
   },
   loadingRunner: {
     position: 'absolute',
-    top: -11,
+    top: -24,
     left: 0,
     width: 34,
     height: 34,
-    borderRadius: 17,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.brandPrimary,
-    borderWidth: 3,
-    borderColor: Colors.background,
+    backgroundColor: Colors.background,
   },
   loadingProgressCopy: {
     flexDirection: 'row',
@@ -1779,8 +1999,8 @@ const styles = StyleSheet.create({
   featuredSponsors: {
     width: '100%',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
+    gap: 10,
+    marginTop: 8,
   },
   sponsorLoadingLabel: {
     color: Colors.textSecondary,
@@ -1789,34 +2009,46 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textTransform: 'uppercase',
   },
-  featuredSponsorStack: {
+  featuredSponsorPanel: {
     width: '100%',
     flex: 1,
-    gap: 12,
+    overflow: 'hidden',
+    borderRadius: 24,
+    backgroundColor: Colors.surface,
+    shadowColor: '#1A1A1A',
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 7 },
+    elevation: 3,
+  },
+  featuredSponsorSlot: {
+    flex: 1,
+    width: '100%',
   },
   featuredSponsorPressable: {
     flex: 1,
     width: '100%',
   },
-  featuredSponsorCard: {
+  featuredSponsorRow: {
     flex: 1,
     width: '100%',
-    minHeight: 96,
+    minHeight: 104,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.surface,
+    gap: 4,
+    paddingHorizontal: 24,
+    paddingVertical: 10,
+  },
+  featuredSponsorDivider: {
+    height: 1,
+    marginHorizontal: 24,
+    backgroundColor: Colors.border,
   },
   featuredSponsorLogo: {
-    width: '82%',
-    maxWidth: 260,
+    width: '88%',
+    maxWidth: 280,
     flex: 1,
-    minHeight: 58,
+    minHeight: 72,
   },
   featuredSponsorName: {
     color: Colors.textSecondary,
@@ -1826,13 +2058,12 @@ const styles = StyleSheet.create({
   },
   featuredSponsorPlaceholder: {
     flex: 1,
-    width: '100%',
-    minHeight: 96,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    minHeight: 78,
+    marginHorizontal: 24,
+    marginVertical: 14,
+    borderRadius: 16,
     backgroundColor: Colors.surfaceSecondary,
-    opacity: 0.62,
+    opacity: 0.7,
   },
   sponsorChip: {
     maxWidth: 150,
@@ -1892,11 +2123,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
   },
-  sponsorBannerRow: {
-    flexDirection: 'row',
+  sponsorBannerSlide: {
+    minHeight: 42,
     alignItems: 'center',
-    gap: 22,
-    paddingRight: 22,
+    justifyContent: 'center',
   },
   sponsorBannerStaticRow: {
     flexGrow: 1,
@@ -1982,6 +2212,29 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  accessPriorityCard: {
+    gap: 12,
+    padding: 16,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E7C97A',
+    backgroundColor: Colors.warningSurface,
+  },
+  accessPriorityHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 },
+  accessPriorityIcon: {
+    width: 30,
+    height: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 15,
+    backgroundColor: '#FFF8E7',
+  },
+  accessPriorityTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
+  accessPriorityList: { gap: 12 },
+  accessPriorityItem: { gap: 4 },
+  accessPriorityItemBorder: { paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E7C97A' },
+  accessPriorityLabel: { color: '#8A4B08', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
+  accessPriorityText: { color: Colors.textPrimary, fontSize: 14, lineHeight: 20 },
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2235,6 +2488,63 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
+  accessLocationList: { gap: 0 },
+  accessLocationItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 4 },
+  accessLocationItemBorder: { marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
+  accessLocationIcon: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 17,
+    backgroundColor: Colors.brandSurface,
+  },
+  accessLocationContent: { flex: 1, gap: 4 },
+  accessLocationLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
+  accessLocationValue: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', lineHeight: 21 },
+  accessMapAction: {
+    minHeight: 34,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 3,
+    paddingHorizontal: 10,
+    borderRadius: 17,
+    backgroundColor: Colors.brandSurface,
+  },
+  accessMapActionText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '800' },
+  accessGeneralMapAction: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderRadius: 12,
+    backgroundColor: Colors.brandPrimary,
+  },
+  accessGeneralMapActionText: { color: Colors.textOnBrand, fontSize: 14, fontWeight: '800' },
+  accessActionPressed: { opacity: 0.72 },
+  accessTransportList: { gap: 0 },
+  accessTransportItem: { gap: 10, paddingVertical: 4 },
+  accessTransportItemBorder: { marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
+  accessTransportHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  accessTransportIcon: {
+    width: 34,
+    height: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 17,
+    backgroundColor: Colors.brandSurface,
+  },
+  accessTransportHeading: { flex: 1, gap: 1 },
+  accessTransportTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
+  accessTransportHint: { color: Colors.textSecondary, fontSize: 11 },
+  accessTransportText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  accessScheduleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 12, backgroundColor: Colors.brandSurface },
+  accessScheduleContent: { flex: 1, gap: 2 },
+  accessScheduleLabel: { color: Colors.brandPrimary, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
+  accessScheduleText: { color: Colors.textPrimary, fontSize: 13, lineHeight: 18 },
   serviceText: {
     color: Colors.textSecondary,
     fontSize: 14,

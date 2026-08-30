@@ -149,6 +149,21 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(detailSource).not.toContain("<p className=\"font-semibold text-foreground\">Retrait dossard - {activeRace.name}</p>");
   });
 
+  it("keeps access fields aligned with the runner-facing information hierarchy", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/detail-editors.tsx"),
+      "utf8"
+    );
+
+    expect(source).toContain("1. Lieux et itinéraire");
+    expect(source).toContain("2. À retenir");
+    expect(source).toContain("3. Venir sur place");
+    expect(source).toContain('label="Information prioritaire"');
+    expect(source).toContain('label="Fonctionnement des navettes"');
+    expect(source).toContain('label="Horaires des navettes"');
+    expect(source).not.toContain('label="Note accès"');
+  });
+
   it("keeps edition visibility and year-confirmed deletion in the organizer header", () => {
     const source = readFileSync(
       resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"),

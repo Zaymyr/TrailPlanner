@@ -549,52 +549,94 @@ function AccessFields({
           <p className="text-sm text-muted-foreground">{description}</p>
         </div>
       ) : null}
-      <div className="grid gap-3 md:grid-cols-2">
-        <AddressAutocompleteField
-          label="Adresse départ"
-          value={access.startAddress ?? ""}
-          location={access.startLocation}
-          biasLocation={biasLocation}
-          onChange={(value) => update({ startAddress: value || null })}
-          onLocationChange={(startLocation) => update({ startLocation })}
-          invalid={missingStartAddress}
-        />
-        <AddressAutocompleteField
-          label="Adresse arrivée"
-          value={access.finishAddress ?? ""}
-          location={access.finishLocation}
-          biasLocation={biasLocation}
-          onChange={(value) => update({ finishAddress: value || null })}
-          onLocationChange={(finishLocation) => update({ finishLocation })}
-        />
-      </div>
-      {formatMode ? (
-        <div className="flex flex-wrap gap-2">
-          <ToggleChip checked={access.enabledSections.officialParkings} label="Parkings" onChange={(checked) => updateSection("officialParkings", checked)} />
-          <ToggleChip checked={access.enabledSections.shuttles} label="Navettes" onChange={(checked) => updateSection("shuttles", checked)} />
-          <ToggleChip checked={access.enabledSections.roadRestrictions} label="Restrictions route" onChange={(checked) => updateSection("roadRestrictions", checked)} />
-          <ToggleChip checked={access.enabledSections.mapUrl} label="Carte / Google Maps" onChange={(checked) => updateSection("mapUrl", checked)} />
-          {showRunnerInfoToggle ? (
-            <ToggleChip checked={access.enabledSections.runnerInfo} label="Infos coureur spécifiques" onChange={(checked) => updateSection("runnerInfo", checked)} />
+      <div className="space-y-4 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold text-foreground">1. Lieux et itinéraire</p>
+            <p className="text-sm text-muted-foreground">Sélectionne une suggestion pour générer automatiquement l’action Maps.</p>
+          </div>
+          {formatMode ? (
+            <ToggleChip checked={access.enabledSections.mapUrl} label="Carte générale" onChange={(checked) => updateSection("mapUrl", checked)} />
           ) : null}
         </div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <AddressAutocompleteField
+            label="Adresse départ"
+            value={access.startAddress ?? ""}
+            location={access.startLocation}
+            biasLocation={biasLocation}
+            onChange={(value) => update({ startAddress: value || null })}
+            onLocationChange={(startLocation) => update({ startLocation })}
+            invalid={missingStartAddress}
+          />
+          <AddressAutocompleteField
+            label="Adresse arrivée"
+            value={access.finishAddress ?? ""}
+            location={access.finishLocation}
+            biasLocation={biasLocation}
+            onChange={(value) => update({ finishAddress: value || null })}
+            onLocationChange={(finishLocation) => update({ finishLocation })}
+          />
+        </div>
+        <p className="text-xs text-muted-foreground">Si le départ et l’arrivée sont au même endroit, saisis la même adresse : l’app ne l’affichera qu’une seule fois.</p>
+        {(!formatMode || access.enabledSections.mapUrl) ? (
+          <TextField label="Lien vers une carte générale (optionnel)" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
+        ) : null}
+      </div>
+
+      <div className="space-y-4 rounded-xl border border-amber-300 bg-amber-50/60 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold text-foreground">2. À retenir</p>
+            <p className="text-sm text-muted-foreground">Ces informations sont mises en avant en premier dans l’app.</p>
+          </div>
+          {formatMode ? (
+            <ToggleChip checked={access.enabledSections.roadRestrictions} label="Restrictions route" onChange={(checked) => updateSection("roadRestrictions", checked)} />
+          ) : null}
+        </div>
+        <TextAreaField label="Information prioritaire" value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
+        <p className="text-xs text-muted-foreground">À réserver aux consignes qui changent réellement l’arrivée sur place : dernière navette, accès fermé, horaire critique…</p>
+        {(!formatMode || access.enabledSections.roadRestrictions) ? (
+          <TextAreaField label="Routes fermées / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
+        ) : null}
+      </div>
+
+      <div className="space-y-4 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="font-semibold text-foreground">3. Venir sur place</p>
+            <p className="text-sm text-muted-foreground">Parkings et navettes seront regroupés dans des blocs courts et dépliables.</p>
+          </div>
+          {formatMode ? (
+            <div className="flex flex-wrap gap-2">
+              <ToggleChip checked={access.enabledSections.officialParkings} label="Parkings" onChange={(checked) => updateSection("officialParkings", checked)} />
+              <ToggleChip checked={access.enabledSections.shuttles} label="Navettes" onChange={(checked) => updateSection("shuttles", checked)} />
+            </div>
+          ) : null}
+        </div>
+        {(!formatMode || access.enabledSections.officialParkings) ? (
+          <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
+        ) : null}
+        {(!formatMode || access.enabledSections.shuttles) ? (
+          <div className="grid gap-3 md:grid-cols-2">
+            <TextAreaField label="Fonctionnement des navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} invalid={missingParkingOrShuttle} />
+            <TextAreaField label="Horaires des navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
+          </div>
+        ) : null}
+        {formatMode && !access.enabledSections.officialParkings && !access.enabledSections.shuttles ? (
+          <p className="rounded-lg border border-dashed border-border bg-background p-3 text-sm text-muted-foreground">Active au moins une rubrique pour publier des informations de transport sur ce format.</p>
+        ) : null}
+      </div>
+
+      {formatMode && showRunnerInfoToggle ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background p-4">
+          <div>
+            <p className="font-semibold text-foreground">Informations propres au format</p>
+            <p className="text-sm text-muted-foreground">Briefing, zone de départ ou règle qui ne concerne que cette course.</p>
+          </div>
+          <ToggleChip checked={access.enabledSections.runnerInfo} label="Activer" onChange={(checked) => updateSection("runnerInfo", checked)} />
+        </div>
       ) : null}
-      {(!formatMode || access.enabledSections.officialParkings) ? (
-        <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
-      ) : null}
-      {(!formatMode || access.enabledSections.shuttles) ? (
-        <>
-          <TextAreaField label="Navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} invalid={missingParkingOrShuttle} />
-          <TextAreaField label="Horaires navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
-        </>
-      ) : null}
-      {(!formatMode || access.enabledSections.roadRestrictions) ? (
-        <TextAreaField label="Routes fermées / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
-      ) : null}
-      {(!formatMode || access.enabledSections.mapUrl) ? (
-        <TextField label="Lien Google Maps ou adresse" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
-      ) : null}
-      <TextAreaField label="Note accès" value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
     </section>
   );
 }

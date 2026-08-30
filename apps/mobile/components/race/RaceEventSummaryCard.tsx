@@ -27,6 +27,7 @@ type RaceEventSummaryCardProps<T extends RaceEventSummaryRace> = {
   singleFormatLabel: string;
   multipleFormatsLabel: string;
   chooseFormatHint: string;
+  showChooseFormatHint?: boolean;
   favoriteLabel?: string;
   unfavoriteLabel?: string;
   isFavorite?: boolean;
@@ -83,6 +84,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   singleFormatLabel,
   multipleFormatsLabel,
   chooseFormatHint,
+  showChooseFormatHint = true,
   favoriteLabel = 'Ajouter aux favoris',
   unfavoriteLabel = 'Retirer des favoris',
   isFavorite = false,
@@ -154,7 +156,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
           ) : null}
         </View>
 
-        {primaryRace ? (
+        {primaryRace && (event.races.length === 1 || showChooseFormatHint) ? (
           <Text style={styles.supportText} numberOfLines={2}>
             {event.races.length === 1
               ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
