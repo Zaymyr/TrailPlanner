@@ -61,7 +61,7 @@ Any refund, including a partial refund event, or open/lost dispute invalidates i
 
 ## Historical and Admin Rights
 
-The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer tab can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant. In the ordinary `/organizer` publication dialog, a trusted admin also sees a partner action that grants RaceBook to the selected edition without Stripe; pending edits are saved first and the normal admin-authenticated route records `source = admin`. The organizer dashboard identifies an admin RaceBook grant as `Publication offerte — valeur : 99 € HT` and an admin Pro grant as `Publication offerte — valeur : 299 € HT`. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
+The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer tab can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant. In the ordinary `/organizer` publication dialog, a trusted admin sees a partner section after the commercial offer cards, with separate explanations and actions for gifting RaceBook or RaceBook Pro without Stripe; pending edits are saved first and the normal admin-authenticated route records `source = admin`. The organizer dashboard identifies an admin RaceBook grant as `Publication RaceBook offerte — valeur : 99 € HT` and an admin Pro grant as `Publication RaceBook Pro offerte — valeur : 299 € HT`; its publication button uses `offerte` instead of `active`. Legacy-admin editions are always presented as gifted RaceBook Pro. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
 
 ## Gotchas
 
@@ -72,6 +72,7 @@ The migration grants Pro with source `legacy_admin` to editions that already con
 - A dated event format cannot be sold without a canonical edition id. Backfill orphaned formats and let the database assignment trigger create/reuse future event-year editions before opening checkout.
 - Never grant notification, relay, duplication, official-product, or sponsor-management access only in the browser; the server route or RLS boundary must enforce it too.
 - Never expose the complimentary grant action from an organizer-supplied role flag. It is shown from the verified session and still requires the server route's trusted `app_metadata` admin check.
+- Keep the RaceBook and Pro complimentary actions distinct. They share the audited admin endpoint, but must send their explicit target tier and show their respective 99 € / 299 € HT reference values.
 - Do not reuse runner `subscriptions`, RevenueCat, trials, or `premium_grants` for organizer editions.
 - Hiding RaceBooks after invalidation must not hide the free catalog entry.
 

@@ -97,15 +97,18 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("seriesName: newRaceForm.name");
   });
 
-  it("keeps the admin complimentary RaceBook offer explicit", () => {
+  it("keeps both admin complimentary offers explicit", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
     const shellSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"), "utf8");
 
     expect(dashboardSource).toContain('action: "setEditionTier"');
-    expect(dashboardSource).toContain('tier: "racebook"');
-    expect(dashboardSource).toContain("Offrir la publication — 99 € HT");
-    expect(shellSource).toContain("Publication offerte — valeur : 99 € HT");
-    expect(shellSource).toContain("Publication offerte — valeur : 299 € HT");
+    expect(dashboardSource).toContain('grantComplimentaryOffer("racebook")');
+    expect(dashboardSource).toContain('grantComplimentaryOffer("pro")');
+    expect(dashboardSource).toContain("Offrir RaceBook — valeur 99 € HT");
+    expect(dashboardSource).toContain("Offrir RaceBook Pro — valeur 299 € HT");
+    expect(shellSource).toContain("Publication RaceBook offerte — valeur : 99 € HT");
+    expect(shellSource).toContain("Publication RaceBook Pro offerte — valeur : 299 € HT");
+    expect(shellSource).toContain("Offre ${activeOfferName} offerte");
   });
 
   it("keeps the emergency contact labels readable in event information", () => {
