@@ -265,7 +265,7 @@ export function OrganizerDashboard({
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [pricingContext, setPricingContext] = useState<OrganizerPricingContext | null>(null);
   const [checkoutTarget, setCheckoutTarget] = useState<"racebook" | "pro" | null>(null);
-  const [complimentaryGrantLoading, setComplimentaryGrantLoading] = useState(false);
+  const [complimentaryGrantTarget, setComplimentaryGrantTarget] = useState<"racebook" | "pro" | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
   const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
@@ -1802,9 +1802,9 @@ export function OrganizerDashboard({
     }
   };
 
-  const grantComplimentaryRacebook = async () => {
-    if (!isAdmin || complimentaryGrantLoading || checkoutTarget !== null) return;
-    setComplimentaryGrantLoading(true);
+  const grantComplimentaryOffer = async (targetTier: "racebook" | "pro") => {
+    if (!isAdmin || complimentaryGrantTarget !== null || checkoutTarget !== null) return;
+    setComplimentaryGrantTarget(targetTier);
     setCheckoutError(null);
     setError(null);
     try {
@@ -1831,12 +1831,12 @@ export function OrganizerDashboard({
         body: JSON.stringify({
           action: "setEditionTier",
           editionId: pricingContext.editionId,
-          tier: "racebook",
+          tier: targetTier,
         }),
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        const message = data?.message ?? "Impossible d’offrir la publication RaceBook.";
+        const message = data?.message ?? `Impossible d’offrir l’offre ${targetTier === "pro" ? "RaceBook Pro" : "RaceBook"}.`;
         setCheckoutError(message);
         showToast("error", message);
         return;
@@ -1846,14 +1846,19 @@ export function OrganizerDashboard({
       setPricingDialogOpen(false);
       setPricingContext(null);
       await loadEvent(grantedContext.eventId, activeTab, grantedContext.editionYear);
-      showToast("success", "Publication RaceBook offerte — valeur : 99 € HT.");
+      showToast(
+        "success",
+        targetTier === "pro"
+          ? "Offre RaceBook Pro offerte — valeur : 299 € HT."
+          : "Offre RaceBook offerte — valeur : 99 € HT."
+      );
     } catch (caught) {
-      console.error("Unable to grant complimentary organizer Racebook", caught);
+      console.error("Unable to grant complimentary organizer offer", caught);
       const message = "Impossible d’offrir la publication pour le moment. Vérifie ta connexion puis réessaie.";
       setCheckoutError(message);
       showToast("error", message);
     } finally {
-      setComplimentaryGrantLoading(false);
+      setComplimentaryGrantTarget(null);
     }
   };
 
@@ -2782,15 +2787,15 @@ export function OrganizerDashboard({
           }
         }}
       >
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
+        <DialogContent className="max-w-5xl gap-7 p-8 sm:p-10">
+          <DialogHeader className="space-y-3">
             <DialogTitle>{pricingContext?.tier === "racebook" ? "Passer à RaceBook Pro" : "Publier cette édition"}</DialogTitle>
             <DialogDescription>
               Le droit est permanent pour cette édition et couvre tous ses formats présents et futurs. Prix hors taxes, TVA calculée par Stripe.
             </DialogDescription>
           </DialogHeader>
           {pricingContext ? (
-            <div className="rounded-md border bg-muted/40 px-3 py-2">
+            <div className="rounded-lg border bg-muted/40 px-5 py-4">
               <p className="font-medium text-foreground">{pricingContext.eventName}</p>
               <p className="text-sm text-muted-foreground">Édition {pricingContext.editionYear}</p>
             </div>
@@ -2800,32 +2805,13 @@ export function OrganizerDashboard({
               {checkoutError}
             </p>
           ) : null}
-          {isAdmin && pricingContext?.tier === "visibility" ? (
-            <Card className="border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20">
-              <CardHeader>
-                <CardTitle>Publication partenaire offerte</CardTitle>
-                <CardDescription>
-                  Active RaceBook sans paiement pour cette édition. L’organisateur verra « Publication offerte — valeur : 99 € HT ».
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Button
-                  type="button"
-                  onClick={() => void grantComplimentaryRacebook()}
-                  disabled={complimentaryGrantLoading || checkoutTarget !== null}
-                >
-                  {complimentaryGrantLoading ? "Activation…" : "Offrir la publication — 99 € HT"}
-                </Button>
-              </CardContent>
-            </Card>
-          ) : null}
           {pricingContext?.tier === "racebook" ? (
-            <Card className="border-brand">
-              <CardHeader>
+            <Card className="border-brand p-2">
+              <CardHeader className="pb-5">
                 <CardTitle>RaceBook Pro — complément de 200 € HT</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-5">
-                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+              <CardContent className="space-y-7">
+                <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
                   <li>Notifications aux coureurs</li>
                   <li>Duplication d’une édition</li>
                   <li>Gestion des relais</li>
@@ -2833,35 +2819,35 @@ export function OrganizerDashboard({
                   <li>Gestion et suivi des sponsors</li>
                   <li>Import assisté</li>
                 </ul>
-                <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantLoading}>
+                <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
                   {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Passer à Pro pour 200 € HT"}
                 </Button>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2">
-              <Card>
-                <CardHeader>
+            <div className="grid gap-6 md:grid-cols-2">
+              <Card className="flex h-full flex-col p-2">
+                <CardHeader className="pb-5">
                   <CardTitle>RaceBook — 99 € HT</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-5">
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <CardContent className="flex flex-1 flex-col gap-7">
+                  <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
                     <li>Publication du RaceBook dans l’application mobile</li>
                     <li>Parcours, horaires et ravitaillements</li>
                     <li>Matériel, dossards et accès</li>
                     <li>Informations pratiques pour les coureurs</li>
                   </ul>
-                  <Button type="button" variant="outline" onClick={() => void startCheckout("racebook")} disabled={checkoutTarget !== null || complimentaryGrantLoading}>
+                  <Button type="button" variant="outline" className="mt-auto w-full" onClick={() => void startCheckout("racebook")} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
                     {checkoutTarget === "racebook" ? "Ouverture de Stripe…" : "Choisir RaceBook"}
                   </Button>
                 </CardContent>
               </Card>
-              <Card className="border-brand shadow-sm">
-                <CardHeader>
+              <Card className="flex h-full flex-col border-brand p-2 shadow-sm">
+                <CardHeader className="pb-5">
                   <CardTitle>RaceBook Pro — 299 € HT</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-5">
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                <CardContent className="flex flex-1 flex-col gap-7">
+                  <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
                     <li>Tout ce qui est inclus dans RaceBook</li>
                     <li>Notifications aux coureurs</li>
                     <li>Duplication d’une édition</li>
@@ -2870,13 +2856,60 @@ export function OrganizerDashboard({
                     <li>Gestion et suivi des sponsors</li>
                     <li>Import assisté</li>
                   </ul>
-                  <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantLoading}>
+                  <Button type="button" className="mt-auto w-full" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
                     {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Choisir RaceBook Pro"}
                   </Button>
                 </CardContent>
               </Card>
             </div>
           )}
+          {isAdmin && pricingContext ? (
+            <section className="space-y-5 rounded-xl border border-emerald-400 bg-emerald-50/50 p-6 dark:bg-emerald-950/20">
+              <div className="space-y-1.5">
+                <h3 className="text-lg font-semibold text-foreground">Offrir une offre partenaire</h3>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Ces activations ne passent pas par Stripe. Le bouton de publication indiquera ensuite clairement que l’offre a été offerte.
+                </p>
+              </div>
+              <div className={pricingContext.tier === "visibility" ? "grid gap-4 md:grid-cols-2" : "grid gap-4"}>
+                {pricingContext.tier === "visibility" ? (
+                  <div className="space-y-4 rounded-lg border border-emerald-300 bg-background/80 p-5">
+                    <div className="space-y-1.5">
+                      <p className="font-semibold text-foreground">Offrir RaceBook</p>
+                      <p className="text-sm leading-6 text-muted-foreground">
+                        Active la publication mobile pour tous les formats de cette édition, sans paiement.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="w-full"
+                      onClick={() => void grantComplimentaryOffer("racebook")}
+                      disabled={complimentaryGrantTarget !== null || checkoutTarget !== null}
+                    >
+                      {complimentaryGrantTarget === "racebook" ? "Activation…" : "Offrir RaceBook — valeur 99 € HT"}
+                    </Button>
+                  </div>
+                ) : null}
+                <div className="space-y-4 rounded-lg border border-emerald-300 bg-background/80 p-5">
+                  <div className="space-y-1.5">
+                    <p className="font-semibold text-foreground">Offrir RaceBook Pro</p>
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      Active la publication et toutes les fonctionnalités Pro de cette édition, y compris les sponsors.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    className="w-full"
+                    onClick={() => void grantComplimentaryOffer("pro")}
+                    disabled={complimentaryGrantTarget !== null || checkoutTarget !== null}
+                  >
+                    {complimentaryGrantTarget === "pro" ? "Activation…" : "Offrir RaceBook Pro — valeur 299 € HT"}
+                  </Button>
+                </div>
+              </div>
+            </section>
+          ) : null}
         </DialogContent>
       </Dialog>
 

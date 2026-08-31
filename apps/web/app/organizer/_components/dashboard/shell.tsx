@@ -181,6 +181,16 @@ export function OrganizerSummaryHeader({
   const editionIsVisible = selectedEdition?.is_visible !== false;
   const editionTier = selectedEdition?.entitlement?.status === "active" ? selectedEdition.entitlement.tier : "visibility";
   const canPublishRacebook = editionTier === "racebook" || editionTier === "pro";
+  const entitlementSource = selectedEdition?.entitlement?.source;
+  const isComplimentaryOffer = entitlementSource === "admin" || entitlementSource === "legacy_admin";
+  const activeOfferName = editionTier === "pro" ? "RaceBook Pro" : "RaceBook";
+  const offerStatusLabel = entitlementSource === "stripe"
+    ? "Paiement confirmé"
+    : isComplimentaryOffer && editionTier === "pro"
+      ? "Publication RaceBook Pro offerte — valeur : 299 € HT"
+      : isComplimentaryOffer && editionTier === "racebook"
+        ? "Publication RaceBook offerte — valeur : 99 € HT"
+        : "Aucun paiement actif";
 
   return (
     <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
@@ -244,22 +254,6 @@ export function OrganizerSummaryHeader({
           {isLive ? "Événement visible" : "Événement masqué"}
         </span>
         <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
-        <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold">
-          {editionTier === "pro" ? "RaceBook Pro" : editionTier === "racebook" ? "RaceBook" : "Visibilité"}
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {selectedEdition?.entitlement?.source === "stripe"
-            ? "Paiement confirmé"
-            : selectedEdition?.entitlement?.source === "admin"
-              ? editionTier === "pro"
-                ? "Publication offerte — valeur : 299 € HT"
-                : editionTier === "racebook"
-                  ? "Publication offerte — valeur : 99 € HT"
-                  : "Aucun paiement actif"
-              : selectedEdition?.entitlement?.source === "legacy_admin"
-                ? "Activation historique offerte"
-                : "Aucun paiement actif"}
-        </span>
       </div>
 
       <div className="mt-3 space-y-2">
@@ -368,14 +362,25 @@ export function OrganizerSummaryHeader({
           {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
         </Button>
         {raceRows.length > 0 ? (
-          <Button
-            type="button"
-            className="ml-auto"
-            onClick={onRequestPublication}
-            disabled={!editionIsVisible || status !== "idle"}
-          >
-            {canPublishRacebook ? `Offre ${editionTier === "pro" ? "RaceBook Pro" : "RaceBook"} active` : "Publier le RaceBook"}
-          </Button>
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+            <div className="text-right">
+              <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold">
+                {editionTier === "pro" ? "RaceBook Pro" : editionTier === "racebook" ? "RaceBook" : "Visibilité"}
+              </span>
+              <p className="mt-1 text-xs text-muted-foreground">{offerStatusLabel}</p>
+            </div>
+            <Button
+              type="button"
+              onClick={onRequestPublication}
+              disabled={!editionIsVisible || status !== "idle"}
+            >
+              {canPublishRacebook
+                ? isComplimentaryOffer
+                  ? `Offre ${activeOfferName} offerte`
+                  : `Offre ${activeOfferName} active`
+                : "Publier le RaceBook"}
+            </Button>
+          </div>
         ) : null}
       </div>
 
