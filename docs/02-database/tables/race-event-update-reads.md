@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -54,6 +54,7 @@ related_tables:
 - Racebook visibility has no effect on read receipts: announcements remain event-scoped and use parent event liveness, even when a particular format's Racebook is hidden.
 - Showing an unpublished Racebook CTA to its active organizer must not create or alter announcement read receipts.
 - Compacting the Courses event card by hiding its repeated multi-format helper sentence must not alter `NEW` badge or receipt behavior.
+- Starting sponsor prefetch from a RaceBook action is independent from announcement rendering and must not create or mark a read receipt.
 
 ## Related Docs
 

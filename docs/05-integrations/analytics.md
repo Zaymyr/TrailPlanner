@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -12,6 +12,10 @@ related_files:
   - apps/web/app/organizers/page.tsx
   - apps/web/lib/google-analytics.ts
   - apps/web/lib/organizer-acquisition.ts
+  - apps/web/lib/posthog-query.ts
+  - apps/web/app/api/admin/growth/route.ts
+  - apps/web/app/api/admin/growth/schema.ts
+  - apps/web/app/admin/components/AdminGrowthSection.tsx
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
@@ -97,6 +101,21 @@ The mobile PostHog client:
 Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
 The normal cold-start destination is the Courses catalog; that routing decision does not change analytics identity initialization.
 
+## Admin Growth Dashboard
+
+The admin Growth tab separates Web acquisition, App activation/retention, and Organizer acquisition/publication. `apps/web/app/api/admin/growth/route.ts` combines two sources without treating either one as interchangeable:
+
+- Supabase is authoritative for accounts, plans, subscriptions, organizer memberships, editions, formats, and RaceBook publication state.
+- PostHog supplies consented Web visitors/funnels, mobile screen activity, App retention cohorts, and organizer landing/dashboard visitors.
+
+The server-only PostHog reader in `apps/web/lib/posthog-query.ts` calls the project query API with:
+
+- `POSTHOG_PERSONAL_API_KEY`
+- `POSTHOG_PROJECT_ID`
+- optional `POSTHOG_API_HOST`; the public ingestion host is converted to the matching regional API host when this is absent.
+
+These read credentials must never use a `NEXT_PUBLIC_` prefix. If either required value is absent or the query fails, the endpoint still returns the Supabase metrics and marks PostHog-derived values unavailable instead of substituting estimates. App J+1/J+7/J+30 retention uses first `$screen` cohorts and an exact one-day return window. The organizer follow-up list is a Supabase operational proxy based on membership plus edition/format modification timestamps; it is not presented as a browser-session measurement.
+
 ## RaceBook Sponsor Clicks
 
 Sponsor reporting is deliberately separate from PostHog and Google Analytics. A press opens the server redirect, which rate-limits counting by sponsor plus a transient hashed network identifier and atomically increments only `race_event_edition_sponsors.click_count`. Organizers see this aggregate raw-opening total; it is not a unique-visitor metric. No impression, user id, network hash, or individual click history is persisted.
@@ -106,6 +125,9 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Never paste real PostHog keys into docs.
 - Do not include sensitive URL tokens in analytics paths.
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
+- Admin Web funnels therefore cover only consented traffic. Do not compare their visitor totals directly with all Supabase accounts as if both sources had equal coverage.
+- Keep PostHog personal API keys server-only. A missing/failed PostHog read must remain visible as unavailable data, not zero activity.
+- Organizer "content changed" and follow-up timestamps can include trusted admin/service edits to the same event. Use them for operational relaunches, not as exact organizer session counts.
 - Do not expand organizer attribution beyond the explicit UTM allowlist or persist campaign parameters in browser storage.
 - Use environment variable names, not values.
 - Do not use analytics identity as proof that a user should be synced to marketing contacts; Resend sync must validate the Supabase session separately.

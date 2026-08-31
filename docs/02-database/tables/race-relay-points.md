@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -63,6 +63,7 @@ The post-load automatic sponsor carousel likewise remains independent from relay
 ## Gotchas
 
 - RaceBook onboarding is presentation-only and leaves relay-point loading and the conditional Relais tab unchanged.
+- Holding initial RaceBook progress for sponsor preparation does not delay, cache, or change the separate relay-point read contract.
 
 - A handover is not necessarily a ravito, and a ravito is not necessarily a handover.
 - Do not copy relay points into `plan_aid_stations` or nutrition calculations in this first version.

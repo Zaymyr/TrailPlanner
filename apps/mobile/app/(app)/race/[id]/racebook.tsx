@@ -1084,6 +1084,12 @@ export default function RaceRacebookScreen() {
   });
 
   useEffect(() => {
+    if (!sponsorLookupDone) {
+      setLoadingExitDone(false);
+      setLoadingProgress(0.06);
+      return;
+    }
+
     if (!loading && sponsorGateDone) {
       setLoadingProgress(1);
       const completionTimer = setTimeout(() => setLoadingExitDone(true), 300);
@@ -1096,7 +1102,7 @@ export default function RaceRacebookScreen() {
     }, 180);
 
     return () => clearInterval(progressTimer);
-  }, [loading, sponsorGateDone]);
+  }, [loading, sponsorGateDone, sponsorLookupDone]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1157,8 +1163,8 @@ export default function RaceRacebookScreen() {
 
         if (sponsorTimer) clearTimeout(sponsorTimer);
         setSponsorPresentation(presentation);
-        setSponsorLookupDone(true);
         if (presentation.loadingSponsors.length === 0) {
+          setSponsorLookupDone(true);
           setSponsorGateDone(true);
           return;
         }
@@ -1174,6 +1180,7 @@ export default function RaceRacebookScreen() {
           ),
         );
         if (cancelled) return;
+        setSponsorLookupDone(true);
 
         sponsorFrame = requestAnimationFrame(() => {
           sponsorTimer = setTimeout(() => {

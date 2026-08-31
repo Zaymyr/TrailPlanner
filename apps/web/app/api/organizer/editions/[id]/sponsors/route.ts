@@ -10,6 +10,7 @@ import {
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
+import { requireOrganizerEditionCapability } from "../../../../../../lib/organizer-entitlements";
 import {
   MAX_RACEBOOK_LOADING_SPONSORS,
   MAX_RACEBOOK_SPONSOR_IMAGE_SIZE_BYTES,
@@ -40,6 +41,9 @@ async function loadAuthorizedEdition(
 
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, edition.event_id);
   if (organizer !== true) return organizer;
+  if (!(await requireOrganizerEditionCapability(auth.serviceConfig, edition.id, "sponsors.manage"))) {
+    return { error: jsonError("RaceBook Pro is required to manage sponsors.", 403) };
+  }
   return { ...auth, edition };
 }
 

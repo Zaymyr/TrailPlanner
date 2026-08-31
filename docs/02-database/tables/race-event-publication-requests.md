@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -63,7 +63,7 @@ This table is retained publication-review history. New organizer publication use
 - Organizer event/race routes never accept direct catalog `is_live` changes. The race route accepts `racebookIsLive` only through the membership-checked entitlement RPC.
 - A directly delegated organizer receives the same event membership and therefore the edition capability purchased or granted for that event.
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
-- The current dashboard publication action opens the edition offer dialog and never creates a publication-request row.
+- The current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A trusted admin may grant RaceBook from that dialog without payment through `set_admin_organizer_edition_entitlement`; the grant is edition-scoped, records `source = admin`, and leaves this legacy table unchanged.
 - Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.

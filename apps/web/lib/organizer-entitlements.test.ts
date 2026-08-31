@@ -15,6 +15,7 @@ describe("organizer edition capabilities", () => {
     expect(hasOrganizerCapability(entitlement("racebook"), "racebook.publish")).toBe(true);
     expect(hasOrganizerCapability(entitlement("racebook"), "followers.notify")).toBe(false);
     expect(hasOrganizerCapability(entitlement("racebook"), "relay.manage")).toBe(false);
+    expect(hasOrganizerCapability(entitlement("racebook"), "sponsors.manage")).toBe(false);
   });
 
   it("enables every declared capability for Pro and rejects revoked rights", () => {

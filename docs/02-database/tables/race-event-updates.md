@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -107,6 +107,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 - Adding an event favorite from that sheet may close it so the catalog can reveal the newly pinned event and success toast; this must not load, reorder, or mark organizer announcements.
 - The mobile update panel belongs after every format action, uses a light-green treatment, and shows only the newest or deep-link-targeted update while collapsed so notification volume cannot bury the plan/Racebook choices.
 - Removing the repeated multi-format helper sentence from the surrounding Courses event card changes only card density; it must not move, filter, or mark the organizer-update panel.
+- The RaceBook action may warm sponsor data before navigation, but that side request must not delay, reorder, fetch, or mark organizer announcements.
 - The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.

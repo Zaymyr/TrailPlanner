@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../../../lib/http";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders } from "../../../../../../../lib/organizer";
+import { requireOrganizerEditionCapability } from "../../../../../../../lib/organizer-entitlements";
 import {
   MAX_RACEBOOK_LOADING_SPONSORS,
   MAX_RACEBOOK_SPONSOR_IMAGE_SIZE_BYTES,
@@ -32,6 +33,9 @@ async function authorize(request: NextRequest, editionId: string, sponsorId: str
   if (!edition) return { error: jsonError("Edition not found.", 404) };
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, edition.event_id);
   if (organizer !== true) return organizer;
+  if (!(await requireOrganizerEditionCapability(auth.serviceConfig, editionId, "sponsors.manage"))) {
+    return { error: jsonError("RaceBook Pro is required to manage sponsors.", 403) };
+  }
 
   const sponsorResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?id=eq.${sponsorId}&edition_id=eq.${editionId}&select=*&limit=1`,

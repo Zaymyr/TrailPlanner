@@ -265,6 +265,7 @@ export function OrganizerDashboard({
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [pricingContext, setPricingContext] = useState<OrganizerPricingContext | null>(null);
   const [checkoutTarget, setCheckoutTarget] = useState<"racebook" | "pro" | null>(null);
+  const [complimentaryGrantLoading, setComplimentaryGrantLoading] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
   const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
@@ -1801,6 +1802,61 @@ export function OrganizerDashboard({
     }
   };
 
+  const grantComplimentaryRacebook = async () => {
+    if (!isAdmin || complimentaryGrantLoading || checkoutTarget !== null) return;
+    setComplimentaryGrantLoading(true);
+    setCheckoutError(null);
+    setError(null);
+    try {
+      if (!accessToken) {
+        const message = "Ta session admin a expiré. Reconnecte-toi puis réessaie.";
+        setCheckoutError(message);
+        showToast("error", message);
+        return;
+      }
+      if (!pricingContext) {
+        const message = "Impossible d’identifier l’édition à laquelle offrir la publication.";
+        setCheckoutError(message);
+        showToast("error", message);
+        return;
+      }
+      if (!(await saveBeforeNavigation())) {
+        setCheckoutError("La publication offerte n’a pas été activée car les modifications en cours n’ont pas pu être enregistrées.");
+        return;
+      }
+
+      const response = await fetch("/api/admin/event-publication-requests", {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "setEditionTier",
+          editionId: pricingContext.editionId,
+          tier: "racebook",
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      if (!response.ok) {
+        const message = data?.message ?? "Impossible d’offrir la publication RaceBook.";
+        setCheckoutError(message);
+        showToast("error", message);
+        return;
+      }
+
+      const grantedContext = pricingContext;
+      setPricingDialogOpen(false);
+      setPricingContext(null);
+      await loadEvent(grantedContext.eventId, activeTab, grantedContext.editionYear);
+      showToast("success", "Publication RaceBook offerte — valeur : 99 € HT.");
+    } catch (caught) {
+      console.error("Unable to grant complimentary organizer Racebook", caught);
+      const message = "Impossible d’offrir la publication pour le moment. Vérifie ta connexion puis réessaie.";
+      setCheckoutError(message);
+      showToast("error", message);
+    } finally {
+      setComplimentaryGrantLoading(false);
+    }
+  };
+
   const setRacebookVisibility = async (raceId: string, isLive: boolean) => {
     if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId) return;
@@ -2674,6 +2730,16 @@ export function OrganizerDashboard({
             />
           ) : activeModule === "services" ? (
             <ServicesEditor details={eventForm.organizerDetails} onChange={(details) => updateEventDetails(details, "services")} />
+          ) : activeModule === "sponsors" && isEventTab && activeTier !== "pro" ? (
+            <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
+              <p className="font-semibold text-foreground">Gestion des sponsors — RaceBook Pro</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Passe à Pro pour ajouter les logos de tes sponsors, choisir leurs emplacements et suivre leurs clics.
+              </p>
+              <Button type="button" className="mt-4" onClick={openPricingDialog}>
+                Découvrir RaceBook Pro
+              </Button>
+            </div>
           ) : activeModule === "sponsors" && isEventTab && activeEdition?.id ? (
             <SponsorsEditor
               key={activeEdition.id}
@@ -2734,14 +2800,40 @@ export function OrganizerDashboard({
               {checkoutError}
             </p>
           ) : null}
+          {isAdmin && pricingContext?.tier === "visibility" ? (
+            <Card className="border-emerald-400 bg-emerald-50/50 dark:bg-emerald-950/20">
+              <CardHeader>
+                <CardTitle>Publication partenaire offerte</CardTitle>
+                <CardDescription>
+                  Active RaceBook sans paiement pour cette édition. L’organisateur verra « Publication offerte — valeur : 99 € HT ».
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  type="button"
+                  onClick={() => void grantComplimentaryRacebook()}
+                  disabled={complimentaryGrantLoading || checkoutTarget !== null}
+                >
+                  {complimentaryGrantLoading ? "Activation…" : "Offrir la publication — 99 € HT"}
+                </Button>
+              </CardContent>
+            </Card>
+          ) : null}
           {pricingContext?.tier === "racebook" ? (
             <Card className="border-brand">
               <CardHeader>
                 <CardTitle>RaceBook Pro — complément de 200 € HT</CardTitle>
-                <CardDescription>Notifications coureurs, duplication, relais, produits aux ravitaillements et import assisté.</CardDescription>
               </CardHeader>
-              <CardContent>
-                <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null}>
+              <CardContent className="space-y-5">
+                <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                  <li>Notifications aux coureurs</li>
+                  <li>Duplication d’une édition</li>
+                  <li>Gestion des relais</li>
+                  <li>Produits officiels aux ravitaillements</li>
+                  <li>Gestion et suivi des sponsors</li>
+                  <li>Import assisté</li>
+                </ul>
+                <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantLoading}>
                   {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Passer à Pro pour 200 € HT"}
                 </Button>
               </CardContent>
@@ -2751,10 +2843,15 @@ export function OrganizerDashboard({
               <Card>
                 <CardHeader>
                   <CardTitle>RaceBook — 99 € HT</CardTitle>
-                  <CardDescription>Publication mobile, parcours, horaires, ravitaillements, matériel, dossards, accès et informations pratiques.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Button type="button" variant="outline" onClick={() => void startCheckout("racebook")} disabled={checkoutTarget !== null}>
+                <CardContent className="space-y-5">
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    <li>Publication du RaceBook dans l’application mobile</li>
+                    <li>Parcours, horaires et ravitaillements</li>
+                    <li>Matériel, dossards et accès</li>
+                    <li>Informations pratiques pour les coureurs</li>
+                  </ul>
+                  <Button type="button" variant="outline" onClick={() => void startCheckout("racebook")} disabled={checkoutTarget !== null || complimentaryGrantLoading}>
                     {checkoutTarget === "racebook" ? "Ouverture de Stripe…" : "Choisir RaceBook"}
                   </Button>
                 </CardContent>
@@ -2762,10 +2859,18 @@ export function OrganizerDashboard({
               <Card className="border-brand shadow-sm">
                 <CardHeader>
                   <CardTitle>RaceBook Pro — 299 € HT</CardTitle>
-                  <CardDescription>Tout RaceBook, plus notifications, duplication, relais, produits aux ravitaillements et import assisté.</CardDescription>
                 </CardHeader>
-                <CardContent>
-                  <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null}>
+                <CardContent className="space-y-5">
+                  <ul className="list-disc space-y-1 pl-5 text-sm text-muted-foreground">
+                    <li>Tout ce qui est inclus dans RaceBook</li>
+                    <li>Notifications aux coureurs</li>
+                    <li>Duplication d’une édition</li>
+                    <li>Gestion des relais</li>
+                    <li>Produits officiels aux ravitaillements</li>
+                    <li>Gestion et suivi des sponsors</li>
+                    <li>Import assisté</li>
+                  </ul>
+                  <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantLoading}>
                     {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Choisir RaceBook Pro"}
                   </Button>
                 </CardContent>
