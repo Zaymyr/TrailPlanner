@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, POST } from "./route";
 
 const mocks = vi.hoisted(() => ({
   requireEventOrganizer: vi.fn(),
+  requireOrganizerEditionCapability: vi.fn(),
   requireOrganizerAuth: vi.fn(),
+}));
+
+vi.mock("../../../../../../lib/organizer-entitlements", () => ({
+  requireOrganizerEditionCapability: mocks.requireOrganizerEditionCapability,
 }));
 
 vi.mock("../../../../../../lib/organizer", () => ({
@@ -18,6 +23,10 @@ vi.mock("../../../../../../lib/organizer", () => ({
 
 const editionId = "33333333-3333-4333-8333-333333333333";
 const eventId = "22222222-2222-4222-8222-222222222222";
+
+beforeEach(() => {
+  mocks.requireOrganizerEditionCapability.mockResolvedValue(true);
+});
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -57,6 +66,22 @@ describe("organizer edition sponsor routes", () => {
 
     const response = await GET(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/sponsors`), { params: { id: editionId } });
     expect(response.status).toBe(403);
+  });
+
+  it("requires an active Pro entitlement before loading sponsors", async () => {
+    mocks.requireOrganizerAuth.mockResolvedValue({
+      user: { id: "user-1" },
+      serviceConfig: { supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" },
+    });
+    mocks.requireEventOrganizer.mockResolvedValue(true);
+    mocks.requireOrganizerEditionCapability.mockResolvedValue(false);
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 })
+    );
+
+    const response = await GET(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/sponsors`), { params: { id: editionId } });
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("rejects unsupported logo formats before uploading", async () => {

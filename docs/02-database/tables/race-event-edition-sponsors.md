@@ -1,13 +1,14 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - apps/web/lib/racebook-sponsors.ts
+  - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/route.test.ts
@@ -52,7 +53,7 @@ An active row needs at least one placement. A transaction-serialized trigger enf
 
 ## Security and Access
 
-RLS is enabled and `anon` / `authenticated` receive no table privileges or policies. Organizer and mobile clients use Next.js routes; those routes verify the Supabase session and active parent-event membership when required, then use `service_role`.
+RLS is enabled and `anon` / `authenticated` receive no table privileges or policies. Organizer and mobile clients use Next.js routes, then the routes use `service_role`. Organizer sponsor reads and mutations require both active parent-event membership and the edition-level Pro `sponsors.manage` capability.
 
 The public presentation route returns only active rows after the normal public RaceBook gate, with an active organizer preview exception. It exposes a server redirect URL instead of `website_url`. The redirect route validates the sponsor/race edition pair, rate-limits counting by sponsor plus a hashed network identifier, invokes `increment_racebook_sponsor_click` atomically, and redirects even when counting fails.
 
@@ -66,7 +67,7 @@ The fictitious Trail TST assets are reproducible under `supabase/demo-assets/spo
 
 ## Mobile Presentation
 
-The RaceBook reserves one unified loading panel with two vertical logo slots while the sponsor lookup is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears. The presentation does not add impression tracking or expose direct destination URLs.
+The Courses sheet starts a short-lived, account-scoped sponsor request and logo warmup immediately before navigating to a RaceBook. The destination reuses that in-flight/cached request, holds visible progress at its initial position until loading logos are ready, then starts the normal animation with sponsors already displayed. Direct links keep the same lookup and logo-prefetch fallback. The RaceBook reserves one unified loading panel with two vertical logo slots while that preparation is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears. The presentation does not add impression tracking or expose direct destination URLs.
 
 Banner placements use an automatic horizontal carousel whenever at least two active sponsors exist. It presents one sponsor per viewport-sized slide for three seconds, transitions over 520 ms, and loops through a duplicate first slide; reduced-motion users receive the manual horizontal list instead. The carousel still preserves database order, the ten-sponsor cap, and counted redirect links.
 
@@ -76,9 +77,10 @@ Banner placements use an automatic horizontal carousel whenever at least two act
 
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.
-- Sponsor configuration is not Pro-gated, but runners see it only when the selected RaceBook is accessible.
+- Sponsor configuration and aggregate click totals are Pro-gated in both the Organizer UI and every organizer sponsor route. Do not rely on the browser gate alone. Existing active placements remain runner-visible whenever the selected RaceBook is accessible, even if the organizer entitlement is later downgraded.
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
 - Keep the mobile loading panel and its two slots reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
+- Keep the sponsor handoff cache short-lived and scoped by authenticated user id plus race id. It may share one in-flight request across the catalog and destination, but must not reuse an organizer-only draft response after a session change.
 - Keep the compact banner carousel independent from aggregate row-width measurement; every active banner sponsor must rotate even when several logos could technically fit at once.
 - Keep sponsor timing independent from route-local expansion state; opening a parking, shuttle, or ravito accordion row must not restart the banner or sponsor gate.
 

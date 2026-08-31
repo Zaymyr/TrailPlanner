@@ -5,7 +5,12 @@ import { DELETE, PUT } from "./route";
 
 const mocks = vi.hoisted(() => ({
   requireEventOrganizer: vi.fn(),
+  requireOrganizerEditionCapability: vi.fn(),
   requireOrganizerAuth: vi.fn(),
+}));
+
+vi.mock("../../../../../../../lib/organizer-entitlements", () => ({
+  requireOrganizerEditionCapability: mocks.requireOrganizerEditionCapability,
 }));
 
 vi.mock("../../../../../../../lib/organizer", () => ({
@@ -43,9 +48,22 @@ const prepareAuthorization = () => {
     serviceConfig: { supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" },
   });
   mocks.requireEventOrganizer.mockResolvedValue(true);
+  mocks.requireOrganizerEditionCapability.mockResolvedValue(true);
 };
 
 describe("organizer sponsor mutation route", () => {
+  it("requires an active Pro entitlement before loading the sponsor", async () => {
+    prepareAuthorization();
+    mocks.requireOrganizerEditionCapability.mockResolvedValue(false);
+    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
+      new Response(JSON.stringify([{ event_id: eventId }]), { status: 200 })
+    );
+
+    const response = await DELETE(new NextRequest("http://localhost/sponsor"), { params: { id: editionId, sponsorId } });
+    expect(response.status).toBe(403);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
   it("rejects a sponsor from another edition", async () => {
     prepareAuthorization();
     vi.spyOn(global, "fetch")

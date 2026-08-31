@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-08-30
+last_verified: 2026-08-31
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -32,7 +32,7 @@ The organizer offer is purchased once per event edition. It is independent from 
 
 - `Visibilité` is free and keeps the event and complete formats in the public catalog.
 - `RaceBook` costs 99 € excluding tax and unlocks mobile RaceBook publication.
-- `RaceBook Pro` costs 299 € excluding tax and adds notifications, edition duplication, relay management, official aid-station products, and assisted import.
+- `RaceBook Pro` costs 299 € excluding tax and adds notifications, edition duplication, relay management, official aid-station products, sponsor management and click totals, and assisted import.
 - Upgrading an already active RaceBook edition to Pro costs 200 € excluding tax.
 - Every active event organizer inherits the edition entitlement; formats added later are covered automatically.
 
@@ -46,6 +46,7 @@ The organizer offer is purchased once per event edition. It is independent from 
 | Duplicate an edition | No | No | Yes |
 | Manage relay points | No | No | Yes |
 | Manage official aid-station products | No | No | Yes |
+| Manage edition sponsors and view click totals | No | No | Yes |
 | Request assisted import | No | No | Yes |
 
 `apps/web/lib/organizer-entitlements.ts` is the central capability resolver. Routes and UI must request a capability rather than compare plan strings locally.
@@ -60,7 +61,7 @@ Any refund, including a partial refund event, or open/lost dispute invalidates i
 
 ## Historical and Admin Rights
 
-The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer tab can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
+The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer tab can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant. In the ordinary `/organizer` publication dialog, a trusted admin also sees a partner action that grants RaceBook to the selected edition without Stripe; pending edits are saved first and the normal admin-authenticated route records `source = admin`. The organizer dashboard identifies an admin RaceBook grant as `Publication offerte — valeur : 99 € HT` and an admin Pro grant as `Publication offerte — valeur : 299 € HT`. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
 
 ## Gotchas
 
@@ -69,7 +70,8 @@ The migration grants Pro with source `legacy_admin` to editions that already con
 - The checkout CTA enters its loading state before saving pending organizer edits and surfaces missing session/edition, save, API, and network failures inside the pricing dialog; a failed client-side prerequisite must never look like an inert button.
 - Never infer the billed edition only from transient editor state after the pricing dialog is open; capture its event id, edition id, year, and effective tier when opening the dialog.
 - A dated event format cannot be sold without a canonical edition id. Backfill orphaned formats and let the database assignment trigger create/reuse future event-year editions before opening checkout.
-- Never grant notification, relay, duplication, or official-product access only in the browser; the server route or RLS boundary must enforce it too.
+- Never grant notification, relay, duplication, official-product, or sponsor-management access only in the browser; the server route or RLS boundary must enforce it too.
+- Never expose the complimentary grant action from an organizer-supplied role flag. It is shown from the verified session and still requires the server route's trusted `app_metadata` admin check.
 - Do not reuse runner `subscriptions`, RevenueCat, trials, or `premium_grants` for organizer editions.
 - Hiding RaceBooks after invalidation must not hide the free catalog entry.
 

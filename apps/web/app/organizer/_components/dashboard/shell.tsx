@@ -251,7 +251,11 @@ export function OrganizerSummaryHeader({
           {selectedEdition?.entitlement?.source === "stripe"
             ? "Paiement confirmé"
             : selectedEdition?.entitlement?.source === "admin"
-              ? "Activation administrateur"
+              ? editionTier === "pro"
+                ? "Publication offerte — valeur : 299 € HT"
+                : editionTier === "racebook"
+                  ? "Publication offerte — valeur : 99 € HT"
+                  : "Aucun paiement actif"
               : selectedEdition?.entitlement?.source === "legacy_admin"
                 ? "Activation historique offerte"
                 : "Aucun paiement actif"}

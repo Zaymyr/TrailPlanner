@@ -25,6 +25,7 @@ import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { isAnonymousSession } from '../../lib/appSession';
 import { canShowRacebook } from '../../lib/racebook';
+import { prefetchRacebookSponsors } from '../../lib/racebookSponsors';
 import { supabase } from '../../lib/supabase';
 import { saveOnboardingProgress, skipOnboardingKind } from '../../lib/onboardingStatus';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
@@ -267,6 +268,7 @@ function RaceRow({
   title,
   subtitle,
   secondaryActionLabel,
+  onSecondaryPressIn,
   onSecondaryPress,
   primaryActionLabel,
   onPrimaryPress,
@@ -274,6 +276,7 @@ function RaceRow({
   title: string;
   subtitle: string;
   secondaryActionLabel?: string;
+  onSecondaryPressIn?: () => void;
   onSecondaryPress?: () => void;
   primaryActionLabel: string;
   onPrimaryPress: () => void;
@@ -286,7 +289,11 @@ function RaceRow({
       </View>
       <View style={styles.formatActions}>
         {secondaryActionLabel && onSecondaryPress ? (
-          <TouchableOpacity style={styles.formatSecondaryActionButton} onPress={onSecondaryPress}>
+          <TouchableOpacity
+            style={styles.formatSecondaryActionButton}
+            onPressIn={onSecondaryPressIn}
+            onPress={onSecondaryPress}
+          >
             <Text style={styles.formatSecondaryActionButtonText}>{secondaryActionLabel}</Text>
           </TouchableOpacity>
         ) : null}
@@ -1249,7 +1256,11 @@ export default function CatalogScreen() {
                       ? t.catalog.racebookCta
                       : undefined
                   }
+                  onSecondaryPressIn={() => {
+                    void prefetchRacebookSponsors(race.id);
+                  }}
                   onSecondaryPress={() => {
+                    void prefetchRacebookSponsors(race.id);
                     setSelectedEvent(null);
                     if (onboardingMode === 'racebook') {
                       void saveOnboardingProgress({
