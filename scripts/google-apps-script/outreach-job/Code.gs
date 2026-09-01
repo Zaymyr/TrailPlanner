@@ -32,6 +32,11 @@ const GMAIL_RECONCILIATION = Object.freeze({
   maxBatchSize: 100,
 });
 
+const UNSUBSCRIBE = Object.freeze({
+  secretProperty: 'OUTREACH_UNSUBSCRIBE_SECRET',
+  defaultLabel: 'Je ne souhaite plus recevoir ces emails',
+});
+
 /**
  * Generates the secret expected by the BeTrail scraper webhook.
  * Run manually, then copy the returned value into the local environment variable
@@ -47,6 +52,9 @@ function createScraperWebhookToken() {
 /** Receives idempotent BeTrail prospect batches from the local Node scraper. */
 function doPost(event) {
   try {
+    if (event && event.parameter && event.parameter.action === 'unsubscribe') {
+      return confirmUnsubscribe_(event.parameter);
+    }
     const payload = JSON.parse(event && event.postData ? event.postData.contents : '{}');
     const expectedToken = PropertiesService.getScriptProperties().getProperty(SCRAPER_WEBHOOK.tokenProperty);
     if (!expectedToken || !constantTimeEquals_(String(payload.token || ''), expectedToken)) {
@@ -82,12 +90,44 @@ function doPost(event) {
   }
 }
 
+/** Displays a confirmation page before changing a prospect's opt-out state. */
+function doGet(event) {
+  const parameters = event && event.parameter ? event.parameter : {};
+  if (parameters.action !== 'unsubscribe') {
+    return HtmlService.createHtmlOutput('Page introuvable.').setTitle('Pace Yourself');
+  }
+
+  const prospect = findProspectForUnsubscribe_(parameters.uuid, parameters.token);
+  if (!prospect) {
+    return HtmlService.createHtmlOutput('Ce lien de désinscription est invalide ou a expiré.').setTitle('Pace Yourself');
+  }
+  if (prospect.optedOut) {
+    return HtmlService.createHtmlOutput('Cette adresse est déjà désinscrite.').setTitle('Pace Yourself');
+  }
+
+  const actionUrl = ScriptApp.getService().getUrl();
+  const html = [
+    '<!doctype html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">',
+    '<title>Désinscription — Pace Yourself</title></head><body style="font-family:Arial,sans-serif;max-width:560px;margin:48px auto;padding:0 20px;color:#202124">',
+    '<h1 style="font-size:24px">Confirmer la désinscription</h1>',
+    '<p>Vous ne recevrez plus d’email de prospection Pace Yourself à cette adresse.</p>',
+    '<form method="post" action="' + escapeHtml_(actionUrl) + '">',
+    '<input type="hidden" name="action" value="unsubscribe">',
+    '<input type="hidden" name="uuid" value="' + escapeHtml_(prospect.uuid) + '">',
+    '<input type="hidden" name="token" value="' + escapeHtml_(parameters.token) + '">',
+    '<button type="submit" style="background:#111827;color:white;border:0;border-radius:6px;padding:12px 18px;font-weight:600;cursor:pointer">Me désinscrire</button>',
+    '</form></body></html>',
+  ].join('');
+  return HtmlService.createHtmlOutput(html).setTitle('Désinscription — Pace Yourself');
+}
+
 /**
  * Installs a one-minute Apps Script trigger. The job only creates Gmail drafts.
  * Run this function manually once from the Apps Script editor to grant access.
  */
 function installOutreachJob() {
   removeOutreachTriggers_();
+  ensureUnsubscribeSecret_();
   ensureHistorySheet_();
   ScriptApp.newTrigger(OUTREACH_JOB.triggerFunction)
     .timeBased()
@@ -168,10 +208,6 @@ function runOutreachJob() {
         appendHistory_(historySheet, now, dateKey, followupProspect, 'REPONSE_RECUE', '', 'Réponse détectée avant relance');
         return { status: 'REPONSE_RECUE', email: followupProspect.email, reconciliation: reconciliation };
       }
-      if (!followupActivity.sentMessage) {
-        return { status: 'RELANCE_IGNORE_SANS_FIL', email: followupProspect.email, reconciliation: reconciliation };
-      }
-
       const followupTemplateKey = followupTemplateKeyForMessage_(followupActivity.sentMessage);
       const followupBody = replaceOrganizationName_(String(template[followupTemplateKey] || ''), followupProspect.organizationName || '');
       if (!followupBody.trim()) {
@@ -179,10 +215,37 @@ function runOutreachJob() {
       }
       const sender = String(template.expediteur || Session.getEffectiveUser().getEmail()).trim();
       const signatureHtml = getGmailSignature_(sender);
-      const htmlBody = markdownBodyToHtml_(followupBody) + signatureHtml;
-      const plainBody = stripMarkdown_(followupBody) + stripHtml_(signatureHtml);
-      const draft = createThreadedFollowupDraft_(followupActivity.sentMessage, followupProspect.email, sender, plainBody, htmlBody);
-      appendHistory_(historySheet, now, dateKey, followupProspect, 'RELANCE_BROUILLON_CREE', draft.id, 'Brouillon de relance créé dans le fil Gmail');
+      const followupContent = appendUnsubscribeFooter_(
+        stripMarkdown_(followupBody) + stripHtml_(signatureHtml),
+        markdownBodyToHtml_(followupBody) + signatureHtml,
+        buildUnsubscribeUrl_(followupProspect),
+        String(template.texte_desinscription || UNSUBSCRIBE.defaultLabel),
+      );
+      let draft;
+      let details;
+      if (followupActivity.sentMessage
+        && subjectIncludesOrganization_(followupActivity.sentMessage.getSubject(), followupProspect.organizationName)) {
+        draft = createThreadedFollowupDraft_(
+          followupActivity.sentMessage,
+          followupProspect.email,
+          sender,
+          followupContent.plainBody,
+          followupContent.htmlBody,
+        );
+        details = 'Brouillon de relance créé dans le fil Gmail';
+      } else {
+        draft = createStandaloneFollowupDraft_(
+          followupProspect.email,
+          sender,
+          followupSubject_(template, followupProspect.organizationName),
+          followupContent.plainBody,
+          followupContent.htmlBody,
+        );
+        details = followupActivity.sentMessage
+          ? 'Brouillon de relance créé hors fil (objet Gmail initial non personnalisé)'
+          : 'Brouillon de relance créé hors fil (envoi initial absent de Gmail)';
+      }
+      appendHistory_(historySheet, now, dateKey, followupProspect, 'RELANCE_BROUILLON_CREE', draft.id, details);
       return {
         status: 'RELANCE_BROUILLON_CREE',
         email: followupProspect.email,
@@ -208,12 +271,16 @@ function runOutreachJob() {
     const templatedBody = replaceOrganizationName_(String(template.corps_email || ''), organizationName);
     const sender = String(template.expediteur || Session.getEffectiveUser().getEmail()).trim();
     const signatureHtml = getGmailSignature_(sender);
-    const htmlBody = markdownBodyToHtml_(templatedBody) + signatureHtml;
-    const plainBody = stripMarkdown_(templatedBody) + stripHtml_(signatureHtml);
-    const options = { htmlBody: htmlBody };
+    const initialContent = appendUnsubscribeFooter_(
+      stripMarkdown_(templatedBody) + stripHtml_(signatureHtml),
+      markdownBodyToHtml_(templatedBody) + signatureHtml,
+      buildUnsubscribeUrl_(prospect),
+      String(template.texte_desinscription || UNSUBSCRIBE.defaultLabel),
+    );
+    const options = { htmlBody: initialContent.htmlBody };
 
     if (GmailApp.getAliases().indexOf(sender) !== -1) options.from = sender;
-    const draft = GmailApp.createDraft(prospect.email, subject, plainBody, options);
+    const draft = GmailApp.createDraft(prospect.email, subject, initialContent.plainBody, options);
     appendHistory_(historySheet, now, dateKey, prospect, 'BROUILLON_CREE', draft.getId(), 'Brouillon Gmail créé');
 
     return {
@@ -354,6 +421,113 @@ function createThreadedFollowupDraft_(sentMessage, recipient, sender, plainBody,
       raw: Utilities.base64EncodeWebSafe(raw, Utilities.Charset.UTF_8).replace(/=+$/, ''),
     },
   }, 'me');
+}
+
+function createStandaloneFollowupDraft_(recipient, sender, subject, plainBody, htmlBody) {
+  const options = { htmlBody: htmlBody };
+  if (GmailApp.getAliases().indexOf(sender) !== -1) options.from = sender;
+  const draft = GmailApp.createDraft(recipient, subject, plainBody, options);
+  return { id: draft.getId() };
+}
+
+function followupSubject_(template, organizationName) {
+  const configured = String(template.objet_relance || '').trim();
+  if (configured) return replaceOrganizationName_(configured, organizationName || '');
+  return 'Re: Un Race Book mobile pour ' + String(organizationName || 'Pace Yourself').trim();
+}
+
+function subjectIncludesOrganization_(subject, organizationName) {
+  const normalizedSubject = normalizeSearchText_(subject);
+  const normalizedOrganization = normalizeSearchText_(organizationName);
+  return normalizedOrganization.length >= 3 && normalizedSubject.indexOf(normalizedOrganization) !== -1;
+}
+
+function normalizeSearchText_(value) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+/**
+ * Repairs the subject of existing follow-up drafts without sending them.
+ * Run manually once after deploying the matching Code.gs version.
+ */
+function repairFollowupDraftSubjects() {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) return { status: 'SKIPPED_LOCKED' };
+
+  try {
+    const spreadsheet = SpreadsheetApp.openById(OUTREACH_JOB.spreadsheetId);
+    const template = readKeyValueSheet_(spreadsheet, OUTREACH_JOB.templateSheet);
+    const settings = readKeyValueSheet_(spreadsheet, OUTREACH_JOB.settingsSheet);
+    const timezone = String(settings.fuseau_horaire || 'Europe/Paris');
+    const sender = String(template.expediteur || Session.getEffectiveUser().getEmail()).trim();
+    const aliases = GmailApp.getAliases();
+    const historySheet = ensureHistorySheet_(spreadsheet);
+    const values = historySheet.getDataRange().getValues();
+    const latestByDraftId = {};
+
+    values.slice(1).forEach(function (row) {
+      const draftId = String(row[7] || '').trim();
+      if (String(row[6] || '') !== 'RELANCE_BROUILLON_CREE' || !draftId) return;
+      latestByDraftId[draftId] = {
+        uuid: String(row[2] || '').trim(),
+        email: String(row[3] || '').trim(),
+        organizationName: String(row[4] || '').trim(),
+        eventDate: row[5] || '',
+        draftId: draftId,
+      };
+    });
+
+    const result = { checked: 0, updated: 0, alreadyCorrect: 0, missing: 0, errors: 0 };
+    Object.keys(latestByDraftId).forEach(function (draftId) {
+      const prospect = latestByDraftId[draftId];
+      const desiredSubject = followupSubject_(template, prospect.organizationName);
+      result.checked += 1;
+      try {
+        const draft = GmailApp.getDraft(draftId);
+        if (!draft) {
+          result.missing += 1;
+          return;
+        }
+        const message = draft.getMessage();
+        if (message.getSubject() === desiredSubject) {
+          result.alreadyCorrect += 1;
+          return;
+        }
+
+        const options = { htmlBody: message.getBody() };
+        const cc = String(message.getCc() || '').trim();
+        const bcc = String(message.getBcc() || '').trim();
+        if (cc) options.cc = cc;
+        if (bcc) options.bcc = bcc;
+        if (aliases.indexOf(sender) !== -1) options.from = sender;
+        draft.update(message.getTo() || prospect.email, desiredSubject, message.getPlainBody(), options);
+        result.updated += 1;
+
+        const now = new Date();
+        appendHistory_(
+          historySheet,
+          now,
+          Utilities.formatDate(now, timezone, 'yyyy-MM-dd'),
+          prospect,
+          'RELANCE_OBJET_REPARE',
+          draftId,
+          'Objet du brouillon remplacé par : ' + desiredSubject,
+        );
+      } catch (error) {
+        result.errors += 1;
+        console.warn('Impossible de réparer le brouillon ' + draftId + ' : ' + error.message);
+      }
+    });
+    SpreadsheetApp.flush();
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function gmailHeaderValue_(headers, name) {
@@ -655,6 +829,101 @@ function sanitizeSignatureHtml_(value) {
 
 function replaceOrganizationName_(value, organizationName) {
   return String(value).replace(/\{\{\s*organization_name(?:\s*\|\s*default:\s*''\s*)?\s*\}\}/g, organizationName || '');
+}
+
+function ensureUnsubscribeSecret_() {
+  const properties = PropertiesService.getScriptProperties();
+  let secret = properties.getProperty(UNSUBSCRIBE.secretProperty);
+  if (!secret) {
+    secret = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+    properties.setProperty(UNSUBSCRIBE.secretProperty, secret);
+  }
+  return secret;
+}
+
+function unsubscribeToken_(uuid) {
+  const signature = Utilities.computeHmacSha256Signature(String(uuid || ''), ensureUnsubscribeSecret_());
+  return Utilities.base64EncodeWebSafe(signature).replace(/=+$/, '');
+}
+
+function buildUnsubscribeUrl_(prospect) {
+  const serviceUrl = ScriptApp.getService().getUrl();
+  if (!serviceUrl) throw new Error('Lien de désinscription indisponible : déployez le script comme application Web.');
+  const uuid = String(prospect && prospect.uuid || '').trim();
+  if (!uuid) throw new Error('Lien de désinscription indisponible : UUID prospect manquant.');
+  return serviceUrl + '?action=unsubscribe&uuid=' + encodeURIComponent(uuid) + '&token=' + encodeURIComponent(unsubscribeToken_(uuid));
+}
+
+function appendUnsubscribeFooter_(plainBody, htmlBody, unsubscribeUrl, label) {
+  const safeLabel = String(label || UNSUBSCRIBE.defaultLabel).trim() || UNSUBSCRIBE.defaultLabel;
+  return {
+    plainBody: String(plainBody || '') + '\n\n' + safeLabel + ' : ' + unsubscribeUrl,
+    htmlBody: String(htmlBody || '') + '<br><br><span style="font-size:12px;color:#6b7280"><a href="'
+      + escapeHtml_(unsubscribeUrl) + '" style="color:#6b7280">' + escapeHtml_(safeLabel) + '</a></span>',
+  };
+}
+
+function findProspectForUnsubscribe_(uuid, token) {
+  const normalizedUuid = String(uuid || '').trim();
+  const normalizedToken = String(token || '').trim();
+  if (!normalizedUuid || !normalizedToken || !constantTimeEquals_(normalizedToken, unsubscribeToken_(normalizedUuid))) return null;
+
+  const spreadsheet = SpreadsheetApp.openById(OUTREACH_JOB.spreadsheetId);
+  const sheet = requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet);
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return null;
+  const headers = headerIndex_(values[0]);
+  ['uuid', 'email', 'Organization name', 'outreach_event_date', 'opted-out'].forEach(function (header) {
+    if (headers[header] === undefined) throw new Error('Colonne Prospects manquante : ' + header);
+  });
+
+  for (let offset = 0; offset < values.length - 1; offset += 1) {
+    const row = values[offset + 1];
+    if (String(row[headers.uuid] || '').trim() !== normalizedUuid) continue;
+    return {
+      sheet: sheet,
+      rowNumber: offset + 2,
+      uuid: normalizedUuid,
+      email: String(row[headers.email] || '').trim(),
+      organizationName: String(row[headers['Organization name']] || '').trim(),
+      eventDate: row[headers.outreach_event_date] || '',
+      optedOut: asBoolean_(row[headers['opted-out']]),
+      optedOutColumn: headers['opted-out'] + 1,
+    };
+  }
+  return null;
+}
+
+function confirmUnsubscribe_(parameters) {
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(10000)) {
+    return HtmlService.createHtmlOutput('La demande est momentanément indisponible. Merci de réessayer.').setTitle('Pace Yourself');
+  }
+  try {
+    const prospect = findProspectForUnsubscribe_(parameters.uuid, parameters.token);
+    if (!prospect) {
+      return HtmlService.createHtmlOutput('Ce lien de désinscription est invalide ou a expiré.').setTitle('Pace Yourself');
+    }
+    if (!prospect.optedOut) {
+      prospect.sheet.getRange(prospect.rowNumber, prospect.optedOutColumn).setValue(true);
+      const spreadsheet = SpreadsheetApp.openById(OUTREACH_JOB.spreadsheetId);
+      const timezone = String(readKeyValueSheet_(spreadsheet, OUTREACH_JOB.settingsSheet).fuseau_horaire || 'Europe/Paris');
+      const now = new Date();
+      appendHistory_(
+        ensureHistorySheet_(spreadsheet),
+        now,
+        Utilities.formatDate(now, timezone, 'yyyy-MM-dd'),
+        prospect,
+        'DESINSCRIPTION_CONFIRMEE',
+        '',
+        'Désinscription confirmée depuis le lien email',
+      );
+      SpreadsheetApp.flush();
+    }
+    return HtmlService.createHtmlOutput('Votre adresse a bien été désinscrite.').setTitle('Désinscription — Pace Yourself');
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 function markdownBodyToHtml_(value) {

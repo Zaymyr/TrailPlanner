@@ -14,9 +14,9 @@ This folder is the deployable Google Apps Script source for the organizer outrea
 
 The installer creates a trigger that checks the queue every minute. It updates `Template email!statut_job` after successful installation.
 
-After changing [`Code.gs`](Code.gs), replace the bound Apps Script editor content again and save it. The existing trigger continues to call `runOutreachJob`; rerun `installOutreachJob` only when the trigger or OAuth permissions need to be recreated.
+After changing [`Code.gs`](Code.gs), replace the bound Apps Script editor content again and save it. The existing trigger continues to call `runOutreachJob`; rerun `installOutreachJob` once after adding the unsubscribe feature so its signing secret is created. Later reruns are only needed when the trigger or OAuth permissions need to be recreated.
 
-For webhook changes, also edit the existing Web app deployment and select **New version**. Merely saving the editor does not update the `/exec` deployment. The scraper verifies the webhook schema and stops with `webhook Apps Script obsolete` when its configured URL still points to an older deployment.
+For webhook or unsubscribe-page changes, also edit the existing Web app deployment and select **New version**. Merely saving the editor does not update the `/exec` deployment. The scraper verifies the webhook schema and stops with `webhook Apps Script obsolete` when its configured URL still points to an older deployment.
 
 ## BeTrail scraper webhook
 
@@ -48,11 +48,14 @@ The queue uses `outreach_planning_date`, so a past 2026 edition can be scheduled
 - Existing sent mail, replies, bounces, exclusions, opt-outs, the organizer name, the daily cap, and the configured delay are rechecked.
 - Every terminal outcome is written to `Historique envois` to prevent duplicate drafts.
 - Gmail reconciliation updates `Prospects!last_sent_email_at` and `Prospects!replied_at` from actual Gmail messages. It runs in a rotating bounded batch every five minutes by default, including while draft creation is disabled.
-- `activation_relance` is off by default. When enabled, the job creates one reply draft in the existing Gmail thread after `delai_relance_jours` (ten business days, Monday through Friday, by default), only if no response, bounce, exclusion, opt-out, or earlier follow-up exists.
+- `activation_relance` is off by default. When enabled, the job creates one reply draft in the existing Gmail thread after `delai_relance_jours` (ten business days, Monday through Friday, by default), only if no response, bounce, exclusion, opt-out, or earlier follow-up exists. Gmail requires matching subjects to keep a reply in the same thread: when the original subject already contains the organization name, the draft stays threaded; when it is generic or the older send came from Overloop, the job creates a standalone follow-up with `objet_relance`, personalized from `Organization name`.
 - Before creating that draft, the job reads the first sent message. It uses `corps_relance` when that message already mentioned the TST/course-test flow; older presentation emails use `corps_relance_premier_contact`, which introduces the newer site and app resources, then invites the organizer to download the app and open TST before sharing feedback.
 - Public holidays are not excluded unless a holiday calendar is added explicitly; the business-day calculation currently skips weekends only.
 - Initial and follow-up drafts share `limite_quotidienne` and `delai_entre_envois_minutes`.
 - The scraper webhook never sends email and never changes contact/reply/exclusion fields on an existing prospect.
 - Gmail signature icons outside the basic Unicode plane are encoded as HTML entities so Gmail preserves them in generated drafts.
+- Every initial and follow-up draft includes a prospect-specific signed unsubscribe link. The link first displays a confirmation page; confirmation checks `Prospects!opted-out`, records `DESINSCRIPTION_CONFIRMEE` in `Historique envois`, and blocks later drafts for that prospect. `Template email!texte_desinscription` controls the visible link label, while `objet_relance` controls the standalone follow-up subject.
 
 Run `uninstallOutreachJob` to delete the trigger without deleting the spreadsheet history.
+
+If older follow-up drafts were created with a generic subject, run `repairFollowupDraftSubjects` manually once. It updates only the subjects of existing `RELANCE_BROUILLON_CREE` drafts, preserves recipients and bodies, and records `RELANCE_OBJET_REPARE` in `Historique envois`. Because Gmail only threads matching subjects, a repaired personalized draft can become a standalone conversation.

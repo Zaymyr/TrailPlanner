@@ -50,6 +50,14 @@ describe("GET /api/admin/growth", () => {
       activePlanUsers: 1,
       newPlans: 1,
     });
+    expect(payload.trend).toHaveLength(31);
+    expect(payload.trend.find((point: { date: string }) => point.date === "2026-08-20")).toMatchObject({
+      newAccounts: 1,
+      activatedUsers: 1,
+      newPlans: 1,
+      webVisitors: null,
+      appActiveUsers: null,
+    });
     expect(payload.web).toMatchObject({ status: "not_configured", uniqueVisitors: null });
     expect(payload.app.retention.j7).toEqual({ eligible: null, returned: null, rate: null });
     expect(payload.organizers).toMatchObject({

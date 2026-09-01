@@ -16,6 +16,8 @@ related_files:
   - apps/web/app/api/admin/growth/route.ts
   - apps/web/app/api/admin/growth/schema.ts
   - apps/web/app/admin/components/AdminGrowthSection.tsx
+  - apps/web/app/admin/components/AdminTrendChart.tsx
+  - apps/web/app/admin/_components/AdminUsersTab.tsx
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
@@ -114,7 +116,11 @@ The server-only PostHog reader in `apps/web/lib/posthog-query.ts` calls the proj
 - `POSTHOG_PROJECT_ID`
 - optional `POSTHOG_API_HOST`; the public ingestion host is converted to the matching regional API host when this is absent.
 
+The personal key needs PostHog's `query:read` scope for the HogQL query endpoint.
+
 These read credentials must never use a `NEXT_PUBLIC_` prefix. If either required value is absent or the query fails, the endpoint still returns the Supabase metrics and marks PostHog-derived values unavailable instead of substituting estimates. App J+1/J+7/J+30 retention uses first `$screen` cohorts and an exact one-day return window. The organizer follow-up list is a Supabase operational proxy based on membership plus edition/format modification timestamps; it is not presented as a browser-session measurement.
+
+The Growth dashboard and the Users management tab also consume a shared daily trend series. Supabase provides daily account creation, 24-hour activation, plan creation, and plan activity; PostHog adds daily unique Web visitors and active App users when server read credentials are available. Missing PostHog access leaves those series unavailable while preserving the Supabase curves. Growth summary projections normalize the selected period's observed pace to 30 days; they are directional run-rate context, not forecasts.
 
 ## RaceBook Sponsor Clicks
 
@@ -127,6 +133,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
 - Admin Web funnels therefore cover only consented traffic. Do not compare their visitor totals directly with all Supabase accounts as if both sources had equal coverage.
 - Keep PostHog personal API keys server-only. A missing/failed PostHog read must remain visible as unavailable data, not zero activity.
+- Do not present the 30-day run rate as a predictive model; short ranges such as today can be volatile.
 - Organizer "content changed" and follow-up timestamps can include trusted admin/service edits to the same event. Use them for operational relaunches, not as exact organizer session counts.
 - Do not expand organizer attribution beyond the explicit UTM allowlist or persist campaign parameters in browser storage.
 - Use environment variable names, not values.

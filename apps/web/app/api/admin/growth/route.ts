@@ -34,6 +34,13 @@ const raceRowSchema = z.object({
 });
 
 type MetricMap = Map<string, number>;
+type DailyPostHogPoint = {
+  webVisitors: number;
+  webPlansGenerated: number;
+  appActiveUsers: number;
+  appPlanCreators: number;
+};
+type DailyPostHogMetrics = Map<string, DailyPostHogPoint>;
 
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
@@ -119,8 +126,34 @@ async function loadPostHogMetrics(start: string, end: string) {
     UNION ALL SELECT 'organizer_dashboard_visitors', uniqExactIf(distinct_id, event = '$pageview' AND properties['$current_url'] LIKE '%/organizer%' AND properties['$current_url'] NOT LIKE '%/organizers%' AND ${web}) FROM events WHERE ${bounds}
   `);
   const metrics = rowsToMetricMap(result.rows);
+  const dailyResult = await queryPostHog(`
+    SELECT toString(toDate(timestamp)) AS day,
+      uniqExactIf(distinct_id, event = '$pageview' AND ${web}) AS web_visitors,
+      uniqExactIf(distinct_id, event = 'onboarding_action' AND properties.action = 'loading_complete' AND ${web}) AS web_plans_generated,
+      uniqExactIf(distinct_id, event = '$screen' AND ${app}) AS app_active_users,
+      uniqExactIf(distinct_id, event = 'plan created' AND ${app}) AS app_plan_creators
+    FROM events
+    WHERE ${bounds}
+    GROUP BY day
+    ORDER BY day
+  `);
+  const trend: DailyPostHogMetrics = new Map();
+  if (dailyResult.status === "available") {
+    for (const row of dailyResult.rows) {
+      const date = typeof row[0] === "string" ? row[0] : null;
+      const values = row.slice(1, 5).map((value) => Number(value));
+      if (date && values.every(Number.isFinite)) {
+        trend.set(date, {
+          webVisitors: values[0],
+          webPlansGenerated: values[1],
+          appActiveUsers: values[2],
+          appPlanCreators: values[3],
+        });
+      }
+    }
+  }
 
-  if (result.status === "available") {
+  if (result.status === "available" && dailyResult.status === "available") {
     const retentionResult = await queryPostHog(`
       WITH first_seen AS (
         SELECT distinct_id, min(timestamp) AS first_at
@@ -148,10 +181,42 @@ async function loadPostHogMetrics(start: string, end: string) {
     if (retentionResult.status === "available") {
       for (const [key, value] of rowsToMetricMap(retentionResult.rows)) metrics.set(key, value);
     } else {
-      return { status: retentionResult.status, metrics };
+      return { status: retentionResult.status, metrics, trend };
     }
   }
-  return { status: result.status, metrics };
+  const status = result.status !== "available" ? result.status : dailyResult.status;
+  return { status, metrics, trend };
+}
+
+function dateKey(iso: string) {
+  return iso.slice(0, 10);
+}
+
+function buildTrend(
+  start: string,
+  end: string,
+  users: z.infer<typeof userRowSchema>[],
+  plans: z.infer<typeof planRowSchema>[],
+  activatedUserIds: Set<string>,
+  posthog: Awaited<ReturnType<typeof loadPostHogMetrics>>,
+) {
+  const points = [];
+  for (let cursor = dayStart(new Date(start)); cursor < new Date(end); cursor = new Date(cursor.getTime() + 24 * 3600 * 1000)) {
+    const date = dateKey(cursor.toISOString());
+    const posthogPoint = posthog.trend.get(date);
+    points.push({
+      date,
+      newAccounts: users.filter((user) => user.email && dateKey(user.created_at) === date).length,
+      activatedUsers: users.filter((user) => activatedUserIds.has(user.user_id) && dateKey(user.created_at) === date).length,
+      activePlanUsers: new Set(plans.filter((plan) => dateKey(plan.updated_at) === date).map((plan) => plan.user_id)).size,
+      newPlans: plans.filter((plan) => dateKey(plan.created_at) === date).length,
+      webVisitors: posthog.status === "available" ? posthogPoint?.webVisitors ?? 0 : null,
+      webPlansGenerated: posthog.status === "available" ? posthogPoint?.webPlansGenerated ?? 0 : null,
+      appActiveUsers: posthog.status === "available" ? posthogPoint?.appActiveUsers ?? 0 : null,
+      appPlanCreators: posthog.status === "available" ? posthogPoint?.appPlanCreators ?? 0 : null,
+    });
+  }
+  return points;
 }
 
 export async function GET(request: NextRequest) {
@@ -182,13 +247,14 @@ export async function GET(request: NextRequest) {
     const now = new Date();
 
     const newAccounts = users.filter((user) => user.email && between(user.created_at, range.start, range.end));
-    const activatedUsers = new Set(newAccounts.flatMap((user) => {
+    const activatedUserIds = new Set(newAccounts.flatMap((user) => {
       const accountCreatedAt = new Date(user.created_at).getTime();
       return plans.some((plan) => {
         const planCreatedAt = new Date(plan.created_at).getTime();
         return plan.user_id === user.user_id && planCreatedAt >= accountCreatedAt && planCreatedAt <= accountCreatedAt + 24 * 3600 * 1000;
       }) ? [user.user_id] : [];
-    })).size;
+    }));
+    const activatedUsers = activatedUserIds.size;
     const activePlanUsers = new Set(plans.filter((plan) => between(plan.updated_at, range.start, range.end)).map((plan) => plan.user_id)).size;
     const activePremiumUsers = subscriptions.filter((subscription) =>
       ["active", "trialing"].includes(subscription.status ?? "") && (!subscription.current_period_end || subscription.current_period_end > now.toISOString())
@@ -265,6 +331,7 @@ export async function GET(request: NextRequest) {
     const response = {
       range,
       overview: { newAccounts: newAccounts.length, activatedUsers, activePlanUsers, newPlans: plans.filter((plan) => between(plan.created_at, range.start, range.end)).length, activePremiumUsers },
+      trend: buildTrend(range.start, range.end, users, plans, activatedUserIds, posthog),
       web: {
         status: posthog.status, uniqueVisitors: webVisitors, onboardingStarted: webOnboarding, plansGenerated: webPlans, signupsCompleted: webSignups, appDownloadClicks: ph("web_app_downloads"),
         funnel: [
