@@ -14,6 +14,17 @@ const retentionSchema = z.object({
   returned: nullableMetricSchema,
   rate: nullableMetricSchema,
 });
+const trendPointSchema = z.object({
+  date: z.string(),
+  newAccounts: z.number(),
+  activatedUsers: z.number(),
+  activePlanUsers: z.number(),
+  newPlans: z.number(),
+  webVisitors: nullableMetricSchema,
+  webPlansGenerated: nullableMetricSchema,
+  appActiveUsers: nullableMetricSchema,
+  appPlanCreators: nullableMetricSchema,
+});
 
 export const adminGrowthResponseSchema = z.object({
   range: z.object({
@@ -28,6 +39,7 @@ export const adminGrowthResponseSchema = z.object({
     newPlans: z.number(),
     activePremiumUsers: z.number(),
   }),
+  trend: z.array(trendPointSchema),
   web: z.object({
     status: analyticsStatusSchema,
     uniqueVisitors: nullableMetricSchema,

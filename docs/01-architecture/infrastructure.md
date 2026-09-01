@@ -168,6 +168,7 @@ Document variable names, not secret values. Important names visible in code incl
 
 - Never commit actual environment values into docs.
 - `POSTHOG_PERSONAL_API_KEY` is a read credential for the protected admin dashboard and must never be exposed with a `NEXT_PUBLIC_` prefix. The public PostHog project key remains ingestion-only.
+- Admin PostHog reads include aggregate totals, retention cohorts, and daily trend buckets; all use the same server-only project id and personal API key.
 - Organizer Stripe Price ids must point to active, one-time EUR prices at exactly 99 €, 299 €, and 200 € excluding tax; the server rejects mismatched Price configuration.
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.

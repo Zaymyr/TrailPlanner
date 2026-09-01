@@ -15,6 +15,7 @@ const context = vm.createContext({
 vm.runInContext(`${source}\n;globalThis.__testApi = {
   SCRAPER_WEBHOOK,
   addBusinessDays_,
+  appendUnsubscribeFooter_,
   asBoolean_,
   asDate_,
   buildThreadedDraftRaw_,
@@ -22,6 +23,7 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
   gmailHeaderValue_,
   headerIncludesEmail_,
   followupTemplateKeyForMessage_,
+  followupSubject_,
   originalMessageIncludesCourseTest_,
   isFollowupEligible_,
   markdownBodyToHtml_,
@@ -31,6 +33,7 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
   replaceOrganizationName_,
   sanitizeSignatureHtml_,
   stripMarkdown_,
+  subjectIncludesOrganization_,
   timeToMinutes_,
 };`, context);
 
@@ -129,6 +132,37 @@ test('chooses the follow-up copy from the actual first sent message', () => {
   assert.equal(api.followupTemplateKeyForMessage_(testCourseMessage), 'corps_relance');
   assert.equal(api.originalMessageIncludesCourseTest_('tester ce format sur un événement réel'), false);
   assert.equal(api.originalMessageIncludesCourseTest_('ouvrir la course test'), true);
+});
+
+test('builds a standalone follow-up subject when the original Gmail thread is unavailable', () => {
+  assert.equal(
+    api.followupSubject_({ objet_relance: 'Suite pour {{organization_name}}' }, 'Trail des Anges'),
+    'Suite pour Trail des Anges',
+  );
+  assert.equal(api.followupSubject_({}, 'Trail des Anges'), 'Re: Un Race Book mobile pour Trail des Anges');
+});
+
+test('keeps a follow-up threaded only when the subject already identifies the organization', () => {
+  assert.equal(
+    api.subjectIncludesOrganization_('Re: Un Race Book mobile pour Trail de Trévarez', 'Trail de Trévarez'),
+    true,
+  );
+  assert.equal(
+    api.subjectIncludesOrganization_('Racebook mobile pour course et trail', 'Trail de Trévarez'),
+    false,
+  );
+});
+
+test('adds a visible unsubscribe link to plain-text and HTML drafts', () => {
+  const content = api.appendUnsubscribeFooter_(
+    'Bonjour',
+    '<p>Bonjour</p>',
+    'https://example.com/unsubscribe?token=a&uuid=b',
+    'Me désinscrire',
+  );
+  assert.match(content.plainBody, /Me désinscrire : https:\/\/example\.com\/unsubscribe\?token=a&uuid=b/);
+  assert.match(content.htmlBody, /href="https:\/\/example\.com\/unsubscribe\?token=a&amp;uuid=b"/);
+  assert.match(content.htmlBody, />Me désinscrire<\/a>/);
 });
 
 test('builds a threaded MIME draft without allowing header newlines', () => {

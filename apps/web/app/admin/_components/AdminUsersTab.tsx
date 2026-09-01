@@ -20,6 +20,8 @@ import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { useI18n } from "../../i18n-provider";
+import { adminGrowthResponseSchema } from "../../api/admin/growth/schema";
+import AdminTrendChart from "../components/AdminTrendChart";
 import {
   AdminUser,
   adminUserSchema,
@@ -182,6 +184,22 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
       if (data.pagination.page !== page) setPage(data.pagination.page);
     },
   });
+  const userTrendsQuery = useQuery({
+    queryKey: ["admin", "growth", accessToken, "last30", "", ""],
+    enabled: Boolean(accessToken),
+    queryFn: async () => {
+      if (!accessToken) throw new Error(t.admin.users.loadError);
+      const response = await fetch("/api/admin/growth?range=last30", {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: "no-store",
+      });
+      const payload = await readResponsePayload(response);
+      if (!response.ok) throw new Error(buildApiErrorMessage(response, payload, t.admin.users.loadError));
+      const parsed = adminGrowthResponseSchema.safeParse(payload);
+      if (!parsed.success) throw new Error(t.admin.users.loadError);
+      return parsed.data;
+    },
+  });
 
   const updateUserRoleMutation = useMutation({
     mutationFn: async (payload: { id: string; roles: UserRoleOption[] }) => {
@@ -307,6 +325,8 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const isLoading = usersQuery.isLoading;
   const userRows = usersQuery.data?.users ?? [];
   const pagination = usersQuery.data?.pagination;
+  const isFrench = t.admin.users.title.toLocaleLowerCase().includes("utilisateur");
+  const userTrend = userTrendsQuery.data;
 
   const pageNumbers = useMemo(() => {
     if (!pagination || pagination.totalPages <= 1) return [];
@@ -386,6 +406,21 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
           <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.users.description}</p>
         </CardHeader>
         <CardContent className="space-y-4">
+          {userTrend ? (
+            <AdminTrendChart
+              title={isFrench ? "Dynamique des utilisateurs · 30 jours" : "User momentum · 30 days"}
+              description={isFrench
+                ? `${userTrend.overview.newAccounts} nouveaux comptes, ${userTrend.overview.activatedUsers} activés en 24 h. La courbe App apparaît quand la lecture PostHog est connectée.`
+                : `${userTrend.overview.newAccounts} new accounts, ${userTrend.overview.activatedUsers} activated within 24h. The App curve appears when PostHog reads are connected.`}
+              points={userTrend.trend}
+              locale={isFrench ? "fr-FR" : "en-US"}
+              series={[
+                { key: "newAccounts", label: isFrench ? "Nouveaux comptes" : "New accounts", color: "#2563eb" },
+                { key: "activePlanUsers", label: isFrench ? "Actifs sur un plan" : "Active on a plan", color: "#16a34a" },
+                { key: "appActiveUsers", label: isFrench ? "Actifs App" : "Active App users", color: "#7c3aed" },
+              ]}
+            />
+          ) : null}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="w-full sm:max-w-sm">
               <Label htmlFor="admin-users-search" className="sr-only">

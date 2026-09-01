@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "../../../components/ui/table";
 import { type AdminTranslations } from "../../../locales/types";
 import { adminGrowthResponseSchema, type AdminGrowthResponse } from "../../api/admin/growth/schema";
+import AdminTrendChart from "./AdminTrendChart";
 
 type Props = { accessToken: string | null | undefined; t: AdminTranslations["growth"] };
 type View = "web" | "app" | "organizers";
@@ -39,7 +40,7 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
   const copy = isFrench ? {
     title: "Croissance & activation", description: "Comprendre qui découvre Pace Yourself, atteint la première valeur et revient l'utiliser.",
     today: "Aujourd'hui", yesterday: "Hier", last7: "7 jours", last30: "30 jours", custom: "Personnalisé",
-    overview: "Vue d'ensemble", newAccounts: "Nouveaux comptes", activated: "Activés en 24 h", activePlanUsers: "Utilisateurs actifs sur un plan", newPlans: "Nouveaux plans", premium: "Premium actifs",
+    overview: "Trajectoire", trajectoryDescription: "Les volumes quotidiens permettent de distinguer une tendance d'un pic isolé.", productTrend: "Usage et création", acquisitionTrend: "Acquisition PostHog", newAccounts: "Nouveaux comptes", activated: "Activés en 24 h", activePlanUsers: "Utilisateurs actifs sur un plan", newPlans: "Nouveaux plans", premium: "Premium actifs",
     actions: "À surveiller et actions", noActions: "Aucune alerte notable sur cette période.",
     web: "Web · Acquisition", app: "App · Activation & rétention", organizers: "Organisateurs",
     unavailable: "Les données de navigation et de rétention nécessitent la connexion de l'API de lecture PostHog.",
@@ -51,11 +52,11 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     landing: "Visiteurs landing", cta: "Clics CTA", dashboard: "Visiteurs dashboard", newOrganizers: "Nouveaux organisateurs", contentChanges: "Avec contenu modifié", returningOrganizers: "Revenus après 7 j", events: "Événements créés", editions: "Éditions créées", formats: "Formats créés", published: "RaceBooks publiés",
     followUps: "Organisateurs à relancer", organizer: "Organisateur", event: "Événement", inactivity: "Inactivité", status: "Situation", days: "j",
     noFormat: "Aucun format", incomplete: "Format incomplet", ready: "Prêt à publier", publishedStatus: "Publié",
-    sources: "Supabase fournit les comptes et contenus. PostHog fournit les visites, parcours et cohortes.",
+    projection: "Au rythme de la période : {value} sur 30 j", activationRate: "{value}% des nouveaux comptes", sources: "Supabase fournit les comptes et contenus. PostHog fournit les visites, parcours et cohortes.",
   } : {
     title: "Growth & activation", description: "Understand who discovers Pace Yourself, reaches first value, and comes back.",
     today: "Today", yesterday: "Yesterday", last7: "7 days", last30: "30 days", custom: "Custom",
-    overview: "Overview", newAccounts: "New accounts", activated: "Activated in 24h", activePlanUsers: "Active plan users", newPlans: "New plans", premium: "Active Premium",
+    overview: "Trajectory", trajectoryDescription: "Daily volumes make sustained trends distinguishable from isolated spikes.", productTrend: "Usage and creation", acquisitionTrend: "PostHog acquisition", newAccounts: "New accounts", activated: "Activated in 24h", activePlanUsers: "Active plan users", newPlans: "New plans", premium: "Active Premium",
     actions: "Watchlist & actions", noActions: "No notable alert for this period.",
     web: "Web · Acquisition", app: "App · Activation & retention", organizers: "Organizers",
     unavailable: "Navigation and retention data require a configured PostHog read API.",
@@ -67,7 +68,7 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     landing: "Landing visitors", cta: "CTA clicks", dashboard: "Dashboard visitors", newOrganizers: "New organizers", contentChanges: "With content changes", returningOrganizers: "Returned after 7d", events: "Events created", editions: "Editions created", formats: "Formats created", published: "RaceBooks published",
     followUps: "Organizers to follow up", organizer: "Organizer", event: "Event", inactivity: "Inactive", status: "Situation", days: "d",
     noFormat: "No format", incomplete: "Incomplete format", ready: "Ready to publish", publishedStatus: "Published",
-    sources: "Supabase supplies accounts and content. PostHog supplies visits, journeys, and cohorts.",
+    projection: "At this period's pace: {value} over 30d", activationRate: "{value}% of new accounts", sources: "Supabase supplies accounts and content. PostHog supplies visits, journeys, and cohorts.",
   };
   const [range, setRange] = useState("last7");
   const [start, setStart] = useState("");
@@ -95,6 +96,12 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
   const statusLabels: Record<AdminGrowthResponse["organizers"]["followUps"][number]["status"], string> = {
     no_format: copy.noFormat, incomplete: copy.incomplete, ready_to_publish: copy.ready, published: copy.publishedStatus,
   };
+  const periodDays = Math.max(1, data?.trend.length ?? 1);
+  const project30Days = (value: number) => Math.round((value / periodDays) * 30);
+  const projectionHint = (value: number) => copy.projection.replace("{value}", String(project30Days(value)));
+  const activationRate = data && data.overview.newAccounts > 0
+    ? Math.round((data.overview.activatedUsers / data.overview.newAccounts) * 100)
+    : 0;
 
   return (
     <Card>
@@ -118,12 +125,35 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
         {data ? <>
           <section className="space-y-3">
             <h3 className="text-sm font-semibold text-foreground">{copy.overview}</h3>
-            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <Kpi label={copy.newAccounts} value={data.overview.newAccounts} />
-              <Kpi label={copy.activated} value={data.overview.activatedUsers} hint={isFrench ? "Premier plan dans les 24 h" : "First plan within 24h"} />
-              <Kpi label={copy.activePlanUsers} value={data.overview.activePlanUsers} />
-              <Kpi label={copy.newPlans} value={data.overview.newPlans} />
-              <Kpi label={copy.premium} value={data.overview.activePremiumUsers} hint={isFrench ? "Total actuel" : "Current total"} />
+            <p className="text-sm text-muted-foreground">{copy.trajectoryDescription}</p>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi label={copy.newAccounts} value={data.overview.newAccounts} hint={projectionHint(data.overview.newAccounts)} />
+              <Kpi label={copy.activated} value={data.overview.activatedUsers} hint={copy.activationRate.replace("{value}", String(activationRate))} />
+              <Kpi label={copy.activePlanUsers} value={data.overview.activePlanUsers} hint={isFrench ? "Personnes ayant modifié un plan" : "People who updated a plan"} />
+              <Kpi label={copy.newPlans} value={data.overview.newPlans} hint={projectionHint(data.overview.newPlans)} />
+            </div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <AdminTrendChart
+                title={copy.productTrend}
+                description={isFrench ? "Comptes, activation et plans par jour" : "Accounts, activation, and plans per day"}
+                points={data.trend}
+                locale={isFrench ? "fr-FR" : "en-US"}
+                series={[
+                  { key: "newAccounts", label: copy.newAccounts, color: "#2563eb" },
+                  { key: "activatedUsers", label: copy.activated, color: "#16a34a" },
+                  { key: "newPlans", label: copy.newPlans, color: "#f59e0b" },
+                ]}
+              />
+              <AdminTrendChart
+                title={copy.acquisitionTrend}
+                description={isFrench ? "Visiteurs Web et utilisateurs actifs App par jour" : "Web visitors and active App users per day"}
+                points={data.trend}
+                locale={isFrench ? "fr-FR" : "en-US"}
+                series={[
+                  { key: "webVisitors", label: copy.visitors, color: "#7c3aed" },
+                  { key: "appActiveUsers", label: copy.activeAppUsers, color: "#0891b2" },
+                ]}
+              />
             </div>
           </section>
 
