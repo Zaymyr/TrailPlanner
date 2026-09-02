@@ -348,6 +348,8 @@ Active banner placements rotate automatically one at a time in edition order, wi
 
 No mobile organizer editor exists in v1. Mobile can consume published organizer details through the read-only `race/[id]/racebook` screen only when the catalog format is live, `races.racebook_is_live = true`, and there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, hidden Racebook visibility, or admin powers.
 
+Internal PostHog events measure RaceBook opens and repeat opens per stable `race_id`, proximity to race day, tab/ravito/access engagement, external actions, refreshes, and foreground-only active duration. This does not create organizer-visible analytics rows, change publication/access rules, or attach sponsor interactions to runner identities.
+
 The Courses list keeps multi-format event cards compact by omitting the repeated format-choice helper sentence; the format-count pill and primary action remain, and the onboarding use of the shared card may retain the guidance. This is presentation-only and does not change organizer format visibility or grouping.
 
 Runner onboarding now reuses the ordinary Courses and RaceBook routes. RaceBook onboarding considers only the existing runner-visible publication/content gate; its guide parameter cannot expose an unpublished organizer preview or change publication state.

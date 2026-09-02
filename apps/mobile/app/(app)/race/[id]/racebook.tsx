@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import {
   AccessibilityInfo,
   Animated,
+  AppState,
   Easing,
   Image,
   Linking,
@@ -12,7 +13,7 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
-import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
@@ -36,9 +37,19 @@ import {
 } from '../../../../lib/racebookSponsors';
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardingStatus';
+import { captureAnalyticsEvent } from '../../../../lib/posthog';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'aid-stations' | 'relay';
+
+type RacebookAnalyticsSession = {
+  properties: ReturnType<typeof buildRacebookAnalyticsProperties>;
+  activeStartedAt: number | null;
+  activeDurationMs: number;
+  visitedTabs: Set<RacebookTabKey>;
+  visitedCourseTabs: Set<CourseTabKey>;
+  actionCount: number;
+};
 
 type LabeledItem = {
   label: string;
@@ -83,6 +94,43 @@ type BibPickupLocationGroup = {
   actionUrl: string | null;
   days: BibPickupDayGroup[];
 };
+
+const DAY_MS = 24 * 60 * 60 * 1_000;
+
+function getDaysBeforeRace(raceDate: string | null, now = new Date()) {
+  const match = raceDate?.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return null;
+
+  const raceDay = Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+  const currentDay = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
+  return Math.round((raceDay - currentDay) / DAY_MS);
+}
+
+function getRaceTimingWindow(daysBeforeRace: number | null) {
+  if (daysBeforeRace === null) return 'unknown';
+  if (daysBeforeRace < 0) return 'after_race';
+  if (daysBeforeRace === 0) return 'race_day';
+  if (daysBeforeRace <= 2) return 'd1_d2';
+  if (daysBeforeRace <= 7) return 'd3_d7';
+  if (daysBeforeRace <= 14) return 'd8_d14';
+  if (daysBeforeRace <= 30) return 'd15_d30';
+  return 'd31_plus';
+}
+
+function buildRacebookAnalyticsProperties(data: RacebookScreenData, entryPoint: 'onboarding' | 'standard') {
+  const daysBeforeRace = getDaysBeforeRace(data.race.raceDate);
+
+  return {
+    race_id: data.race.id,
+    event_id: data.event.id,
+    race_name: data.race.name,
+    event_name: data.event.name,
+    race_date: data.race.raceDate,
+    days_before_race: daysBeforeRace,
+    race_timing_window: getRaceTimingWindow(daysBeforeRace),
+    entry_point: entryPoint,
+  };
+}
 
 function SponsorChip({ sponsor, compact = false }: { sponsor: RacebookSponsor; compact?: boolean }) {
   const content = (
@@ -535,12 +583,14 @@ function AccessLocationsCard({
   generalMapUrl,
   openMapsLabel,
   openGeneralMapLabel,
+  onOpenMap,
 }: {
   title: string;
   locations: AccessLocationItem[];
   generalMapUrl: string | null;
   openMapsLabel: string;
   openGeneralMapLabel: string;
+  onOpenMap: (location: string) => void;
 }) {
   return (
     <SectionCard title={title}>
@@ -557,7 +607,10 @@ function AccessLocationsCard({
                 <Pressable
                   accessibilityRole="link"
                   accessibilityLabel={`${openMapsLabel} - ${location.label}`}
-                  onPress={() => Linking.openURL(location.actionUrl!).catch(() => {})}
+                  onPress={() => {
+                    onOpenMap(location.key);
+                    Linking.openURL(location.actionUrl!).catch(() => {});
+                  }}
                   style={({ pressed }) => [styles.accessMapAction, pressed ? styles.accessActionPressed : null]}
                 >
                   <Ionicons name="navigate-outline" size={15} color={Colors.brandPrimary} />
@@ -572,7 +625,10 @@ function AccessLocationsCard({
         <Pressable
           accessibilityRole="link"
           accessibilityLabel={openGeneralMapLabel}
-          onPress={() => Linking.openURL(generalMapUrl).catch(() => {})}
+          onPress={() => {
+            onOpenMap('general');
+            Linking.openURL(generalMapUrl).catch(() => {});
+          }}
           style={({ pressed }) => [styles.accessGeneralMapAction, pressed ? styles.accessActionPressed : null]}
         >
           <Ionicons name="map-outline" size={17} color={Colors.textOnBrand} />
@@ -716,9 +772,11 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
 function BibPickupLocationList({
   groups,
   locationLabel,
+  onOpenMap,
 }: {
   groups: BibPickupLocationGroup[];
   locationLabel: string;
+  onOpenMap: (location: string) => void;
 }) {
   return (
     <View style={styles.bibLocationList}>
@@ -733,7 +791,10 @@ function BibPickupLocationList({
                 <Pressable
                   accessibilityRole="link"
                   accessibilityLabel={`${locationLabel}: ${group.location}`}
-                  onPress={() => Linking.openURL(group.actionUrl!).catch(() => {})}
+                  onPress={() => {
+                    onOpenMap(group.key);
+                    Linking.openURL(group.actionUrl!).catch(() => {});
+                  }}
                   style={styles.bibLocationAction}
                 >
                   <Text style={[styles.bibLocationValue, styles.tableValueLink]}>{group.location}</Text>
@@ -1082,6 +1143,15 @@ export default function RaceRacebookScreen() {
     parking: false,
     shuttles: false,
   });
+  const analyticsSessionRef = useRef<RacebookAnalyticsSession | null>(null);
+  const analyticsDataRef = useRef<RacebookScreenData | null>(null);
+  const activeTabRef = useRef<RacebookTabKey>('gear');
+  const activeCourseTabRef = useRef<CourseTabKey>('route');
+  const unavailableTrackedRaceIdRef = useRef<string | null>(null);
+
+  analyticsDataRef.current = data;
+  activeTabRef.current = activeTab;
+  activeCourseTabRef.current = activeCourseTab;
 
   useEffect(() => {
     if (!sponsorLookupDone) {
@@ -1217,6 +1287,12 @@ export default function RaceRacebookScreen() {
       setData(result);
       setElevationProfile(profilePoints);
       setRoutePreviewPoints(routePoints);
+
+      const analyticsSession = analyticsSessionRef.current;
+      if (result?.canOpen && analyticsSession) {
+        analyticsSession.actionCount += 1;
+        captureAnalyticsEvent('racebook refreshed', analyticsSession.properties);
+      }
     } catch {
       // Keep the last successfully loaded Racebook visible when a refresh fails.
     } finally {
@@ -1535,6 +1611,124 @@ export default function RaceRacebookScreen() {
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
 
+  useFocusEffect(
+    useCallback(() => {
+      const analyticsData = analyticsDataRef.current;
+      if (showLoading || !analyticsData?.canOpen) return undefined;
+
+      const now = Date.now();
+      const properties = buildRacebookAnalyticsProperties(
+        analyticsData,
+        onboarding === 'racebook' ? 'onboarding' : 'standard',
+      );
+      const session: RacebookAnalyticsSession = {
+        properties,
+        activeStartedAt: AppState.currentState === 'active' ? now : null,
+        activeDurationMs: 0,
+        visitedTabs: new Set([activeTabRef.current]),
+        visitedCourseTabs: new Set(activeTabRef.current === 'course' ? [activeCourseTabRef.current] : []),
+        actionCount: 0,
+      };
+      analyticsSessionRef.current = session;
+
+      captureAnalyticsEvent('racebook opened', {
+        ...properties,
+        initial_tab: activeTabRef.current,
+        available_tab_count: tabs.length,
+        aid_station_count: analyticsData.aidStations.length,
+        relay_point_count: analyticsData.relayPoints.length,
+      });
+
+      const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+        const currentSession = analyticsSessionRef.current;
+        if (currentSession !== session) return;
+
+        const changedAt = Date.now();
+        if (nextState === 'active') {
+          currentSession.activeStartedAt ??= changedAt;
+        } else if (currentSession.activeStartedAt !== null) {
+          currentSession.activeDurationMs += changedAt - currentSession.activeStartedAt;
+          currentSession.activeStartedAt = null;
+        }
+      });
+
+      return () => {
+        appStateSubscription.remove();
+        if (session.activeStartedAt !== null) {
+          session.activeDurationMs += Date.now() - session.activeStartedAt;
+          session.activeStartedAt = null;
+        }
+
+        captureAnalyticsEvent('racebook closed', {
+          ...session.properties,
+          active_duration_seconds: Math.round(session.activeDurationMs / 100) / 10,
+          visited_tab_count: session.visitedTabs.size,
+          visited_course_tab_count: session.visitedCourseTabs.size,
+          action_count: session.actionCount,
+          engaged: session.visitedTabs.size > 1 || session.visitedCourseTabs.size > 1 || session.actionCount > 0,
+        });
+
+        if (analyticsSessionRef.current === session) analyticsSessionRef.current = null;
+      };
+    }, [data?.canOpen, data?.race.id, onboarding, showLoading, tabs.length]),
+  );
+
+  useEffect(() => {
+    if (!unavailable || !id || unavailableTrackedRaceIdRef.current === id) return;
+
+    unavailableTrackedRaceIdRef.current = id;
+    captureAnalyticsEvent('racebook unavailable viewed', {
+      race_id: id,
+      entry_point: onboarding === 'racebook' ? 'onboarding' : 'standard',
+    });
+  }, [id, onboarding, unavailable]);
+
+  const captureRacebookInteraction = useCallback(
+    (eventName: string, properties?: Record<string, string | number | boolean | null>) => {
+      const session = analyticsSessionRef.current;
+      if (!session) return;
+
+      session.actionCount += 1;
+      captureAnalyticsEvent(eventName, { ...session.properties, ...properties });
+    },
+    [],
+  );
+
+  const handleTabPress = useCallback((tab: RacebookTabKey) => {
+    if (tab === activeTab) return;
+
+    setActiveTab(tab);
+    const session = analyticsSessionRef.current;
+    if (!session) return;
+
+    session.visitedTabs.add(tab);
+    captureAnalyticsEvent('racebook tab viewed', { ...session.properties, tab });
+  }, [activeTab]);
+
+  const handleCourseTabPress = useCallback((courseTab: CourseTabKey) => {
+    if (courseTab === activeCourseTab) return;
+
+    setActiveCourseTab(courseTab);
+    const session = analyticsSessionRef.current;
+    if (!session) return;
+
+    session.visitedTabs.add('course');
+    session.visitedCourseTabs.add(courseTab);
+    captureAnalyticsEvent('racebook tab viewed', {
+      ...session.properties,
+      tab: 'course',
+      course_tab: courseTab,
+    });
+  }, [activeCourseTab]);
+
+  const openTrackedUrl = useCallback((url: string, action: string, context?: string) => {
+    captureRacebookInteraction('racebook action clicked', {
+      action,
+      action_context: context ?? null,
+    });
+    Linking.openURL(url).catch(() => {});
+  }, [captureRacebookInteraction]);
+
   useEffect(() => {
     const tabsNavigation = navigation.getParent();
     navigation.setOptions({ headerRight: showLoading ? () => null : undefined });
@@ -1625,7 +1819,7 @@ export default function RaceRacebookScreen() {
                         <Pressable
                           accessibilityRole="link"
                           accessibilityLabel={`Ouvrir ${headerLocation}`}
-                          onPress={() => Linking.openURL(headerLocationUrl).catch(() => {})}
+                          onPress={() => openTrackedUrl(headerLocationUrl, 'map_opened', 'header_location')}
                           style={styles.heroLocationAction}
                         >
                           <Text style={[styles.heroMeta, styles.tableValueLink]}>{headerLocation}</Text>
@@ -1656,7 +1850,7 @@ export default function RaceRacebookScreen() {
                     <Pressable
                       accessibilityRole="link"
                       accessibilityLabel={t.catalog.racebookOfficialWebsite}
-                      onPress={() => Linking.openURL(officialWebsiteUrl).catch(() => {})}
+                      onPress={() => openTrackedUrl(officialWebsiteUrl, 'official_website_opened')}
                       style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
                     >
                       <Ionicons name="globe-outline" size={22} color={Colors.brandPrimary} />
@@ -1668,7 +1862,7 @@ export default function RaceRacebookScreen() {
                         <Pressable
                           accessibilityRole="link"
                           accessibilityLabel="Instagram"
-                          onPress={() => Linking.openURL(instagramUrl).catch(() => {})}
+                          onPress={() => openTrackedUrl(instagramUrl, 'instagram_opened')}
                           style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
                         >
                           <Ionicons name="logo-instagram" size={22} color={Colors.brandPrimary} />
@@ -1678,7 +1872,7 @@ export default function RaceRacebookScreen() {
                         <Pressable
                           accessibilityRole="link"
                           accessibilityLabel="Facebook"
-                          onPress={() => Linking.openURL(facebookUrl).catch(() => {})}
+                          onPress={() => openTrackedUrl(facebookUrl, 'facebook_opened')}
                           style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
                         >
                           <Ionicons name="logo-facebook" size={22} color={Colors.brandPrimary} />
@@ -1696,7 +1890,7 @@ export default function RaceRacebookScreen() {
                 <Pressable
                   accessibilityRole="link"
                   accessibilityLabel={t.catalog.racebookCallEmergency}
-                  onPress={() => Linking.openURL(emergencyTelephoneUrl).catch(() => {})}
+                  onPress={() => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started')}
                   style={({ pressed }) => [styles.heroEmergencyAction, pressed && styles.heroQuickActionPressed]}
                 >
                   <Ionicons name="call-outline" size={26} color={Colors.danger} />
@@ -1747,7 +1941,7 @@ export default function RaceRacebookScreen() {
                     tabs.length === 5 ? styles.tabButtonCompact : null,
                     active && styles.tabButtonActive,
                   ]}
-                  onPress={() => setActiveTab(tab.key)}
+                  onPress={() => handleTabPress(tab.key)}
                 >
                   <Text
                     style={[
@@ -1824,6 +2018,12 @@ export default function RaceRacebookScreen() {
                       <BibPickupLocationList
                         groups={bibLocationGroups}
                         locationLabel={t.catalog.racebookFieldBibLocation}
+                        onOpenMap={(location) => {
+                          captureRacebookInteraction('racebook action clicked', {
+                            action: 'map_opened',
+                            action_context: `bib_${location}`,
+                          });
+                        }}
                       />
                     ) : null}
                     {bibLocationGroups.length > 0 && (bibPrimaryItems.length > 0 || bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
@@ -1866,7 +2066,7 @@ export default function RaceRacebookScreen() {
                         key={tab.key}
                         accessibilityRole="tab"
                         accessibilityState={{ selected: active }}
-                        onPress={() => setActiveCourseTab(tab.key)}
+                        onPress={() => handleCourseTabPress(tab.key)}
                         style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null]}
                       >
                         <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null]}>
@@ -1939,6 +2139,13 @@ export default function RaceRacebookScreen() {
                             previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
                             expanded={expandedAidStationId === station.id}
                             onToggle={() => {
+                              if (expandedAidStationId !== station.id) {
+                                captureRacebookInteraction('racebook aid station opened', {
+                                  aid_station_id: station.id,
+                                  aid_station_name: station.name,
+                                  distance_km: station.km,
+                                });
+                              }
                               setExpandedAidStationId((current) => (current === station.id ? null : station.id));
                             }}
                             copy={{
@@ -1977,6 +2184,12 @@ export default function RaceRacebookScreen() {
                       generalMapUrl={accessPresentation.generalMapUrl}
                       openMapsLabel={t.catalog.racebookAccessOpenMaps}
                       openGeneralMapLabel={t.catalog.racebookAccessOpenGeneralMap}
+                      onOpenMap={(location) => {
+                        captureRacebookInteraction('racebook action clicked', {
+                          action: 'map_opened',
+                          action_context: `access_${location}`,
+                        });
+                      }}
                     />
                   ) : null}
                   {accessPresentation.transportItems.length > 0 ? (
@@ -1984,7 +2197,12 @@ export default function RaceRacebookScreen() {
                       title={t.catalog.racebookAccessGettingThere}
                       items={accessPresentation.transportItems}
                       expanded={expandedAccessTransport}
-                      onToggle={(key) => setExpandedAccessTransport((current) => ({ ...current, [key]: !current[key] }))}
+                      onToggle={(key) => {
+                        if (!expandedAccessTransport[key]) {
+                          captureRacebookInteraction('racebook access detail opened', { detail: key });
+                        }
+                        setExpandedAccessTransport((current) => ({ ...current, [key]: !current[key] }));
+                      }}
                       showDetailsLabel={t.catalog.racebookAccessShowDetails}
                       hideDetailsLabel={t.catalog.racebookAccessHideDetails}
                       scheduleLabel={t.catalog.racebookAccessSchedule}
