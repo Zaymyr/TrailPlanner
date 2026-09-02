@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -198,6 +198,8 @@ Active banner sponsors render in a roughly 44 dp strip before the identity card,
 ## Analytics
 
 `apps/mobile/lib/posthog.ts` enables PostHog only when `EXPO_PUBLIC_POSTHOG_KEY` or `EXPO_PUBLIC_POSTHOG_TOKEN` is present. The host defaults to `https://us.i.posthog.com` unless `EXPO_PUBLIC_POSTHOG_HOST` is configured.
+
+The analytics wrapper attaches `surface: app`, derives stable screen groups, and extracts only allowlisted UTM values plus scheme/host from deep links. The root layout records screen views, one app-session landing event, and initial or foreground deep-link openings with auth/Premium context; it never sends deep-link paths or arbitrary query values.
 
 Do not copy actual keys into docs. Use environment variable names only.
 

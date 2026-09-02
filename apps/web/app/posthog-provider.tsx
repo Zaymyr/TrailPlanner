@@ -12,7 +12,13 @@ import {
   hasPostHogBrowserKey,
   isPostHogBrowserReady,
 } from "../lib/posthog-browser";
-import { buildSanitizedAnalyticsPath } from "../lib/posthog-config";
+import {
+  buildSanitizedAnalyticsPath,
+  buildWebAcquisitionProperties,
+  getWebPageGroup,
+} from "../lib/posthog-config";
+
+const POSTHOG_SESSION_STARTED_KEY = "pace-yourself.posthog-session-started";
 
 function PostHogPageView({ isAnalyticsEnabled }: { isAnalyticsEnabled: boolean }) {
   const pathname = usePathname();
@@ -28,7 +34,28 @@ function PostHogPageView({ isAnalyticsEnabled }: { isAnalyticsEnabled: boolean }
         ? sanitizedPath
         : `${window.location.origin}${sanitizedPath}`;
 
-    ph.capture("$pageview", { $current_url: currentUrl });
+    const acquisition = buildWebAcquisitionProperties(
+      searchParams,
+      typeof document === "undefined" ? null : document.referrer,
+      typeof window === "undefined" ? null : window.location.origin,
+    );
+    const pageGroup = getWebPageGroup(pathname);
+
+    if (typeof window !== "undefined" && !window.sessionStorage.getItem(POSTHOG_SESSION_STARTED_KEY)) {
+      ph.capture("web session started", {
+        landing_path: pathname,
+        landing_page_group: pageGroup,
+        ...acquisition,
+      });
+      window.sessionStorage.setItem(POSTHOG_SESSION_STARTED_KEY, "1");
+    }
+
+    ph.capture("$pageview", {
+      $current_url: currentUrl,
+      page_path: pathname,
+      page_group: pageGroup,
+      ...acquisition,
+    });
   }, [isAnalyticsEnabled, pathname, searchParams, ph]);
 
   return null;

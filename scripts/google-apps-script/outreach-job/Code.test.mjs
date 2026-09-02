@@ -39,6 +39,7 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
   parseIsoDate_,
   positiveInteger_,
   readHistory_,
+  resolveGmailDraftId_,
   replaceOrganizationName_,
   sanitizeSignatureHtml_,
   stripMarkdown_,
@@ -161,6 +162,51 @@ test('removes cancelled and confirmed messages from the automatic-send backlog',
 
   assert.equal(history.pendingDrafts.length, 0);
   assert.equal(history.followupStatesByUuid['prospect-2'].pendingDraft, null);
+});
+
+test('resolves tracked Gmail message IDs to API draft IDs across pages', () => {
+  const calls = [];
+  context.Gmail = {
+    Users: {
+      Drafts: {
+        list: (_userId, options) => {
+          calls.push(options);
+          if (!options.pageToken) {
+            return { drafts: [{ id: 'api-draft-1', message: { id: 'message-1' } }], nextPageToken: 'next' };
+          }
+          return { drafts: [{ id: 'api-draft-2', message: { id: 'message-2' } }] };
+        },
+      },
+    },
+  };
+
+  assert.equal(api.resolveGmailDraftId_('message-2'), 'api-draft-2');
+  assert.equal(calls.length, 2);
+  assert.equal(api.resolveGmailDraftId_('api-draft-1'), 'api-draft-1');
+});
+
+test('resolves private GmailApp draft IDs through their message ID', () => {
+  context.GmailApp = {
+    getDraft: id => {
+      assert.equal(id, 'r-7091178298676085040');
+      return { getMessageId: () => 'message-from-gmail-app' };
+    },
+  };
+  context.Gmail = {
+    Users: {
+      Drafts: {
+        list: () => ({ drafts: [{ id: 'api-draft-id', message: { id: 'message-from-gmail-app' } }] }),
+      },
+    },
+  };
+
+  assert.equal(api.resolveGmailDraftId_('r-7091178298676085040'), 'api-draft-id');
+});
+
+test('rejects a tracked ID that no longer belongs to a Gmail draft', () => {
+  context.GmailApp = { getDraft: () => null };
+  context.Gmail = { Users: { Drafts: { list: () => ({ drafts: [] }) } } };
+  assert.throws(() => api.resolveGmailDraftId_('missing'), /Brouillon Gmail introuvable/);
 });
 
 test('creates the next numbered draft then marks no response after the final delay', () => {

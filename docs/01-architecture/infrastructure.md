@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - vercel.json
@@ -14,7 +14,6 @@ related_files:
   - apps/web/app/api/cron/organizer-import-cleanup/route.ts
   - apps/web/lib/stripe.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
-  - apps/web/lib/posthog-query.ts
   - supabase/functions/push-register/index.ts
   - supabase/functions/push-reminders/index.ts
 related_tables:
@@ -150,9 +149,6 @@ Document variable names, not secret values. Important names visible in code incl
 - `NEXT_PUBLIC_POSTHOG_KEY`
 - `NEXT_PUBLIC_POSTHOG_TOKEN`
 - `NEXT_PUBLIC_POSTHOG_HOST`
-- `POSTHOG_PERSONAL_API_KEY` (server-only admin analytics reads)
-- `POSTHOG_PROJECT_ID` (server-only admin analytics reads)
-- `POSTHOG_API_HOST` (optional regional query API host)
 - `EXPO_PUBLIC_POSTHOG_KEY`
 - `EXPO_PUBLIC_POSTHOG_TOKEN`
 - `EXPO_PUBLIC_POSTHOG_HOST`
@@ -167,8 +163,7 @@ Document variable names, not secret values. Important names visible in code incl
 ## Gotchas
 
 - Never commit actual environment values into docs.
-- `POSTHOG_PERSONAL_API_KEY` is a read credential for the protected admin dashboard and must never be exposed with a `NEXT_PUBLIC_` prefix. The public PostHog project key remains ingestion-only.
-- Admin PostHog reads include aggregate totals, retention cohorts, and daily trend buckets; all use the same server-only project id and personal API key.
+- The app only sends analytics through the public Web and Expo PostHog keys. The admin dashboard does not query PostHog and uses Supabase metrics only.
 - Organizer Stripe Price ids must point to active, one-time EUR prices at exactly 99 €, 299 €, and 200 € excluding tax; the server rejects mismatched Price configuration.
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.

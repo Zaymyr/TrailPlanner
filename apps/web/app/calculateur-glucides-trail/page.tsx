@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import type { Route } from "next";
 import Link from "next/link";
 
-import { SITE_URL } from "../seo";
+import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../seo";
 import { CarbCalculator } from "./CarbCalculator";
 
 export const metadata: Metadata = {
@@ -15,6 +15,13 @@ export const metadata: Metadata = {
     description: "Un calcul simple pour définir un premier objectif nutritionnel à tester à l’entraînement.",
     url: new URL("/calculateur-glucides-trail", SITE_URL),
     type: "website",
+    images: [DEFAULT_SOCIAL_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Calculateur glucides trail : combien de grammes par heure ?",
+    description: "Un calcul simple pour définir un premier objectif nutritionnel à tester à l’entraînement.",
+    images: [DEFAULT_SOCIAL_IMAGE_PATH],
   },
 };
 

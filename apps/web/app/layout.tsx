@@ -5,7 +5,15 @@ import React from "react";
 import { I18nProvider } from "./i18n-provider";
 import { Analytics } from "./analytics";
 import { LocalizedMetadata } from "./localized-metadata";
-import { buildLocaleMetaCopy, CANONICAL_PATH, CANONICAL_URL, localeToOgLocale, SITE_URL } from "./seo";
+import {
+  buildLocaleMetaCopy,
+  CANONICAL_PATH,
+  CANONICAL_URL,
+  DEFAULT_SOCIAL_IMAGE,
+  DEFAULT_SOCIAL_IMAGE_PATH,
+  localeToOgLocale,
+  SITE_URL,
+} from "./seo";
 import type { Locale } from "../locales/types";
 import { AuthCallbackHandler } from "./auth-callback-handler";
 import { QueryProvider } from "./query-client-provider";
@@ -38,11 +46,13 @@ const createMetadata = (locale: Locale): Metadata => {
       siteName: "Pace Yourself",
       locale: ogLocale,
       type: "website",
+      images: [DEFAULT_SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: [DEFAULT_SOCIAL_IMAGE_PATH],
     },
     icons: {
       icon: [{ url: "/branding/favicon-v2.png", type: "image/png" }],

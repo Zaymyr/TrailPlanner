@@ -10,6 +10,8 @@ related_files:
   - apps/web/app/page.tsx
   - apps/web/app/seo.ts
   - apps/web/app/seo.test.ts
+  - apps/web/lib/legacy-redirects.ts
+  - apps/web/lib/redirect-integrity.test.ts
   - apps/web/app/localized-metadata.tsx
   - apps/web/next.config.mjs
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
@@ -32,6 +34,7 @@ related_files:
   - apps/web/app/courses/page.tsx
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/[slug]/page.test.ts
+  - apps/web/app/courses/[slug]/race-metadata.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/_components/PublicRaceShare.tsx
@@ -44,6 +47,15 @@ related_files:
   - apps/web/app/calculateur-glucides-trail/carb-calculator-fun.test.ts
   - apps/web/app/a-propos/page.tsx
   - apps/web/app/methodologie/page.tsx
+  - apps/web/app/(planner)/race-planner/page.tsx
+  - apps/web/app/(planner)/race-planner/page.test.ts
+  - apps/web/app/(planner)/race-planner/planner-seo.tsx
+  - apps/web/app/legal/metadata.ts
+  - apps/web/app/legal/metadata.test.ts
+  - apps/web/app/legal/mentions-legales/page.tsx
+  - apps/web/app/legal/cgu/page.tsx
+  - apps/web/app/legal/cgv/page.tsx
+  - apps/web/app/legal/privacy/page.tsx
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-races.test.ts
   - apps/web/lib/public-race-detail.ts
@@ -279,13 +291,15 @@ User-created private races live in `apps/web/app/api/races/route.ts`. They are i
 
 The canonical homepage is French-first even though the product name is English. Its server-rendered metadata advertises `fr-FR` plus an `x-default` pointing to the same canonical URL, and the client locale helper must not replace the homepage title, description, or canonical after hydration. This keeps crawler-visible language signals stable until a genuine server-rendered English homepage has its own URL.
 
+Public metadata uses `/landing/secondary.png` as the shared Open Graph/Twitter fallback. Routes with their own course or article image keep that specific asset; public landing pages and image-less races use the shared fallback instead of emitting an image-less social card.
+
 Blog frontmatter supports an explicit `locale` of `fr` or `en` and otherwise defaults to French. Article metadata, Open Graph locale, visible byline/CTA copy, `hreflang`, and `BlogPosting.inLanguage` all use that stored locale rather than guessing from accents or tags. `BlogPosting` identifies the verifiable Pace Yourself organization and its About page; no personal qualification is inferred.
 
 `/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with four real TST mobile screenshots (course and aid stations, bib collection, equipment, and access), keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the embedded, accessible screenshot selector. The selected screenshot is shown in full with a viewport-constrained height so the selector and preview remain usable together. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
 
 The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The server-rendered catalog emits an `ItemList`; its mobile-first client controls combine text, distance, and upcoming/past/all filters without creating crawlable URL combinations. The default view puts upcoming/current formats before undated formats, while the past view sorts newest first. After filtering, formats sharing a stable non-null `eventId + editionId` render inside one semantic event-edition card ordered by distance; legacy event rows without an edition fall back to `eventId`, and standalone races remain separate cards. Event and format image URLs stay distinct, missing images reserve no space, and every format keeps a crawlable course link.
 
-Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. A former slug is looked up in `race_slug_redirects`, revalidated against the current race and optional parent-event visibility, and permanently redirected before rich data is loaded.
+Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. A former slug is looked up in `race_slug_redirects`, revalidated against the current race and optional parent-event visibility, and permanently redirected before rich data is loaded. Course metadata keeps titles at 60 characters and descriptions at 160 characters, adding the confirmed race year when needed so homonymous editions remain distinct.
 
 The lightweight catalog DTO and server-only detail DTO are deliberately separate. The detail service rechecks live/public race, live parent event, and visible edition before service-role organizer, ravito, or private GPX reads. It applies the shared inheritance parser but serializes only an explicit runner-safe shape: emergency phone, `lastMinuteMessage`, raw organizer JSON, GPX paths and GPX source content never reach client components. A valid private GPX is parsed on the server and reduced to about 600 route/profile points; invalid GPX removes only that visualization. Detail pages add factual `SportsEvent` and `BreadcrumbList` JSON-LD, Open Graph/Twitter image fallbacks, responsive map/profile and ravito cards, native/Facebook/copy sharing, same-edition formats, similar races, distinct official sources, and a planner link carrying `catalogRaceId`.
 
@@ -293,11 +307,13 @@ The lightweight catalog DTO and server-only detail DTO are deliberately separate
 
 `/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. Duration, distance, elevation gain, and digestive-tolerance sliders keep their visible values, but the nutrition result remains hidden until the runner starts an explicit calculation. A short client-only loading state reveals the estimate and one intentionally unfair elite pace comparison. The comparison is deliberately compact: one projected time-gap headline followed by one larger randomized trail mishap. Changing any slider invalidates the displayed result. Distance and elevation provide comparison context only; they do not alter the carbohydrate estimate.
 
+`/race-planner` keeps the interactive planner behind its existing Suspense boundary but renders a useful French H1, summary and capability list as the server fallback. Its `SoftwareApplication` JSON-LD is emitted server-side so crawlers receive both the structured data and useful page content in the initial HTML.
+
 The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib/carb-calculator.ts` and is documented separately from the full planner allocation rule. Its share links are stateless: `duration`, `tolerance`, `distance`, `elevation`, and stable `comparison` / `joke` ids reproduce the same estimate and copy. The client accepts only in-range, step-aligned values and known ids; invalid or incomplete query strings fall back to the untouched calculator. Sharing uses the browser Web Share API when available and clipboard copy otherwise, without a database write.
 
 `/a-propos` and `/methodologie` explain the product mission, editorial safeguards, calculator assumptions, source policy, and correction path. They are linked from the global footer and included in the sitemap to provide public trust and provenance signals.
 
-`sitemap.ts` includes the organizer landing page, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. Blog discovery resolves `content/blog` from both the web workspace and monorepo/runtime ancestors and fails explicitly when the directory is absent, preventing a successful but empty blog sitemap. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, organizer-creation, planner-print, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index.
+`sitemap.ts` includes the organizer landing page, Premium, French and English partner acquisition, support, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. Blog discovery resolves `content/blog` from both the web workspace and monorepo/runtime ancestors and fails explicitly when the directory is absent, preventing a successful but empty blog sitemap. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, organizer-creation, planner-print, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index. The four legal routes use distinct self-canonicals and remain `noindex,follow` until their complete regulatory identity and hosting details receive maintainer/legal validation.
 
 ### Organizer Portal
 
@@ -393,6 +409,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Do not infer article language from accents or tags. French copy without accented characters previously received English bylines and CTAs; use validated frontmatter locale with the French default.
 - Keep `/organisateurs` as the indexable French acquisition page. `/organizers` is the authenticated creation workflow and `/race-planner/print/assistance` is a transient print view; both must remain `noindex`.
 - Never render stale race content at a former slug. Resolve its stable race id, verify current public visibility, then issue the permanent redirect before loading discovery links.
+- Keep every legacy/blog redirect target inside the route-or-canonical integrity test, and never introduce a redirect chain or a target without a real page.
+- Do not call `headers()` from the root layout solely to localize `<html lang>`; that opts the complete public surface into dynamic rendering. A future server-correct English document language requires a deliberate multi-root-layout route structure.
 
 - Do not store service-role keys in client code. `getSupabaseServiceConfig` is server-only by usage.
 - Keep verified-session readiness independent from the entitlement request. Premium consumers must use `isEntitlementsLoading` when they need to wait for effective rights; authenticated surfaces such as Organizer should not wait for that secondary request.

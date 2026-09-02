@@ -1,3 +1,12 @@
+import { supportEmail } from "../../support/copy";
+import { buildLegalMetadata } from "../metadata";
+
+export const metadata = buildLegalMetadata({
+  path: "/legal/mentions-legales",
+  title: "Mentions légales | Pace Yourself",
+  description: "Informations sur l’éditeur, le contact et les responsabilités du service Pace Yourself.",
+});
+
 export default function MentionsLegalesPage() {
   return (
     <div className="space-y-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl sm:p-8">
@@ -14,20 +23,20 @@ export default function MentionsLegalesPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Informations sur l&apos;éditeur</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300 sm:text-base">
-          <li>Nom de la société : TODO [Nom de l&apos;entreprise]</li>
-          <li>Adresse : TODO [Adresse complète de l&apos;entreprise]</li>
-          <li>SIRET : TODO [Numéro SIRET]</li>
-          <li>Contact : TODO [Adresse e-mail de contact]</li>
+          <li>Éditeur : Faustin Bertrand</li>
+          <li>Service édité : Pace Yourself</li>
+          <li>
+            Contact : <a className="underline" href={`mailto:${supportEmail}`}>{supportEmail}</a>
+          </li>
         </ul>
       </section>
 
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Hébergement</h2>
-        <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300 sm:text-base">
-          <li>Hébergeur du site : TODO [Nom et coordonnées de l&apos;hébergeur]</li>
-          <li>Localisation des serveurs et principales garanties de disponibilité.</li>
-          <li>Procédure de contact en cas d&apos;incident : TODO [Adresse e-mail de contact].</li>
-        </ul>
+        <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
+          Le service s&apos;appuie sur des prestataires d&apos;hébergement cloud. Toute demande relative à
+          l&apos;hébergement ou à un incident peut être adressée à {supportEmail}.
+        </p>
       </section>
 
       <section className="space-y-3">
@@ -42,8 +51,7 @@ export default function MentionsLegalesPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Contact</h2>
         <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
-          Pour toute question relative aux mentions légales ou pour signaler un contenu, vous pouvez nous contacter à :
-          TODO [Adresse e-mail de contact].
+          Pour toute question relative aux mentions légales ou pour signaler un contenu, écrivez à {supportEmail}.
         </p>
       </section>
     </div>

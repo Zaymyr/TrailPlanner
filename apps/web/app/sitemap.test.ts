@@ -49,4 +49,18 @@ describe('sitemap', () => {
       },
     ]);
   });
+
+  it('includes every indexable static product, partner, and support page', async () => {
+    getAllPostMetadata.mockResolvedValue([]);
+
+    const entries = await sitemap();
+    const urls = entries.map((entry) => entry.url);
+
+    expect(urls).toEqual(expect.arrayContaining([
+      'https://pace-yourself.com/premium',
+      'https://pace-yourself.com/partenaires',
+      'https://pace-yourself.com/en/partners',
+      'https://pace-yourself.com/support',
+    ]));
+  });
 });

@@ -17,6 +17,7 @@ import { Stack, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
+import * as Linking from 'expo-linking';
 import { PostHogProvider as AnalyticsProvider } from 'posthog-react-native';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
@@ -61,6 +62,8 @@ import {
 } from '../lib/onboardingTransition';
 import {
   buildAnalyticsScreenName,
+  buildAnalyticsScreenGroup,
+  buildMobileAcquisitionProperties,
   captureAnalyticsEvent,
   identifyAnalyticsUser,
   posthog,
@@ -170,7 +173,7 @@ function RootLayoutContent() {
     () => getPendingOnboardingTransition(),
   );
   const [updateState, setUpdateState] = useState<StartupUpdateState>({ status: 'checking', detail: null });
-  const { isLoading: premiumLoading } = usePremium();
+  const { isLoading: premiumLoading, isPremium } = usePremium();
   const segments = useSegments();
   const router = useRouter();
   const startupUpdateRunRef = useRef(false);
@@ -181,6 +184,7 @@ function RootLayoutContent() {
   const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
   const identifiedAnalyticsUserIdRef = useRef<string | null>(null);
   const lastTrackedScreenKeyRef = useRef<string | null>(null);
+  const hasTrackedAppSessionRef = useRef(false);
   const initialRedirectInFlightRef = useRef(false);
   const appStateRef = useRef(AppState.currentState);
   const activeUsageStartedAtRef = useRef<number | null>(null);
@@ -197,6 +201,7 @@ function RootLayoutContent() {
     () => buildAnalyticsScreenName(segments.map((segment) => String(segment))),
     [segments],
   );
+  const analyticsAuthState = session && !isAnonymousSession(session) ? 'authenticated' : 'guest';
 
   useEffect(() => {
     if (!fontsLoaded && !fontLoadError) return;
@@ -489,7 +494,7 @@ function RootLayoutContent() {
       return;
     }
 
-    const nextScreenKey = `${analyticsScreenName}:${locale}`;
+    const nextScreenKey = `${analyticsScreenName}:${locale}:${analyticsAuthState}:${isPremium}`;
     if (lastTrackedScreenKeyRef.current === nextScreenKey) {
       return;
     }
@@ -497,6 +502,8 @@ function RootLayoutContent() {
     lastTrackedScreenKeyRef.current = nextScreenKey;
     trackAnalyticsScreen(analyticsScreenName, {
       locale,
+      auth_state: analyticsAuthState,
+      premium_state: isPremium ? 'premium' : 'free',
       route_group:
         typeof segments[0] === 'string' &&
         segments[0].startsWith('(') &&
@@ -504,7 +511,43 @@ function RootLayoutContent() {
           ? segments[0].slice(1, -1)
           : undefined,
     });
-  }, [analyticsScreenName, locale, segments]);
+  }, [analyticsAuthState, analyticsScreenName, isPremium, locale, segments]);
+
+  useEffect(() => {
+    if (!ready || !segments[0] || hasTrackedAppSessionRef.current) return;
+
+    hasTrackedAppSessionRef.current = true;
+    captureAnalyticsEvent('app session started', {
+      landing_screen: analyticsScreenName,
+      landing_screen_group: buildAnalyticsScreenGroup(analyticsScreenName),
+      locale,
+      auth_state: analyticsAuthState,
+      premium_state: isPremium ? 'premium' : 'free',
+      update_channel: typeof Updates.channel === 'string' ? Updates.channel : undefined,
+    });
+  }, [analyticsAuthState, analyticsScreenName, isPremium, locale, ready, segments]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const captureDeepLink = (url: string, isInitial: boolean) => {
+      if (cancelled) return;
+      captureAnalyticsEvent('deep link opened', {
+        ...buildMobileAcquisitionProperties(url),
+        is_initial: isInitial,
+      });
+    };
+
+    void Linking.getInitialURL().then((url) => {
+      if (url) captureDeepLink(url, true);
+    });
+    const subscription = Linking.addEventListener('url', ({ url }) => captureDeepLink(url, false));
+
+    return () => {
+      cancelled = true;
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!ready) {

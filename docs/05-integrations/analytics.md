@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -12,7 +12,6 @@ related_files:
   - apps/web/app/organizers/page.tsx
   - apps/web/lib/google-analytics.ts
   - apps/web/lib/organizer-acquisition.ts
-  - apps/web/lib/posthog-query.ts
   - apps/web/app/api/admin/growth/route.ts
   - apps/web/app/api/admin/growth/schema.ts
   - apps/web/app/admin/components/AdminGrowthSection.tsx
@@ -36,6 +35,7 @@ This document describes analytics integrations used by the web and mobile apps. 
 - PostHog: product analytics on web and mobile.
 - Consent gate: web analytics only load after cookie consent.
 - Sanitized path: web pageviews remove sensitive query parameters.
+- Acquisition context: UTM values and referring domains are stored as bounded properties, never as full referrer URLs.
 - Vercel Analytics: web analytics/speed insights loaded after consent.
 
 ## Web PostHog
@@ -65,6 +65,8 @@ Sensitive query parameters are removed from analytics paths:
 - `invite_token`
 - `refresh_token`
 - `token`
+
+The browser client enables PostHog autocapture and page-leave capture after analytics consent. Manual `$pageview` events add a stable `page_group`, the path without dynamic query data, and acquisition properties. A consented browser session also emits `web session started` once with its landing area and attribution. Attribution distinguishes campaign, organic search, social, referral, and direct traffic; only the referring domain is retained.
 
 ## Web Consent
 
@@ -98,6 +100,10 @@ The mobile PostHog client:
 - disables itself when no key/token exists;
 - captures app lifecycle events;
 - supports identify, reset, event capture, and screen tracking helpers.
+- registers `surface: app` on custom events and screen views;
+- groups screens into stable product areas so analysis does not depend on individual route names.
+
+The root layout emits `app session started` once per process with the landing screen group, locale, auth state, Premium state, and update channel. It also emits `deep link opened` for initial and in-app links. Deep-link analytics retain only the scheme, host, and the explicit UTM allowlist; paths and arbitrary query values are not captured.
 
 `apps/mobile/app/_layout.tsx` is also the home for other session side effects such as push registration and Resend contact sync. Those side effects should stay separate from PostHog identify/reset calls.
 Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
@@ -105,22 +111,12 @@ The normal cold-start destination is the Courses catalog; that routing decision 
 
 ## Admin Growth Dashboard
 
-The admin Growth tab separates Web acquisition, App activation/retention, and Organizer acquisition/publication. `apps/web/app/api/admin/growth/route.ts` combines two sources without treating either one as interchangeable:
+The admin Growth tab is operational and uses Supabase only:
 
 - Supabase is authoritative for accounts, plans, subscriptions, organizer memberships, editions, formats, and RaceBook publication state.
-- PostHog supplies consented Web visitors/funnels, mobile screen activity, App retention cohorts, and organizer landing/dashboard visitors.
+- Web/App product behavior, acquisition, funnels, and retention are analyzed directly in the PostHog product and are not queried by the application.
 
-The server-only PostHog reader in `apps/web/lib/posthog-query.ts` calls the project query API with:
-
-- `POSTHOG_PERSONAL_API_KEY`
-- `POSTHOG_PROJECT_ID`
-- optional `POSTHOG_API_HOST`; the public ingestion host is converted to the matching regional API host when this is absent.
-
-The personal key needs PostHog's `query:read` scope for the HogQL query endpoint.
-
-These read credentials must never use a `NEXT_PUBLIC_` prefix. If either required value is absent or the query fails, the endpoint still returns the Supabase metrics and marks PostHog-derived values unavailable instead of substituting estimates. App J+1/J+7/J+30 retention uses first `$screen` cohorts and an exact one-day return window. The organizer follow-up list is a Supabase operational proxy based on membership plus edition/format modification timestamps; it is not presented as a browser-session measurement.
-
-The Growth dashboard and the Users management tab also consume a shared daily trend series. Supabase provides daily account creation, 24-hour activation, plan creation, and plan activity; PostHog adds daily unique Web visitors and active App users when server read credentials are available. Missing PostHog access leaves those series unavailable while preserving the Supabase curves. Growth summary projections normalize the selected period's observed pace to 30 days; they are directional run-rate context, not forecasts.
+The Growth dashboard and the Users management tab consume a shared Supabase daily trend series for account creation, 24-hour activation, plan creation, and plan activity. The organizer follow-up list is an operational proxy based on membership plus edition/format modification timestamps; it is not a browser-session measurement. Growth summary projections normalize the selected period's observed pace to 30 days; they are directional run-rate context, not forecasts.
 
 ## RaceBook Sponsor Clicks
 
@@ -131,8 +127,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Never paste real PostHog keys into docs.
 - Do not include sensitive URL tokens in analytics paths.
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
-- Admin Web funnels therefore cover only consented traffic. Do not compare their visitor totals directly with all Supabase accounts as if both sources had equal coverage.
-- Keep PostHog personal API keys server-only. A missing/failed PostHog read must remain visible as unavailable data, not zero activity.
+- PostHog covers only consented Web traffic. Do not compare its visitor totals directly with all Supabase accounts as if both sources had equal coverage.
 - Do not present the 30-day run rate as a predictive model; short ranges such as today can be volatile.
 - Organizer "content changed" and follow-up timestamps can include trusted admin/service edits to the same event. Use them for operational relaunches, not as exact organizer session counts.
 - Do not expand organizer attribution beyond the explicit UTM allowlist or persist campaign parameters in browser storage.

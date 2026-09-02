@@ -22,6 +22,7 @@ related_files:
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/lib/public-races.test.ts
   - apps/web/app/courses/[slug]/page.test.ts
+  - apps/web/app/courses/[slug]/race-metadata.ts
   - scripts/audit-public-race-slugs.mjs
   - scripts/audit-public-race-slugs.test.mjs
 related_tables:
@@ -56,7 +57,7 @@ The detail page applies the established event/format inheritance parser for sche
 
 When a private GPX object exists, the server downloads and parses it only after every visibility gate succeeds. The browser receives a bounded route/elevation preview of about 600 points, never the GPX file or Storage path. Invalid or absent GPX degrades to a detail page without map/profile, and the public page offers no GPX download action.
 
-The page exposes `SportsEvent` and `BreadcrumbList` structured data using only confirmed facts. Open Graph and Twitter use the format image first and the event image second. It links to:
+The page exposes `SportsEvent` and `BreadcrumbList` structured data using only confirmed facts. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters and include the confirmed race year when it is not already present; descriptions are capped at 160 characters. It links to:
 
 - other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
 - up to three published races from other events with the nearest distance, using elevation only as a tie-breaker;

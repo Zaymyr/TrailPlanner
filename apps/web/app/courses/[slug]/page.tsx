@@ -9,43 +9,24 @@ import { getPublicRaceDetail } from "../../../lib/public-race-detail";
 import type { PublicRace } from "../../../lib/public-races";
 import { getPublicRaces, resolvePublicRaceSlug } from "../../../lib/public-races";
 import { getOtherEventFormats, getSimilarRaces } from "../../../lib/race-discovery";
-import { SITE_URL } from "../../seo";
+import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../seo";
 import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { PublicRaceLinks } from "../_components/PublicRaceLinks";
 import { PublicRaceShare } from "../_components/PublicRaceShare";
+import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceDate } from "./race-metadata";
 
 export const revalidate = 3600;
 
 type PageProps = { params: { slug: string } };
 
-const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
-  day: "numeric",
-  month: "long",
-  year: "numeric",
-  timeZone: "UTC",
-});
-
-const formatDate = (date: string | null) => {
-  if (!date) return null;
-  const parsed = new Date(`${date.slice(0, 10)}T12:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? null : dateFormatter.format(parsed);
-};
+const formatDate = formatPublicRaceDate;
 
 const formatMetric = (value: number | null, suffix: string) =>
   value === null ? "À confirmer" : `${Math.round(value).toLocaleString("fr-FR")} ${suffix}`;
 
 const hasText = (...values: Array<string | null | undefined>) => values.some((value) => Boolean(value?.trim()));
 
-const buildDescription = (race: PublicRace | null) => {
-  if (!race) return "Fiche d’une course de trail sur Pace Yourself.";
-  const details = [
-    race.distanceKm !== null ? `${race.distanceKm} km` : null,
-    race.elevationGainM !== null ? `${Math.round(race.elevationGainM)} m D+` : null,
-    race.location,
-    formatDate(race.date),
-  ].filter(Boolean);
-  return `${race.name} : ${details.join(", ")}. Parcours, profil altimétrique et informations pratiques disponibles.`;
-};
+const buildDescription = buildRaceMetadataDescription;
 
 const InfoCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
   <Card className="h-full">
@@ -72,24 +53,28 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!resolution) return { title: "Course introuvable", robots: { index: false, follow: false } };
   const { race } = resolution;
   const canonicalPath = `/courses/${race.slug}`;
+  const title = buildRaceMetadataTitle(race);
   const description = buildDescription(race);
-  const images = race.thumbnailUrl ? [{ url: race.thumbnailUrl, alt: race.name }] : undefined;
+  const openGraphImages = race.thumbnailUrl
+    ? [{ url: race.thumbnailUrl, alt: race.name }]
+    : [DEFAULT_SOCIAL_IMAGE];
+  const twitterImages = race.thumbnailUrl ? [race.thumbnailUrl] : [DEFAULT_SOCIAL_IMAGE_PATH];
   return {
-    title: `${race.name} : parcours, profil et informations`,
+    title,
     description,
     alternates: { canonical: canonicalPath },
     openGraph: {
-      title: `${race.name} | Pace Yourself`,
+      title,
       description,
       url: new URL(canonicalPath, SITE_URL),
       type: "website",
-      images,
+      images: openGraphImages,
     },
     twitter: {
-      card: race.thumbnailUrl ? "summary_large_image" : "summary",
-      title: `${race.name} | Pace Yourself`,
+      card: "summary_large_image",
+      title,
       description,
-      images: race.thumbnailUrl ? [race.thumbnailUrl] : undefined,
+      images: twitterImages,
     },
   };
 }

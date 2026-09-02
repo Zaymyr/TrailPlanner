@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-08-30
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -118,6 +118,8 @@ The public `/calculateur-glucides-trail` page is a simplified acquisition tool, 
 Digestive tolerance is a UI scale from `0` (frequent nausea) to `100` (eats easily during running). It interpolates between the duration range's minimum and maximum; the result is rounded to the nearest `5 g/h`. This interpolation is a user-facing starting estimate, not a clinical threshold. The calculator multiplies the hourly result by duration and rounds total grams. Non-finite inputs are normalized and tolerance is clamped to `0..100`.
 
 The page must keep its training-tolerance disclaimer. It presents the result as a starting point to test progressively, not as medical advice or an individualized prescription.
+
+Its Open Graph and Twitter metadata use the shared public social image. This is acquisition presentation only and does not change calculator inputs, interpolation, or safety copy.
 
 The result includes one random elite and one random joke from the fixed catalogs in `apps/web/lib/carb-calculator-fun.ts`. The compact headline projects the elite's average UTMB speed over the runner's entered distance and reports only the projected time gap, alongside the entered D+. A separate, larger line delivers a short trail-specific joke with an emoji. It does not claim the two courses are equivalent and never affects carbohydrate calculations. A new calculation avoids immediately repeating either the athlete or the joke.
 

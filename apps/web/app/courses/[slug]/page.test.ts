@@ -20,6 +20,7 @@ vi.mock("../../../lib/public-races", () => ({
 vi.mock("../../../lib/public-race-detail", () => ({ getPublicRaceDetail }));
 
 import RacePage, { generateMetadata } from "./page";
+import { buildRaceMetadataDescription, buildRaceMetadataTitle } from "./race-metadata";
 
 const canonicalRace = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -129,6 +130,39 @@ describe("public race legacy slug page", () => {
       card: "summary_large_image",
       images: ["https://images.example.com/format.jpg"],
     }));
+  });
+
+  it("falls back to the shared large social image when the race has no image", async () => {
+    resolvePublicRaceSlug.mockResolvedValue({ race: canonicalRace, shouldRedirect: false });
+
+    const metadata = await generateMetadata({ params: { slug: canonicalRace.slug } });
+
+    expect(metadata.openGraph).toEqual(expect.objectContaining({
+      images: [expect.objectContaining({ url: "/landing/secondary.png" })],
+    }));
+    expect(metadata.twitter).toEqual(expect.objectContaining({
+      card: "summary_large_image",
+      images: ["/landing/secondary.png"],
+    }));
+  });
+
+  it("keeps edition years distinct and metadata within snippet limits", () => {
+    const longRace = {
+      ...canonicalRace,
+      name: "Le Muratori avec un nom de format particulièrement long pour cette édition alpine",
+      location: "Une commune française au nom particulièrement long",
+    };
+    const nextEdition = { ...longRace, date: "2027-09-12" };
+
+    const currentTitle = buildRaceMetadataTitle(longRace);
+    const nextTitle = buildRaceMetadataTitle(nextEdition);
+
+    expect(currentTitle).not.toBe(nextTitle);
+    expect(currentTitle).toContain("2026");
+    expect(nextTitle).toContain("2027");
+    expect(currentTitle.length).toBeLessThanOrEqual(60);
+    expect(nextTitle.length).toBeLessThanOrEqual(60);
+    expect(buildRaceMetadataDescription(longRace).length).toBeLessThanOrEqual(160);
   });
 
   it("keeps unknown slugs out of the index", async () => {

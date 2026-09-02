@@ -18,10 +18,13 @@ export function ensurePostHogBrowserInit(isAnalyticsEnabled: boolean) {
   if (!posthogInitialized) {
     posthog.init(POSTHOG_KEY, {
       api_host: POSTHOG_HOST,
+      autocapture: true,
+      capture_pageleave: true,
       capture_pageview: false,
       defaults: "2026-01-30",
       opt_out_capturing_by_default: !isAnalyticsEnabled,
     });
+    posthog.register({ surface: "web" });
     posthogInitialized = true;
   }
 

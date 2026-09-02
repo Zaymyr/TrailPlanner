@@ -424,9 +424,44 @@ function processPendingDraft_(spreadsheet, historySheet, pendingDraft, now, date
 }
 
 function sendTrackedDraft_(spreadsheet, historySheet, prospect, pendingDraft, now, dateKey, reconciliation) {
-  Gmail.Users.Drafts.send({ id: pendingDraft.draftId }, 'me');
+  const gmailDraftId = resolveGmailDraftId_(pendingDraft.draftId);
+  Gmail.Users.Drafts.send({ id: gmailDraftId }, 'me');
   syncProspectActivity_(requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet), prospect, { sentAt: now, repliedAt: null });
   return confirmTrackedDraftSent_(historySheet, prospect, pendingDraft, now, dateKey, reconciliation, 'Brouillon envoyé automatiquement');
+}
+
+function resolveGmailDraftId_(trackedId) {
+  const expectedId = String(trackedId || '').trim();
+  if (!expectedId) throw new Error('Identifiant de brouillon Gmail manquant.');
+  const candidateIds = {};
+  candidateIds[expectedId] = true;
+  if (typeof GmailApp !== 'undefined') {
+    try {
+      const builtInDraft = GmailApp.getDraft(expectedId);
+      if (builtInDraft) {
+        const messageId = typeof builtInDraft.getMessageId === 'function'
+          ? builtInDraft.getMessageId()
+          : builtInDraft.getMessage().getId();
+        if (messageId) candidateIds[String(messageId)] = true;
+      }
+    } catch (error) {
+      console.warn('Résolution GmailApp impossible pour le brouillon ' + expectedId + ' : ' + error);
+    }
+  }
+  let pageToken = '';
+  do {
+    const options = { maxResults: 500 };
+    if (pageToken) options.pageToken = pageToken;
+    const response = Gmail.Users.Drafts.list('me', options);
+    const drafts = response && response.drafts ? response.drafts : [];
+    const match = drafts.filter(function (draft) {
+      return candidateIds[String(draft.id || '')]
+        || candidateIds[String(draft.message && draft.message.id || '')];
+    })[0];
+    if (match) return String(match.id);
+    pageToken = String(response && response.nextPageToken || '');
+  } while (pageToken);
+  throw new Error('Brouillon Gmail introuvable pour l\'identifiant suivi : ' + expectedId);
 }
 
 function confirmTrackedDraftSent_(historySheet, prospect, pendingDraft, now, dateKey, reconciliation, details) {

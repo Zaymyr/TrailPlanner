@@ -410,14 +410,14 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
             <AdminTrendChart
               title={isFrench ? "Dynamique des utilisateurs · 30 jours" : "User momentum · 30 days"}
               description={isFrench
-                ? `${userTrend.overview.newAccounts} nouveaux comptes, ${userTrend.overview.activatedUsers} activés en 24 h. La courbe App apparaît quand la lecture PostHog est connectée.`
-                : `${userTrend.overview.newAccounts} new accounts, ${userTrend.overview.activatedUsers} activated within 24h. The App curve appears when PostHog reads are connected.`}
+                ? `${userTrend.overview.newAccounts} nouveaux comptes, ${userTrend.overview.activatedUsers} activés en 24 h. Données issues de Supabase.`
+                : `${userTrend.overview.newAccounts} new accounts, ${userTrend.overview.activatedUsers} activated within 24h. Data from Supabase.`}
               points={userTrend.trend}
               locale={isFrench ? "fr-FR" : "en-US"}
               series={[
                 { key: "newAccounts", label: isFrench ? "Nouveaux comptes" : "New accounts", color: "#2563eb" },
                 { key: "activePlanUsers", label: isFrench ? "Actifs sur un plan" : "Active on a plan", color: "#16a34a" },
-                { key: "appActiveUsers", label: isFrench ? "Actifs App" : "Active App users", color: "#7c3aed" },
+                { key: "newPlans", label: isFrench ? "Nouveaux plans" : "New plans", color: "#7c3aed" },
               ]}
             />
           ) : null}

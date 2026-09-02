@@ -5,7 +5,13 @@ import { BlogCard } from "../../components/BlogCard";
 import { TagBadge } from "../../components/TagBadge";
 import { cn } from "../../components/utils";
 import { getAllPosts, getAllTags, type CompiledPost, type TagSummary } from "../../lib/blog/posts";
-import { localeToLanguageTag, localeToOgLocale, SITE_URL } from "../seo";
+import {
+  DEFAULT_SOCIAL_IMAGE,
+  DEFAULT_SOCIAL_IMAGE_PATH,
+  localeToLanguageTag,
+  localeToOgLocale,
+  SITE_URL,
+} from "../seo";
 
 export const dynamic = "force-static";
 
@@ -39,11 +45,13 @@ export async function generateMetadata(): Promise<Metadata> {
       siteName: "Pace Yourself",
       locale: localeToOgLocale("fr"),
       type: "website",
+      images: [DEFAULT_SOCIAL_IMAGE],
     },
     twitter: {
       card: "summary_large_image",
       title,
       description,
+      images: [DEFAULT_SOCIAL_IMAGE_PATH],
     },
   };
 }

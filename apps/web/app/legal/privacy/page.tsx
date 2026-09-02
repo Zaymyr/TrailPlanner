@@ -1,3 +1,12 @@
+import { supportEmail } from "../../support/copy";
+import { buildLegalMetadata } from "../metadata";
+
+export const metadata = buildLegalMetadata({
+  path: "/legal/privacy",
+  title: "Politique de confidentialité | Pace Yourself",
+  description: "Informations sur la collecte, l’utilisation, la conservation et la protection des données.",
+});
+
 export default function PrivacyPage() {
   return (
     <div className="space-y-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl sm:p-8">
@@ -15,8 +24,8 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Responsable du traitement</h2>
         <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
-          Le responsable du traitement des données est TODO [Nom de l&apos;entreprise], dont le siège est situé à TODO
-          [Adresse complète de l&apos;entreprise], immatriculée sous le numéro TODO [Numéro SIRET].
+          Le responsable du traitement est Faustin Bertrand, éditeur de Pace Yourself. Il peut être contacté à
+          {" "}{supportEmail}.
         </p>
       </section>
 
@@ -41,7 +50,7 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Partage et hébergement des données</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300 sm:text-base">
-          <li>Données hébergées par TODO [Nom et coordonnées de l&apos;hébergeur].</li>
+          <li>Données confiées uniquement aux prestataires techniques nécessaires au fonctionnement du service.</li>
           <li>Accès restreint aux prestataires nécessaires au fonctionnement du service.</li>
           <li>Aucun transfert à des tiers non autorisés sans votre consentement préalable.</li>
         </ul>
@@ -67,8 +76,7 @@ export default function PrivacyPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Contact</h2>
         <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
-          Pour exercer vos droits ou poser une question sur la gestion des données, écrivez-nous à : TODO [Adresse
-          e-mail de contact].
+          Pour exercer vos droits ou poser une question sur la gestion des données, écrivez à {supportEmail}.
         </p>
       </section>
     </div>

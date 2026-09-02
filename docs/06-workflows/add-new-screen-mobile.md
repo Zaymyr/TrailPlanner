@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: medium
 related_files:
   - apps/mobile/app

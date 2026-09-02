@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-08-30
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx

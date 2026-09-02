@@ -8,6 +8,13 @@ export const RACE_PLANNER_PATH = "/race-planner";
 export const CANONICAL_PATH = HOME_PATH;
 export const CANONICAL_URL = new URL(CANONICAL_PATH, SITE_URL).toString();
 export const RACE_PLANNER_URL = new URL(RACE_PLANNER_PATH, SITE_URL).toString();
+export const DEFAULT_SOCIAL_IMAGE_PATH = "/landing/secondary.png";
+export const DEFAULT_SOCIAL_IMAGE = {
+  url: DEFAULT_SOCIAL_IMAGE_PATH,
+  width: 770,
+  height: 381,
+  alt: "Aperçu du planificateur de course Pace Yourself",
+};
 
 export const localeToOgLocale = (locale: Locale): string =>
   locale === "fr" ? "fr_FR" : "en_US";
