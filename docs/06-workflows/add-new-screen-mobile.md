@@ -45,6 +45,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - App shell: global providers and auth handling in `_layout.tsx`.
 - Premium gate: access checks from `usePremium`.
 - Analytics screen: PostHog screen name from route segments.
+- RaceBook analytics: the existing RaceBook route adds stable race/event properties and foreground engagement events after its publication/content gate succeeds; sponsor reporting stays separate.
 - App-wide session side effect: behavior that belongs in `_layout.tsx`, such as push registration or Resend contact sync, not inside an individual screen.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.

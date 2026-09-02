@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -71,6 +71,8 @@ The Courses sheet starts a short-lived, account-scoped sponsor request and logo 
 
 Banner placements use an automatic horizontal carousel whenever at least two active sponsors exist. It presents one sponsor per viewport-sized slide for three seconds, transitions over 520 ms, and loops through a duplicate first slide; reduced-motion users receive the manual horizontal list instead. The carousel still preserves database order, the ten-sponsor cap, and counted redirect links.
 
+RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, and foreground active duration. Sponsor impressions, identities, placements, and redirect presses remain excluded from that person-level stream; only the existing aggregate redirect boundary counts sponsor clicks.
+
 ## Gotchas
 
 - The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.
@@ -83,6 +85,7 @@ Banner placements use an automatic horizontal carousel whenever at least two act
 - Keep the sponsor handoff cache short-lived and scoped by authenticated user id plus race id. It may share one in-flight request across the catalog and destination, but must not reuse an organizer-only draft response after a session change.
 - Keep the compact banner carousel independent from aggregate row-width measurement; every active banner sponsor must rotate even when several logos could technically fit at once.
 - Keep sponsor timing independent from route-local expansion state; opening a parking, shuttle, or ravito accordion row must not restart the banner or sponsor gate.
+- Do not add sponsor ids or names to identified RaceBook engagement events. Sponsor performance remains an aggregate click-count contract.
 
 ## Related Docs
 
