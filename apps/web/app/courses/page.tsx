@@ -10,7 +10,7 @@ import { RaceCatalogFilter } from "./_components/RaceCatalogFilter";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Calendrier trail et courses 2026 | Distance et dénivelé",
+  title: "Calendrier trail : courses, distances et dénivelés",
   description:
     "Découvrez les courses de trail du calendrier Pace Yourself : dates, distances, dénivelés et lieux pour préparer votre prochaine course.",
   alternates: { canonical: "/courses" },
@@ -20,14 +20,46 @@ export const metadata: Metadata = {
     url: new URL("/courses", SITE_URL),
     type: "website",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Calendrier des courses de trail",
+    description: "Trouvez une course et consultez sa distance, son dénivelé, sa date et son lieu.",
+  },
+};
+
+const getTodayInFrance = () => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Paris",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
 };
 
 export default async function CoursesPage() {
   const races = await getPublicRaces();
   const distancePages = getIndexableDistancePages(races);
+  const itemListData = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Catalogue des courses de trail",
+    numberOfItems: races.length,
+    itemListElement: races.map((race, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: race.name,
+      url: new URL(`/courses/${race.slug}`, SITE_URL).toString(),
+    })),
+  };
 
   return (
     <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListData).replace(/</g, "\\u003c") }}
+      />
       <header className="max-w-3xl space-y-4">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand">Calendrier trail</p>
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
@@ -80,7 +112,7 @@ export default async function CoursesPage() {
         </section>
       ) : null}
 
-      <RaceCatalogFilter races={races} />
+      <RaceCatalogFilter races={races} todayIso={getTodayInFrance()} />
     </main>
   );
 }

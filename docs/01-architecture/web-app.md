@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -34,6 +34,9 @@ related_files:
   - apps/web/app/courses/[slug]/page.test.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
+  - apps/web/app/courses/_components/PublicRaceShare.tsx
+  - apps/web/app/courses/_components/PublicElevationProfile.tsx
+  - apps/web/app/courses/PublicRaceShare.test.ts
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/app/calculateur-glucides-trail/page.tsx
@@ -43,6 +46,8 @@ related_files:
   - apps/web/app/methodologie/page.tsx
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-races.test.ts
+  - apps/web/lib/public-race-detail.ts
+  - apps/web/lib/public-race-detail.test.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/lib/carb-calculator.ts
   - apps/web/lib/carb-calculator-fun.ts
@@ -278,9 +283,11 @@ Blog frontmatter supports an explicit `locale` of `fr` or `en` and otherwise def
 
 `/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with four real TST mobile screenshots (course and aid stations, bib collection, equipment, and access), keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the embedded, accessible screenshot selector. The selected screenshot is shown in full with a viewport-constrained height so the selector and preview remain usable together. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
 
-The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The catalog is rendered server-side and offers client-side name/location and distance filters. After filtering, formats sharing a stable non-null `eventId` render inside one semantic event card, ordered by distance; standalone races remain separate cards. Every format keeps a crawlable course link, and the filters do not create crawlable URL combinations.
+The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The server-rendered catalog emits an `ItemList`; its mobile-first client controls combine text, distance, and upcoming/past/all filters without creating crawlable URL combinations. The default view puts upcoming/current formats before undated formats, while the past view sorts newest first. After filtering, formats sharing a stable non-null `eventId + editionId` render inside one semantic event-edition card ordered by distance; legacy event rows without an edition fall back to `eventId`, and standalone races remain separate cards. Event and format image URLs stay distinct, missing images reserve no space, and every format keeps a crawlable course link.
 
-Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. A former slug is looked up in `race_slug_redirects`, revalidated against the current race and optional parent-event visibility, and permanently redirected to the current canonical slug. Detail pages expose only published race/event facts, add `SportsEvent` and `BreadcrumbList` JSON-LD, and link to the planner, calculator, official source, other formats of the same event, and up to three similar races when available.
+Each live public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; both the catalog and detail pages revalidate hourly, and uncached slugs remain resolvable at runtime. A former slug is looked up in `race_slug_redirects`, revalidated against the current race and optional parent-event visibility, and permanently redirected before rich data is loaded.
+
+The lightweight catalog DTO and server-only detail DTO are deliberately separate. The detail service rechecks live/public race, live parent event, and visible edition before service-role organizer, ravito, or private GPX reads. It applies the shared inheritance parser but serializes only an explicit runner-safe shape: emergency phone, `lastMinuteMessage`, raw organizer JSON, GPX paths and GPX source content never reach client components. A valid private GPX is parsed on the server and reduced to about 600 route/profile points; invalid GPX removes only that visualization. Detail pages add factual `SportsEvent` and `BreadcrumbList` JSON-LD, Open Graph/Twitter image fallbacks, responsive map/profile and ravito cards, native/Facebook/copy sharing, same-edition formats, similar races, distinct official sources, and a planner link carrying `catalogRaceId`.
 
 `/courses/distances/[category]` provides crawlable discovery pages for short trails, 30–79 km trails, and ultra-trails. A category is generated, linked, and included in the sitemap only when at least five published races have a structured distance in its mutually exclusive range. Region pages remain disabled until the public race contract exposes normalized region or department data; free-text locations are not used to manufacture geographic landing pages.
 

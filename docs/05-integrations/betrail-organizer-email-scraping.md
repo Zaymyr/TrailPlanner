@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -128,24 +128,25 @@ The `--repair-shifted-enrichment` flag exists for the reviewed 2026-08-26 export
 
 ## Gmail draft job
 
-`scripts/google-apps-script/outreach-job/Code.gs` is a Google Apps Script job for the native outreach spreadsheet. Its manifest is stored beside it in `appsscript.json`. The job is intentionally draft-only: it never invokes a Gmail send method.
+`scripts/google-apps-script/outreach-job/Code.gs` is a Google Apps Script job for the native outreach spreadsheet. Its manifest is stored beside it in `appsscript.json`. `Template email!mode_envoi` selects either review-only drafts (`Brouillons`) or controlled delivery of job-tracked drafts (`Envoi automatique`).
 
 Run `installOutreachJob` once from the Apps Script editor after deployment and OAuth approval. It installs a one-minute time trigger. Each invocation:
 
 - stops unless `activation_envoi` is checked;
-- requires the template mode to remain `Brouillons`;
-- reads the enabled weekdays, start time, time zone, daily cap, and inter-draft delay from `Paramètres envoi`;
+- requires the template mode to be `Brouillons` or `Envoi automatique`;
+- reads the enabled weekdays, start time, time zone, daily cap, and inter-message delay from `Paramètres envoi`;
 - evaluates the send window against `outreach_planning_date`; exact future dates stay unchanged, while past editions use the same ISO event week in the next applicable year;
 - rechecks the selected prospect's contact, reply, bounce, exclusion, and opt-out fields;
 - searches Gmail for an existing sent message or reply from the same address;
 - reconciles Gmail activity in bounded rotating batches every five minutes by default, updating `last_sent_email_at` and `replied_at` in `Prospects` even when draft creation is disabled;
-- when `activation_relance` is checked, selects contacts whose last sent message is at least `delai_relance_jours` business days old, then rechecks Gmail and creates at most one relance draft; it stays in the existing thread only when the original subject already contains the organization name, otherwise a standalone draft uses the personalized `objet_relance`;
-- reads the actual first sent message before drafting a follow-up: messages that explicitly proposed the TST/course-test flow use `corps_relance`, while older presentation emails use `corps_relance_premier_contact` to introduce the site and app links, then invite the organizer to open TST and share feedback;
-- creates at most one personalized draft;
+- when `activation_relance` is checked, selects contacts whose latest sent message is at least `delai_relance_jours` business days old, then creates the next draft in a sequence capped at three relances; legacy generic relance history counts as relance 1;
+- before drafting relance 1, reads the sent message and uses `corps_relance` when it explicitly proposed the TST/course-test flow; older presentation emails use `corps_relance_premier_contact` to introduce the site and app links, then invite the organizer to open TST and share feedback;
+- processes at most one personalized message; draft mode creates it for review, while automatic mode sends it immediately;
+- in automatic mode, drains existing tracked drafts oldest first before creating new messages, and never selects unrelated Gmail drafts;
 - appends a signed, prospect-specific unsubscribe link to initial and follow-up drafts; the link opens a confirmation page and confirmation sets `Prospects!opted-out` to true;
 - records the outcome in `Historique envois`, which the job creates when first installed.
 
-Initial drafts and follow-up drafts share the configured daily cap and inter-draft delay. A follow-up is blocked when Gmail contains a later reply, or when the prospect has no organizer name, is bounced, excluded, opted out, or already followed up. When the initial send is absent from Gmail, the job creates a standalone draft with `corps_relance_premier_contact`. When the initial Gmail subject is generic, the job also uses a standalone draft so `objet_relance` can include the course name; Gmail requires matching subjects for true thread membership. The default follow-up delay is ten business days. Business days are Monday through Friday; public holidays are not excluded unless a holiday calendar is added explicitly. `activation_relance` stays unchecked until the follow-up copy has been reviewed.
+Initial messages and follow-ups share the configured daily cap and inter-message delay. In automatic mode, the cap counts confirmed sends; in draft mode, it counts created drafts. Before sending a queued draft, the job rechecks the prospect address, reply, bounce, exclusion, and opt-out state. A pending relance draft blocks the next attempt. Relance 1 retains the original-content routing between `corps_relance` and `corps_relance_premier_contact`; relances 2 and 3 use their numbered templates, and the third identifies itself as the final message. After relance 3 is confirmed sent and one last configured business-day delay passes without a response, the job records `PROSPECT_SANS_REPONSE`; the Sheet displays this as `SANS RÉPONSE` and the sequence stops. When the initial send is absent from Gmail, the job creates a standalone draft. When the latest Gmail subject is generic, the job also uses a standalone draft so `objet_relance` can include the course name; Gmail requires matching subjects for true thread membership. The default delay is ten business days between steps and after the final send. Business days are Monday through Friday; public holidays are not excluded unless a holiday calendar is added explicitly. `activation_relance` stays unchecked until the copy has been reviewed.
 
 The one-minute trigger is a polling cadence, not an exact delivery guarantee. Apps Script can start a run slightly late. With a one-minute delay and a limit of 150, a full daily draft sequence takes at least two hours and thirty minutes.
 
@@ -159,7 +160,7 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 - A CSV queue is only an intermediate review artifact. Gmail or another sender must re-check replies and exclusions immediately before sending because those values can change after the export.
 - Never present `outreach_planning_date` as a verified race date when `event_date_basis` says it was extrapolated. It is the Monday of the known ISO event week and exists only to place outreach in the right order of magnitude.
 - Rows with neither an exact source date nor a reviewed `event_week` remain blocked. A week from 1 to 53 can be entered manually when another reliable source establishes the period.
-- Creating a draft does not prove that it was sent. Gmail reconciliation confirms manual sends and replies, while `Historique envois` prevents duplicate initial and follow-up drafts. Reconciliation is deliberately batched and rotating to limit Gmail reads, so Sheet timestamps can lag Gmail by several minutes.
+- Creating a draft does not prove that it was sent. Gmail reconciliation confirms manual sends and replies, numbers confirmed relances in `Historique envois`, and prevents a later attempt while a draft remains pending. In `Envoi automatique` mode, only draft IDs already recorded in this history are eligible; changing an address or detecting a reply, bounce, exclusion, or opt-out closes the pending item without sending it. Reconciliation is deliberately batched and rotating to limit Gmail reads, so Sheet timestamps can lag Gmail by several minutes.
 - Follow-ups inspect the latest sent Gmail message for the prospect address. The job filters individual message headers after the Gmail search so an incoming reply in the same thread is not mistaken for a sent message. It keeps a relance threaded only when the original subject already identifies the organization; otherwise the personalized subject would violate Gmail's subject-match requirement.
 - Historical Overloop sends may populate `last_sent_email_at` without existing in Gmail. Those contacts receive a standalone follow-up draft; `Template email!objet_relance` controls its subject. This fallback prevents one missing Gmail thread from starving all later relances.
 - `repairFollowupDraftSubjects` repairs existing follow-up drafts in place without sending them. It preserves their bodies and recipients, replaces the subject from `objet_relance`, and records `RELANCE_OBJET_REPARE`. A repaired draft can leave its old Gmail thread because its new personalized subject intentionally differs.

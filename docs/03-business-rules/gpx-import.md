@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -10,6 +10,9 @@ related_files:
   - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/components/gpx/GpxRouteMap.tsx
   - apps/web/components/gpx/GpxRouteMapClient.tsx
+  - apps/web/lib/public-race-detail.ts
+  - apps/web/lib/public-race-detail.test.ts
+  - apps/web/app/courses/_components/PublicElevationProfile.tsx
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/api/admin/race-catalog/utmb/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
@@ -132,6 +135,12 @@ The mobile import preview also keeps the parsed route geometry client-side throu
 11. Stores source station ids as `sourceAidStationId` when available so planner product suggestions can match by id before falling back to `name|km`.
 12. Stores organizer ravito product suggestions in `planner_values.organizerAidStationProducts` as a fallback snapshot when source station-product links exist. Saved plans linked to `race_id` later receive current source suggestions through `/api/plans` GET.
 
+## Public Course Preview
+
+The public `/courses/[slug]` detail loader can read a private `race-gpx` object only from the server and only after independently confirming `races.is_live`, `races.is_public`, the optional parent event liveness, and optional edition visibility. It parses through the same `parseGpx` source of truth and sends the browser a bounded route/elevation DTO of about 600 points. The Storage path and GPX source content are never serialized, and the page exposes no GPX download button.
+
+Route geometry remains usable when elevation tags are absent, but the elevation profile is omitted rather than inventing zero-altitude data. Missing objects and parse failures return no preview without blocking the remaining public course facts.
+
 ## Organizer GPX Replacement
 
 `apps/web/app/api/organizer/races/[id]/gpx/route.ts` `PUT`:
@@ -208,6 +217,7 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 - An incomplete GPX or unsaved GPX-related draft on one format must not block the publication switch of another complete format; foreground persistence is required only for the switched format.
 - Removing a sent organizer announcement from public history also leaves GPX files, parsed metrics, and ravito interpolation state unchanged.
 - Editing the event-level website, Instagram, or Facebook URL in the same Organizer information component does not change GPX parsing, storage, or format metrics.
+- Public course visualization must remain a server-parsed preview. Do not expose a signed/private GPX URL, raw file contents, or a download action from the SEO page.
 
 ## Related Docs
 

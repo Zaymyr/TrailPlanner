@@ -7,6 +7,7 @@ import { getPublicRaces, resolvePublicRaceSlug } from "./public-races";
 const race = {
   id: "11111111-1111-4111-8111-111111111111",
   event_id: null,
+  edition_id: null,
   slug: "trail-canonique",
   name: "Trail canonique",
   race_date: "2026-09-12",
@@ -43,7 +44,7 @@ describe("public race slug resolution", () => {
             name: "Événement public",
             location: "Annecy",
             race_date: "2026-09-12",
-            thumbnail_url: null,
+            thumbnail_url: "https://images.example/event.png",
           },
         ]);
       }
@@ -57,8 +58,14 @@ describe("public race slug resolution", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getPublicRaces()).resolves.toEqual([
-      expect.objectContaining({ slug: race.slug }),
-      expect.objectContaining({ slug: "visible", eventName: "Événement public" }),
+      expect.objectContaining({ slug: race.slug, editionId: null, raceThumbnailUrl: null, eventThumbnailUrl: null }),
+      expect.objectContaining({
+        slug: "visible",
+        eventName: "Événement public",
+        raceThumbnailUrl: null,
+        eventThumbnailUrl: "https://images.example/event.png",
+        thumbnailUrl: "https://images.example/event.png",
+      }),
     ]);
   });
 
