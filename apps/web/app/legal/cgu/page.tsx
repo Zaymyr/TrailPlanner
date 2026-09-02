@@ -1,3 +1,12 @@
+import { supportEmail } from "../../support/copy";
+import { buildLegalMetadata } from "../metadata";
+
+export const metadata = buildLegalMetadata({
+  path: "/legal/cgu",
+  title: "Conditions générales d’utilisation | Pace Yourself",
+  description: "Conditions d’accès et d’utilisation du service de planification trail Pace Yourself.",
+});
+
 export default function ConditionsUtilisationPage() {
   return (
     <div className="space-y-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl sm:p-8">
@@ -51,8 +60,7 @@ export default function ConditionsUtilisationPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Contact</h2>
         <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
-          Pour toute question relative aux conditions d&apos;utilisation, contactez-nous à : TODO [Adresse e-mail de
-          contact].
+          Pour toute question relative aux conditions d&apos;utilisation, contactez-nous à {supportEmail}.
         </p>
       </section>
     </div>

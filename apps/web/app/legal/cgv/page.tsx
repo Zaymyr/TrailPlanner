@@ -1,3 +1,12 @@
+import { supportEmail } from "../../support/copy";
+import { buildLegalMetadata } from "../metadata";
+
+export const metadata = buildLegalMetadata({
+  path: "/legal/cgv",
+  title: "Conditions générales de vente | Pace Yourself",
+  description: "Conditions applicables aux offres payantes, à la facturation et à la résiliation de Pace Yourself.",
+});
+
 export default function ConditionsVentePage() {
   return (
     <div className="space-y-8 rounded-2xl border border-slate-800 bg-slate-900/80 p-6 shadow-xl sm:p-8">
@@ -18,7 +27,7 @@ export default function ConditionsVentePage() {
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300 sm:text-base">
           <li>Présentation des fonctionnalités payantes et de leurs limitations.</li>
           <li>Tarifs indiqués en euros, taxes comprises sauf mention contraire.</li>
-          <li>TODO [Nom de l&apos;entreprise] se réserve le droit d&apos;ajuster les prix avec préavis raisonnable.</li>
+          <li>L&apos;éditeur se réserve le droit d&apos;ajuster les prix avec un préavis raisonnable.</li>
         </ul>
       </section>
 
@@ -27,7 +36,7 @@ export default function ConditionsVentePage() {
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300 sm:text-base">
           <li>Processus de souscription détaillé et confirmation par e-mail.</li>
           <li>Facturation automatisée avec moyen de paiement sécurisé.</li>
-          <li>Contact facturation : TODO [Adresse e-mail de contact].</li>
+          <li>Contact facturation : {supportEmail}.</li>
         </ul>
       </section>
 
@@ -43,8 +52,7 @@ export default function ConditionsVentePage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Service client</h2>
         <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
-          Pour toute question sur la facturation ou pour exercer vos droits, merci de nous écrire à : TODO [Adresse
-          e-mail de contact].
+          Pour toute question sur la facturation ou pour exercer vos droits, écrivez à {supportEmail}.
         </p>
       </section>
     </div>

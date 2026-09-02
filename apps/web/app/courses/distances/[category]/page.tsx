@@ -9,7 +9,7 @@ import {
   MIN_INDEXABLE_RACES,
 } from "../../../../lib/race-discovery";
 import { getPublicRaces } from "../../../../lib/public-races";
-import { SITE_URL } from "../../../seo";
+import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../../seo";
 import { PublicRaceLinks } from "../../_components/PublicRaceLinks";
 
 export const revalidate = 3600;
@@ -40,6 +40,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: page.description,
       type: "website",
       url: new URL(canonicalPath, SITE_URL),
+      images: [DEFAULT_SOCIAL_IMAGE],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: page.title,
+      description: page.description,
+      images: [DEFAULT_SOCIAL_IMAGE_PATH],
     },
   };
 }

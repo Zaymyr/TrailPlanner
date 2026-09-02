@@ -36,7 +36,7 @@ describe("GET /api/admin/growth", () => {
     vi.restoreAllMocks();
   });
 
-  it("returns honest Supabase metrics and organizer follow-ups when PostHog reads are not configured", async () => {
+  it("returns Supabase growth metrics and organizer follow-ups", async () => {
     const response = await GET(new NextRequest(
       "http://localhost/api/admin/growth?range=custom&start=2026-08-01&end=2026-08-31",
       { headers: { authorization: "Bearer admin-token" } }
@@ -55,11 +55,9 @@ describe("GET /api/admin/growth", () => {
       newAccounts: 1,
       activatedUsers: 1,
       newPlans: 1,
-      webVisitors: null,
-      appActiveUsers: null,
     });
-    expect(payload.web).toMatchObject({ status: "not_configured", uniqueVisitors: null });
-    expect(payload.app.retention.j7).toEqual({ eligible: null, returned: null, rate: null });
+    expect(payload).not.toHaveProperty("web");
+    expect(payload).not.toHaveProperty("app");
     expect(payload.organizers).toMatchObject({
       newOrganizers: 1,
       eventsCreated: 1,
@@ -71,14 +69,12 @@ describe("GET /api/admin/growth", () => {
       organizerEmail: "club@example.com",
       status: "no_format",
     });
-    expect(payload.actions.map((action: { id: string }) => action.id)).toContain("configure-posthog-query");
+    expect(payload.organizers.funnel[0]).toMatchObject({ step: "Nouveaux organisateurs", count: 1 });
+    expect(payload.actions.map((action: { id: string }) => action.id)).not.toContain("configure-posthog-query");
   });
 });
 
 vi.mock("../../../../lib/http", () => ({ withSecurityHeaders: (response: Response) => response }));
-vi.mock("../../../../lib/posthog-query", () => ({
-  queryPostHog: () => Promise.resolve({ status: "not_configured", rows: [] }),
-}));
 vi.mock("../../../../lib/supabase", () => ({
   getSupabaseAnonConfig: () => ({ supabaseUrl: "https://supabase.example", supabaseAnonKey: "anon-key" }),
   getSupabaseServiceConfig: () => ({ supabaseUrl: "https://supabase.example", supabaseServiceRoleKey: "service-key" }),

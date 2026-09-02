@@ -21,6 +21,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: toAbsoluteUrl("/a-propos") },
     { url: toAbsoluteUrl("/methodologie") },
     { url: toAbsoluteUrl("/organisateurs") },
+    { url: toAbsoluteUrl("/premium") },
+    { url: toAbsoluteUrl("/partenaires") },
+    { url: toAbsoluteUrl("/en/partners") },
+    { url: toAbsoluteUrl("/support") },
   ];
 
   const seenUrls = new Set<string>();

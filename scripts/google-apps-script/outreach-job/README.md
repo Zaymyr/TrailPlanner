@@ -21,6 +21,8 @@ The installer creates a trigger that checks the queue every minute. It updates `
 
 When automatic mode is enabled, existing tracked drafts are drained oldest first before new messages are created. The job processes one message per trigger run and continues to honor `activation_envoi`, allowed days, the start time, `limite_quotidienne`, and `delai_entre_envois_minutes`.
 
+Older history rows can contain a private `r-...` identifier returned by the built-in Gmail service instead of the Gmail API draft ID. Automatic delivery opens that draft through `GmailApp`, obtains its message ID, then resolves the corresponding API draft before sending, so existing drafts do not need to be recreated.
+
 After changing [`Code.gs`](Code.gs), replace the bound Apps Script editor content again and save it. The existing trigger continues to call `runOutreachJob`; rerun `installOutreachJob` once after adding the unsubscribe feature so its signing secret is created. Later reruns are only needed when the trigger or OAuth permissions need to be recreated.
 
 For webhook or unsubscribe-page changes, also edit the existing Web app deployment and select **New version**. Merely saving the editor does not update the `/exec` deployment. The scraper verifies the webhook schema and stops with `webhook Apps Script obsolete` when its configured URL still points to an older deployment.
@@ -55,6 +57,7 @@ The queue uses `outreach_planning_date`, so a past 2026 edition can be scheduled
 - Each run creates at most one draft.
 - Existing sent mail, replies, bounces, exclusions, opt-outs, the organizer name, the daily cap, and the configured delay are rechecked.
 - Before an existing tracked draft is sent automatically, its prospect and Gmail activity are checked again. A changed address, reply, bounce, exclusion, or opt-out cancels that draft's automatic delivery.
+- Private `GmailApp` draft IDs and Gmail message IDs stored by older runs are translated to their current Gmail API draft IDs before delivery.
 - Every terminal outcome is written to `Historique envois` to prevent duplicate drafts.
 - Gmail reconciliation updates `Prospects!last_sent_email_at` and `Prospects!replied_at` from actual Gmail messages. It runs in a rotating bounded batch every five minutes by default, including while draft creation is disabled.
 - `activation_relance` is off by default. When enabled, the job creates up to `nombre_max_relances` drafts, capped at three, after `delai_relance_jours` business days since the latest confirmed send. Existing legacy `RELANCE_ENVOYEE` history is treated as relance 1. A pending draft, response, bounce, exclusion, or opt-out blocks the next step.

@@ -2,7 +2,7 @@ import type { Metadata, Route } from "next";
 import Link from "next/link";
 
 import { Card, CardContent } from "../../components/ui/card";
-import { SITE_URL } from "../seo";
+import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../seo";
 
 export const metadata: Metadata = {
   title: "Méthodologie des calculateurs et contenus | Pace Yourself",
@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     description: "Comment sont construits nos calculateurs, fiches course et contenus de nutrition trail.",
     url: new URL("/methodologie", SITE_URL),
     type: "article",
+    images: [DEFAULT_SOCIAL_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Méthodologie Pace Yourself",
+    description: "Comment sont construits nos calculateurs, fiches course et contenus de nutrition trail.",
+    images: [DEFAULT_SOCIAL_IMAGE_PATH],
   },
 };
 

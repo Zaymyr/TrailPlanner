@@ -6,10 +6,6 @@ type TrendPoint = {
   activatedUsers: number;
   activePlanUsers: number;
   newPlans: number;
-  webVisitors: number | null;
-  webPlansGenerated: number | null;
-  appActiveUsers: number | null;
-  appPlanCreators: number | null;
 };
 type TrendMetricKey = Exclude<keyof TrendPoint, "date">;
 

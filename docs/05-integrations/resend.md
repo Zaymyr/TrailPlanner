@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-08-25
+last_verified: 2026-09-02
 ai_priority: medium
 related_files:
   - package.json

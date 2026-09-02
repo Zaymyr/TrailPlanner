@@ -2,7 +2,7 @@ import type { Metadata, Route } from "next";
 import Link from "next/link";
 
 import { Card, CardContent } from "../../components/ui/card";
-import { SITE_URL } from "../seo";
+import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../seo";
 
 export const metadata: Metadata = {
   title: "À propos de Pace Yourself | Planification trail",
@@ -14,6 +14,13 @@ export const metadata: Metadata = {
     description: "Un outil conçu pour transformer les données d’une course en décisions simples et testables.",
     url: new URL("/a-propos", SITE_URL),
     type: "website",
+    images: [DEFAULT_SOCIAL_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "À propos de Pace Yourself",
+    description: "Un outil conçu pour transformer les données d’une course en décisions simples et testables.",
+    images: [DEFAULT_SOCIAL_IMAGE_PATH],
   },
 };
 

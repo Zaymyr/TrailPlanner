@@ -3,7 +3,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useFieldArray, useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import Link from "next/link";
-import Script from "next/script";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
@@ -13,7 +12,6 @@ import { useProductSelection } from "../../hooks/useProductSelection";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Locale, RacePlannerTranslations } from "../../../locales/types";
 import type { ElevationPoint, FormValues, OrganizerAidStationProductSuggestion, StationSupply } from "./types";
-import { RACE_PLANNER_URL } from "../../seo";
 import { defaultFuelType } from "../../../lib/fuel-types";
 import type { FuelProduct } from "../../../lib/product-types";
 import { fetchUserProfile } from "../../../lib/profile-client";
@@ -303,24 +301,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const { t, locale } = useI18n();
   const racePlannerCopy = t.racePlanner;
   const premiumCopy = racePlannerCopy.account.premium;
-
-  const structuredData = useMemo(
-    () => ({
-      "@context": "https://schema.org",
-      "@type": "SoftwareApplication",
-      name: t.homeHero.heading,
-      description: t.homeHero.description,
-      url: RACE_PLANNER_URL,
-      applicationCategory: "SportsApplication",
-      operatingSystem: "Web",
-      offers: {
-        "@type": "Offer",
-        price: 0,
-        priceCurrency: "USD",
-      },
-    }),
-    [t.homeHero.description, t.homeHero.heading]
-  );
 
   const formSchema = useMemo(() => createFormSchema(racePlannerCopy), [racePlannerCopy]);
   const defaultValues = useMemo(() => buildDefaultValues(racePlannerCopy), [racePlannerCopy]);
@@ -1961,10 +1941,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   return (
     <>
-      <Script id="software-application-ld" type="application/ld+json" strategy="afterInteractive">
-        {JSON.stringify(structuredData)}
-      </Script>
-
       {plannerToast ? (
         <div
           role="status"

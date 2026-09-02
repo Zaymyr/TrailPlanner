@@ -4,7 +4,7 @@ import Link from "next/link";
 
 import { getPublicRaces } from "../../lib/public-races";
 import { getIndexableDistancePages } from "../../lib/race-discovery";
-import { SITE_URL } from "../seo";
+import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../seo";
 import { RaceCatalogFilter } from "./_components/RaceCatalogFilter";
 
 export const revalidate = 3600;
@@ -19,10 +19,12 @@ export const metadata: Metadata = {
     description: "Trouvez une course et consultez sa distance, son dénivelé, sa date et son lieu.",
     url: new URL("/courses", SITE_URL),
     type: "website",
+    images: [DEFAULT_SOCIAL_IMAGE],
   },
   twitter: {
     card: "summary_large_image",
     title: "Calendrier des courses de trail",
+    images: [DEFAULT_SOCIAL_IMAGE_PATH],
     description: "Trouvez une course et consultez sa distance, son dénivelé, sa date et son lieu.",
   },
 };

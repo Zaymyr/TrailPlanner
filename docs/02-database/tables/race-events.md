@@ -48,6 +48,7 @@ related_files:
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/app/courses/page.tsx
   - apps/web/app/courses/[slug]/page.tsx
+  - apps/web/app/courses/[slug]/race-metadata.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/distances/[category]/page.tsx
@@ -90,7 +91,7 @@ related_tables:
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can concern the whole event or one child format and are pushed to event followers.
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details` and `races.racebook_is_live` explicitly for ordinary runner access, and reads the current account's active `race_event_organizers` membership for an unpublished organizer preview.
-- Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API. The richer server-only detail read rechecks race/event/edition visibility before loading organizer JSON or private GPX, then returns only allowlisted runner-facing values.
+- Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API. The richer server-only detail read rechecks race/event/edition visibility before loading organizer JSON or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, includes the confirmed year for edition distinction, and uses the shared social image only when neither format nor event supplies one.
 - Public web grouping: `/courses` groups current formats by stable `races.event_id + races.edition_id`, with an `event_id` fallback only for historical rows without an edition; event names are presentation labels and never grouping keys.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
 - Website-import target: the admin-only organizer information import enriches only the selected `race_events` row and must never create a different event. It first confirms the number and identity of child formats, then reviews field-level source claims. Candidate existence is independent from completeness, distance alone never merges or binds formats, and OpenAI can only choose an already extracted applicable claim or abstain. Roadbooks remain temporary analysis sources and never become event-row data.

@@ -1,6 +1,6 @@
 export const legacyRedirectMap = {
-  "/trail-nutrition-planner": "/blog/trail-nutrition-planner",
-  "/ultra-trail-fueling": "/blog/ultra-trail-fueling-tips",
+  "/trail-nutrition-planner": "/race-planner",
+  "/ultra-trail-fueling": "/blog/quelle-nutrition-pour-un-trail",
   "/ravitaillement-trail": "/blog/ravitaillement-trail",
   "/hydration-trail-running": "/blog/hydration-for-trail-running",
 } as const;
