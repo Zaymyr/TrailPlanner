@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -43,7 +43,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Consolidating the Organizer format name input keeps `name` and `series_name` synchronized but does not change edition creation or the stable `edition_group_id` copied across years.
 - The runner-notification format selector reads live formats from the currently selected canonical edition; it does not create, reactivate, or consult legacy edition requests.
 - Deleting a previously sent organizer announcement is likewise event-membership scoped and does not read, restore, or mutate this retired table.
-- Direct admin assignment of an existing Auth account creates or reactivates only `race_event_organizers`; it does not create, reactivate, or review a legacy edition request.
+- Direct admin assignment, including a newly invited Auth account confirmed through the admin access dialog, creates or reactivates only `race_event_organizers`; it does not create, reactivate, or review a legacy edition request.
 
 ## Historical Columns
 

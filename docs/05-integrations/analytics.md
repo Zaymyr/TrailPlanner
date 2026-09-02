@@ -22,6 +22,7 @@ related_files:
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
 related_tables:
   - race_event_edition_sponsors
+  - organizer_edition_entitlements
 ---
 
 # Analytics
@@ -116,7 +117,17 @@ The admin Growth tab is operational and uses Supabase only:
 - Supabase is authoritative for accounts, plans, subscriptions, organizer memberships, editions, formats, and RaceBook publication state.
 - Web/App product behavior, acquisition, funnels, and retention are analyzed directly in the PostHog product and are not queried by the application.
 
-The Growth dashboard and the Users management tab consume a shared Supabase daily trend series for account creation, 24-hour activation, plan creation, and plan activity. The organizer follow-up list is an operational proxy based on membership plus edition/format modification timestamps; it is not a browser-session measurement. Growth summary projections normalize the selected period's observed pace to 30 days; they are directional run-rate context, not forecasts.
+The Growth dashboard and the Users management tab consume a shared Supabase daily trend series for account creation, 24-hour activation, plan creation, and plan activity. Every user/plan/subscription/activity total excludes accounts whose Auth `raw_app_meta_data.role` or `roles` contains `admin`.
+
+Organizer activity uses non-admin organizers' Auth `last_sign_in_at`, because edition and format `updated_at` timestamps do not identify the actor and can therefore be moved by trusted-admin maintenance. New-organizer and event-creation totals additionally require a self-created membership (`created_by = user_id`); unknown or admin-delegated membership creation is not interpreted as organic acquisition. The follow-up inactivity timestamp uses the non-admin owner’s last sign-in, falling back to membership creation only when no sign-in exists.
+
+RaceBook commercial KPIs are current stock counts by eligible edition, not selected-period flows:
+
+- active: `organizer_edition_entitlements.status = active` and tier `racebook` or `pro`;
+- gifted: active access whose source is `admin` or `legacy_admin`;
+- paid: active access whose current source is `stripe`.
+
+Only editions attached to an event with an active non-admin organizer membership are eligible, so admin-only demos and maintenance do not inflate these totals. “RaceBooks published” remains a selected-period format count based on publication approval, not an edition entitlement count. Growth summary projections normalize the selected period's observed pace to 30 days; they are directional run-rate context, not forecasts.
 
 ## RaceBook Sponsor Clicks
 
@@ -129,7 +140,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
 - PostHog covers only consented Web traffic. Do not compare its visitor totals directly with all Supabase accounts as if both sources had equal coverage.
 - Do not present the 30-day run rate as a predictive model; short ranges such as today can be volatile.
-- Organizer "content changed" and follow-up timestamps can include trusted admin/service edits to the same event. Use them for operational relaunches, not as exact organizer session counts.
+- `last_sign_in_at` proves a non-admin organizer connection, not a content edit. Exact non-admin edit metrics would require actor-aware audit rows on every organizer mutation.
 - Do not expand organizer attribution beyond the explicit UTM allowlist or persist campaign parameters in browser storage.
 - Use environment variable names, not values.
 - Do not use analytics identity as proof that a user should be synced to marketing contacts; Resend sync must validate the Supabase session separately.

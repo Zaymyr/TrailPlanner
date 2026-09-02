@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -40,7 +40,7 @@ related_tables:
 - Reviewer: admin user that approves or rejects the request.
 - Status: `pending`, `approved`, or `rejected`.
 - Membership handoff: approved claims are linked to `race_event_organizers`.
-- Direct admin delegation: an admin can create an organizer membership for an existing Auth account without creating or approving a claim.
+- Direct admin delegation: an admin can create an organizer membership without creating or approving a claim. An absent Auth account may first be created and invited after an explicit admin confirmation.
 - Edition age: once membership is active, past and future editions share the same organizer edit authorization; claims do not impose a date cutoff.
 
 ## Columns
@@ -144,7 +144,7 @@ order by created_at asc;
 - Pending claims should show request status only, not the organizer dashboard modules.
 - Keep legacy access claims visually distinct from content publication requests. Claims prove management access; publication requests validate going live.
 - Publication requests validate Racebook visibility, not whether the course exists in the catalog.
-- Keep direct admin delegation visually and structurally distinct from legacy claims. It grants membership immediately but must not add a fabricated claim audit row.
+- Keep direct admin delegation visually and structurally distinct from legacy claims in the `Accès organisateurs` sub-tab. It grants membership immediately but must not add a fabricated claim audit row; a missing e-mail requires a cancel/create confirmation before the server sends an invitation.
 - Keep organizer request-state copy aligned across `/organizers` and `/organizer`: pending/rejected cards are status-only French UI and must not imply edit access before membership approval.
 - Keep organizer-dashboard French copy under UTF-8 regression coverage when editing route-local labels; approval-gated screens should not ship mojibake after a component rewrite.
 - Do not block the admin claim queue on auxiliary enrichment reads. If edition-request loading or organizer-identity enrichment fails, or if an auth-user email is malformed, keep serving the base claim rows with contact-email or UUID fallbacks.

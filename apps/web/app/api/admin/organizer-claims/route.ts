@@ -494,6 +494,7 @@ const actionSchema = z.discriminatedUnion("action", [
     action: z.literal("assign"),
     eventId: z.string().uuid(),
     email: z.string().trim().email().transform((value) => value.toLowerCase()),
+    createAccount: z.boolean().optional().default(false),
   }),
   z.object({
     action: z.literal("approveEditionRequest"),
@@ -677,7 +678,37 @@ export async function PATCH(request: NextRequest) {
     }
 
     if (!event) return jsonError("Race event not found.", 404);
-    if (!authUser) return jsonError("No Supabase account matches this email address.", 404);
+    if (!authUser && !parsedBody.data.createAccount) {
+      return withSecurityHeaders(
+        NextResponse.json(
+          {
+            code: "auth_account_not_found",
+            message: "Aucun compte Supabase ne correspond à cette adresse e-mail.",
+            email: parsedBody.data.email,
+          },
+          { status: 404 }
+        )
+      );
+    }
+
+    let accountCreated = false;
+    if (!authUser) {
+      const inviteResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/auth/v1/invite`, {
+        method: "POST",
+        headers: serviceHeaders(auth.serviceConfig),
+        body: JSON.stringify({ email: parsedBody.data.email }),
+        cache: "no-store",
+      });
+
+      if (!inviteResponse.ok) {
+        console.error("Unable to invite organizer account", await inviteResponse.text());
+        return jsonError("Impossible de créer et d’inviter le compte Supabase.", 502);
+      }
+
+      const invitedUser = adminUserRowSchema.parse(await inviteResponse.json());
+      authUser = { id: invitedUser.id, email: invitedUser.email?.trim() || parsedBody.data.email };
+      accountCreated = true;
+    }
 
     const existingResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?event_id=eq.${event.id}&user_id=eq.${authUser.id}&select=id,role,revoked_at&order=created_at.desc`,
@@ -742,7 +773,7 @@ export async function PATCH(request: NextRequest) {
       .array(membershipRowSchema.omit({ race_events: true }).passthrough())
       .parse(await membershipResponse.json())[0] ?? null;
 
-    return withSecurityHeaders(NextResponse.json({ membership, user: authUser, event }));
+    return withSecurityHeaders(NextResponse.json({ membership, user: authUser, event, accountCreated }));
   }
 
   if (parsedBody.data.action === "approveEditionRequest" || parsedBody.data.action === "rejectEditionRequest") {

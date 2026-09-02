@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -52,7 +52,7 @@ related_tables:
 - Source edit access: active memberships authorize event, edition date range, format, GPX, aid station, organizer detail, and station-product edits through server routes.
 - Revocation: `revoked_at` disables membership without deleting audit history.
 - Membership provenance: `claim_id` links membership back to an approved legacy claim when available; direct creators use `claim_id = null`.
-- Admin assignment: an admin may attach an existing Supabase Auth account to an event by exact e-mail match; new delegated memberships use `role = 'organizer'` and `claim_id = null`.
+- Admin assignment: an admin may attach a Supabase Auth account by exact e-mail match. If it is absent, an explicit UI confirmation lets the server create it through a Supabase invitation before assignment; new delegated memberships use `role = 'organizer'` and `claim_id = null`.
 - Public catalog preservation: claimed public races are not tied to `races.created_by`.
 
 ## Columns
@@ -156,7 +156,7 @@ order by created_at asc;
 - Membership authorizes event maintenance and use of edition capabilities only for the managed event, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. With an active RaceBook or Pro entitlement, the race service route may change only `races.racebook_is_live`.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.
-- Supabase Auth e-mail lookup for direct assignment must remain in the admin-only server route with the service credential. Never expose the Auth Admin user list or service credential to the browser.
+- Supabase Auth e-mail lookup and invitation for direct assignment must remain in the admin-only server route with the service credential. Never expose the Auth Admin user list or service credential to the browser, and never invite an absent address before the admin confirms the not-found dialog.
 - A newly delegated `organizer` can edit the event and its formats but cannot use the owner-only permanent event deletion action.
 
 ## Related Docs

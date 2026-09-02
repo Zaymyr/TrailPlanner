@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -184,7 +184,7 @@ When an unauthenticated prospect arrives through the organizer landing, the crea
 
 The direct-creation flow deliberately does not let a user take control of an existing catalog event. Existing claims and the admin claim queue remain available only as a legacy audit/access-management path; new `/organizers` submissions do not add claim rows and do not wait for admin approval.
 
-The admin Organizer tab can also delegate an existing event directly to an existing Supabase Auth account. The admin selects the event and enters the account e-mail; the protected server route resolves an exact case-insensitive Auth e-mail match, creates an active `organizer` membership (or reactivates a revoked membership), and leaves event/format publication state unchanged. The delegated organizer can edit every edition and format under the event, but only an `owner` or trusted admin can permanently delete the event.
+The admin Organizer area is split into `Publier le RaceBook` and `Accès organisateurs`. In the access tab, an admin selects an event and enters an e-mail. The protected server route first resolves an exact case-insensitive Supabase Auth match. If none exists, the browser shows an explicit cancel/create confirmation; only the confirmed second request creates the Auth account through the server-side invite endpoint, sends the Supabase invitation, and continues the assignment. Existing, newly invited, and reactivated accounts receive an active `organizer` membership while event/format publication state remains unchanged. The delegated organizer can edit every edition and format under the event, but only an `owner` or trusted admin can permanently delete the event.
 
 Revoking access still sets `revoked_at` on the membership and blocks future organizer writes without removing the course from the catalog. Yearly editions and formats are catalog-visible, but each new Racebook starts hidden. RaceBook publication is edition-entitlement gated: organizers purchase RaceBook or Pro, while a trusted admin may grant the selected partner edition either RaceBook or RaceBook Pro without payment through the same audited admin entitlement boundary.
 
@@ -439,7 +439,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Do not rely on geocoded JSON alone for publication or catalog reads. Event `location`, race `location_text`, bib `location`, and access address strings remain the primary runner-facing text contract, while the geocoded objects are additive metadata.
 - Keep organizer dashboard copy properly UTF-8 encoded. The event/format editor renders accented French labels directly from source strings, so mojibake like `Ã©` on tabs, dates, or image labels is a user-facing bug, not a cosmetic doc issue.
 - Keep `/api/admin/organizer-claims` resilient to secondary-read failures. Missing yearly-edition rows or unavailable organizer-identity enrichment should degrade the admin tab gracefully instead of hiding the whole review queue.
-- Keep direct organizer assignment admin-only and server-side. The browser must never receive the Supabase service credential or the complete Auth user list, and assignment must not implicitly publish or unpublish the event or its Racebook formats.
+- Keep direct organizer assignment admin-only and server-side. The browser must never receive the Supabase service credential or the complete Auth user list. A missing e-mail must be returned as a confirmable not-found result; account invitation/creation happens only after the admin confirms, and assignment must not implicitly publish or unpublish the event or its Racebook formats.
 - The admin Organizer switch controls all complete Racebooks in the current edition. Turning it on grants durable per-format approval and publishes them; turning it off hides them while preserving approval so the organizer can publish them again later.
 - Migration `20260820135823_add_racebook_publication_control.sql` intentionally resets organizer-managed Racebooks to hidden/unapproved for one safe revalidation pass; it keeps their courses visible in the catalog.
 

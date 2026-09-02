@@ -46,10 +46,11 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     overview: "Trajectoire", trajectoryDescription: "Les volumes quotidiens permettent de distinguer une tendance d’un pic isolé.", productTrend: "Usage et création", newAccounts: "Nouveaux comptes", activated: "Activés en 24 h", activePlanUsers: "Utilisateurs actifs sur un plan", newPlans: "Nouveaux plans", premium: "Premium actifs",
     actions: "À surveiller et actions", noActions: "Aucune alerte notable sur cette période.",
     organizers: "Organisateurs", funnel: "Parcours de conversion", step: "Étape", users: "Personnes", conversion: "Conversion depuis l’étape précédente",
-    newOrganizers: "Nouveaux organisateurs", contentChanges: "Avec contenu modifié", returningOrganizers: "Revenus après 7 j", events: "Événements créés", editions: "Éditions créées", formats: "Formats créés", published: "RaceBooks publiés",
+    newOrganizers: "Nouveaux organisateurs", activeOrganizers: "Organisateurs connectés", returningOrganizers: "Revenus après 7 j", events: "Événements créés", editions: "Éditions créées", formats: "Formats créés", published: "RaceBooks publiés",
+    activatedRacebooks: "Accès RaceBook actifs", giftedRacebooks: "Accès offerts", paidRacebooks: "Accès payés",
     followUps: "Organisateurs à relancer", organizer: "Organisateur", event: "Événement", inactivity: "Inactivité", status: "Situation", days: "j",
     noFormat: "Aucun format", incomplete: "Format incomplet", ready: "Prêt à publier", publishedStatus: "Publié",
-    projection: "Au rythme de la période : {value} sur 30 j", activationRate: "{value}% des nouveaux comptes", sources: "Tous les chiffres de ce dashboard proviennent de Supabase. Les parcours Web et App s’analysent directement dans PostHog.",
+    projection: "Au rythme de la période : {value} sur 30 j", activationRate: "{value}% des nouveaux comptes", racebookStock: "Stock actuel par édition, hors comptes admin", sources: "Tous les chiffres de ce dashboard proviennent de Supabase et excluent les comptes admin. L’activité organisateur repose sur les connexions réelles, pas sur updated_at. Les parcours Web et App s’analysent directement dans PostHog.",
   } : {
     title: "Growth & activation",
     description: "Track accounts, activation, and content from Supabase data.",
@@ -57,10 +58,11 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     overview: "Trajectory", trajectoryDescription: "Daily volumes make sustained trends distinguishable from isolated spikes.", productTrend: "Usage and creation", newAccounts: "New accounts", activated: "Activated in 24h", activePlanUsers: "Active plan users", newPlans: "New plans", premium: "Active Premium",
     actions: "Watchlist & actions", noActions: "No notable alert for this period.",
     organizers: "Organizers", funnel: "Conversion journey", step: "Step", users: "People", conversion: "Conversion from previous step",
-    newOrganizers: "New organizers", contentChanges: "With content changes", returningOrganizers: "Returned after 7d", events: "Events created", editions: "Editions created", formats: "Formats created", published: "RaceBooks published",
+    newOrganizers: "New organizers", activeOrganizers: "Signed-in organizers", returningOrganizers: "Returned after 7d", events: "Events created", editions: "Editions created", formats: "Formats created", published: "RaceBooks published",
+    activatedRacebooks: "Active RaceBook access", giftedRacebooks: "Complimentary access", paidRacebooks: "Paid access",
     followUps: "Organizers to follow up", organizer: "Organizer", event: "Event", inactivity: "Inactive", status: "Situation", days: "d",
     noFormat: "No format", incomplete: "Incomplete format", ready: "Ready to publish", publishedStatus: "Published",
-    projection: "At this period’s pace: {value} over 30d", activationRate: "{value}% of new accounts", sources: "Every metric in this dashboard comes from Supabase. Web and App journeys are analyzed directly in PostHog.",
+    projection: "At this period’s pace: {value} over 30d", activationRate: "{value}% of new accounts", racebookStock: "Current stock by edition, excluding admin accounts", sources: "Every metric in this dashboard comes from Supabase and excludes admin accounts. Organizer activity uses actual sign-ins, not updated_at. Web and App journeys are analyzed directly in PostHog.",
   };
   const [range, setRange] = useState("last7");
   const [start, setStart] = useState("");
@@ -149,9 +151,12 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
           <section className="space-y-5">
             <h3 className="text-sm font-semibold text-foreground">{copy.organizers}</h3>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi label={copy.activatedRacebooks} value={data.organizers.activatedRacebooks} hint={copy.racebookStock} />
+              <Kpi label={copy.giftedRacebooks} value={data.organizers.giftedRacebooks} hint={isFrench ? "Source admin ou historique" : "Admin or legacy source"} />
+              <Kpi label={copy.paidRacebooks} value={data.organizers.paidRacebooks} hint={isFrench ? "Source Stripe active" : "Active Stripe source"} />
               <Kpi label={copy.newOrganizers} value={data.organizers.newOrganizers} />
-              <Kpi label={copy.contentChanges} value={data.organizers.organizersWithContentChanges} />
-              <Kpi label={copy.returningOrganizers} value={data.organizers.returningOrganizers} hint={isFrench ? "Proxy via modifications Supabase" : "Proxy from Supabase changes"} />
+              <Kpi label={copy.activeOrganizers} value={data.organizers.activeOrganizers} />
+              <Kpi label={copy.returningOrganizers} value={data.organizers.returningOrganizers} hint={isFrench ? "Selon la dernière connexion" : "Based on last sign-in"} />
               <Kpi label={copy.events} value={data.organizers.eventsCreated} />
               <Kpi label={copy.editions} value={data.organizers.editionsCreated} />
               <Kpi label={copy.formats} value={data.organizers.formatsCreated} />

@@ -149,7 +149,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Race rows can refer to an existing or newly created event.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Trusted admins can select every event, including drafts, from the existing Organizer header and use the same server mutation routes. This admin catalog read is service-role-backed after `app_metadata` verification and does not create organizer memberships.
-- The separate admin Organizer assignment form also reads the complete event list only after the same trusted admin check. Submitting an e-mail creates/reactivates membership but leaves every `race_events` field, including `is_live`, unchanged.
+- The separate `Accès organisateurs` admin sub-tab also reads the complete event list only after the same trusted admin check. Submitting an existing e-mail creates/reactivates membership. If the account is absent, only explicit confirmation creates and invites it before membership insertion. Both paths leave every `race_events` field, including `is_live`, unchanged.
 - Organizer yearly editions are normalized in `race_event_editions`. Formats attach through `races.edition_id`; `races.edition_group_id` and `series_name` continue to group the same format series across years.
 - Runner favorites are event-scoped and are used by the mobile catalog to pin the whole event card above normal ordering.
 - Organizer history reads expose only the aggregate follower total, obtained from Supabase with `count=exact` and a one-row range; individual follower ids are not part of that response contract.
