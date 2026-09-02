@@ -21,7 +21,10 @@ export function PublicRaceLinks({ races }: { races: PublicRace[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
       {races.map((race) => (
-        <Card key={race.id} className="h-full">
+        <Card key={race.id} className="h-full overflow-hidden">
+          {race.thumbnailUrl && /^https?:\/\//i.test(race.thumbnailUrl) ? (
+            <img src={race.thumbnailUrl} alt={race.name} loading="lazy" className="h-40 w-full object-cover" />
+          ) : null}
           <CardHeader>
             {race.eventName && race.eventName !== race.name ? (
               <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">{race.eventName}</p>

@@ -37,9 +37,14 @@ export type DistanceLandingPage = (typeof distanceLandingPages)[number];
 export type PublicRaceGroup = {
   key: string;
   eventId: string | null;
+  editionId: string | null;
   eventName: string | null;
   races: PublicRace[];
 };
+
+export type RaceTemporalStatus = "upcoming" | "past" | "undated";
+export type RaceDistanceFilter = "all" | "short" | "trail" | "ultra";
+export type RacePeriodFilter = "upcoming" | "past" | "all";
 
 const validDateTimestamp = (value: string | null) => {
   if (!value) return Number.POSITIVE_INFINITY;
@@ -73,7 +78,11 @@ export function groupPublicRacesByEvent(races: PublicRace[]): PublicRaceGroup[] 
     if (seenRaceIds.has(race.id)) continue;
     seenRaceIds.add(race.id);
 
-    const key = race.eventId ? `event:${race.eventId}` : `race:${race.id}`;
+    const key = race.eventId
+      ? race.editionId
+        ? `event:${race.eventId}:edition:${race.editionId}`
+        : `event:${race.eventId}`
+      : `race:${race.id}`;
     const existing = groups.get(key);
     if (existing) {
       existing.races.push(race);
@@ -84,6 +93,7 @@ export function groupPublicRacesByEvent(races: PublicRace[]): PublicRaceGroup[] 
     groups.set(key, {
       key,
       eventId: race.eventId,
+      editionId: race.editionId,
       eventName: race.eventName,
       races: [race],
     });
@@ -92,6 +102,37 @@ export function groupPublicRacesByEvent(races: PublicRace[]): PublicRaceGroup[] 
   return [...groups.values()]
     .map((group) => ({ ...group, races: [...group.races].sort(compareRaceFormats) }))
     .sort(compareRaceGroups);
+}
+
+export function getRaceTemporalStatus(race: PublicRace, todayIso: string): RaceTemporalStatus {
+  if (!race.date || !/^\d{4}-\d{2}-\d{2}/.test(race.date)) return "undated";
+  return race.date.slice(0, 10) < todayIso ? "past" : "upcoming";
+}
+
+const normalizeCatalogSearch = (value: string) =>
+  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+
+export function filterPublicRaces(
+  races: PublicRace[],
+  filters: { search: string; distance: RaceDistanceFilter; period: RacePeriodFilter; todayIso: string },
+) {
+  const query = normalizeCatalogSearch(filters.search.trim());
+  return races.filter((race) => {
+    const searchable = normalizeCatalogSearch([race.name, race.eventName, race.location].filter(Boolean).join(" "));
+    const km = race.distanceKm;
+    const matchesDistance =
+      filters.distance === "all" ||
+      (filters.distance === "short" && km !== null && km < 30) ||
+      (filters.distance === "trail" && km !== null && km >= 30 && km < 80) ||
+      (filters.distance === "ultra" && km !== null && km >= 80);
+    const temporalStatus = getRaceTemporalStatus(race, filters.todayIso);
+    const matchesPeriod =
+      filters.period === "all" ||
+      (filters.period === "past"
+        ? temporalStatus === "past"
+        : temporalStatus === "upcoming" || temporalStatus === "undated");
+    return (!query || searchable.includes(query)) && matchesDistance && matchesPeriod;
+  });
 }
 
 export function getDistanceLandingPage(slug: string): DistanceLandingPage | null {
@@ -112,7 +153,12 @@ export function getOtherEventFormats(race: PublicRace, races: PublicRace[], limi
   if (!race.eventId) return [];
 
   return races
-    .filter((candidate) => candidate.id !== race.id && candidate.eventId === race.eventId)
+    .filter(
+      (candidate) =>
+        candidate.id !== race.id &&
+        candidate.eventId === race.eventId &&
+        (!race.editionId || candidate.editionId === race.editionId),
+    )
     .sort((left, right) => (left.distanceKm ?? Number.POSITIVE_INFINITY) - (right.distanceKm ?? Number.POSITIVE_INFINITY))
     .slice(0, limit);
 }

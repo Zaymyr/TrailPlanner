@@ -1,17 +1,23 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-08-28
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-race-detail.ts
+  - apps/web/lib/public-race-detail.test.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/app/courses/page.tsx
   - apps/web/app/courses/[slug]/page.tsx
+  - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
+  - apps/web/app/courses/_components/PublicRaceShare.tsx
+  - apps/web/app/courses/_components/PublicElevationProfile.tsx
+  - apps/web/app/courses/PublicRaceShare.test.ts
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts
   - apps/web/lib/public-races.test.ts
@@ -34,7 +40,7 @@ This document defines which public race pages Pace Yourself may expose to search
 
 - Public race: a `races` row where both `is_live` and `is_public` are true.
 - Visible edition: a `race_event_editions` row whose `is_visible` flag permits its complete formats to keep `races.is_live = true`.
-- Event format: another public race attached to the same non-null `event_id`.
+- Event edition format: another public race attached to the same non-null `event_id + edition_id`; legacy rows without an edition fall back to `event_id`.
 - Similar race: a race from another event ordered by distance difference, then elevation difference when both elevations exist.
 - Indexable selection: a deterministic landing page based only on structured fields and containing at least five public races.
 - Normalized geography: explicit country, region, department and city fields, not a region guessed from `location` or `location_text`.
@@ -42,22 +48,32 @@ This document defines which public race pages Pace Yourself may expose to search
 
 ## Public Race Detail Pages
 
-Each current public slug resolves to `/courses/[slug]`. A known former slug reloads the target through the same current visibility checks, emits canonical metadata for the current URL, then returns a permanent redirect. Unknown mappings and targets that are no longer public remain not found and noindex. The page may state only facts returned by the explicit public catalog query: name, parent event, date, display location, distance, elevation, thumbnail and official URL.
+Each current public slug resolves to `/courses/[slug]`. A known former slug reloads the target through the same current visibility checks, emits canonical metadata for the current URL, then returns a permanent redirect. Unknown mappings and targets that are no longer public remain not found and noindex.
 
-The page exposes `SportsEvent` and `BreadcrumbList` structured data. It links to:
+The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, location, distance, D+, slug and format official URL. The separate server-only `PublicRaceDetail` read rechecks `races.is_live`, `races.is_public`, the optional parent `race_events.is_live`, and the optional `race_event_editions.is_visible` before reading organizer details, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
 
-- other published formats sharing the same `event_id`;
+The detail page applies the established event/format inheritance parser for schedule, equipment, bib pickup, access, runner information and services. It exposes only available values, D+/D-, altitude bounds, participation mode, ravitos, format then event official websites, and event social profiles. It must not generate course difficulty, expected duration, weather, aid-station values, or other claims from absent source data.
+
+When a private GPX object exists, the server downloads and parses it only after every visibility gate succeeds. The browser receives a bounded route/elevation preview of about 600 points, never the GPX file or Storage path. Invalid or absent GPX degrades to a detail page without map/profile, and the public page offers no GPX download action.
+
+The page exposes `SportsEvent` and `BreadcrumbList` structured data using only confirmed facts. Open Graph and Twitter use the format image first and the event image second. It links to:
+
+- other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
 - up to three published races from other events with the nearest distance, using elevation only as a tie-breaker;
-- the planner and carbohydrate calculator;
-- the official source when one is present.
+- the planner at `/race-planner?catalogRaceId=<race-id>` and the carbohydrate calculator;
+- distinct format/event official sources and available official event social profiles.
 
-Missing distance, elevation, location or date stays visibly unconfirmed. The page must not generate course difficulty, expected duration, aid-station details, weather or nutrition claims from absent source data.
+Sharing uses the native Web Share sheet when available, which lets installed mobile apps such as Instagram participate. Facebook remains a direct action, copy is always explicit, and the main action falls back to copy when Web Share is unavailable. Native cancellation does not trigger a surprise copy. Missing Clipboard support falls back to the browser copy command and reports success/failure through an accessible live status.
 
 ## Catalog Event Grouping
 
-The `/courses` catalog groups published formats strictly by non-null `event_id`; a display name is never an identity and two homonymous events remain separate. Each standalone race with no event id stays in its own card. Event groups are ordered by their earliest valid format date, then French display name, while formats are ordered by numeric distance with unknown values last.
+The `/courses` catalog groups published formats by stable non-null `event_id + edition_id`. Historical rows with an event but no edition fall back to `event_id`; a display name is never an identity and two homonymous events remain separate. Each standalone race with no event id stays in its own card. Formats are ordered by numeric distance with unknown values last.
 
-Filtering happens before grouping, so an event card disappears when none of its formats matches. Every visible format remains a normal server-rendered link to `/courses/[slug]`. A date or location is promoted to the event header only when every visible format has the same non-null value; otherwise each format keeps its own fact and the header explicitly says that it varies.
+The default temporal filter contains upcoming/current formats followed by undated formats. Past formats are available separately and sorted newest first; the `Toutes` view keeps upcoming, undated, then past. Search is accent-insensitive and combines with distance and temporal filters. Visible result counters and a reset action describe the active state.
+
+Filtering happens before grouping, so an event-edition card disappears when none of its formats matches. Every visible format remains a normal HTML link to `/courses/[slug]`. Event-edition cards use the shared event image and year/date where available; standalone formats use their own image. A format image remains the first detail-page image choice. Missing images reserve no empty visual area. The responsive card layout stacks at narrow widths, keeps controls at least 44 px high and avoids horizontal tables.
+
+The catalog emits an `ItemList` for all published format URLs. Client filters do not create crawlable combinations and do not change canonical URLs.
 
 ## Prefiltered Landing Pages
 
@@ -88,7 +104,8 @@ Existing race slugs remain canonical until a rename is explicitly approved. The 
 
 - Do not count races with missing distance toward a distance landing page.
 - Do not present another format from the same event as a similar independent race.
-- Do not group catalog rows by `eventName`, course name, or location; only stable `eventId` may merge formats.
+- Do not group catalog rows by `eventName`, course name, or location; only stable `eventId + editionId`, with the documented legacy `eventId` fallback, may merge formats.
+- Do not serialize raw organizer JSON, emergency phone data, `lastMinuteMessage`, GPX Storage paths, or full GPX content into public client components.
 - Similarity is a navigation aid, not a statement that courses have comparable terrain or difficulty.
 - Do not expose a thin landing page merely because its URL pattern exists; the five-race threshold is part of the indexation contract.
 - Do not derive regions or departments from display-location strings.

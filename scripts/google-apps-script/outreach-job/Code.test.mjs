@@ -23,6 +23,14 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
   gmailHeaderValue_,
   headerIncludesEmail_,
   followupTemplateKeyForMessage_,
+  followupTemplateKeyForAttempt_,
+  followupAttemptFromStatus_,
+  followupDraftStatus_,
+  followupSentStatus_,
+  findNextFollowupAction_,
+  isAnyDraftStatus_,
+  isAnySentStatus_,
+  outreachMode_,
   followupSubject_,
   originalMessageIncludesCourseTest_,
   isFollowupEligible_,
@@ -30,6 +38,7 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
   parseEventWeek_,
   parseIsoDate_,
   positiveInteger_,
+  readHistory_,
   replaceOrganizationName_,
   sanitizeSignatureHtml_,
   stripMarkdown_,
@@ -83,6 +92,9 @@ test('parses scheduling values conservatively', () => {
   assert.equal(api.parseEventWeek_('36'), 36);
   assert.equal(api.parseEventWeek_('0'), null);
   assert.equal(api.parseEventWeek_('54'), null);
+  assert.equal(api.outreachMode_('Brouillons'), 'drafts');
+  assert.equal(api.outreachMode_('Envoi automatique'), 'automatic');
+  assert.throws(() => api.outreachMode_('Test'), /Mode refusé/);
 });
 
 test('selects a follow-up only after ten business days and without a blocking state', () => {
@@ -99,11 +111,78 @@ test('selects a follow-up only after ten business days and without a blocking st
   };
 
   assert.equal(api.addBusinessDays_(prospect.lastSentAt, 10).toISOString(), '2026-09-03T12:00:00.000Z');
-  assert.equal(api.isFollowupEligible_(prospect, {}, now, 10), true);
-  assert.equal(api.isFollowupEligible_({ ...prospect, repliedAt: new Date('2026-08-21T12:00:00Z') }, {}, now, 10), false);
-  assert.equal(api.isFollowupEligible_(prospect, { 'prospect-1': true }, now, 10), false);
-  assert.equal(api.isFollowupEligible_({ ...prospect, lastSentAt: new Date('2026-08-21T12:00:00Z') }, {}, now, 10), false);
-  assert.equal(api.isFollowupEligible_({ ...prospect, organizationName: '' }, {}, now, 10), false);
+  assert.equal(api.isFollowupEligible_(prospect, null, now, 10, 3), true);
+  assert.equal(api.isFollowupEligible_({ ...prospect, repliedAt: new Date('2026-08-21T12:00:00Z') }, null, now, 10, 3), false);
+  assert.equal(api.isFollowupEligible_(prospect, { highestSentAttempt: 3, pendingDraft: null, noResponse: true }, now, 10, 3), false);
+  assert.equal(api.isFollowupEligible_({ ...prospect, lastSentAt: new Date('2026-08-21T12:00:00Z') }, null, now, 10, 3), false);
+  assert.equal(api.isFollowupEligible_({ ...prospect, organizationName: '' }, null, now, 10, 3), false);
+});
+
+test('numbers the three follow-ups while keeping legacy history compatible', () => {
+  assert.equal(api.followupAttemptFromStatus_('RELANCE_BROUILLON_CREE'), 1);
+  assert.equal(api.followupAttemptFromStatus_('RELANCE_ENVOYEE'), 1);
+  assert.equal(api.followupAttemptFromStatus_('RELANCE_2_BROUILLON_CREE'), 2);
+  assert.equal(api.followupAttemptFromStatus_('RELANCE_3_ENVOYEE'), 3);
+  assert.equal(api.followupAttemptFromStatus_('ENVOI_CONFIRME'), null);
+  assert.equal(api.followupDraftStatus_(2), 'RELANCE_2_BROUILLON_CREE');
+  assert.equal(api.followupSentStatus_(3), 'RELANCE_3_ENVOYEE');
+  assert.equal(api.isAnyDraftStatus_('RELANCE_3_BROUILLON_CREE'), true);
+});
+
+test('derives the next follow-up attempt from sent history and pending drafts', () => {
+  const rows = [
+    ['created_at', 'run_date', 'uuid', 'email', 'organization_name', 'event_date', 'status', 'gmail_draft_id', 'details'],
+    [new Date('2026-08-20T10:00:00Z'), '2026-08-20', 'prospect-1', 'one@example.com', 'Course 1', '', 'RELANCE_BROUILLON_CREE', 'draft-1', ''],
+    [new Date('2026-08-21T10:00:00Z'), '2026-08-21', 'prospect-1', 'one@example.com', 'Course 1', '', 'RELANCE_ENVOYEE', '', ''],
+    [new Date('2026-09-01T10:00:00Z'), '2026-09-01', 'prospect-1', 'one@example.com', 'Course 1', '', 'RELANCE_2_BROUILLON_CREE', 'draft-2', ''],
+    [new Date('2026-08-22T10:00:00Z'), '2026-08-22', 'prospect-2', 'two@example.com', 'Course 2', '', 'RELANCE_3_ENVOYEE', '', ''],
+    [new Date('2026-09-01T10:00:00Z'), '2026-09-01', 'prospect-2', 'two@example.com', 'Course 2', '', 'PROSPECT_SANS_REPONSE', '', ''],
+  ];
+  const history = api.readHistory_({ getDataRange: () => ({ getValues: () => rows }) });
+
+  assert.equal(history.followupStatesByUuid['prospect-1'].highestSentAttempt, 1);
+  assert.equal(history.followupStatesByUuid['prospect-1'].pendingDraft.followupAttempt, 2);
+  assert.equal(history.followupStatesByUuid['prospect-2'].highestSentAttempt, 3);
+  assert.equal(history.followupStatesByUuid['prospect-2'].noResponse, true);
+  assert.deepEqual(Array.from(history.pendingDrafts, row => row.draftId), ['draft-2']);
+  assert.equal(api.isAnySentStatus_('RELANCE_3_ENVOYEE'), true);
+  assert.equal(api.isAnySentStatus_('BROUILLON_CREE'), false);
+});
+
+test('removes cancelled and confirmed messages from the automatic-send backlog', () => {
+  const rows = [
+    ['created_at', 'run_date', 'uuid', 'email', 'organization_name', 'event_date', 'status', 'gmail_draft_id', 'details'],
+    [new Date('2026-09-01T10:00:00Z'), '2026-09-01', 'prospect-1', 'one@example.com', 'Course 1', '', 'BROUILLON_CREE', 'draft-1', ''],
+    [new Date('2026-09-01T10:01:00Z'), '2026-09-01', 'prospect-1', 'one@example.com', 'Course 1', '', 'ENVOI_CONFIRME', '', ''],
+    [new Date('2026-09-01T10:02:00Z'), '2026-09-01', 'prospect-2', 'two@example.com', 'Course 2', '', 'RELANCE_2_BROUILLON_CREE', 'draft-2', ''],
+    [new Date('2026-09-01T10:03:00Z'), '2026-09-01', 'prospect-2', 'two@example.com', 'Course 2', '', 'ENVOI_ANNULE', 'draft-2', ''],
+  ];
+  const history = api.readHistory_({ getDataRange: () => ({ getValues: () => rows }) });
+
+  assert.equal(history.pendingDrafts.length, 0);
+  assert.equal(history.followupStatesByUuid['prospect-2'].pendingDraft, null);
+});
+
+test('creates the next numbered draft then marks no response after the final delay', () => {
+  const values = [
+    ['uuid', 'email', 'Organization name', 'outreach_event_date', 'last_sent_email_at', 'replied_at', 'hard_bounced_at', 'excluded', 'opted-out'],
+    ['prospect-1', 'one@example.com', 'Course 1', '', new Date('2026-08-20T12:00:00Z'), '', '', false, false],
+  ];
+  const spreadsheet = {
+    getSheetByName: () => ({ getDataRange: () => ({ getValues: () => values }) }),
+  };
+  const now = new Date('2026-09-03T12:00:00Z');
+
+  const second = api.findNextFollowupAction_(spreadsheet, {
+    'prospect-1': { highestSentAttempt: 1, pendingDraft: null, noResponse: false },
+  }, now, 10, 3);
+  assert.equal(second.type, 'draft');
+  assert.equal(second.attempt, 2);
+
+  const final = api.findNextFollowupAction_(spreadsheet, {
+    'prospect-1': { highestSentAttempt: 3, pendingDraft: null, noResponse: false },
+  }, now, 10, 3);
+  assert.equal(final.type, 'mark_no_response');
 });
 
 test('normalizes spreadsheet date values used by reconciliation', () => {
@@ -130,6 +209,9 @@ test('chooses the follow-up copy from the actual first sent message', () => {
 
   assert.equal(api.followupTemplateKeyForMessage_(legacyMessage), 'corps_relance_premier_contact');
   assert.equal(api.followupTemplateKeyForMessage_(testCourseMessage), 'corps_relance');
+  assert.equal(api.followupTemplateKeyForAttempt_(1, legacyMessage), 'corps_relance_premier_contact');
+  assert.equal(api.followupTemplateKeyForAttempt_(2, legacyMessage), 'corps_relance_2');
+  assert.equal(api.followupTemplateKeyForAttempt_(3, testCourseMessage), 'corps_relance_3');
   assert.equal(api.originalMessageIncludesCourseTest_('tester ce format sur un événement réel'), false);
   assert.equal(api.originalMessageIncludesCourseTest_('ouvrir la course test'), true);
 });

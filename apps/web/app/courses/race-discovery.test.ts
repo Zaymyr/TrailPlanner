@@ -3,9 +3,11 @@ import { describe, expect, it } from "vitest";
 import type { PublicRace } from "../../lib/public-races";
 import {
   distanceLandingPages,
+  filterPublicRaces,
   groupPublicRacesByEvent,
   getIndexableDistancePages,
   getOtherEventFormats,
+  getRaceTemporalStatus,
   getSimilarRaces,
   MIN_INDEXABLE_RACES,
 } from "../../lib/race-discovery";
@@ -14,11 +16,14 @@ const makeRace = (overrides: Partial<PublicRace> & Pick<PublicRace, "id" | "slug
   const { id, slug, name, ...optionalOverrides } = overrides;
   return {
     eventId: null,
+    editionId: null,
     eventName: null,
     date: null,
     location: null,
     distanceKm: null,
     elevationGainM: null,
+    raceThumbnailUrl: null,
+    eventThumbnailUrl: null,
     thumbnailUrl: null,
     externalSiteUrl: null,
     ...optionalOverrides,
@@ -29,7 +34,7 @@ const makeRace = (overrides: Partial<PublicRace> & Pick<PublicRace, "id" | "slug
 };
 
 describe("race discovery", () => {
-  it("groups formats by stable event id and orders formats by distance", () => {
+  it("groups formats by stable event edition and orders formats by distance", () => {
     const eventId = "event-a";
     const long = makeRace({
       id: "long",
@@ -37,6 +42,7 @@ describe("race discovery", () => {
       name: "Ultra",
       eventId,
       eventName: "Festival du trail",
+      editionId: "edition-2026",
       date: "2026-09-12",
       distanceKm: 100,
     });
@@ -46,18 +52,32 @@ describe("race discovery", () => {
       name: "Trail court",
       eventId,
       eventName: "Festival du trail",
+      editionId: "edition-2026",
       date: "2026-09-12",
       distanceKm: 20,
     });
 
     expect(groupPublicRacesByEvent([long, short])).toEqual([
       expect.objectContaining({
-        key: `event:${eventId}`,
+        key: `event:${eventId}:edition:edition-2026`,
         eventId,
+        editionId: "edition-2026",
         eventName: "Festival du trail",
         races: [short, long],
       }),
     ]);
+  });
+
+  it("separates two editions of the same event and keeps a legacy fallback", () => {
+    const current = makeRace({ id: "current", slug: "current", name: "42K", eventId: "event-a", editionId: "edition-2026" });
+    const future = makeRace({ id: "future", slug: "future", name: "42K", eventId: "event-a", editionId: "edition-2027" });
+    const legacy = makeRace({ id: "legacy", slug: "legacy", name: "Legacy", eventId: "event-a" });
+
+    expect(new Set(groupPublicRacesByEvent([current, future, legacy]).map((group) => group.key))).toEqual(new Set([
+      "event:event-a",
+      "event:event-a:edition:edition-2026",
+      "event:event-a:edition:edition-2027",
+    ]));
   });
 
   it("does not merge standalone races or distinct events with the same display name", () => {
@@ -110,6 +130,25 @@ describe("race discovery", () => {
       "event:event-later",
       "race:undated",
     ]);
+  });
+
+  it("classifies past, current, future, and undated races deterministically", () => {
+    const today = "2026-09-02";
+    expect(getRaceTemporalStatus(makeRace({ id: "past", slug: "past", name: "Past", date: "2026-09-01" }), today)).toBe("past");
+    expect(getRaceTemporalStatus(makeRace({ id: "today", slug: "today", name: "Today", date: today }), today)).toBe("upcoming");
+    expect(getRaceTemporalStatus(makeRace({ id: "future", slug: "future", name: "Future", date: "2027-01-01" }), today)).toBe("upcoming");
+    expect(getRaceTemporalStatus(makeRace({ id: "unknown", slug: "unknown", name: "Unknown" }), today)).toBe("undated");
+  });
+
+  it("combines accent-insensitive search, distance, and period filters", () => {
+    const races = [
+      makeRace({ id: "annecy", slug: "annecy", name: "Trail des Crêtes", location: "Annecy", date: "2026-09-12", distanceKm: 42 }),
+      makeRace({ id: "past", slug: "past", name: "Ultra Annecy", location: "Annecy", date: "2026-05-01", distanceKm: 100 }),
+      makeRace({ id: "other", slug: "other", name: "Trail urbain", location: "Lyon", date: "2026-09-12", distanceKm: 20 }),
+    ];
+
+    expect(filterPublicRaces(races, { search: "cretes annecy", distance: "trail", period: "upcoming", todayIso: "2026-09-02" }).map((race) => race.id)).toEqual(["annecy"]);
+    expect(filterPublicRaces(races, { search: "annecy", distance: "ultra", period: "past", todayIso: "2026-09-02" }).map((race) => race.id)).toEqual(["past"]);
   });
 
   it("deduplicates repeated race rows without mutating the input", () => {
@@ -165,6 +204,13 @@ describe("race discovery", () => {
       "short",
       "long",
     ]);
+  });
+
+  it("keeps other formats inside the same edition when one is known", () => {
+    const source = makeRace({ id: "source", slug: "source", name: "Source", eventId: "event-a", editionId: "edition-a" });
+    const sibling = makeRace({ id: "sibling", slug: "sibling", name: "Sibling", eventId: "event-a", editionId: "edition-a" });
+    const nextYear = makeRace({ id: "next", slug: "next", name: "Next", eventId: "event-a", editionId: "edition-b" });
+    expect(getOtherEventFormats(source, [source, sibling, nextYear]).map((race) => race.id)).toEqual(["sibling"]);
   });
 
   it("orders similar races by distance then elevation and excludes sibling formats", () => {

@@ -37,6 +37,12 @@ const UNSUBSCRIBE = Object.freeze({
   defaultLabel: 'Je ne souhaite plus recevoir ces emails',
 });
 
+const FOLLOWUP_SEQUENCE = Object.freeze({
+  defaultMaxAttempts: 3,
+  absoluteMaxAttempts: 3,
+  noResponseStatus: 'PROSPECT_SANS_REPONSE',
+});
+
 /**
  * Generates the secret expected by the BeTrail scraper webhook.
  * Run manually, then copy the returned value into the local environment variable
@@ -122,7 +128,8 @@ function doGet(event) {
 }
 
 /**
- * Installs a one-minute Apps Script trigger. The job only creates Gmail drafts.
+ * Installs a one-minute Apps Script trigger. The template mode decides whether
+ * the job keeps drafts for review or sends its tracked drafts automatically.
  * Run this function manually once from the Apps Script editor to grant access.
  */
 function installOutreachJob() {
@@ -133,8 +140,8 @@ function installOutreachJob() {
     .timeBased()
     .everyMinutes(1)
     .create();
-  updateTemplateStatus_('Installé — brouillons uniquement');
-  return 'Job installé : vérification toutes les minutes, brouillons uniquement.';
+  updateTemplateStatus_('Installé — vérification toutes les minutes');
+  return 'Job installé : vérification toutes les minutes.';
 }
 
 /** Removes only the triggers owned by this outreach job. */
@@ -145,8 +152,7 @@ function uninstallOutreachJob() {
 }
 
 /**
- * Trigger entry point. It creates at most one draft per invocation and never
- * calls Gmail send methods.
+ * Trigger entry point. It processes at most one outreach message per invocation.
  */
 function runOutreachJob() {
   const lock = LockService.getScriptLock();
@@ -164,9 +170,7 @@ function runOutreachJob() {
     if (!asBoolean_(settings.activation_envoi)) {
       return { status: 'SKIPPED_DISABLED', reconciliation: reconciliation };
     }
-    if (normalize_(template.mode_envoi) !== 'brouillons') {
-      throw new Error('Mode refusé : ce job accepte uniquement « Brouillons ».');
-    }
+    const mode = outreachMode_(template.mode_envoi);
     if (!isAllowedDay_(settings, now, timezone)) {
       return { status: 'SKIPPED_DAY' };
     }
@@ -181,25 +185,68 @@ function runOutreachJob() {
     const history = readHistory_(historySheet);
     const dateKey = Utilities.formatDate(now, timezone, 'yyyy-MM-dd');
     const dailyLimit = positiveInteger_(settings.limite_quotidienne, 150);
-    const createdToday = history.rows.filter(function (row) {
-      return row.runDate === dateKey && ['BROUILLON_CREE', 'RELANCE_BROUILLON_CREE'].indexOf(row.status) !== -1;
+    const processedToday = history.rows.filter(function (row) {
+      return row.runDate === dateKey && (mode === 'automatic' ? isAnySentStatus_(row.status) : isAnyDraftStatus_(row.status));
     }).length;
 
-    if (createdToday >= dailyLimit) {
-      return { status: 'SKIPPED_DAILY_LIMIT', createdToday: createdToday };
+    if (processedToday >= dailyLimit) {
+      return { status: 'SKIPPED_DAILY_LIMIT', processedToday: processedToday };
     }
 
     const delayMinutes = positiveInteger_(settings.delai_entre_envois_minutes, 1);
-    const lastDraftAt = history.rows.reduce(function (latest, row) {
-      if (['BROUILLON_CREE', 'RELANCE_BROUILLON_CREE'].indexOf(row.status) === -1 || !(row.createdAt instanceof Date)) return latest;
+    const lastProcessedAt = history.rows.reduce(function (latest, row) {
+      const relevant = mode === 'automatic' ? isAnySentStatus_(row.status) : isAnyDraftStatus_(row.status);
+      if (!relevant || !(row.createdAt instanceof Date)) return latest;
       return !latest || row.createdAt > latest ? row.createdAt : latest;
     }, null);
-    if (lastDraftAt && now.getTime() - lastDraftAt.getTime() < delayMinutes * 60000) {
+    if (lastProcessedAt && now.getTime() - lastProcessedAt.getTime() < delayMinutes * 60000) {
       return { status: 'SKIPPED_DELAY' };
     }
 
-    const followupProspect = asBoolean_(settings.activation_relance)
-      ? findNextFollowupProspect_(spreadsheet, history.followupUuids, now, positiveInteger_(settings.delai_relance_jours, 10))
+    if (mode === 'automatic' && history.pendingDrafts.length > 0) {
+      return processPendingDraft_(
+        spreadsheet,
+        historySheet,
+        history.pendingDrafts[0],
+        now,
+        dateKey,
+        reconciliation,
+      );
+    }
+
+    const maxFollowupAttempts = Math.min(
+      positiveInteger_(settings.nombre_max_relances, FOLLOWUP_SEQUENCE.defaultMaxAttempts),
+      FOLLOWUP_SEQUENCE.absoluteMaxAttempts,
+    );
+    const followupAction = asBoolean_(settings.activation_relance)
+      ? findNextFollowupAction_(
+        spreadsheet,
+        history.followupStatesByUuid,
+        now,
+        positiveInteger_(settings.delai_relance_jours, 10),
+        maxFollowupAttempts,
+      )
+      : null;
+
+    if (followupAction && followupAction.type === 'mark_no_response') {
+      appendHistory_(
+        historySheet,
+        now,
+        dateKey,
+        followupAction.prospect,
+        FOLLOWUP_SEQUENCE.noResponseStatus,
+        '',
+        'Aucune rÃ©ponse aprÃ¨s ' + maxFollowupAttempts + ' relances et le dÃ©lai final',
+      );
+      return {
+        status: FOLLOWUP_SEQUENCE.noResponseStatus,
+        email: followupAction.prospect.email,
+        reconciliation: reconciliation,
+      };
+    }
+
+    const followupProspect = followupAction && followupAction.type === 'draft'
+      ? followupAction.prospect
       : null;
     if (followupProspect) {
       const followupActivity = inspectGmailActivity_(followupProspect.email);
@@ -208,7 +255,8 @@ function runOutreachJob() {
         appendHistory_(historySheet, now, dateKey, followupProspect, 'REPONSE_RECUE', '', 'Réponse détectée avant relance');
         return { status: 'REPONSE_RECUE', email: followupProspect.email, reconciliation: reconciliation };
       }
-      const followupTemplateKey = followupTemplateKeyForMessage_(followupActivity.sentMessage);
+      const followupAttempt = followupAction.attempt;
+      const followupTemplateKey = followupTemplateKeyForAttempt_(followupAttempt, followupActivity.sentMessage);
       const followupBody = replaceOrganizationName_(String(template[followupTemplateKey] || ''), followupProspect.organizationName || '');
       if (!followupBody.trim()) {
         throw new Error('Template email : ' + followupTemplateKey + ' est obligatoire quand les relances sont activées.');
@@ -245,12 +293,32 @@ function runOutreachJob() {
           ? 'Brouillon de relance créé hors fil (objet Gmail initial non personnalisé)'
           : 'Brouillon de relance créé hors fil (envoi initial absent de Gmail)';
       }
-      appendHistory_(historySheet, now, dateKey, followupProspect, 'RELANCE_BROUILLON_CREE', draft.id, details);
+      const followupDraftStatus = followupDraftStatus_(followupAttempt);
+      appendHistory_(
+        historySheet,
+        now,
+        dateKey,
+        followupProspect,
+        followupDraftStatus,
+        draft.id,
+        details + ' (relance ' + followupAttempt + '/' + maxFollowupAttempts + ')',
+      );
+      if (mode === 'automatic') {
+        return sendTrackedDraft_(
+          spreadsheet,
+          historySheet,
+          followupProspect,
+          { draftId: draft.id, status: followupDraftStatus, followupAttempt: followupAttempt },
+          now,
+          dateKey,
+          reconciliation,
+        );
+      }
       return {
-        status: 'RELANCE_BROUILLON_CREE',
+        status: followupDraftStatus,
         email: followupProspect.email,
         draftId: draft.id,
-        createdToday: createdToday + 1,
+        createdToday: processedToday + 1,
         reconciliation: reconciliation,
       };
     }
@@ -283,11 +351,23 @@ function runOutreachJob() {
     const draft = GmailApp.createDraft(prospect.email, subject, initialContent.plainBody, options);
     appendHistory_(historySheet, now, dateKey, prospect, 'BROUILLON_CREE', draft.getId(), 'Brouillon Gmail créé');
 
+    if (mode === 'automatic') {
+      return sendTrackedDraft_(
+        spreadsheet,
+        historySheet,
+        prospect,
+        { draftId: draft.getId(), status: 'BROUILLON_CREE', followupAttempt: null },
+        now,
+        dateKey,
+        reconciliation,
+      );
+    }
+
     return {
       status: 'BROUILLON_CREE',
       email: prospect.email,
       draftId: draft.getId(),
-      createdToday: createdToday + 1,
+      createdToday: processedToday + 1,
       reconciliation: reconciliation,
     };
   } catch (error) {
@@ -296,6 +376,100 @@ function runOutreachJob() {
   } finally {
     lock.releaseLock();
   }
+}
+
+function outreachMode_(value) {
+  const mode = normalize_(value);
+  if (mode === 'brouillons') return 'drafts';
+  if (['envoi automatique', 'automatique', 'envoi'].indexOf(mode) !== -1) return 'automatic';
+  throw new Error('Mode refusé : utilisez « Brouillons » ou « Envoi automatique ».');
+}
+
+function processPendingDraft_(spreadsheet, historySheet, pendingDraft, now, dateKey, reconciliation) {
+  const prospect = findProspectByUuid_(spreadsheet, pendingDraft.uuid);
+  if (!prospect || normalize_(prospect.email) !== normalize_(pendingDraft.email)) {
+    appendHistory_(
+      historySheet,
+      now,
+      dateKey,
+      pendingDraft,
+      'ENVOI_ANNULE',
+      pendingDraft.draftId,
+      'Brouillon non envoyé : prospect absent ou adresse modifiée',
+    );
+    return { status: 'ENVOI_ANNULE', email: pendingDraft.email, reconciliation: reconciliation };
+  }
+
+  const activity = inspectGmailActivity_(prospect.email);
+  syncProspectActivity_(requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet), prospect, activity);
+  if (activity.sentAt && activity.sentAt >= pendingDraft.createdAt) {
+    return confirmTrackedDraftSent_(historySheet, prospect, pendingDraft, now, dateKey, reconciliation, 'Envoi Gmail déjà confirmé');
+  }
+
+  const replyAfterDraft = activity.repliedAt && activity.repliedAt >= pendingDraft.createdAt;
+  if (prospect.hardBouncedAt || prospect.excluded || prospect.optedOut || replyAfterDraft) {
+    appendHistory_(
+      historySheet,
+      now,
+      dateKey,
+      prospect,
+      'ENVOI_ANNULE',
+      pendingDraft.draftId,
+      'Brouillon non envoyé : exclusion, désinscription, rebond ou réponse détectée',
+    );
+    return { status: 'ENVOI_ANNULE', email: prospect.email, reconciliation: reconciliation };
+  }
+
+  return sendTrackedDraft_(spreadsheet, historySheet, prospect, pendingDraft, now, dateKey, reconciliation);
+}
+
+function sendTrackedDraft_(spreadsheet, historySheet, prospect, pendingDraft, now, dateKey, reconciliation) {
+  Gmail.Users.Drafts.send({ id: pendingDraft.draftId }, 'me');
+  syncProspectActivity_(requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet), prospect, { sentAt: now, repliedAt: null });
+  return confirmTrackedDraftSent_(historySheet, prospect, pendingDraft, now, dateKey, reconciliation, 'Brouillon envoyé automatiquement');
+}
+
+function confirmTrackedDraftSent_(historySheet, prospect, pendingDraft, now, dateKey, reconciliation, details) {
+  const status = isFollowupDraftStatus_(pendingDraft.status)
+    ? followupSentStatus_(pendingDraft.followupAttempt)
+    : 'ENVOI_CONFIRME';
+  appendHistory_(historySheet, now, dateKey, prospect, status, '', details);
+  return {
+    status: status,
+    email: prospect.email,
+    sentDraftId: pendingDraft.draftId,
+    reconciliation: reconciliation,
+  };
+}
+
+function findProspectByUuid_(spreadsheet, uuid) {
+  const sheet = requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet);
+  const values = sheet.getDataRange().getValues();
+  if (values.length < 2) return null;
+  const headers = headerIndex_(values[0]);
+  [
+    'uuid', 'email', 'Organization name', 'outreach_event_date', 'last_sent_email_at',
+    'replied_at', 'hard_bounced_at', 'excluded', 'opted-out',
+  ].forEach(function (header) {
+    if (headers[header] === undefined) throw new Error('Colonne Prospects manquante : ' + header);
+  });
+  const rowIndex = values.slice(1).findIndex(function (row) {
+    return String(row[headers.uuid] || '').trim() === String(uuid || '').trim();
+  });
+  if (rowIndex === -1) return null;
+  const row = values[rowIndex + 1];
+  return {
+    rowNumber: rowIndex + 2,
+    uuid: String(row[headers.uuid] || '').trim(),
+    email: String(row[headers.email] || '').trim(),
+    organizationName: String(row[headers['Organization name']] || '').trim(),
+    eventDate: row[headers.outreach_event_date] || '',
+    lastSentAt: asDate_(row[headers.last_sent_email_at]),
+    repliedAt: asDate_(row[headers.replied_at]),
+    hardBouncedAt: asDate_(row[headers.hard_bounced_at]),
+    excluded: asBoolean_(row[headers.excluded]),
+    optedOut: asBoolean_(row[headers['opted-out']]),
+  };
 }
 
 function findNextProspect_(spreadsheet, terminalUuids) {
@@ -384,6 +558,49 @@ function followupTemplateKeyForMessage_(sentMessage) {
   return originalMessageIncludesCourseTest_(originalContent)
     ? 'corps_relance'
     : 'corps_relance_premier_contact';
+}
+
+function followupTemplateKeyForAttempt_(attempt, sentMessage) {
+  const number = positiveInteger_(attempt, 1);
+  return number === 1 ? followupTemplateKeyForMessage_(sentMessage) : 'corps_relance_' + number;
+}
+
+function followupAttemptFromStatus_(status) {
+  const value = String(status || '');
+  if (value === 'RELANCE_BROUILLON_CREE' || value === 'RELANCE_ENVOYEE') return 1;
+  const match = /^RELANCE_([1-3])_(BROUILLON_CREE|ENVOYEE)$/.exec(value);
+  return match ? Number(match[1]) : null;
+}
+
+function followupDraftStatus_(attempt) {
+  return 'RELANCE_' + positiveInteger_(attempt, 1) + '_BROUILLON_CREE';
+}
+
+function followupSentStatus_(attempt) {
+  return 'RELANCE_' + positiveInteger_(attempt, 1) + '_ENVOYEE';
+}
+
+function isFollowupDraftStatus_(status) {
+  const value = String(status || '');
+  return value === 'RELANCE_BROUILLON_CREE' || /^RELANCE_[1-3]_BROUILLON_CREE$/.test(value);
+}
+
+function isFollowupSentStatus_(status) {
+  const value = String(status || '');
+  return value === 'RELANCE_ENVOYEE' || /^RELANCE_[1-3]_ENVOYEE$/.test(value);
+}
+
+function isAnyDraftStatus_(status) {
+  return String(status || '') === 'BROUILLON_CREE' || isFollowupDraftStatus_(status);
+}
+
+function isAnySentStatus_(status) {
+  return String(status || '') === 'ENVOI_CONFIRME' || isFollowupSentStatus_(status);
+}
+
+function closesPendingDraft_(status) {
+  return isAnySentStatus_(status)
+    || ['ENVOI_ANNULE', 'REPONSE_RECUE', 'PROSPECT_SANS_REPONSE'].indexOf(String(status || '')) !== -1;
 }
 
 function originalMessageIncludesCourseTest_(content) {
@@ -619,8 +836,10 @@ function reconcileGmailActivity_(spreadsheet, historySheet, settings, now, timez
     if (changes.sentUpdated) {
       result.sentUpdated += 1;
       const latestDraft = history.latestDraftByUuid[prospect.uuid];
-      const status = latestDraft && latestDraft.status === 'RELANCE_BROUILLON_CREE'
-        && activity.sentAt >= latestDraft.createdAt ? 'RELANCE_ENVOYEE' : 'ENVOI_CONFIRME';
+      const status = latestDraft && isFollowupDraftStatus_(latestDraft.status)
+        && activity.sentAt >= latestDraft.createdAt
+        ? followupSentStatus_(latestDraft.followupAttempt)
+        : 'ENVOI_CONFIRME';
       appendHistory_(historySheet, now, dateKey, prospect, status, '', 'Activité Gmail synchronisée vers Prospects');
     }
     if (changes.replyUpdated) {
@@ -656,7 +875,7 @@ function syncProspectActivity_(sheet, prospect, activity) {
   return { sentUpdated: sentUpdated, replyUpdated: replyUpdated };
 }
 
-function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayBusinessDays) {
+function findNextFollowupAction_(spreadsheet, followupStatesByUuid, now, delayBusinessDays, maxAttempts) {
   const sheet = requiredSheet_(spreadsheet, OUTREACH_JOB.prospectsSheet);
   const values = sheet.getDataRange().getValues();
   if (values.length < 2) return null;
@@ -668,7 +887,7 @@ function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayBusines
     if (headers[header] === undefined) throw new Error('Colonne Prospects manquante : ' + header);
   });
 
-  return values.slice(1).map(function (row, offset) {
+  const candidates = values.slice(1).map(function (row, offset) {
     return {
       rowNumber: offset + 2,
       uuid: String(row[headers.uuid] || '').trim(),
@@ -682,10 +901,24 @@ function findNextFollowupProspect_(spreadsheet, followupUuids, now, delayBusines
       optedOut: asBoolean_(row[headers['opted-out']]),
     };
   }).filter(function (prospect) {
-    return isFollowupEligible_(prospect, followupUuids, now, delayBusinessDays);
+    return isFollowupEligible_(prospect, followupStatesByUuid[prospect.uuid], now, delayBusinessDays, maxAttempts);
   }).sort(function (a, b) {
     return a.lastSentAt - b.lastSentAt || a.rowNumber - b.rowNumber;
-  })[0] || null;
+  });
+
+  const noResponseProspect = candidates.filter(function (prospect) {
+    const state = followupStatesByUuid[prospect.uuid] || emptyFollowupState_();
+    return state.highestSentAttempt >= maxAttempts && !state.noResponse;
+  })[0];
+  if (noResponseProspect) return { type: 'mark_no_response', prospect: noResponseProspect };
+
+  const prospect = candidates.filter(function (candidate) {
+    const state = followupStatesByUuid[candidate.uuid] || emptyFollowupState_();
+    return state.highestSentAttempt < maxAttempts && !state.pendingDraft;
+  })[0];
+  if (!prospect) return null;
+  const state = followupStatesByUuid[prospect.uuid] || emptyFollowupState_();
+  return { type: 'draft', prospect: prospect, attempt: state.highestSentAttempt + 1 };
 }
 
 function addBusinessDays_(value, businessDays) {
@@ -699,7 +932,8 @@ function addBusinessDays_(value, businessDays) {
   return date;
 }
 
-function isFollowupEligible_(prospect, followupUuids, now, delayBusinessDays) {
+function isFollowupEligible_(prospect, followupState, now, delayBusinessDays, maxAttempts) {
+  const state = followupState || emptyFollowupState_();
   return Boolean(prospect.uuid
     && prospect.email
     && prospect.organizationName
@@ -709,7 +943,12 @@ function isFollowupEligible_(prospect, followupUuids, now, delayBusinessDays) {
     && !prospect.hardBouncedAt
     && !prospect.excluded
     && !prospect.optedOut
-    && !followupUuids[prospect.uuid]);
+    && !state.noResponse
+    && state.highestSentAttempt <= maxAttempts);
+}
+
+function emptyFollowupState_() {
+  return { highestSentAttempt: 0, pendingDraft: null, noResponse: false };
 }
 
 function asDate_(value) {
@@ -743,29 +982,55 @@ function readHistory_(sheet) {
       runDate: String(row[1] || ''),
       uuid: String(row[2] || ''),
       email: String(row[3] || ''),
+      organizationName: String(row[4] || ''),
+      eventDate: row[5] || '',
       status: String(row[6] || ''),
+      draftId: String(row[7] || ''),
+      followupAttempt: followupAttemptFromStatus_(row[6]),
     };
   });
   const terminalUuids = {};
   const draftUuids = {};
-  const followupUuids = {};
+  const followupStatesByUuid = {};
   const latestDraftByUuid = {};
+  const pendingDraftByUuid = {};
   rows.forEach(function (row) {
     if (row.uuid && ['BROUILLON_CREE', 'IGNORE_DEJA_CONTACTE', 'IGNORE_REPONSE_RECUE'].indexOf(row.status) !== -1) {
       terminalUuids[row.uuid] = true;
     }
-    if (row.uuid && ['BROUILLON_CREE', 'RELANCE_BROUILLON_CREE'].indexOf(row.status) !== -1) {
+    if (row.uuid && isAnyDraftStatus_(row.status)) {
       draftUuids[row.uuid] = true;
+      pendingDraftByUuid[row.uuid] = row;
       if (!latestDraftByUuid[row.uuid] || row.createdAt > latestDraftByUuid[row.uuid].createdAt) latestDraftByUuid[row.uuid] = row;
     }
-    if (row.uuid && ['RELANCE_BROUILLON_CREE', 'RELANCE_ENVOYEE'].indexOf(row.status) !== -1) followupUuids[row.uuid] = true;
+    if (row.uuid && closesPendingDraft_(row.status)) delete pendingDraftByUuid[row.uuid];
+    if (!row.uuid) return;
+    const state = followupStatesByUuid[row.uuid] || emptyFollowupState_();
+    if (isFollowupDraftStatus_(row.status)) {
+      state.pendingDraft = row;
+    } else if (isFollowupSentStatus_(row.status)) {
+      state.highestSentAttempt = Math.max(state.highestSentAttempt, row.followupAttempt || 1);
+      if (state.pendingDraft && state.pendingDraft.followupAttempt === row.followupAttempt) state.pendingDraft = null;
+    } else if (row.status === 'ENVOI_ANNULE') {
+      state.pendingDraft = null;
+    } else if (row.status === FOLLOWUP_SEQUENCE.noResponseStatus) {
+      state.noResponse = true;
+    }
+    followupStatesByUuid[row.uuid] = state;
   });
   return {
     rows: rows,
     terminalUuids: terminalUuids,
     draftUuids: draftUuids,
-    followupUuids: followupUuids,
+    followupStatesByUuid: followupStatesByUuid,
     latestDraftByUuid: latestDraftByUuid,
+    pendingDrafts: Object.keys(pendingDraftByUuid).map(function (uuid) {
+      return pendingDraftByUuid[uuid];
+    }).filter(function (row) {
+      return row.draftId;
+    }).sort(function (a, b) {
+      return a.createdAt - b.createdAt;
+    }),
   };
 }
 

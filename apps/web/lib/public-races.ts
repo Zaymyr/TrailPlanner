@@ -7,6 +7,7 @@ import { getSupabaseAnonConfig } from "./supabase";
 const raceSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid().nullable(),
+  edition_id: z.string().uuid().nullable().optional(),
   slug: z.string().min(1),
   name: z.string().min(1),
   race_date: z.string().nullable(),
@@ -33,6 +34,7 @@ const raceSlugRedirectSchema = z.object({
 export type PublicRace = {
   id: string;
   eventId: string | null;
+  editionId: string | null;
   slug: string;
   name: string;
   eventName: string | null;
@@ -40,6 +42,8 @@ export type PublicRace = {
   location: string | null;
   distanceKm: number | null;
   elevationGainM: number | null;
+  raceThumbnailUrl: string | null;
+  eventThumbnailUrl: string | null;
   thumbnailUrl: string | null;
   externalSiteUrl: string | null;
 };
@@ -52,6 +56,7 @@ export type PublicRaceSlugResolution = {
 const raceSelect = [
   "id",
   "event_id",
+  "edition_id",
   "slug",
   "name",
   "race_date",
@@ -102,6 +107,7 @@ const toPublicRace = (
 ): PublicRace => ({
   id: race.id,
   eventId: race.event_id,
+  editionId: race.edition_id ?? null,
   slug: race.slug,
   name: race.name,
   eventName: event?.name ?? null,
@@ -109,6 +115,8 @@ const toPublicRace = (
   location: race.location_text ?? race.location ?? event?.location ?? null,
   distanceKm: race.distance_km,
   elevationGainM: race.elevation_gain_m,
+  raceThumbnailUrl: race.thumbnail_url,
+  eventThumbnailUrl: event?.thumbnail_url ?? null,
   thumbnailUrl: race.thumbnail_url ?? event?.thumbnail_url ?? null,
   externalSiteUrl: race.external_site_url,
 });

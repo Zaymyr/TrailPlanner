@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -21,6 +21,8 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/lib/public-races.ts
+  - apps/web/lib/public-race-detail.ts
+  - apps/web/lib/public-race-detail.test.ts
   - scripts/audit-public-race-slugs.mjs
   - scripts/audit-public-race-slugs.test.mjs
 related_tables:
@@ -103,6 +105,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - A slug change atomically reserves the old value in `race_slug_redirects`; inserts and updates cannot reuse a reserved former slug.
 - Final-roadbook data corrections may update confirmed dates and organizer JSON without replacing more precise existing metrics when the source only gives rounded format labels. The Les Amaz’Eaunes 2026 migration therefore preserves stored distance and elevation values and does not create unspecified ravito rows.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
+- Public SEO detail reads revalidate `is_live = true` and `is_public = true` with service credentials before reading `organizer_details`, ravitos, or private `gpx_storage_path`. An attached event and edition must also remain visible. Only an explicit sanitized DTO crosses into rendering; emergency/last-minute organizer fields and raw JSON do not.
 
 ## Common Queries
 
@@ -136,6 +139,7 @@ where is_live = true
 - Do not reintroduce `on delete set null` for `edition_id`; confirmed edition deletion must not leave organizer formats detached from every canonical year.
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
 - Do not bulk-update slugs without reviewing the read-only audit and using the service-only rename RPC after its migration is deployed.
+- Never expose `gpx_storage_path` or raw `organizer_details` from a public client contract. The public route may receive only the server-parsed, bounded GPX preview and allowlisted practical fields.
 
 ## Related Docs
 

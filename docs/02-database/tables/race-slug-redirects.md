@@ -1,7 +1,7 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-08-28
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -62,7 +62,7 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - Inserts and updates reject a slug already reserved in this table.
 - Transaction advisory locks serialize reservations for the old and new names; the existing unique race-slug constraint remains the canonical-name collision guard.
 - `rename_race_slug` normalizes trim/case, validates the allowed slug format, locks the race row, updates it, and lets the trigger record the redirect atomically.
-- The public web route returns a permanent redirect only after reloading the target through the current public visibility gates.
+- The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract.
 
 ## Common Queries
 
