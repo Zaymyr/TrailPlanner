@@ -31,12 +31,15 @@ export const adminGrowthResponseSchema = z.object({
   trend: z.array(trendPointSchema),
   organizers: z.object({
     newOrganizers: z.number(),
-    organizersWithContentChanges: z.number(),
+    activeOrganizers: z.number(),
     returningOrganizers: z.number(),
     eventsCreated: z.number(),
     editionsCreated: z.number(),
     formatsCreated: z.number(),
     publishedRacebooks: z.number(),
+    activatedRacebooks: z.number(),
+    giftedRacebooks: z.number(),
+    paidRacebooks: z.number(),
     funnel: z.array(funnelRowSchema),
     followUps: z.array(z.object({
       eventId: z.string().uuid(),

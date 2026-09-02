@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -82,7 +82,7 @@ This table is retained publication-review history. New organizer publication use
 ## Gotchas
 
 - This is a publication review, not an ownership claim. Legacy claims may still protect access to pre-existing catalog events.
-- Keep the assignment form and publication review actions independent even though they share the admin Organizer tab.
+- Keep assignment and publication review independent in the admin Organizer area: publication controls belong to `Publier le RaceBook`, while membership assignment and active access belong to `Accès organisateurs`.
 - Recheck readiness during admin approval because organizers can edit source data while a request is pending.
 - For current (null `race_id`) requests, the review function always targets the event's current edition (`race_event_editions.is_current`), not whichever edition happens to be selected in the organizer UI at request time.
 - Edition deletion cascades any targeted legacy request tied to its deleted format. Edition hiding preserves durable approval/history but clears the live Racebook flag, which must be republished explicitly after the edition is shown again.

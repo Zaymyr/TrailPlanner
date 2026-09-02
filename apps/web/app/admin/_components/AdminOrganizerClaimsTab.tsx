@@ -4,8 +4,17 @@ import { useEffect, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "../../../components/ui/dialog";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { TabsList } from "../../../components/ui/tabs";
 import { LiveToggle } from "../../organizer/_components/dashboard/controls";
 
 type OrganizerUserSummary = {
@@ -124,6 +133,7 @@ type Props = {
 };
 
 export function AdminOrganizerClaimsTab({ accessToken }: Props) {
+  const [organizerAdminTab, setOrganizerAdminTab] = useState<"publication" | "access">("publication");
   const [claims, setClaims] = useState<OrganizerClaim[]>([]);
   const [editionRequests, setEditionRequests] = useState<OrganizerEditionRequest[]>([]);
   const [publicationRequests, setPublicationRequests] = useState<OrganizerPublicationRequest[]>([]);
@@ -134,6 +144,11 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [assignmentEmail, setAssignmentEmail] = useState("");
   const [assignmentEventId, setAssignmentEventId] = useState("");
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
+  const [missingAccountAssignment, setMissingAccountAssignment] = useState<{
+    email: string;
+    eventId: string;
+    eventName: string;
+  } | null>(null);
   const [notesByClaim, setNotesByClaim] = useState<Record<string, string>>({});
   const [notesByEditionRequest, setNotesByEditionRequest] = useState<Record<string, string>>({});
   const [notesByPublicationRequest, setNotesByPublicationRequest] = useState<Record<string, string>>({});
@@ -147,7 +162,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     rejected: "Refuse",
   };
 
-  const pendingRequestCount = claims.length + publicationRequests.length;
+  const pendingRequestCount =
+    organizerAdminTab === "publication" ? publicationRequests.length + editionRequests.length : claims.length;
 
   const load = async () => {
     if (!accessToken) return;
@@ -196,8 +212,15 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
-  const assignOrganizer = async () => {
-    if (!accessToken || !assignmentEventId || !assignmentEmail.trim()) return;
+  const assignOrganizer = async (
+    createAccount = false,
+    assignment = {
+      email: assignmentEmail.trim(),
+      eventId: assignmentEventId,
+      eventName: events.find((event) => event.id === assignmentEventId)?.name ?? "cet événement",
+    }
+  ) => {
+    if (!accessToken || !assignment.eventId || !assignment.email) return;
     setStatus("saving");
     setError(null);
     setAssignmentSuccess(null);
@@ -210,22 +233,32 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         },
         body: JSON.stringify({
           action: "assign",
-          eventId: assignmentEventId,
-          email: assignmentEmail.trim(),
+          eventId: assignment.eventId,
+          email: assignment.email,
+          createAccount,
         }),
       });
       const data = (await response.json().catch(() => null)) as {
+        code?: string;
         message?: string;
         event?: RaceEventOption;
         user?: { email?: string | null };
+        accountCreated?: boolean;
       } | null;
       if (!response.ok) {
+        if (response.status === 404 && data?.code === "auth_account_not_found") {
+          setMissingAccountAssignment(assignment);
+          return;
+        }
         setError(data?.message ?? "Impossible d’attribuer l’accès organisateur.");
         return;
       }
       setAssignmentSuccess(
-        `${data?.user?.email ?? assignmentEmail.trim()} peut maintenant éditer ${data?.event?.name ?? "cette course"}.`
+        data?.accountCreated
+          ? `Le compte ${data?.user?.email ?? assignment.email} a été créé et invité. Il peut maintenant éditer ${data?.event?.name ?? assignment.eventName}.`
+          : `${data?.user?.email ?? assignment.email} peut maintenant éditer ${data?.event?.name ?? assignment.eventName}.`
       );
+      setMissingAccountAssignment(null);
       setAssignmentEmail("");
       await load();
     } catch (caught) {
@@ -336,12 +369,23 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
 
   return (
     <div className="space-y-5">
+      <TabsList
+        tabs={[
+          { id: "publication", label: "Publier le RaceBook" },
+          { id: "access", label: "Accès organisateurs" },
+        ]}
+        activeTab={organizerAdminTab}
+        onTabChange={(tab) => setOrganizerAdminTab(tab as typeof organizerAdminTab)}
+      />
+
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
       <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>Revue en attente</CardTitle>
-          <CardDescription>{pendingRequestCount} demande(s) a traiter pour les acces historiques et les publications.</CardDescription>
+          <CardTitle>{organizerAdminTab === "publication" ? "Publications en attente" : "Demandes d’accès"}</CardTitle>
+          <CardDescription>
+            {pendingRequestCount} demande(s) à traiter dans cet onglet.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
           {status === "loading" ? <p className="text-sm text-muted-foreground">Chargement...</p> : null}
@@ -349,7 +393,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             <p className="text-sm text-muted-foreground">Aucune demande en attente.</p>
           ) : (
             <>
-              <section className="space-y-3">
+              {organizerAdminTab === "publication" ? <section className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-foreground">Demandes de publication</h3>
                   <span className="text-xs text-muted-foreground">{publicationRequests.length} en attente</span>
@@ -401,9 +445,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     </div>
                   ))
                 )}
-              </section>
+              </section> : null}
 
-              <section className="space-y-3">
+              {organizerAdminTab === "access" ? <section className="space-y-3">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-foreground">Claims d&apos;acces</h3>
                   <span className="text-xs text-muted-foreground">{claims.length} en attente</span>
@@ -456,9 +500,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                     </div>
                   ))
                 )}
-              </section>
+              </section> : null}
 
-              {editionRequests.length > 0 ? <section className="space-y-3 border-t border-border/60 pt-4">
+              {organizerAdminTab === "publication" && editionRequests.length > 0 ? <section className="space-y-3 border-t border-border/60 pt-4">
                 <div className="flex items-center justify-between gap-3">
                   <h3 className="text-sm font-semibold text-foreground">Nouvelles editions</h3>
                   <span className="text-xs text-muted-foreground">{editionRequests.length} en attente</span>
@@ -523,7 +567,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         </CardContent>
       </Card>
 
-      <Card className="rounded-lg">
+      {organizerAdminTab === "publication" ? <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Publication des Racebooks</CardTitle>
           <CardDescription>
@@ -617,13 +661,13 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             })
           )}
         </CardContent>
-      </Card>
+      </Card> : null}
 
-      <Card className="rounded-lg">
+      {organizerAdminTab === "access" ? <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Associer un organisateur</CardTitle>
           <CardDescription>
-            Donnez à un compte Supabase existant le droit d’éditer un événement et tous ses formats, sans modifier leur publication.
+            Donnez à une adresse e-mail le droit d’éditer un événement et tous ses formats, sans modifier leur publication.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -669,9 +713,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             </p>
           ) : null}
         </CardContent>
-      </Card>
+      </Card> : null}
 
-      <Card className="rounded-lg">
+      {organizerAdminTab === "access" ? <Card className="rounded-lg">
         <CardHeader>
           <CardTitle>Acces actifs</CardTitle>
           <CardDescription>Revoquer un acces organisateur sans supprimer la course publique.</CardDescription>
@@ -726,7 +770,43 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             ))
           )}
         </CardContent>
-      </Card>
+      </Card> : null}
+
+      <Dialog
+        open={Boolean(missingAccountAssignment)}
+        onOpenChange={(open) => {
+          if (!open && status !== "saving") setMissingAccountAssignment(null);
+        }}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Compte Supabase introuvable</DialogTitle>
+            <DialogDescription>
+              L’adresse {missingAccountAssignment?.email} n’existe pas dans Supabase. Voulez-vous créer ce compte,
+              lui envoyer une invitation et l’associer à {missingAccountAssignment?.eventName} ?
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={status === "saving"}
+              onClick={() => setMissingAccountAssignment(null)}
+            >
+              Annuler
+            </Button>
+            <Button
+              type="button"
+              disabled={status === "saving" || !missingAccountAssignment}
+              onClick={() => {
+                if (missingAccountAssignment) void assignOrganizer(true, missingAccountAssignment);
+              }}
+            >
+              {status === "saving" ? "Création…" : "Créer le compte et associer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

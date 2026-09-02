@@ -221,6 +221,68 @@ describe("PATCH /api/admin/organizer-claims", () => {
     });
   });
 
+  it("asks for confirmation when the organizer account does not exist", async () => {
+    const mockFetch = vi.mocked(fetch);
+    const eventId = "11111111-1111-1111-1111-111111111111";
+
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse({ users: [] }))
+      .mockResolvedValueOnce(
+        buildJsonResponse([{ id: eventId, name: "Trail des Crêtes", location: "Annecy", race_date: "2026-09-12" }])
+      );
+
+    const response = await PATCH(
+      adminRequest({ action: "assign", eventId, email: "nouveau@example.com" })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(payload).toMatchObject({
+      code: "auth_account_not_found",
+      email: "nouveau@example.com",
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("creates, invites, and assigns a missing organizer account after confirmation", async () => {
+    const mockFetch = vi.mocked(fetch);
+    const eventId = "11111111-1111-1111-1111-111111111111";
+    const userId = "33333333-3333-3333-3333-333333333333";
+
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse({ users: [] }))
+      .mockResolvedValueOnce(
+        buildJsonResponse([{ id: eventId, name: "Trail des Crêtes", location: "Annecy", race_date: "2026-09-12" }])
+      )
+      .mockResolvedValueOnce(buildJsonResponse({ id: userId, email: "nouveau@example.com" }))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: "44444444-4444-4444-4444-444444444444",
+            created_at: "2026-09-02T12:00:00.000Z",
+            event_id: eventId,
+            user_id: userId,
+            role: "organizer",
+            revoked_at: null,
+          },
+        ])
+      );
+
+    const response = await PATCH(
+      adminRequest({ action: "assign", eventId, email: "nouveau@example.com", createAccount: true })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.accountCreated).toBe(true);
+    expect(payload.user).toEqual({ id: userId, email: "nouveau@example.com" });
+
+    const inviteCall = mockFetch.mock.calls.find(([url]) => String(url).endsWith("/auth/v1/invite"));
+    expect(inviteCall?.[1]?.method).toBe("POST");
+    expect(JSON.parse(inviteCall?.[1]?.body as string)).toEqual({ email: "nouveau@example.com" });
+  });
+
   it("approves an edition request by cloning source-year formats into the requested year", async () => {
     const mockFetch = vi.mocked(fetch);
     const editionRequestId = "55555555-5555-5555-5555-555555555555";

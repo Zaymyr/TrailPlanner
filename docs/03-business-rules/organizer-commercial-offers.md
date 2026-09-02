@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-08-31
+last_verified: 2026-09-02
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -61,7 +61,7 @@ Any refund, including a partial refund event, or open/lost dispute invalidates i
 
 ## Historical and Admin Rights
 
-The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer tab can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant. In the ordinary `/organizer` publication dialog, a trusted admin sees a partner section after the commercial offer cards, with separate explanations and actions for gifting RaceBook or RaceBook Pro without Stripe; pending edits are saved first and the normal admin-authenticated route records `source = admin`. The organizer dashboard identifies an admin RaceBook grant as `Publication RaceBook offerte — valeur : 99 € HT` and an admin Pro grant as `Publication RaceBook Pro offerte — valeur : 299 € HT`; its publication button uses `offerte` instead of `active`. Legacy-admin editions are always presented as gifted RaceBook Pro. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
+The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer area keeps commercial controls in its `Publier le RaceBook` sub-tab, where admins can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant; organizer e-mail assignment lives separately under `Accès organisateurs`. In the ordinary `/organizer` publication dialog, a trusted admin sees a partner section after the commercial offer cards, with separate explanations and actions for gifting RaceBook or RaceBook Pro without Stripe; pending edits are saved first and the normal admin-authenticated route records `source = admin`. The organizer dashboard identifies an admin RaceBook grant as `Publication RaceBook offerte — valeur : 99 € HT` and an admin Pro grant as `Publication RaceBook Pro offerte — valeur : 299 € HT`; its publication button uses `offerte` instead of `active`. Legacy-admin editions are always presented as gifted RaceBook Pro. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
 
 ## Gotchas
 
