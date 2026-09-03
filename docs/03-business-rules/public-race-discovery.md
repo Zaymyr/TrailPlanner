@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -17,6 +17,11 @@ related_files:
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/_components/PublicRaceShare.tsx
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
+  - apps/web/app/courses/_components/RaceHeroSummary.tsx
+  - apps/web/app/courses/_components/RaceMetricsDetails.tsx
+  - apps/web/app/courses/_components/RaceRouteExplorer.tsx
+  - apps/web/app/courses/_components/RaceAidStationsTimeline.tsx
+  - apps/web/components/ui/accordion.tsx
   - apps/web/app/courses/PublicRaceShare.test.ts
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts

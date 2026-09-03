@@ -55,7 +55,15 @@ export async function sharePublicRace(title: string, url: string): Promise<Share
   }
 }
 
-export function PublicRaceShare({ title, url }: { title: string; url: string }) {
+export function PublicRaceShare({
+  title,
+  url,
+  variant = "full",
+}: {
+  title: string;
+  url: string;
+  variant?: "full" | "icon";
+}) {
   const [status, setStatus] = useState<ShareStatus>("idle");
   const facebookUrl = getFacebookShareUrl(url);
 
@@ -73,6 +81,27 @@ export function PublicRaceShare({ title, url }: { title: string; url: string }) 
       setStatus("error");
     }
   };
+
+  if (variant === "icon") {
+    return (
+      <div className="relative inline-flex">
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label="Partager cette course"
+          title="Partager cette course"
+          className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-border text-foreground transition hover:border-brand-border hover:bg-brand-surface"
+        >
+          <ShareIcon className="h-5 w-5" />
+        </button>
+        <p className="sr-only" role="status" aria-live="polite">
+          {status === "shared" ? "Course partagée." : null}
+          {status === "copied" ? "Lien copié." : null}
+          {status === "error" ? "Impossible de copier le lien sur ce navigateur." : null}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-2" aria-label="Partager cette course">

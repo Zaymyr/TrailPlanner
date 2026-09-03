@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -9,6 +9,7 @@ related_files:
   - apps/web/components/gpx/GpxRouteMap.tsx
   - apps/web/components/gpx/GpxRouteMapClient.tsx
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
+  - apps/web/app/courses/_components/RaceRouteExplorer.tsx
 related_tables: []
 ---
 
@@ -40,6 +41,7 @@ It:
 - is independent from the format-location override; inheriting the event address does not change the uploaded GPX route or map bounds.
 - is also independent from the consolidated `Nom du format` input; synchronizing `name` and `series_name` changes only format identity text, not GPX geometry.
 - is independent from event-level website, Instagram, and Facebook fields rendered by the same Organizer information component.
+- on the public `/courses/[slug]` page, `apps/web/app/courses/_components/RaceRouteExplorer.tsx` wraps `GpxRouteMap` and forces `interactive={false}` until the runner taps "Explorer la carte", so pan/zoom gestures never capture mobile scroll.
 
 ## Gotchas
 
