@@ -11,7 +11,7 @@ import { getPublicRaces, resolvePublicRaceSlug } from "../../../lib/public-races
 import { getOtherEventFormats, getSimilarRaces } from "../../../lib/race-discovery";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../seo";
 import { PublicElevationProfile } from "../_components/PublicElevationProfile";
-import { PublicRaceLinks } from "../_components/PublicRaceLinks";
+import { RaceLinksCarousel } from "../_components/RaceLinksCarousel";
 import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
 import { RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceMetricsDetails } from "../_components/RaceMetricsDetails";
@@ -167,7 +167,7 @@ export default async function RacePage({ params }: PageProps) {
               <p className="text-muted-foreground">Visualisez le tracé disponible et les principaux repères d’altitude.</p>
             </div>
             {race.routePreview?.points.length ? (
-              <div className="grid gap-5 lg:grid-cols-2">
+              <div className="space-y-5">
                 <RaceRouteExplorer
                   points={race.routePreview.points.map((point) => ({ ...point, elevationM: point.elevationM ?? 0 }))}
                   aidStations={race.aidStations.map((station) => ({ name: station.name, distanceKm: station.distanceKm }))}
@@ -305,23 +305,24 @@ export default async function RacePage({ params }: PageProps) {
         </Card>
       </section>
 
-      {otherFormats.length ? (
-        <section className="space-y-5" aria-labelledby="other-formats-heading">
+      {otherFormats.length || similarRaces.length ? (
+        <section className="space-y-8 rounded-2xl bg-muted/60 p-6 sm:p-8" aria-labelledby="discover-more-heading">
           <div className="space-y-2">
-            <h2 id="other-formats-heading" className="text-2xl font-semibold text-foreground">Autres formats de cette édition</h2>
-            <p className="text-muted-foreground">Comparez les distances publiées pour choisir le format adapté.</p>
+            <h2 id="discover-more-heading" className="text-2xl font-semibold text-foreground">Autres courses à découvrir</h2>
+            <p className="text-muted-foreground">Ces suggestions ne font pas partie des informations de cette course : elles vous aident à comparer et explorer d’autres options.</p>
           </div>
-          <PublicRaceLinks races={otherFormats} />
-        </section>
-      ) : null}
-
-      {similarRaces.length ? (
-        <section className="space-y-5" aria-labelledby="similar-races-heading">
-          <div className="space-y-2">
-            <h2 id="similar-races-heading" className="text-2xl font-semibold text-foreground">Courses de distance similaire</h2>
-            <p className="text-muted-foreground">Suggestions calculées à partir de la distance et, lorsqu’il est disponible, du dénivelé.</p>
-          </div>
-          <PublicRaceLinks races={similarRaces} />
+          {otherFormats.length ? (
+            <div className="space-y-3" aria-labelledby="other-formats-heading">
+              <h3 id="other-formats-heading" className="text-lg font-semibold text-foreground">Autres formats de cette édition</h3>
+              <RaceLinksCarousel races={otherFormats} />
+            </div>
+          ) : null}
+          {similarRaces.length ? (
+            <div className="space-y-3" aria-labelledby="similar-races-heading">
+              <h3 id="similar-races-heading" className="text-lg font-semibold text-foreground">Courses de distance similaire</h3>
+              <RaceLinksCarousel races={similarRaces} />
+            </div>
+          ) : null}
         </section>
       ) : null}
 
