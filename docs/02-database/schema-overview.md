@@ -241,7 +241,7 @@ erDiagram
 - Hiding the repeated multi-format helper sentence on Courses event cards is a presentation-only option on the shared summary card; onboarding may still show it, and neither path changes catalog queries.
 - Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state. Organizer-confirmed announcement deletion removes the history row and cascades its receipts without changing favorites or previous push-delivery logs.
 - Organizer follower totals are computed by the Data API with an exact aggregate count and a one-row response range; the dashboard route must not download cross-user favorite rows to count them in application memory.
-- The mobile toast and scroll-to-pinned-event behavior happen only after the favorite API confirms the persisted id; they are presentation feedback and add no table fields or relationships.
+- The mobile toast, scroll, and `race favorite updated` event happen only after the favorite API confirms the persisted id; they add no table fields or relationships.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.

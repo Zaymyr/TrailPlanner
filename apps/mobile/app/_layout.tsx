@@ -763,20 +763,32 @@ function RootLayoutContent() {
               | undefined;
           const href = response.notification.request.content.data?.href as string | undefined;
           const updateAction = response.notification.request.content.data?.updateAction as string | undefined;
+          let analyticsAction: 'opened' | 'confirmed' | 'skipped' | 'snoozed' = 'opened';
+          let snoozeMinutes: number | undefined;
           if (alertId) {
             const action = response.actionIdentifier;
 
             if (action === 'confirm') {
               await respondToAlert(alertId, 'confirmed');
+              analyticsAction = 'confirmed';
             } else if (action === 'skip') {
               await respondToAlert(alertId, 'skipped');
+              analyticsAction = 'skipped';
             } else if (action.startsWith('snooze_')) {
               const minutes = parseInt(action.replace('snooze_', ''), 10);
               if (SNOOZE_OPTIONS_MINUTES.includes(minutes as 5 | 10 | 15)) {
                 await respondToAlert(alertId, 'snoozed', minutes);
+                analyticsAction = 'snoozed';
+                snoozeMinutes = minutes;
               }
             }
           }
+
+          captureAnalyticsEvent('push notification opened', {
+            notification_kind: alertId ? 'race_alert' : updateAction === 'reload' ? 'app_update' : href ? 'navigation' : 'unknown',
+            action: analyticsAction,
+            snooze_minutes: snoozeMinutes,
+          });
 
           if (updateAction === 'reload') {
             await Updates.reloadAsync();

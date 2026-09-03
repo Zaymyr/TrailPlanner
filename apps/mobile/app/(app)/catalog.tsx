@@ -867,7 +867,16 @@ export default function CatalogScreen() {
       setFavoriteEventIds(savedFavoriteIds);
       setEventGroups((current) => sortEvents(current, savedFavoriteIds));
 
-      if (!wasFavorite && savedFavoriteIds.includes(eventId)) {
+      const isNowFavorite = savedFavoriteIds.includes(eventId);
+      if (isNowFavorite !== wasFavorite) {
+        captureAnalyticsEvent('race favorite updated', {
+          event_id: eventId,
+          action: isNowFavorite ? 'added' : 'removed',
+          favorite_count: savedFavoriteIds.length,
+        });
+      }
+
+      if (!wasFavorite && isNowFavorite) {
         const eventName = eventGroups.find((event) => event.id === eventId)?.name;
         setSelectedEvent((current) => (current?.id === eventId ? null : current));
         setFavoriteToast(

@@ -87,7 +87,7 @@ The identity card displays the formatted course date beneath the race name in th
 8. If the screen calls server functionality, prefer existing web API bridge patterns.
 9. Add localized strings through the existing locale files when the UI needs text. Preserve language-specific punctuation such as French typographic apostrophes, including in notification copy.
 10. Import mobile text from `components/themed/Text` / `Heading`, not from `react-native`; use `DataText` for metric-like values.
-11. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens.
+11. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens. Emit outcome events only after the server confirms the mutation; for notification responses, keep properties bounded and never attach hrefs or message content.
 12. For a new root tab, add the help/feedback entry point through `RootScreenActionMenu`; add screen-specific actions there instead of occupying native header space.
 13. For a new hidden child screen under an existing stack, register the explicit child route in `apps/mobile/app/(app)/_layout.tsx` and give it a localized title in the stack layout for that feature area.
 

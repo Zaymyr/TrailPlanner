@@ -20,6 +20,7 @@ import {
   sanitizeSegmentPlan,
 } from "../utils/plan-sanitizers";
 import { parseGpx as parseGpxLocal } from "../utils/gpx";
+import { trackPlanPersisted } from "../../../../lib/product-analytics";
 
 const productListSchema = z.object({ products: z.array(fuelProductSchema) });
 
@@ -464,6 +465,17 @@ export const useRacePlan = ({
         savedElevationRef.current = elevationProfile;
         setSavedElevationGeneration((g) => g + 1);
         savedPlan = parsedPlan;
+        trackPlanPersisted({
+          operation: planIdToUpdate ? "saved" : "created",
+          source: "web_planner",
+          aidStationCount: sanitizedAidStations.length,
+          segmentCount: Object.values(sanitizedSectionSegments ?? {}).reduce(
+            (count, segments) => count + segments.length,
+            0
+          ),
+          hasRaceLink: Boolean(parsedPlan.catalogRaceId),
+          hasElevationProfile: elevationProfile.length > 0,
+        });
       }
 
       setAccountMessage(racePlannerCopy.account.messages.savedPlan);
@@ -699,6 +711,16 @@ export const useRacePlan = ({
       setPlanName(parsedPlan.name);
       setActivePlanId(parsedPlan.id);
       handleLoadPlan(parsedPlan, racePlannerCopy.raceCatalog.messages.created);
+      trackPlanPersisted({
+        operation: "created",
+        source: "web_catalog",
+        aidStationCount: parsedPlan.plannerValues.aidStations?.length ?? 0,
+        segmentCount: Object.values(
+          parsedPlan.plannerValues.segments ?? parsedPlan.plannerValues.sectionSegments ?? {}
+        ).reduce((count, segments) => count + segments.length, 0),
+        hasRaceLink: Boolean(parsedPlan.catalogRaceId),
+        hasElevationProfile: parsedPlan.elevationProfile.length > 0,
+      });
       setIsRaceCatalogOpen(false);
     } catch (error) {
       console.error("Unable to create plan from catalog", error);

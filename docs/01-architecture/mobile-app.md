@@ -209,6 +209,8 @@ After an accessible RaceBook finishes loading, the screen records its stable rac
 
 The guided catalog records `racebook onboarding search performed`, `racebook onboarding race selected`, and `racebook onboarding racebook selected`. Search events retain only query length and result counts, never the entered text. These explicit interactions replace a plain Catalog screen view as the meaningful pre-open funnel steps.
 
+Confirmed favorite mutations emit `race favorite updated` with the public event id, bounded add/remove action, and resulting favorite count. Notification responses emit `push notification opened` with only a bounded kind/action and optional snooze duration; notification hrefs and message content are never analytics properties.
+
 Do not copy actual keys into docs. Use environment variable names only.
 
 ## Gotchas

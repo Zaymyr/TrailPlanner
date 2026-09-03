@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -9,15 +9,17 @@ import { useI18n } from "../../i18n-provider";
 import { adminAnalyticsSchema, formatDate } from "./admin-types";
 
 export function AdminAnalyticsTab({ accessToken }: { accessToken: string | null }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const isFrench = locale === "fr";
+  const [range, setRange] = useState("last30");
 
   const analyticsQuery = useQuery({
-    queryKey: ["admin", "analytics", accessToken],
+    queryKey: ["admin", "analytics", accessToken, range],
     enabled: Boolean(accessToken),
     queryFn: async () => {
       if (!accessToken) throw new Error(t.admin.analytics.loadError);
 
-      const response = await fetch("/api/admin/analytics", {
+      const response = await fetch(`/api/admin/analytics?range=${range}`, {
         headers: { Authorization: `Bearer ${accessToken}` },
         cache: "no-store",
       });
@@ -49,6 +51,11 @@ export function AdminAnalyticsTab({ accessToken }: { accessToken: string | null 
         <p className="text-sm text-slate-600 dark:text-slate-400">{t.admin.analytics.description}</p>
       </CardHeader>
       <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2 text-sm">
+          {[["today", isFrench ? "Aujourd'hui" : "Today"], ["yesterday", isFrench ? "Hier" : "Yesterday"], ["last7", isFrench ? "7 jours" : "7 days"], ["last30", isFrench ? "30 jours" : "30 days"]].map(([key, label]) => (
+            <button key={key} type="button" onClick={() => setRange(key)} className={`rounded-md border px-3 py-1.5 ${range === key ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground"}`}>{label}</button>
+          ))}
+        </div>
         {analyticsQuery.error ? (
           <p className="text-sm text-red-600 dark:text-red-300">
             {analyticsQuery.error instanceof Error ? analyticsQuery.error.message : t.admin.analytics.loadError}
@@ -73,6 +80,14 @@ export function AdminAnalyticsTab({ accessToken }: { accessToken: string | null 
                 {analytics.totals.clicks}
               </p>
             </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+              <p className="text-sm text-slate-600 dark:text-slate-400">{isFrench ? "CTR popup → clic" : "Popup → click CTR"}</p>
+              <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{analytics.totals.ctr === null ? "—" : `${analytics.totals.ctr}%`}</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900/50">
+              <p className="text-sm text-slate-600 dark:text-slate-400">{isFrench ? "Sessions avec clic" : "Sessions with a click"}</p>
+              <p className="text-2xl font-semibold text-slate-900 dark:text-slate-50">{analytics.totals.uniqueClickSessions}</p>
+            </div>
           </div>
         ) : null}
 
@@ -96,7 +111,7 @@ export function AdminAnalyticsTab({ accessToken }: { accessToken: string | null 
                     </span>
                   </div>
                   <p className="text-xs text-emerald-700 dark:text-emerald-200">
-                    {t.admin.analytics.totals.clicks}: {stat.clicks}
+                    {t.admin.analytics.totals.clicks}: {stat.clicks} · CTR : {stat.ctr === null ? "—" : `${stat.ctr}%`}
                   </p>
                 </div>
               ))}

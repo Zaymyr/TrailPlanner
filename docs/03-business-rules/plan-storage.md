@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-08-30
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -105,6 +105,8 @@ Catalog imports copy source `race_aid_stations` service flags into `planner_valu
 
 Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`.
 
+Successful Web persistence emits the consent-gated `plan created` or `plan saved` event only after the server response has been parsed. GPX download and assistance printing emit `plan exported`; these analytics events carry aggregate shape/source fields and never become a second persistence source of truth.
+
 The mobile Plan onboarding now uses the ordinary Courses and Nutrition screens, then calls the standard `plan/new` catalog import. A successful `race_plans` insert marks the Plan tour completed and opens the existing editor tutorial; a failed insert leaves the tour in progress and does not create a false completion.
 
 When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
@@ -152,6 +154,7 @@ It:
 - Public crew recap URLs should use the canonical site domain. Configure `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored and the helper falls back to `https://pace-yourself.com`.
 - Legacy random-token share links remain readable, but the next re-share creates a new stable reusable URL because the old raw token cannot be reconstructed from `token_hash`.
 - Crew start-time and passage confirmations persist on the share row as `departure_time` and `crew_state`. Resetting the public tracking state should clear only crew confirmations and should not alter `snapshot`. These mutations should stay narrow public-link mutations and never become a general plan editing API.
+- Public crew analytics must never include the raw share token, plan name, or snapshot content. They record only aggregate checkpoint state after a successful public mutation.
 
 ## Related Docs
 

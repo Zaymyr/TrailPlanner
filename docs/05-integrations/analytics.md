@@ -17,6 +17,12 @@ related_files:
   - apps/web/app/admin/components/AdminGrowthSection.tsx
   - apps/web/app/admin/components/AdminTrendChart.tsx
   - apps/web/app/admin/_components/AdminUsersTab.tsx
+  - apps/web/app/api/admin/analytics/route.ts
+  - apps/web/app/api/admin/analytics/route.test.ts
+  - apps/web/app/admin/_components/AdminAnalyticsTab.tsx
+  - apps/web/app/admin/_components/admin-types.ts
+  - apps/web/lib/product-analytics.ts
+  - apps/web/lib/product-analytics.test.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
   - apps/mobile/hooks/useProfileScreen.ts
@@ -26,6 +32,7 @@ related_files:
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
+  - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
 related_tables:
   - race_event_edition_sponsors
   - organizer_edition_entitlements
@@ -88,6 +95,18 @@ Vercel analytics are loaded through:
 
 The French `/organisateurs` landing page forwards only `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, and `utm_term` to `/organizers`. CTA clicks emit `organizer_landing_cta_clicked` with the CTA kind, placement, destination, and available attribution. Switching among the four TST screenshot tabs, including through the compact viewport-constrained preview, is deliberately not tracked. A successful event creation emits `organizer_event_created` with the same attribution before redirecting to the selected event; the creation page no longer gathers an import URL or starts the admin-only import flow. Both tracked events use the existing consent-gated `trackGoogleAnalyticsEvent` bridge, so PostHog and Google Analytics receive nothing before analytics consent.
 
+The authenticated organizer dashboard adds a separate commercial funnel: `organizer offer viewed` when the pricing dialog opens with a valid edition context, `organizer checkout started` only after the server creates a Stripe Checkout URL, and `organizer purchase verified` only after the normal dashboard refresh observes the requested active edition entitlement. These events contain tier and edition-year context, not amounts or payment identifiers; Stripe and `organizer_edition_payments` remain the financial source of truth.
+
+## Web Plan Value Events
+
+`apps/web/lib/product-analytics.ts` centralizes consent-gated Web product events and keeps core plan names aligned with mobile:
+
+- `plan created` and `plan saved` are emitted only after successful server persistence, with source and aggregate plan-shape properties;
+- `plan exported` records GPX download or assistance-print initiation, with saved/draft state;
+- public crew links emit `plan crew link opened` and `plan crew state updated` with aggregate checkpoint counts and a bounded action. They never include the secret URL token, plan name, or another direct identifier.
+
+Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. Notification hrefs and message bodies are excluded.
+
 ## Mobile PostHog
 
 Mobile configuration lives in `apps/mobile/lib/posthog.ts`.
@@ -148,17 +167,31 @@ The admin Growth tab is operational and uses Supabase only:
 - Supabase is authoritative for accounts, plans, subscriptions, organizer memberships, editions, formats, and RaceBook publication state.
 - Web/App product behavior, acquisition, funnels, and retention are analyzed directly in the PostHog product and are not queried by the application.
 
-The Growth dashboard and the Users management tab consume a shared Supabase daily trend series for account creation, 24-hour activation, plan creation, and plan activity. Every user/plan/subscription/activity total excludes accounts whose Auth `raw_app_meta_data.role` or `roles` contains `admin`.
+The Growth dashboard and the Users management tab consume a shared Supabase daily trend series for account creation, mature 24-hour activation cohorts, plan creation, and plan activity. Every user/plan/subscription/activity total excludes accounts whose Auth `raw_app_meta_data.role` or `roles` contains `admin`. `get_admin_growth_metrics` calculates the bounded Europe/Paris reporting range inside Postgres, so the application no longer downloads whole operational tables or depends on the Data API row cap.
+
+Activation uses only identified accounts whose complete 24-hour observation window has elapsed. The eligible denominator is exposed separately from all new accounts. Effective Premium is the distinct union of active subscription rows, active application trials, and active manual grants; the detail separates paid subscriptions, trials, grants, and paid providers so overlapping access sources do not inflate the unique total.
 
 Organizer activity uses non-admin organizers' Auth `last_sign_in_at`, because edition and format `updated_at` timestamps do not identify the actor and can therefore be moved by trusted-admin maintenance. New-organizer and event-creation totals additionally require a self-created membership (`created_by = user_id`); unknown or admin-delegated membership creation is not interpreted as organic acquisition. The follow-up inactivity timestamp uses the non-admin owner’s last sign-in, falling back to membership creation only when no sign-in exists.
 
-RaceBook commercial KPIs are current stock counts by eligible edition, not selected-period flows:
+RaceBook commercial entitlement KPIs are current stock counts by eligible edition, not selected-period flows:
 
 - active: `organizer_edition_entitlements.status = active` and tier `racebook` or `pro`;
 - gifted: active access whose source is `admin` or `legacy_admin`;
 - paid: active access whose current source is `stripe`.
 
 Only editions attached to an event with an active non-admin organizer membership are eligible, so admin-only demos and maintenance do not inflate these totals. “RaceBooks published” remains a selected-period format count based on publication approval, not an edition entitlement count. Growth summary projections normalize the selected period's observed pace to 30 days; they are directional run-rate context, not forecasts.
+
+The organizer conversion table is a real event cohort: events self-created during the selected range are followed through edition existence, complete-format existence, and live RaceBook publication. Every row therefore uses the same event grain and cannot exceed its previous step.
+
+Commercial flows come from `organizer_edition_payments`: checkout attempts created in the range, cohort attempts that later received `paid_at`, payments received in the range, gross tax-inclusive revenue, refunds/open-or-lost disputes invalidated in the range, net cash movement, and RaceBook/direct-Pro/upgrade mix. These one-time organizer sales must not be mixed with runner subscription MRR.
+
+The affiliate admin tab calls `get_admin_affiliate_metrics` for a bounded Europe/Paris range. Totals and per-product CTR cover the whole range; only the recent-event audit list is capped at 100 rows. It also exposes distinct popup and click sessions. Missing or deleted product rows do not remove their aggregate events.
+
+## PostHog KPI Dashboards
+
+The pinned `Pace Yourself — Vue produit (Web + App)` dashboard contains the weekly value North Star, DAU/WAU/MAU, DAU/MAU stickiness, daily D1–D30 retention, onboarding-to-first-plan activation, plan usage, acquisition, and RaceBook outcomes. The dedicated onboarding and RaceBook dashboards retain their deeper diagnostic views.
+
+Three ordered 90-day funnels complete the P1 scorecard: verified Premium (`pDeN3ulx`), plan creation through crew-link sharing (`SVhGjmv1`), and organizer offer through active entitlement (`WGkPaanv`). A weekly engagement trend (`etCvzzZk`) compares plan exports, crew-link opens and updates, race favorites, and push opens. Newly instrumented Web, mobile, and organizer events show data only after deployment; saved insights may exist before their first event arrives.
 
 ## RaceBook Sponsor Clicks
 
@@ -171,6 +204,10 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
 - PostHog covers only consented Web traffic. Do not compare its visitor totals directly with all Supabase accounts as if both sources had equal coverage.
 - Do not present the 30-day run rate as a predictive model; short ranges such as today can be volatile.
+- Do not divide activation by accounts whose 24-hour observation window is incomplete.
+- Keep the organizer publication funnel cohort-based and event-grained; do not divide user, event, and format flow totals as if they were the same population.
+- Treat organizer gross/net revenue as tax-inclusive minor currency units converted for display. It is period cash-movement reporting, not recurring revenue.
+- Affiliate totals cover the selected range, while `recentEvents` remains a capped audit sample; do not recompute totals from that list.
 - `last_sign_in_at` proves a non-admin organizer connection, not a content edit. Exact non-admin edit metrics would require actor-aware audit rows on every organizer mutation.
 - Do not expand organizer attribution beyond the explicit UTM allowlist or persist campaign parameters in browser storage.
 - Use environment variable names, not values.

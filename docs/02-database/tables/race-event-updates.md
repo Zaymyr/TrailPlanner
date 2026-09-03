@@ -112,6 +112,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 - The dedicated `/api/race-events/[id]/updates` route still owns the fuller history fetch when a runner taps to view more than the preview.
 - Public visibility depends on the parent event liveness, not on a separate `published` column here.
 - Push delivery metadata belongs in `push_notification_events`, not in this table.
+- `push notification opened` is a bounded product-analytics interaction emitted from the app shell; it contains no message body or href and must not be treated as announcement read state.
 - Runner read state belongs in `race_event_update_reads`; do not mutate an announcement when one runner views it.
 - Do not use `racebook_is_live` as the event-announcement visibility rule. Updates stay governed by parent event liveness and their existing optional live-format validation.
 - The catalog's organizer-only unpublished Racebook CTA is membership-derived and must not change announcement visibility, preload size, or read behavior.

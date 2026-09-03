@@ -350,6 +350,8 @@ No mobile organizer editor exists in v1. Mobile can consume published organizer 
 
 Internal PostHog events measure RaceBook opens and repeat opens per stable `race_id`, proximity to race day, tab/ravito/access engagement, external actions, refreshes, and foreground-only active duration. This does not create organizer-visible analytics rows, change publication/access rules, or attach sponsor interactions to runner identities.
 
+The Courses catalog emits a favorite mutation event only after the server confirms the resulting set. The organizer pricing dialog separately emits offer, server-created checkout, and active-entitlement verification steps; these product events do not grant access or replace the Stripe/payment ledger.
+
 The Courses list keeps multi-format event cards compact by omitting the repeated format-choice helper sentence; the format-count pill and primary action remain, and the onboarding use of the shared card may retain the guidance. This is presentation-only and does not change organizer format visibility or grouping.
 
 Runner onboarding now reuses the ordinary Courses and RaceBook routes. RaceBook onboarding requires a deliberate two-character search, shows only results that satisfy the existing runner-visible publication/content gate, and removes the competing plan action before format selection; its guide parameter cannot expose an unpublished organizer preview or change publication state.

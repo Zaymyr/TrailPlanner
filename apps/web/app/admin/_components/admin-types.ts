@@ -137,9 +137,17 @@ export const premiumGrantResponseSchema = z.object({
 });
 
 export const adminAnalyticsSchema = z.object({
+  range: z.object({
+    key: z.enum(["today", "yesterday", "last7", "last30", "custom"]),
+    start: z.string(),
+    end: z.string(),
+  }),
   totals: z.object({
     popupOpens: z.number(),
     clicks: z.number(),
+    uniquePopupSessions: z.number(),
+    uniqueClickSessions: z.number(),
+    ctr: z.number().nullable(),
   }),
   productStats: z.array(
     z.object({
@@ -147,6 +155,7 @@ export const adminAnalyticsSchema = z.object({
       productName: z.string().optional(),
       popupOpens: z.number(),
       clicks: z.number(),
+      ctr: z.number().nullable(),
     })
   ),
   recentEvents: z.array(

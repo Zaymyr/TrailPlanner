@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -21,6 +21,7 @@ related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -327,6 +328,8 @@ Use SECURITY DEFINER when a function must do work the caller cannot safely do di
 - computing analytics across auth/profile data.
 
 Every SECURITY DEFINER function should set `search_path` explicitly when it touches user-controlled schemas.
+
+The admin KPI functions `get_admin_growth_metrics` and `get_admin_affiliate_metrics` require cross-user/Auth reads and therefore use `SECURITY DEFINER` with `search_path = ''`. They have explicit execution revocations for `PUBLIC`, `anon`, and `authenticated`, and only `service_role` may call them. Next.js routes still perform the trusted `app_metadata` admin check before using the service key.
 
 ## Correct and Incorrect Examples
 

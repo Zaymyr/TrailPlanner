@@ -48,6 +48,7 @@ related_tables:
 - Pro controls organizer history management and sends, not runner ownership of existing read receipts.
 
 - `push_notification_events` proves delivery attempts, not whether a runner saw the message; do not use it as read state.
+- Likewise, the PostHog `push notification opened` event measures an app-open interaction and does not create or replace this durable receipt.
 - Deleting an announcement through the membership-checked organizer route cascades its receipts; no orphan read state should remain.
 - The mobile catalog keeps message bodies to a short preview but may fetch lightweight update id/event references so an older unread message still keeps the event-level badge visible.
 - Edition visibility filters catalog formats, not read receipts. A receipt remains event/update-owned even when its former target format is hidden or deleted.

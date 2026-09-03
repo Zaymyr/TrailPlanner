@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -56,6 +56,8 @@ The organizer offer is purchased once per event edition. It is independent from 
 The checkout route accepts only `eventId`, `editionId`, and target `racebook|pro`. After authentication, active membership, edition ownership, and publication-readiness checks, the server selects one configured non-recurring EUR Price with exclusive tax behavior: 99 €, 299 €, or the 200 € upgrade. Stripe Checkout collects billing address and tax id, enables automatic tax and invoice creation, and carries payment/edition/user/tier metadata.
 
 The success URL is not authorization. The dashboard polls its normal organizer event read until the Stripe webhook has marked the transaction paid and recalculated the entitlement. Opening the pricing dialog captures a stable event/edition context, displayed to the organizer and reused by checkout even when the current editor view resolves the edition through a format's `edition_id`.
+
+Consent-gated product analytics mirror those trustworthy boundaries: offer view when the valid pricing context opens, checkout start only after the server creates the Checkout URL, and purchase verification only after the refreshed edition entitlement is active. No analytics event is accounting truth.
 
 Any refund, including a partial refund event, or open/lost dispute invalidates its transaction. A dispute later closed as won restores the disputed payment. Refunding an upgrade returns the edition to RaceBook when its base purchase remains paid. Invalidating a RaceBook or direct-Pro purchase returns the edition to Visibilité and hides every attached RaceBook without hiding the catalog formats. Active admin or legacy-admin grants remain authoritative.
 

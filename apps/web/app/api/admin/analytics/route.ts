@@ -10,179 +10,102 @@ import {
   isAdminUser,
 } from "../../../../lib/supabase";
 
-const supabaseEventSchema = z.object({
-  id: z.string().uuid(),
-  created_at: z.string(),
-  event_type: z.enum(["popup_open", "click"]),
-  product_id: z.string().uuid(),
-  offer_id: z.string().uuid().nullable().optional(),
-  country_code: z.string().length(2).nullable().optional(),
-  merchant: z.string().nullable().optional(),
-  session_id: z.string(),
-});
-
-const supabaseProductSchema = z.object({
-  id: z.string().uuid(),
-  name: z.string(),
-  slug: z.string(),
-});
-
+const REPORTING_TIMEZONE = "Europe/Paris";
+const rangeSchema = z.enum(["today", "yesterday", "last7", "last30", "custom"]);
 const analyticsResponseSchema = z.object({
+  range: z.object({ key: rangeSchema, start: z.string(), end: z.string() }),
   totals: z.object({
     popupOpens: z.number(),
     clicks: z.number(),
+    uniquePopupSessions: z.number(),
+    uniqueClickSessions: z.number(),
+    ctr: z.number().nullable(),
   }),
-  productStats: z.array(
-    z.object({
-      productId: z.string(),
-      productName: z.string().optional(),
-      popupOpens: z.number(),
-      clicks: z.number(),
-    })
-  ),
-  recentEvents: z.array(
-    z.object({
-      id: z.string(),
-      productId: z.string(),
-      productName: z.string().optional(),
-      eventType: z.enum(["popup_open", "click"]),
-      countryCode: z.string().optional(),
-      merchant: z.string().optional(),
-      occurredAt: z.string(),
-    })
-  ),
+  productStats: z.array(z.object({
+    productId: z.string(),
+    productName: z.string().optional(),
+    popupOpens: z.number(),
+    clicks: z.number(),
+    ctr: z.number().nullable(),
+  })),
+  recentEvents: z.array(z.object({
+    id: z.string(),
+    productId: z.string(),
+    productName: z.string().optional(),
+    eventType: z.enum(["popup_open", "click"]),
+    countryCode: z.string().optional(),
+    merchant: z.string().optional(),
+    occurredAt: z.string(),
+  })),
 });
 
 const authorizeAdmin = async (request: NextRequest) => {
   const supabaseAnon = getSupabaseAnonConfig();
   const supabaseService = getSupabaseServiceConfig();
-
   if (!supabaseAnon || !supabaseService) {
-    return {
-      error: withSecurityHeaders(
-        NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 })
-      ),
-    };
+    return { error: withSecurityHeaders(NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 })) };
   }
-
   const token = extractBearerToken(request.headers.get("authorization"));
-
-  if (!token) {
-    return { error: withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 })) };
-  }
-
-  const supabaseUser = await fetchSupabaseUser(token, supabaseAnon);
-
-  if (!supabaseUser || !isAdminUser(supabaseUser)) {
+  if (!token) return { error: withSecurityHeaders(NextResponse.json({ message: "Missing access token." }, { status: 401 })) };
+  const user = await fetchSupabaseUser(token, supabaseAnon);
+  if (!user || !isAdminUser(user)) {
     return { error: withSecurityHeaders(NextResponse.json({ message: "Admin access required." }, { status: 403 })) };
   }
-
   return { supabaseService };
 };
 
-const buildProductQuery = (ids: string[]) => {
-  const uniqueIds = Array.from(new Set(ids));
-  if (uniqueIds.length === 0) return null;
-  const joined = uniqueIds.join(",");
-  return `${joined}`;
-};
+function parisDateKey(date: Date) {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: REPORTING_TIMEZONE, year: "numeric", month: "2-digit", day: "2-digit" }).format(date);
+}
+
+function shiftDate(date: string, days: number) {
+  const value = new Date(`${date}T12:00:00.000Z`);
+  value.setUTCDate(value.getUTCDate() + days);
+  return value.toISOString().slice(0, 10);
+}
+
+function parseRange(request: NextRequest) {
+  const key = rangeSchema.catch("last30").parse(request.nextUrl.searchParams.get("range") ?? "last30");
+  const today = parisDateKey(new Date());
+  let start = shiftDate(today, -29);
+  let end = shiftDate(today, 1);
+  if (key === "today") start = today;
+  if (key === "yesterday") { start = shiftDate(today, -1); end = today; }
+  if (key === "last7") start = shiftDate(today, -6);
+  if (key === "custom") {
+    const customStart = request.nextUrl.searchParams.get("start");
+    const customEnd = request.nextUrl.searchParams.get("end");
+    if (customStart && customEnd && /^\d{4}-\d{2}-\d{2}$/.test(customStart) && /^\d{4}-\d{2}-\d{2}$/.test(customEnd) && customStart <= customEnd) {
+      start = customStart;
+      end = shiftDate(customEnd, 1);
+    }
+  }
+  return { key, start, end };
+}
 
 export async function GET(request: NextRequest) {
   const auth = await authorizeAdmin(request);
   if ("error" in auth) return auth.error;
 
   try {
-    const eventsResponse = await fetch(
-      `${auth.supabaseService.supabaseUrl}/rest/v1/affiliate_events?select=id,created_at,event_type,product_id,offer_id,country_code,merchant,session_id&order=created_at.desc&limit=100`,
-      {
-        headers: {
-          apikey: auth.supabaseService.supabaseServiceRoleKey,
-          Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
-        },
-        cache: "no-store",
-      }
-    );
-
-    if (!eventsResponse.ok) {
-      console.error("Unable to load affiliate events", await eventsResponse.text());
+    const range = parseRange(request);
+    const { supabaseUrl, supabaseServiceRoleKey } = auth.supabaseService;
+    const response = await fetch(`${supabaseUrl}/rest/v1/rpc/get_admin_affiliate_metrics`, {
+      method: "POST",
+      headers: {
+        apikey: supabaseServiceRoleKey,
+        Authorization: `Bearer ${supabaseServiceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ p_start_date: range.start, p_end_date: range.end, p_timezone: REPORTING_TIMEZONE }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      console.error("Unable to load affiliate metrics", await response.text());
       return withSecurityHeaders(NextResponse.json({ message: "Unable to load analytics." }, { status: 502 }));
     }
-
-    const eventRows = z.array(supabaseEventSchema).parse(await eventsResponse.json());
-    const productIds = eventRows.map((row) => row.product_id);
-    const productQuery = buildProductQuery(productIds);
-
-    const productMap = new Map<string, { name?: string; slug?: string }>();
-
-    if (productQuery) {
-      const productsResponse = await fetch(
-        `${auth.supabaseService.supabaseUrl}/rest/v1/products?id=in.(${productQuery})&select=id,name,slug`,
-        {
-          headers: {
-            apikey: auth.supabaseService.supabaseServiceRoleKey,
-            Authorization: `Bearer ${auth.supabaseService.supabaseServiceRoleKey}`,
-          },
-          cache: "no-store",
-        }
-      );
-
-      if (productsResponse.ok) {
-        const products = z.array(supabaseProductSchema).parse(await productsResponse.json());
-        products.forEach((product) => {
-          productMap.set(product.id, { name: product.name, slug: product.slug });
-        });
-      } else {
-        console.warn("Unable to load product names for analytics", await productsResponse.text());
-      }
-    }
-
-    const totals = eventRows.reduce(
-      (acc, event) => {
-        if (event.event_type === "popup_open") acc.popupOpens += 1;
-        if (event.event_type === "click") acc.clicks += 1;
-        return acc;
-      },
-      { popupOpens: 0, clicks: 0 }
-    );
-
-    const productStatsMap = new Map<
-      string,
-      { productId: string; productName?: string; popupOpens: number; clicks: number }
-    >();
-
-    eventRows.forEach((event) => {
-      const current = productStatsMap.get(event.product_id) ?? {
-        productId: event.product_id,
-        productName: productMap.get(event.product_id)?.name,
-        popupOpens: 0,
-        clicks: 0,
-      };
-
-      if (event.event_type === "popup_open") current.popupOpens += 1;
-      if (event.event_type === "click") current.clicks += 1;
-
-      productStatsMap.set(event.product_id, current);
-    });
-
-    const recentEvents = eventRows.map((event) => ({
-      id: event.id,
-      productId: event.product_id,
-      productName: productMap.get(event.product_id)?.name,
-      eventType: event.event_type,
-      countryCode: event.country_code ?? undefined,
-      merchant: event.merchant ?? undefined,
-      occurredAt: event.created_at,
-    }));
-
-    const payload = {
-      totals,
-      productStats: Array.from(productStatsMap.values()).sort(
-        (a, b) => b.popupOpens + b.clicks - (a.popupOpens + a.clicks)
-      ),
-      recentEvents,
-    };
-
-    return withSecurityHeaders(NextResponse.json(analyticsResponseSchema.parse(payload)));
+    const metrics = await response.json();
+    return withSecurityHeaders(NextResponse.json(analyticsResponseSchema.parse({ range, ...metrics })));
   } catch (error) {
     console.error("Unexpected error while building admin analytics", error);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to load analytics." }, { status: 500 }));

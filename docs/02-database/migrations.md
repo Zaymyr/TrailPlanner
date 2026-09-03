@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -30,6 +30,7 @@ related_files:
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
+  - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -255,6 +256,12 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 `supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql` repairs events/formats created after the original edition backfill: it creates missing event-year editions, attaches every dated event format, selects a current edition when absent, and installs an invoker trigger that atomically upserts future missing memberships under a per-event transaction advisory lock. It changes no client table grants or RLS policy.
 
 `supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql` adds service-only `race_event_edition_sponsors`, ordered loading/banner placements, aggregate click counts, and an atomic race/edition-validated redirect increment RPC. RLS and explicit privilege revokes keep clients behind server routes. A transaction advisory lock plus trigger enforces ten sponsors per edition and two active loading sponsors even under concurrent writes. `supabase/tests/racebook_sponsors_checks.sql` verifies RLS, privileges, both limits, and the atomic increment inside a rollback transaction.
+
+### Admin KPI Aggregates
+
+`supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql` adds reporting indexes for plans, affiliate events, and organizer payments plus two service-role-only aggregate functions. `get_admin_growth_metrics` returns Europe/Paris-bounded account, mature 24-hour activation, plan, effective Premium, organizer cohort, commercial revenue, and follow-up metrics. `get_admin_affiliate_metrics` returns complete period totals, unique sessions, CTR, per-product statistics, and a separately capped recent-event list. Both functions read privileged cross-user data with an empty `search_path`; execution is revoked from `PUBLIC`, `anon`, and `authenticated` and granted only to `service_role`.
+
+The migration adds no table or client-facing policy. App routes must authenticate a trusted admin before invoking either function with the server-side service key.
 
 ### Racebook Showcase Data
 
