@@ -4,7 +4,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import React from "react";
 
 import { Card, CardContent } from "../../../components/ui/card";
-import { GpxRouteMap } from "../../../components/gpx/GpxRouteMap";
+import { AccordionItem } from "../../../components/ui/accordion";
 import { getPublicRaceDetail } from "../../../lib/public-race-detail";
 import type { PublicRace } from "../../../lib/public-races";
 import { getPublicRaces, resolvePublicRaceSlug } from "../../../lib/public-races";
@@ -12,7 +12,10 @@ import { getOtherEventFormats, getSimilarRaces } from "../../../lib/race-discove
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../../seo";
 import { PublicElevationProfile } from "../_components/PublicElevationProfile";
 import { PublicRaceLinks } from "../_components/PublicRaceLinks";
-import { PublicRaceShare } from "../_components/PublicRaceShare";
+import { RaceAidStationsTimeline } from "../_components/RaceAidStationsTimeline";
+import { RaceHeroSummary } from "../_components/RaceHeroSummary";
+import { RaceMetricsDetails } from "../_components/RaceMetricsDetails";
+import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
 import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceDate } from "./race-metadata";
 
 export const revalidate = 3600;
@@ -21,21 +24,10 @@ type PageProps = { params: { slug: string } };
 
 const formatDate = formatPublicRaceDate;
 
-const formatMetric = (value: number | null, suffix: string) =>
-  value === null ? "À confirmer" : `${Math.round(value).toLocaleString("fr-FR")} ${suffix}`;
-
 const hasText = (...values: Array<string | null | undefined>) => values.some((value) => Boolean(value?.trim()));
 
 const buildDescription = buildRaceMetadataDescription;
 
-const InfoCard = ({ title, children }: { title: string; children: React.ReactNode }) => (
-  <Card className="h-full">
-    <CardContent className="space-y-3 py-6">
-      <h3 className="text-xl font-semibold text-foreground">{title}</h3>
-      <div className="space-y-2 text-sm leading-6 text-muted-foreground">{children}</div>
-    </CardContent>
-  </Card>
-);
 
 const DetailLine = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <p>
@@ -140,9 +132,12 @@ export default async function RacePage({ params }: PageProps) {
   ) || Boolean(access.mapUrl);
   const hasRunnerInfo = hasText(runnerInfo.startArea, runnerInfo.briefing, runnerInfo.rules, runnerInfo.note);
   const hasServices = hasText(services.supporters, services.accommodations, services.restaurants, services.recovery, services.partners, services.note);
+  const hasPractical = hasSchedule || hasBib || race.practical.equipment.items.length > 0 || race.practical.equipment.note || hasAccess || hasRunnerInfo || hasServices;
+  const daysUntilRace = race.date ? Math.ceil((new Date(`${race.date.slice(0, 10)}T00:00:00Z`).getTime() - Date.now()) / 86_400_000) : null;
+  const bibPickupOpenByDefault = daysUntilRace !== null && daysUntilRace >= 0 && daysUntilRace <= 14;
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-9 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl space-y-9 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbData).replace(/</g, "\\u003c") }} />
 
@@ -154,121 +149,99 @@ export default async function RacePage({ params }: PageProps) {
         <span aria-current="page" className="truncate text-foreground">{race.name}</span>
       </nav>
 
-      <header className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-        {heroImage && /^https?:\/\//i.test(heroImage) ? (
-          <img src={heroImage} alt={race.name} className="h-56 w-full object-cover sm:h-80 lg:h-96" />
-        ) : null}
-        <div className="space-y-5 p-5 sm:p-8">
-          {race.eventName && race.eventName !== race.name ? (
-            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-brand">{race.eventName}</p>
-          ) : null}
-          <div className="space-y-3">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-5xl">{race.name}</h1>
-            <p className="text-base text-muted-foreground sm:text-lg">
-              {[formattedDate && formattedEndDate ? `Du ${formattedDate} au ${formattedEndDate}` : formattedDate, race.location]
-                .filter(Boolean)
-                .join(" · ") || "Informations à confirmer"}
-            </p>
-            {race.participationMode ? (
-              <p className="inline-flex rounded-full bg-brand-surface px-3 py-1 text-sm font-semibold text-brand">
-                {race.participationMode === "solo" ? "Solo" : race.participationMode === "relay" ? "Relais" : "Solo et relais"}
-              </p>
-            ) : null}
-          </div>
-        </div>
-      </header>
+      <RaceHeroSummary race={race} formattedDate={formattedDate} formattedEndDate={formattedEndDate} canonicalUrl={canonicalUrl} otherFormats={otherFormats} />
 
-      <section aria-labelledby="metrics-heading" className="space-y-4">
-        <h2 id="metrics-heading" className="sr-only">Chiffres clés</h2>
-        <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-          {[
-            ["Distance", race.distanceKm === null ? "À confirmer" : `${race.distanceKm} km`],
-            ["Dénivelé positif", formatMetric(race.elevationGainM, "m D+")],
-            ["Dénivelé négatif", formatMetric(race.elevationLossM, "m D−")],
-            ["Altitude minimale", formatMetric(race.minAltitudeM, "m")],
-            ["Altitude maximale", formatMetric(race.maxAltitudeM, "m")],
-          ].map(([label, value]) => (
-            <div key={label} className="rounded-xl border border-border bg-card p-4">
-              <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</dt>
-              <dd className="mt-1 text-xl font-bold text-foreground sm:text-2xl">{value}</dd>
+      <RaceMetricsDetails race={race} />
+
+      <nav aria-label="Navigation rapide" className="flex flex-wrap gap-4 text-sm font-semibold text-brand lg:hidden">
+        <a className="scroll-mt-4 hover:underline" href="#route">Parcours</a>
+        <a className="scroll-mt-4 hover:underline" href="#ravitos">Ravitos</a>
+        <a className="scroll-mt-4 hover:underline" href="#infos-pratiques">Infos</a>
+      </nav>
+
+      <div className="grid gap-8 lg:grid-cols-3">
+        <div className="space-y-9 lg:col-span-2">
+          <section id="route" className="scroll-mt-4 space-y-5" aria-labelledby="course-route-heading">
+            <div className="space-y-2">
+              <h2 id="course-route-heading" className="text-2xl font-semibold text-foreground">Parcours et profil altimétrique</h2>
+              <p className="text-muted-foreground">Visualisez le tracé disponible et les principaux repères d’altitude.</p>
             </div>
-          ))}
-        </dl>
-      </section>
+            {race.routePreview?.points.length ? (
+              <div className="grid gap-5 lg:grid-cols-2">
+                <RaceRouteExplorer
+                  points={race.routePreview.points.map((point) => ({ ...point, elevationM: point.elevationM ?? 0 }))}
+                  aidStations={race.aidStations.map((station) => ({ name: station.name, distanceKm: station.distanceKm }))}
+                  heightClassName="h-72 sm:h-96"
+                />
+                <PublicElevationProfile points={race.routePreview.points} aidStations={race.aidStations} />
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Le tracé GPX de cette course n’est pas encore disponible.</p>
+            )}
+          </section>
 
-      <section aria-labelledby="share-heading" className="space-y-3">
-        <h2 id="share-heading" className="text-xl font-semibold text-foreground">Partager cette course</h2>
-        <PublicRaceShare title={race.name} url={canonicalUrl} />
-      </section>
-
-      <section className="space-y-5" aria-labelledby="course-route-heading">
-        <div className="space-y-2">
-          <h2 id="course-route-heading" className="text-2xl font-semibold text-foreground">Parcours et profil altimétrique</h2>
-          <p className="text-muted-foreground">Visualisez le tracé disponible et les principaux repères d’altitude.</p>
+          {race.aidStations.length ? (
+            <section id="ravitos" className="scroll-mt-4 space-y-4" aria-labelledby="aid-stations-heading">
+              <div>
+                <h2 id="aid-stations-heading" className="text-2xl font-semibold text-foreground">Ravitaillements</h2>
+                <p className="mt-1 text-muted-foreground">{race.aidStations.length} point{race.aidStations.length > 1 ? "s" : ""} renseigné{race.aidStations.length > 1 ? "s" : ""}.</p>
+              </div>
+              <RaceAidStationsTimeline aidStations={race.aidStations} totalDistanceKm={race.distanceKm} />
+            </section>
+          ) : null}
         </div>
-        {race.routePreview?.points.length ? (
-          <div className="grid gap-5 lg:grid-cols-2">
-            <GpxRouteMap
-              points={race.routePreview.points.map((point) => ({ ...point, elevationM: point.elevationM ?? 0 }))}
-              aidStations={race.aidStations.map((station) => ({ name: station.name, distanceKm: station.distanceKm }))}
-              heightClassName="h-72 sm:h-96"
-            />
-            <PublicElevationProfile points={race.routePreview.points} aidStations={race.aidStations} />
-          </div>
-        ) : (
-          <Card><CardContent className="py-7 text-muted-foreground">Le tracé GPX de cette course n’est pas encore disponible.</CardContent></Card>
-        )}
-      </section>
 
-      {hasSchedule ? (
-        <section className="space-y-4" aria-labelledby="schedule-heading">
-          <h2 id="schedule-heading" className="text-2xl font-semibold text-foreground">Horaires de course</h2>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {schedule.startTime ? <InfoCard title="Départ"><DetailLine label="Heure" value={schedule.startTime} /></InfoCard> : null}
-            {schedule.finishCutoffTime || schedule.cutoffNote || schedule.note ? (
-              <InfoCard title="Arrivée et barrières">
-                {schedule.finishCutoffTime ? <DetailLine label="Heure limite" value={schedule.finishCutoffTime} /> : null}
+        <aside className="space-y-4 lg:sticky lg:top-4 lg:col-span-1 lg:self-start">
+          <Card>
+            <CardContent className="space-y-3 py-6">
+              <h2 className="text-lg font-semibold text-foreground">Informations clés</h2>
+              {schedule.startTime ? <DetailLine label="Départ" value={schedule.startTime} /> : null}
+              {schedule.finishCutoffTime ? <DetailLine label="Barrière" value={schedule.finishCutoffTime} /> : null}
+              {race.location ? <DetailLine label="Lieu" value={race.location} /> : null}
+              {officialUrls[0] ? (
+                <a href={officialUrls[0]} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-semibold text-brand hover:underline">
+                  Site officiel
+                </a>
+              ) : null}
+              <Link
+                href={`/race-planner?catalogRaceId=${race.id}` as Route}
+                className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
+              >
+                Planifier cette course
+              </Link>
+            </CardContent>
+          </Card>
+        </aside>
+      </div>
+
+      {hasPractical ? (
+        <section id="infos-pratiques" className="scroll-mt-4 space-y-4" aria-labelledby="practical-heading">
+          <h2 id="practical-heading" className="text-2xl font-semibold text-foreground">Informations pratiques</h2>
+          <div className="rounded-xl border border-border bg-card px-5">
+            {hasSchedule ? (
+              <AccordionItem title="Horaires et barrières" defaultOpen>
+                {schedule.startTime ? <DetailLine label="Départ" value={schedule.startTime} /> : null}
+                {schedule.finishCutoffTime ? <DetailLine label="Heure limite d’arrivée" value={schedule.finishCutoffTime} /> : null}
                 {schedule.cutoffNote ? <p>{schedule.cutoffNote}</p> : null}
                 {schedule.note ? <p>{schedule.note}</p> : null}
-              </InfoCard>
+              </AccordionItem>
             ) : null}
-          </div>
-        </section>
-      ) : null}
-
-      {race.aidStations.length ? (
-        <section className="space-y-4" aria-labelledby="aid-stations-heading">
-          <div>
-            <h2 id="aid-stations-heading" className="text-2xl font-semibold text-foreground">Ravitaillements</h2>
-            <p className="mt-1 text-muted-foreground">{race.aidStations.length} point{race.aidStations.length > 1 ? "s" : ""} renseigné{race.aidStations.length > 1 ? "s" : ""}.</p>
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {race.aidStations.map((station) => (
-              <InfoCard key={station.id} title={station.name}>
-                <DetailLine label="Distance" value={`${station.distanceKm.toLocaleString("fr-FR")} km`} />
-                {station.altitudeM !== null ? <DetailLine label="Altitude" value={`${Math.round(station.altitudeM)} m`} /> : null}
-                {station.cumulativeElevationGainM !== null ? <DetailLine label="D+ cumulé" value={`${Math.round(station.cumulativeElevationGainM)} m`} /> : null}
-                {station.cumulativeElevationLossM !== null ? <DetailLine label="D− cumulé" value={`${Math.round(station.cumulativeElevationLossM)} m`} /> : null}
-                {station.cutoffTime ? <DetailLine label="Barrière horaire" value={station.cutoffTime} /> : null}
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {station.waterAvailable ? <span className="rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-800">Eau</span> : null}
-                  {station.solidAvailable ? <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">Solide</span> : null}
-                  {station.assistanceAllowed ? <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800">Assistance</span> : null}
-                  {station.dropBagAvailable ? <span className="rounded-full bg-violet-50 px-2.5 py-1 text-xs font-semibold text-violet-800">Sac d’allègement</span> : null}
-                </div>
-                {station.note ? <p>{station.note}</p> : null}
-              </InfoCard>
-            ))}
-          </div>
-        </section>
-      ) : null}
-
-      {hasBib || race.practical.equipment.items.length > 0 || race.practical.equipment.note || hasAccess || hasRunnerInfo || hasServices ? (
-        <section className="space-y-4" aria-labelledby="practical-heading">
-          <h2 id="practical-heading" className="text-2xl font-semibold text-foreground">Informations pratiques</h2>
-          <div className="grid gap-4 md:grid-cols-2">
+            {hasAccess ? (
+              <AccordionItem title="Accès et stationnement" defaultOpen>
+                {access.startAddress || access.startLocation.label ? <DetailLine label="Départ" value={access.startAddress ?? access.startLocation.label} /> : null}
+                {access.startLocation.googleMapsUrl ? <a href={access.startLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Itinéraire vers le départ</a> : null}
+                {access.finishAddress || access.finishLocation.label ? <DetailLine label="Arrivée" value={access.finishAddress ?? access.finishLocation.label} /> : null}
+                {access.finishLocation.googleMapsUrl ? <a href={access.finishLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Itinéraire vers l’arrivée</a> : null}
+                {access.officialParkings ? <DetailLine label="Parkings" value={access.officialParkings} /> : null}
+                {access.shuttles ? <DetailLine label="Navettes" value={access.shuttles} /> : null}
+                {access.shuttleSchedule ? <DetailLine label="Horaires des navettes" value={access.shuttleSchedule} /> : null}
+                {access.roadRestrictions ? <DetailLine label="Restrictions" value={access.roadRestrictions} /> : null}
+                {access.mapUrl ? <a href={access.mapUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Carte officielle d’accès</a> : null}
+                {access.note ? <p>{access.note}</p> : null}
+              </AccordionItem>
+            ) : null}
             {hasBib ? (
-              <InfoCard title="Retrait des dossards">
+              <AccordionItem title="Retrait des dossards" defaultOpen={bibPickupOpenByDefault}>
                 {bib.locations.map((location, index) => (
                   <div key={`${location.label}-${index}`} className="space-y-1 border-b border-border pb-3 last:border-0 last:pb-0">
                     {location.label || location.location.label ? <p className="font-semibold text-foreground">{location.label ?? location.location.label}</p> : null}
@@ -281,49 +254,35 @@ export default async function RacePage({ params }: PageProps) {
                 {bib.thirdPartyPickupAllowed !== null ? <DetailLine label="Retrait par un tiers" value={bib.thirdPartyPickupAllowed ? "Autorisé" : "Non autorisé"} /> : null}
                 {bib.equipmentCheck !== null ? <DetailLine label="Contrôle du matériel" value={bib.equipmentCheck ? "Prévu" : "Non indiqué"} /> : null}
                 {bib.note ? <p>{bib.note}</p> : null}
-              </InfoCard>
+              </AccordionItem>
             ) : null}
             {race.practical.equipment.items.length > 0 || race.practical.equipment.note ? (
-              <InfoCard title="Matériel">
+              <AccordionItem title="Matériel">
                 {race.practical.equipment.items.length ? (
                   <ul className="space-y-2">
                     {race.practical.equipment.items.map((item, index) => <li key={`${item.label}-${index}`}><span className="font-semibold text-foreground">{item.label}</span>{item.required ? " · obligatoire" : " · recommandé"}{item.note ? ` — ${item.note}` : ""}</li>)}
                   </ul>
                 ) : null}
                 {race.practical.equipment.note ? <p>{race.practical.equipment.note}</p> : null}
-              </InfoCard>
-            ) : null}
-            {hasAccess ? (
-              <InfoCard title="Accès">
-                {access.startAddress || access.startLocation.label ? <DetailLine label="Départ" value={access.startAddress ?? access.startLocation.label} /> : null}
-                {access.startLocation.googleMapsUrl ? <a href={access.startLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Itinéraire vers le départ</a> : null}
-                {access.finishAddress || access.finishLocation.label ? <DetailLine label="Arrivée" value={access.finishAddress ?? access.finishLocation.label} /> : null}
-                {access.finishLocation.googleMapsUrl ? <a href={access.finishLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Itinéraire vers l’arrivée</a> : null}
-                {access.officialParkings ? <DetailLine label="Parkings" value={access.officialParkings} /> : null}
-                {access.shuttles ? <DetailLine label="Navettes" value={access.shuttles} /> : null}
-                {access.shuttleSchedule ? <DetailLine label="Horaires des navettes" value={access.shuttleSchedule} /> : null}
-                {access.roadRestrictions ? <DetailLine label="Restrictions" value={access.roadRestrictions} /> : null}
-                {access.mapUrl ? <a href={access.mapUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Carte officielle d’accès</a> : null}
-                {access.note ? <p>{access.note}</p> : null}
-              </InfoCard>
-            ) : null}
-            {hasRunnerInfo ? (
-              <InfoCard title="Consignes coureur">
-                {runnerInfo.startArea ? <DetailLine label="Zone de départ" value={runnerInfo.startArea} /> : null}
-                {runnerInfo.briefing ? <DetailLine label="Briefing" value={runnerInfo.briefing} /> : null}
-                {runnerInfo.rules ? <DetailLine label="Règlement" value={runnerInfo.rules} /> : null}
-                {runnerInfo.note ? <p>{runnerInfo.note}</p> : null}
-              </InfoCard>
+              </AccordionItem>
             ) : null}
             {hasServices ? (
-              <InfoCard title="Services">
+              <AccordionItem title="Services">
                 {services.supporters ? <DetailLine label="Accompagnants" value={services.supporters} /> : null}
                 {services.accommodations ? <DetailLine label="Hébergements" value={services.accommodations} /> : null}
                 {services.restaurants ? <DetailLine label="Restauration" value={services.restaurants} /> : null}
                 {services.recovery ? <DetailLine label="Récupération" value={services.recovery} /> : null}
                 {services.partners ? <DetailLine label="Partenaires" value={services.partners} /> : null}
                 {services.note ? <p>{services.note}</p> : null}
-              </InfoCard>
+              </AccordionItem>
+            ) : null}
+            {hasRunnerInfo ? (
+              <AccordionItem title="Consignes coureur">
+                {runnerInfo.startArea ? <DetailLine label="Zone de départ" value={runnerInfo.startArea} /> : null}
+                {runnerInfo.briefing ? <DetailLine label="Briefing" value={runnerInfo.briefing} /> : null}
+                {runnerInfo.rules ? <DetailLine label="Règlement" value={runnerInfo.rules} /> : null}
+                {runnerInfo.note ? <p>{runnerInfo.note}</p> : null}
+              </AccordionItem>
             ) : null}
           </div>
         </section>
@@ -377,6 +336,6 @@ export default async function RacePage({ params }: PageProps) {
           </div>
         </section>
       ) : null}
-    </main>
+    </div>
   );
 }

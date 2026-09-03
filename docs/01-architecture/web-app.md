@@ -39,6 +39,11 @@ related_files:
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
   - apps/web/app/courses/_components/PublicRaceShare.tsx
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
+  - apps/web/app/courses/_components/RaceHeroSummary.tsx
+  - apps/web/app/courses/_components/RaceMetricsDetails.tsx
+  - apps/web/app/courses/_components/RaceRouteExplorer.tsx
+  - apps/web/app/courses/_components/RaceAidStationsTimeline.tsx
+  - apps/web/components/ui/accordion.tsx
   - apps/web/app/courses/PublicRaceShare.test.ts
   - apps/web/app/courses/distances/[category]/page.tsx
   - apps/web/app/courses/race-discovery.test.ts
@@ -305,6 +310,8 @@ Each live public race has a canonical `/courses/[slug]` page. Known slugs are re
 
 The lightweight catalog DTO and server-only detail DTO are deliberately separate. The detail service rechecks live/public race, live parent event, and visible edition before service-role organizer, ravito, or private GPX reads. It applies the shared inheritance parser but serializes only an explicit runner-safe shape: emergency phone, `lastMinuteMessage`, raw organizer JSON, GPX paths and GPX source content never reach client components. A valid private GPX is parsed on the server and reduced to about 600 route/profile points; invalid GPX removes only that visualization. Detail pages add factual `SportsEvent` and `BreadcrumbList` JSON-LD, Open Graph/Twitter image fallbacks, responsive map/profile and ravito cards, native/Facebook/copy sharing, same-edition formats, similar races, distinct official sources, and a planner link carrying `catalogRaceId`.
 
+The detail page hierarchy is decision-first: `RaceHeroSummary` renders the compact hero image, title, date/location, prominent distance + D+, the planner CTA, an icon-only `PublicRaceShare` (`variant="icon"`), and other-format pills above the fold; `RaceMetricsDetails` collapses D−/altitude min/max behind a native `<details>`. Below the hero, a mobile-only anchor nav (`#route`/`#ravitos`/`#infos-pratiques`) jumps to the route section (map + elevation profile, with a desktop sticky "Informations clés" aside), the `RaceAidStationsTimeline` (vertical timeline replacing the old ravito grid), and an `Informations pratiques` block built from reusable `AccordionItem`s (schedule and access open by default, bib pickup opens automatically within 14 days of race day, equipment/services/runner-info stay collapsed). The route map uses `RaceRouteExplorer`, a client wrapper that keeps `GpxRouteMapClient` non-interactive until the runner taps "Explorer la carte", so page scroll on mobile is never captured by the map. All accordion/timeline content stays in the server-rendered HTML for SEO; only visibility toggles via native `<details>`.
+
 `/courses/distances/[category]` provides crawlable discovery pages for short trails, 30–79 km trails, and ultra-trails. A category is generated, linked, and included in the sitemap only when at least five published races have a structured distance in its mutually exclusive range. Region pages remain disabled until the public race contract exposes normalized region or department data; free-text locations are not used to manufacture geographic landing pages.
 
 `/calculateur-glucides-trail` is a public server-rendered landing page with an interactive client calculator. Duration, distance, elevation gain, and digestive-tolerance sliders keep their visible values, but the nutrition result remains hidden until the runner starts an explicit calculation. A short client-only loading state reveals the estimate and one intentionally unfair elite pace comparison. The comparison is deliberately compact: one projected time-gap headline followed by one larger randomized trail mishap. Changing any slider invalidates the displayed result. Distance and elevation provide comparison context only; they do not alter the carbohydrate estimate.
@@ -441,6 +448,9 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.
 - Keep Racebook switch saves scoped to the switched format. Do not foreground-save an unrelated active draft before publishing or hiding another format.
 - Keep the organizer request body, server readiness query, stored publication request, and admin queue aligned on the same `race_id`; event-level inference reintroduces cross-edition publication bugs.
+- `/courses/[slug]` renders a single `<main>` from `root-chrome.tsx`; the page root must stay a `<div>`, not another `<main>`.
+- `GpxRouteMapClient` defaults to non-interactive on the course detail page via `RaceRouteExplorer`; do not remove the "Explorer la carte" activation step, it prevents the map from capturing mobile scroll gestures.
+- `AccordionItem` (`apps/web/components/ui/accordion.tsx`) is native `<details>`-based on purpose: content must stay in the server-rendered HTML for SEO, so do not swap it for a client-side conditional-render implementation that hides collapsed panels from the initial markup.
 - The Ravitos save plan must PATCH the active race details before PUTting aid stations because start/finish times live in `races.organizer_details.schedule`, not on `race_aid_stations`.
 - Relay-point writes must remain on the membership-checked service route. Do not grant organizer clients direct mutations or merge relay points into plan aid stations.
 - Keep autosave dirtiness and revisions scoped by event/race, serialize background writes for the same scope, and suppress only success feedback. Errors and `beforeunload` protection must remain visible until the relevant scope is clean.

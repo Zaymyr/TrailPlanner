@@ -54,7 +54,7 @@ export function PublicElevationProfile({
               strokeOpacity="0.13"
               strokeDasharray="4 5"
             />
-            <text x={padding.left - 8} y={y(value) + 4} textAnchor="end" className="fill-muted-foreground text-[11px]">
+            <text x={padding.left - 8} y={y(value) + 4} textAnchor="end" className="fill-muted-foreground text-[13px]">
               {Math.round(value)} m
             </text>
           </g>
@@ -76,7 +76,8 @@ export function PublicElevationProfile({
                 strokeWidth="1.5"
                 strokeDasharray="3 3"
               />
-              <circle cx={x(station.distanceKm)} cy={y(nearest.elevationM)} r="4" fill="#d97706">
+              <circle cx={x(station.distanceKm)} cy={y(nearest.elevationM)} r="4" fill="#d97706" />
+              <circle cx={x(station.distanceKm)} cy={y(nearest.elevationM)} r="10" fill="transparent">
                 <title>{station.name} · {station.distanceKm.toFixed(1)} km</title>
               </circle>
             </g>
@@ -88,12 +89,19 @@ export function PublicElevationProfile({
             x={x(value)}
             y={height - 12}
             textAnchor={value === 0 ? "start" : value === distance ? "end" : "middle"}
-            className="fill-muted-foreground text-[11px]"
+            className="fill-muted-foreground text-[13px]"
           >
             {value.toFixed(value === 0 ? 0 : 1)} km
           </text>
         ))}
       </svg>
+      {aidStations.length ? (
+        <ul className="sr-only">
+          {aidStations.map((station) => (
+            <li key={station.id}>{station.name} — {station.distanceKm.toFixed(1)} km, {Math.round(station.altitudeM ?? 0)} m</li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

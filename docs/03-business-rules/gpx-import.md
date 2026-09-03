@@ -10,6 +10,7 @@ related_files:
   - apps/web/lib/organizer-aid-station-products.ts
   - apps/web/components/gpx/GpxRouteMap.tsx
   - apps/web/components/gpx/GpxRouteMapClient.tsx
+  - apps/web/app/courses/_components/RaceRouteExplorer.tsx
   - apps/web/lib/public-race-detail.ts
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
