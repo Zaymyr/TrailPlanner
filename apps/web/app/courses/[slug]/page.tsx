@@ -82,6 +82,42 @@ const InfoIcon = () => (
   </svg>
 );
 
+const ExternalLinkIcon = () => (
+  <svg {...iconProps} className="h-4 w-4">
+    <path d="M9 5H5a1 1 0 0 0-1 1v13a1 1 0 0 0 1 1h13a1 1 0 0 0 1-1v-4M14 4h6v6M20 4 11 13" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const mapLinkClassName =
+  "inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm font-semibold text-brand transition hover:border-brand-border hover:bg-brand-surface";
+
+const MapLink = ({ href, children }: { href: string; children: React.ReactNode }) => (
+  <a href={href} target="_blank" rel="noopener noreferrer" className={mapLinkClassName}>
+    <ExternalLinkIcon />
+    {children}
+  </a>
+);
+
+const RequirementBadge = ({ required }: { required: boolean }) => (
+  <span
+    className={`inline-flex shrink-0 rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+      required ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-600"
+    }`}
+  >
+    {required ? "Obligatoire" : "Recommandé"}
+  </span>
+);
+
+const StatusBadge = ({ positive, label }: { positive: boolean; label: string }) => (
+  <span
+    className={`inline-flex rounded-full px-2 py-0.5 text-[11px] font-semibold ${
+      positive ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+    }`}
+  >
+    {label}
+  </span>
+);
+
 
 export async function generateStaticParams() {
   const races = await getPublicRaces();
@@ -289,30 +325,40 @@ export default async function RacePage({ params }: PageProps) {
             {hasAccess ? (
               <AccordionItem title="Accès et stationnement" icon={<MapPinIcon />} summary={accessSummary} defaultOpen>
                 {access.startAddress || access.startLocation.label ? <DetailLine label="Départ" value={access.startAddress ?? access.startLocation.label} /> : null}
-                {access.startLocation.googleMapsUrl ? <a href={access.startLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Itinéraire vers le départ</a> : null}
+                {access.startLocation.googleMapsUrl ? <MapLink href={access.startLocation.googleMapsUrl}>Itinéraire vers le départ</MapLink> : null}
                 {access.finishAddress || access.finishLocation.label ? <DetailLine label="Arrivée" value={access.finishAddress ?? access.finishLocation.label} /> : null}
-                {access.finishLocation.googleMapsUrl ? <a href={access.finishLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Itinéraire vers l’arrivée</a> : null}
+                {access.finishLocation.googleMapsUrl ? <MapLink href={access.finishLocation.googleMapsUrl}>Itinéraire vers l’arrivée</MapLink> : null}
                 {access.officialParkings ? <DetailLine label="Parkings" value={access.officialParkings} /> : null}
                 {access.shuttles ? <DetailLine label="Navettes" value={access.shuttles} /> : null}
                 {access.shuttleSchedule ? <DetailLine label="Horaires des navettes" value={access.shuttleSchedule} /> : null}
                 {access.roadRestrictions ? <DetailLine label="Restrictions" value={access.roadRestrictions} /> : null}
-                {access.mapUrl ? <a href={access.mapUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Carte officielle d’accès</a> : null}
+                {access.mapUrl ? <MapLink href={access.mapUrl}>Carte officielle d’accès</MapLink> : null}
                 {access.note ? <p>{access.note}</p> : null}
               </AccordionItem>
             ) : null}
             {hasBib ? (
               <AccordionItem title="Retrait des dossards" icon={<TicketIcon />} summary={bibSummary} defaultOpen={bibPickupOpenByDefault}>
                 {bib.locations.map((location, index) => (
-                  <div key={`${location.label}-${index}`} className="space-y-1 border-b border-border pb-3 last:border-0 last:pb-0">
+                  <div key={`${location.label}-${index}`} className="space-y-2 border-b border-border pb-3 last:border-0 last:pb-0">
                     {location.label || location.location.label ? <p className="font-semibold text-foreground">{location.label ?? location.location.label}</p> : null}
-                    {location.location.googleMapsUrl ? <a href={location.location.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Voir sur la carte</a> : null}
                     {location.slots.map((slot, slotIndex) => <p key={slotIndex}>{[formatDate(slot.date), [slot.startTime, slot.endTime].filter(Boolean).join(" – ")].filter(Boolean).join(" · ")}</p>)}
+                    {location.location.googleMapsUrl ? <MapLink href={location.location.googleMapsUrl}>Voir sur la carte</MapLink> : null}
                   </div>
                 ))}
                 {bib.schedule ? <p>{bib.schedule}</p> : null}
                 {bib.requiredDocuments ? <DetailLine label="Documents" value={bib.requiredDocuments} /> : null}
-                {bib.thirdPartyPickupAllowed !== null ? <DetailLine label="Retrait par un tiers" value={bib.thirdPartyPickupAllowed ? "Autorisé" : "Non autorisé"} /> : null}
-                {bib.equipmentCheck !== null ? <DetailLine label="Contrôle du matériel" value={bib.equipmentCheck ? "Prévu" : "Non indiqué"} /> : null}
+                {bib.thirdPartyPickupAllowed !== null ? (
+                  <p>
+                    <span className="font-semibold text-foreground">Retrait par un tiers :</span>{" "}
+                    <StatusBadge positive={bib.thirdPartyPickupAllowed} label={bib.thirdPartyPickupAllowed ? "Autorisé" : "Non autorisé"} />
+                  </p>
+                ) : null}
+                {bib.equipmentCheck !== null ? (
+                  <p>
+                    <span className="font-semibold text-foreground">Contrôle du matériel :</span>{" "}
+                    <StatusBadge positive={bib.equipmentCheck} label={bib.equipmentCheck ? "Prévu" : "Non indiqué"} />
+                  </p>
+                ) : null}
                 {bib.note ? <p>{bib.note}</p> : null}
               </AccordionItem>
             ) : null}
@@ -323,7 +369,15 @@ export default async function RacePage({ params }: PageProps) {
               <AccordionItem title="Matériel" icon={<BackpackIcon />}>
                 {race.practical.equipment.items.length ? (
                   <ul className="space-y-2">
-                    {race.practical.equipment.items.map((item, index) => <li key={`${item.label}-${index}`}><span className="font-semibold text-foreground">{item.label}</span>{item.required ? " · obligatoire" : " · recommandé"}{item.note ? ` — ${item.note}` : ""}</li>)}
+                    {race.practical.equipment.items.map((item, index) => (
+                      <li key={`${item.label}-${index}`} className="flex items-start justify-between gap-3 border-b border-border pb-2 last:border-0 last:pb-0">
+                        <span>
+                          <span className="block font-semibold text-foreground">{item.label}</span>
+                          {item.note ? <span className="block text-muted-foreground">{item.note}</span> : null}
+                        </span>
+                        <RequirementBadge required={item.required} />
+                      </li>
+                    ))}
                   </ul>
                 ) : null}
                 {race.practical.equipment.note ? <p>{race.practical.equipment.note}</p> : null}
