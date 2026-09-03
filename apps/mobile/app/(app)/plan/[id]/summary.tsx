@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
 import { PlanLoadingScreen } from '../../../../components/PlanLoadingScreen';
 import { DataText } from '../../../../components/themed/DataText';
@@ -286,9 +286,11 @@ export default function PlanSummaryScreen() {
     t.plans.freeAccessTitle,
   ]);
 
-  useEffect(() => {
-    void loadSummary();
-  }, [loadSummary]);
+  useFocusEffect(
+    useCallback(() => {
+      void loadSummary();
+    }, [loadSummary]),
+  );
 
   const handleShare = useCallback(async () => {
     if (!summary || sharing) return;

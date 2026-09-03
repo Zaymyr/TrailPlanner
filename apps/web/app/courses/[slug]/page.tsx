@@ -35,6 +35,54 @@ const DetailLine = ({ label, value }: { label: string; value: React.ReactNode })
   </p>
 );
 
+const iconProps = { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: 1.8, "aria-hidden": true } as const;
+
+const ClockIcon = () => (
+  <svg {...iconProps} className="h-5 w-5">
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 7.5V12l3 2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
+
+const MapPinIcon = () => (
+  <svg {...iconProps} className="h-5 w-5">
+    <path d="M12 21s-7-7.6-7-12.3A7 7 0 0 1 19 8.7C19 13.4 12 21 12 21Z" strokeLinecap="round" strokeLinejoin="round" />
+    <circle cx="12" cy="8.7" r="2.4" />
+  </svg>
+);
+
+const TicketIcon = () => (
+  <svg {...iconProps} className="h-5 w-5">
+    <path d="M4 9a2 2 0 0 0 0 4v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3a2 2 0 0 1 0-4V6a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v3Z" strokeLinejoin="round" />
+    <path d="M9 5v14" strokeDasharray="2 2" />
+  </svg>
+);
+
+const BackpackIcon = () => (
+  <svg {...iconProps} className="h-5 w-5">
+    <path d="M8 8V6a4 4 0 0 1 8 0v2" strokeLinecap="round" />
+    <rect x="5" y="8" width="14" height="13" rx="2.5" />
+    <path d="M9 12h6M10 21v-4h4v4" strokeLinecap="round" />
+  </svg>
+);
+
+const UsersIcon = () => (
+  <svg {...iconProps} className="h-5 w-5">
+    <circle cx="9" cy="8.5" r="3" />
+    <path d="M3.5 20a5.5 5.5 0 0 1 11 0" strokeLinecap="round" />
+    <path d="M15.5 6.5a3 3 0 0 1 0 6M20.5 20a5 5 0 0 0-4-4.9" strokeLinecap="round" />
+  </svg>
+);
+
+const InfoIcon = () => (
+  <svg {...iconProps} className="h-5 w-5">
+    <circle cx="12" cy="12" r="8.5" />
+    <path d="M12 11v5.5" strokeLinecap="round" />
+    <circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none" />
+  </svg>
+);
+
+
 export async function generateStaticParams() {
   const races = await getPublicRaces();
   return races.map((race) => ({ slug: race.slug }));
@@ -132,9 +180,18 @@ export default async function RacePage({ params }: PageProps) {
   ) || Boolean(access.mapUrl);
   const hasRunnerInfo = hasText(runnerInfo.startArea, runnerInfo.briefing, runnerInfo.rules, runnerInfo.note);
   const hasServices = hasText(services.supporters, services.accommodations, services.restaurants, services.recovery, services.partners, services.note);
-  const hasPractical = hasSchedule || hasBib || race.practical.equipment.items.length > 0 || race.practical.equipment.note || hasAccess || hasRunnerInfo || hasServices;
+  const hasEquipment = race.practical.equipment.items.length > 0 || Boolean(race.practical.equipment.note);
+  const hasPractical = hasSchedule || hasBib || hasEquipment || hasAccess || hasRunnerInfo || hasServices;
+  const hasEssentialPractical = hasSchedule || hasAccess || hasBib;
+  const hasComplementaryPractical = hasEquipment || hasServices || hasRunnerInfo;
   const daysUntilRace = race.date ? Math.ceil((new Date(`${race.date.slice(0, 10)}T00:00:00Z`).getTime() - Date.now()) / 86_400_000) : null;
   const bibPickupOpenByDefault = daysUntilRace !== null && daysUntilRace >= 0 && daysUntilRace <= 14;
+  const scheduleSummary = [
+    schedule.startTime ? `Départ ${schedule.startTime}` : null,
+    schedule.finishCutoffTime ? `Barrière ${schedule.finishCutoffTime}` : null,
+  ].filter(Boolean).join(" · ") || null;
+  const accessSummary = access.startAddress ?? access.startLocation.label ?? null;
+  const bibSummary = bib.locations.length ? `${bib.locations.length} point${bib.locations.length > 1 ? "s" : ""} de retrait` : null;
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-9 px-4 py-8 sm:px-6 sm:py-10 lg:px-8">
@@ -218,8 +275,11 @@ export default async function RacePage({ params }: PageProps) {
         <section id="infos-pratiques" className="scroll-mt-4 space-y-4" aria-labelledby="practical-heading">
           <h2 id="practical-heading" className="text-2xl font-semibold text-foreground">Informations pratiques</h2>
           <div className="rounded-xl border border-border bg-card px-5">
+            {hasEssentialPractical ? (
+              <p className="pt-5 text-xs font-semibold uppercase tracking-wide text-brand">Essentiel pour courir</p>
+            ) : null}
             {hasSchedule ? (
-              <AccordionItem title="Horaires et barrières" defaultOpen>
+              <AccordionItem title="Horaires et barrières" icon={<ClockIcon />} summary={scheduleSummary} defaultOpen>
                 {schedule.startTime ? <DetailLine label="Départ" value={schedule.startTime} /> : null}
                 {schedule.finishCutoffTime ? <DetailLine label="Heure limite d’arrivée" value={schedule.finishCutoffTime} /> : null}
                 {schedule.cutoffNote ? <p>{schedule.cutoffNote}</p> : null}
@@ -227,7 +287,7 @@ export default async function RacePage({ params }: PageProps) {
               </AccordionItem>
             ) : null}
             {hasAccess ? (
-              <AccordionItem title="Accès et stationnement" defaultOpen>
+              <AccordionItem title="Accès et stationnement" icon={<MapPinIcon />} summary={accessSummary} defaultOpen>
                 {access.startAddress || access.startLocation.label ? <DetailLine label="Départ" value={access.startAddress ?? access.startLocation.label} /> : null}
                 {access.startLocation.googleMapsUrl ? <a href={access.startLocation.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="font-semibold text-brand hover:underline">Itinéraire vers le départ</a> : null}
                 {access.finishAddress || access.finishLocation.label ? <DetailLine label="Arrivée" value={access.finishAddress ?? access.finishLocation.label} /> : null}
@@ -241,7 +301,7 @@ export default async function RacePage({ params }: PageProps) {
               </AccordionItem>
             ) : null}
             {hasBib ? (
-              <AccordionItem title="Retrait des dossards" defaultOpen={bibPickupOpenByDefault}>
+              <AccordionItem title="Retrait des dossards" icon={<TicketIcon />} summary={bibSummary} defaultOpen={bibPickupOpenByDefault}>
                 {bib.locations.map((location, index) => (
                   <div key={`${location.label}-${index}`} className="space-y-1 border-b border-border pb-3 last:border-0 last:pb-0">
                     {location.label || location.location.label ? <p className="font-semibold text-foreground">{location.label ?? location.location.label}</p> : null}
@@ -256,8 +316,11 @@ export default async function RacePage({ params }: PageProps) {
                 {bib.note ? <p>{bib.note}</p> : null}
               </AccordionItem>
             ) : null}
-            {race.practical.equipment.items.length > 0 || race.practical.equipment.note ? (
-              <AccordionItem title="Matériel">
+            {hasComplementaryPractical ? (
+              <p className="pt-5 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations complémentaires</p>
+            ) : null}
+            {hasEquipment ? (
+              <AccordionItem title="Matériel" icon={<BackpackIcon />}>
                 {race.practical.equipment.items.length ? (
                   <ul className="space-y-2">
                     {race.practical.equipment.items.map((item, index) => <li key={`${item.label}-${index}`}><span className="font-semibold text-foreground">{item.label}</span>{item.required ? " · obligatoire" : " · recommandé"}{item.note ? ` — ${item.note}` : ""}</li>)}
@@ -267,7 +330,7 @@ export default async function RacePage({ params }: PageProps) {
               </AccordionItem>
             ) : null}
             {hasServices ? (
-              <AccordionItem title="Services">
+              <AccordionItem title="Services" icon={<UsersIcon />}>
                 {services.supporters ? <DetailLine label="Accompagnants" value={services.supporters} /> : null}
                 {services.accommodations ? <DetailLine label="Hébergements" value={services.accommodations} /> : null}
                 {services.restaurants ? <DetailLine label="Restauration" value={services.restaurants} /> : null}
@@ -277,7 +340,7 @@ export default async function RacePage({ params }: PageProps) {
               </AccordionItem>
             ) : null}
             {hasRunnerInfo ? (
-              <AccordionItem title="Consignes coureur">
+              <AccordionItem title="Consignes coureur" icon={<InfoIcon />}>
                 {runnerInfo.startArea ? <DetailLine label="Zone de départ" value={runnerInfo.startArea} /> : null}
                 {runnerInfo.briefing ? <DetailLine label="Briefing" value={runnerInfo.briefing} /> : null}
                 {runnerInfo.rules ? <DetailLine label="Règlement" value={runnerInfo.rules} /> : null}
