@@ -21,6 +21,7 @@ related_files:
   - apps/web/app/courses/_components/RaceMetricsDetails.tsx
   - apps/web/app/courses/_components/RaceRouteExplorer.tsx
   - apps/web/app/courses/_components/RaceAidStationsTimeline.tsx
+  - apps/web/app/courses/_components/RaceLinksCarousel.tsx
   - apps/web/components/ui/accordion.tsx
   - apps/web/app/courses/PublicRaceShare.test.ts
   - apps/web/app/courses/distances/[category]/page.tsx
