@@ -734,7 +734,6 @@ export default function CatalogScreen() {
   const racebookOnboardingEventGroups = useMemo(
     () => getRacebookOnboardingResults<Race, EventGroup>(
       filteredEventGroups,
-      nameFilter,
       (race, event) => canShowRacebook({
         raceIsLive: race.is_live,
         racebookIsLive: race.racebook_is_live,
@@ -752,6 +751,7 @@ export default function CatalogScreen() {
     ? racebookOnboardingEventGroups
     : filteredEventGroups;
   const isRacebookSearchReady = isRacebookOnboardingSearchReady(nameFilter);
+  const racebookOnboardingSelectionMethod = isRacebookSearchReady ? 'search' : 'browse';
 
   function captureRacebookOnboardingSearch() {
     if (onboardingMode !== 'racebook' || !isRacebookSearchReady) return;
@@ -1156,6 +1156,7 @@ export default function CatalogScreen() {
                   event_name: event.name,
                   query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
                   racebook_count: event.races.length,
+                  selection_method: racebookOnboardingSelectionMethod,
                 });
               }
               setSelectedEvent(event);
@@ -1362,6 +1363,7 @@ export default function CatalogScreen() {
                         race_id: race.id,
                         race_name: race.name,
                         query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
+                        selection_method: racebookOnboardingSelectionMethod,
                       });
                       setSelectedEvent(null);
                       void saveOnboardingProgress({
