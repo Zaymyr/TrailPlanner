@@ -139,6 +139,7 @@ export function useProfileScreen() {
   const [heightCm, setHeightCm] = useState('');
   const [waterBagLiters, setWaterBagLiters] = useState<number>(1.5);
   const [utmbIndex, setUtmbIndex] = useState('');
+  const premiumPaywallVisibleRef = useRef(false);
   const [comfortableFlatPaceMinutes, setComfortableFlatPaceMinutes] = useState('');
   const [comfortableFlatPaceSeconds, setComfortableFlatPaceSeconds] = useState('');
   const [defaultCarbsPerHour, setDefaultCarbsPerHour] = useState('');
@@ -622,22 +623,20 @@ export function useProfileScreen() {
 
   const handleUpgrade = useCallback(async () => {
     if (inAppBillingEnabled) {
-      captureAnalyticsEvent('premium checkout started', {
-        source: paidPremiumSource ?? 'mobile',
-      });
-
       try {
-        const result = await billing.purchase();
+        const result = await billing.purchase('profile');
 
-        if (result === 'purchased') {
-          captureAnalyticsEvent('premium purchased', {
-            source: paidPremiumSource ?? 'mobile',
-          });
+        if (result.status === 'purchased') {
           Alert.alert(t.common.ok, t.profile.purchaseSuccess);
           return;
         }
 
-        if (result === 'unavailable') {
+        if (result.status === 'unverified') {
+          Alert.alert(t.common.error, t.profile.purchaseFailed);
+          return;
+        }
+
+        if (result.status === 'unavailable') {
           const fallbackStoreUrl = Platform.OS === 'ios' ? IOS_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
           await openExternalUrl(
             billing.managementUrl ?? fallbackStoreUrl,
@@ -654,7 +653,9 @@ export function useProfileScreen() {
     }
 
     captureAnalyticsEvent('premium checkout started', {
-      source: 'web_fallback',
+      billing_provider: 'web_fallback',
+      placement: 'profile',
+      store: 'web',
     });
     await openExternalUrl(`${WEB_API_BASE_URL}/premium`, t.profile.premiumFallback);
   }, [
@@ -931,6 +932,28 @@ export function useProfileScreen() {
   const canManagePaidSubscription = hasPaidPremium;
   const showUpgradeAction = !hasPaidPremium && !showAdminGrant;
   const showRestorePurchases = inAppBillingEnabled && !isWebManagedPremium && !isPremium;
+
+  useEffect(() => {
+    const isPaywallVisible = activeProfileTab === 'settings' && showUpgradeAction;
+
+    if (isPaywallVisible && !premiumPaywallVisibleRef.current) {
+      captureAnalyticsEvent('premium paywall viewed', {
+        billing_provider: inAppBillingEnabled ? 'revenuecat' : 'web_fallback',
+        package_id: billing.currentPackage?.identifier,
+        paywall_type: 'inline',
+        placement: 'profile',
+        product_id: billing.currentPackage?.product.identifier,
+      });
+    }
+
+    premiumPaywallVisibleRef.current = isPaywallVisible;
+  }, [
+    activeProfileTab,
+    billing.currentPackage?.identifier,
+    billing.currentPackage?.product.identifier,
+    inAppBillingEnabled,
+    showUpgradeAction,
+  ]);
 
   const profileTabs = useMemo<Array<{ key: ProfileTabKey; label: string }>>(
     () => [

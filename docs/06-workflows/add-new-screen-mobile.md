@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -18,6 +18,7 @@ related_files:
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/racebookOnboarding.ts
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/mobile/locales/types.ts
@@ -64,6 +65,7 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 - Keep only Plan profile setup inside the hidden onboarding shell. Course, product, plan, and RaceBook guidance must route through their real screens with the localized `OnboardingGuideCard` and ordinary tab navigation.
 - Persist each tour independently as pending, in-progress, skipped, or completed. Local progress may resume a stage, but the Profile notification dot must use the durable profile statuses.
 - Keep guided-route behavior behind an explicit `onboarding` parameter. Normal Courses, Nutrition, plan creation, and RaceBook behavior must remain unchanged when it is absent.
+- Guided RaceBook discovery must require a deliberate two-character search, reuse the ordinary `canShowRacebook` publication/content gate, remove the competing plan action, and track search/event/format selection without sending the search text.
 - When a mobile screen embeds public formats under `race_events`, use an explicit live-format relation filter; use `!inner` when parent events with no visible formats must also disappear. RLS/public flags alone do not filter the embedded array in this schema.
 - When extending the Courses tab, preserve its event-level route contract: favorites stay tied to `race_events`; a confirmed favorite addition shows localized success feedback and scrolls to the event's new pinned position; organizer-update links add `updateId` and optional `raceId` to the catalog route so the existing event sheet opens the precise message and format context; the light-green update panel follows every format action, shows only the newest or targeted message while collapsed, and reveals older messages plus lazy-loaded history through `View more`.
 - Premium purchase UI that can trigger App Store review should keep the subscription summary plus both legal links close to the CTA: explicit title, duration, price, privacy policy, and Terms of Use (EULA).
@@ -85,7 +87,7 @@ The identity card displays the formatted course date beneath the race name in th
 8. If the screen calls server functionality, prefer existing web API bridge patterns.
 9. Add localized strings through the existing locale files when the UI needs text. Preserve language-specific punctuation such as French typographic apostrophes, including in notification copy.
 10. Import mobile text from `components/themed/Text` / `Heading`, not from `react-native`; use `DataText` for metric-like values.
-11. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens.
+11. Track analytics with helpers in `apps/mobile/lib/posthog.ts` when consistent with nearby screens. Emit outcome events only after the server confirms the mutation; for notification responses, keep properties bounded and never attach hrefs or message content.
 12. For a new root tab, add the help/feedback entry point through `RootScreenActionMenu`; add screen-specific actions there instead of occupying native header space.
 13. For a new hidden child screen under an existing stack, register the explicit child route in `apps/mobile/app/(app)/_layout.tsx` and give it a localized title in the stack layout for that feature area.
 

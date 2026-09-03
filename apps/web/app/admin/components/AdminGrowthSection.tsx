@@ -89,9 +89,13 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
   };
   const periodDays = Math.max(1, data?.trend.length ?? 1);
   const projectionHint = (value: number) => copy.projection.replace("{value}", String(Math.round((value / periodDays) * 30)));
-  const activationRate = data && data.overview.newAccounts > 0
-    ? Math.round((data.overview.activatedUsers / data.overview.newAccounts) * 100)
+  const activationRate = data && data.overview.activationEligibleAccounts > 0
+    ? Math.round((data.overview.activatedUsers / data.overview.activationEligibleAccounts) * 100)
     : 0;
+  const formatMoney = (minor: number, currency: string) => new Intl.NumberFormat(
+    isFrench ? "fr-FR" : "en-US",
+    { style: "currency", currency: currency.toUpperCase() }
+  ).format(minor / 100);
 
   return (
     <Card>
@@ -118,10 +122,16 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
             <p className="text-sm text-muted-foreground">{copy.trajectoryDescription}</p>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               <Kpi label={copy.newAccounts} value={data.overview.newAccounts} hint={projectionHint(data.overview.newAccounts)} />
-              <Kpi label={copy.activated} value={data.overview.activatedUsers} hint={copy.activationRate.replace("{value}", String(activationRate))} />
+              <Kpi label={copy.activated} value={data.overview.activatedUsers} hint={`${copy.activationRate.replace("{value}", String(activationRate))} · ${data.overview.activationEligibleAccounts} ${isFrench ? "cohortes matures" : "mature cohorts"}`} />
               <Kpi label={copy.activePlanUsers} value={data.overview.activePlanUsers} hint={isFrench ? "Personnes ayant modifié un plan" : "People who updated a plan"} />
               <Kpi label={copy.newPlans} value={data.overview.newPlans} hint={projectionHint(data.overview.newPlans)} />
               <Kpi label={copy.premium} value={data.overview.activePremiumUsers} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <Kpi label={isFrench ? "Abonnements payants" : "Paid subscriptions"} value={data.overview.premium.paidSubscriptions} hint={`Web ${data.overview.premium.providers.web} · Apple ${data.overview.premium.providers.apple} · Google ${data.overview.premium.providers.google}`} />
+              <Kpi label={isFrench ? "Essais applicatifs actifs" : "Active app trials"} value={data.overview.premium.appTrials} />
+              <Kpi label={isFrench ? "Grants actifs" : "Active grants"} value={data.overview.premium.grants} />
+              <Kpi label={isFrench ? "Premium uniques" : "Unique Premium users"} value={data.overview.premium.effectiveUsers} />
             </div>
             <AdminTrendChart
               title={copy.productTrend}
@@ -161,6 +171,35 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
               <Kpi label={copy.editions} value={data.organizers.editionsCreated} />
               <Kpi label={copy.formats} value={data.organizers.formatsCreated} />
               <Kpi label={copy.published} value={data.organizers.publishedRacebooks} />
+            </div>
+            <div className="space-y-3">
+              <h3 className="text-sm font-semibold">
+                {isFrench ? "Performance commerciale" : "Commercial performance"}
+              </h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Kpi
+                  label={isFrench ? "Revenu net encaissé" : "Net collected revenue"}
+                  value={formatMoney(data.organizers.commercial.netRevenueMinor, data.organizers.commercial.currency)}
+                  hint={isFrench
+                    ? `${formatMoney(data.organizers.commercial.grossRevenueMinor, data.organizers.commercial.currency)} brut · ${formatMoney(data.organizers.commercial.invalidatedRevenueMinor, data.organizers.commercial.currency)} invalidé`
+                    : `${formatMoney(data.organizers.commercial.grossRevenueMinor, data.organizers.commercial.currency)} gross · ${formatMoney(data.organizers.commercial.invalidatedRevenueMinor, data.organizers.commercial.currency)} invalidated`}
+                />
+                <Kpi
+                  label={isFrench ? "Conversion checkout" : "Checkout conversion"}
+                  value={data.organizers.commercial.checkoutConversion === null ? "—" : `${data.organizers.commercial.checkoutConversion}%`}
+                  hint={`${data.organizers.commercial.checkoutCohortPaid}/${data.organizers.commercial.checkoutsStarted} ${isFrench ? "tentatives de la cohorte" : "cohort attempts"}`}
+                />
+                <Kpi
+                  label={isFrench ? "Paiements sur la période" : "Payments in period"}
+                  value={data.organizers.commercial.paidTransactions}
+                  hint={`${data.organizers.commercial.invalidatedTransactions} ${isFrench ? "remboursé(s) ou contesté(s)" : "refunded or disputed"}`}
+                />
+                <Kpi
+                  label={isFrench ? "Mix des ventes" : "Sales mix"}
+                  value={data.organizers.commercial.racebookSales + data.organizers.commercial.proDirectSales + data.organizers.commercial.proUpgradeSales}
+                  hint={`RaceBook ${data.organizers.commercial.racebookSales} · Pro ${data.organizers.commercial.proDirectSales} · Upgrade ${data.organizers.commercial.proUpgradeSales}`}
+                />
+              </div>
             </div>
             <div><h3 className="mb-2 text-sm font-semibold">{copy.funnel}</h3><Funnel rows={data.organizers.funnel} labels={{ step: copy.step, users: copy.users, conversion: copy.conversion }} /></div>
             <div><h3 className="mb-2 text-sm font-semibold">{copy.followUps}</h3>{data.organizers.followUps.length === 0 ? <p className="text-sm text-muted-foreground">{copy.noActions}</p> : <Table>

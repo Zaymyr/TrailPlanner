@@ -1,7 +1,7 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-06-10
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
@@ -76,6 +76,7 @@ Summary:
 - Authenticated users can delete their own share links.
 - The table is not granted to `anon`; public link reads go through the server-rendered web page with service role.
 - Public crew-state updates go through `apps/web/app/api/plan-shares/crew-state/route.ts`, which hashes the raw URL token and writes only `departure_time` and `crew_state` with service role.
+- The public client may emit consent-gated `plan crew link opened` and `plan crew state updated` events with aggregate checkpoint counts. The token, snapshot, plan name, and passage details are excluded.
 
 ## Business Invariants
 
@@ -98,6 +99,7 @@ Summary:
 - Public URLs should use the canonical website domain from `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored so Vercel deployment hostnames are not used for crew links.
 - The public page forces the light theme for readability, independent of the visitor's saved web theme preference.
 - The public crew-state route is unauthenticated by design because the URL token is the secret. Keep the payload narrow and rate-limited, and do not add broad public mutation fields to `plan_share_links`.
+- Analytics on the public page must remain aggregate-only and must not turn the secret-link token into an analytics identifier.
 - Do not implement crew tracking reset by changing `snapshot`; it should only update the mutable crew-state fields.
 
 ## Related Docs

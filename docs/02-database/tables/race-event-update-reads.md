@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -43,10 +43,12 @@ related_tables:
 ## Gotchas
 
 - Guided catalog use does not mark announcements read differently and does not change the owner-scoped receipt contract.
+- Requiring a search before guided RaceBook results appear does not create receipts; the existing event-sheet display remains the only read trigger.
 
 - Pro controls organizer history management and sends, not runner ownership of existing read receipts.
 
 - `push_notification_events` proves delivery attempts, not whether a runner saw the message; do not use it as read state.
+- Likewise, the PostHog `push notification opened` event measures an app-open interaction and does not create or replace this durable receipt.
 - Deleting an announcement through the membership-checked organizer route cascades its receipts; no orphan read state should remain.
 - The mobile catalog keeps message bodies to a short preview but may fetch lightweight update id/event references so an older unread message still keeps the event-level badge visible.
 - Edition visibility filters catalog formats, not read receipts. A receipt remains event/update-owned even when its former target format is hidden or deleted.

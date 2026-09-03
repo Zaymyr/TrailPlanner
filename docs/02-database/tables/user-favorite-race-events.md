@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -89,12 +89,14 @@ where event_id = '<event-id>';
 ## Gotchas
 
 - Guided onboarding reuses the catalog without changing event-favorite ownership, pinning, or notification audience semantics.
+- Guided RaceBook results require a search and hide the favorite/create-plan detours, but this presentation rule never creates or removes an event favorite.
 
 - Keep this table tied to `race_events`, not `races`; the mobile UX follows the whole event card.
 - The FK targets `user_profiles(user_id)`, so profile bootstrap must exist before creating favorites.
 - Do not expose cross-user favorite lists to organizers directly; organizer UI should show only aggregate counts.
 - Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.
 - Only a confirmed addition should trigger the success toast and automatic scroll. Removing a favorite should preserve the current reading position, while a failed write restores the previous favorite order.
+- Only a server-confirmed state change emits `race favorite updated`; failed or optimistic toggles must not be counted as completed favorite mutations.
 - Favoriting affects ordering only; it must not change the compact organizer-update preview contract or trigger a separate history load by itself.
 - Moving or expanding the post-format organizer-announcement panel, or deleting an announcement from organizer history, must not add or remove event favorites.
 - Unread `NEW` badges come from `race_event_update_reads`, not from the favorite row.

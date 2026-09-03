@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts

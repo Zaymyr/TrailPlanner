@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { PlanShareCrewState, PlanShareSnapshot } from "../../../../lib/plan-share";
+import { trackCrewLinkOpened, trackCrewStateUpdated } from "../../../../lib/product-analytics";
 
 type PlanShareCheckpoint = PlanShareSnapshot["checkpoints"][number];
 type PlanSharePassage = PlanShareCrewState["passages"][number];
@@ -201,6 +202,18 @@ export function PlanShareCrewTimeline({
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<"saved" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const hasTrackedOpen = useRef(false);
+
+  useEffect(() => {
+    if (hasTrackedOpen.current) return;
+    hasTrackedOpen.current = true;
+    trackCrewLinkOpened({
+      checkpointCount: summary.checkpoints.length,
+      trackableCheckpointCount: summary.checkpoints.filter(isTrackableCheckpoint).length,
+      confirmedPassageCount: initialPassages.length,
+      hasDepartureTime: Boolean(departureTime),
+    });
+  }, [departureTime, initialPassages.length, summary.checkpoints]);
 
   const passagesByIndex = useMemo(() => {
     return new Map(passages.map((passage) => [passage.checkpointIndex, passage]));
@@ -283,6 +296,10 @@ export function PlanShareCrewTimeline({
       setStartTime(nextSavedStartTime);
       setPassages(normalizePassages(data.crewState.passages, summary.checkpoints));
       setFeedback("saved");
+      trackCrewStateUpdated({
+        action: key === "start" ? "start_time_saved" : key === "reset" ? "tracking_reset" : "checkpoint_confirmed",
+        confirmedPassageCount: data.crewState.passages.length,
+      });
     } catch {
       setError(copy.saveError);
     } finally {

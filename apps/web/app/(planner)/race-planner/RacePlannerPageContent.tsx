@@ -53,6 +53,7 @@ import { useRacePlan } from "./hooks/useRacePlan";
 import { OnboardingOverlay } from "../../../components/race-planner/OnboardingOverlay";
 import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
 import { addSuppliesToInventory, consumeInventoryForTargets } from "../../../components/race-planner/carryoverNutrition";
+import { trackPlanExported } from "../../../lib/product-analytics";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -1260,12 +1261,22 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     link.download = "trailplanner.gpx";
     link.click();
     URL.revokeObjectURL(url);
+    trackPlanExported({
+      format: "gpx",
+      planState: activePlanId ? "saved" : "draft",
+      aidStationCount: values.aidStations.length,
+    });
   };
 
   const handlePrintAssistance = () => {
     if (typeof window === "undefined") return;
     writePlannerSnapshot();
     window.open("/race-planner/print/assistance", "_blank", "noopener,noreferrer");
+    trackPlanExported({
+      format: "assistance_print",
+      planState: activePlanId ? "saved" : "draft",
+      aidStationCount: sanitizeAidStations(form.getValues().aidStations).length,
+    });
   };
 
   const handleSubmitFeedback = async (event: React.FormEvent<HTMLFormElement>) => {

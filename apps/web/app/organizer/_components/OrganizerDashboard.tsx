@@ -19,6 +19,11 @@ import {
 import type { FuelProduct } from "../../../lib/product-types";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { supportEmail } from "../../support/copy";
+import {
+  trackOrganizerCheckoutStarted,
+  trackOrganizerOfferViewed,
+  trackOrganizerPurchaseVerified,
+} from "../../../lib/product-analytics";
 import { buildOrganizerCompletion, type OrganizerCompletionSummary, type OrganizerModuleId } from "./completion";
 import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
@@ -633,6 +638,7 @@ export function OrganizerDashboard({
       if (cancelled || !response.ok || !data?.event) return;
       const returnedEdition = (data.event.editions ?? []).find((edition) => edition.id === returnedEditionId);
       if (returnedEdition?.entitlement?.status === "active" && returnedEdition.entitlement.tier === targetTier) {
+        trackOrganizerPurchaseVerified({ targetTier, editionYear: selectedEditionYear });
         applyLoadedEvent(data.event, activeTab, selectedEditionYear);
         showToast("success", `L’offre ${targetTier === "pro" ? "RaceBook Pro" : "RaceBook"} est maintenant active.`);
         params.delete("organizerPayment");
@@ -1749,6 +1755,9 @@ export function OrganizerDashboard({
         : "Impossible d’identifier l’édition sélectionnée. Recharge la page puis réessaie."
     );
     setPricingDialogOpen(true);
+    if (context) {
+      trackOrganizerOfferViewed({ currentTier: context.tier, editionYear: context.editionYear });
+    }
   };
 
   const startCheckout = async (targetTier: "racebook" | "pro") => {
@@ -1789,6 +1798,11 @@ export function OrganizerDashboard({
         showToast("error", message);
         return;
       }
+      trackOrganizerCheckoutStarted({
+        currentTier: pricingContext.tier,
+        targetTier,
+        editionYear: pricingContext.editionYear,
+      });
       window.location.assign(data.url);
     } catch (caught) {
       console.error("Unable to start organizer checkout", caught);

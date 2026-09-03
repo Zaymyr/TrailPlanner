@@ -10,6 +10,7 @@ const funnelRowSchema = z.object({
 const trendPointSchema = z.object({
   date: z.string(),
   newAccounts: z.number(),
+  activationEligibleAccounts: z.number(),
   activatedUsers: z.number(),
   activePlanUsers: z.number(),
   newPlans: z.number(),
@@ -23,10 +24,18 @@ export const adminGrowthResponseSchema = z.object({
   }),
   overview: z.object({
     newAccounts: z.number(),
+    activationEligibleAccounts: z.number(),
     activatedUsers: z.number(),
     activePlanUsers: z.number(),
     newPlans: z.number(),
     activePremiumUsers: z.number(),
+    premium: z.object({
+      paidSubscriptions: z.number(),
+      appTrials: z.number(),
+      grants: z.number(),
+      effectiveUsers: z.number(),
+      providers: z.object({ web: z.number(), apple: z.number(), google: z.number() }),
+    }),
   }),
   trend: z.array(trendPointSchema),
   organizers: z.object({
@@ -40,6 +49,20 @@ export const adminGrowthResponseSchema = z.object({
     activatedRacebooks: z.number(),
     giftedRacebooks: z.number(),
     paidRacebooks: z.number(),
+    commercial: z.object({
+      checkoutsStarted: z.number(),
+      checkoutCohortPaid: z.number(),
+      checkoutConversion: z.number().nullable(),
+      paidTransactions: z.number(),
+      grossRevenueMinor: z.number(),
+      invalidatedTransactions: z.number(),
+      invalidatedRevenueMinor: z.number(),
+      netRevenueMinor: z.number(),
+      currency: z.string(),
+      racebookSales: z.number(),
+      proDirectSales: z.number(),
+      proUpgradeSales: z.number(),
+    }),
     funnel: z.array(funnelRowSchema),
     followUps: z.array(z.object({
       eventId: z.string().uuid(),

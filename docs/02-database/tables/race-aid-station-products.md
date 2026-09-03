@@ -1,7 +1,7 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql

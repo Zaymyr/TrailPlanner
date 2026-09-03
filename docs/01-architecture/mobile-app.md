@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -33,6 +33,7 @@ related_files:
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/racebookOnboarding.ts
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/mobile/locales/types.ts
@@ -133,7 +134,7 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 
 The layout also tracks auth analytics for signed-in and signed-out events.
 Cold-start and post-auth navigation resolves the mobile onboarding statuses first, then opens either the initial chooser, a persisted in-progress stage, or the Courses catalog.
-The initial chooser is skippable and offers independent Plan and RaceBook tours. Plan setup remains a hidden non-tab flow, then hands off to the real Courses, Nutrition, plan creation, and editor screens. RaceBook uses the real Courses catalog and published RaceBook screen. Those real screens keep normal tab navigation and add a non-blocking guide card. `user_profiles.plan_onboarding_status` and `racebook_onboarding_status` distinguish pending, in-progress, skipped, and completed states; local AsyncStorage retains the current stage/race for cold-start resumption.
+The initial chooser is skippable and offers independent Plan and RaceBook tours. Plan setup remains a hidden non-tab flow, then hands off to the real Courses, Nutrition, plan creation, and editor screens. RaceBook uses the real Courses catalog and published RaceBook screen. In the guided RaceBook mode, the catalog requires a deliberate search of at least two characters before showing results, removes formats that fail the ordinary runner RaceBook gate, and exposes only the RaceBook action so selecting a course cannot divert into plan creation. Those real screens keep normal tab navigation and add a non-blocking guide card. `user_profiles.plan_onboarding_status` and `racebook_onboarding_status` distinguish pending, in-progress, skipped, and completed states; local AsyncStorage retains the current stage/race for cold-start resumption.
 The Profile personal tab exposes both tours with their statuses. Its tab icon shows a notification dot until both are completed; skipped tours intentionally keep the dot visible. Replaying a completed tour does not downgrade its durable status.
 On cold start and after authentication, sessions that do not require onboarding open on the `catalog` Courses tab by default. The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of snapping to the default `catalog` tab when a hidden detail route was pushed.
 The visible bottom tab bar derives its bottom padding and total height from `react-native-safe-area-context`. This keeps the four tab actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS.
@@ -150,6 +151,7 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 - it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping, then confirms a successful addition with a brief localized toast and scrolls the list to the newly pinned first event;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
 - its multi-format event cards omit the repeated “choose a format” helper sentence because the format-count pill and primary action already communicate the next step; onboarding may keep that guidance in the same shared component;
+- its guided RaceBook mode starts with an empty result state until the runner enters at least two search characters, then returns only events containing an ordinarily accessible published RaceBook and removes the competing plan action from the format sheet;
 - it preloads up to three recent manual organizer updates per live event, renders only the newest (or deep-link-targeted) announcement after every format row inside one light-green panel, and reveals the other messages plus fuller history only when the runner taps `View more`;
 - it reads `eventId`, `updateId`, and optional `raceId` route params so a push opens the matching event, message, and format context directly;
 - it loads the identified runner's `race_event_update_reads` plus lightweight update id/event references, displays `NEW` on event cards even when the unread item is older than the three-message preview, and persists receipts after messages are displayed.
@@ -165,6 +167,8 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 - RevenueCat customer info.
 
 When RevenueCat has an active entitlement and the server is not synced, mobile calls the web sync endpoint to persist the purchase into `subscriptions`.
+
+Mobile purchase analytics expose the full funnel without using PostHog as billing truth. The Profile offer and feature-gate modal emit `premium paywall viewed`; pressing an upgrade CTA emits `premium checkout started`; and only an active Premium entitlement in RevenueCat's returned `CustomerInfo` emits `premium purchase verified`. Verified events carry a sandbox/production environment marker. Missing entitlements, cancellations, unavailable checkouts, and failures remain separate outcomes, and the legacy ambiguous `premium purchased` event is no longer emitted.
 
 The runner-facing subscription surfaces now keep App Store review compliance details close to the upgrade CTA:
 
@@ -203,6 +207,10 @@ The analytics wrapper attaches `surface: app`, derives stable screen groups, and
 
 After an accessible RaceBook finishes loading, the screen records its stable race/event identity, public names, race date, days-before-race window, tabs, ravito/access expansions, external actions, refreshes, and foreground-only active duration. This instrumentation is product analytics only: sponsor display and redirect counting remain outside person-level RaceBook events.
 
+The guided catalog records `racebook onboarding search performed`, `racebook onboarding race selected`, and `racebook onboarding racebook selected`. Search events retain only query length and result counts, never the entered text. These explicit interactions replace a plain Catalog screen view as the meaningful pre-open funnel steps.
+
+Confirmed favorite mutations emit `race favorite updated` with the public event id, bounded add/remove action, and resulting favorite count. Notification responses emit `push notification opened` with only a bounded kind/action and optional snooze duration; notification hrefs and message content are never analytics properties.
+
 Do not copy actual keys into docs. Use environment variable names only.
 
 ## Gotchas
@@ -212,6 +220,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
+- Keep the guided RaceBook search gate presentation-only: it may narrow already-loaded live formats with `canShowRacebook`, but it must not invent a publication exception, persist the search text, or change the normal Courses catalog when the onboarding parameter is absent.
 - Supabase embedded relations use left-join semantics by default. Keep the explicit `races!inner` plus `races.is_live = true` filters in catalog/onboarding so edition hiding cannot leak formats or leave empty event cards.
 - Hidden mobile detail headers should prefer one-line truncation over wrapping when the screen also shows custom left/right header actions; otherwise long French titles can overlap icons on compact iPhone widths.
 - Keep the tab navigator on history-based back behavior. Switching it back to `initialRoute` makes Android hardware back jump to `catalog` from hidden plan/race detail screens instead of popping to the real previous screen.
@@ -231,6 +240,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Read receipts are identified-user state. Anonymous sessions may read public updates but must not write `race_event_update_reads`.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
+- Do not use `premium paywall viewed` or `premium checkout started` as revenue. Only `premium purchase verified` confirms an active RevenueCat entitlement, and `environment: production` must still be reconciled with the store/RevenueCat transaction record.
 - Keep both required legal links visible from reviewer-reachable purchase surfaces: privacy should open the web legal page, and Terms of Use should open Apple’s standard EULA unless the billing/legal strategy is intentionally changed.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.
