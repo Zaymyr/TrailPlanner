@@ -146,13 +146,13 @@ The normal cold-start destination is the Courses catalog; that routing decision 
 
 ## RaceBook Engagement
 
-The guided RaceBook catalog emits three explicit funnel events before the RaceBook screen opens:
+The guided RaceBook catalog emits explicit selection events before the RaceBook screen opens, plus an optional search event:
 
-- `racebook onboarding search performed` after a deliberate search of at least two characters, with query length and result counts but never the search text;
-- `racebook onboarding race selected` when the runner opens one matching event;
+- `racebook onboarding search performed` after an optional deliberate search of at least two characters, with query length and result counts but never the search text;
+- `racebook onboarding race selected` when the runner opens an event from either the initial list or filtered results;
 - `racebook onboarding racebook selected` when the runner chooses an accessible published format.
 
-Use these events between `onboarding started` filtered to `onboarding_kind = racebook` and `racebook opened`. A `$screen` Catalog view is navigation only and must not be interpreted as course selection.
+The ordered funnel is `onboarding started` filtered to `onboarding_kind = racebook`, `racebook onboarding race selected`, `racebook onboarding racebook selected`, then `racebook opened`. Search is an optional behavior metric and is not a required conversion step. Both selection events expose `selection_method: browse|search`, based on whether a valid search was active. A `$screen` Catalog view is navigation only and must not be interpreted as course selection.
 
 The mobile RaceBook emits `racebook opened` only after an accessible RaceBook has finished loading. Every RaceBook engagement event carries the stable `race_id`, optional parent `event_id`, public race/event names, race date, local-calendar `days_before_race`, a bounded proximity window, and whether the screen was opened by the guided tour or standard navigation. This supports per-RaceBook unique-reader trends and same-RaceBook retention without adding an analytics table to Supabase.
 
@@ -216,7 +216,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
 - Do not reinterpret sponsor `click_count` as unique people or join it to runner analytics identities.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
-- Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require the explicit search, event selection, format selection, and successful-open events.
+- Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require event selection, format selection, and successful-open events; search is optional because the initial eligible-course list is directly selectable.
 
 ## Related Docs
 

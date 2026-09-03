@@ -10,13 +10,8 @@ export function isRacebookOnboardingSearchReady(query: string) {
 
 export function getRacebookOnboardingResults<TRace, TEvent extends { races: TRace[] }>(
   events: TEvent[],
-  searchQuery: string,
   canOpenRacebook: (race: TRace, event: TEvent) => boolean,
 ) {
-  if (!isRacebookOnboardingSearchReady(searchQuery)) {
-    return [];
-  }
-
   return events
     .map((event) => ({
       ...event,
