@@ -168,6 +168,8 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 
 When RevenueCat has an active entitlement and the server is not synced, mobile calls the web sync endpoint to persist the purchase into `subscriptions`.
 
+Mobile purchase analytics expose the full funnel without using PostHog as billing truth. The Profile offer and feature-gate modal emit `premium paywall viewed`; pressing an upgrade CTA emits `premium checkout started`; and only an active Premium entitlement in RevenueCat's returned `CustomerInfo` emits `premium purchase verified`. Verified events carry a sandbox/production environment marker. Missing entitlements, cancellations, unavailable checkouts, and failures remain separate outcomes, and the legacy ambiguous `premium purchased` event is no longer emitted.
+
 The runner-facing subscription surfaces now keep App Store review compliance details close to the upgrade CTA:
 
 - `ProfilePremiumSection.tsx` shows the subscription title, annual duration, current price string, and direct buttons for the privacy policy plus Apple standard Terms of Use (EULA);
@@ -236,6 +238,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Read receipts are identified-user state. Anonymous sessions may read public updates but must not write `race_event_update_reads`.
 - Trial duration must remain aligned with web and migrations: 15 days.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
+- Do not use `premium paywall viewed` or `premium checkout started` as revenue. Only `premium purchase verified` confirms an active RevenueCat entitlement, and `environment: production` must still be reconciled with the store/RevenueCat transaction record.
 - Keep both required legal links visible from reviewer-reachable purchase surfaces: privacy should open the web legal page, and Terms of Use should open Apple’s standard EULA unless the billing/legal strategy is intentionally changed.
 - Do not put `RESEND_API_KEY` in Expo public env vars; mobile must go through `apps/mobile/lib/resendContactSync.ts` and the web route.
 - Empty `EXPO_PUBLIC_WEB_URL` / `EXPO_PUBLIC_API_URL` values should fall back to the production web URL; mobile server calls must not build relative API URLs.

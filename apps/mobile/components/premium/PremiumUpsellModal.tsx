@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useRevenueCatBilling } from '../../hooks/useRevenueCatBilling';
 import { useI18n } from '../../lib/i18n';
+import { captureAnalyticsEvent } from '../../lib/posthog';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
 
 const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
@@ -61,6 +62,14 @@ function PremiumUpsellModalContent({
   const { t } = useI18n();
   const billing = useRevenueCatBilling();
 
+  useEffect(() => {
+    captureAnalyticsEvent('premium paywall viewed', {
+      billing_provider: billing.isAvailable ? 'revenuecat' : 'web_fallback',
+      paywall_type: 'modal',
+      placement: 'feature_gate',
+    });
+  }, []);
+
   const upgradeLabel = billing.currentPackage
     ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
     : t.profile.premiumAnnualFallbackCta;
@@ -102,15 +111,20 @@ function PremiumUpsellModalContent({
 
     if (inAppBillingEnabled) {
       try {
-        const result = await billing.purchase();
+        const result = await billing.purchase('feature_gate');
 
-        if (result === 'purchased') {
+        if (result.status === 'purchased') {
           onClose();
           Alert.alert(t.common.ok, t.profile.purchaseSuccess);
           return;
         }
 
-        if (result === 'unavailable') {
+        if (result.status === 'unverified') {
+          Alert.alert(t.common.error, t.profile.purchaseFailed);
+          return;
+        }
+
+        if (result.status === 'unavailable') {
           const fallbackStoreUrl = Platform.OS === 'ios' ? IOS_SUBSCRIPTIONS_URL : PLAY_SUBSCRIPTIONS_URL;
           const openedStore = await openExternalUrl(
             billing.managementUrl ?? fallbackStoreUrl,
@@ -127,6 +141,11 @@ function PremiumUpsellModalContent({
       }
     }
 
+    captureAnalyticsEvent('premium checkout started', {
+      billing_provider: 'web_fallback',
+      placement: 'feature_gate',
+      store: 'web',
+    });
     const opened = await openExternalUrl(`${WEB_API_BASE_URL}/premium`, t.profile.premiumFallback);
     if (opened) onClose();
   }

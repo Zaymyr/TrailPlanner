@@ -19,6 +19,9 @@ related_files:
   - apps/web/app/admin/_components/AdminUsersTab.tsx
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/hooks/useProfileScreen.ts
+  - apps/mobile/hooks/useRevenueCatBilling.ts
+  - apps/mobile/components/premium/PremiumUpsellModal.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/lib/racebookOnboarding.ts
@@ -109,6 +112,15 @@ The mobile PostHog client:
 
 The root layout emits `app session started` once per process with the landing screen group, locale, auth state, Premium state, and update channel. It also emits `deep link opened` for initial and in-app links. Deep-link analytics retain only the scheme, host, and the explicit UTM allowlist; paths and arbitrary query values are not captured.
 
+The mobile Premium funnel uses explicit events instead of treating a store callback as accounting truth:
+
+- `premium paywall viewed` is emitted when the inline Profile offer or a feature-gate modal is actually displayed. `paywall_type` distinguishes `inline` from `modal`, and `placement` distinguishes `profile` from `feature_gate`.
+- `premium checkout started` is emitted when the runner presses the upgrade CTA. RevenueCat attempts use `billing_provider: revenuecat`; browser fallbacks use `billing_provider: web_fallback`.
+- `premium purchase verified` is emitted only after RevenueCat returns an active Premium entitlement whose product matches the completed transaction. It includes the product/package and transaction identifiers, purchase date, RevenueCat store, entitlement id, period/ownership types, expiration, and `environment: sandbox|production`.
+- `premium purchase unverified` records a returned purchase result whose Premium entitlement is inactive or missing. Cancellation, unavailable checkout, and thrown failures use `premium checkout cancelled`, `premium checkout unavailable`, and `premium purchase failed` respectively.
+
+The former `premium purchased` event is legacy data and is no longer emitted. Do not combine it with `premium purchase verified` in revenue reporting. PostHog remains product analytics; RevenueCat/App Store or Stripe remains authoritative for recognized transactions.
+
 `apps/mobile/app/_layout.tsx` is also the home for other session side effects such as push registration and Resend contact sync. Those side effects should stay separate from PostHog identify/reset calls.
 Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
 The normal cold-start destination is the Courses catalog; that routing decision does not change analytics identity initialization.
@@ -163,6 +175,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not expand organizer attribution beyond the explicit UTM allowlist or persist campaign parameters in browser storage.
 - Use environment variable names, not values.
 - Do not use analytics identity as proof that a user should be synced to marketing contacts; Resend sync must validate the Supabase session separately.
+- Do not interpret paywall or checkout events as revenue. For mobile conversion funnels, count only `premium purchase verified` with `environment: production`, then reconcile against RevenueCat/App Store transactions.
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
 - Do not reinterpret sponsor `click_count` as unique people or join it to runner analytics identities.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
