@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -89,6 +89,7 @@ where event_id = '<event-id>';
 ## Gotchas
 
 - Guided onboarding reuses the catalog without changing event-favorite ownership, pinning, or notification audience semantics.
+- Guided RaceBook results require a search and hide the favorite/create-plan detours, but this presentation rule never creates or removes an event favorite.
 
 - Keep this table tied to `race_events`, not `races`; the mobile UX follows the whole event card.
 - The FK targets `user_profiles(user_id)`, so profile bootstrap must exist before creating favorites.

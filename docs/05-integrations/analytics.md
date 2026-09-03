@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -19,7 +19,9 @@ related_files:
   - apps/web/app/admin/_components/AdminUsersTab.tsx
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/lib/racebookOnboarding.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
 related_tables:
   - race_event_edition_sponsors
@@ -113,6 +115,14 @@ The normal cold-start destination is the Courses catalog; that routing decision 
 
 ## RaceBook Engagement
 
+The guided RaceBook catalog emits three explicit funnel events before the RaceBook screen opens:
+
+- `racebook onboarding search performed` after a deliberate search of at least two characters, with query length and result counts but never the search text;
+- `racebook onboarding race selected` when the runner opens one matching event;
+- `racebook onboarding racebook selected` when the runner chooses an accessible published format.
+
+Use these events between `onboarding started` filtered to `onboarding_kind = racebook` and `racebook opened`. A `$screen` Catalog view is navigation only and must not be interpreted as course selection.
+
 The mobile RaceBook emits `racebook opened` only after an accessible RaceBook has finished loading. Every RaceBook engagement event carries the stable `race_id`, optional parent `event_id`, public race/event names, race date, local-calendar `days_before_race`, a bounded proximity window, and whether the screen was opened by the guided tour or standard navigation. This supports per-RaceBook unique-reader trends and same-RaceBook retention without adding an analytics table to Supabase.
 
 The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, and emergency-call actions. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
@@ -156,6 +166,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
 - Do not reinterpret sponsor `click_count` as unique people or join it to runner analytics identities.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
+- Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require the explicit search, event selection, format selection, and successful-open events.
 
 ## Related Docs
 

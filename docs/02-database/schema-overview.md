@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -237,6 +237,7 @@ erDiagram
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
+- Guided RaceBook search narrows the already-loaded live catalog in memory and adds no table, query field, RLS rule, or stored search value.
 - Hiding the repeated multi-format helper sentence on Courses event cards is a presentation-only option on the shared summary card; onboarding may still show it, and neither path changes catalog queries.
 - Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state. Organizer-confirmed announcement deletion removes the history row and cascades its receipts without changing favorites or previous push-delivery logs.
 - Organizer follower totals are computed by the Data API with an exact aggregate count and a one-row response range; the dashboard route must not download cross-user favorite rows to count them in application memory.

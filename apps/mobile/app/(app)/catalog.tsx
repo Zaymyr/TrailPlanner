@@ -24,7 +24,13 @@ import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { isAnonymousSession } from '../../lib/appSession';
+import { captureAnalyticsEvent } from '../../lib/posthog';
 import { canShowRacebook } from '../../lib/racebook';
+import {
+  getRacebookOnboardingResults,
+  isRacebookOnboardingSearchReady,
+  normalizeRacebookOnboardingSearch,
+} from '../../lib/racebookOnboarding';
 import { prefetchRacebookSponsors } from '../../lib/racebookSponsors';
 import { supabase } from '../../lib/supabase';
 import { saveOnboardingProgress, skipOnboardingKind } from '../../lib/onboardingStatus';
@@ -278,8 +284,8 @@ function RaceRow({
   secondaryActionLabel?: string;
   onSecondaryPressIn?: () => void;
   onSecondaryPress?: () => void;
-  primaryActionLabel: string;
-  onPrimaryPress: () => void;
+  primaryActionLabel?: string;
+  onPrimaryPress?: () => void;
 }) {
   return (
     <View style={styles.formatRow}>
@@ -297,9 +303,11 @@ function RaceRow({
             <Text style={styles.formatSecondaryActionButtonText}>{secondaryActionLabel}</Text>
           </TouchableOpacity>
         ) : null}
-        <TouchableOpacity style={styles.formatActionButton} onPress={onPrimaryPress}>
-          <Text style={styles.formatActionButtonText}>{primaryActionLabel}</Text>
-        </TouchableOpacity>
+        {primaryActionLabel && onPrimaryPress ? (
+          <TouchableOpacity style={styles.formatActionButton} onPress={onPrimaryPress}>
+            <Text style={styles.formatActionButtonText}>{primaryActionLabel}</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
     </View>
   );
@@ -468,6 +476,7 @@ export default function CatalogScreen() {
   const openingEventFromParamRef = useRef<string | null>(null);
   const listRef = useRef<FlatList<EventGroup>>(null);
   const favoriteToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastTrackedRacebookSearchRef = useRef<string | null>(null);
 
   async function handleCreatePlan(catalogRaceId: string) {
     if (onboardingMode === 'plan') {
@@ -721,6 +730,46 @@ export default function CatalogScreen() {
       );
     });
   }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, nameFilter, personalRaces]);
+
+  const racebookOnboardingEventGroups = useMemo(
+    () => getRacebookOnboardingResults<Race, EventGroup>(
+      filteredEventGroups,
+      nameFilter,
+      (race, event) => canShowRacebook({
+        raceIsLive: race.is_live,
+        racebookIsLive: race.racebook_is_live,
+        hasOrganizerAccess: false,
+        hasAidStations: race.has_aid_stations,
+        hasRelayCourse:
+          race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
+        eventOrganizerDetails: event.organizer_details,
+        raceOrganizerDetails: race.organizer_details,
+      }),
+    ),
+    [filteredEventGroups, nameFilter],
+  );
+  const visibleEventGroups = onboardingMode === 'racebook'
+    ? racebookOnboardingEventGroups
+    : filteredEventGroups;
+  const isRacebookSearchReady = isRacebookOnboardingSearchReady(nameFilter);
+
+  function captureRacebookOnboardingSearch() {
+    if (onboardingMode !== 'racebook' || !isRacebookSearchReady) return;
+
+    const normalizedQuery = normalizeRacebookOnboardingSearch(nameFilter);
+    if (lastTrackedRacebookSearchRef.current === normalizedQuery) return;
+
+    lastTrackedRacebookSearchRef.current = normalizedQuery;
+    captureAnalyticsEvent('racebook onboarding search performed', {
+      onboarding_kind: 'racebook',
+      query_length: normalizedQuery.length,
+      result_event_count: racebookOnboardingEventGroups.length,
+      result_racebook_count: racebookOnboardingEventGroups.reduce(
+        (count, event) => count + event.races.length,
+        0,
+      ),
+    });
+  }
 
   const eventsWithUnreadUpdates = useMemo(
     () =>
@@ -987,7 +1036,7 @@ export default function CatalogScreen() {
     <>
       <FlatList
         ref={listRef}
-        data={filteredEventGroups}
+        data={visibleEventGroups}
         keyExtractor={(item) => item.id}
         contentContainerStyle={listContentStyle}
         onScrollToIndexFailed={() => {
@@ -1008,12 +1057,18 @@ export default function CatalogScreen() {
             <View style={styles.filtersCard}>
               <TextInput
                 value={nameFilter}
-                onChangeText={setNameFilter}
+                onChangeText={(value) => {
+                  setNameFilter(value);
+                  lastTrackedRacebookSearchRef.current = null;
+                }}
+                onSubmitEditing={captureRacebookOnboardingSearch}
                 placeholder={t.catalog.searchPlaceholder}
                 placeholderTextColor={Colors.textMuted}
+                autoFocus={onboardingMode === 'racebook'}
+                returnKeyType="search"
                 style={styles.filterInput}
               />
-              <View style={styles.filterActionsRow}>
+              {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
                 <TouchableOpacity style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
                   <Ionicons name="options-outline" size={16} color={Colors.brandPrimary} />
                   <Text style={styles.filterButtonText}>
@@ -1023,10 +1078,10 @@ export default function CatalogScreen() {
                   </Text>
                 </TouchableOpacity>
                 <Text style={styles.filterHint}>{t.catalog.futureOnly}</Text>
-              </View>
+              </View> : null}
             </View>
 
-            {filteredPersonalRaces.length > 0 ? (
+            {onboardingMode !== 'racebook' && filteredPersonalRaces.length > 0 ? (
               <PersonalRacesSection
                 races={filteredPersonalRaces}
                 title={t.catalog.myRaces}
@@ -1037,13 +1092,29 @@ export default function CatalogScreen() {
           </View>
         }
         ListEmptyComponent={
-          filteredPersonalRaces.length === 0 ? (
+          onboardingMode === 'racebook' || filteredPersonalRaces.length === 0 ? (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconWrap}>
-                <Ionicons name="map-outline" size={28} color={Colors.brandPrimary} />
+                <Ionicons
+                  name={onboardingMode === 'racebook' ? 'search-outline' : 'map-outline'}
+                  size={28}
+                  color={Colors.brandPrimary}
+                />
               </View>
-              <Text style={styles.emptyTitle}>{t.catalog.noCatalogTitle}</Text>
-              <Text style={styles.emptySubtitle}>{t.catalog.noCatalogSubtitle}</Text>
+              <Text style={styles.emptyTitle}>
+                {onboardingMode === 'racebook'
+                  ? isRacebookSearchReady
+                    ? t.onboarding.tours.searchRacebookEmptyTitle
+                    : t.onboarding.tours.searchRacebookTitle
+                  : t.catalog.noCatalogTitle}
+              </Text>
+              <Text style={styles.emptySubtitle}>
+                {onboardingMode === 'racebook'
+                  ? isRacebookSearchReady
+                    ? t.onboarding.tours.searchRacebookEmptyBody
+                    : t.onboarding.tours.searchRacebookBody
+                  : t.catalog.noCatalogSubtitle}
+              </Text>
             </View>
           ) : null
         }
@@ -1067,7 +1138,19 @@ export default function CatalogScreen() {
                   }
                 : undefined
             }
-            onOpenFormats={() => setSelectedEvent(event)}
+            onOpenFormats={() => {
+              if (onboardingMode === 'racebook') {
+                captureRacebookOnboardingSearch();
+                captureAnalyticsEvent('racebook onboarding race selected', {
+                  onboarding_kind: 'racebook',
+                  event_id: event.id,
+                  event_name: event.name,
+                  query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
+                  racebook_count: event.races.length,
+                });
+              }
+              setSelectedEvent(event);
+            }}
           />
         )}
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
@@ -1096,13 +1179,13 @@ export default function CatalogScreen() {
           title={
             onboardingMode === 'plan'
               ? t.onboarding.tours.chooseRaceTitle
-              : t.onboarding.tours.openRacebookTitle
+              : t.onboarding.tours.searchRacebookTitle
           }
           body={
             onboardingMode === 'plan'
               ? t.onboarding.tours.chooseRaceBody
               : publishedRacebookCount > 0
-                ? t.onboarding.tours.openRacebookBody
+                ? t.onboarding.tours.searchRacebookBody
                 : t.onboarding.tours.noRacebookBody
           }
           skipLabel={t.onboarding.tours.skip}
@@ -1261,8 +1344,17 @@ export default function CatalogScreen() {
                   }}
                   onSecondaryPress={() => {
                     void prefetchRacebookSponsors(race.id);
-                    setSelectedEvent(null);
                     if (onboardingMode === 'racebook') {
+                      captureRacebookOnboardingSearch();
+                      captureAnalyticsEvent('racebook onboarding racebook selected', {
+                        onboarding_kind: 'racebook',
+                        event_id: selectedEvent.id,
+                        event_name: selectedEvent.name,
+                        race_id: race.id,
+                        race_name: race.name,
+                        query_length: normalizeRacebookOnboardingSearch(nameFilter).length,
+                      });
+                      setSelectedEvent(null);
                       void saveOnboardingProgress({
                         kind: 'racebook',
                         stage: 'racebook',
@@ -1275,14 +1367,15 @@ export default function CatalogScreen() {
                       });
                       return;
                     }
+                    setSelectedEvent(null);
                     router.push({
                       pathname: '/(app)/race/[id]/racebook',
                       params: { id: race.id },
                     });
                   }}
                   subtitle={`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m${race.id === selectedRaceIdParam ? ' • Format concerné' : ''}`}
-                  primaryActionLabel={t.catalog.createPlan}
-                  onPrimaryPress={() => {
+                  primaryActionLabel={onboardingMode === 'racebook' ? undefined : t.catalog.createPlan}
+                  onPrimaryPress={onboardingMode === 'racebook' ? undefined : () => {
                     setSelectedEvent(null);
                     handleCreatePlan(race.id);
                   }}

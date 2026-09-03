@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - apps/web/components/ui/dialog.tsx
@@ -352,7 +352,7 @@ Internal PostHog events measure RaceBook opens and repeat opens per stable `race
 
 The Courses list keeps multi-format event cards compact by omitting the repeated format-choice helper sentence; the format-count pill and primary action remain, and the onboarding use of the shared card may retain the guidance. This is presentation-only and does not change organizer format visibility or grouping.
 
-Runner onboarding now reuses the ordinary Courses and RaceBook routes. RaceBook onboarding considers only the existing runner-visible publication/content gate; its guide parameter cannot expose an unpublished organizer preview or change publication state.
+Runner onboarding now reuses the ordinary Courses and RaceBook routes. RaceBook onboarding requires a deliberate two-character search, shows only results that satisfy the existing runner-visible publication/content gate, and removes the competing plan action before format selection; its guide parameter cannot expose an unpublished organizer preview or change publication state.
 
 ## Commercial Offer Supersession
 

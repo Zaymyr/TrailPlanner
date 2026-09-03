@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -43,6 +43,7 @@ related_tables:
 ## Gotchas
 
 - Guided catalog use does not mark announcements read differently and does not change the owner-scoped receipt contract.
+- Requiring a search before guided RaceBook results appear does not create receipts; the existing event-sheet display remains the only read trigger.
 
 - Pro controls organizer history management and sends, not runner ownership of existing read receipts.
 

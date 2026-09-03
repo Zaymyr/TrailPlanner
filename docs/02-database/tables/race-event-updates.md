@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-08-31
+last_verified: 2026-09-03
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -100,6 +100,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 ## Gotchas
 
 - The catalog onboarding parameter is presentation/navigation state only; organizer-update loading, targeting, visibility, and read behavior stay unchanged.
+- Guided RaceBook search filters already-loaded event/format rows in memory; it neither changes update visibility nor records the entered query in `race_event_updates`.
 
 - Do not edit old runner-facing announcements in place; editing would make delivered push content misleading. The organizer UI may delete a row after confirmation, while historical push-delivery logs remain untouched.
 - The mobile event sheet now preloads only a short recent preview from the main catalog query so the sheet can render updates immediately; keep that embedded payload intentionally small.
