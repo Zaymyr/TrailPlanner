@@ -21,7 +21,7 @@ const OUTREACH_JOB = Object.freeze({
 const SCRAPER_WEBHOOK = Object.freeze({
   tokenProperty: 'BETRAIL_SCRAPER_WEBHOOK_TOKEN',
   maxRecordsPerRequest: 100,
-  schemaVersion: 2,
+  schemaVersion: 3,
 });
 
 const GMAIL_RECONCILIATION = Object.freeze({
@@ -1298,6 +1298,7 @@ function upsertScrapedProspects_(records) {
     'outreach_days_to_event', 'outreach_eligible', 'outreach_selected_today',
     'outreach_queue_rank', 'outreach_block_reason', 'last_sent_email_at', 'replied_at',
     'hard_bounced_at', 'excluded', 'opted-out',
+    'official_website', 'facebook_url', 'formats_raw',
   ].forEach(function (header) {
     if (headers[header] === undefined) throw new Error('Colonne Prospects manquante : ' + header);
   });
@@ -1320,6 +1321,9 @@ function upsertScrapedProspects_(records) {
 
       const organizationName = String(record.raceName || record.organizer || '').trim();
       const website = canonicalBetrailUrl_(record.raceUrl);
+      const officialWebsite = String(record.officialWebsite || '').trim().slice(0, 500);
+      const facebookUrl = String(record.facebookUrl || '').trim().slice(0, 500);
+      const formatsRaw = String(record.formatsRaw || '').trim().slice(0, 500);
       const eventDate = parseIsoDate_(record.date);
       const eventWeek = parseEventWeek_(record.eventWeek);
       const eventDateBasis = String(record.eventDateBasis || '').trim().slice(0, 80);
@@ -1331,6 +1335,9 @@ function upsertScrapedProspects_(records) {
         const currentDate = sheet.getRange(existingRow, headers.outreach_event_date + 1);
         const currentWeek = sheet.getRange(existingRow, headers.event_week + 1);
         const currentBasis = sheet.getRange(existingRow, headers.event_date_basis + 1);
+        const currentOfficialWebsite = sheet.getRange(existingRow, headers.official_website + 1);
+        const currentFacebookUrl = sheet.getRange(existingRow, headers.facebook_url + 1);
+        const currentFormatsRaw = sheet.getRange(existingRow, headers.formats_raw + 1);
         if (!currentOrganization.getValue() && organizationName) {
           currentOrganization.setValue(organizationName);
           changed = true;
@@ -1346,6 +1353,18 @@ function upsertScrapedProspects_(records) {
         if (!currentDate.getValue() && !currentWeek.getValue() && eventWeek) {
           currentWeek.setValue(eventWeek);
           if (eventDateBasis) currentBasis.setValue(eventDateBasis);
+          changed = true;
+        }
+        if (!currentOfficialWebsite.getValue() && officialWebsite) {
+          currentOfficialWebsite.setValue(officialWebsite);
+          changed = true;
+        }
+        if (!currentFacebookUrl.getValue() && facebookUrl) {
+          currentFacebookUrl.setValue(facebookUrl);
+          changed = true;
+        }
+        if (!currentFormatsRaw.getValue() && formatsRaw) {
+          currentFormatsRaw.setValue(formatsRaw);
           changed = true;
         }
         if (changed) result.updated += 1;
@@ -1368,6 +1387,9 @@ function upsertScrapedProspects_(records) {
       row[headers.outreach_event_date] = eventDate || '';
       row[headers.excluded] = false;
       row[headers['opted-out']] = false;
+      row[headers.official_website] = officialWebsite;
+      row[headers.facebook_url] = facebookUrl;
+      row[headers.formats_raw] = formatsRaw;
       targetRange.setValues([row]);
       if (eventDate) sheet.getRange(rowNumber, headers.outreach_event_date + 1).setNumberFormat('yyyy-mm-dd');
       setOutreachFormulas_(sheet, rowNumber, headers);

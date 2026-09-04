@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-09-02
+last_verified: 2026-09-03
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -12,14 +12,19 @@ related_files:
   - scripts/google-apps-script/outreach-job/Code.test.mjs
   - scripts/google-apps-script/outreach-job/appsscript.json
   - scripts/google-apps-script/outreach-job/README.md
-related_tables: []
+  - apps/web/app/api/admin/race-catalog/betrail-import/route.ts
+  - apps/web/app/api/admin/race-catalog/betrail-import/route.test.ts
+  - scripts/import-betrail-catalog-drafts.mjs
+related_tables:
+  - race_events
+  - races
 ---
 
 # BeTrail Organizer Email Scraping
 
 ## Purpose
 
-`scripts/scrape-betrail-organizer-emails.mjs` collects organizer email addresses that BeTrail publicly reveals through the race page's organization contact action. It writes a reviewable CSV, can synchronize those records to the outreach Google Sheet, and never inserts data into Supabase or sends email.
+`scripts/scrape-betrail-organizer-emails.mjs` collects organizer email addresses that BeTrail publicly reveals through the race page's organization contact action. It writes a reviewable CSV, can synchronize those records to the outreach Google Sheet, and never inserts data into Supabase or sends email itself. A separate, manually invoked admin route (below) can turn its `official_website`/`formats_raw` output into draft catalog rows.
 
 ## Key Concepts
 
@@ -30,6 +35,8 @@ related_tables: []
 - A persistent state file, `tmp/betrail-organizer-emails-state.json` by default, records every completed race URL. Later runs skip those URLs and continue until they find the requested number of new races.
 - Progress is saved to both the state file and cumulative CSV after every race. Rows whose status starts with `error:` remain eligible for a later retry.
 - Event dates are collected conservatively from Event JSON-LD, explicit date attributes, or one unambiguous complete date visible on the race page. Month-only and conflicting dates stay blank.
+- The scraper also reads the race page's own "en resume" summary table for an official website link and a Facebook page link, matched by their exact row label (`Site web`, `Facebook`) rather than by guessing markup. These are catalog-research leads, not verified organizer-provided data.
+- Each `[itemprop="subEvent"]` microdata block on the page yields a best-effort format entry (`distance`, `elevation` text such as `19km` / `700 D+`). This is raw, unverified text meant only to help a human decide which official race website to investigate next — it must never be published to the race catalog without manual review and independent confirmation.
 - `--retry-missing-dates` revisits only email-bearing records that still lack both an exact date and an event week. It checks the two preceding BeTrail edition URLs and accepts the first unambiguous exact historical date as an approximate ISO week.
 - Outreach planning preserves that source date, derives its ISO week, and rolls a past edition forward to the same event week in the next applicable year. The derived Monday is only an internal planning anchor, not a claimed exact race date.
 - Output stays under the ignored `tmp/` directory by default and must be reviewed before any further use.
@@ -79,7 +86,7 @@ Recover missing periods in batches without collecting the emails again:
 node scripts/scrape-betrail-organizer-emails.mjs --retry-missing-dates --limit 200
 ```
 
-The CSV columns are `race_name`, `date`, `event_week`, `event_date_basis`, `event_week_source_date`, `organizer`, `emails`, `race_url`, and `status`. Multiple addresses in one row are separated with semicolons. If a CSV from the earlier script version exists but no state file does, the script imports its race URLs automatically to initialize the history.
+The CSV columns are `race_name`, `date`, `event_week`, `event_date_basis`, `event_week_source_date`, `organizer`, `emails`, `race_url`, `status`, `official_website`, `facebook_url`, and `formats_raw`. Multiple addresses in one row are separated with semicolons; `formats_raw` joins each detected format as `distance/elevation` (for example `19km/700 D+;10km/370 D+`). If a CSV from the earlier script version exists but no state file does, the script imports its race URLs automatically to initialize the history.
 
 ### Direct Google Sheet synchronization
 
@@ -91,7 +98,13 @@ After deploying the Apps Script project as a Web app:
 2. Store the returned token and `/exec` deployment URL as local environment variables.
 3. Run the scraper normally.
 
-Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. The scraper and web app exchange a schema version; when the configured `/exec` URL still runs an obsolete deployment, synchronization stops immediately with `webhook Apps Script obsolete` instead of falsely marking ignored rows as synchronized. A temporary Apps Script `locked` response is retried up to six times at five-second intervals before the batch is left pending. Existing prospects are matched by normalized email; populated organization, website, date, event week, contact, reply, bounce, exclusion, and opt-out values are never overwritten. A recovered historical week fills `event_week` and records its edition in `event_date_basis`; new prospects receive the same formulas, checkbox validation, and formatting as the existing queue.
+Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. The scraper and web app exchange a schema version (currently `3`); when the configured `/exec` URL still runs an obsolete deployment, synchronization stops immediately with `webhook Apps Script obsolete` instead of falsely marking ignored rows as synchronized. A temporary Apps Script `locked` response is retried up to six times at five-second intervals before the batch is left pending. Existing prospects are matched by normalized email; populated organization, website, date, event week, `official_website`, `facebook_url`, `formats_raw`, contact, reply, bounce, exclusion, and opt-out values are never overwritten. A recovered historical week fills `event_week` and records its edition in `event_date_basis`; new prospects receive the same formulas, checkbox validation, and formatting as the existing queue. `official_website`/`facebook_url`/`formats_raw` columns must exist in `Prospects` before running this client version; the webhook rejects the batch with `Colonne Prospects manquante` otherwise.
+
+## Catalog draft import (admin)
+
+`POST /api/admin/race-catalog/betrail-import` turns already-scraped BeTrail data (race name, date, `official_website`, `formats_raw`) into a draft `race_events` row plus one draft `races` row per format. It never fetches BeTrail itself (Cloudflare blocks server-side requests); the admin caller supplies the fields already collected by the scraper/CSV/Sheet. Every created race is forced to `data_status = "draft"` and `is_live = false`; the database's `races_draft_is_hidden` constraint independently blocks publication even if the route had a bug. Distance/elevation parsed from `formats_raw` populate `distance_km`/`elevation_gain_m` directly since BeTrail is a reputable results aggregator, but the row still starts as an unpublished draft pending admin review and, ideally, cross-checking against the official website before publishing. `action: "preview"` returns the parsed formats and any duplicate event without writing; `action: "import"` writes and skips formats that already exist for that event (matched by `event_id` + `source_url` + `distance_km`) to keep reruns idempotent. `race_events.website_url` stores the official site; `races.source_url` stores the BeTrail race URL for provenance and dedup.
+
+`scripts/import-betrail-catalog-drafts.mjs` is the batch caller: it reads a scraper CSV, keeps only rows with an official website and at least one format, and posts each to the route above with `ADMIN_API_BASE_URL`/`ADMIN_ACCESS_TOKEN` (or `--base-url`/`--token`). `--dry-run` prints the planned requests without calling the API or requiring credentials.
 
 ## Data Handling
 
@@ -153,6 +166,8 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 
 ## Gotchas
 
+- `official_website`, `facebook_url`, and `formats_raw` are synced to the Google Sheet (schema v3) exactly like the other scraped fields (never overwriting an already-populated cell); the admin catalog draft-import route is a separate, manually invoked step and does not run automatically from the scraper or the Sheet.
+- `formats_raw` distance/elevation text comes straight from BeTrail's display strings and is not cross-checked against any other source. Treat it strictly as a research hint for which official race website to open next; the admin import route does persist it as `distance_km`/`elevation_gain_m` on a draft race, but that draft still requires manual review before publication.
 - BeTrail can change its DOM or contact interaction at any time. Rows with `contact_not_found`, `contact_without_email`, or `error: ...` require manual review.
 - The calendar may lazy-load races. The script allows up to twelve scroll rounds without discovering a new race, or stops after reaching `--limit`.
 - A contact action implemented as an internal form may not reveal the organizer's raw address. The script reports `contact_without_email` rather than attempting to defeat that design.

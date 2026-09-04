@@ -34,9 +34,10 @@ The same Apps Script project can receive prospects extracted by the local BeTrai
 1. Deploy the project as a **Web app**, executing as the project owner, with access allowed to anyone holding the URL.
 2. Run `createScraperWebhookToken` once and copy the returned secret.
 3. Store the deployment `/exec` URL and secret locally as `BETRAIL_SHEET_WEBHOOK_URL` and `BETRAIL_SHEET_WEBHOOK_TOKEN`.
-4. Run the scraper normally. Records containing public email addresses are upserted into `Prospects` after each race.
+4. Add `official_website`, `facebook_url`, and `formats_raw` columns to `Prospects` before running the version-3 client; the webhook throws `Colonne Prospects manquante` if any is missing.
+5. Run the scraper normally. Records containing public email addresses are upserted into `Prospects` after each race.
 
-The secret is stored in Apps Script properties, not in the spreadsheet. Generating a new token immediately revokes the previous one. The webhook accepts at most 100 race records per request, deduplicates by normalized email, preserves populated prospect fields, and fills the exact event date only when the scraper found a complete `YYYY-MM-DD` date. It can also fill an empty `event_week` and its historical-edition basis during a missing-date recovery pass. Each request and successful response carry a schema version so an obsolete deployment cannot silently report recovered weeks as synchronized.
+The secret is stored in Apps Script properties, not in the spreadsheet. Generating a new token immediately revokes the previous one. The webhook accepts at most 100 race records per request, deduplicates by normalized email, preserves populated prospect fields, and fills the exact event date only when the scraper found a complete `YYYY-MM-DD` date. It can also fill an empty `event_week` and its historical-edition basis during a missing-date recovery pass. `official_website`, `facebook_url`, and `formats_raw` are filled only when the corresponding Prospects cell is still empty, exactly like the other scraped fields; `formats_raw` stays raw, unverified BeTrail text (`distance/elevation` pairs) meant only to help decide which official race website to investigate for the catalog, never a publishable value. Each request and successful response carry a schema version so an obsolete deployment cannot silently report recovered weeks as synchronized.
 
 ## Event-period planning
 

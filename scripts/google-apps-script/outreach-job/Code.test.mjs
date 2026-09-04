@@ -50,7 +50,7 @@ vm.runInContext(`${source}\n;globalThis.__testApi = {
 const api = context.__testApi;
 
 test('publishes the scraper webhook schema expected by the local client', () => {
-  assert.equal(api.SCRAPER_WEBHOOK.schemaVersion, 2);
+  assert.equal(api.SCRAPER_WEBHOOK.schemaVersion, 3);
 });
 
 test('replaces the Liquid-style organization variable', () => {

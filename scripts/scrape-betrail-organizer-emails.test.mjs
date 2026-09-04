@@ -50,6 +50,51 @@ test("recordsToCsv quotes commas and double quotes", () => {
       emails: ["contact@example.org"],
       raceUrl: "https://www.betrail.run/race/example/2026/10km",
       status: "email_found",
+      officialWebsite: "",
+      facebookUrl: "",
+      formats: [],
+    },
+  ]);
+});
+
+test("recordsToCsv/csvToRecords round-trips the official website, Facebook link, and best-effort formats", () => {
+  const csv = recordsToCsv([
+    {
+      raceName: "Trail exemple",
+      date: "2026-09-01",
+      eventWeek: 36,
+      eventDateBasis: "date exacte",
+      eventWeekSourceDate: "2026-09-01",
+      organizer: "Club local",
+      emails: ["contact@example.org"],
+      raceUrl: "https://www.betrail.run/race/example/2026/10km",
+      status: "email_found",
+      officialWebsite: "https://trail-exemple.fr",
+      facebookUrl: "https://www.facebook.com/trailexemple",
+      formats: [
+        { distance: "19km", elevation: "700 D+" },
+        { distance: "10km", elevation: "370 D+" },
+      ],
+    },
+  ]);
+
+  assert.deepEqual(csvToRecords(csv), [
+    {
+      raceName: "Trail exemple",
+      date: "2026-09-01",
+      eventWeek: 36,
+      eventDateBasis: "date exacte",
+      eventWeekSourceDate: "2026-09-01",
+      organizer: "Club local",
+      emails: ["contact@example.org"],
+      raceUrl: "https://www.betrail.run/race/example/2026/10km",
+      status: "email_found",
+      officialWebsite: "https://trail-exemple.fr",
+      facebookUrl: "https://www.facebook.com/trailexemple",
+      formats: [
+        { distance: "19km", elevation: "700 D+" },
+        { distance: "10km", elevation: "370 D+" },
+      ],
     },
   ]);
 });
@@ -105,8 +150,8 @@ test("chooseEventDate prefers an unambiguous structured date for the race editio
 });
 
 test("rejects a stale Apps Script webhook before records are marked as synced", () => {
-  assert.equal(SHEET_WEBHOOK_SCHEMA_VERSION, 2);
-  assert.doesNotThrow(() => assertSheetWebhookSchema({ schemaVersion: 2 }));
+  assert.equal(SHEET_WEBHOOK_SCHEMA_VERSION, 3);
+  assert.doesNotThrow(() => assertSheetWebhookSchema({ schemaVersion: 3 }));
   assert.throws(
     () => assertSheetWebhookSchema({ ok: true, inserted: 0, updated: 0, skipped: 50 }),
     /webhook Apps Script obsolete/,
@@ -119,7 +164,7 @@ test("retries a temporarily locked Apps Script webhook", async () => {
     {
       ok: true,
       status: 200,
-      text: async () => JSON.stringify({ ok: true, schemaVersion: 2, inserted: 0, updated: 1, skipped: 0 }),
+      text: async () => JSON.stringify({ ok: true, schemaVersion: 3, inserted: 0, updated: 1, skipped: 0 }),
     },
   ];
   const waits = [];
@@ -138,6 +183,6 @@ test("retries a temporarily locked Apps Script webhook", async () => {
 
   assert.equal(result.updated, 1);
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].payload.schemaVersion, 2);
+  assert.equal(requests[0].payload.schemaVersion, 3);
   assert.deepEqual(waits, [5_000]);
 });
