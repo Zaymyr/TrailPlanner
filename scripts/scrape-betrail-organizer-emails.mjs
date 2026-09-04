@@ -16,7 +16,7 @@ const DEFAULT_MANUAL_TIMEOUT_MS = 5 * 60_000;
 const SHEET_SYNC_BATCH_SIZE = 50;
 const SHEET_SYNC_LOCK_RETRY_COUNT = 6;
 const SHEET_SYNC_LOCK_RETRY_DELAY_MS = 5_000;
-export const SHEET_WEBHOOK_SCHEMA_VERSION = 2;
+export const SHEET_WEBHOOK_SCHEMA_VERSION = 3;
 
 export const assertSheetWebhookSchema = (result) => {
   if (Number(result?.schemaVersion) !== SHEET_WEBHOOK_SCHEMA_VERSION) {
@@ -39,10 +39,13 @@ export const extractEmailAddresses = (value) => {
 
 const csvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 
+export const formatsToText = (formats) =>
+  (formats ?? []).map((format) => `${format.distance || "?"}/${format.elevation || "?"}`).join(";");
+
 export const recordsToCsv = (records) => {
   const header = [
     "race_name", "date", "event_week", "event_date_basis", "event_week_source_date",
-    "organizer", "emails", "race_url", "status",
+    "organizer", "emails", "race_url", "status", "official_website", "facebook_url", "formats_raw",
   ];
   const rows = records.map((record) =>
     [
@@ -55,6 +58,9 @@ export const recordsToCsv = (records) => {
       record.emails.join(";"),
       record.raceUrl,
       record.status,
+      record.officialWebsite,
+      record.facebookUrl,
+      formatsToText(record.formats),
     ]
       .map(csvCell)
       .join(","),
@@ -112,6 +118,15 @@ export const csvToRecords = (csv) => {
       emails: extractEmailAddresses(value(values, "emails")),
       raceUrl: canonicalizeRaceUrl(value(values, "race_url")),
       status: value(values, "status"),
+      officialWebsite: value(values, "official_website"),
+      facebookUrl: value(values, "facebook_url"),
+      formats: value(values, "formats_raw")
+        .split(";")
+        .filter(Boolean)
+        .map((entry) => {
+          const [distance, elevation] = entry.split("/");
+          return { distance: distance || "", elevation: elevation || "" };
+        }),
     }))
     .filter((record) => record.raceUrl);
 };
@@ -233,6 +248,9 @@ const upsertRecord = (records, nextRecord) => {
     eventDateBasis: nextRecord.eventDateBasis ?? records[index].eventDateBasis,
     eventWeekSourceDate: nextRecord.eventWeekSourceDate ?? records[index].eventWeekSourceDate,
     dateLookupStatus: nextRecord.dateLookupStatus ?? records[index].dateLookupStatus,
+    officialWebsite: nextRecord.officialWebsite || records[index].officialWebsite,
+    facebookUrl: nextRecord.facebookUrl || records[index].facebookUrl,
+    formats: nextRecord.formats?.length ? nextRecord.formats : records[index].formats,
   };
   return records[index];
 };
@@ -387,6 +405,9 @@ export const syncRecordBatchToSheet = async (records, args, dependencies = {}) =
           date: record.date,
           eventWeek: record.eventWeek,
           eventDateBasis: record.eventDateBasis,
+          officialWebsite: record.officialWebsite,
+          facebookUrl: record.facebookUrl,
+          formatsRaw: formatsToText(record.formats),
         })),
       }),
       redirect: "follow",
@@ -655,6 +676,18 @@ const contactProbeExpression = `(() => {
   );
   const organizationContainer = organizationHeading?.closest('section, article, li, div');
   const organization = organizationContainer?.innerText?.replace(/\\s+/g, ' ').trim().slice(0, 500) || '';
+  const summaryRowLink = (label) => {
+    const row = [...document.querySelectorAll('tr')].find((tr) =>
+      normalize(tr.querySelector('th')?.textContent).trim() === normalize(label)
+    );
+    return row?.querySelector('td a[href]')?.getAttribute('href') || '';
+  };
+  const officialWebsite = summaryRowLink('Site web');
+  const facebookUrl = summaryRowLink('Facebook');
+  const formats = [...document.querySelectorAll('[itemprop="subEvent"]')].map((element) => ({
+    distance: element.querySelector('.race-info-distance')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+    elevation: element.querySelector('.race-info-elevation')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
+  }));
   const structuredDates = [];
   const visitJsonLd = (value) => {
     if (Array.isArray(value)) return value.forEach(visitJsonLd);
@@ -687,6 +720,9 @@ const contactProbeExpression = `(() => {
     raceName: document.querySelector('h1')?.innerText?.trim() || document.title.split('|')[0].trim(),
     date: document.querySelector('time[datetime]')?.getAttribute('datetime') || document.querySelector('time')?.innerText?.trim() || '',
     organization,
+    officialWebsite,
+    facebookUrl,
+    formats,
     dateCandidates: { structured: structuredDates, attributes: attributeDates, visible: visibleDates },
     contactEmails,
     existingMailtos,
@@ -760,6 +796,9 @@ const scrapeRace = async (client, raceUrl, manualTimeoutMs) => {
     emails,
     raceUrl,
     status: emails.length > 0 ? "email_found" : before.contactCount > 0 ? "contact_without_email" : "contact_not_found",
+    officialWebsite: before.officialWebsite || "",
+    facebookUrl: before.facebookUrl || "",
+    formats: before.formats || [],
   };
 };
 
