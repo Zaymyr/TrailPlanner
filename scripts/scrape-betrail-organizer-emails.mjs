@@ -16,7 +16,7 @@ const DEFAULT_MANUAL_TIMEOUT_MS = 5 * 60_000;
 const SHEET_SYNC_BATCH_SIZE = 50;
 const SHEET_SYNC_LOCK_RETRY_COUNT = 6;
 const SHEET_SYNC_LOCK_RETRY_DELAY_MS = 5_000;
-export const SHEET_WEBHOOK_SCHEMA_VERSION = 3;
+export const SHEET_WEBHOOK_SCHEMA_VERSION = 4;
 
 export const assertSheetWebhookSchema = (result) => {
   if (Number(result?.schemaVersion) !== SHEET_WEBHOOK_SCHEMA_VERSION) {
@@ -42,10 +42,19 @@ const csvCell = (value) => `"${String(value ?? "").replace(/"/g, '""')}"`;
 export const formatsToText = (formats) =>
   (formats ?? []).map((format) => `${format.distance || "?"}/${format.elevation || "?"}`).join(";");
 
+export const parseBetrailLocality = (text) => {
+  const raw = String(text ?? "").replace(/\s+/g, " ").trim();
+  if (!raw) return { city: "", country: "" };
+  const match = raw.match(/^(?:\d{3,6}\s+)?([^(]+?)\s*\(([^)]*)\)/);
+  if (!match) return { city: raw, country: "" };
+  return { city: match[1].trim(), country: match[2].split(">")[0].trim() };
+};
+
 export const recordsToCsv = (records) => {
   const header = [
     "race_name", "date", "event_week", "event_date_basis", "event_week_source_date",
     "organizer", "emails", "race_url", "status", "official_website", "facebook_url", "formats_raw",
+    "city", "country",
   ];
   const rows = records.map((record) =>
     [
@@ -61,6 +70,8 @@ export const recordsToCsv = (records) => {
       record.officialWebsite,
       record.facebookUrl,
       formatsToText(record.formats),
+      record.city,
+      record.country,
     ]
       .map(csvCell)
       .join(","),
@@ -127,6 +138,8 @@ export const csvToRecords = (csv) => {
           const [distance, elevation] = entry.split("/");
           return { distance: distance || "", elevation: elevation || "" };
         }),
+      city: value(values, "city"),
+      country: value(values, "country"),
     }))
     .filter((record) => record.raceUrl);
 };
@@ -251,6 +264,8 @@ const upsertRecord = (records, nextRecord) => {
     officialWebsite: nextRecord.officialWebsite || records[index].officialWebsite,
     facebookUrl: nextRecord.facebookUrl || records[index].facebookUrl,
     formats: nextRecord.formats?.length ? nextRecord.formats : records[index].formats,
+    city: nextRecord.city || records[index].city,
+    country: nextRecord.country || records[index].country,
   };
   return records[index];
 };
@@ -274,6 +289,8 @@ const parseArgs = (argv) => {
     sheetWebhookToken: process.env.BETRAIL_SHEET_WEBHOOK_TOKEN || null,
     retryMissingDates: false,
     retryDateFailures: false,
+    retryMissingEnrichment: false,
+    dryRun: false,
   };
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -311,6 +328,16 @@ const parseArgs = (argv) => {
       continue;
     }
 
+    if (arg === "--retry-missing-enrichment") {
+      args.retryMissingEnrichment = true;
+      continue;
+    }
+
+    if (arg === "--dry-run") {
+      args.dryRun = true;
+      continue;
+    }
+
     throw new Error(`Option inconnue : ${arg}`);
   }
 
@@ -344,6 +371,8 @@ Options:
       --sheet-webhook-token <t>  Jeton genere par createScraperWebhookToken.
       --retry-missing-dates      Revisiter seulement les contacts sans date ni semaine.
       --retry-date-failures      Retenter les recherches de date deja infructueuses.
+      --retry-missing-enrichment Revisiter les courses deja traitees sans site officiel/formats/localite.
+      --dry-run                  Afficher les statistiques de l'historique sans ouvrir Chrome ni rien modifier.
   -h, --help                     Afficher cette aide.
 
 Le script reprend automatiquement apres les courses deja presentes dans son historique.
@@ -408,6 +437,8 @@ export const syncRecordBatchToSheet = async (records, args, dependencies = {}) =
           officialWebsite: record.officialWebsite,
           facebookUrl: record.facebookUrl,
           formatsRaw: formatsToText(record.formats),
+          city: record.city,
+          country: record.country,
         })),
       }),
       redirect: "follow",
@@ -682,8 +713,15 @@ const contactProbeExpression = `(() => {
     );
     return row?.querySelector('td a[href]')?.getAttribute('href') || '';
   };
+  const summaryRowText = (label) => {
+    const row = [...document.querySelectorAll('tr')].find((tr) =>
+      normalize(tr.querySelector('th')?.textContent).trim() === normalize(label)
+    );
+    return row?.querySelector('td')?.textContent?.replace(/\\s+/g, ' ').trim() || '';
+  };
   const officialWebsite = summaryRowLink('Site web');
   const facebookUrl = summaryRowLink('Facebook');
+  const localityText = summaryRowText('Localité');
   const formats = [...document.querySelectorAll('[itemprop="subEvent"]')].map((element) => ({
     distance: element.querySelector('.race-info-distance')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
     elevation: element.querySelector('.race-info-elevation')?.textContent?.replace(/\\s+/g, ' ').trim() || '',
@@ -722,6 +760,7 @@ const contactProbeExpression = `(() => {
     organization,
     officialWebsite,
     facebookUrl,
+    localityText,
     formats,
     dateCandidates: { structured: structuredDates, attributes: attributeDates, visible: visibleDates },
     contactEmails,
@@ -786,6 +825,7 @@ const scrapeRace = async (client, raceUrl, manualTimeoutMs) => {
   const emails = extractEmailAddresses([...preferred, ...fallback].join(" "));
 
   const date = chooseEventDate(before.dateCandidates, raceUrl);
+  const locality = parseBetrailLocality(before.localityText);
   return {
     raceName: before.raceName,
     date,
@@ -799,6 +839,8 @@ const scrapeRace = async (client, raceUrl, manualTimeoutMs) => {
     officialWebsite: before.officialWebsite || "",
     facebookUrl: before.facebookUrl || "",
     formats: before.formats || [],
+    city: locality.city,
+    country: locality.country,
   };
 };
 
@@ -842,17 +884,16 @@ const recoverMissingEventPeriod = async (client, record, manualTimeoutMs) => {
 
 const main = async () => {
   const args = parseArgs(process.argv.slice(2));
-  const chromePath = findChrome(args.chromePath);
-  const port = await reservePort();
-  const profilePath = path.resolve(process.cwd(), "tmp", "betrail-chrome-profile");
   const outputPath = path.resolve(process.cwd(), args.output);
   const statePath = path.resolve(process.cwd(), args.state);
   const records = await loadPreviousRecords(statePath, outputPath);
   const completedUrls = new Set(
     records.filter(isCompletedRecord).map((record) => canonicalizeRaceUrl(record.raceUrl)).filter(Boolean),
   );
-  await syncPendingRecordsToSheet(records, args);
-  await persistRecords(records, statePath, outputPath);
+  if (!args.dryRun) {
+    await syncPendingRecordsToSheet(records, args);
+    await persistRecords(records, statePath, outputPath);
+  }
   console.error(`Historique charge : ${completedUrls.size} course(s) deja traitee(s).`);
 
   const dateRetryRecords = args.retryMissingDates
@@ -864,17 +905,54 @@ const main = async () => {
     }).slice(0, args.limit)
     : [];
 
+  const enrichmentRetryRecords = args.retryMissingEnrichment
+    ? records.filter((record) => record.emails?.length > 0 && !record.officialWebsite).slice(0, args.limit)
+    : [];
+
+  if (args.dryRun) {
+    if (args.retryMissingEnrichment) {
+      const remaining = records.filter((record) => record.emails?.length > 0 && !record.officialWebsite).length;
+      console.error(`[dry-run] ${enrichmentRetryRecords.length} course(s) seraient revisitee(s) sur cette execution (--limit ${args.limit}).`);
+      console.error(`[dry-run] Total restant sans site officiel/formats/localite dans l'historique : ${remaining}.`);
+      enrichmentRetryRecords.slice(0, 10).forEach((record) => console.error(`  - ${record.raceName || record.raceUrl}`));
+    } else if (args.retryMissingDates) {
+      const remaining = records.filter((record) => {
+        const hasWeek = Number.isInteger(Number(record.eventWeek)) && Number(record.eventWeek) >= 1 && Number(record.eventWeek) <= 53;
+        return record.emails?.length > 0 && !record.date && !hasWeek;
+      }).length;
+      console.error(`[dry-run] ${dateRetryRecords.length} course(s) seraient revisitee(s) sur cette execution (--limit ${args.limit}).`);
+      console.error(`[dry-run] Total restant sans date ni semaine dans l'historique : ${remaining}.`);
+      dateRetryRecords.slice(0, 10).forEach((record) => console.error(`  - ${record.raceName || record.raceUrl}`));
+    } else {
+      console.error(
+        "[dry-run] La decouverte de nouvelles courses necessite Chrome pour parcourir le calendrier. Combinez --dry-run avec --retry-missing-enrichment ou --retry-missing-dates pour analyser l'historique existant sans ouvrir de navigateur.",
+      );
+    }
+    console.error(`Historique total : ${records.length} enregistrement(s), dont ${completedUrls.size} deja traite(s).`);
+    return;
+  }
+
   if (args.retryMissingDates && dateRetryRecords.length === 0) {
     console.error("Aucune course sans date ni semaine ne reste a revisiter.");
     return;
   }
+  const chromePath = findChrome(args.chromePath);
+  const port = await reservePort();
+  const profilePath = path.resolve(process.cwd(), "tmp", "betrail-chrome-profile");
   await mkdir(profilePath, { recursive: true });
+
+  if (args.retryMissingEnrichment && enrichmentRetryRecords.length === 0) {
+    console.error("Aucune course avec e-mail ne reste a enrichir (site officiel/formats/localite).");
+    return;
+  }
 
   console.error("Ouverture de Chrome pour BeTrail...");
   const firstRetryYear = dateRetryRecords[0]?.raceUrl.match(/\/(20\d{2})(?:\/|$)/)?.[1];
   const initialUrl = args.retryMissingDates && firstRetryYear
     ? raceEditionUrlForYear(dateRetryRecords[0].raceUrl, Number(firstRetryYear) - 1)
-    : args.calendarUrl;
+    : args.retryMissingEnrichment && enrichmentRetryRecords[0]
+      ? enrichmentRetryRecords[0].raceUrl
+      : args.calendarUrl;
   const chrome = spawn(
     chromePath,
     [
@@ -932,6 +1010,45 @@ const main = async () => {
 
       console.error(
         `Termine : ${recoveredCount}/${dateRetryRecords.length} periode(s) retrouvee(s). Relancez la meme commande pour le lot suivant.`,
+      );
+      console.error(`CSV : ${outputPath}`);
+      console.error(`Historique anti-doublon : ${statePath}`);
+      return;
+    }
+
+    if (args.retryMissingEnrichment) {
+      await waitForBetrailPage(client, args.manualTimeoutMs);
+      let enrichedCount = 0;
+      for (const [index, record] of enrichmentRetryRecords.entries()) {
+        console.error(`[${index + 1}/${enrichmentRetryRecords.length}] ${record.raceName || record.raceUrl}`);
+        const scraped = await scrapeRace(client, record.raceUrl, args.manualTimeoutMs);
+        const savedRecord = upsertRecord(records, scraped);
+        if (savedRecord.officialWebsite) {
+          enrichedCount += 1;
+          savedRecord.sheetSyncStatus = undefined;
+          console.error(`  Site officiel trouve : ${savedRecord.officialWebsite}`);
+          if (args.sheetWebhookUrl) {
+            try {
+              const result = await syncRecordBatchToSheet([savedRecord], args);
+              savedRecord.sheetSyncStatus = "synced";
+              console.error(
+                `Google Sheets : ${result.inserted} ajoute(s), ${result.updated} mis a jour, ${result.skipped} ignore(s).`,
+              );
+            } catch (error) {
+              const message = error instanceof Error ? error.message : String(error);
+              savedRecord.sheetSyncStatus = `error: ${message}`;
+              console.error(`Synchronisation Google Sheets impossible : ${message}`);
+            }
+          }
+        } else {
+          console.error("  Aucun site officiel trouve sur cette page.");
+        }
+        await persistRecords(records, statePath, outputPath);
+        if (index < enrichmentRetryRecords.length - 1) await sleep(args.delayMs);
+      }
+
+      console.error(
+        `Termine : ${enrichedCount}/${enrichmentRetryRecords.length} course(s) enrichie(s). Relancez la meme commande pour le lot suivant.`,
       );
       console.error(`CSV : ${outputPath}`);
       console.error(`Historique anti-doublon : ${statePath}`);

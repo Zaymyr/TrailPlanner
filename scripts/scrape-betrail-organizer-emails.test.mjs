@@ -8,6 +8,7 @@ import {
   eventWeekFromIsoDate,
   extractEmailAddresses,
   normalizeExactEventDate,
+  parseBetrailLocality,
   raceEditionUrlForYear,
   recordsToCsv,
   assertSheetWebhookSchema,
@@ -20,6 +21,18 @@ test("extractEmailAddresses normalizes and deduplicates public addresses", () =>
     extractEmailAddresses("Contact: Course@Example.org, course@example.org; aide [at] club [dot] fr"),
     ["course@example.org", "aide@club.fr"],
   );
+});
+
+test("parseBetrailLocality splits the BeTrail summary postal code / city / country string", () => {
+  assert.deepEqual(
+    parseBetrailLocality("82200 Boudou ( France > Occitanie > Tarn-Et-Garonne )"),
+    { city: "Boudou", country: "France" },
+  );
+  assert.deepEqual(parseBetrailLocality(""), { city: "", country: "" });
+  assert.deepEqual(parseBetrailLocality("Some city without parentheses"), {
+    city: "Some city without parentheses",
+    country: "",
+  });
 });
 
 test("recordsToCsv quotes commas and double quotes", () => {
@@ -53,6 +66,8 @@ test("recordsToCsv quotes commas and double quotes", () => {
       officialWebsite: "",
       facebookUrl: "",
       formats: [],
+      city: "",
+      country: "",
     },
   ]);
 });
@@ -75,6 +90,8 @@ test("recordsToCsv/csvToRecords round-trips the official website, Facebook link,
         { distance: "19km", elevation: "700 D+" },
         { distance: "10km", elevation: "370 D+" },
       ],
+      city: "Boudou",
+      country: "France",
     },
   ]);
 
@@ -95,6 +112,8 @@ test("recordsToCsv/csvToRecords round-trips the official website, Facebook link,
         { distance: "19km", elevation: "700 D+" },
         { distance: "10km", elevation: "370 D+" },
       ],
+      city: "Boudou",
+      country: "France",
     },
   ]);
 });
@@ -150,8 +169,8 @@ test("chooseEventDate prefers an unambiguous structured date for the race editio
 });
 
 test("rejects a stale Apps Script webhook before records are marked as synced", () => {
-  assert.equal(SHEET_WEBHOOK_SCHEMA_VERSION, 3);
-  assert.doesNotThrow(() => assertSheetWebhookSchema({ schemaVersion: 3 }));
+  assert.equal(SHEET_WEBHOOK_SCHEMA_VERSION, 4);
+  assert.doesNotThrow(() => assertSheetWebhookSchema({ schemaVersion: 4 }));
   assert.throws(
     () => assertSheetWebhookSchema({ ok: true, inserted: 0, updated: 0, skipped: 50 }),
     /webhook Apps Script obsolete/,
@@ -164,7 +183,7 @@ test("retries a temporarily locked Apps Script webhook", async () => {
     {
       ok: true,
       status: 200,
-      text: async () => JSON.stringify({ ok: true, schemaVersion: 3, inserted: 0, updated: 1, skipped: 0 }),
+      text: async () => JSON.stringify({ ok: true, schemaVersion: 4, inserted: 0, updated: 1, skipped: 0 }),
     },
   ];
   const waits = [];
@@ -183,6 +202,6 @@ test("retries a temporarily locked Apps Script webhook", async () => {
 
   assert.equal(result.updated, 1);
   assert.equal(requests.length, 2);
-  assert.equal(requests[0].payload.schemaVersion, 3);
+  assert.equal(requests[0].payload.schemaVersion, 4);
   assert.deepEqual(waits, [5_000]);
 });
