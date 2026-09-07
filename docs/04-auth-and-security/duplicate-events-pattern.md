@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-09-03
+last_verified: 2026-09-06
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -66,6 +66,7 @@ This is the last line of defense if the browser guard fails.
 Mobile listens to `supabase.auth.onAuthStateChange` in `apps/mobile/app/_layout.tsx` and other auth screens. The audited code tracks `SIGNED_IN` and sign-out analytics; no direct `USER_UPDATED` handling was found in the same onboarding-save pattern.
 
 The layout also runs session side effects such as push registration and Resend contact sync behind in-flight refs and persistent client markers. These are not onboarding plan saves, but they follow the same idempotency principle because Supabase sessions can refresh or be observed more than once.
+Repeated PostHog identification is also safe: it refreshes the same person's properties and marks owner/admin identities as internal without creating a second application record.
 Presentation-only route configuration in the layout, such as hiding the bottom tab bar for required onboarding, is not part of this duplicate-event guard pattern.
 Likewise, routing returning sessions to the Courses catalog without a Plans preload does not alter the session-event guards.
 

@@ -4,6 +4,7 @@ import {
   buildSanitizedAnalyticsPath,
   buildWebAcquisitionProperties,
   getWebPageGroup,
+  isInternalAnalyticsUser,
 } from "./posthog-config";
 
 describe("PostHog web analytics helpers", () => {
@@ -34,5 +35,12 @@ describe("PostHog web analytics helpers", () => {
     expect(buildWebAcquisitionProperties(null, "https://www.google.fr/search?q=trail", "https://paceyourself.app").traffic_channel).toBe("organic_search");
     expect(getWebPageGroup("/organizer/events/123")).toBe("organizer_dashboard");
     expect(getWebPageGroup("/onboarding/profile")).toBe("onboarding");
+  });
+
+  it("classifies the owner email and every trusted admin role as internal", () => {
+    expect(isInternalAnalyticsUser({ email: " FaustinBertrand1990@GMAIL.com " })).toBe(true);
+    expect(isInternalAnalyticsUser({ email: "runner@example.com", role: "admin" })).toBe(true);
+    expect(isInternalAnalyticsUser({ email: "runner@example.com", roles: ["organizer", "admin"] })).toBe(true);
+    expect(isInternalAnalyticsUser({ email: "runner@example.com", roles: ["user"] })).toBe(false);
   });
 });

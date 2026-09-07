@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-03
+last_verified: 2026-09-06
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -81,6 +81,8 @@ Sensitive query parameters are removed from analytics paths:
 - `token`
 
 The browser client enables PostHog autocapture and page-leave capture after analytics consent. Manual `$pageview` events add a stable `page_group`, the path without dynamic query data, and acquisition properties. A consented browser session also emits `web session started` once with its landing area and attribution. Attribution distinguishes campaign, organic search, social, referral, and direct traffic; only the referring domain is retained.
+
+Identified Web and mobile users are marked with PostHog's `$internal_or_test_user` person property when their normalized email is `faustinbertrand1990@gmail.com` or their trusted Supabase `app_metadata.role` / `app_metadata.roles` contains `admin`. The PostHog project must keep its internal/test-user exclusion enabled (or exclude the matching cohort) on product dashboards. Because this is a person property, the filter also applies to earlier events already attached to the same identified PostHog person after that person identifies again.
 
 ## Web Consent
 
@@ -189,7 +191,7 @@ The affiliate admin tab calls `get_admin_affiliate_metrics` for a bounded Europe
 
 ## PostHog KPI Dashboards
 
-The pinned `Pace Yourself — Vue produit (Web + App)` dashboard contains the weekly value North Star, DAU/WAU/MAU, DAU/MAU stickiness, daily D1–D30 retention, onboarding-to-first-plan activation, plan usage, acquisition, and RaceBook outcomes. The dedicated onboarding and RaceBook dashboards retain their deeper diagnostic views.
+The pinned `Pace Yourself — Vue produit (Web + App)` dashboard contains the weekly value North Star, DAU/WAU/MAU, DAU/MAU stickiness, daily D1–D30 retention, onboarding-to-first-plan activation, plan usage, acquisition, and RaceBook outcomes. All 27 standard insights enable PostHog's internal/test-account filter. The custom same-RaceBook recurrence HogQL insight applies the equivalent current-person `$internal_or_test_user` exclusion explicitly. The dedicated onboarding and RaceBook dashboards retain their deeper diagnostic views.
 
 Three ordered 90-day funnels complete the P1 scorecard: verified Premium (`pDeN3ulx`), plan creation through crew-link sharing (`SVhGjmv1`), and organizer offer through active entitlement (`WGkPaanv`). A weekly engagement trend (`etCvzzZk`) compares plan exports, crew-link opens and updates, race favorites, and push opens. Newly instrumented Web, mobile, and organizer events show data only after deployment; saved insights may exist before their first event arrives.
 
@@ -201,6 +203,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 
 - Never paste real PostHog keys into docs.
 - Do not include sensitive URL tokens in analytics paths.
+- Keep the PostHog internal/test-user exclusion enabled. The app marks the owner email and trusted Supabase admins; it does not delete their raw events.
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
 - PostHog covers only consented Web traffic. Do not compare its visitor totals directly with all Supabase accounts as if both sources had equal coverage.
 - Do not present the 30-day run rate as a predictive model; short ranges such as today can be volatile.

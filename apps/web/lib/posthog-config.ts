@@ -1,4 +1,5 @@
 const DEFAULT_POSTHOG_HOST = "https://us.i.posthog.com";
+const INTERNAL_ANALYTICS_EMAILS = new Set(["faustinbertrand1990@gmail.com"]);
 
 const SENSITIVE_QUERY_PARAM_NAMES = new Set([
   "access_token",
@@ -27,6 +28,19 @@ export const POSTHOG_KEY =
   "";
 
 export const POSTHOG_HOST = process.env.NEXT_PUBLIC_POSTHOG_HOST?.trim() || DEFAULT_POSTHOG_HOST;
+
+export function isInternalAnalyticsUser(input: {
+  email?: string;
+  role?: string;
+  roles?: string[];
+}) {
+  const email = input.email?.trim().toLowerCase();
+  const roles = [input.role, ...(input.roles ?? [])]
+    .filter((role): role is string => typeof role === "string")
+    .map((role) => role.trim().toLowerCase());
+
+  return Boolean(email && INTERNAL_ANALYTICS_EMAILS.has(email)) || roles.includes("admin");
+}
 
 export function isSensitiveAnalyticsQueryParam(name: string) {
   return SENSITIVE_QUERY_PARAM_NAMES.has(name.toLowerCase());

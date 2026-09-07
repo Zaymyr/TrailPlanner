@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-03
+last_verified: 2026-09-06
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -76,6 +76,7 @@ The organizer acquisition flow may send `next=/organizers` through password sign
 - initializes trial status;
 - handles guest merge/conversion flows;
 - identifies analytics users when applicable;
+- marks the owner email and trusted `app_metadata` admins as PostHog internal/test users;
 - registers push tokens after session is active;
 - syncs identified, non-anonymous users to Resend through the web API bridge.
 
@@ -118,6 +119,7 @@ Do not use `user_metadata` for new authorization decisions.
 - Do not key the mobile onboarding gate off a single nullable profile field. Returning users can have partial profiles, and reopening onboarding with empty local state risks resaving nulls over durable defaults.
 - A skip action must persist the relevant per-tour status before navigation. AsyncStorage is only a resume cursor, never the durable completion source.
 - Do not render Google sign-in on iOS builds; App Review devices should only see the Apple social login path.
+- Analytics classification may read admin roles only from trusted `app_metadata.role` / `app_metadata.roles`, never `user_metadata`.
 - For Apple ID-token auth, send Apple the hashed nonce challenge and Supabase the raw nonce. The Apple authorization code is not a provider access token for Supabase `signInWithIdToken`.
 - Anonymous Apple identity linking can return existing-account wording when the Apple ID was used in an earlier review attempt; keep that path recoverable through direct Apple ID-token sign-in plus the pending guest-merge flow.
 

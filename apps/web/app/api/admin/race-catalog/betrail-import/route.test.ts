@@ -15,7 +15,15 @@ vi.mock("../../../../../lib/supabase", () => ({
   isAdminUser: vi.fn(() => true),
 }));
 
-import { parseDistanceKm, parseElevationM, POST } from "./route";
+import { parseDistanceKm, parseElevationM } from "./format-parsers";
+import { POST } from "./route";
+
+const researchRequest = () => {
+  const fields = {race_date:"2099-06-20", location:"Saint-Aubin-sur-Gaillon",distance_km:"12",start_time:"09:00",aid_stations:'[{"name":"Marnoz","distanceKm":6}]'};
+  const provenance = Object.fromEntries(Object.entries(fields).map(([field,value])=>[field,{value,evidence:`Source ${value}`,source_url:"https://trail-exemple.fr/course",method:"llm",status:"verified",edition_year:"2099"}]));
+  return {importKind:"catalog_research_v2",raceUrl:"https://www.betrail.run/race/example/2025",raceName:"Trail Exemple",date:"2099-06-20",officialWebsite:"https://trail-exemple.fr",locationText:fields.location,
+    formats:[{distance:"12km",elevation:"",name:"Le parcours long",research:{schemaVersion:"2",formatKey:"format-test",fields,provenance,candidates:{city:"Vernon",elevation_gain_m:"477"},route:{url:"",status:"not_processed",sha256:""}}}],action:"import"};
+};
 
 const requestFor = (body: Record<string, unknown>) =>
   new NextRequest("http://localhost/api/admin/race-catalog/betrail-import", {
@@ -41,6 +49,40 @@ describe("parseDistanceKm / parseElevationM", () => {
 describe("BeTrail catalog draft import route", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("rejects research with missing or mismatching evidence before any database write", async () => {
+    const spy = vi.spyOn(globalThis,"fetch");
+    const body=researchRequest(); body.formats[0].research.provenance.location.value="Vernon";
+    expect((await POST(requestFor(body))).status).toBe(400);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("rejects research referring to another edition or source authority", async () => {
+    const body=researchRequest(); body.formats[0].research.provenance.race_date.edition_year="2025";
+    expect((await POST(requestFor(body))).status).toBe(400);
+    body.formats[0].research.provenance.race_date.edition_year="2099";
+    body.formats[0].research.provenance.location.source_url="https://sponsor.test/";
+    expect((await POST(requestFor(body))).status).toBe(400);
+  });
+
+  it("preserves verified location, schedule, stations and provenance in a hidden draft", async () => {
+    const spy=vi.spyOn(globalThis,"fetch").mockImplementation(async(input,init)=>{
+      if (init?.method !== "POST") return new Response("[]",{status:200});
+      const body=JSON.parse(String(init.body));
+      if (String(input).includes("/race_events")) return new Response(JSON.stringify([{...body,id:"22222222-2222-2222-2222-222222222222"}]),{status:201});
+      return new Response(JSON.stringify([body]),{status:201});
+    });
+    expect((await POST(requestFor(researchRequest()))).status).toBe(200);
+    const [,init]=spy.mock.calls.find(([url,init])=>String(url).endsWith("/rest/v1/races") && init?.method==="POST")!;
+    const inserted=JSON.parse(String(init?.body));
+    expect(inserted.location_text).toBe("Saint-Aubin-sur-Gaillon");
+    expect(inserted.organizer_details.schedule.startTime).toBe("09:00");
+    expect(inserted.organizer_details.catalogResearch.fields.aid_stations).toContain('"distanceKm":6');
+    expect(inserted.organizer_details.catalogResearch.candidates.elevation_gain_m).toBe("477");
+    expect(inserted.missing_required_fields).toContain("elevation_gain_m");
+    expect(inserted.data_status).toBe("draft"); expect(inserted.is_live).toBe(false);
+    expect(spy.mock.calls.some(([url])=>String(url).includes("race_date=eq.2099-06-20"))).toBe(true);
   });
 
   it("rejects a non-betrail.run raceUrl", async () => {
