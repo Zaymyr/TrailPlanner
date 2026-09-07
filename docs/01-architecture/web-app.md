@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-03
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - apps/web/package.json
@@ -333,7 +333,7 @@ For trusted admins, the organizer header also exposes `Importer les informations
 
 The Organizer edition header reads `race_event_editions.is_visible`, exposes one edition-wide visibility switch, and places a compact delete cross directly beside the year selector. `PATCH /api/organizer/editions/[id]` hides or restores complete course rows after active membership validation; hiding always forces attached Racebooks off. `DELETE` requires the client confirmation dialog to match the selected year, invokes the atomic service-only deletion RPC, cleans up format GPX/images, and returns the remaining year the dashboard should select.
 
-The publication dialog captures the selected event id, canonical edition id, year, and effective tier when it opens, displays the event/year context, and reuses that stable snapshot for checkout. It uses a wide, generously spaced layout for the commercial cards. After those cards, a verified admin may use the same snapshot to grant the partner edition either RaceBook or RaceBook Pro through two explicit actions without Stripe; ordinary organizers never receive that section. Dated legacy/imported formats missing `edition_id` are repaired by the canonical-edition backfill rather than billed or granted from a year-only browser guess.
+The publication dialog captures the selected event id, canonical edition id, year, and effective tier when it opens, displays the event/year context, and reuses that stable snapshot for checkout. It explicitly overrides the shared dialog's narrow default width, keeps its header fixed, bounds itself to the viewport, and gives the commercial cards and optional admin partner actions one internal scroll region; the two offers stay side by side on desktop and stack on smaller screens. After those cards, a verified admin may use the same snapshot to grant the partner edition either RaceBook or RaceBook Pro through two explicit actions without Stripe; ordinary organizers never receive that section. Dated legacy/imported formats missing `edition_id` are repaired by the canonical-edition backfill rather than billed or granted from a year-only browser guess.
 
 The post-analysis recap uses a viewport-bounded flex dialog: its header and validation actions stay fixed while the center review panel owns vertical scrolling. The flex display is explicitly prioritized because the shared `cn` helper concatenates utility classes and does not resolve a route-level `flex` against the dialog primitive's default `grid` class.
 

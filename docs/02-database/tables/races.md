@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-02
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -14,6 +14,7 @@ related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
+  - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -104,6 +105,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - Relay legs are derived from start, ordered relay points, and finish; they are not separate race rows.
 - A slug change atomically reserves the old value in `race_slug_redirects`; inserts and updates cannot reuse a reserved former slug.
 - Final-roadbook data corrections may update confirmed dates and organizer JSON without replacing more precise existing metrics when the source only gives rounded format labels. The Les Amaz’Eaunes 2026 migration therefore preserves stored distance and elevation values and does not create unspecified ravito rows.
+- Source-backed event integrations may mix complete and incomplete formats. La Tou’Run 2026 keeps its 6 km walk hidden as a draft with the D+ sentinel listed in `missing_required_fields`, while publishing the four formats whose date, distance, and D+ are all confirmed; its unsituated La Bastidonne ravitailment remains descriptive text rather than an invented station row.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
 - Public SEO detail reads revalidate `is_live = true` and `is_public = true` with service credentials before reading `organizer_details`, ravitos, or private `gpx_storage_path`. An attached event and edition must also remain visible. Only an explicit sanitized DTO crosses into rendering; emergency/last-minute organizer fields and raw JSON do not.
 
