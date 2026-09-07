@@ -111,6 +111,14 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Offre ${activeOfferName} offerte");
   });
 
+  it("keeps the pricing dialog wide and viewport-bounded", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
+
+    expect(dashboardSource).toContain("!max-w-5xl");
+    expect(dashboardSource).toContain("max-h-[calc(100dvh-2rem)]");
+    expect(dashboardSource).toContain("min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain");
+  });
+
   it("keeps the emergency contact labels readable in event information", () => {
     const source = readFileSync(
       resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx"),

@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-03
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -31,6 +31,7 @@ related_files:
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
+  - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -274,6 +275,8 @@ The migration adds no table or client-facing policy. App routes must authenticat
 ### Final Organizer Roadbook Data
 
 `supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql` is an idempotent data-only synchronization for the final Les Amaz’Eaunes 2026 roadbook. It moves the canonical edition and all five format dates to 13 September 2026, preserves existing distances and elevation values that the roadbook does not refine, and updates confirmed start times, warm-ups, bib pickup, access, parking, road restrictions, equipment, safety, and service details. It does not invent course geometry or ravito locations, and changes no table, grant, function, trigger, or RLS policy.
+
+`supabase/migrations/20260907111600_integrate_la_tourun_2026.sql` is an idempotent data-only integration for the existing La Tou’Run event and its canonical 2026 edition. It adds the three timed trail formats and two solidarity walks from the KMS event page and official regulation, plus sourced event logistics, start times, registration links, bib pickup, access, safety, and service details. Four formats are complete and course-visible. The 6 km walk remains a hidden draft with `elevation_gain_m` explicitly missing because neither source publishes its elevation gain. No GPX geometry or precisely positioned ravito is invented, every Racebook remains unpublished, and the migration changes no schema, grant, function, trigger, or RLS policy.
 
 ### Public Course Slug Redirects
 

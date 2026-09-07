@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-03
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -17,6 +17,7 @@ related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
+  - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/app/api/race-catalog/route.ts
@@ -164,6 +165,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer event writes remain edition-aware for selecting child rows, but no date-based cutoff blocks event or format maintenance.
 - The canonical event start/end range is stored in `race_event_editions`. The current edition is mirrored into `race_date` and `organizer_details.dateRange.endDate` for compatibility with catalog/mobile queries.
 - The Les Amaz’Eaunes 2026 final-roadbook migration keeps that mirror aligned to the single race day, 13 September 2026, and updates only organizer details explicitly supported by the supplied roadbook; absent GPX, D+, and ravito-location facts remain untouched.
+- The La Tou’Run 2026 integration enriches the existing event in place from its KMS page and official regulation, attaches all five announced formats to the existing edition, and preserves unknown geometry, GPX, exact ravito distance, and the 6 km walk D+ as explicit gaps instead of inferred values.
 - Event organizer details are common defaults. Bib pickup stores `bibPickup.locations[]`, each containing one canonical/geocoded address and `slots[]` with date, start time, and end time; the legacy `location`, `locationDetails`, and free-text `schedule` fields remain compatibility fallbacks. Bib pickup, equipment, and access are inherited until a format enables the corresponding complete override in `races.organizer_details`.
 - Event equipment is inherited unless race JSON explicitly sets `mandatoryEquipment.overrideEnabled = true`. An explicit `false` wins over stale race items; only historical JSON where the flag is absent may infer an override from those differences.
 - Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; ordinary access requires live course state and `racebook_is_live = true`, while an active event membership may bypass publication flags for preview. Actual non-ravito organizer content remains mandatory. An emergency phone satisfies that content gate and opens through `tel:`; the official website, Instagram, Facebook, and emergency contact are exposed only as conditional actions inside the identity card. Social links alone do not unlock an otherwise empty Racebook.

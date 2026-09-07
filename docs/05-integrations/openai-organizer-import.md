@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-09-03
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
