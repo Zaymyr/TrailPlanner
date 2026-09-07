@@ -66,6 +66,7 @@ import {
   buildMobileAcquisitionProperties,
   captureAnalyticsEvent,
   identifyAnalyticsUser,
+  isInternalAnalyticsUser,
   posthog,
   resetAnalytics,
   trackAnalyticsScreen,
@@ -555,15 +556,30 @@ function RootLayoutContent() {
     }
 
     if (session && !isAnonymousSession(session)) {
+      const analyticsIdentity = {
+        email: session.user.email,
+        role:
+          typeof session.user.app_metadata?.role === 'string'
+            ? session.user.app_metadata.role
+            : undefined,
+        roles: Array.isArray(session.user.app_metadata?.roles)
+          ? session.user.app_metadata.roles.filter(
+              (role): role is string => typeof role === 'string',
+            )
+          : undefined,
+      };
       const authProvider =
         typeof session.user.app_metadata?.provider === 'string'
           ? session.user.app_metadata.provider
           : undefined;
 
       identifyAnalyticsUser(session.user.id, {
-        email: session.user.email,
+        ...analyticsIdentity,
         locale,
         provider: authProvider,
+        ...(isInternalAnalyticsUser(analyticsIdentity)
+          ? { $internal_or_test_user: true }
+          : {}),
       });
       identifiedAnalyticsUserIdRef.current = session.user.id;
       return;

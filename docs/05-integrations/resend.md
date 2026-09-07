@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-09-03
+last_verified: 2026-09-06
 ai_priority: medium
 related_files:
   - package.json
@@ -62,6 +62,7 @@ The per-user contact route:
 
 `apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding. Keep those route presentation changes independent from the Resend sync trigger.
 Its normal post-auth destination is the Courses catalog; changing that destination must not move or delay the identified-user contact sync.
+The same layout marks owner/admin PostHog identities as internal, but that analytics classification remains independent from Resend contact eligibility and subscription state.
 
 The admin bulk sync route:
 

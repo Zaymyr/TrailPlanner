@@ -5,6 +5,7 @@ const POSTHOG_KEY =
   process.env.EXPO_PUBLIC_POSTHOG_TOKEN?.trim() ||
   '';
 const POSTHOG_HOST = process.env.EXPO_PUBLIC_POSTHOG_HOST?.trim() ?? 'https://us.i.posthog.com';
+const INTERNAL_ANALYTICS_EMAILS = new Set(['faustinbertrand1990@gmail.com']);
 
 type AnalyticsValue =
   | string
@@ -34,6 +35,19 @@ function removeUndefinedProperties(properties?: AnalyticsPropertiesInput) {
 }
 
 export const isPostHogEnabled = POSTHOG_KEY.length > 0;
+
+export function isInternalAnalyticsUser(input: {
+  email?: string;
+  role?: string;
+  roles?: string[];
+}) {
+  const email = input.email?.trim().toLowerCase();
+  const roles = [input.role, ...(input.roles ?? [])]
+    .filter((role): role is string => typeof role === 'string')
+    .map((role) => role.trim().toLowerCase());
+
+  return Boolean(email && INTERNAL_ANALYTICS_EMAILS.has(email)) || roles.includes('admin');
+}
 
 export const posthog = new PostHog(POSTHOG_KEY || 'posthog_disabled', {
   host: POSTHOG_HOST,

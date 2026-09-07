@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-09-03
+last_verified: 2026-09-06
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -14,7 +14,22 @@ related_files:
   - scripts/google-apps-script/outreach-job/README.md
   - apps/web/app/api/admin/race-catalog/betrail-import/route.ts
   - apps/web/app/api/admin/race-catalog/betrail-import/route.test.ts
+  - apps/web/app/api/admin/race-catalog/betrail-import/format-parsers.ts
   - scripts/import-betrail-catalog-drafts.mjs
+  - scripts/build-format-import-queue.mjs
+  - scripts/build-format-import-queue.test.mjs
+  - scripts/enrich-format-import-queue.mjs
+  - scripts/enrich-format-import-queue.test.mjs
+  - scripts/race-research-mcp.mjs
+  - scripts/race-research-mcp-client.mjs
+  - scripts/research-format-catalog.mjs
+  - scripts/parse-route-references.mjs
+  - scripts/import-format-queue-drafts.mjs
+  - scripts/catalog-research-contract.mjs
+  - scripts/catalog-research-validation.mjs
+  - scripts/catalog-research-http.mjs
+  - scripts/catalog-research-reliability.test.mjs
+  - apps/web/app/api/admin/race-catalog/betrail-import/research-contract.ts
 related_tables:
   - race_events
   - races
@@ -36,6 +51,7 @@ related_tables:
 - Progress is saved to both the state file and cumulative CSV after every race. Rows whose status starts with `error:` remain eligible for a later retry.
 - Event dates are collected conservatively from Event JSON-LD, explicit date attributes, or one unambiguous complete date visible on the race page. Month-only and conflicting dates stay blank.
 - The scraper also reads the race page's own "en resume" summary table for an official website link and a Facebook page link, matched by their exact row label (`Site web`, `Facebook`) rather than by guessing markup. These are catalog-research leads, not verified organizer-provided data.
+- The same summary table's `Localité` row (`"82200 Boudou (France > Occitanie > Tarn-Et-Garonne)"`) is parsed into a city and country: the text before the parenthesis, minus a leading postal code, is the city; the first `>`-separated segment inside the parenthesis is the country. Region/department are not extracted.
 - Each `[itemprop="subEvent"]` microdata block on the page yields a best-effort format entry (`distance`, `elevation` text such as `19km` / `700 D+`). This is raw, unverified text meant only to help a human decide which official race website to investigate next — it must never be published to the race catalog without manual review and independent confirmation.
 - `--retry-missing-dates` revisits only email-bearing records that still lack both an exact date and an event week. It checks the two preceding BeTrail edition URLs and accepts the first unambiguous exact historical date as an approximate ISO week.
 - Outreach planning preserves that source date, derives its ISO week, and rolls a past edition forward to the same event week in the next applicable year. The derived Monday is only an internal planning anchor, not a claimed exact race date.
@@ -79,6 +95,7 @@ Useful options:
 - `--sheet-webhook-token <token>` authenticates that endpoint. It can instead come from `BETRAIL_SHEET_WEBHOOK_TOKEN`.
 - `--retry-missing-dates` processes the next limited batch of contacts without a date or week.
 - `--retry-date-failures` also revisits records previously marked `not_found`; transient errors are retried automatically.
+- `--retry-missing-enrichment` revisits already-completed records (kept in the anti-duplicate history) that still lack `official_website`, so races scraped before this field existed can be backfilled without being treated as new. It navigates directly to each record's current race URL, re-runs the same page probe, and updates the existing CSV/state row and Sheet entry in place rather than creating a duplicate.
 
 Recover missing periods in batches without collecting the emails again:
 
@@ -86,7 +103,13 @@ Recover missing periods in batches without collecting the emails again:
 node scripts/scrape-betrail-organizer-emails.mjs --retry-missing-dates --limit 200
 ```
 
-The CSV columns are `race_name`, `date`, `event_week`, `event_date_basis`, `event_week_source_date`, `organizer`, `emails`, `race_url`, `status`, `official_website`, `facebook_url`, and `formats_raw`. Multiple addresses in one row are separated with semicolons; `formats_raw` joins each detected format as `distance/elevation` (for example `19km/700 D+;10km/370 D+`). If a CSV from the earlier script version exists but no state file does, the script imports its race URLs automatically to initialize the history.
+Backfill the official website / Facebook link / formats / city / country on races that were already scraped before those fields existed:
+
+```bash
+node scripts/scrape-betrail-organizer-emails.mjs --retry-missing-enrichment --limit 200
+```
+
+The CSV columns are `race_name`, `date`, `event_week`, `event_date_basis`, `event_week_source_date`, `organizer`, `emails`, `race_url`, `status`, `official_website`, `facebook_url`, `formats_raw`, `city`, and `country`. Multiple addresses in one row are separated with semicolons; `formats_raw` joins each detected format as `distance/elevation` (for example `19km/700 D+;10km/370 D+`). If a CSV from the earlier script version exists but no state file does, the script imports its race URLs automatically to initialize the history.
 
 ### Direct Google Sheet synchronization
 
@@ -98,13 +121,61 @@ After deploying the Apps Script project as a Web app:
 2. Store the returned token and `/exec` deployment URL as local environment variables.
 3. Run the scraper normally.
 
-Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. The scraper and web app exchange a schema version (currently `3`); when the configured `/exec` URL still runs an obsolete deployment, synchronization stops immediately with `webhook Apps Script obsolete` instead of falsely marking ignored rows as synchronized. A temporary Apps Script `locked` response is retried up to six times at five-second intervals before the batch is left pending. Existing prospects are matched by normalized email; populated organization, website, date, event week, `official_website`, `facebook_url`, `formats_raw`, contact, reply, bounce, exclusion, and opt-out values are never overwritten. A recovered historical week fills `event_week` and records its edition in `event_date_basis`; new prospects receive the same formulas, checkbox validation, and formatting as the existing queue. `official_website`/`facebook_url`/`formats_raw` columns must exist in `Prospects` before running this client version; the webhook rejects the batch with `Colonne Prospects manquante` otherwise.
+Successful batches are marked `sheetSyncStatus: "synced"` in the local JSON state. Failed batches retain an error marker and are retried on the next run. The scraper and web app exchange a schema version (currently `4`); when the configured `/exec` URL still runs an obsolete deployment, synchronization stops immediately with `webhook Apps Script obsolete` instead of falsely marking ignored rows as synchronized. A temporary Apps Script `locked` response is retried up to six times at five-second intervals before the batch is left pending. Existing prospects are matched by normalized email; populated organization, website, date, event week, `official_website`, `facebook_url`, `formats_raw`, `Organization city`, `Organization country`, contact, reply, bounce, exclusion, and opt-out values are never overwritten. A recovered historical week fills `event_week` and records its edition in `event_date_basis`; new prospects receive the same formulas, checkbox validation, and formatting as the existing queue. `official_website`/`facebook_url`/`formats_raw`/`Organization city`/`Organization country` columns must exist in `Prospects` before running this client version; the webhook rejects the batch with `Colonne Prospects manquante` otherwise.
 
 ## Catalog draft import (admin)
 
-`POST /api/admin/race-catalog/betrail-import` turns already-scraped BeTrail data (race name, date, `official_website`, `formats_raw`) into a draft `race_events` row plus one draft `races` row per format. It never fetches BeTrail itself (Cloudflare blocks server-side requests); the admin caller supplies the fields already collected by the scraper/CSV/Sheet. Every created race is forced to `data_status = "draft"` and `is_live = false`; the database's `races_draft_is_hidden` constraint independently blocks publication even if the route had a bug. Distance/elevation parsed from `formats_raw` populate `distance_km`/`elevation_gain_m` directly since BeTrail is a reputable results aggregator, but the row still starts as an unpublished draft pending admin review and, ideally, cross-checking against the official website before publishing. `action: "preview"` returns the parsed formats and any duplicate event without writing; `action: "import"` writes and skips formats that already exist for that event (matched by `event_id` + `source_url` + `distance_km`) to keep reruns idempotent. `race_events.website_url` stores the official site; `races.source_url` stores the BeTrail race URL for provenance and dedup.
+`POST /api/admin/race-catalog/betrail-import` turns already-scraped BeTrail data (race name, date, `official_website`, `formats_raw`) into a draft `race_events` row plus one draft `races` row per format. It never fetches BeTrail itself (Cloudflare blocks server-side requests); the admin caller supplies the fields already collected by the scraper/CSV/Sheet. Every created race is forced to `data_status = "draft"` and `is_live = false`; the database's `races_draft_is_hidden` constraint independently blocks publication even if the route had a bug. Distance/elevation parsed from `formats_raw` by `format-parsers.ts` populate `distance_km`/`elevation_gain_m` directly since BeTrail is a reputable results aggregator, but the row still starts as an unpublished draft pending admin review and, ideally, cross-checking against the official website before publishing. `action: "preview"` returns the parsed formats and any duplicate event without writing; `action: "import"` writes and skips formats that already exist for that event (matched by `event_id` + `source_url` + `distance_km` + `race_date`) to keep reruns idempotent. `race_events.website_url` stores the official site; `races.source_url` stores the BeTrail race URL for provenance and dedup.
 
 `scripts/import-betrail-catalog-drafts.mjs` is the batch caller: it reads a scraper CSV, keeps only rows with an official website and at least one format, and posts each to the route above with `ADMIN_API_BASE_URL`/`ADMIN_ACCESS_TOKEN` (or `--base-url`/`--token`). `--dry-run` prints the planned requests without calling the API or requiring credentials.
+
+## Format-level research queue
+
+The prospect CSV is a discovery source, not verified catalog data. `build-format-import-queue.mjs` creates one row per format, parses ISO/French dates and spreadsheet serial planning dates, and preserves the original candidates. `target_edition_year` comes from the campaign/prospect date, never from an old BeTrail URL. Invalid calendar dates and past exact editions are excluded. Planning dates only order research; they cannot certify an exact race date.
+
+Queue ordering distributes formats across events consistently with or without pagination. `--offset` applies even without `--limit`. The campaign cutoff is `--as-of` plus `--min-days-before` (default 21); excluded prospects and reasons are exported separately by the complete pipeline.
+
+```bash
+node scripts/research-format-catalog.mjs --input tmp/Prospects.csv --output-dir tmp/catalog-research-v9 --as-of 2026-09-07 --min-days-before 21 --limit 25 --no-llm --verbose
+node scripts/research-format-catalog.mjs --input tmp/Prospects.csv --output-dir tmp/catalog-research-v9 --resume --limit 25 --no-llm --verbose
+```
+
+Use a fresh output directory for the first run. `catalog-progress.json` stores schema version 2, the input SHA-256, campaign date/window, LLM mode, queue keys, completed rows, and next offset. Each completed format is checkpointed through a temporary file and rename; resume regenerates the CSV exports from that state. A changed input, incompatible queue, changed campaign settings, or a legacy output directory is refused. `catalog.lock` prevents concurrent writers. A forcibly killed process can leave this lock behind: confirm its recorded PID is no longer running before removing that specific lock. Failed-source rows are recorded as completed research attempts; resume processes subsequent rows, so retry those failures through a separately reviewed input and new output directory.
+
+### Fetching and evidence
+
+`enrich-format-import-queue.mjs` performs deterministic extraction and optionally semantic extraction. HTTP resources are cached by URL, while crawl decisions and extracted claims remain specific to each format and target edition. Up to eight pages are fetched normally, eighteen for deeper research; same-host course, programme, regulations and logistics links are ranked along with a simple sitemap. The HTTP reader limits response size (8 MB normally), has a 12-second timeout, and extracts text from PDFs using the existing web workspace `pdf-parse` dependency (maximum 100 pages). JavaScript-only content, nested sitemap indexes, scanned PDFs and access challenges can still require review.
+
+A secondary source can identify an organizer through an explicit official link or organizer metadata. Arbitrary sponsor links, canonical URLs and social profiles do not become proof of organizer authority. Accepted claims must cite a fetched page on the selected organizer host, contain the proposed value, match the target edition for dates, and identify the requested format for format-specific fields. A unique matching page heading may supply format context and is retained with the citation. A model-proposed alias alone cannot establish that match. Unknown hosts are only official candidates; the domain selection still warrants human review.
+
+`catalog-research-contract.mjs` defines the field mapping and schema. `catalog-research-validation.mjs` normalizes numeric strings, calendar dates and route references, checks citations, detects conflicting accepted claims, and recomputes readiness. Every verified value has `field_provenance_json` with value, source URL, evidence, context when needed, method, edition and status. Rejected claims and fetch/LLM errors remain reviewable. A refresh clears stale verification flags. Verified organizer data can replace an unverified prospect estimate, including D+; prospect values are retained separately.
+
+Only three fields are mandatory for **draft import**: exact date, official location and distance. D+ and other enrichment fields remain optional and are imported only when verified. Neither a candidate value nor a manually retained `ready_to_import` flag satisfies the contract. Conflicts in mandatory fields block import. Optional conflicts remain alerts and the affected fields are omitted.
+
+Set `OPENAI_API_KEY` and optionally `OPENAI_ORGANIZER_IMPORT_MODEL`, `LLM_API_URL`, or `LLM_MODEL`; omit `--no-llm` to enable semantic extraction. The LLM still researches optional fields after deterministic mandatory-field extraction. Its context is bounded to 9,000 characters. There is no separate paid page-mapping pass. The 60-second timeout covers both response headers and body; provider errors preserve deterministic evidence and do not abort the batch. Structured logistics are returned as JSON-encoded claim strings for strict-schema compatibility.
+
+The local `race-research-mcp.mjs` server exposes `crawl_source`, `fetch_page`, `search_page`, `parse_gpx`, and `download_and_parse_gpx`. The default adapter starts the MCP bridge automatically and falls back to direct HTTP when unavailable; `RACE_RESEARCH_USE_MCP=0` selects direct HTTP. `crawl_transport` records the path used. Stdout stays JSON-RPC. MCP and HTTP use the same evidence rules; neither is an authority. `--verbose` shows progress and decisions without printing credentials.
+
+### Outputs, GPX and draft import
+
+The complete pipeline writes `events.csv`, `formats.csv`, `formats-wide.csv`, `source-claims.csv`, `aid-stations.csv`, `gpx-manifest.csv`, `excluded-prospects.csv`, and `run-summary.json`. Both format CSVs retain the complete import contract. Source claims use the shared field mapping, so dates, locations and logistics retain their actual values and URLs. Per-format `evidence/` JSON snapshots store fetched pages, request context, extraction response, model metadata and errors; downloaded GPX files are stored by SHA-256. These local artifacts can be large and should remain under ignored `tmp/`.
+
+GPX processing requires a verified route-link claim. Metrics remain separate from published text fields: they never promote an unverified date, distance or D+. Missing altitude stays unknown rather than zero; separate track segments are not joined artificially. Waypoints do not imply aid stations or water availability. A shared compatible trace is marked ambiguous for every affected format. Historical routes, distance mismatches and elevation discrepancies retain explicit review statuses. OpenRunner page metrics are `route_metrics`, not a downloaded trace. `parse-route-references.mjs` remains the standalone reference parser.
+
+`import-format-queue-drafts.mjs` accepts only schema-v2 rows whose verified values and provenance agree. It recomputes readiness, rejects past dates and conflicting event locations, and sends only verified fields to the admin route using `importKind: catalog_research_v2`. It uses the official location instead of the prospect city. The route independently validates field agreement, edition and source hosts; deduplication includes the race date to separate editions.
+
+```bash
+node scripts/import-format-queue-drafts.mjs --input tmp/catalog-research-v9/formats-wide.csv --dry-run
+```
+
+Drafts remain `data_status = draft` and `is_live = false`. Supported schedule, venue, equipment and logistics fields populate existing `organizer_details`; all research evidence, candidates and remaining structured data are retained under `organizer_details.catalogResearch`. Aid stations and GPX references remain review data there: this adapter does not create child aid-station records or upload a route to Storage. Existing organizer editors may not preserve unknown JSON properties when saving, so retain the research exports as the durable audit record. The legacy BeTrail draft endpoint mode remains available separately; legacy research CSVs must be researched again rather than relabelled as schema v2.
+
+Validation commands:
+
+```bash
+node --test --test-isolation=none scripts/build-format-import-queue.test.mjs scripts/enrich-format-import-queue.test.mjs scripts/catalog-research-reliability.test.mjs
+node node_modules/vitest/vitest.mjs run apps/web/app/api/admin/race-catalog/betrail-import/route.test.ts --pool=threads --poolOptions.threads.singleThread
+```
 
 ## Data Handling
 
@@ -139,6 +210,8 @@ The output adds `outreach_event_date`, `outreach_days_to_event`, `outreach_eligi
 
 The `--repair-shifted-enrichment` flag exists for the reviewed 2026-08-26 export whose date-enrichment columns were proven to be offset by one data row. It shifts only the documented date-analysis columns one row upward; it deliberately leaves prospect-level fields such as `reply_flag` untouched. Do not use this repair flag on an export unless the same offset has been verified.
 
+<!-- NEEDS REVIEW: 2026-09-07 - Outreach behavior was not re-audited during the catalog reliability changes; last_verified is intentionally unchanged. -->
+
 ## Gmail draft job
 
 `scripts/google-apps-script/outreach-job/Code.gs` is a Google Apps Script job for the native outreach spreadsheet. Its manifest is stored beside it in `appsscript.json`. `Template email!mode_envoi` selects either review-only drafts (`Brouillons`) or controlled delivery of job-tracked drafts (`Envoi automatique`).
@@ -166,6 +239,18 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 
 ## Gotchas
 
+- A mandatory-equipment statement without a distance qualifier is treated as event-wide; a sentence tied to a specific distance remains format-scoped and requires matching format evidence.
+- The enriched CSV separates `prospect_date`/`prospect_city`/`prospect_country` from `official_date`/`official_location`/`official_distance_km`. Only the `official_*` values are source-backed publication data; prospect values remain discovery hints.
+- The draft importer accepts an empty elevation string and records `elevation_gain_m` as missing in the draft API row; it must not be replaced by a fabricated zero in the CSV.
+- GPX claims such as `OpenRunner N° 18684916` are normalized to the OpenRunner route page. Its JSON-LD distance/D+/D-/altitude metrics are recorded as `route_metrics`; they are not confused with a downloadable GPX trace.
+- `scripts/parse-route-references.mjs` is the reusable standalone route parser. It accepts `--url`/`--reference` values or one reference per line with `--input`, supports OpenRunner IDs/URLs and generic UTMB route pages, and emits normalized JSON metrics without publishing them.
+- `--limit` alone always selects the first block from the priority queue. Use `--offset 50 --limit 50` for the second block (and a new output directory or reviewed merge) so a later run does not repeat the first 50 formats.
+- An exact race date before `--as-of` is excluded even when a separate planning date rolls the event into a future queue position; this prevents an old edition URL from becoming a current catalogue row.
+
+- Keep testable helper exports such as the BeTrail distance/elevation parsers outside `route.ts`: Next.js validates Route Handler exports and rejects fields other than supported HTTP methods and route configuration.
+- The default run only ever visits races absent from the anti-duplicate history (`tmp/betrail-organizer-emails-state.json` by default): once a race URL is recorded with a non-`error:` status, it is never revisited again, even to backfill newly added fields. Use `--retry-missing-enrichment` to update existing records instead of relying on the default discovery crawl.
+- `--retry-missing-enrichment` only targets records with an email and an empty `official_website`; a race whose official site genuinely does not appear on its BeTrail page will be revisited every run until one is found or the record is manually corrected.
+
 - `official_website`, `facebook_url`, and `formats_raw` are synced to the Google Sheet (schema v3) exactly like the other scraped fields (never overwriting an already-populated cell); the admin catalog draft-import route is a separate, manually invoked step and does not run automatically from the scraper or the Sheet.
 - `formats_raw` distance/elevation text comes straight from BeTrail's display strings and is not cross-checked against any other source. Treat it strictly as a research hint for which official race website to open next; the admin import route does persist it as `distance_km`/`elevation_gain_m` on a draft race, but that draft still requires manual review before publication.
 - BeTrail can change its DOM or contact interaction at any time. Rows with `contact_not_found`, `contact_without_email`, or `error: ...` require manual review.
@@ -174,6 +259,13 @@ The one-minute trigger is a polling cadence, not an exact delivery guarantee. Ap
 - Chrome uses `tmp/betrail-chrome-profile`, separate from the operator's everyday browser profile.
 - Changing `--output` does not start a fresh crawl: the default state file remains authoritative. Conversely, changing `--state` creates an independent history and can therefore allow duplicate processing.
 - A CSV queue is only an intermediate review artifact. Gmail or another sender must re-check replies and exclusions immediately before sending because those values can change after the export.
+- `enrich-format-import-queue.mjs` must fetch page text through its `fetchPage` adapter; calling the deterministic extractor with a raw `Response` produces `html.replace is not a function`. If an older output contains that error, regenerate from the original `formats-queue.csv` rather than enriching the corrupted output, otherwise the old error is retained in the evidence column.
+- The local MCP bridge is an optimization and orchestration boundary, not an authority: if its child process cannot start, enrichment falls back to the direct HTTP adapter. `RACE_RESEARCH_USE_MCP=0` explicitly selects that fallback.
+- A generic `/telechargements` or `/parcours` page is not stored as a GPX URL unless the path identifies a concrete `.gpx` asset or a trace/download endpoint; the hostname itself is never used as a GPX signal.
+- The enrichment LLM uses strict JSON Schema. Complex claims (ravitos, accès, dossards, services) are therefore returned as JSON-encoded strings; using free-form object schemas can make OpenAI-compatible APIs reject the request with HTTP 400.
+- Prospects exports use `outreach_event_date` for an exact date and `outreach_planning_date` for ordering; both aliases must remain mapped when rebuilding the format queue. The planning date is never a verified import date when its basis is extrapolated.
+- A row sourced only from a social, registration, timing, or aggregator URL cannot become `ready_to_import`; it needs a discovered/verified organizer source first. An external organizer URL may promote the source classification, but the original secondary URL remains in `source_pages_json` for provenance.
+- Format-scoped claims (distance, D+, D-, schedules, cutoffs, GPX, ravitos, equipment, and participation mode) require their citation to identify the requested format. Event-wide claims such as the date, venue, access, or services may use an event-level citation. This prevents a neighboring format's 27 km/800 m or children's 11:00 start from being attached to a 12 km row merely because the text exists on the same page.
 - Never present `outreach_planning_date` as a verified race date when `event_date_basis` says it was extrapolated. It is the Monday of the known ISO event week and exists only to place outreach in the right order of magnitude.
 - Rows with neither an exact source date nor a reviewed `event_week` remain blocked. A week from 1 to 53 can be entered manually when another reliable source establishes the period.
 - Creating a draft does not prove that it was sent. Gmail reconciliation confirms manual sends and replies, numbers confirmed relances in `Historique envois`, and prevents a later attempt while a draft remains pending. In `Envoi automatique` mode, only draft IDs already recorded in this history are eligible; changing an address or detecting a reply, bounce, exclusion, or opt-out closes the pending item without sending it. Reconciliation is deliberately batched and rotating to limit Gmail reads, so Sheet timestamps can lag Gmail by several minutes.

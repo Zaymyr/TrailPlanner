@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-03
+last_verified: 2026-09-06
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -205,6 +205,8 @@ Active banner sponsors render in a roughly 44 dp strip before the identity card,
 
 The analytics wrapper attaches `surface: app`, derives stable screen groups, and extracts only allowlisted UTM values plus scheme/host from deep links. The root layout records screen views, one app-session landing event, and initial or foreground deep-link openings with auth/Premium context; it never sends deep-link paths or arbitrary query values.
 
+When an identified session belongs to `faustinbertrand1990@gmail.com` or has `admin` in trusted Supabase `app_metadata.role` / `app_metadata.roles`, the layout marks that PostHog person with `$internal_or_test_user`. Product dashboards can therefore exclude owner and admin activity with PostHog's internal/test-user filter.
+
 After an accessible RaceBook finishes loading, the screen records its stable race/event identity, public names, race date, days-before-race window, tabs, ravito/access expansions, external actions, refreshes, and foreground-only active duration. This instrumentation is product analytics only: sponsor display and redirect counting remain outside person-level RaceBook events.
 
 The guided catalog records `racebook onboarding search performed`, `racebook onboarding race selected`, and `racebook onboarding racebook selected`. Search events retain only query length and result counts, never the entered text. These explicit interactions replace a plain Catalog screen view as the meaningful pre-open funnel steps.
@@ -250,6 +252,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep sponsor requests server-mediated and edition-scoped. Reserve the unified two-slot loading panel before the lightweight sponsor response so late logos do not shift the page, but remove it once the lookup settles without placements. Restore the feedback action and inset-aware bottom tab bar as soon as loading completes or the screen unmounts. Keep the compact banner carousel based on viewport-sized slides rather than aggregate content measurement, and keep reduced-motion users on the manual list. Never expose direct sponsor table access or the destination website URL and never replay the 2.5-second sponsor gate on refresh.
 - Keep sponsor prefetch account-scoped and ephemeral. Catalog warmup may share the authorized server response with the immediately opened screen, but session changes must resolve a different cache key and direct navigation must remain fully functional.
 - Keep RaceBook engagement events scoped to public race/event metadata and screen interactions. Never attach sponsor identity or redirect data to the identified runner analytics stream, and use repeated opens for the same `race_id` when measuring RaceBook retention.
+- Keep analytics admin detection on trusted `app_metadata`; never derive `$internal_or_test_user` from editable `user_metadata`.
 - Keep the Racebook website, Instagram, Facebook, and emergency actions conditional on parsed event JSON. Accept only HTTP(S) link values and never construct a link from unvalidated free text. Keep icon-only social actions accessible with labels. Normalize French emergency numbers to the canonical `+33 X XX XX XX XX` display when organizer JSON is parsed, and strip display separators when opening the `tel:` URL.
 
 ## Racebook Identity Presentation

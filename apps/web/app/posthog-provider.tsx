@@ -16,6 +16,7 @@ import {
   buildSanitizedAnalyticsPath,
   buildWebAcquisitionProperties,
   getWebPageGroup,
+  isInternalAnalyticsUser,
 } from "../lib/posthog-config";
 
 const POSTHOG_SESSION_STARTED_KEY = "pace-yourself.posthog-session-started";
@@ -103,9 +104,13 @@ function PostHogSessionSync() {
     }
 
     if (session?.id && !session.isAnonymous) {
+      const isInternalUser = isInternalAnalyticsUser(session);
+
       ph.identify(session.id, {
         email: session.email,
         role: session.role,
+        roles: session.roles,
+        ...(isInternalUser ? { $internal_or_test_user: true } : {}),
       });
       identifiedUserIdRef.current = session.id;
       return;
@@ -115,7 +120,7 @@ function PostHogSessionSync() {
       ph.reset();
       identifiedUserIdRef.current = null;
     }
-  }, [isLoading, ph, session?.email, session?.id, session?.isAnonymous, session?.role]);
+  }, [isLoading, ph, session?.email, session?.id, session?.isAnonymous, session?.role, session?.roles]);
 
   return null;
 }

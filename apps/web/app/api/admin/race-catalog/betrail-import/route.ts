@@ -11,6 +11,8 @@ import {
   getSupabaseServiceConfig,
   isAdminUser,
 } from "../../../../../lib/supabase";
+import { parseDistanceKm, parseElevationM } from "./format-parsers";
+import { researchSchema, buildResearchDetails } from "./research-contract";
 
 // Creates a draft race_events/races pair from data already collected by
 // scripts/scrape-betrail-organizer-emails.mjs. It never fetches BeTrail
@@ -21,10 +23,13 @@ import {
 
 const formatSchema = z.object({
   distance: z.string().trim().min(1),
-  elevation: z.string().trim().min(1),
+  elevation: z.string().trim().optional().default(""),
+  name: z.string().trim().min(1).max(250).optional(),
+  research: researchSchema.optional(),
 });
 
 const requestSchema = z.object({
+  importKind: z.literal("catalog_research_v2").optional(),
   raceUrl: z.string().trim().url(),
   raceName: z.string().trim().min(1),
   date: z
@@ -34,6 +39,9 @@ const requestSchema = z.object({
     .nullable()
     .optional(),
   officialWebsite: z.string().trim().url().nullable().optional(),
+  city: z.string().trim().max(200).nullable().optional(),
+  country: z.string().trim().max(200).nullable().optional(),
+  locationText: z.string().trim().max(1_000).optional(),
   formats: z.array(formatSchema).min(1),
   action: z.enum(["preview", "import"]).default("preview"),
 });
@@ -52,6 +60,7 @@ const raceRowSchema = z.object({
   event_id: z.string().uuid().nullable().optional(),
   distance_km: z.number(),
   elevation_gain_m: z.number(),
+  location_text: z.string().nullable().optional(),
   data_status: z.string(),
   missing_required_fields: z.array(z.string()),
   is_live: z.boolean(),
@@ -84,18 +93,6 @@ const normalizeComparableName = (value: string) =>
     .toLowerCase()
     .trim()
     .replace(/\s+/g, " ");
-
-export const parseDistanceKm = (text: string): number | null => {
-  const match = text.match(/(\d+(?:[.,]\d+)?)\s*km/i);
-  if (!match) return null;
-  return Number(match[1].replace(",", "."));
-};
-
-export const parseElevationM = (text: string): number | null => {
-  const match = text.match(/(\d+(?:[.,]\d+)?)\s*d\s*\+/i);
-  if (!match) return null;
-  return Number(match[1].replace(",", "."));
-};
 
 async function requireAdmin(request: NextRequest) {
   const supabaseAnon = getSupabaseAnonConfig();
@@ -146,7 +143,7 @@ async function findExistingRaceEvent(context: SupabaseServiceContext, eventName:
 
 async function createRaceEvent(
   context: SupabaseServiceContext,
-  payload: { name: string; race_date: string | null; website_url: string | null }
+  payload: { name: string; race_date: string | null; website_url: string | null; location: string | null }
 ) {
   const response = await fetch(`${context.serviceConfig.supabaseUrl}/rest/v1/race_events`, {
     method: "POST",
@@ -166,7 +163,7 @@ async function createRaceEvent(
 
 async function ensureRaceEventId(
   context: SupabaseServiceContext,
-  payload: { name: string; race_date: string | null; website_url: string | null }
+  payload: { name: string; race_date: string | null; website_url: string | null; location: string | null }
 ) {
   const existing = await findExistingRaceEvent(context, payload.name);
   if (existing) return existing.id;
@@ -179,12 +176,13 @@ async function findExistingFormatRace(
   context: SupabaseServiceContext,
   eventId: string,
   sourceUrl: string,
-  distanceKm: number
+  distanceKm: number,
+  date?: string | null
 ) {
   const response = await fetch(
     `${context.serviceConfig.supabaseUrl}/rest/v1/races?select=id,name,slug&event_id=eq.${eventId}&source_url=eq.${encodeURIComponent(
       sourceUrl
-    )}&distance_km=eq.${distanceKm}&limit=1`,
+    )}&distance_km=eq.${distanceKm}${date ? `&race_date=eq.${encodeURIComponent(date)}` : ""}&limit=1`,
     { headers: buildServiceHeaders(context.serviceConfig, undefined), cache: "no-store" }
   );
 
@@ -215,11 +213,25 @@ export async function POST(request: NextRequest) {
 
   const date = body.date ?? null;
   const officialWebsite = body.officialWebsite ?? null;
+  const locationText = body.locationText || [body.city, body.country].filter(Boolean).join(", ") || null;
   const parsedFormats = body.formats.map((format) => ({
     ...format,
     distanceKm: parseDistanceKm(format.distance),
     elevationGainM: parseElevationM(format.elevation),
   }));
+  if (body.importKind) {
+    const today = new Date().toISOString().slice(0,10);
+    const parsedDate = date ? new Date(`${date}T00:00:00Z`) : null;
+    const invalid = !date || !parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0,10) !== date || date < today || !officialWebsite || parsedFormats.some(format => {
+      const research = format.research;
+      if (!research) return true;
+      return research.fields.race_date !== date || research.fields.location !== locationText
+        || Number(research.fields.distance_km) !== format.distanceKm
+        || (research.fields.elevation_gain_m === undefined ? format.elevationGainM !== null : Number(research.fields.elevation_gain_m) !== format.elevationGainM)
+        || Object.values(research.provenance).some(proof => proof.edition_year !== date.slice(0,4) || new URL(proof.source_url).hostname !== new URL(officialWebsite).hostname);
+    });
+    if (invalid) return withSecurityHeaders(NextResponse.json({message:"Enrichissement incohérent ou édition passée."},{status:400}));
+  }
 
   if (body.action === "preview") {
     let existingEvent: Awaited<ReturnType<typeof findExistingRaceEvent>> = null;
@@ -231,7 +243,7 @@ export async function POST(request: NextRequest) {
     }
     return withSecurityHeaders(
       NextResponse.json({
-        preview: { raceName: body.raceName, date, officialWebsite, formats: parsedFormats },
+        preview: { raceName: body.raceName, date, officialWebsite, location: locationText, formats: parsedFormats },
         duplicateEvent: existingEvent,
       })
     );
@@ -239,7 +251,12 @@ export async function POST(request: NextRequest) {
 
   let eventId: string | null;
   try {
-    eventId = await ensureRaceEventId(context, { name: body.raceName, race_date: date, website_url: officialWebsite });
+    eventId = await ensureRaceEventId(context, {
+      name: body.raceName,
+      race_date: date,
+      website_url: officialWebsite,
+      location: locationText,
+    });
   } catch (error) {
     console.error("Unable to resolve BeTrail race event", error);
     return withSecurityHeaders(NextResponse.json({ message: "Impossible de créer ou rattacher l'événement." }, { status: 502 }));
@@ -255,7 +272,7 @@ export async function POST(request: NextRequest) {
   for (const format of parsedFormats) {
     const distanceKm = format.distanceKm ?? 0;
     try {
-      const duplicate = await findExistingFormatRace(context, eventId, body.raceUrl, distanceKm);
+      const duplicate = await findExistingFormatRace(context, eventId, body.raceUrl, distanceKm, date);
       if (duplicate) {
         skippedFormats.push(format.distance);
         continue;
@@ -271,7 +288,7 @@ export async function POST(request: NextRequest) {
     if (format.elevationGainM === null) missingRequiredFields.push("elevation_gain_m");
 
     const raceId = randomUUID();
-    const raceName = `${body.raceName} ${format.distance}`.trim();
+    const raceName = `${body.raceName} ${format.name || format.distance}`.trim();
 
     const insertResponse = await fetch(`${context.serviceConfig.supabaseUrl}/rest/v1/races`, {
       method: "POST",
@@ -284,9 +301,11 @@ export async function POST(request: NextRequest) {
         edition_group_id: raceId,
         series_name: raceName,
         race_date: date,
+        location_text: locationText,
         distance_km: format.distanceKm ?? 0,
         elevation_gain_m: format.elevationGainM ?? 0,
-        elevation_loss_m: 0,
+        elevation_loss_m: format.research?.fields.elevation_loss_m === undefined ? 0 : Number(format.research.fields.elevation_loss_m),
+        ...(format.research ? {organizer_details:buildResearchDetails(format.research)} : {}),
         external_site_url: officialWebsite,
         source_url: body.raceUrl,
         gpx_path: `betrail-import/${eventId}/${raceId}.gpx`,

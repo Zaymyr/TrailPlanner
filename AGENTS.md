@@ -25,6 +25,16 @@ Before doing ANY task in this repo, read in this order:
 
 7. **Progressive context first** - start with the smallest reliable context: the active file, direct imports, the nearest relevant test, and the minimum required docs. Prefer targeted search before opening whole files. Expand to broader tests, related docs, or shared code as soon as uncertainty remains or contracts, security, schema, business rules, or regression risk require it.
 
+## Delegation and model economy
+
+- Model capability should be treated as a scarce resource. Use stronger models where their additional reasoning materially improves the expected result, not merely because they are available.
+- Handle small, clear changes directly. Delegate only bounded work that is genuinely independent, benefits from parallelism, or keeps noisy exploration and verification out of the primary context.
+- Use Luna for targeted exploration and mechanical work, Terra for clearly specified implementation, Sol for orchestration, integration, difficult development, and high-risk review, and Astra only for exceptional cross-domain architecture or a material problem Sol cannot resolve.
+- Give every delegated agent a compact handoff: objective, relevant current and expected behavior, files or boundaries, constraints and patterns, acceptance criteria, and pertinent tests. Do not ask multiple agents to repeat the same repository scan.
+- Execution agents must escalate material ambiguity, unexpected scope, architectural conflicts, security or data-integrity concerns, and risky migrations to Sol. Sol escalates to Astra only when the decision is genuinely architectural and unusually complex.
+- Parallelize only independent work with clear ownership. Keep review and tests proportional to risk, and stop review-correction loops once acceptance criteria are met and relevant checks pass.
+- All delegated agents inherit and must preserve the repository instructions, documentation protocol, and domain rules in this file and `docs/AGENTS.md`; role-specific configuration never overrides them.
+
 ## Quick task routing
 
 | Task type | Read first |
