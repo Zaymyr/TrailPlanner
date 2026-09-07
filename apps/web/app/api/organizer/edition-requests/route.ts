@@ -70,13 +70,14 @@ export async function POST(request: NextRequest) {
   if (((await targetResponse.json()) as unknown[]).length > 0) return jsonError("An edition already exists for that year.", 409);
   const previousCurrentEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await currentResponse.json())[0]?.id ?? null;
   let sourceRaces: z.infer<typeof sourceRaceSchema>[] = [];
+  let sourceEditionId: string | null = null;
   if (parsed.data.duplicatePreviousEdition) {
     const sourceEditionResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?event_id=eq.${parsed.data.eventId}&edition_year=eq.${parsed.data.sourceYear}&select=id&limit=1`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     );
     if (!sourceEditionResponse.ok) return jsonError("Unable to inspect source edition.", 502);
-    const sourceEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await sourceEditionResponse.json())[0]?.id ?? null;
+    sourceEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await sourceEditionResponse.json())[0]?.id ?? null;
     if (!sourceEditionId) return jsonError("Source edition not found.", 409);
     if (!(await requireOrganizerEditionCapability(auth.serviceConfig, sourceEditionId, "edition.duplicate"))) {
       return jsonError("RaceBook Pro est requis pour dupliquer une édition.", 403);
@@ -114,6 +115,15 @@ export async function POST(request: NextRequest) {
   if (!edition) return jsonError("Unable to create event edition.", 502);
 
   try {
+    if (sourceEditionId) {
+      const servicesResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_edition_services?edition_id=eq.${sourceEditionId}&select=service_type,name,description,address,latitude,longitude,google_maps_url,website_url,phone,order_index`, { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" });
+      if (!servicesResponse.ok) throw new Error("Unable to load source edition services.");
+      const services = z.array(z.record(z.unknown())).parse(await servicesResponse.json());
+      if (services.length > 0) {
+        const copyResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_edition_services`, { method: "POST", headers: serviceHeaders(auth.serviceConfig), body: JSON.stringify(services.map((service) => ({ ...service, edition_id: edition.id }))), cache: "no-store" });
+        if (!copyResponse.ok) throw new Error("Unable to clone edition services.");
+      }
+    }
     for (const sourceRace of sourceRaces) {
       const raceDate = sourceRace.race_date
         ? formatDate(new Date(parseDate(sourceRace.race_date).getTime() + dayShift * DAY_IN_MS))

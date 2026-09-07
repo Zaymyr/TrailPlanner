@@ -4,6 +4,11 @@ scope: architecture
 last_verified: 2026-09-07
 ai_priority: high
 related_files:
+  - apps/web/lib/organizer-structured-content.ts
+  - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/web/app/api/organizer/editions/[id]/services/route.ts
+  - apps/web/app/api/organizer/races/[id]/start-waves/route.ts
+  - apps/web/app/api/organizer/races/[id]/awards/route.ts
   - apps/web/package.json
   - apps/web/tsconfig.json
   - apps/web/app/layout.tsx
@@ -207,6 +212,8 @@ related_tables:
 
 # Web App Architecture
 
+The organizer dashboard has lazy, module-local editors for structured edition services, format start waves and format awards. Each uses validated dedicated GET/PUT routes and a debounced atomic replacement save, keeping large collections out of the event bootstrap.
+
 ## Purpose
 
 The web app owns the browser planner, onboarding/account flows, admin catalog tools, server-side API routes, and most Supabase service-role operations. Read this before changing `apps/web` routes or planner state.
@@ -252,7 +259,7 @@ The workflow has two reviews. Format discovery comes first and reports existence
 
 Enrichment converts website, structured data, GPX, current Organizer data, previous-edition references, and paginated PDF findings into typed source claims. PDF findings keep a match-centered excerpt capped at 2,000 characters for evidence and 500 for the typed value; equivalent document claims are deduplicated and limited to eight per scope and field for each document. The review displays current value, alternatives, source URL or document/page, evidence, confidence, conflicts, and missing fields for every confirmed format. New formats may stay incomplete hidden drafts. OCR for images and scanned PDFs remains pending.
 
-For generic pages and extracted text PDFs, a bounded deterministic pass first classifies each source and extracts explicit assertions. OpenAI is then used only for ambiguous or incomplete sources, with strict grounded output: values, evidence, and named formats must occur in the source. Registration/results/unusable pages are reported but cannot manufacture formats or course claims. The source pass is capped at twelve sources and 48,000 total characters, cached for 30 minutes by content/model hash, and persisted as signed claims for the second pass. Separately, field conflict reconciliation can return only an existing applicable `claimId` or `uncertain`; it cannot return a value or select a previous-edition reference claim. Distance concordance uses `max(0.5 km, 2%)`, and D+/D- use `max(100 m, 8%)`. Only a high-confidence, conflict-free fill of an empty field may be preselected.
+For generic pages and extracted text PDFs, a bounded deterministic pass first classifies each source and extracts explicit assertions. The main page itself contributes explicit heading-based formats (including event-prefixed KMS labels such as `Event:Trail 16KM 385m D+`), and up to two same-origin linked PDFs are downloaded only when their URL or link explicitly identifies a PDF, capped at 25 MB and 100 pages. A page with several explicit named distances is classified as multi-format before repeated registration navigation can misclassify it. OpenAI is then used only for ambiguous or incomplete sources, with strict grounded output: values, evidence, and named formats must occur in the source. Registration/results/unusable pages are reported but cannot manufacture formats or course claims. The source pass is capped at twelve sources and 48,000 total characters, cached for 30 minutes by content/model hash, and persisted as signed claims for the second pass. Separately, field conflict reconciliation can return only an existing applicable `claimId` or `uncertain`; it cannot return a value or select a previous-edition reference claim. Distance concordance uses `max(0.5 km, 2%)`, and D+/D- use `max(100 m, 8%)`. Only a high-confidence, conflict-free fill of an empty field may be preselected.
 
 ### Authentication and Session
 
@@ -355,7 +362,7 @@ The v1 organizer portal is web-only:
 - The format information grid exposes one `Nom du format` input. Its client state and save payload keep `races.name` and `races.series_name` identical, while `edition_group_id` remains the stable cross-year grouping key.
 - The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. Bib pickup accepts several event-level locations, each with several structured date/start/end slots; the legacy single location and free-text schedule remain readable as compatibility fallbacks. The editor calls `/api/location-search`, keeps the first bib location mirrored into the legacy text/location fields, and stores the complete location and slot list in `organizer_details` so published runner surfaces can expose every address, GPS link, day, and time range.
 - The Organizer access form groups its unchanged `organizer_details.access` fields in the same runner-facing order used by mobile: locations/map, priority information/restrictions, then parking/navettes. Section switches sit with the group they control; no extra table or JSON key is introduced by this visual hierarchy.
-- The event `Informations` editor stores the optional official website, Instagram URL, Facebook URL, and a structured emergency contact name and phone in `race_events.organizer_details`. French phone inputs are normalized to the canonical `+33 X XX XX XX XX` display by the event details parser. These values stay behind the existing organizer membership-checked event route; no separate event column or client-side Supabase write is introduced.
+- The event `Informations` editor stores the optional official website, Instagram URL, Facebook URL, and a structured emergency contact name and phone in `race_events.organizer_details`. The shared parser adds `https://` to valid domain links pasted without a protocol, rejects invalid or non-HTTP(S) values, and normalizes French phone inputs to the canonical `+33 X XX XX XX XX` display. These values stay behind the existing organizer membership-checked event route; no separate event column or client-side Supabase write is introduced.
 - The organizer creation screen and dashboard keep concise, consistently accented French copy across `/organizers` and `/organizer`.
 - The main header always shows "Mes courses" / "My races". It opens `/organizers` to let a new organizer create their first event, then opens `/organizer` after `/api/organizer/claims` reports at least one active membership.
 - `apps/web/lib/organizer.ts` centralizes bearer-token verification, admin checks, service headers, and event-membership checks.
@@ -394,7 +401,7 @@ Stripe routes live under `apps/web/app/api/stripe`:
 - `portal/route.ts`: creates billing portal sessions.
 - `price/route.ts`: fetches the configured Stripe price and caches it for 5 minutes.
 - `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`.
-- `organizer/publication-checkout/route.ts`: creates one-time 99/299/200 € HT edition checkouts selected entirely by the server.
+- `organizer/publication-checkout/route.ts`: creates one-time 199/299/100 € HT edition checkouts selected entirely by the server.
 
 The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, and disputes, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears.
 
@@ -441,6 +448,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep public catalog creation conservative by default: imported/admin-created events and races should start as non-live until someone publishes them deliberately.
 - Organizer JSONB details are server-route managed progressive metadata. Keep public/mobile reads on explicit column lists so these draft details are not exposed by broad selects.
 - Keep the emergency contact at event scope as `organizer_details.emergencyContact`; its phone is display-normalized but remains simple operational JSON rather than a normalized user/contact record, and mobile turns the published value into a `tel:` action.
+- Keep event website/social link normalization in the shared organizer-details schema so foreground and background saves accept valid domain links without an explicit protocol but still reject arbitrary text and non-HTTP(S) schemes.
 - Course discovery and Racebook publication are separate contracts. Web catalog pages continue to use `is_live` / `is_public`; never substitute `racebook_is_live` into the SEO catalog filter.
 - Catalog presentation may group formats only by stable `eventId`. Never merge homonymous events or synthesize event identity from display names or locations.
 - Keep bib pickup, equipment, and access at event level as the defaults. A format may opt into a complete replacement through the module's `overrideEnabled`; each override participates in the race-scoped autosave plan so navigation cannot discard the checkbox or its fields. Historical access JSON without the flag may still be treated as specific when it contains meaningful format data.
@@ -467,7 +475,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer event image upload accepts PNG only in v1; the client must call the server route instead of writing to Storage directly.
 - Keep organizer dashboard French labels UTF-8 clean end-to-end, especially in `event-format-editors.tsx`; mojibake such as `Ã©` is a real regression on the event tab because those strings are rendered directly.
 - Do not auto-send runner notifications on organizer save or publish. The manual event-update route is the only intended push trigger for this v1.
-- The manual notification route additionally requires the selected edition's Pro capability; RaceBook UI must offer the 200 € HT upgrade instead of attempting the send.
+- The manual notification route additionally requires the selected edition's Pro capability; RaceBook UI must offer the 100 € HT upgrade instead of attempting the send.
 - Organizer update deletion must stay on the authenticated server route. Do not grant broad client delete access to `race_event_updates`, and do not treat deletion as a recall of already delivered pushes.
 - Public plan share pages are unauthenticated by design, but they must display only the bounded snapshot in `plan_share_links`, not live editable plan data.
 - Public plan share pages are standalone in `RootChrome` and force light theme variables so a visitor's saved dark preference does not affect crew readability.

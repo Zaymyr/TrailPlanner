@@ -38,6 +38,7 @@ const eventEditionSchema = z.object({
   end_date: z.string(),
   is_current: z.boolean(),
   is_visible: z.boolean().default(true),
+  race_edition_services: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
 });
 
 const eventDetailSchema = z.object({
@@ -81,6 +82,8 @@ const eventDetailSchema = z.object({
           )
           .nullable()
           .optional(),
+        race_start_waves: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
+        race_awards: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
       })
     )
     .nullable()
@@ -125,14 +128,19 @@ const mapEventDetail = (
   ...event,
   editions: (event.race_event_editions ?? [])
     .sort((left, right) => right.edition_year - left.edition_year)
-    .map((edition) => ({ ...edition, entitlement: entitlements[edition.id] ?? null })),
+    .map((edition) => {
+      const { race_edition_services: services, ...fields } = edition;
+      return { ...fields, serviceCount: services?.length ?? 0, entitlement: entitlements[edition.id] ?? null };
+    }),
   organizerDetails: parseOrganizerEventDetails(event.organizer_details),
   races: (event.races ?? []).map((race) => {
-    const { race_aid_stations: raceAidStations, ...raceFields } = race;
+    const { race_aid_stations: raceAidStations, race_start_waves: startWaves, race_awards: awards, ...raceFields } = race;
     return {
       ...raceFields,
       organizerDetails: parseOrganizerRaceDetails(race.organizer_details),
       aidStationCount: raceAidStations?.length ?? 0,
+      startWaveCount: startWaves?.length ?? 0,
+      awardCount: awards?.length ?? 0,
     };
   }),
 });
@@ -148,7 +156,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if (organizer !== true) return organizer.error;
 
   const response = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,race_event_editions(id,event_id,edition_year,start_date,end_date,is_current,is_visible),races(id,edition_id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,participation_mode,data_status,missing_required_fields,racebook_is_live,racebook_publication_approved_at,organizer_details,race_aid_stations(id))&limit=1`,
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,race_event_editions(id,event_id,edition_year,start_date,end_date,is_current,is_visible,race_edition_services(id)),races(id,edition_id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,participation_mode,data_status,missing_required_fields,racebook_is_live,racebook_publication_approved_at,organizer_details,race_aid_stations(id),race_start_waves(id),race_awards(id))&limit=1`,
     {
       headers: serviceHeaders(auth.serviceConfig, ""),
       cache: "no-store",

@@ -503,12 +503,13 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
   const titles: Record<OrganizerModuleId, string> = {
     event: "Informations",
     formats: "Formats & GPX",
-    aidStations: "Ravito / relais",
+    aidStations: "Départ, ravitos & relais",
     equipment: "Matériel",
     bibPickup: "Dossard",
     access: "Accès",
     products: "Produits",
-    services: "Services",
+    services: "Services & alentours",
+    awards: "Podiums & récompenses",
     sponsors: "Sponsors",
   };
   return titles[moduleId];
@@ -518,12 +519,13 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
   const descriptions: Record<OrganizerModuleId, string> = {
     event: "Les informations principales qui cadrent l'événement.",
     formats: "Les formats restent en onglets, avec résumé et actions rapides.",
-    aidStations: "Départ, arrivée, ravitos et relais dans une même vue.",
+    aidStations: "SAS, départ, arrivée, ravitos et relais dans une même vue.",
     equipment: "Le matériel partagé se gère depuis l'événement, puis chaque course peut l'ajuster.",
     bibPickup: "Retrait dossard commun à tous les formats.",
     access: "Accès et sections optionnelles selon l'onglet actif.",
     products: "Produits officiels disponibles par ravito.",
-    services: "Informations optionnelles utiles aux coureurs.",
+    services: "Lieux pratiques structurés pour cette édition.",
+    awards: "Catégories récompensées et horaires des podiums.",
     sponsors: "Logos et liens visibles pendant le chargement et dans le bandeau du RaceBook.",
   };
   return descriptions[moduleId];

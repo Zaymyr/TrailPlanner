@@ -427,6 +427,22 @@ export async function POST(request: NextRequest) {
           throw new Error(`Unable to clone relay points: ${await relayInsertResponse.text()}`);
         }
       }
+
+      for (const table of ["race_start_waves", "race_awards"] as const) {
+        const childResponse = await fetch(
+          `${auth.serviceConfig.supabaseUrl}/rest/v1/${table}?race_id=eq.${sourceRace.id}&select=*&order=order_index.asc`,
+          { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
+        );
+        if (!childResponse.ok) throw new Error(`Unable to load source ${table}.`);
+        const rows = z.array(z.record(z.unknown())).parse(await childResponse.json());
+        if (rows.length > 0) {
+          const insertResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/${table}`, {
+            method: "POST", headers: serviceHeaders(auth.serviceConfig), cache: "no-store",
+            body: JSON.stringify(rows.map(({ id: _id, race_id: _raceId, created_at: _createdAt, updated_at: _updatedAt, ...row }) => ({ ...row, race_id: raceId }))),
+          });
+          if (!insertResponse.ok) throw new Error(`Unable to clone ${table}.`);
+        }
+      }
     } catch (error) {
       console.error("Unable to clone organizer race edition", error);
       if (clonedStoragePath) {

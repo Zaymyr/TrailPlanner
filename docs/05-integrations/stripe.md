@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-08-29
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -107,7 +107,7 @@ Subscription events upsert:
 
 ## Organizer Edition Checkout
 
-`/api/organizer/publication-checkout` accepts an event, edition, and target tier only. It verifies the authenticated non-anonymous user, active event membership, edition ownership, publication readiness, current entitlement, and absence of an incompatible active purchase. The server chooses and verifies the configured one-time EUR Price: RaceBook 99 € HT, direct Pro 299 € HT, or RaceBook-to-Pro upgrade 200 € HT.
+`/api/organizer/publication-checkout` accepts an event, edition, and target tier only. It verifies the authenticated non-anonymous user, active event membership, edition ownership, publication readiness, current entitlement, and absence of an incompatible active purchase. The server chooses and verifies the configured one-time EUR Price: RaceBook 199 € HT, direct Pro 299 € HT, or RaceBook-to-Pro upgrade 100 € HT.
 
 Checkout enables Stripe Tax, billing address and tax-id collection, and invoice creation. Metadata binds the payment row, edition, user, and transition. The webhook records subtotal, tax, total, currency, Customer, Session, and PaymentIntent before recalculating the effective edition entitlement. A browser success return never grants access by itself.
 

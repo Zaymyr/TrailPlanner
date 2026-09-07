@@ -12,6 +12,8 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
   - supabase/migrations/20260827134209_remove_tst_82_course_constraint_notes.sql
@@ -66,6 +68,8 @@ related_tables:
 ---
 
 # Schema Overview
+
+RaceBook structured organizer content is normalized into `race_edition_services` (edition scope), `race_start_waves` and `race_awards` (format scope). Parent deletion cascades; clients read through RLS and mutate only through service-role replacement RPCs.
 
 ## Purpose
 

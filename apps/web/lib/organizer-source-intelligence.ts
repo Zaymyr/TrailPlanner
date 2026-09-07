@@ -193,14 +193,22 @@ const extractFormatRows = (text: string): FormatRow[] => {
   const segments = text.replace(/[•▪◦]/g, "\n").split(/\r?\n|;/).map(compactWhitespace).filter(Boolean);
   const rows: FormatRow[] = [];
   for (const segment of segments) {
-    const match = /^(?:(?:course|format|parcours)\s*[:\-]?\s*)?([^\d:|]{2,70}?)\s*(?:[-–—:|]\s*)?(\d{1,3}(?:[.,]\d{1,2})?)\s*km\b/iu.exec(segment);
+    const colonClauses = segment.split(/\s*:\s*/).filter(Boolean);
+    const candidateSegment = [...colonClauses].reverse().find((clause) =>
+      /\b\d{1,3}(?:[.,]\d{1,2})?\s*km\b/i.test(clause)
+    ) ?? segment;
+    const match = /^(?:(?:course|format|parcours)\s*[:\-]?\s*)?([^\d:|]{2,70}?)\s*(?:[-–—:|]\s*)?(\d{1,3}(?:[.,]\d{1,2})?)\s*km\b/iu.exec(candidateSegment);
     if (!match) continue;
-    const formatName = compactWhitespace(match[1]).replace(/^[\-–—:]+|[\-–—:]+$/g, "").trim();
+    const rawFormatName = compactWhitespace(match[1]).replace(/^[\-–—:]+|[\-–—:]+$/g, "").trim();
+    const distanceKm = Number(match[2].replace(",", "."));
+    const formatName = /^(?:trail|course|marche(?:\s+solidaire)?|randonnee?|rando)$/i.test(normalizeSearchText(rawFormatName))
+      ? `${rawFormatName} ${distanceKm} km`
+      : rawFormatName;
     if (
       formatName.length < 2 ||
       /\b(?:distance|longueur|total|ravito|barriere|tarif|categorie|propose|entre)\b/i.test(normalizeSearchText(formatName))
     ) continue;
-    rows.push({ formatName, distanceKm: Number(match[2].replace(",", ".")), evidence: segment.slice(0, 320) });
+    rows.push({ formatName, distanceKm, evidence: segment.slice(0, 320) });
   }
   return rows.slice(0, 12);
 };
@@ -223,7 +231,8 @@ const buildDeterministicAssertions = (source: PreparedSource, formatRows: Format
   for (const row of formatRows) {
     add({ scope: "format", formatName: row.formatName, field: "name", value: row.formatName, evidence: row.evidence });
     add({ scope: "format", formatName: row.formatName, field: "distanceKm", value: row.distanceKm, evidence: row.evidence });
-    const gain = /\bD\+\s*[:\-]?\s*(\d[\d\s]{1,5})\s*m?\b/i.exec(row.evidence);
+    const gain = /\bD\+\s*[:\-]?\s*(\d[\d\s]{1,5})\s*m?\b/i.exec(row.evidence) ??
+      /\b(\d[\d\s]{1,5})\s*m\s*D\+/i.exec(row.evidence);
     const loss = /\bD-\s*[:\-]?\s*(\d[\d\s]{1,5})\s*m?\b/i.exec(row.evidence);
     if (gain) add({ scope: "format", formatName: row.formatName, field: "elevationGainM", value: Number(gain[1].replace(/\s/g, "")), evidence: row.evidence });
     if (loss) add({ scope: "format", formatName: row.formatName, field: "elevationLossM", value: Number(loss[1].replace(/\s/g, "")), evidence: row.evidence });
@@ -307,6 +316,7 @@ const classifyRole = (source: PreparedSource, formatRows: FormatRow[]): { role: 
     { role: "logistics", title: /\b(?:infos pratiques|logistique|acces|parking|navette)\b/, body: /\b(?:parking|navette|acces|hebergement|retrait des dossards|consigne)\b/g },
   ];
   for (const candidate of specialized) {
+    if (candidate.role === "registration" && formatRows.length >= 2) continue;
     if (candidate.title.test(normalizedTitle)) return { role: candidate.role, confidence: "high" };
     if (countPattern(normalized, candidate.body) >= 2) return { role: candidate.role, confidence: "medium" };
   }

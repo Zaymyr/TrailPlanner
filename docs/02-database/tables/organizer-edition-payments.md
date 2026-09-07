@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -21,7 +21,7 @@ Stores organizer Stripe payment attempts and their tax-inclusive settlement valu
 
 ## Key Concepts
 
-Purchase kinds are `racebook` (99 € HT), `pro_direct` (299 € HT), and `pro_upgrade` (200 € HT). Only `paid` rows contribute to recalculation.
+Purchase kinds are `racebook` (199 € HT), `pro_direct` (299 € HT), and `pro_upgrade` (100 € HT). Only `paid` rows contribute to recalculation.
 
 ## Columns
 

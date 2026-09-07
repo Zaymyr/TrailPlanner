@@ -31,9 +31,9 @@ const paymentRowSchema = z.object({
 });
 
 const OFFER_CONFIG = {
-  racebook: { purchaseKind: "racebook", fromTier: "visibility", amount: 9_900 },
+  racebook: { purchaseKind: "racebook", fromTier: "visibility", amount: 19_900 },
   pro_direct: { purchaseKind: "pro_direct", fromTier: "visibility", amount: 29_900 },
-  pro_upgrade: { purchaseKind: "pro_upgrade", fromTier: "racebook", amount: 20_000 },
+  pro_upgrade: { purchaseKind: "pro_upgrade", fromTier: "racebook", amount: 10_000 },
 } as const;
 
 export async function POST(request: NextRequest) {

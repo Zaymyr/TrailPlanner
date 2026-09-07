@@ -104,9 +104,9 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain('action: "setEditionTier"');
     expect(dashboardSource).toContain('grantComplimentaryOffer("racebook")');
     expect(dashboardSource).toContain('grantComplimentaryOffer("pro")');
-    expect(dashboardSource).toContain("Offrir RaceBook — valeur 99 € HT");
+    expect(dashboardSource).toContain("Offrir RaceBook — valeur 199 € HT");
     expect(dashboardSource).toContain("Offrir RaceBook Pro — valeur 299 € HT");
-    expect(shellSource).toContain("Publication RaceBook offerte — valeur : 99 € HT");
+    expect(shellSource).toContain("Publication RaceBook offerte — valeur : 199 € HT");
     expect(shellSource).toContain("Publication RaceBook Pro offerte — valeur : 299 € HT");
     expect(shellSource).toContain("Offre ${activeOfferName} offerte");
   });

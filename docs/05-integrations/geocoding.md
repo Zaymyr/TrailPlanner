@@ -1,9 +1,11 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-08-30
+last_verified: 2026-09-07
 ai_priority: medium
 related_files:
+  - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/mobile/lib/racebook.ts
   - apps/web/app/api/location-search/route.ts
   - apps/web/lib/location-utils.ts
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx
@@ -18,6 +20,8 @@ related_tables: []
 ## Purpose
 
 This document describes the web geocoding/autocomplete integration used by the organizer dashboard to enrich location-like fields with optional coordinates and Google Maps links.
+
+Structured restaurant and accommodation cards reuse the organizer address autocomplete and require a geocoded address. Mobile derives a display-only great-circle distance from the best available race start coordinate; it does not claim routing distance. The Maps URL opens the external provider for directions.
 
 ## Key Concepts
 
@@ -100,7 +104,7 @@ Each object stores:
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 - In the mobile Racebook access tab, generated start/finish links are exposed through explicit Maps buttons. Equal normalized start and finish address strings render as one location while retaining the first available generated link; the optional organizer-supplied general map remains a separate labeled action.
 - Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.
-- `organizer-dashboard-details.ts` also normalizes unrelated equipment overrides, HTTP(S) event website/social URLs, and event emergency-phone display values. Preserve those paths without changing any canonical or geocoded location field.
+- `organizer-dashboard-details.ts` also normalizes unrelated equipment overrides, event website/social URLs (including an HTTPS prefix for otherwise valid domain links), and event emergency-phone display values. It still rejects invalid and non-HTTP(S) links. Preserve those paths without changing any canonical or geocoded location field.
 
 ## Related Docs
 

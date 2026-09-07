@@ -1,6 +1,7 @@
 import "server-only";
 
 import { createHash } from "crypto";
+import pdfParse from "pdf-parse";
 
 import { parseGpx } from "./gpx/parseGpx";
 import { normalizeImportedWaypoints } from "./gpx/normalizeImportedWaypoints";
@@ -153,8 +154,10 @@ const FRENCH_MONTHS: Record<string, number> = {
 const GENERIC_PAGE_HINT_PATTERN =
   /(parcours|course|courses|formats|epreuves|programme|reglement|r[eè]glement|trace|gpx|ravitaillement|horaires?|roadbook|infos? (?:pratiques|utiles)|inscriptions?)/i;
 const GENERIC_PAGE_LIMIT = 7;
+const GENERIC_PDF_LIMIT = 2;
 const GENERIC_FETCH_TIMEOUT_MS = 8_000;
 const GENERIC_HTML_LIMIT = 1_500_000;
+const GENERIC_PDF_BYTES_LIMIT = 25 * 1024 * 1024;
 const GENERIC_SOURCE_TEXT_LIMIT = 40_000;
 
 const fetchGenericResource = async (url: string, init: RequestInit) => {
@@ -700,13 +703,23 @@ const sanitizeRaceName = (value: string | null) => {
 
 const formatRaceDisplayName = (value: string, distanceKm: number | null) => {
   const withoutPrefix = value.replace(/^(?:format|course|parcours|[eé]preuve)\s*[:\-–—|]\s*/i, "").trim();
-  const withoutMetricSuffix = withoutPrefix
+  const eventScopedMatch = withoutPrefix.match(/^[^:]{2,60}:\s*(.+\b\d{1,3}(?:[.,]\d+)?\s*km\b.*)$/i);
+  const scopedName = eventScopedMatch?.[1]?.trim() ?? withoutPrefix;
+  const withoutMetricSuffix = scopedName
     .replace(
       /\s*(?:[-–—|·:]\s*)?(?:\d{1,3}(?:[.,]\d+)?\s*km|(?:\d{2,5}\s*m?\s*)?d\+|d\+\s*[:\-]?\s*\d{2,5}\s*m?)(?:\s*(?:[-–—|·:]\s*)?(?:\d{1,3}(?:[.,]\d+)?\s*km|(?:\d{2,5}\s*m?\s*)?d\+|d\+\s*[:\-]?\s*\d{2,5}\s*m?))*\s*$/i,
       ""
     )
     .trim();
   const genericName = /^(?:format|course|parcours|[eé]preuve|trail)(?:\s+(?:complet|partiel|long|court))?$/i.test(withoutMetricSuffix);
+
+  if (
+    eventScopedMatch &&
+    distanceKm !== null &&
+    /^(?:trail|course|marche(?:\s+solidaire)?|randonnee?|rando)$/i.test(normalizeComparableName(withoutMetricSuffix))
+  ) {
+    return `${withoutMetricSuffix} ${Number(distanceKm.toFixed(2))} km`;
+  }
 
   if ((!withoutMetricSuffix || genericName) && distanceKm !== null) {
     return `${Number(distanceKm.toFixed(2))} km`;
@@ -1089,6 +1102,7 @@ const extractCandidatePageUrls = (html: string, baseUrl: string) => {
     if (!href) continue;
     const parsedHref = new URL(href);
     if (parsedHref.origin !== base.origin || !/^https?:$/.test(parsedHref.protocol)) continue;
+    if (/\.pdf$/i.test(parsedHref.pathname)) continue;
     if (!GENERIC_PAGE_HINT_PATTERN.test(label) && !GENERIC_PAGE_HINT_PATTERN.test(parsedHref.pathname)) continue;
 
     parsedHref.hash = "";
@@ -1111,6 +1125,67 @@ const extractCandidatePageUrls = (html: string, baseUrl: string) => {
       .slice(0, GENERIC_PAGE_LIMIT - 1)
       .map(([href]) => href),
   ];
+};
+
+type GenericPdfSource = { url: string; title: string | null; text: string };
+
+const extractCandidatePdfLinks = (html: string, baseUrl: string) => {
+  const base = new URL(baseUrl);
+  const candidates = new Map<string, { title: string | null; score: number }>();
+
+  for (const match of html.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    const label = stripHtml(match[2]);
+    const href = absoluteUrl(baseUrl, match[1]);
+    if (!href) continue;
+    const parsedHref = new URL(href);
+    if (parsedHref.origin !== base.origin || !/^https?:$/.test(parsedHref.protocol)) continue;
+
+    const hint = normalizeComparableName(`${label ?? ""} ${parsedHref.pathname}`);
+    const isPdfPath = /\.pdf$/i.test(parsedHref.pathname);
+    if (!isPdfPath && !/\bpdf\b/.test(hint)) continue;
+
+    parsedHref.hash = "";
+    const normalizedHref = parsedHref.toString();
+    const score =
+      (isPdfPath ? 10 : 0) +
+      (/reglement/.test(hint) ? 8 : 0) +
+      (/(roadbook|guide coureur)/.test(hint) ? 6 : 0) +
+      (/programme/.test(hint) ? 4 : 0);
+    const current = candidates.get(normalizedHref);
+    if (!current || score > current.score) candidates.set(normalizedHref, { title: label, score });
+  }
+
+  return Array.from(candidates.entries())
+    .sort((left, right) => right[1].score - left[1].score || left[0].localeCompare(right[0]))
+    .slice(0, GENERIC_PDF_LIMIT)
+    .map(([url, candidate]) => ({ url, title: candidate.title }));
+};
+
+const fetchGenericPdfSource = async (candidate: { url: string; title: string | null }): Promise<GenericPdfSource> => {
+  const response = await fetchGenericResource(candidate.url, {
+    cache: "no-store",
+    headers: {
+      "user-agent": "Pace Yourself Organizer Importer",
+      accept: "application/pdf",
+    },
+  }).catch(() => null);
+  if (!response?.ok) throw new Error("PDF inaccessible");
+
+  const contentLength = Number(response.headers.get("content-length"));
+  if (Number.isFinite(contentLength) && contentLength > GENERIC_PDF_BYTES_LIMIT) {
+    throw new Error("PDF trop volumineux");
+  }
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (!contentType.includes("application/pdf") && !/\.pdf(?:$|[?#])/i.test(candidate.url)) {
+    throw new Error("Ressource non PDF");
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.byteLength > GENERIC_PDF_BYTES_LIMIT) throw new Error("PDF trop volumineux");
+  const parsed = await pdfParse(buffer, { max: 100 });
+  const text = parsed.text.trim();
+  if (!text) throw new Error("PDF sans texte exploitable");
+  return { ...candidate, text: text.slice(0, GENERIC_SOURCE_TEXT_LIMIT) };
 };
 
 const pickBestEventDate = (pages: GenericPageCandidate[]) => {
@@ -1298,6 +1373,12 @@ const parseCourseCandidatesFromHeadings = (
     const name = formatRaceDisplayName(rawName, distanceKm);
 
     const gpxUrl = findGpxUrls(sectionHtml, page.url)[0] ?? null;
+    const registrationUrl = Array.from(sectionHtml.matchAll(/<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi))
+      .flatMap((anchor) => {
+        const href = absoluteUrl(page.url, anchor[1]);
+        const hint = normalizeComparableName(`${stripHtml(anchor[2]) ?? ""} ${href ?? ""}`);
+        return href && /(inscription|s.?inscrire|register)/.test(hint) ? [href] : [];
+      })[0] ?? null;
 
     races.push(
       buildGenericRaceCandidate({
@@ -1308,7 +1389,7 @@ const parseCourseCandidatesFromHeadings = (
         locationText: eventLocation,
         distanceKm,
         elevationGainM: parseElevationMeters(sectionText),
-        externalSiteUrl: page.url,
+        externalSiteUrl: registrationUrl ?? page.url,
         thumbnailUrl: eventImage,
         aidStations: parseAidStationsFromText(sectionText),
         detectedYear: sectionText.match(/\b(20\d{2})\b/)?.[1] ?? eventDate?.slice(0, 4) ?? null,
@@ -1784,6 +1865,11 @@ const buildGenericAnalysis = async (
   const normalizedUrl = parsedUrl.toString();
   const rootPage = await fetchGenericHtmlPage(normalizedUrl);
   const pages = [rootPage];
+  const discoveredPdfLinks = extractCandidatePdfLinks(rootPage.html, normalizedUrl);
+  const discoveredPdfResults = await Promise.all(
+    discoveredPdfLinks.map((candidate) => fetchGenericPdfSource(candidate).catch(() => null))
+  );
+  const discoveredPdfSources = discoveredPdfResults.filter((source): source is GenericPdfSource => source !== null);
   const rootEmbeddedTracks = extractEmbeddedGeoJsonTracks(rootPage);
   const submittedFormatUrls = normalizeFormatUrls(options.formatUrls ?? []);
   const submittedAdditionalUrls = normalizeFormatUrls(options.additionalUrls ?? []);
@@ -1897,6 +1983,9 @@ const buildGenericAnalysis = async (
   const rootExplicitPageCandidates = rootIsExplicitFormat
     ? buildFormatPageCandidates(rootPage, 10_000, rootEmbeddedTracks)
     : [];
+  const rootHeadingCandidates = rootEmbeddedTracks.length === 0
+    ? parseCourseCandidatesFromHeadings(rootPage, eventDate, eventLocation, ogImage)
+    : [];
   const rootTabCandidates = parseCourseCandidatesFromTabPanels(rootPage, eventDate, eventLocation, ogImage);
   const rootEmbeddedCandidates = buildCandidatesFromEmbeddedGeoJson(
     rootPage,
@@ -1916,6 +2005,7 @@ const buildGenericAnalysis = async (
     [
       ...relevantFormatPageCandidates,
       ...rootExplicitPageCandidates,
+      ...(explicitFormatPagesAreAuthoritative ? [] : rootHeadingCandidates),
       ...(explicitFormatPagesAreAuthoritative ? [] : rootTabCandidates),
       ...(explicitFormatPagesAreAuthoritative ? [] : rootEmbeddedCandidates),
     ],
@@ -1999,8 +2089,12 @@ const buildGenericAnalysis = async (
       ...(requestedFormatUrls.length > resolvedFormatPages.length
         ? ["Certaines URLs officielles n'ont pas pu etre analysees."]
         : []),
+      ...(discoveredPdfLinks.length > discoveredPdfSources.length
+        ? ["Certains PDF officiels lies n'ont pas pu etre lus ou ne contiennent pas de texte exploitable."]
+        : []),
       ...(normalizedFormatUrls.length === 0 &&
       discoveredFormatUrls.length === 0 &&
+      rootHeadingCandidates.length === 0 &&
       rootTabCandidates.length === 0 &&
       rootEmbeddedCandidates.length === 0
         ? ["Aucun bloc de format ni page interne pertinente n'a ete detecte. Ajoute une autre URL officielle pour completer l'analyse."]
@@ -2019,17 +2113,26 @@ const buildGenericAnalysis = async (
   const additionalUrlSet = new Set(normalizedAdditionalUrls);
   return {
     preview,
-    sourceDocuments: [rootPage, ...resolvedFormatPages].map((page) => ({
-      url: page.url,
-      title: page.title ?? page.ogTitle,
-      text: page.text.slice(0, GENERIC_SOURCE_TEXT_LIMIT),
-      isPrimary: page.url === normalizedUrl,
-      discovery: page.url === normalizedUrl
-        ? "primary" as const
-        : additionalUrlSet.has(page.url)
-          ? "additional" as const
-          : "discovered" as const,
-    })),
+    sourceDocuments: [
+      ...[rootPage, ...resolvedFormatPages].map((page) => ({
+        url: page.url,
+        title: page.title ?? page.ogTitle,
+        text: page.text.slice(0, GENERIC_SOURCE_TEXT_LIMIT),
+        isPrimary: page.url === normalizedUrl,
+        discovery: page.url === normalizedUrl
+          ? "primary" as const
+          : additionalUrlSet.has(page.url)
+            ? "additional" as const
+            : "discovered" as const,
+      })),
+      ...discoveredPdfSources.map((source) => ({
+        url: source.url,
+        title: source.title,
+        text: source.text,
+        isPrimary: false,
+        discovery: "discovered" as const,
+      })),
+    ],
   };
 };
 

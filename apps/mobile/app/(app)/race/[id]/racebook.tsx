@@ -27,7 +27,7 @@ import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
 import { fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../../../lib/raceProfile';
-import { fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
+import { approximateDistanceKm, fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
 import {
   EMPTY_RACEBOOK_SPONSORS,
   fetchRacebookSponsors,
@@ -40,7 +40,7 @@ import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardi
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
-type CourseTabKey = 'route' | 'aid-stations' | 'relay';
+type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
 
 type RacebookAnalyticsSession = {
   properties: ReturnType<typeof buildRacebookAnalyticsProperties>;
@@ -1347,11 +1347,13 @@ export default function RaceRacebookScreen() {
   const serviceSections = useMemo(() => {
     if (!data) return [];
 
+    const structuredTypes = new Set(data.editionServices.map((service) => service.serviceType));
+
     return [
       { title: t.catalog.racebookServiceSupporters, value: data.runnerDetails.services.supporters },
-      { title: t.catalog.racebookServiceAccommodations, value: data.runnerDetails.services.accommodations },
-      { title: t.catalog.racebookServiceRestaurants, value: data.runnerDetails.services.restaurants },
-      { title: t.catalog.racebookServiceRecovery, value: data.runnerDetails.services.recovery },
+      { title: t.catalog.racebookServiceAccommodations, value: structuredTypes.has('accommodation') ? null : data.runnerDetails.services.accommodations },
+      { title: t.catalog.racebookServiceRestaurants, value: structuredTypes.has('restaurant') ? null : data.runnerDetails.services.restaurants },
+      { title: t.catalog.racebookServiceRecovery, value: structuredTypes.has('recovery') ? null : data.runnerDetails.services.recovery },
       { title: t.catalog.racebookServicePartners, value: data.runnerDetails.services.partners },
       { title: t.catalog.racebookSectionAdditionalInfo, value: data.runnerDetails.services.note },
     ].filter((section): section is { title: string; value: string } => Boolean(section.value));
@@ -1365,6 +1367,28 @@ export default function RaceRacebookScreen() {
     t.catalog.racebookServiceSupporters,
   ]);
 
+  const structuredServices = useMemo(() => {
+    if (!data) return [];
+    const accessStart = data.runnerDetails.access.startLocation;
+    const raceLocation = data.race.organizerDetails.raceLocation;
+    const eventLocation = data.event.organizerDetails.eventLocation;
+    const originLat = accessStart.lat ?? data.race.startLatitude ?? raceLocation.lat ?? eventLocation.lat;
+    const originLng = accessStart.lng ?? data.race.startLongitude ?? raceLocation.lng ?? eventLocation.lng;
+    return data.editionServices.map((service) => ({
+      ...service,
+      distanceKm: approximateDistanceKm(originLat, originLng, service.latitude, service.longitude),
+      directionsUrl: service.googleMapsUrl ?? (service.latitude != null && service.longitude != null
+        ? `https://www.google.com/maps/dir/?api=1&destination=${service.latitude},${service.longitude}`
+        : null),
+    }));
+  }, [data]);
+
+  const awardsByTime = useMemo(() => {
+    const groups = new Map<string, NonNullable<typeof data>['awards']>();
+    for (const award of data?.awards ?? []) groups.set(award.podiumTime, [...(groups.get(award.podiumTime) ?? []), award]);
+    return [...groups.entries()].sort(([left], [right]) => left.localeCompare(right));
+  }, [data]);
+
   const tabs = useMemo(() => {
     const availableTabs: Array<{ key: RacebookTabKey; label: string }> = [
       { key: 'gear', label: t.catalog.racebookTabGear },
@@ -1373,13 +1397,14 @@ export default function RaceRacebookScreen() {
       { key: 'access', label: t.catalog.racebookTabAccess },
     ];
 
-    if (serviceSections.length > 0) {
+    if (serviceSections.length > 0 || structuredServices.length > 0) {
       availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices });
     }
 
     return availableTabs;
   }, [
     serviceSections.length,
+    structuredServices.length,
     t.catalog.racebookSectionServices,
     t.catalog.racebookTabAccess,
     t.catalog.racebookTabBib,
@@ -1388,10 +1413,10 @@ export default function RaceRacebookScreen() {
   ]);
 
   useEffect(() => {
-    if (activeTab === 'services' && serviceSections.length === 0) {
+    if (activeTab === 'services' && serviceSections.length === 0 && structuredServices.length === 0) {
       setActiveTab('gear');
     }
-  }, [activeTab, serviceSections.length]);
+  }, [activeTab, serviceSections.length, structuredServices.length]);
 
   const bibLocationGroups = useMemo(() => {
     if (!data) return [];
@@ -1521,20 +1546,30 @@ export default function RaceRacebookScreen() {
     if (relaySegments.length > 0) {
       availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
     }
+    if ((data?.startWaves.length ?? 0) > 0) availableTabs.splice(1, 0, { key: 'start-waves', label: t.catalog.racebookCourseTabStartWaves });
+    if ((data?.awards.length ?? 0) > 0) availableTabs.push({ key: 'awards', label: t.catalog.racebookCourseTabAwards });
 
     return availableTabs;
   }, [
     relaySegments.length,
+    data?.startWaves.length,
+    data?.awards.length,
     t.catalog.racebookCourseTabAidStations,
+    t.catalog.racebookCourseTabAwards,
     t.catalog.racebookCourseTabRoute,
+    t.catalog.racebookCourseTabStartWaves,
     t.catalog.racebookSectionRelay,
   ]);
 
   useEffect(() => {
-    if (activeCourseTab === 'relay' && relaySegments.length === 0) {
+    if (
+      (activeCourseTab === 'relay' && relaySegments.length === 0) ||
+      (activeCourseTab === 'start-waves' && (data?.startWaves.length ?? 0) === 0) ||
+      (activeCourseTab === 'awards' && (data?.awards.length ?? 0) === 0)
+    ) {
       setActiveCourseTab('route');
     }
-  }, [activeCourseTab, relaySegments.length]);
+  }, [activeCourseTab, data?.awards.length, data?.startWaves.length, relaySegments.length]);
 
   const accessPresentation = useMemo(() => {
     if (!data) return null;
@@ -2128,6 +2163,23 @@ export default function RaceRacebookScreen() {
                   </SectionCard>
                 ) : null}
 
+                {activeCourseTab === 'start-waves' ? (
+                  <SectionCard title={t.catalog.racebookSectionStartWaves}>
+                    <View style={styles.relaySegmentsList}>{data.startWaves.map((wave) => {
+                      const criterion = wave.eligibilityType === 'bib_range' ? `${t.catalog.racebookWaveBibNumbers} ${wave.bibNumberMin}–${wave.bibNumberMax}` : wave.eligibilityType === 'estimated_finish_time' ? `${wave.finishMinutesMin}–${wave.finishMinutesMax} min` : wave.eligibilityType === 'pace' ? `${wave.paceSecondsMin}–${wave.paceSecondsMax} s/km` : wave.eligibilityType === 'custom' ? wave.eligibilityNote : t.catalog.racebookWaveAll;
+                      return <View key={wave.id} style={styles.relaySegmentCard}><View style={styles.relaySegmentHeader}><Text style={styles.relaySegmentTitle}>{wave.name}</Text><DataText style={styles.relaySegmentDistance}>{wave.startTime}</DataText></View>{criterion ? <Text style={styles.noteText}>{criterion}</Text> : null}</View>;
+                    })}</View>
+                  </SectionCard>
+                ) : null}
+
+                {activeCourseTab === 'awards' ? (
+                  <View style={styles.relaySegmentsList}>{awardsByTime.map(([podiumTime, awards]) => (
+                    <SectionCard key={podiumTime} title={`${t.catalog.racebookSectionAwards} · ${podiumTime}`}>
+                      <View style={styles.relaySegmentsList}>{awards.map((award) => <View key={award.id} style={styles.relaySegmentCard}><Text style={styles.relaySegmentTitle}>{award.categoryLabel}</Text><Text style={styles.relaySegmentMeta}>{`${award.audience === 'women' ? t.catalog.racebookAwardWomen : award.audience === 'men' ? t.catalog.racebookAwardMen : t.catalog.racebookAwardMixed} · ${award.placeFrom}–${award.placeTo}`}</Text>{award.podiumLocation ? <Text style={styles.noteText}>{award.podiumLocation}</Text> : null}{award.rewardNote ? <Text style={styles.noteText}>{award.rewardNote}</Text> : null}</View>)}</View>
+                    </SectionCard>
+                  ))}</View>
+                ) : null}
+
                 {activeCourseTab === 'aid-stations' ? (
                   <SectionCard title={t.catalog.racebookSectionAidStations}>
                     {data.aidStations.length > 0 ? (
@@ -2217,11 +2269,20 @@ export default function RaceRacebookScreen() {
             ) : null}
 
             {activeTab === 'services' ? (
-              serviceSections.map((section) => (
+              <>
+              {structuredServices.map((service) => (
+                <SectionCard key={service.id} title={service.name}>
+                  {service.address ? <Pressable disabled={!service.directionsUrl} onPress={() => service.directionsUrl && openTrackedUrl(service.directionsUrl, 'service_directions', service.serviceType)}><Text style={styles.serviceText}>{service.address}{service.distanceKm != null ? ` · ${service.distanceKm.toFixed(1)} km` : ''}</Text></Pressable> : null}
+                  {service.description ? <Text style={styles.serviceText}>{service.description}</Text> : null}
+                  {service.websiteUrl ? <Pressable onPress={() => openTrackedUrl(service.websiteUrl!, 'service_website', service.serviceType)}><Text style={styles.serviceText}>{t.catalog.racebookServiceWebsite}</Text></Pressable> : null}
+                  {service.phone ? <Pressable onPress={() => Linking.openURL(`tel:${service.phone!.replace(/\D/g, '')}`).catch(()=>{})}><Text style={styles.serviceText}>{service.phone}</Text></Pressable> : null}
+                </SectionCard>
+              ))}
+              {serviceSections.map((section) => (
                 <SectionCard key={section.title} title={section.title}>
                   <Text style={styles.serviceText}>{section.value}</Text>
                 </SectionCard>
-              ))
+              ))}</>
             ) : null}
           </View>
         </>
