@@ -603,6 +603,16 @@ export type MobileTranslations = {
     racebookSectionRelay: string;
     racebookCourseTabRoute: string;
     racebookCourseTabAidStations: string;
+    racebookCourseTabStartWaves: string;
+    racebookCourseTabAwards: string;
+    racebookSectionStartWaves: string;
+    racebookSectionAwards: string;
+    racebookWaveBibNumbers: string;
+    racebookWaveAll: string;
+    racebookAwardWomen: string;
+    racebookAwardMen: string;
+    racebookAwardMixed: string;
+    racebookServiceWebsite: string;
     racebookSectionCourseEssentials: string;
     racebookSectionCourseConstraints: string;
     racebookSectionGearRequired: string;

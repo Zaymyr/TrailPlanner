@@ -41,7 +41,8 @@ import {
   writeOrganizerRaceSidecarsCache,
   type OrganizerRaceSidecars,
 } from "./dashboard/data-cache";
-import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor, ServicesEditor } from "./dashboard/detail-editors";
+import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor } from "./dashboard/detail-editors";
+import { AwardsEditor, EditionServicesEditor, StartWavesEditor } from "./dashboard/structured-content-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import {
   aidStationRowsToDrafts,
@@ -406,6 +407,9 @@ export function OrganizerDashboard({
     if (!eventDraft) return null;
     return buildOrganizerCompletion(eventDraft, activeRaceForCompletion, aidStations, stationProducts, {
       aidStations: sidecarLoadedRaceId === activeRace?.id ? aidStations.length : activeRace?.aidStationCount ?? 0,
+      startWaves: activeRace?.startWaveCount ?? 0,
+      awards: activeRace?.awardCount ?? 0,
+      services: activeEdition?.serviceCount ?? 0,
       stationProducts: sidecarLoadedRaceId === activeRace?.id ? stationProducts.length : undefined,
       sponsors:
         sponsorSummary !== null && sponsorSummary.editionId === activeEdition?.id
@@ -416,7 +420,7 @@ export function OrganizerDashboard({
           ? sponsorSummary.clicks
           : 0,
     });
-  }, [activeEdition?.id, activeRace?.aidStationCount, activeRace?.id, activeRaceForCompletion, aidStations, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
+  }, [activeEdition?.id, activeEdition?.serviceCount, activeRace?.aidStationCount, activeRace?.awardCount, activeRace?.id, activeRace?.startWaveCount, activeRaceForCompletion, aidStations, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
 
   const markDirty = (moduleId: OrganizerModuleId) => {
     if (!activeDirtyScopeKey) return;
@@ -1864,7 +1868,7 @@ export function OrganizerDashboard({
         "success",
         targetTier === "pro"
           ? "Offre RaceBook Pro offerte — valeur : 299 € HT."
-          : "Offre RaceBook offerte — valeur : 99 € HT."
+          : "Offre RaceBook offerte — valeur : 199 € HT."
       );
     } catch (caught) {
       console.error("Unable to grant complimentary organizer offer", caught);
@@ -2552,6 +2556,9 @@ export function OrganizerDashboard({
               relayPoints={activeTier === "pro" ? relayPoints : []}
               startTime={raceForm.organizerDetails.schedule.startTime ?? ""}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
+              cutoffNote={raceForm.organizerDetails.schedule.cutoffNote ?? ""}
+              scheduleNote={raceForm.organizerDetails.schedule.note ?? ""}
+              startWavesSlot={<StartWavesEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} />}
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
               onAddStation={() => {
@@ -2659,6 +2666,8 @@ export function OrganizerDashboard({
                   "aidStations"
                 )
               }
+              onCutoffNoteChange={(value) => updateRaceForm({ organizerDetails: { ...raceForm.organizerDetails, schedule: { ...raceForm.organizerDetails.schedule, cutoffNote: value || null } } }, "aidStations")}
+              onScheduleNoteChange={(value) => updateRaceForm({ organizerDetails: { ...raceForm.organizerDetails, schedule: { ...raceForm.organizerDetails.schedule, note: value || null } } }, "aidStations")}
               onUpdateStation={updateAidStation}
               onRemoveStation={(index) => {
                 const stationId = aidStations[index]?.id;
@@ -2748,7 +2757,9 @@ export function OrganizerDashboard({
               status={status}
             />
           ) : activeModule === "services" ? (
-            <ServicesEditor details={eventForm.organizerDetails} onChange={(details) => updateEventDetails(details, "services")} />
+            <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} />
+          ) : activeModule === "awards" ? (
+            <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} />
           ) : activeModule === "sponsors" && isEventTab && activeTier !== "pro" ? (
             <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
               <p className="font-semibold text-foreground">Gestion des sponsors — RaceBook Pro</p>
@@ -2831,7 +2842,7 @@ export function OrganizerDashboard({
                 <CardHeader className="pb-3">
                   <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                     <span>RaceBook Pro</span>
-                    <span className="text-base font-semibold text-brand">Complément de 200 € HT</span>
+                    <span className="text-base font-semibold text-brand">Complément de 100 € HT</span>
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-5">
@@ -2844,7 +2855,7 @@ export function OrganizerDashboard({
                     <li>Import assisté</li>
                   </ul>
                   <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
-                    {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Passer à Pro pour 200 € HT"}
+                    {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Passer à Pro pour 100 € HT"}
                   </Button>
                 </CardContent>
               </Card>
@@ -2854,7 +2865,7 @@ export function OrganizerDashboard({
                   <CardHeader className="pb-3">
                     <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                       <span>RaceBook</span>
-                      <span className="text-base font-semibold">99 € HT</span>
+                      <span className="text-base font-semibold">199 € HT</span>
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="flex flex-1 flex-col gap-5">
@@ -2917,7 +2928,7 @@ export function OrganizerDashboard({
                         onClick={() => void grantComplimentaryOffer("racebook")}
                         disabled={complimentaryGrantTarget !== null || checkoutTarget !== null}
                       >
-                        {complimentaryGrantTarget === "racebook" ? "Activation…" : "Offrir RaceBook — valeur 99 € HT"}
+                        {complimentaryGrantTarget === "racebook" ? "Activation…" : "Offrir RaceBook — valeur 199 € HT"}
                       </Button>
                     </div>
                   ) : null}

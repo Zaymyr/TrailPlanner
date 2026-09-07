@@ -23,6 +23,16 @@ describe("parseOrganizerEventDetails", () => {
     expect(details.emergencyContact).toEqual({ name: "PC course", phone: "+33 6 12 34 56 78" });
   });
 
+  it("adds HTTPS to social links copied without a protocol", () => {
+    const details = parseOrganizerEventDetails({
+      instagramUrl: "www.instagram.com/grandtrail/",
+      facebookUrl: "facebook.com/grandtrail?locale=fr_FR",
+    });
+
+    expect(details.instagramUrl).toBe("https://www.instagram.com/grandtrail/");
+    expect(details.facebookUrl).toBe("https://facebook.com/grandtrail?locale=fr_FR");
+  });
+
   it("normalizes French international emergency numbers", () => {
     const details = parseOrganizerEventDetails({
       emergencyContact: { name: null, phone: "0033 (0)6.12.34.56.78" },

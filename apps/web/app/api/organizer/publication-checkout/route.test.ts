@@ -34,9 +34,9 @@ describe("POST /api/organizer/publication-checkout", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
-    ["visibility", "racebook", "price_racebook", 9_900, "racebook"],
+    ["visibility", "racebook", "price_racebook", 19_900, "racebook"],
     ["visibility", "pro", "price_pro", 29_900, "pro_direct"],
-    ["racebook", "pro", "price_upgrade", 20_000, "pro_upgrade"],
+    ["racebook", "pro", "price_upgrade", 10_000, "pro_upgrade"],
   ] as const)("charges the server-selected price for %s to %s", async (fromTier, targetTier, priceId, amount, purchaseKind) => {
     mocks.currentTier = fromTier;
     mocks.getStripeJson.mockResolvedValue({
@@ -78,7 +78,7 @@ describe("POST /api/organizer/publication-checkout", () => {
       id: "price_racebook",
       active: true,
       currency: "eur",
-      unit_amount: 9_900,
+      unit_amount: 19_900,
       recurring: null,
       tax_behavior: "exclusive",
     });

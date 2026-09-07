@@ -14,6 +14,7 @@ export type OrganizerModuleId =
   | "access"
   | "products"
   | "services"
+  | "awards"
   | "sponsors";
 
 export type OrganizerModuleLevel = "required" | "recommended" | "optional";
@@ -32,6 +33,8 @@ export type CompletionRace = {
   is_live: boolean;
   organizerDetails?: OrganizerRaceDetails;
   aidStationCount?: number;
+  startWaveCount?: number;
+  awardCount?: number;
 };
 
 export type CompletionEvent = {
@@ -236,7 +239,7 @@ const buildFormatProgressModules = (
     },
     {
       id: "aidStations",
-      title: "Ravito / relais",
+      title: "Départ, ravitos & relais",
       description: "Départ, arrivée, ravitos, relais, barrières et produits du format.",
       level: "recommended",
       status:
@@ -245,8 +248,9 @@ const buildFormatProgressModules = (
         aidStationCount > 0
           ? "complete"
           : "empty",
-      countLabel: `${aidStationCount} ravito${aidStationCount > 1 ? "s" : ""}${aidStationCount > 0 && stationProductCount !== null ? ` - ${stationProductCount} produit${stationProductCount > 1 ? "s" : ""}` : ""}`,
+      countLabel: `${race.startWaveCount ?? 0} SAS · ${aidStationCount} ravito${aidStationCount > 1 ? "s" : ""}${aidStationCount > 0 && stationProductCount !== null ? ` · ${stationProductCount} produit${stationProductCount > 1 ? "s" : ""}` : ""}`,
     },
+    { id: "awards", title: "Podiums & récompenses", description: "Catégories, places récompensées et horaires.", level: "optional", status: (race.awardCount ?? 0) > 0 ? "complete" : "empty", countLabel: (race.awardCount ?? 0) > 0 ? `${race.awardCount} catégorie${race.awardCount! > 1 ? "s" : ""}` : "Optionnel" },
   ];
 };
 
@@ -255,7 +259,7 @@ export function buildOrganizerCompletion(
   activeRace: CompletionRace | null,
   aidStations: CompletionAidStation[],
   stationProducts: CompletionStationProduct[],
-  persistedCounts?: { aidStations?: number; stationProducts?: number; sponsors?: number; sponsorClicks?: number }
+  persistedCounts?: { aidStations?: number; startWaves?: number; awards?: number; services?: number; stationProducts?: number; sponsors?: number; sponsorClicks?: number }
 ): OrganizerCompletionSummary {
   const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
   const activeEdition = getCompletionEdition(event, activeRace);
@@ -283,6 +287,9 @@ export function buildOrganizerCompletion(
   const commonAccess = eventDetails.access;
   const accessEnabledSections = access.enabledSections;
   const activeAidStationCount = persistedCounts?.aidStations ?? aidStations.length;
+  const startWaveCount = persistedCounts?.startWaves ?? activeRace?.startWaveCount ?? 0;
+  const awardCount = persistedCounts?.awards ?? activeRace?.awardCount ?? 0;
+  const structuredServiceCount = persistedCounts?.services ?? 0;
   const linkedStationProductCount = persistedCounts
     ? persistedCounts.stationProducts ?? null
     : stationProducts.length;
@@ -368,7 +375,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "aidStations",
-      title: "Ravito / relais",
+      title: "Départ, ravitos & relais",
       description: "Départ, arrivée, ravitos, relais, barrières et produits officiels.",
       level: "recommended",
       status:
@@ -378,7 +385,7 @@ export function buildOrganizerCompletion(
           activeAidStationCount > 0)
           ? "complete"
           : "empty",
-      countLabel: `${activeAidStationCount} ravito${activeAidStationCount > 1 ? "s" : ""}${activeAidStationCount > 0 && linkedStationProductCount !== null ? ` - ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
+      countLabel: `${startWaveCount} SAS · ${activeAidStationCount} ravito${activeAidStationCount > 1 ? "s" : ""}${activeAidStationCount > 0 && linkedStationProductCount !== null ? ` · ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
       missingLabels: aidStationMissingLabels,
     },
     {
@@ -433,10 +440,10 @@ export function buildOrganizerCompletion(
     },
     {
       id: "services",
-      title: "Partenaires / services",
+      title: "Services & alentours",
       description: "Accompagnants, hébergement, restauration, récup, partenaires.",
       level: "optional",
-      status: statusFrom(
+      status: structuredServiceCount > 0 ? "complete" : statusFrom(
         filledCount([
           services?.supporters,
           services?.accommodations,
@@ -449,7 +456,7 @@ export function buildOrganizerCompletion(
         7,
         1
       ),
-      countLabel: hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
+      countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
     },
     {
       id: "sponsors",
@@ -552,7 +559,7 @@ export function buildOrganizerCompletion(
   ];
 
   const formatModules: OrganizerModuleSummary[] = activeRace
-    ? buildFormatProgressModules(eventDetails, activeRace, activeAidStationCount, linkedStationProductCount).map((module) => {
+    ? buildFormatProgressModules(eventDetails, { ...activeRace, startWaveCount, awardCount }, activeAidStationCount, linkedStationProductCount).map((module) => {
         if (module.id === "formats") return { ...module, missingLabels: formatMissingLabels };
         if (module.id === "equipment") return { ...module, missingLabels: formatEquipmentMissingLabels };
         if (module.id === "access") return { ...module, missingLabels: formatAccessMissingLabels };

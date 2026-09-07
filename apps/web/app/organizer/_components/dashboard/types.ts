@@ -88,6 +88,8 @@ export type RaceFormat = {
   organizerDetails?: OrganizerRaceDetails;
   participation_mode?: RaceParticipationMode | null;
   aidStationCount?: number;
+  startWaveCount?: number;
+  awardCount?: number;
 };
 
 export type ElevationPoint = {
@@ -108,6 +110,7 @@ export type RaceEventEdition = {
   is_current: boolean;
   is_visible?: boolean;
   entitlement?: OrganizerEditionEntitlement | null;
+  serviceCount?: number;
 };
 
 export type GpxDetectedAidStation = {

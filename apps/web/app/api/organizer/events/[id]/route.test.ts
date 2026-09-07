@@ -76,6 +76,11 @@ describe("/api/organizer/events/[id]", () => {
                 { id: "44444444-4444-4444-4444-444444444444" },
                 { id: "55555555-5555-5555-5555-555555555555" },
               ],
+              race_start_waves: [{ id: "66666666-6666-4666-8666-666666666666" }],
+              race_awards: [
+                { id: "77777777-7777-4777-8777-777777777777" },
+                { id: "88888888-8888-4888-8888-888888888888" },
+              ],
             },
           ],
         },
@@ -99,8 +104,11 @@ describe("/api/organizer/events/[id]", () => {
     expect(payload.event.races[0].series_name).toBe("42K");
     expect(payload.event.races[0].organizerDetails.schedule.startTime).toBe("07:00");
     expect(payload.event.races[0].aidStationCount).toBe(2);
+    expect(payload.event.races[0].startWaveCount).toBe(1);
+    expect(payload.event.races[0].awardCount).toBe(2);
     expect(payload.event.races[0].race_aid_stations).toBeUndefined();
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_aid_stations(id)");
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_start_waves(id)");
   });
 
   it("persists organizerDetails on patch", async () => {
@@ -128,6 +136,8 @@ describe("/api/organizer/events/[id]", () => {
       organizerRequest({
         organizerDetails: {
           officialWebsiteUrl: "https://grand-trail.example",
+          instagramUrl: "instagram.com/grandtrail",
+          facebookUrl: "www.facebook.com/grandtrail",
           emergencyContact: { name: "PC course", phone: "06 12 34 56 78" },
           mandatoryEquipment: {
             weatherPlan: "heat",
@@ -144,6 +154,8 @@ describe("/api/organizer/events/[id]", () => {
     expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
       organizer_details: {
         officialWebsiteUrl: "https://grand-trail.example",
+        instagramUrl: "https://instagram.com/grandtrail",
+        facebookUrl: "https://www.facebook.com/grandtrail",
         emergencyContact: { name: "PC course", phone: "+33 6 12 34 56 78" },
         mandatoryEquipment: {
           weatherPlan: "heat",

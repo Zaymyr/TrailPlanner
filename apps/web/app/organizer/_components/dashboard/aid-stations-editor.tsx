@@ -18,7 +18,7 @@ import type {
   StationProduct,
 } from "./types";
 
-type EditorView = "aidStations" | "relay";
+type EditorView = "startWaves" | "aidStations" | "relay";
 
 export function AidStationsEditor({
   activeRace,
@@ -27,12 +27,17 @@ export function AidStationsEditor({
   relayPoints,
   startTime,
   finishCutoffTime,
+  cutoffNote,
+  scheduleNote,
+  startWavesSlot,
   expandedStationKey,
   onExpandedStationKeyChange,
   onAddStation,
   onAddRelayPoint,
   onStartTimeChange,
   onFinishCutoffTimeChange,
+  onCutoffNoteChange,
+  onScheduleNoteChange,
   onUpdateStation,
   onRemoveStation,
   onUpdateRelayPoint,
@@ -55,12 +60,17 @@ export function AidStationsEditor({
   relayPoints: RelayPointDraft[];
   startTime: string;
   finishCutoffTime: string;
+  cutoffNote: string;
+  scheduleNote: string;
+  startWavesSlot: ReactNode;
   expandedStationKey: string | null;
   onExpandedStationKeyChange: (key: string | null) => void;
   onAddStation: () => void;
   onAddRelayPoint: () => void;
   onStartTimeChange: (value: string) => void;
   onFinishCutoffTimeChange: (value: string) => void;
+  onCutoffNoteChange: (value: string) => void;
+  onScheduleNoteChange: (value: string) => void;
   onUpdateStation: (index: number, station: AidStationDraft) => void;
   onRemoveStation: (index: number) => void;
   onUpdateRelayPoint: (index: number, point: RelayPointDraft) => void;
@@ -79,17 +89,17 @@ export function AidStationsEditor({
 }) {
   const [viewState, setViewState] = useState<{ scopeKey: string; view: EditorView }>({
     scopeKey: "",
-    view: "aidStations",
+    view: "startWaves",
   });
   const relayEnabled = participationMode === "relay" || participationMode === "solo_and_relay";
   const viewScopeKey = `${activeRace?.id ?? ""}:${participationMode}`;
 
   useEffect(() => {
-    setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
+    setViewState({ scopeKey: viewScopeKey, view: "startWaves" });
   }, [viewScopeKey]);
 
   if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
-  const activeView = relayEnabled && viewState.scopeKey === viewScopeKey ? viewState.view : "aidStations";
+  const activeView = viewState.scopeKey === viewScopeKey ? viewState.view : "startWaves";
   const sortedRelayPoints = [...relayPoints].sort((left, right) => left.distanceKm - right.distanceKm);
   const relayBoundaries = [
     { name: "Départ", distanceKm: 0 },
@@ -99,7 +109,7 @@ export function AidStationsEditor({
 
   return (
     <div className="relative space-y-4">
-      <div className="flex flex-wrap justify-end gap-2 md:absolute md:-top-[4.75rem] md:right-0">
+      {activeView !== "startWaves" ? <div className="flex flex-wrap justify-end gap-2 md:absolute md:-top-[4.75rem] md:right-0">
         {activeView === "aidStations" ? (
           <Button type="button" variant="outline" onClick={onAddStation}>
             Ajouter un ravito
@@ -109,20 +119,19 @@ export function AidStationsEditor({
             Ajouter un point de relais
           </Button>
         )}
-      </div>
+      </div> : null}
 
-      {relayEnabled ? (
-        <TabsList
+      <TabsList
           tabs={[
+            { id: "startWaves", label: "SAS" },
             { id: "aidStations", label: "Ravitos" },
-            { id: "relay", label: "Relais" },
+            ...(relayEnabled ? [{ id: "relay", label: "Relais" }] : []),
           ]}
           activeTab={activeView}
           onTabChange={(view) => setViewState({ scopeKey: viewScopeKey, view: view as EditorView })}
         />
-      ) : null}
 
-      {activeView === "aidStations" ? (
+      {activeView === "startWaves" ? startWavesSlot : activeView === "aidStations" ? (
         <>
           <FixedCourseCard
             title="Départ"
@@ -249,6 +258,10 @@ export function AidStationsEditor({
             label="Barrière horaire d'arrivée"
             onChange={onFinishCutoffTimeChange}
           />
+          <section className="grid gap-4 rounded-[1.5rem] border border-border bg-background p-4 md:grid-cols-2">
+            <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
+            <TextAreaField label="Contraintes et consignes de course" value={scheduleNote} onChange={onScheduleNoteChange} />
+          </section>
         </>
       ) : (
         <div className="space-y-4">
@@ -282,10 +295,11 @@ export function AidStationsEditor({
                   const linkedStation = point.raceAidStationId ? aidStations.find((station) => station.id === point.raceAidStationId) : null;
                   return (
                     <article key={point.id ?? `relay-${index}`} className="rounded-xl border border-border bg-background p-4">
-                      <div className="grid items-end gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(10rem,1fr)_2.5rem]">
+                      <div className="grid items-end gap-3 lg:grid-cols-[minmax(0,2fr)_minmax(8rem,1fr)_minmax(10rem,1fr)_minmax(10rem,1fr)_2.5rem]">
                         <TextField label="Nom du point" value={point.name} onChange={(value) => onUpdateRelayPoint(index, { ...point, name: value })} disabled={Boolean(linkedStation)} />
                         <NumberField label="Distance km" value={point.distanceKm} onChange={(value) => onUpdateRelayPoint(index, { ...point, distanceKm: value })} disabled={Boolean(linkedStation)} />
                         <TextField label="Barrière horaire" value={point.cutoffTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, cutoffTime: value })} />
+                        <TextField label="Heure de transmission" type="time" value={point.handoverTime} onChange={(value) => onUpdateRelayPoint(index, { ...point, handoverTime: value })} />
                         <Button
                           type="button"
                           variant="ghost"
@@ -300,6 +314,7 @@ export function AidStationsEditor({
                         </Button>
                       </div>
                       {linkedStation ? <p className="mt-2 text-xs text-muted-foreground">Lié au ravito {linkedStation.name}. Le nom et le kilomètre suivent ce ravito.</p> : null}
+                      <div className="mt-3"><TextAreaField label="Consignes relais" value={point.notes} onChange={(value) => onUpdateRelayPoint(index, { ...point, notes: value })} /></div>
                     </article>
                   );
                 })}
@@ -344,13 +359,20 @@ function StationDetailsPanel({ station, onChange, productsSlot }: { station: Aid
   const details = station.organizerDetails;
   return (
     <div className="border-t border-border px-4 pb-4 pt-1">
-      <div className="grid gap-3 rounded-[1.25rem] border border-dashed border-brand-border/70 bg-background/80 p-4 lg:grid-cols-2 xl:grid-cols-5">
+      <div className="grid gap-3 rounded-[1.25rem] border border-dashed border-brand-border/70 bg-background/80 p-4 lg:grid-cols-2 xl:grid-cols-6">
         <div className="xl:col-span-2">
           <TextField label="Nom du ravito" value={station.name} onChange={(value) => onChange({ ...station, name: value })} required />
         </div>
         <NumberField label="Distance km" value={station.distanceKm} step="0.1" onChange={(value) => onChange({ ...station, distanceKm: value })} />
         <NumberField label="D+ cumulé" value={details.cumulativeElevationGainM ?? 0} step="1" readOnly onChange={() => undefined} />
         <NumberField label="D- cumulé" value={details.cumulativeElevationLossM ?? 0} step="1" readOnly onChange={() => undefined} />
+        <div className="space-y-1">
+          <label className="text-sm font-medium">Type de ravito</label>
+          <select className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={details.stationType} onChange={(event) => onChange({ ...station, organizerDetails: { ...details, stationType: event.target.value as typeof details.stationType } })}>
+            <option value="water">Eau</option><option value="solid">Solide</option><option value="assistance">Assistance</option><option value="life_base">Base de vie</option><option value="other">Autre</option>
+          </select>
+        </div>
+        <NumberField label="Altitude (m)" value={details.altitudeM ?? 0} step="1" onChange={(altitudeM) => onChange({ ...station, organizerDetails: { ...details, altitudeM } })} />
         <div className="xl:col-span-2">
           <TextField label="Barrière horaire" value={details.cutoffTime ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })} />
         </div>

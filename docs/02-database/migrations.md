@@ -17,6 +17,8 @@ related_files:
   - supabase/migrations/20260821143417_add_organizer_imports_bucket.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
@@ -62,6 +64,8 @@ related_tables:
 ---
 
 # Migrations
+
+`20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 
 ## Purpose
 

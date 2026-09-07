@@ -16,6 +16,8 @@ related_files:
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -58,6 +60,8 @@ related_tables:
 ---
 
 # RLS Policies
+
+Structured services, SAS and awards permit SELECT for a published, visible RaceBook and for an authorized organizer preview of the parent event. Direct table and RPC mutations are revoked from `anon`/`authenticated`; Organizer routes execute atomic replacements with `service_role` after session, membership and capability checks.
 
 ## Purpose
 

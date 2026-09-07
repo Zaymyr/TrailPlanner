@@ -4,6 +4,10 @@ scope: architecture
 last_verified: 2026-09-06
 ai_priority: high
 related_files:
+  - apps/mobile/lib/racebook.ts
+  - apps/mobile/locales/fr.ts
+  - apps/mobile/locales/en.ts
+  - apps/mobile/locales/types.ts
   - apps/mobile/package.json
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
@@ -57,6 +61,10 @@ related_tables:
 ---
 
 # Mobile App Architecture
+
+## Structured RaceBook modules
+
+RaceBook loads edition services, format SAS and podium programme rows alongside its detail payload. Course shows conditional **SAS** and **Podiums** views. Services render as actionable cards; per category, structured rows take precedence over legacy text. Approximate distance uses start-address coordinates, then GPX start, then format/event coordinates, and is hidden when either endpoint is invalid. Google Maps remains responsible for the real itinerary.
 
 ## Purpose
 

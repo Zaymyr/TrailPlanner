@@ -1,0 +1,24 @@
+---
+title: race_awards Table
+scope: database
+last_verified: 2026-09-07
+ai_priority: high
+related_files:
+  - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - apps/web/app/api/organizer/races/[id]/awards/route.ts
+  - apps/web/lib/organizer-structured-content.ts
+  - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/mobile/lib/racebook.ts
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
+related_tables:
+  - race_awards
+  - races
+---
+
+# `race_awards`
+
+## Purpose and invariants
+
+Stores the podium programme for a format, not finisher results. A row records a preset (`scratch`, `u18`, `u20`, `u23`, `senior`, `master`) or custom category, its persisted display label, audience, inclusive rewarded-place range, required podium time, optional location and reward/note.
+
+Rows are ordered, replaced atomically with stable submitted ids, cascade with their format and are copied during Pro edition duplication. Public and organizer-preview reads use RLS; mutations only pass through the Organizer API after `racebook_content.manage` authorization.

@@ -59,6 +59,44 @@ describe("organizer source intelligence", () => {
       .toEqual(expect.arrayContaining([12, 28, 55]));
   });
 
+  it("recognizes KMS colon headings as formats before registration navigation noise", () => {
+    const analysis = classifyOrganizerOfficialSourceDeterministically({
+      url: "https://www.kms.fr/v5/public/course/5320",
+      title: "La Tou'Run",
+      isPrimary: true,
+      text: [
+        "La Tou'Run:Trail 16KM 385m D+",
+        "S'inscrire",
+        "La Tou'Run:Trail 25KM 755m D+",
+        "S'inscrire",
+        "La Tou'Run:Marche solidaire 6KM",
+        "S'inscrire",
+      ].join("\n"),
+    });
+
+    expect(analysis).toMatchObject({ role: "multi_format", confidence: "high" });
+    expect(analysis.assertions).toEqual(expect.arrayContaining([
+      expect.objectContaining({ formatName: "Trail 16 km", field: "distanceKm", value: 16 }),
+      expect.objectContaining({ formatName: "Trail 16 km", field: "elevationGainM", value: 385 }),
+      expect.objectContaining({ formatName: "Marche solidaire 6 km", field: "distanceKm", value: 6 }),
+    ]));
+  });
+
+  it("keeps a results archive excluded even when it lists several named distances", () => {
+    const analysis = classifyOrganizerOfficialSourceDeterministically({
+      url: "https://trail.example/resultats-2025",
+      title: "Resultats et classements 2025",
+      isPrimary: false,
+      text: [
+        "Resultats officiels et classement",
+        "Trail court - 12 km",
+        "Trail long - 28 km",
+      ].join("\n"),
+    });
+
+    expect(analysis.role).toBe("results_archive");
+  });
+
   it("drops an invented LLM assertion while keeping grounded source analysis", async () => {
     vi.stubEnv("OPENAI_API_KEY", "test-key");
     const source = ambiguousSource("invented-claim");

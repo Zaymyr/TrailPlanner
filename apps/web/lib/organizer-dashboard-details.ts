@@ -8,9 +8,24 @@ const nullableText = z
     return trimmed.length > 0 ? trimmed : null;
   });
 
-const nullableUrl = nullableText.refine((value) => !value || /^https?:\/\//i.test(value), {
-  message: "Invalid URL.",
-});
+const URL_WITHOUT_PROTOCOL_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#].*)?$/i;
+
+const nullableUrl = nullableText
+  .transform((value) => {
+    if (!value || /^https?:\/\//i.test(value)) return value;
+    return URL_WITHOUT_PROTOCOL_PATTERN.test(value) ? `https://${value}` : value;
+  })
+  .refine((value) => {
+    if (!value) return true;
+    try {
+      const url = new URL(value);
+      return (url.protocol === "http:" || url.protocol === "https:") && Boolean(url.hostname);
+    } catch {
+      return false;
+    }
+  }, {
+    message: "Invalid URL.",
+  });
 
 const nullableBoolean = z.union([z.boolean(), z.null(), z.undefined()]).transform((value) => value ?? null);
 

@@ -62,7 +62,7 @@ end $$;
 insert into public.organizer_edition_payments (
   edition_id, purchase_kind, from_tier, to_tier, status, amount_subtotal, currency
 )
-select edition_id, 'racebook', 'visibility', 'racebook', 'paid', 9900, 'eur'
+select edition_id, 'racebook', 'visibility', 'racebook', 'paid', 19900, 'eur'
 from _organizer_offer_fixture;
 
 select public.recalculate_organizer_edition_entitlement((select edition_id from _organizer_offer_fixture));
@@ -77,7 +77,7 @@ end $$;
 insert into public.organizer_edition_payments (
   edition_id, purchase_kind, from_tier, to_tier, status, amount_subtotal, currency
 )
-select edition_id, 'pro_upgrade', 'racebook', 'pro', 'paid', 20000, 'eur'
+select edition_id, 'pro_upgrade', 'racebook', 'pro', 'paid', 10000, 'eur'
 from _organizer_offer_fixture;
 
 select public.recalculate_organizer_edition_entitlement((select edition_id from _organizer_offer_fixture));

@@ -22,6 +22,7 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
+  - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
@@ -55,6 +56,8 @@ related_tables:
 ---
 
 # Database Relationships
+
+`race_event_editions` has many `race_edition_services`. `races` has many `race_start_waves` and `race_awards`. All three foreign keys use `ON DELETE CASCADE` and have explicit indexes for parent lookups.
 
 ## Purpose
 

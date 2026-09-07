@@ -147,6 +147,10 @@ export type RacebookRelayPoint = {
   orderIndex: number;
 };
 
+export type RacebookStartWave = { id:string; name:string; startTime:string; eligibilityType:'all'|'bib_range'|'estimated_finish_time'|'pace'|'custom'; bibNumberMin:number|null; bibNumberMax:number|null; finishMinutesMin:number|null; finishMinutesMax:number|null; paceSecondsMin:number|null; paceSecondsMax:number|null; eligibilityNote:string|null; orderIndex:number };
+export type RacebookAward = { id:string; categoryKey:string; categoryLabel:string; audience:'women'|'men'|'mixed'; placeFrom:number; placeTo:number; podiumTime:string; podiumLocation:string|null; rewardNote:string|null; orderIndex:number };
+export type RacebookEditionService = { id:string; serviceType:'restaurant'|'accommodation'|'recovery'|'other'; name:string; description:string|null; address:string|null; latitude:number|null; longitude:number|null; googleMapsUrl:string|null; websiteUrl:string|null; phone:string|null; orderIndex:number };
+
 export type RacebookAidStation = {
   id: string;
   name: string;
@@ -173,6 +177,8 @@ export type RacebookScreenData = {
     location: string | null;
     participationMode: RaceParticipationMode | null;
     organizerDetails: OrganizerRaceDetails;
+    startLatitude: number | null;
+    startLongitude: number | null;
   };
   event: {
     id: string | null;
@@ -201,6 +207,9 @@ export type RacebookScreenData = {
   };
   aidStations: RacebookAidStation[];
   relayPoints: RacebookRelayPoint[];
+  startWaves: RacebookStartWave[];
+  awards: RacebookAward[];
+  editionServices: RacebookEditionService[];
   canOpen: boolean;
 };
 
@@ -798,6 +807,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     .from('races')
     .select(`
       id,
+      edition_id,
       name,
       distance_km,
       elevation_gain_m,
@@ -808,6 +818,8 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       thumbnail_url,
       location_text,
       participation_mode,
+      start_lat,
+      start_lng,
       organizer_details,
       race_events (
         id,
@@ -859,6 +871,15 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     .order('order_index', { ascending: true });
 
   if (relayPointError) return null;
+
+  const [{ data: startWaveRows, error: startWaveError }, { data: awardRows, error: awardError }, { data: editionServiceRows, error: editionServiceError }] = await Promise.all([
+    supabase.from('race_start_waves').select('id,name,start_time,eligibility_type,bib_number_min,bib_number_max,finish_minutes_min,finish_minutes_max,pace_seconds_min,pace_seconds_max,eligibility_note,order_index').eq('race_id', raceId).order('order_index'),
+    supabase.from('race_awards').select('id,category_key,category_label,audience,place_from,place_to,podium_time,podium_location,reward_note,order_index').eq('race_id', raceId).order('podium_time').order('order_index'),
+    raceRow.edition_id
+      ? supabase.from('race_edition_services').select('id,service_type,name,description,address,latitude,longitude,google_maps_url,website_url,phone,order_index').eq('edition_id', String(raceRow.edition_id)).order('service_type').order('order_index')
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (startWaveError || awardError || editionServiceError) return null;
 
   const eventRelation = Array.isArray(raceRow.race_events) ? raceRow.race_events[0] ?? null : raceRow.race_events ?? null;
   const { data: sessionData } = await supabase.auth.getSession();
@@ -952,6 +973,9 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
         .filter((row) => row.name.length > 0 && row.km > 0 && row.km < Number(raceRow.distance_km))
         .sort((left, right) => left.orderIndex - right.orderIndex || left.km - right.km)
     : [];
+  const startWaves: RacebookStartWave[] = Array.isArray(startWaveRows) ? startWaveRows.map((row:any)=>({id:String(row.id),name:readText(row.name)??'',startTime:(readText(row.start_time)??'').slice(0,5),eligibilityType:row.eligibility_type,bibNumberMin:readNumber(row.bib_number_min),bibNumberMax:readNumber(row.bib_number_max),finishMinutesMin:readNumber(row.finish_minutes_min),finishMinutesMax:readNumber(row.finish_minutes_max),paceSecondsMin:readNumber(row.pace_seconds_min),paceSecondsMax:readNumber(row.pace_seconds_max),eligibilityNote:readText(row.eligibility_note),orderIndex:readNumber(row.order_index)??0})).filter((row:any)=>row.name&&row.startTime) : [];
+  const awards: RacebookAward[] = Array.isArray(awardRows) ? awardRows.map((row:any)=>({id:String(row.id),categoryKey:String(row.category_key),categoryLabel:readText(row.category_label)??'',audience:row.audience,placeFrom:readNumber(row.place_from)??1,placeTo:readNumber(row.place_to)??1,podiumTime:(readText(row.podium_time)??'').slice(0,5),podiumLocation:readText(row.podium_location),rewardNote:readText(row.reward_note),orderIndex:readNumber(row.order_index)??0})).filter((row:any)=>row.categoryLabel&&row.podiumTime) : [];
+  const editionServices: RacebookEditionService[] = Array.isArray(editionServiceRows) ? editionServiceRows.map((row:any)=>({id:String(row.id),serviceType:row.service_type,name:readText(row.name)??'',description:readText(row.description),address:readText(row.address),latitude:readNumber(row.latitude),longitude:readNumber(row.longitude),googleMapsUrl:readText(row.google_maps_url),websiteUrl:readText(row.website_url),phone:readText(row.phone),orderIndex:readNumber(row.order_index)??0})).filter((row:any)=>row.name) : [];
 
   return {
     race: {
@@ -966,6 +990,8 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       location: readText(raceRow.location_text),
       participationMode,
       organizerDetails: raceDetails,
+      startLatitude: readNumber(raceRow.start_lat),
+      startLongitude: readNumber(raceRow.start_lng),
     },
     event: {
       id: readText(eventRelation?.id),
@@ -979,6 +1005,18 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     runnerDetails,
     aidStations,
     relayPoints,
+    startWaves,
+    awards,
+    editionServices,
     canOpen,
   };
+}
+
+export function approximateDistanceKm(fromLat:number|null,fromLng:number|null,toLat:number|null,toLng:number|null){
+  const coordinates=[fromLat,fromLng,toLat,toLng];
+  if(coordinates.some((value)=>value==null||!Number.isFinite(value))||Math.abs(fromLat!)>90||Math.abs(toLat!)>90||Math.abs(fromLng!)>180||Math.abs(toLng!)>180)return null;
+  const rad=(value:number)=>value*Math.PI/180;
+  const dLat=rad(toLat!-fromLat!),dLng=rad(toLng!-fromLng!);
+  const a=Math.sin(dLat/2)**2+Math.cos(rad(fromLat!))*Math.cos(rad(toLat!))*Math.sin(dLng/2)**2;
+  return Math.round(6371*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a))*10)/10;
 }

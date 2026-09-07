@@ -7,7 +7,10 @@ import {
 } from "../../../../../../lib/organizer-website-import";
 import { getTraceDeTrailRaceData } from "../../../../../../lib/tracedetrail-race-import";
 
+const pdfParseMock = vi.hoisted(() => vi.fn());
+
 vi.mock("server-only", () => ({}));
+vi.mock("pdf-parse", () => ({ default: pdfParseMock }));
 vi.mock("../../../../../../lib/tracedetrail-race-import", () => ({
   getTraceDeTrailRaceData: vi.fn(),
   TraceDeTrailImportError: class TraceDeTrailImportError extends Error {},
@@ -34,11 +37,73 @@ const gpxResponse = () =>
 describe("buildOrganizerWebsiteImportPreview generic fallback", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    pdfParseMock.mockReset();
     vi.stubGlobal("fetch", vi.fn());
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+  });
+
+  it("extracts KMS formats from the main page and reads its linked regulation PDF", async () => {
+    pdfParseMock.mockResolvedValue({
+      text: "Reglement La Tou'Run 2026. Materiel obligatoire : gobelet, couverture de survie.",
+      numpages: 4,
+    });
+    vi.mocked(fetch).mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === "https://www.kms.fr/v5/public/course/5320") {
+        return htmlResponse(`
+          <html><head><title>La Tou'Run 2026</title></head><body>
+            <p>Dimanche 13 septembre 2026 a La Tour-en-Jarez</p>
+            <h2>La Tou'Run:Trail 16KM 385m D+</h2>
+            <a href="/v5/public/registration/1601">S'inscrire</a>
+            <h2>La Tou'Run:Trail 25KM 755m D+</h2>
+            <a href="/v5/public/registration/1602">S'inscrire</a>
+            <h2>La Tou'Run:Marche solidaire 6KM</h2>
+            <a href="/v5/public/registration/1603">S'inscrire</a>
+            <h2>La Tou'Run:Marche solidaire 10KM</h2>
+            <a href="/v5/public/registration/1604">S'inscrire</a>
+            <a href="/documents/reglement-la-tourun-2026.pdf">Reglement</a>
+          </body></html>
+        `);
+      }
+      if (url === "https://www.kms.fr/documents/reglement-la-tourun-2026.pdf") {
+        return new Response(new Uint8Array([37, 80, 68, 70]), {
+          status: 200,
+          headers: { "content-type": "application/pdf", "content-length": "4" },
+        });
+      }
+      throw new Error(`Unexpected URL ${url}`);
+    });
+
+    const analysis = await buildOrganizerWebsiteImportAnalysis("https://www.kms.fr/v5/public/course/5320");
+
+    expect(analysis.preview.races.map((race) => race.name)).toEqual(expect.arrayContaining([
+      "Trail 16 km",
+      "Trail 25 km",
+      "Marche solidaire 6 km",
+      "Marche solidaire 10 km",
+    ]));
+    expect(analysis.preview.races).toHaveLength(4);
+    expect(analysis.preview.races.find((race) => race.name === "Trail 16 km")).toMatchObject({
+      distanceKm: 16,
+      elevationGainM: 385,
+      externalSiteUrl: "https://www.kms.fr/v5/public/registration/1601",
+    });
+    expect(analysis.preview.races.find((race) => race.name === "Trail 25 km")).toMatchObject({
+      distanceKm: 25,
+      elevationGainM: 755,
+      externalSiteUrl: "https://www.kms.fr/v5/public/registration/1602",
+    });
+    expect(analysis.sourceDocuments).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        url: "https://www.kms.fr/documents/reglement-la-tourun-2026.pdf",
+        text: expect.stringContaining("Materiel obligatoire"),
+        discovery: "discovered",
+      }),
+    ]));
+    expect(pdfParseMock).toHaveBeenCalledTimes(1);
   });
 
   it("extracts formats embedded in accessible tab panels on the event page", async () => {

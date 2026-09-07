@@ -189,7 +189,7 @@ export function OrganizerSummaryHeader({
     : isComplimentaryOffer && editionTier === "pro"
       ? "Publication RaceBook Pro offerte — valeur : 299 € HT"
       : isComplimentaryOffer && editionTier === "racebook"
-        ? "Publication RaceBook offerte — valeur : 99 € HT"
+        ? "Publication RaceBook offerte — valeur : 199 € HT"
         : "Aucun paiement actif";
 
   return (

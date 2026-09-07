@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_entitlements
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-09-07
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
