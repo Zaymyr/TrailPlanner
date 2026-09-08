@@ -4,7 +4,7 @@ import { mkdtemp, writeFile, readFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildFormatQueue } from "./build-format-import-queue.mjs";
 import { applyClaims, deterministicExtract, enrichQueue, sitemapLocations } from "./enrich-format-import-queue.mjs";
-import { buildExports, parseGpx, run, processGpx, resolveGpxAmbiguity } from "./research-format-catalog.mjs";
+import { acquireCampaignLock, buildExports, parseGpx, run, processGpx, resolveGpxAmbiguity } from "./research-format-catalog.mjs";
 import { buildDraftRequests } from "./import-format-queue-drafts.mjs";
 import { verifiedValue, parseResearchDate, classifySourceUrl } from "./catalog-research-contract.mjs";
 import { fetchResearchResource } from "./catalog-research-http.mjs";
@@ -74,6 +74,13 @@ test("deterministic JSON-LD location remains verified after repeated application
   const row=makeRow(), extraction=deterministicExtract(html,row);
   applyClaims(row,extraction,{claims:[]}); assert.equal(row.ready_to_import,"TRUE");
   applyClaims(row,extraction,{claims:[]}); assert.equal(row.ready_to_import,"TRUE"); assert.equal(row.official_location,"Paris, France");
+});
+test("infers the campaign year from an explicit French event date and location",()=>{
+  const row=makeRow({candidate_event_date:"2026-11-01",prospect_date:"2026-11-01",priority_date:"2026-11-01",target_edition_year:"2026",min_event_date:"2026-11-01",max_event_date:"2027-02-28"});
+  const page='<h1>Le parcours trail de 12 km</h1><p>Dimanche 1er novembre, venez courir.</p><p>À Tourouvre, le trail de 12 km vous attend.</p>';
+  const extraction=deterministicExtract(page,row); applyClaims(row,extraction,{claims:[]});
+  assert.equal(verifiedValue(row,"race_date"),"2026-11-01"); assert.equal(verifiedValue(row,"location"),"Tourouvre");
+  assert.equal(JSON.parse(row.field_provenance_json).race_date.method,"deterministic_inferred_year");
 });
 test("a specific page heading grounds a short format-scoped excerpt",()=>{
   const row=makeRow(); const extraction=deterministicExtract('<h1>Trail Test 12 km</h1><p>Départ à 09h00</p>',row);
@@ -175,4 +182,14 @@ test("campaign resumes from the last completed format and refuses changed input"
   await run([...argv,"--resume"],{enrichImpl:async(rows,{onRow})=>{for(const row of rows){await onRow(row);processed++;}}});
   const final=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(final.rows.length,3); assert.equal(final.complete,true); assert.equal(processed,3);
   await writeFile(input,"changed"); await assert.rejects(run([...argv,"--resume"]),/Entrée ou version/);
+});
+test("campaign lock replaces an orphan but refuses a live process",async()=>{
+  await mkdir("tmp",{recursive:true}); const dir=await mkdtemp(resolve("tmp","catalog-lock-test-"));
+  const lockPath=`${dir}/catalog.lock`;
+  await writeFile(lockPath,JSON.stringify({pid:99999999,started_at:"2026-01-01T00:00:00.000Z"}));
+  const lock=await acquireCampaignLock(lockPath);
+  const current=JSON.parse(await readFile(lockPath,"utf8")); assert.equal(current.pid,process.pid);
+  await lock.close();
+  await writeFile(lockPath,JSON.stringify({pid:process.pid,started_at:new Date().toISOString()}));
+  await assert.rejects(acquireCampaignLock(lockPath),new RegExp(`processus ${process.pid}`));
 });

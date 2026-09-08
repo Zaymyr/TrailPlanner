@@ -247,6 +247,12 @@ type OrganizerModuleSettingsPayload = {
   races: Record<string, Record<OrganizerRaceModuleKey, boolean>>;
 };
 
+type OrganizerStartWaveSummary = {
+  raceId: string;
+  count: number;
+  referenceStartTime: string | null;
+};
+
 const ORGANIZER_OFFER_DETAILS: Record<PaidOrganizerTier, { description: string; features: string[] }> = {
   essential: {
     description: "Le RaceBook simple pour centraliser les informations indispensables.",
@@ -309,7 +315,10 @@ export function OrganizerDashboard({
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [moduleSettingsOpen, setModuleSettingsOpen] = useState(false);
   const [moduleSettings, setModuleSettings] = useState<OrganizerModuleSettingsPayload | null>(null);
-  const [moduleSettingsSaving, setModuleSettingsSaving] = useState<OrganizerModuleKey | "setup" | null>(null);
+  const [moduleSettingsDraft, setModuleSettingsDraft] = useState<Partial<Record<OrganizerModuleKey, boolean>>>({});
+  const [moduleSettingsSaving, setModuleSettingsSaving] = useState(false);
+  const [startWaveSummary, setStartWaveSummary] = useState<OrganizerStartWaveSummary | null>(null);
+  const startWaveSummaryRef = useRef<OrganizerStartWaveSummary | null>(null);
   const [pricingContext, setPricingContext] = useState<OrganizerPricingContext | null>(null);
   const [checkoutTarget, setCheckoutTarget] = useState<Exclude<OrganizerTier, "visibility"> | null>(null);
   const [complimentaryGrantTarget, setComplimentaryGrantTarget] = useState<Exclude<OrganizerTier, "visibility"> | null>(null);
@@ -375,6 +384,40 @@ export function OrganizerDashboard({
     activeSeries?.races[0] ??
     null;
   activeRaceIdRef.current = activeRace?.id ?? null;
+  const currentStartWaveSummary = startWaveSummary?.raceId === activeRace?.id ? startWaveSummary : null;
+  const currentStartWaveCount = currentStartWaveSummary?.count ?? activeRace?.startWaveCount ?? 0;
+  const currentStartTime = currentStartWaveCount > 0 && currentStartWaveSummary?.referenceStartTime
+    ? currentStartWaveSummary.referenceStartTime
+    : raceForm.organizerDetails.schedule.startTime ?? "";
+
+  const handleStartWaveSummaryChange = useCallback((summary: OrganizerStartWaveSummary) => {
+    const previous = startWaveSummaryRef.current;
+    if (
+      previous?.raceId === summary.raceId
+      && previous.count > 0
+      && summary.count === 0
+      && previous.referenceStartTime
+    ) {
+      setRaceForm((current) => ({
+        ...current,
+        organizerDetails: {
+          ...current.organizerDetails,
+          schedule: {
+            ...current.organizerDetails.schedule,
+            startTime: previous.referenceStartTime,
+          },
+        },
+      }));
+    }
+    startWaveSummaryRef.current = summary;
+    setStartWaveSummary((current) =>
+      current?.raceId === summary.raceId
+      && current.count === summary.count
+      && current.referenceStartTime === summary.referenceStartTime
+        ? current
+        : summary
+    );
+  }, []);
 
   const enabledCompletionModules = useMemo(() => {
     const eventModules = new Set<OrganizerModuleId>(["event"]);
@@ -716,6 +759,7 @@ export function OrganizerDashboard({
   useEffect(() => {
     if (!activeEdition?.id || !accessToken) {
       setModuleSettings(null);
+      setModuleSettingsDraft({});
       return;
     }
     let cancelled = false;
@@ -731,33 +775,63 @@ export function OrganizerDashboard({
         return;
       }
       setModuleSettings(data);
+      setModuleSettingsDraft({});
       if (data.setupCompletedAt === null && data.tier !== "visibility") setModuleSettingsOpen(true);
     };
     void loadModuleSettings();
     return () => { cancelled = true; };
   }, [accessToken, activeEdition?.id, authHeaders]);
 
-  const updateModuleSetting = async (moduleKey: OrganizerModuleKey, enabled: boolean) => {
-    if (!activeEdition?.id || !moduleSettings) return;
+  const stageModuleSetting = (moduleKey: OrganizerModuleKey, enabled: boolean, persistedEnabled: boolean) => {
+    if (!moduleSettings) return;
     const definition = ORGANIZER_MODULES.find((module) => module.key === moduleKey);
     if (!definition) return;
-    const raceIds = definition.scope === "race"
-      ? activeRace ? [activeRace.id] : websiteImportExistingRaces.map((race) => race.id)
-      : [];
-    if (definition.scope === "race" && raceIds.length === 0) {
+    if (definition.scope === "race" && !activeRace && websiteImportExistingRaces.length === 0) {
       showToast("error", "Ajoute d’abord un format.");
       return;
     }
-    if (!enabled && !window.confirm("Désactiver cette section ? Ses données seront conservées et pourront être restaurées.")) return;
-    setModuleSettingsSaving(moduleKey);
+    if (!enabled && persistedEnabled && !window.confirm("Désactiver cette section ? Ses données seront conservées et pourront être restaurées.")) return;
+    setModuleSettingsDraft((current) => {
+      const next = { ...current };
+      if (enabled === persistedEnabled) delete next[moduleKey];
+      else next[moduleKey] = enabled;
+      return next;
+    });
+  };
+
+  const saveModuleSettings = async ({ setupCompleted = false }: { setupCompleted?: boolean } = {}) => {
+    if (!activeEdition?.id || !moduleSettings || moduleSettingsSaving) return;
+    const draftEntries = Object.entries(moduleSettingsDraft) as [OrganizerModuleKey, boolean][];
+    if (draftEntries.length === 0 && !setupCompleted) {
+      setModuleSettingsOpen(false);
+      return;
+    }
+
+    const updates: Array<{
+      scope: "edition" | "race";
+      moduleKey: OrganizerModuleKey;
+      enabled: boolean;
+      raceId?: string;
+    }> = [];
+    for (const [moduleKey, enabled] of draftEntries) {
+      const definition = ORGANIZER_MODULES.find((module) => module.key === moduleKey);
+      if (!definition) continue;
+      if (definition.scope === "edition") {
+        updates.push({ scope: "edition", moduleKey, enabled });
+        continue;
+      }
+      const raceIds = activeRace ? [activeRace.id] : websiteImportExistingRaces.map((race) => race.id);
+      updates.push(...raceIds.map((raceId) => ({ scope: "race" as const, moduleKey, enabled, raceId })));
+    }
+
+    setModuleSettingsSaving(true);
     try {
       const response = await fetch(`/api/organizer/editions/${activeEdition.id}/module-settings`, {
         method: "PATCH",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({
-          updates: definition.scope === "race"
-            ? raceIds.map((raceId) => ({ scope: "race", moduleKey, enabled, raceId }))
-            : [{ scope: "edition", moduleKey, enabled }],
+          updates,
+          ...(setupCompleted ? { setupCompleted: true } : {}),
         }),
       });
       const data = (await response.json().catch(() => null)) as OrganizerModuleSettingsPayload | { message?: string } | null;
@@ -766,32 +840,34 @@ export function OrganizerDashboard({
         throw new Error((data && "message" in data ? data.message : null) ?? "Impossible de modifier cette section.");
       }
       setModuleSettings(data);
-      showToast("success", enabled ? "Section activée." : "Section masquée, données conservées.");
+      setModuleSettingsDraft({});
+      setModuleSettingsOpen(false);
+      showToast("success", draftEntries.length === 0 ? "Configuration enregistrée." : `${draftEntries.length} section${draftEntries.length > 1 ? "s" : ""} mise${draftEntries.length > 1 ? "s" : ""} à jour.`);
     } catch (caught) {
-      showToast("error", caught instanceof Error ? caught.message : "Impossible de modifier cette section.");
+      showToast("error", caught instanceof Error ? caught.message : "Impossible d’enregistrer les sections.");
     } finally {
-      setModuleSettingsSaving(null);
+      setModuleSettingsSaving(false);
     }
   };
 
   const completeModuleSetup = async () => {
-    if (!activeEdition?.id) return;
-    setModuleSettingsSaving("setup");
-    try {
-      const response = await fetch(`/api/organizer/editions/${activeEdition.id}/module-settings`, {
-        method: "PATCH",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ updates: [], setupCompleted: true }),
-      });
-      const data = (await response.json().catch(() => null)) as OrganizerModuleSettingsPayload | null;
-      if (!response.ok || !data?.edition) throw new Error("Impossible de terminer la configuration.");
-      setModuleSettings(data);
-      setModuleSettingsOpen(false);
-    } catch (caught) {
-      showToast("error", caught instanceof Error ? caught.message : "Impossible de terminer la configuration.");
-    } finally {
-      setModuleSettingsSaving(null);
+    await saveModuleSettings({ setupCompleted: true });
+  };
+
+  const openModuleSettingsDialog = () => {
+    setModuleSettingsDraft({});
+    setModuleSettingsOpen(true);
+  };
+
+  const closeModuleSettingsDialog = () => {
+    if (moduleSettingsSaving) return;
+    if (moduleSettings?.setupCompletedAt === null) {
+      void completeModuleSetup();
+      return;
     }
+    if (Object.keys(moduleSettingsDraft).length > 0 && !window.confirm("Abandonner les modifications de sections non enregistrées ?")) return;
+    setModuleSettingsDraft({});
+    setModuleSettingsOpen(false);
   };
 
   useEffect(() => {
@@ -2414,15 +2490,17 @@ export function OrganizerDashboard({
   };
 
   const visibleModuleChoices = ORGANIZER_MODULES.map((module) => {
-    const enabled = moduleSettings
+    const persistedEnabled = moduleSettings
       ? module.scope === "edition"
         ? moduleSettings.edition[module.key as OrganizerEditionModuleKey]
         : activeRace
           ? moduleSettings.races[activeRace.id]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled
           : websiteImportExistingRaces.length > 0 && websiteImportExistingRaces.every((race) => moduleSettings.races[race.id]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled)
       : module.defaultEnabled;
-    return { ...module, enabled, state: getOrganizerModuleState(activeTier, module.key, enabled) };
+    const enabled = moduleSettingsDraft[module.key] ?? persistedEnabled;
+    return { ...module, enabled, persistedEnabled, state: getOrganizerModuleState(activeTier, module.key, enabled) };
   });
+  const moduleSettingsChangesCount = Object.keys(moduleSettingsDraft).length;
 
   const applyWebsiteImport = async () => {
     if (!selectedEventId || !accessToken || websiteImportWorkflow?.step !== "review") return;
@@ -2561,7 +2639,7 @@ export function OrganizerDashboard({
       {completion ? (
         <div className="space-y-3">
           <div className="flex justify-end">
-            <Button type="button" variant="outline" onClick={() => setModuleSettingsOpen(true)} disabled={!moduleSettings}>
+            <Button type="button" variant="outline" onClick={openModuleSettingsDialog} disabled={!moduleSettings}>
               Ajouter ou masquer une section
             </Button>
           </div>
@@ -2583,10 +2661,10 @@ export function OrganizerDashboard({
       ) : null}
 
       <Dialog open={moduleSettingsOpen} onOpenChange={(open) => {
-        if (!open && moduleSettings?.setupCompletedAt === null) void completeModuleSetup();
-        else setModuleSettingsOpen(open);
+        if (open) openModuleSettingsDialog();
+        else closeModuleSettingsDialog();
       }}>
-        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="!my-0 !flex max-h-[calc(100dvh-2rem)] !max-w-6xl flex-col gap-4 overflow-hidden p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre RaceBook" : "Sections du RaceBook"}</DialogTitle>
             <DialogDescription>
@@ -2594,48 +2672,71 @@ export function OrganizerDashboard({
               {activeRace ? ` Les sections de format ci-dessous concernent ${activeRace.name}.` : " Les réponses de format s’appliquent ici à tous les formats de l’édition."}
             </DialogDescription>
           </DialogHeader>
-          {(["active", "inactive", "locked"] as const).map((state) => {
-            const choices = visibleModuleChoices.filter((module) => module.state === state);
-            if (choices.length === 0) return null;
-            return (
-              <section key={state} className="space-y-2">
-                <h3 className="text-sm font-semibold text-foreground">
-                  {state === "active" ? "Sections actives" : state === "inactive" ? "Ajouter une section" : "Découvrir les autres fonctionnalités"}
-                </h3>
-                <div className="grid gap-2 sm:grid-cols-2">
-                  {choices.map((module) => (
-                    <div key={module.key} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
-                      <div>
-                        <p className="text-sm font-medium text-foreground">{module.label}</p>
-                        <p className="text-xs text-muted-foreground">{module.description}</p>
-                        {module.scope === "race" ? <p className="mt-1 text-[11px] text-muted-foreground">Par format</p> : null}
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
+            {(["active", "inactive", "locked"] as const).map((state) => {
+              const choices = visibleModuleChoices.filter((module) => module.state === state);
+              if (choices.length === 0) return null;
+              return (
+                <section key={state} className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {state === "active" ? "Sections actives" : state === "inactive" ? "Ajouter une section" : "Découvrir les autres fonctionnalités"}
+                  </h3>
+                  <div className="grid gap-2 sm:grid-cols-2 min-[900px]:grid-cols-3">
+                    {choices.map((module) => (
+                      <div key={module.key} className="flex min-h-20 items-center justify-between gap-3 rounded-lg border border-border p-3">
+                        <div>
+                          <p className="text-sm font-medium text-foreground">{module.label}</p>
+                          <p className="text-xs text-muted-foreground">{module.description}</p>
+                          {module.scope === "race" ? <p className="mt-1 text-[11px] text-muted-foreground">Par format</p> : null}
+                        </div>
+                        {state === "locked" ? (
+                          <Button type="button" variant="outline" className="!h-8 px-2 text-xs" onClick={openPricingDialog}>
+                            Offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
+                          </Button>
+                        ) : (
+                          <button
+                            type="button"
+                            role="switch"
+                            aria-checked={module.enabled}
+                            aria-label={`${module.enabled ? "Masquer" : "Activer"} ${module.label}`}
+                            disabled={moduleSettingsSaving || (module.scope === "race" && websiteImportExistingRaces.length === 0)}
+                            onClick={() => stageModuleSetting(module.key, !module.enabled, module.persistedEnabled)}
+                            className={`relative h-6 w-11 shrink-0 rounded-full transition ${module.enabled ? "bg-brand" : "bg-muted"} disabled:cursor-wait disabled:opacity-50`}
+                          >
+                            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${module.enabled ? "left-[22px]" : "left-0.5"}`} />
+                          </button>
+                        )}
                       </div>
-                      {state === "locked" ? (
-                        <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={openPricingDialog}>
-                          Offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
-                        </Button>
-                      ) : (
-                        <button
-                          type="button"
-                          role="switch"
-                          aria-checked={module.enabled}
-                          aria-label={`${module.enabled ? "Masquer" : "Activer"} ${module.label}`}
-                          disabled={moduleSettingsSaving !== null || (module.scope === "race" && websiteImportExistingRaces.length === 0)}
-                          onClick={() => void updateModuleSetting(module.key, !module.enabled)}
-                          className={`relative h-6 w-11 shrink-0 rounded-full transition ${module.enabled ? "bg-brand" : "bg-muted"} disabled:opacity-50`}
-                        >
-                          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${module.enabled ? "left-[22px]" : "left-0.5"}`} />
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </section>
-            );
-          })}
-          <DialogFooter>
-            <Button type="button" onClick={() => void completeModuleSetup()} disabled={moduleSettingsSaving !== null}>
-              {moduleSettingsSaving === "setup" ? "Enregistrement..." : moduleSettings?.setupCompletedAt === null ? "Terminer" : "Fermer"}
+                    ))}
+                  </div>
+                </section>
+              );
+            })}
+          </div>
+          {moduleSettingsSaving ? (
+            <div role="status" aria-live="polite" className="flex items-center gap-3 rounded-md border border-brand-border bg-brand/10 px-3 py-2 text-sm font-medium text-brand">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-brand/30 border-t-brand" aria-hidden="true" />
+              Enregistrement des sections en cours…
+            </div>
+          ) : moduleSettingsChangesCount > 0 ? (
+            <p className="text-sm font-medium text-amber-700" aria-live="polite">
+              {moduleSettingsChangesCount} modification{moduleSettingsChangesCount > 1 ? "s" : ""} en attente d’enregistrement.
+            </p>
+          ) : null}
+          <DialogFooter className="gap-2 sm:space-x-0">
+            <Button type="button" variant="outline" onClick={closeModuleSettingsDialog} disabled={moduleSettingsSaving}>
+              {moduleSettings?.setupCompletedAt === null ? "Plus tard" : "Annuler"}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void (moduleSettings?.setupCompletedAt === null ? completeModuleSetup() : saveModuleSettings())}
+              disabled={moduleSettingsSaving || (moduleSettingsChangesCount === 0 && moduleSettings?.setupCompletedAt !== null)}
+            >
+              {moduleSettingsSaving
+                ? "Enregistrement…"
+                : moduleSettings?.setupCompletedAt === null
+                  ? "Enregistrer et terminer"
+                  : `Sauvegarder${moduleSettingsChangesCount > 0 ? ` (${moduleSettingsChangesCount})` : ""}`}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -2795,11 +2896,19 @@ export function OrganizerDashboard({
               aidStations={aidStations}
               participationMode={raceForm.participationMode}
               relayPoints={activeTier === "signature" ? relayPoints : []}
-              startTime={raceForm.organizerDetails.schedule.startTime ?? ""}
+              startTime={currentStartTime}
+              startWaveCount={currentStartWaveCount}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
               cutoffNote={raceForm.organizerDetails.schedule.cutoffNote ?? ""}
               scheduleNote={raceForm.organizerDetails.schedule.note ?? ""}
-              startWavesSlot={<StartWavesEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete} />}
+              startWavesSlot={(
+                <StartWavesEditor
+                  raceId={activeRace?.id ?? null}
+                  headers={authHeaders}
+                  enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete}
+                  onSummaryChange={handleStartWaveSummaryChange}
+                />
+              )}
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
               onAddStation={() => {

@@ -26,6 +26,7 @@ export function AidStationsEditor({
   participationMode,
   relayPoints,
   startTime,
+  startWaveCount,
   finishCutoffTime,
   cutoffNote,
   scheduleNote,
@@ -59,6 +60,7 @@ export function AidStationsEditor({
   participationMode: RaceParticipationMode | "";
   relayPoints: RelayPointDraft[];
   startTime: string;
+  startWaveCount: number;
   finishCutoffTime: string;
   cutoffNote: string;
   scheduleNote: string;
@@ -109,19 +111,28 @@ export function AidStationsEditor({
 
   return (
     <div className="relative space-y-4">
-      {activeView !== "startWaves" ? <div className="flex flex-wrap justify-end gap-2 md:absolute md:-top-[4.75rem] md:right-0">
-        {activeView === "aidStations" ? (
-          <Button type="button" variant="outline" onClick={onAddStation}>
-            Ajouter un ravito
-          </Button>
-        ) : (
-          <Button type="button" variant="outline" onClick={onAddRelayPoint}>
-            Ajouter un point de relais
-          </Button>
-        )}
-      </div> : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        <FixedCourseCard
+          title="Départ"
+          subtitle={startWaveCount > 0
+            ? `${startWaveCount} SAS configuré${startWaveCount > 1 ? "s" : ""} : leurs horaires définissent le départ.`
+            : "Heure de départ commune à ce format."}
+          value={startTime}
+          label={startWaveCount > 0 ? "Départ défini par les SAS" : "Heure de départ"}
+          onChange={onStartTimeChange}
+          disabled={startWaveCount > 0}
+        />
+        <FixedCourseCard
+          title="Arrivée"
+          subtitle="Heure d’arrivée ou barrière finale de ce format."
+          value={finishCutoffTime}
+          label="Heure d’arrivée"
+          onChange={onFinishCutoffTimeChange}
+        />
+      </div>
 
-      <TabsList
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <TabsList
           tabs={[
             { id: "startWaves", label: "SAS" },
             { id: "aidStations", label: "Ravitos" },
@@ -130,17 +141,21 @@ export function AidStationsEditor({
           activeTab={activeView}
           onTabChange={(view) => setViewState({ scopeKey: viewScopeKey, view: view as EditorView })}
         />
+        {activeView !== "startWaves" ? (
+          activeView === "aidStations" ? (
+            <Button type="button" variant="outline" onClick={onAddStation}>
+              Ajouter un ravito
+            </Button>
+          ) : (
+            <Button type="button" variant="outline" onClick={onAddRelayPoint}>
+              Ajouter un point de relais
+            </Button>
+          )
+        ) : null}
+      </div>
 
       {activeView === "startWaves" ? startWavesSlot : activeView === "aidStations" ? (
         <>
-          <FixedCourseCard
-            title="Départ"
-            subtitle="Heure de départ commune à ce format."
-            value={startTime}
-            label="Heure de départ"
-            onChange={onStartTimeChange}
-          />
-
           {aidStations.length === 0 ? (
             <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
           ) : (
@@ -250,14 +265,6 @@ export function AidStationsEditor({
               })}
             </div>
           )}
-
-          <FixedCourseCard
-            title="Arrivée"
-            subtitle="Barrière horaire d'arrivée de ce format."
-            value={finishCutoffTime}
-            label="Barrière horaire d'arrivée"
-            onChange={onFinishCutoffTimeChange}
-          />
           <section className="grid gap-4 rounded-[1.5rem] border border-border bg-background p-4 md:grid-cols-2">
             <TextAreaField label="Consignes de barrières horaires" value={cutoffNote} onChange={onCutoffNoteChange} />
             <TextAreaField label="Contraintes et consignes de course" value={scheduleNote} onChange={onScheduleNoteChange} />
@@ -333,12 +340,14 @@ function FixedCourseCard({
   value,
   label,
   onChange,
+  disabled = false,
 }: {
   title: string;
   subtitle: string;
   value: string;
   label: string;
   onChange: (value: string) => void;
+  disabled?: boolean;
 }) {
   return (
     <section className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm">
@@ -348,7 +357,7 @@ function FixedCourseCard({
           <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
         <div className="w-full md:max-w-sm">
-          <TextField label={label} value={value} onChange={onChange} />
+          <TextField label={label} value={value} onChange={onChange} disabled={disabled} />
         </div>
       </div>
     </section>

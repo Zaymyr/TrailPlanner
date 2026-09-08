@@ -78,10 +78,10 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (!existingResponse.ok) return jsonError("Unable to update edition modules.", 502);
   const existing = z.array(settingRowSchema).parse(await existingResponse.json());
 
-  for (const update of body.data.updates) {
+  const mutationResults = await Promise.all(body.data.updates.map((update) => {
     const raceId = update.scope === "race" ? update.raceId : null;
     const current = existing.find((row) => row.race_id === raceId && row.module_key === update.moduleKey);
-    const mutation = current
+    return current
       ? fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings?id=eq.${current.id}`, {
           method: "PATCH", headers: serviceHeaders(auth.serviceConfig),
           body: JSON.stringify({ is_enabled: update.enabled, configured_by: auth.user.id }), cache: "no-store",
@@ -90,9 +90,8 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
           method: "POST", headers: serviceHeaders(auth.serviceConfig),
           body: JSON.stringify({ edition_id: auth.edition.id, race_id: raceId, module_key: update.moduleKey, is_enabled: update.enabled, configured_by: auth.user.id }), cache: "no-store",
         });
-    const result = await mutation;
-    if (!result.ok) return jsonError("Unable to update edition modules.", 502);
-  }
+  }));
+  if (mutationResults.some((result) => !result.ok)) return jsonError("Unable to update edition modules.", 502);
 
   if (body.data.setupCompleted) {
     const completedAt = new Date().toISOString();

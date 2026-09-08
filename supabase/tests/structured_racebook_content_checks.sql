@@ -28,6 +28,12 @@ begin
   ) then
     raise exception 'Client policies must not reference service-role-only race_event_editions.';
   end if;
+
+  if has_function_privilege('anon', 'public.replace_race_start_waves(uuid,jsonb)', 'execute')
+    or has_function_privilege('authenticated', 'public.replace_race_start_waves(uuid,jsonb)', 'execute')
+    or not has_function_privilege('service_role', 'public.replace_race_start_waves(uuid,jsonb)', 'execute') then
+    raise exception 'replace_race_start_waves execution must remain service-role-only.';
+  end if;
 end $$;
 
 create temp table _structured_fixture as
@@ -50,6 +56,12 @@ do $$ begin
   if (select organizer_details #>> '{schedule,startTime}' from public.races where id = (select race_id from _structured_fixture)) <> '06:00:00' then
     raise exception 'First SAS must synchronize schedule.startTime.';
   end if;
+
+  perform public.replace_race_start_waves((select race_id from _structured_fixture), '[]'::jsonb);
+  if (select organizer_details #>> '{schedule,startTime}' from public.races where id = (select race_id from _structured_fixture)) <> '06:00:00' then
+    raise exception 'Removing the last SAS must preserve schedule.startTime for manual editing.';
+  end if;
+
   begin
     insert into public.race_awards(race_id, category_key, category_label, audience, place_from, place_to, podium_time)
     values ((select race_id from _structured_fixture), 'custom', 'Invalid', 'mixed', 3, 1, '17:00');

@@ -160,6 +160,7 @@ export function OrganizerSummaryHeader({
   const [deleteEventConfirmation, setDeleteEventConfirmation] = React.useState("");
   const [deleteEditionDialogOpen, setDeleteEditionDialogOpen] = React.useState(false);
   const [deleteEditionConfirmation, setDeleteEditionConfirmation] = React.useState("");
+  const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(true);
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
@@ -192,8 +193,8 @@ export function OrganizerSummaryHeader({
         : "Aucun paiement actif";
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+    <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Dashboard organisateur</p>
           <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
@@ -247,26 +248,44 @@ export function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-        <span className="inline-flex items-center gap-2 font-semibold text-foreground">
-          <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
-          {isLive ? "Événement visible" : "Événement masqué"}
-        </span>
-        <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
-      </div>
+      <details
+        open={isSummaryExpanded}
+        onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}
+        className="group mt-3"
+      >
+        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 text-sm transition hover:bg-muted/40 marker:content-none">
+          <span className="inline-flex items-center gap-2 font-semibold text-foreground">
+            <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
+            {isLive ? "Événement visible" : "Événement masqué"}
+          </span>
+          <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
+          <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+            <span>{isSummaryExpanded ? "Réduire" : "Afficher"}</span>
+            <svg
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              aria-hidden="true"
+              className="h-4 w-4 transition-transform group-open:rotate-180"
+            >
+              <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </summary>
 
-      <div className="mt-3 space-y-2">
+      <div className="mt-2 space-y-1.5">
         {editionYearOptions.length > 0 ? (
-          <div className="rounded-md border border-border/60 bg-background/50 p-2.5">
-            <div className="flex flex-wrap items-end justify-between gap-3">
-              <div className="min-w-[9rem] max-w-[15rem] flex-1">
-                <label htmlFor="organizer-event-edition-select" className="text-sm font-medium text-foreground">
+          <div className="rounded-md border border-border/60 bg-background/50 p-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex min-w-[12rem] max-w-[19rem] flex-1 items-center gap-2">
+                <label htmlFor="organizer-event-edition-select" className="shrink-0 text-sm font-medium text-foreground">
                   Édition
                 </label>
-                <div className="mt-1 flex items-center gap-1.5">
+                <div className="flex min-w-0 flex-1 items-center gap-1">
                   <select
                     id="organizer-event-edition-select"
-                    className="h-9 min-w-0 flex-1 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+                    className="h-8 min-w-0 flex-1 rounded-md border border-input bg-card px-2.5 text-sm text-foreground"
                     value={selectedEditionYear}
                     onChange={(event) => onSelectedEditionYearChange(event.target.value)}
                   >
@@ -286,7 +305,7 @@ export function OrganizerSummaryHeader({
                       setDeleteEditionDialogOpen(true);
                     }}
                     disabled={!selectedEdition || status !== "idle"}
-                    className="h-9 w-9 shrink-0 px-0 text-xl leading-none text-red-700 hover:bg-red-50 hover:text-red-800"
+                    className="!h-8 !w-8 shrink-0 px-0 text-lg leading-none text-red-700 hover:bg-red-50 hover:text-red-800"
                   >
                     ×
                   </Button>
@@ -300,14 +319,15 @@ export function OrganizerSummaryHeader({
                   setNewEditionDialogOpen(true);
                 }}
                 disabled={status !== "idle"}
+                className="!h-8"
               >
                 Créer une nouvelle édition
               </Button>
             </div>
           </div>
         ) : null}
-        <div className="grid gap-3 rounded-md border border-border/70 bg-background/80 p-3 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
-          <span className="min-w-0 text-lg font-semibold text-foreground">
+        <div className="grid gap-2 rounded-md border border-border/70 bg-background/80 p-2 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
+          <span className="min-w-0 font-semibold text-foreground">
             {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
           </span>
           <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
@@ -327,7 +347,7 @@ export function OrganizerSummaryHeader({
             return (
             <div
               key={race.id}
-              className="grid gap-3 rounded-md border border-border/60 bg-background/50 p-3 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
+              className="grid gap-2 rounded-md border border-border/60 bg-background/50 p-2 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
             >
               <span className="min-w-0 font-medium text-foreground">
                 {race.label || "Format sans nom"}
@@ -353,7 +373,7 @@ export function OrganizerSummaryHeader({
         )}
       </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
+      <div className="mt-3 flex flex-wrap items-center gap-2">
         <Button type="button" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} variant="outline" disabled={!event}>
           Notifier les coureurs
         </Button>
@@ -382,6 +402,7 @@ export function OrganizerSummaryHeader({
           </div>
         ) : null}
       </div>
+      </details>
 
       <Dialog open={newEditionDialogOpen} onOpenChange={setNewEditionDialogOpen}>
         <DialogContent>
@@ -684,7 +705,7 @@ function InlineProgressBar({ score, className }: { score: number; className?: st
   const progressTone = getProgressTone(score);
 
   return (
-    <div className={cn("h-6 overflow-hidden rounded-full", progressTone.track, className)}>
+    <div className={cn("h-5 overflow-hidden rounded-full", progressTone.track, className)}>
       <div
         className={cn(
           "flex h-full min-w-10 items-center justify-end rounded-full px-2 text-[11px] font-semibold leading-none transition-all",

@@ -82,6 +82,7 @@ const LLM_TEXT_LIMIT = 24_000;
 const LLM_MAX_PAGES = 8;
 const DISTANCE_MATCH_RATIO = 0.12;
 const DATE_PATTERN = /\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.]\d{1,2}[/.]\d{4}|\d{1,2}\s+(?:janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+\d{4})\b/giu;
+const YEARLESS_EVENT_DATE_PATTERN = /\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})(?:er)?\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\b(?!\s+\d{4})/giu;
 const MONTHS = {
   janvier: 0, fevrier: 1, février: 1, mars: 2, avril: 3, mai: 4, juin: 5,
   juillet: 6, aout: 7, août: 7, septembre: 8, octobre: 9, novembre: 10, decembre: 11, décembre: 11,
@@ -255,6 +256,14 @@ export const deterministicExtract = (html, row) => {
     const dateEvidence = text.length < 700 ? text : (text.match(DATE_PATTERN) || []).map(value => findContext(text,value)).find(value => datesInText(value).includes(dates[0]));
     if (dateEvidence) add('race_date', dates[0], dateEvidence);
   }
+  const editionYear = targetEdition(row);
+  if (editionYear) for (const match of text.matchAll(YEARLESS_EVENT_DATE_PATTERN)) {
+    const inferred = isApplicableEditionDate(`${match[1]} ${match[2]} ${editionYear}`, row);
+    if (inferred) claims.push({field:'race_date',value:inferred,evidence:findContext(text,match[0]),source_url:sourceUrl,method:'deterministic_inferred_year'});
+  }
+  const explicitLocation = text.match(/(?:rendez-vous|lieu\s+(?:de\s+)?d[ée]part|d[ée]part)\s+(?:[àa]|au|aux)\s+([\p{Lu}][\p{L}'’.-]*(?:\s+[\p{Lu}][\p{L}'’.-]*){0,3})/u)
+    || text.match(/(?:[ÀA]|Ã€)\s+([\p{Lu}][\p{L}'’.-]*(?:\s+[\p{Lu}][\p{L}'’.-]*){0,3}),\s+(?:le|la|les)\s+(?:trail|course|marche|[ée]preuve)/u);
+  if (explicitLocation) add('location', explicitLocation[1], findContext(text, explicitLocation[0]));
   const contentHtml = html.replace(/<(nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi,' ');
   const blocks = contentHtml.replace(/<\/(?:p|li|tr|h[1-6]|div|section|article)>/gi,'\n').split('\n').map(htmlToText).filter(Boolean);
   for (const block of blocks) {
@@ -524,6 +533,7 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
     for (const [index,row] of selected.entries()) {
       const started = Date.now();
       let fetched = null, extraction = null, llm = {claims:[]};
+      console.error(`[${index+1}/${selected.length}] ${row.event_name} / ${row.format_name} — recherche en cours...`);
       // Never inherit a previously exported TRUE flag after a failed refresh.
       row.ready_to_import = 'FALSE';
       row.field_provenance_json = '{}';

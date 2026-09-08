@@ -55,6 +55,8 @@ The states are:
 
 `apps/web/lib/organizer-entitlements.ts` is the capability authority and `apps/web/lib/organizer-modules.ts` is the shared catalog. Server routes must check both capability and effective module state, never compare tier names locally.
 
+The web section chooser batches local switch drafts into one typed module-settings PATCH. Until it succeeds, the active dashboard navigation and completion use the last persisted configuration; failures keep the draft available for retry, and closing a modified regular chooser requires explicit discard confirmation.
+
 ## Stripe and Rights Lifecycle
 
 The server chooses one of six explicit one-time EUR Price IDs and validates active status, exact amount, non-recurring mode and exclusive tax behavior. Checkout enables automatic tax, billing address, tax-ID collection and invoice creation. A success redirect is not authorization; the webhook settles the payment and recalculates rights.
@@ -68,6 +70,7 @@ Recalculation requires a valid paid path. Refunding/disputing a base purchase in
 - Missing module configuration during rolling deployment uses the historical mobile behavior.
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
+- Collapsing the dashboard's compact edition/format summary is presentation-only and must not disable modules or alter the selected edition entitlement.
 
 ## Related Docs
 

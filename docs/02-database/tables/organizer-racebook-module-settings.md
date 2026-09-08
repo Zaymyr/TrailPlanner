@@ -31,6 +31,8 @@ Partial unique indexes enforce one edition setting per edition/key and one race 
 
 RLS is enabled and all `anon`/`authenticated` table privileges are revoked. Only service-role organizer routes read or mutate settings. Public structured-content RLS calls a narrow security-definer boolean helper that combines publication, active entitlement, minimum tier and enabled setting.
 
+The organizer UI stages switch changes locally and sends them together. After membership, edition ownership, format parentage, and tier checks, the route performs the independent row mutations concurrently and returns one refreshed effective payload; the dashboard does not adopt the draft before that response succeeds.
+
 The effective state is `is_enabled AND offer allows module`. A downgrade therefore masks content without deleting it. Mobile receives only the effective map from the RaceBook bootstrap API, never raw settings or entitlement rows.
 
 ## Initialization and Duplication
@@ -42,6 +44,7 @@ New editions enable equipment, bib and access; new formats enable aid stations. 
 - Equipment, bib and access overrides are not separate format modules.
 - Never grant direct client access to this table.
 - Never delete content when `is_enabled` becomes false.
+- Keep batched mutation failures visible to the organizer and retain the browser draft for retry; a slow request must not look like an unresponsive switch.
 
 ## Related Docs
 

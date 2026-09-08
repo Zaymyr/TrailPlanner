@@ -5,6 +5,12 @@ const NUMERIC_FIELDS = new Set(["distance_km", "elevation_gain_m", "elevation_lo
 const FORMAT_FIELDS = new Set(["distance_km", "elevation_gain_m", "elevation_loss_m", "start_time", "end_time", "cutoff_times", "gpx_url", "aid_stations", "participation_mode", "mandatory_equipment"]);
 const escape = value => String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 const distances = text => [...normalizeText(text).matchAll(/\b(\d+(?:[.,]\d+)?)\s*(?:km|kms|k|kilometres?)\b/g)].map(m => Number(m[1].replace(",", ".")));
+const evidenceContainsYearlessDate = (date, evidence) => {
+  const [, month, day] = String(date).match(/^\d{4}-(\d{2})-(\d{2})$/) || [];
+  if (!month || !day) return false;
+  const monthName = ["janvier","fevrier","mars","avril","mai","juin","juillet","aout","septembre","octobre","novembre","decembre"][Number(month)-1];
+  return new RegExp(`\\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\\s+0?${Number(day)}(?:er)?\\s+${monthName}\\b`).test(normalizeText(evidence));
+};
 export const evidenceIdentifiesFormat = (evidence, row) => {
   const normalized = normalizeText(evidence);
   const expected = numericValue(row.prospect_distance_km ?? row.distance_km);
@@ -42,7 +48,8 @@ export const validateClaimForRow = (input, row) => {
     if (targetEdition(row) && claim.value.slice(0,4) !== targetEdition(row)) return "edition_mismatch";
     if (row.min_event_date && claim.value < row.min_event_date) return "date_outside_campaign";
     if (row.max_event_date && claim.value > row.max_event_date) return "date_outside_campaign";
-    if (!datesInText(claim.evidence).includes(claim.value)) return "value_not_in_evidence";
+    if (!datesInText(claim.evidence).includes(claim.value)
+      && !(claim.method === "deterministic_inferred_year" && evidenceContainsYearlessDate(claim.value, claim.evidence))) return "value_not_in_evidence";
     if (/(?:inscription|tarif).*(?:jusqu|avant|cloture)/.test(normalizeText(claim.evidence)) && !/(?:course|epreuve|trail).*(?:aura lieu|se deroul|depart)/.test(normalizeText(claim.evidence))) return "date_context_ambiguous";
   } else if (NUMERIC_FIELDS.has(claim.field)) {
     if (claim.field === "distance_km" && claim.value <= 0) return "invalid_value";

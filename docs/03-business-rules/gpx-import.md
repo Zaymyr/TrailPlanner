@@ -202,6 +202,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.
+- Drafting several section switches in the Organizer chooser does not parse, upload, or reload GPX data; only the single successful module-settings save changes whether GPX-adjacent module UI is shown.
 - Race-scoped autosave also includes format-specific bib-pickup, equipment, and access overrides; keep that metadata in the shared race-details save set when changing GPX or ravito navigation behavior.
 - Organizer tab navigation is immediate, so late GPX preview responses must verify that their requested race is still active before replacing the current preview or station interpolation context.
 - Route points can be used when track points are absent.

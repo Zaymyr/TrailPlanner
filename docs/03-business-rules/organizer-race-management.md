@@ -182,15 +182,15 @@ related_tables:
 
 The edition owns nearby services; each format owns start waves and podium programme rows. All three editors load their collection only when opened and autosave with atomic replacement endpoints. Basic RaceBook content is available from Essential, advanced services, waves and podiums require Complete, and relay points plus official ravito products require Signature. Each write also requires the corresponding module to be effectively active.
 
-The combined format module is **Départ, ravitos & relais**. It exposes native SAS times and conditional criterion bounds, the existing ravito type/altitude fields, relay handover/cutoff/notes, and formerly hidden schedule constraint notes. **Podiums & récompenses** is a separate format module. **Services & alentours** is edition-scoped and keeps legacy text visible in a non-destructive conversion accordion.
+The combined format module is **Départ, ravitos & relais**. Its common departure and arrival cards sit above the `SAS`, `Ravitos` and conditional `Relais` tabs. It exposes native SAS times and conditional criterion bounds, the existing ravito type/altitude fields, relay handover/cutoff/notes, and formerly hidden schedule constraint notes. **Podiums & récompenses** is a separate format module. **Services & alentours** is edition-scoped and keeps legacy text visible in a non-destructive conversion accordion.
 
-Legacy service text is never parsed or deleted automatically. `schedule.startTime` is mirrored from the first SAS solely for backward compatibility.
+Legacy service text is never parsed or deleted automatically. While SAS exist, their earliest time is authoritative: it is mirrored to `schedule.startTime`, displayed in the common departure card, and disables manual departure editing. Removing the final SAS preserves that stored value and re-enables the common field.
 
 Structured mobile reads are additive and deployment-tolerant: an unavailable services, SAS or awards table yields an empty optional module while the existing published RaceBook continues to render. This does not relax the core catalog-live, RaceBook-live and meaningful-content gate.
 
 ## Module activation
 
-Information and Course/GPX are permanent. Other edition or format tiles are active, inactive, or locked from the shared module catalog. The first access to a paid new edition opens the short setup assistant with equipment, bib, access and aid stations preselected. Closing or finishing the assistant persists completion; later changes use `Ajouter une section` and the locked-feature discovery group. Disabled modules disappear from the primary editor navigation and completion calculation while their data remains stored.
+Information and Course/GPX are permanent. Other edition or format tiles are active, inactive, or locked from the shared module catalog. The first access to a paid new edition opens the short setup assistant with equipment, bib, access and aid stations preselected. Closing or finishing the assistant persists completion; later changes use `Ajouter une section` and the locked-feature discovery group. Switches in this wide responsive dialog are draft-only until the organizer performs one explicit save; while that single PATCH is pending, a persistent progress message is shown and every switch/close action is disabled. Disabled modules disappear from the primary editor navigation and completion calculation only after that confirmed response, while their data remains stored.
 
 Edition duplication copies the common settings and the settings for each cloned format. Mobile receives only the effective module map and removes disabled tabs/sub-tabs. Missing configuration during a staggered deployment preserves the historical mobile presentation.
 
@@ -243,6 +243,7 @@ Organizers with an active event membership can:
 - replace a format GPX source in `race-gpx`;
 - delete a format from the `Course` module after a confirmation step; the button is aligned at the far right of the `Formats & GPX` title row, source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
 - see whether the selected event has all publication-required information through a compact status badge beside the event selector;
+- collapse the compact edition/format summary from its event-visibility line without changing any publication state, completion score, unsaved edit, or selected scope;
 - permanently delete the selected event from the red cross placed immediately before that selector, but only after typing the exact word `Supprimer` in the confirmation dialog; the server restricts this destructive action to the active owner membership (or a trusted admin), removes event-owned formats and Storage assets, and leaves saved runner plans detached from their deleted source formats;
 - edit source `race_aid_stations`, including `waterRefill`, `solidRefill`, `assistanceAllowed` service flags, and station-specific `race_aid_stations.organizer_details`;
 - classify formats as solo, relay, or both, then create standalone handover points or mark saved ravitos as handover locations;
@@ -455,7 +456,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Treat the equipment override as tri-state while parsing historical JSON: explicit `true` replaces the full list, explicit `false` inherits the event list even if stale race items remain, and only an absent flag may infer a legacy override from stored differences.
 - Do not move the active weather plan to race scope without revisiting preview, mobile Racebook, sync, and documentation rules; the current contract is one event-level plan shared by every format.
 - Keep event-level bib pickup as the inherited default. A checked format override stores its own `locations[]` and nested `slots[]` in `races.organizer_details`; its dirty module must be saved and cleared with the other race-detail modules during navigation autosave. Preserve the legacy single-location/free-text fallback when reading historical rows.
-- Start and finish times shown in the Ravitos module belong to `races.organizer_details.schedule`; saving only `race_aid_stations` silently drops those edits on tab or format navigation.
+- Start and finish times shown above the `Départ, ravitos & relais` tabs belong to `races.organizer_details.schedule`; saving only `race_aid_stations` silently drops those edits on tab or format navigation. An existing SAS disables the common departure input because the earliest SAS time prevails.
 - Background navigation must keep dirty revisions and save queues scoped by event/race. A completed save from one format must not clear newer edits from another format or reload the previous tab over the current one.
 - Ignore late ravito/product/GPX responses when their race id is no longer active; immediate tab navigation otherwise lets stale sidecars overwrite the newly selected course.
 - Keep per-format header completion based on each format's persisted ravito count. Reusing only the active tab's loaded ravito state makes completion points move between formats during navigation.
