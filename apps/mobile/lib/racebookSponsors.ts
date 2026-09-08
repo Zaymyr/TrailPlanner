@@ -52,9 +52,11 @@ export async function prefetchRacebookSponsors(raceId: string): Promise<Racebook
   const presentation = await fetchRacebookSponsors(raceId);
 
   await Promise.allSettled(
-    presentation.loadingSponsors.map((sponsor) =>
+    [...presentation.loadingSponsors.map((sponsor) => sponsor.logoUrl), presentation.branding.logoUrl]
+      .filter((url): url is string => Boolean(url))
+      .map((url) =>
       Promise.race([
-        Image.prefetch(sponsor.logoUrl),
+        Image.prefetch(url),
         new Promise<boolean>((resolve) => setTimeout(() => resolve(false), RACEBOOK_SPONSOR_LOGO_TIMEOUT_MS)),
       ]),
     ),

@@ -24,4 +24,15 @@ describe("mobile RaceBook sponsor presentation", () => {
     expect(normalizeRacebookSponsorPresentation(null)).toEqual(EMPTY_RACEBOOK_SPONSORS);
     expect(normalizeRacebookSponsorPresentation({ loadingSponsors: [{ nope: true }] })).toEqual(EMPTY_RACEBOOK_SPONSORS);
   });
+
+  it("normalizes published branding without trusting malformed colors", () => {
+    const presentation = normalizeRacebookSponsorPresentation({
+      branding: { logoUrl: "https://example.com/logo.png", primaryColor: "#abcdef", accentColor: "red" },
+    });
+    expect(presentation.branding).toEqual({
+      logoUrl: "https://example.com/logo.png",
+      primaryColor: "#ABCDEF",
+      accentColor: "#B45309",
+    });
+  });
 });

@@ -15,6 +15,7 @@ export type OrganizerModuleId =
   | "products"
   | "services"
   | "awards"
+  | "branding"
   | "sponsors";
 
 export type OrganizerModuleLevel = "required" | "recommended" | "optional";
@@ -259,7 +260,7 @@ export function buildOrganizerCompletion(
   activeRace: CompletionRace | null,
   aidStations: CompletionAidStation[],
   stationProducts: CompletionStationProduct[],
-  persistedCounts?: { aidStations?: number; startWaves?: number; awards?: number; services?: number; stationProducts?: number; sponsors?: number; sponsorClicks?: number }
+  persistedCounts?: { aidStations?: number; startWaves?: number; awards?: number; services?: number; stationProducts?: number; sponsors?: number; sponsorClicks?: number; brandingConfigured?: boolean; brandingUnpublished?: boolean }
 ): OrganizerCompletionSummary {
   const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
   const activeEdition = getCompletionEdition(event, activeRace);
@@ -295,6 +296,8 @@ export function buildOrganizerCompletion(
     : stationProducts.length;
   const sponsorCount = persistedCounts?.sponsors ?? 0;
   const sponsorClicks = persistedCounts?.sponsorClicks ?? 0;
+  const brandingConfigured = persistedCounts?.brandingConfigured ?? false;
+  const brandingUnpublished = persistedCounts?.brandingUnpublished ?? false;
   const eventMissingLabels = compactMissingLabels([
     ["Nom", hasText(event.name)],
     ["Lieu", hasText(event.location)],
@@ -459,6 +462,14 @@ export function buildOrganizerCompletion(
       countLabel: structuredServiceCount > 0 ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}` : hasText(services?.partners) ? "Partenaires renseignés" : "Optionnel",
     },
     {
+      id: "branding",
+      title: "Identité visuelle",
+      description: "Logo et couleurs du RaceBook pour cette édition.",
+      level: "optional",
+      status: brandingUnpublished ? "incomplete" : brandingConfigured ? "complete" : "empty",
+      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Optionnel",
+    },
+    {
       id: "sponsors",
       title: "Sponsors",
       description: "Logos mis en avant dans le RaceBook de cette édition.",
@@ -547,6 +558,14 @@ export function buildOrganizerCompletion(
         1
       ),
       countLabel: hasText(services.partners) ? "Partenaires renseignés" : "Optionnel",
+    },
+    {
+      id: "branding",
+      title: "Identité visuelle",
+      description: "Logo et couleurs du RaceBook pour cette édition.",
+      level: "optional",
+      status: brandingUnpublished ? "incomplete" : brandingConfigured ? "complete" : "empty",
+      countLabel: brandingUnpublished ? "Brouillon non publié" : brandingConfigured ? "DA publiée" : "Optionnel",
     },
     {
       id: "sponsors",

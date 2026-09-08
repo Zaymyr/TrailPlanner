@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-02
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -37,6 +37,8 @@ The compact runner-progress and unified sponsor loading composition is presentat
 
 The post-load automatic sponsor carousel likewise remains independent from relay ordering and the conditional `Relais` sub-tab.
 
+The published edition accent may recolor the route/profile graphics and primary may recolor the active `Relais` tab, but neither value changes relay rows, ordering, semantic cutoff states, or derived-leg calculations.
+
 Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engagement with the parent race id. Relay-point payloads and persistence remain unchanged.
 
 ## Columns
@@ -67,6 +69,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 - RaceBook onboarding is presentation-only and leaves relay-point loading and the conditional Relais tab unchanged.
 - Holding initial RaceBook progress for sponsor preparation does not delay, cache, or change the separate relay-point read contract.
 - RaceBook tab analytics may report that the Relay view was selected, but must not emit relay notes or other organizer-authored content as analytics properties.
+- Do not use organizer branding colors to reinterpret relay cutoff or warning semantics.
 
 - A handover is not necessarily a ravito, and a ravito is not necessarily a handover.
 - Do not copy relay points into `plan_aid_stations` or nutrition calculations in this first version.

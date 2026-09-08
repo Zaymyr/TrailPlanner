@@ -37,6 +37,7 @@ describe("/api/organizer/edition-requests POST", () => {
         end_date: "2027-06-22",
         is_current: false,
       }], { status: 201 }))
+      .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(Response.json([{
         id: "55555555-5555-5555-5555-555555555555",

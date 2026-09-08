@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-05-17
+last_verified: 2026-09-08
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -10,6 +10,7 @@ related_files:
   - packages/design-system/src/tokens/radius.ts
   - packages/design-system/src/tokens/shadows.ts
   - packages/design-system/src/fonts/index.ts
+  - packages/design-system/src/branding.ts
   - apps/web/tailwind.config.ts
   - apps/web/app/globals.css
 related_tables: []
@@ -54,6 +55,12 @@ Token groups:
 
 The web app also defines HSL CSS variables in `apps/web/app/globals.css` for light/dark runtime themes.
 
+### RaceBook edition theme
+
+`packages/design-system/src/branding.ts` owns the shared runtime theme contract used by the organizer preview and mobile RaceBook. Defaults are `#2D5016` for primary and `#B45309` for accent. It accepts only `#RRGGBB`, computes black or white text with the stronger contrast against the primary color, and derives light primary/accent surfaces plus a primary border by mixing with white.
+
+Primary colors style interactions, links, active tabs, icons, and tinted surfaces. Accent colors are reserved for graphics such as progress, route, and elevation profile. Typography, neutral backgrounds, layout, and semantic danger/warning/info colors are never organizer-controlled.
+
 ## Typography
 
 Shared typography includes:
@@ -88,6 +95,8 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 
 ## Gotchas
 
+- Do not use an edition accent as a semantic success, warning, danger, or information color.
+- Invalid colors and non-HTTPS logos must resolve to the Pace Yourself defaults without breaking the RaceBook.
 - The design-system color tokens and web CSS variables are related but not identical.
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.
 - If tokens change, update Tailwind mapping and design docs together.

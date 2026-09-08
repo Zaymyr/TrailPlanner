@@ -323,6 +323,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
 
   const editionIds = (eventRow.race_event_editions ?? []).map((edition) => edition.id);
   let sponsorLogos: string[] = [];
+  let brandingLogos: string[] = [];
   if (editionIds.length > 0) {
     const sponsorsResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?edition_id=in.(${editionIds.join(",")})&select=logo_url`,
@@ -330,6 +331,15 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     );
     if (!sponsorsResponse.ok) return jsonError("Unable to load event sponsors before delete.", 502);
     sponsorLogos = z.array(z.object({ logo_url: z.string().url() })).parse(await sponsorsResponse.json()).map((row) => row.logo_url);
+    const brandingResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_branding?edition_id=in.(${editionIds.join(",")})&select=draft_logo_url,published_logo_url`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!brandingResponse.ok) return jsonError("Unable to load event branding before delete.", 502);
+    brandingLogos = z.array(z.object({
+      draft_logo_url: z.string().url().nullable(),
+      published_logo_url: z.string().url().nullable(),
+    })).parse(await brandingResponse.json()).flatMap((row) => [row.draft_logo_url, row.published_logo_url].filter((url): url is string => Boolean(url)));
   }
 
   if ((eventRow.races?.length ?? 0) > 0) {
@@ -361,6 +371,10 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   for (const sponsorLogo of sponsorLogos) {
     const sponsorImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, sponsorLogo);
     if (sponsorImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", sponsorImagePath));
+  }
+  for (const brandingLogo of new Set(brandingLogos)) {
+    const brandingImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, brandingLogo);
+    if (brandingImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", brandingImagePath));
   }
   await Promise.all(storageDeletes);
 

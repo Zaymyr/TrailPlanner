@@ -31,6 +31,10 @@ const editionRaceSchema = z.object({
 });
 
 const editionSponsorSchema = z.object({ logo_url: z.string().url() });
+const editionBrandingSchema = z.object({
+  draft_logo_url: z.string().url().nullable(),
+  published_logo_url: z.string().url().nullable(),
+});
 
 const deleteResultSchema = z.object({
   deleted_edition_id: z.string().uuid(),
@@ -142,6 +146,13 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   if (!sponsorsResponse.ok) return jsonError("Unable to load edition sponsors before delete.", 502);
   const sponsors = z.array(editionSponsorSchema).parse(await sponsorsResponse.json());
 
+  const brandingResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_branding?edition_id=eq.${parsedParams.data.id}&select=draft_logo_url,published_logo_url&limit=1`,
+    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+  );
+  if (!brandingResponse.ok) return jsonError("Unable to load edition branding before delete.", 502);
+  const branding = z.array(editionBrandingSchema).parse(await brandingResponse.json())[0] ?? null;
+
   const deleteResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/delete_race_event_edition`,
     {
@@ -177,6 +188,10 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   for (const sponsor of sponsors) {
     const sponsorImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, sponsor.logo_url);
     if (sponsorImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", sponsorImagePath));
+  }
+  for (const brandingUrl of new Set([branding?.draft_logo_url, branding?.published_logo_url].filter((url): url is string => Boolean(url)))) {
+    const brandingImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, brandingUrl);
+    if (brandingImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", brandingImagePath));
   }
   await Promise.all(storageDeletes);
 

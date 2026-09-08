@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -112,6 +112,7 @@ Summary:
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.
 - Rejection stores review metadata but does not create membership.
 - Direct e-mail assignment is not a synthetic claim: it leaves this table unchanged and stores `claim_id = null` on a new delegated membership.
+- RaceBook visual identity is not claim state. Once membership exists, its organizer route still requires the selected edition's Pro `branding.manage` capability before returning or mutating a draft.
 
 ## Common Queries
 
@@ -149,6 +150,7 @@ order by created_at asc;
 - Keep organizer-dashboard French copy under UTF-8 regression coverage when editing route-local labels; approval-gated screens should not ship mojibake after a component rewrite.
 - Do not block the admin claim queue on auxiliary enrichment reads. If edition-request loading or organizer-identity enrichment fails, or if an auth-user email is malformed, keep serving the base claim rows with contact-email or UUID fallbacks.
 - Claim approval grants membership, not a bypass around edition deletion confirmation or the server-side membership check.
+- Claim approval alone does not unlock edition branding; membership and the active Pro entitlement are checked independently.
 
 ## Related Docs
 

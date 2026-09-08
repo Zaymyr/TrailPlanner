@@ -4,6 +4,7 @@ import { z } from "zod";
 import { withSecurityHeaders } from "../../../lib/http";
 import { isOrganizerForEvent, serviceHeaders } from "../../../lib/organizer";
 import { hasOrganizerRacebookContent, racebookSponsorRowSchema } from "../../../lib/racebook-sponsors";
+import { racebookBrandingRowSchema, toPublishedBranding } from "../../../lib/racebook-branding";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../lib/supabase";
 
 const raceSchema = z.object({
@@ -44,7 +45,11 @@ export async function GET(request: NextRequest) {
   );
   if (!raceResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load RaceBook." }, { status: 502 }));
   const race = z.array(raceSchema).parse(await raceResponse.json())[0] ?? null;
-  if (!race?.edition_id || !race.event_id) return withSecurityHeaders(NextResponse.json({ loadingSponsors: [], bannerSponsors: [] }));
+  if (!race?.edition_id || !race.event_id) return withSecurityHeaders(NextResponse.json({
+    loadingSponsors: [],
+    bannerSponsors: [],
+    branding: toPublishedBranding(null),
+  }));
   const event = Array.isArray(race.race_events) ? race.race_events[0] ?? null : race.race_events;
   if (!hasOrganizerRacebookContent(event?.organizer_details, race.organizer_details, race.participation_mode)) {
     return withSecurityHeaders(NextResponse.json({ message: "RaceBook not available." }, { status: 404 }));
@@ -59,14 +64,32 @@ export async function GET(request: NextRequest) {
   }
   if (!canOpen) return withSecurityHeaders(NextResponse.json({ message: "RaceBook not available." }, { status: 404 }));
 
-  const sponsorResponse = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?edition_id=eq.${race.edition_id}&is_active=eq.true&select=*&order=position.asc,created_at.asc`,
-    { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
-  );
+  const [sponsorResponse, brandingResponse] = await Promise.all([
+    fetch(
+      `${serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?edition_id=eq.${race.edition_id}&is_active=eq.true&select=*&order=position.asc,created_at.asc`,
+      { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
+    ),
+    fetch(
+      `${serviceConfig.supabaseUrl}/rest/v1/race_event_edition_branding?edition_id=eq.${race.edition_id}&select=*&limit=1`,
+      { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
+    ),
+  ]);
   if (!sponsorResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load sponsors." }, { status: 502 }));
   const sponsors = z.array(racebookSponsorRowSchema).parse(await sponsorResponse.json());
+  let branding = toPublishedBranding(null);
+  if (brandingResponse.ok) {
+    const parsedBranding = z.array(racebookBrandingRowSchema).safeParse(await brandingResponse.json().catch(() => null));
+    if (parsedBranding.success) {
+      branding = toPublishedBranding(parsedBranding.data[0] ?? null);
+    } else {
+      console.warn("Unable to parse optional RaceBook branding");
+    }
+  } else {
+    console.warn("Unable to load optional RaceBook branding", brandingResponse.status);
+  }
   return withSecurityHeaders(NextResponse.json({
     loadingSponsors: sponsors.filter((sponsor) => sponsor.show_on_loading).slice(0, 2).map((sponsor) => publicSponsor(request, race.id, sponsor)),
     bannerSponsors: sponsors.filter((sponsor) => sponsor.show_in_banner).map((sponsor) => publicSponsor(request, race.id, sponsor)),
+    branding,
   }));
 }

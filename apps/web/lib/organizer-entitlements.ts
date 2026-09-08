@@ -14,6 +14,7 @@ export const organizerCapabilitySchema = z.enum([
   "relay.manage",
   "aid_station_products.manage",
   "sponsors.manage",
+  "branding.manage",
   "assisted_import.request",
 ]);
 export type OrganizerCapability = z.infer<typeof organizerCapabilitySchema>;
@@ -30,6 +31,7 @@ export const ORGANIZER_TIER_CAPABILITIES: Record<OrganizerTier, readonly Organiz
     "relay.manage",
     "aid_station_products.manage",
     "sponsors.manage",
+    "branding.manage",
     "assisted_import.request",
   ],
 };

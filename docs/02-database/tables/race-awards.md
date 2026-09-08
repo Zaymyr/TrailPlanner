@@ -1,10 +1,11 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - apps/web/app/api/organizer/races/[id]/awards/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
@@ -22,3 +23,5 @@ related_tables:
 Stores the podium programme for a format, not finisher results. A row records a preset (`scratch`, `u18`, `u20`, `u23`, `senior`, `master`) or custom category, its persisted display label, audience, inclusive rewarded-place range, required podium time, optional location and reward/note.
 
 Rows are ordered, replaced atomically with stable submitted ids, cascade with their format and are copied during Pro edition duplication. Public and organizer-preview reads use RLS; mutations only pass through the Organizer API after `racebook_content.manage` authorization.
+
+The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no awards and does not invalidate the rest of the RaceBook. Its public policy resolves publication through `races`, without requiring client access to `race_event_editions`.

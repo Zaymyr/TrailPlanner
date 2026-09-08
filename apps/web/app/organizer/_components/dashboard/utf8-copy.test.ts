@@ -9,6 +9,7 @@ const organizerFiles = [
   "app/organizer/_components/dashboard/detail-editors.tsx",
   "app/organizer/_components/dashboard/shell.tsx",
   "app/organizer/_components/dashboard/website-import-review-details.tsx",
+  "app/organizer/_components/dashboard/branding-editor.tsx",
 ];
 
 const forbiddenSequences = [
@@ -196,5 +197,26 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('draftLabel="Édition masquée"');
     expect(source).toContain("deleteEditionConfirmation !== selectedEditionYear");
     expect(source).toContain("Tape « {selectedEditionYear} » pour confirmer");
+  });
+
+  it("keeps the RaceBook branding draft, preview, reset, publish, and Pro upsell controls explicit", () => {
+    const editorSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/branding-editor.tsx"),
+      "utf8"
+    );
+    const dashboardSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"),
+      "utf8"
+    );
+
+    expect(editorSource).toContain("Brouillon non publié");
+    expect(editorSource).toContain("Aperçu mobile");
+    expect(editorSource).toContain("Annuler les changements");
+    expect(editorSource).toContain("Réinitialiser au thème Pace Yourself");
+    expect(editorSource).toContain("Enregistrer le brouillon");
+    expect(editorSource).toContain("Publier la DA");
+    expect(editorSource).toContain('window.addEventListener("beforeunload"');
+    expect(dashboardSource).toContain('activeModule === "branding" && isEventTab && activeTier !== "pro"');
+    expect(dashboardSource).toContain("Découvrir RaceBook Pro");
   });
 });

@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-02
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -21,8 +21,10 @@ related_files:
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
+  - apps/web/lib/racebook-branding.ts
 related_tables:
   - race_event_edition_sponsors
+  - race_event_edition_branding
   - race_event_editions
   - races
 ---
@@ -67,6 +69,8 @@ The fictitious Trail TST assets are reproducible under `supabase/demo-assets/spo
 
 ## Mobile Presentation
 
+The same backward-compatible `/api/racebook-sponsors` response now carries the edition's published `branding` object beside sponsor arrays. Sponsor and branding logos are prefetched together, but remain separate placements: branding appears in the loading identity and RaceBook identity card, never in sponsor slots or click reporting. Missing/unpublished branding resolves to Pace Yourself defaults without changing sponsor behavior.
+
 The Courses sheet starts a short-lived, account-scoped sponsor request and logo warmup immediately before navigating to a RaceBook. The destination reuses that in-flight/cached request, holds visible progress at its initial position until loading logos are ready, then starts the normal animation with sponsors already displayed. Direct links keep the same lookup and logo-prefetch fallback. The RaceBook reserves one unified loading panel with two vertical logo slots while that preparation is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears. The presentation does not add impression tracking or expose direct destination URLs.
 
 Banner placements use an automatic horizontal carousel whenever at least two active sponsors exist. It presents one sponsor per viewport-sized slide for three seconds, transitions over 520 ms, and loops through a duplicate first slide; reduced-motion users receive the manual horizontal list instead. The carousel still preserves database order, the ten-sponsor cap, and counted redirect links.
@@ -76,6 +80,7 @@ RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, 
 ## Gotchas
 
 - The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.
+- Do not merge organizer branding with sponsor rows, placements, or click counters merely because the lightweight payload transports both.
 
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.

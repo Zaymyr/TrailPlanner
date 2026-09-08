@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -112,6 +112,7 @@ Summary:
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
 - Direct admin assignment grants edit access only. It does not change catalog or Racebook visibility, approval provenance, or publication-review history.
+- Active membership is the first branding-route gate, but the selected edition must also grant Pro `branding.manage`; trusted admins retain the existing membership bypass implemented by the shared server authorization helper.
 
 ## Common Queries
 
@@ -153,6 +154,7 @@ order by created_at asc;
 - Event PATCH/image and race PATCH/delete/image/GPX/ravito/product routes must all retain the same active membership check even though edition age no longer changes editability.
 - Edition PATCH/DELETE must retain that same membership check. The browser's year retyping is a destructive-action guard, not an authorization boundary.
 - Edition sponsor reads and writes use the same active parent-event membership check. Public RaceBook presentation is a separate gated server read and grants no organizer mutation authority.
+- Edition branding reads and writes use that membership check plus Pro. The runner route exposes only the published snapshot and never turns public visibility into draft mutation authority.
 - Membership authorizes event maintenance and use of edition capabilities only for the managed event, but never direct organizer writes to catalog `race_events.is_live` or `races.is_live`. With an active RaceBook or Pro entitlement, the race service route may change only `races.racebook_is_live`.
 - Format deletion must still preserve saved runner plans through the `race_plans.race_id` foreign-key behavior; organizer membership grants source delete access, not plan deletion rights.
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.

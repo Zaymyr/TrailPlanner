@@ -226,6 +226,19 @@ export type OrganizerSponsor = {
   clickCount: number;
 };
 
+export type OrganizerBranding = {
+  logoUrl: string | null;
+  primaryColor: string;
+  accentColor: string;
+};
+
+export type OrganizerBrandingState = {
+  draft: OrganizerBranding;
+  published: OrganizerBranding;
+  publishedAt: string | null;
+  hasUnpublishedChanges: boolean;
+};
+
 export type WebsiteImportDiscoveryWorkflow = {
   sessionId: string;
   step: "formats";

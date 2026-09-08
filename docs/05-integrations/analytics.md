@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-06
+last_verified: 2026-09-08
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -35,6 +35,7 @@ related_files:
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
 related_tables:
   - race_event_edition_sponsors
+  - race_event_edition_branding
   - organizer_edition_entitlements
 ---
 
@@ -162,6 +163,8 @@ The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 
+Edition branding is presentation state only. Logo URLs and custom color values are not attached to identified RaceBook analytics events; existing race/event identifiers remain the comparison dimensions across default and customized editions.
+
 ## Admin Growth Dashboard
 
 The admin Growth tab is operational and uses Supabase only:
@@ -218,6 +221,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not interpret paywall or checkout events as revenue. For mobile conversion funnels, count only `premium purchase verified` with `environment: production`, then reconcile against RevenueCat/App Store transactions.
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
 - Do not reinterpret sponsor `click_count` as unique people or join it to runner analytics identities.
+- Do not send edition logo URLs or arbitrary organizer colors as analytics properties.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
 - Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require event selection, format selection, and successful-open events; search is optional because the initial eligible-course list is directly selectable.
 

@@ -1,10 +1,11 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - apps/web/app/api/organizer/races/[id]/start-waves/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
@@ -24,3 +25,5 @@ Stores ordered start waves (SAS) for a format. Each row has a name, native depar
 Existing `organizer_details.schedule.startTime` values are backfilled as `Départ commun`. Atomic replacement preserves submitted ids and synchronizes the earliest SAS time back to `schedule.startTime` for legacy consumers. Deleting or duplicating a format cascades or copies rows respectively.
 
 Public/preview read and mutation rules are identical to other RaceBook content: published RaceBook or authorized organizer for reads, and service-role API plus `racebook_content.manage` for writes.
+
+The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table.

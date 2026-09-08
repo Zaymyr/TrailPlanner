@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -23,6 +23,8 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
@@ -40,6 +42,7 @@ related_tables:
   - race_events
   - race_event_editions
   - race_event_edition_sponsors
+  - race_event_edition_branding
   - race_event_claims
   - race_event_edition_requests
   - race_event_publication_requests
@@ -58,6 +61,8 @@ related_tables:
 # Database Relationships
 
 `race_event_editions` has many `race_edition_services`. `races` has many `race_start_waves` and `race_awards`. All three foreign keys use `ON DELETE CASCADE` and have explicit indexes for parent lookups.
+
+The RLS repair changes no foreign key: service rows still belong directly to an edition, while their client-readable publication/organizer predicate reaches the edition indirectly through a format's existing `races.edition_id` relationship.
 
 ## Purpose
 
@@ -122,6 +127,7 @@ The design is:
    Dated event formats created without `edition_id` are backfilled and future service-side inserts are attached atomically to the matching event/year edition.
 7. Renaming a race records the old canonical slug transactionally; repeated renames accumulate direct mappings to the same race id without redirect chains.
 8. `race_event_edition_sponsors.edition_id` makes sponsor presentation common to every format in the edition; deleting the edition cascades its sponsor rows while the organizer route removes their Storage logos.
+9. `race_event_edition_branding.edition_id` is both its primary key and cascading edition FK, so one draft/published identity is shared by every format and deleted with the edition; server deletion flows separately clean its Storage logo objects.
 
 ## Product Relationships
 
@@ -173,6 +179,7 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
 - `races.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
+- `race_event_edition_branding.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_organizers.event_id -> race_events(id) on delete cascade`
 - `race_event_organizers.user_id -> auth.users(id) on delete cascade`
 - `race_event_organizers.claim_id -> race_event_claims(id) on delete set null`

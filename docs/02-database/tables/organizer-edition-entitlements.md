@@ -1,13 +1,14 @@
 ---
 title: organizer_edition_entitlements
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - apps/web/lib/organizer-entitlements.ts
+  - apps/web/app/api/organizer/editions/[id]/branding/route.ts
 related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
@@ -57,6 +58,7 @@ RLS is enabled with no client grants. Only service role can read or mutate rows.
 - Active admin and legacy-admin sources override Stripe recalculation.
 - Returning to Visibilité hides attached RaceBooks but does not change catalog visibility.
 - Legacy approved/published editions are backfilled Pro.
+- `branding.manage` is granted only by an active Pro entitlement. A downgrade blocks further draft reads and writes without erasing the last published identity.
 
 ## Common Queries
 
@@ -70,6 +72,7 @@ where edition_id = :edition_id;
 
 - This table is a projection, not payment history.
 - Do not grant direct client select merely to render the dashboard; organizer APIs return the authorized edition projection.
+- Enforce branding access in the server route as well as the dashboard upsell; runner visibility of an already published identity is a separate contract.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -78,6 +78,7 @@ This table is retained publication-review history. New organizer publication use
 - Removing the organizer-side runner preview and format quick actions does not alter readiness: publication still validates persisted event, edition, and format rows.
 - An inherited format location remains empty on `races`; publication continues to require the event location, while an explicitly different format location is additive runner-facing data.
 - The Organizer's single format-name control persists the same non-empty value to `races.name` and `races.series_name`; publication readiness continues to validate the canonical `name` field.
+- Publishing an edition's visual identity is a separate Pro-only draft-to-published operation. It does not publish a format, change `racebook_is_live`, or insert/update this legacy review table.
 
 ## Gotchas
 
@@ -92,6 +93,7 @@ This table is retained publication-review history. New organizer publication use
 - Roadbook preview uploads use temporary private Storage and may be 25 MB each; they do not establish publication readiness or approval.
 - Admin-only claim reconciliation and the signed per-field import snapshot are pre-publication controls. Confirming formats may create hidden incomplete drafts, and applying selected claims may complete source fields, but neither action establishes Racebook readiness or approval; the publication route revalidates persisted data independently.
 - Source-role classification for additional URLs and PDFs is likewise review evidence only. It cannot publish a course, approve a Racebook, or create a publication request.
+- Do not treat `published_at` on edition branding as RaceBook content approval; it records only which visual snapshot runner payloads may use.
 
 ## Related Docs
 

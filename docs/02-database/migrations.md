@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -18,6 +18,9 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
@@ -53,6 +56,7 @@ related_tables:
   - race_event_update_reads
   - race_event_editions
   - race_event_edition_sponsors
+  - race_event_edition_branding
   - race_aid_station_products
   - products
   - user_favorite_race_events
@@ -66,6 +70,8 @@ related_tables:
 # Migrations
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
+
+`20260907170842_fix_structured_racebook_rls_dependencies.sql` repairs the three client read paths after the original policies joined service-role-only `race_event_editions`. It recreates the affected policies through `races`, retaining the same publication and organizer gates without adding any edition-table grant.
 
 ## Purpose
 
@@ -261,6 +267,8 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 `supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql` repairs events/formats created after the original edition backfill: it creates missing event-year editions, attaches every dated event format, selects a current edition when absent, and installs an invoker trigger that atomically upserts future missing memberships under a per-event transaction advisory lock. It changes no client table grants or RLS policy.
 
 `supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql` adds service-only `race_event_edition_sponsors`, ordered loading/banner placements, aggregate click counts, and an atomic race/edition-validated redirect increment RPC. RLS and explicit privilege revokes keep clients behind server routes. A transaction advisory lock plus trigger enforces ten sponsors per edition and two active loading sponsors even under concurrent writes. `supabase/tests/racebook_sponsors_checks.sql` verifies RLS, privileges, both limits, and the atomic increment inside a rollback transaction.
+
+`supabase/migrations/20260907171043_add_racebook_edition_branding.sql` adds the service-only edition branding draft/published projection, strict hex and publication-state constraints, and an invoker-security atomic publish function. Explicit client revokes and service-role grants keep both states behind server routes. `supabase/tests/racebook_branding_checks.sql` verifies RLS, privileges, one-row edition scope, cascade, malformed-color rejection, and atomic publication.
 
 ### Admin KPI Aggregates
 

@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-09-03
+last_verified: 2026-09-08
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -10,6 +10,7 @@ related_files:
   - apps/web/components/gpx/GpxRouteMapClient.tsx
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/courses/_components/RaceRouteExplorer.tsx
+  - apps/mobile/components/race/RacebookLeafletMap.tsx
 related_tables: []
 ---
 
@@ -43,6 +44,8 @@ It:
 - is independent from event-level website, Instagram, and Facebook fields rendered by the same Organizer information component.
 - on the public `/courses/[slug]` page, `apps/web/app/courses/_components/RaceRouteExplorer.tsx` wraps `GpxRouteMap` and forces `interactive={false}` until the runner taps "Explorer la carte", so pan/zoom gestures never capture mobile scroll.
 
+The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeafletMap.tsx`. The published edition accent may override only the route polyline after strict `#RRGGBB` validation; tiles, map controls, and semantic markers remain application-owned.
+
 ## Gotchas
 
 - Keep the map client-only. `react-leaflet` should not be rendered through SSR.
@@ -52,6 +55,7 @@ It:
 - Avoid passing extremely dense GPX point sets without considering render cost; reuse the existing dashboard GPX preview payload when possible.
 - Keep the route preview and visible distance/D+/D- fields on the same normalized GPX response so the map/profile cannot describe a different import than the form.
 - If a future screen needs editing or advanced basemap controls, extend the shared component instead of creating another map stack.
+- Never interpolate an unvalidated organizer color into the mobile WebView HTML.
 
 ## Related Docs
 

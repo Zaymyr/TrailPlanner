@@ -17,6 +17,17 @@ begin
       raise exception 'service_role must manage %', table_name;
     end if;
   end loop;
+
+  if exists (
+    select 1
+    from pg_policies
+    where schemaname = 'public'
+      and tablename in ('race_edition_services', 'race_start_waves', 'race_awards')
+      and roles && array['anon'::name, 'authenticated'::name]
+      and coalesce(qual, '') ilike '%race_event_editions%'
+  ) then
+    raise exception 'Client policies must not reference service-role-only race_event_editions.';
+  end if;
 end $$;
 
 create temp table _structured_fixture as

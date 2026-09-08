@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -108,6 +108,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - Source-backed event integrations may mix complete and incomplete formats. La Tou’Run 2026 keeps its 6 km walk hidden as a draft with the D+ sentinel listed in `missing_required_fields`, while publishing the four formats whose date, distance, and D+ are all confirmed; its unsituated La Bastidonne ravitailment remains descriptive text rather than an invented station row.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
 - Public SEO detail reads revalidate `is_live = true` and `is_public = true` with service credentials before reading `organizer_details`, ravitos, or private `gpx_storage_path`. An attached event and edition must also remain visible. Only an explicit sanitized DTO crosses into rendering; emergency/last-minute organizer fields and raw JSON do not.
+- RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 
 ## Common Queries
 
@@ -142,6 +143,7 @@ where is_live = true
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
 - Do not bulk-update slugs without reviewing the read-only audit and using the service-only rename RPC after its migration is deployed.
 - Never expose `gpx_storage_path` or raw `organizer_details` from a public client contract. The public route may receive only the server-parsed, bounded GPX preview and allowlisted practical fields.
+- Do not add per-format logo/color columns to `races`; all formats in one canonical edition deliberately share the branding projection.
 
 ## Related Docs
 

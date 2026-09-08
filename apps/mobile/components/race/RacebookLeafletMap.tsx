@@ -8,9 +8,10 @@ import type { MobileGpxPreviewPoint } from '../../lib/gpx';
 type RacebookLeafletMapProps = {
   points: MobileGpxPreviewPoint[];
   height?: number;
+  routeColor?: string;
 };
 
-function buildMapHtml(points: MobileGpxPreviewPoint[]) {
+function buildMapHtml(points: MobileGpxPreviewPoint[], routeColor: string) {
   const routePoints = points.map((point) => [point.lat, point.lng]);
   const routeJson = JSON.stringify(routePoints);
 
@@ -65,7 +66,7 @@ function buildMapHtml(points: MobileGpxPreviewPoint[]) {
       }).addTo(map);
 
       const route = L.polyline(points, {
-        color: '#B45309',
+        color: '${routeColor}',
         weight: 4,
         opacity: 0.92,
       }).addTo(map);
@@ -96,8 +97,9 @@ function buildMapHtml(points: MobileGpxPreviewPoint[]) {
 </html>`;
 }
 
-export function RacebookLeafletMap({ points, height = 260 }: RacebookLeafletMapProps) {
-  const source = useMemo(() => ({ html: buildMapHtml(points) }), [points]);
+export function RacebookLeafletMap({ points, height = 260, routeColor = '#B45309' }: RacebookLeafletMapProps) {
+  const safeRouteColor = /^#[0-9A-Fa-f]{6}$/.test(routeColor) ? routeColor : '#B45309';
+  const source = useMemo(() => ({ html: buildMapHtml(points, safeRouteColor) }), [points, safeRouteColor]);
 
   return (
     <View style={[styles.frame, { height }]}>

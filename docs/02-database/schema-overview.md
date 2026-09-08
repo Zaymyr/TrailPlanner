@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-03
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -13,6 +13,9 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260827093348_seed_trail_tst_demo_event.sql
@@ -52,6 +55,7 @@ related_tables:
   - race_events
   - race_event_editions
   - race_event_edition_sponsors
+  - race_event_edition_branding
   - organizer_edition_entitlements
   - organizer_edition_payments
   - race_event_claims
@@ -70,6 +74,10 @@ related_tables:
 # Schema Overview
 
 RaceBook structured organizer content is normalized into `race_edition_services` (edition scope), `race_start_waves` and `race_awards` (format scope). Parent deletion cascades; clients read through RLS and mutate only through service-role replacement RPCs.
+
+Their public RLS predicates traverse `races`, whose public visibility columns and client SELECT access already form the RaceBook boundary. They do not traverse service-role-only `race_event_editions`, which would make valid Data API reads fail with `42501`.
+
+RaceBook visual identity is stored in the separate service-only `race_event_edition_branding` projection. Draft and published columns coexist on one edition-unique row; only the server exposes the published logo and colors through the existing sponsors payload.
 
 ## Purpose
 
@@ -133,6 +141,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
 | `race_event_editions` | Canonical yearly start/end date ranges and catalog visibility for organizer events, with one current edition per event. |
 | `race_event_edition_sponsors` | Ordered edition-scoped RaceBook loading/banner sponsors and aggregate redirect counts. |
+| `race_event_edition_branding` | Edition-scoped RaceBook identity with separate organizer draft and runner-visible published values. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
 | `races` | Current race catalog/private race table, renamed from `race_catalog`, with yearly organizer edition grouping on `edition_group_id` / `series_name`. |
@@ -214,6 +223,7 @@ erDiagram
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)
 - [race_event_edition_sponsors](tables/race-event-edition-sponsors.md)
+- [race_event_edition_branding](tables/race-event-edition-branding.md)
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
 - [organizer_edition_payments](tables/organizer-edition-payments.md)
 - [race_event_claims](tables/race-event-claims.md)
@@ -257,6 +267,7 @@ erDiagram
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
 - `Trail TST` is the deliberate runner-facing showcase exception: fixed migration ids, live flags, approval timestamps, and versioned Storage paths make the public fixture reproducible.
 - RaceBook sponsors remain service-only rows. The database serializes edition writes to enforce ten total and two active loading sponsors; clients receive only server-filtered placements and counted redirect URLs.
+- RaceBook branding also remains service-only. Never grant draft access to clients; runner payloads use only a complete explicitly published snapshot and otherwise return shared defaults.
 - Mobile sponsor prefetch is an ephemeral account/race-scoped request handoff between the Courses sheet and RaceBook screen; it adds no table, relationship, persisted cache, or broader Data API access.
 - Two-pass Organizer imports are the exception to the normal all-fields-at-create assumption: confirmation persists an incomplete format as a hidden draft, then atomic field application makes the course live only when its required missing-field list is empty. Racebook visibility remains false.
 - Temporary import sessions are not provenance history. Cleanup must remove Storage objects before deleting expired rows, and client roles must never receive direct table or RPC access.

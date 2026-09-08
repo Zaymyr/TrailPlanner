@@ -80,6 +80,7 @@ import {
 } from "./dashboard/helpers";
 import { ProductPickerModal, ProductsEditor } from "./dashboard/products-editor";
 import { SponsorsEditor } from "./dashboard/sponsors-editor";
+import { BrandingEditor } from "./dashboard/branding-editor";
 import {
   buildInitialWebsiteImportFieldSelections,
   buildInitialWebsiteImportFormatDecisions,
@@ -281,6 +282,7 @@ export function OrganizerDashboard({
   const [eventFavoriteCount, setEventFavoriteCount] = useState<number | null>(null);
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
   const [sponsorSummary, setSponsorSummary] = useState<{ editionId: string; sponsors: number; clicks: number } | null>(null);
+  const [brandingSummary, setBrandingSummary] = useState<{ editionId: string; configured: boolean; unpublished: boolean } | null>(null);
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
   const [websiteImportFormatUrls, setWebsiteImportFormatUrls] = useState<string[]>([""]);
@@ -370,6 +372,10 @@ export function OrganizerDashboard({
     if (!activeEdition?.id) return;
     setSponsorSummary({ editionId: activeEdition.id, ...summary });
   }, [activeEdition?.id]);
+  const handleBrandingSummaryChange = useCallback((summary: { configured: boolean; unpublished: boolean }) => {
+    if (!activeEdition?.id) return;
+    setBrandingSummary({ editionId: activeEdition.id, ...summary });
+  }, [activeEdition?.id]);
 
   const formatUpdateDate = (value: string) => {
     const date = new Date(value);
@@ -419,8 +425,16 @@ export function OrganizerDashboard({
         sponsorSummary !== null && sponsorSummary.editionId === activeEdition?.id
           ? sponsorSummary.clicks
           : 0,
+      brandingConfigured:
+        brandingSummary !== null && brandingSummary.editionId === activeEdition?.id
+          ? brandingSummary.configured
+          : false,
+      brandingUnpublished:
+        brandingSummary !== null && brandingSummary.editionId === activeEdition?.id
+          ? brandingSummary.unpublished
+          : false,
     });
-  }, [activeEdition?.id, activeEdition?.serviceCount, activeRace?.aidStationCount, activeRace?.awardCount, activeRace?.id, activeRace?.startWaveCount, activeRaceForCompletion, aidStations, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
+  }, [activeEdition?.id, activeEdition?.serviceCount, activeRace?.aidStationCount, activeRace?.awardCount, activeRace?.id, activeRace?.startWaveCount, activeRaceForCompletion, aidStations, brandingSummary, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
 
   const markDirty = (moduleId: OrganizerModuleId) => {
     if (!activeDirtyScopeKey) return;
@@ -2760,6 +2774,25 @@ export function OrganizerDashboard({
             <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} />
           ) : activeModule === "awards" ? (
             <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} />
+          ) : activeModule === "branding" && isEventTab && activeTier !== "pro" ? (
+            <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
+              <p className="font-semibold text-foreground">Identité visuelle personnalisée — RaceBook Pro</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Passe à Pro pour adapter le logo et les couleurs du RaceBook à la direction artistique de ton événement.
+              </p>
+              <Button type="button" className="mt-4" onClick={openPricingDialog}>
+                Découvrir RaceBook Pro
+              </Button>
+            </div>
+          ) : activeModule === "branding" && isEventTab && activeEdition?.id ? (
+            <BrandingEditor
+              key={activeEdition.id}
+              editionId={activeEdition.id}
+              eventName={eventDetail?.name ?? "Événement"}
+              authHeaders={authHeaders}
+              onSummaryChange={handleBrandingSummaryChange}
+              onToast={showToast}
+            />
           ) : activeModule === "sponsors" && isEventTab && activeTier !== "pro" ? (
             <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
               <p className="font-semibold text-foreground">Gestion des sponsors — RaceBook Pro</p>
@@ -2851,6 +2884,7 @@ export function OrganizerDashboard({
                     <li>Duplication d’une édition</li>
                     <li>Gestion des relais</li>
                     <li>Produits officiels aux ravitaillements</li>
+                    <li>Logo et couleurs personnalisés</li>
                     <li>Gestion et suivi des sponsors</li>
                     <li>Import assisté</li>
                   </ul>
@@ -2894,6 +2928,7 @@ export function OrganizerDashboard({
                       <li>Duplication d’une édition</li>
                       <li>Gestion des relais</li>
                       <li>Produits officiels aux ravitaillements</li>
+                      <li>Logo et couleurs personnalisés</li>
                       <li>Gestion et suivi des sponsors</li>
                       <li>Import assisté</li>
                     </ul>
