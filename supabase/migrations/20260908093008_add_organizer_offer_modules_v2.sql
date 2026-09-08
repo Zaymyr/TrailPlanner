@@ -167,7 +167,7 @@ insert into public.organizer_racebook_module_settings (edition_id, race_id, modu
 select distinct race_row.edition_id, race_row.id, inferred.module_key, true
 from public.races race_row
 cross join lateral (
-  select 'start_waves'::text where exists (select 1 from public.race_start_waves row_value where row_value.race_id = race_row.id)
+  select 'start_waves'::text as module_key where exists (select 1 from public.race_start_waves row_value where row_value.race_id = race_row.id)
   union all select 'awards' where exists (select 1 from public.race_awards row_value where row_value.race_id = race_row.id)
   union all select 'relay' where race_row.participation_mode in ('relay', 'solo_and_relay')
     or exists (select 1 from public.race_relay_points row_value where row_value.race_id = race_row.id)

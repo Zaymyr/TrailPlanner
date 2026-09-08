@@ -35,7 +35,7 @@ The effective state is `is_enabled AND offer allows module`. A downgrade therefo
 
 ## Initialization and Duplication
 
-New editions enable equipment, bib and access; new formats enable aid stations. Existing editions are backfilled with those defaults, optional modules are enabled when durable content exists, and setup is marked complete. Edition duplication copies common settings and each cloned format's settings.
+New editions enable equipment, bib and access; new formats enable aid stations. Existing editions are backfilled with those defaults, optional modules are enabled when durable content exists, and setup is marked complete. Edition duplication copies common settings and each cloned format's settings. The optional-content backfill names its lateral `UNION` output `module_key` explicitly so the migration remains portable and deployable.
 
 ## Gotchas
 

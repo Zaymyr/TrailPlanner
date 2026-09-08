@@ -246,7 +246,7 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 `supabase/migrations/20260820135823_add_racebook_publication_control.sql` separates course catalog visibility from Racebook publication. It adds `races.racebook_is_live` plus durable admin approval provenance, replaces the publication-review function, and adds the service-role-only admin event switch function. As a safety migration it keeps organizer-managed courses live in the catalog but resets their Racebooks to hidden/unapproved for one fresh admin validation pass.
 
-`supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql` replaces the legacy RaceBook/Pro tiers with Essential/Complete/Signature, adds service-only edition/format module settings, configuration completion, legacy-rights conversion, content-aware backfill, payment-path recalculation and module-aware public RLS policies.
+`supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql` replaces the legacy RaceBook/Pro tiers with Essential/Complete/Signature, adds service-only edition/format module settings, configuration completion, legacy-rights conversion, content-aware backfill, payment-path recalculation and module-aware public RLS policies. Its optional-content backfill gives the lateral `UNION` output an explicit `module_key` alias so every PostgreSQL version resolves the inserted column deterministically.
 
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
 
@@ -344,6 +344,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
 - `races.edition_group_id` groups a format series across years; `races.edition_id` identifies the canonical event-year row. Do not substitute one for the other.
 - `race_event_editions` is service-role-only. Organizer writes must remain behind active membership checks in server routes.
+- Name lateral/union-derived backfill columns explicitly when an outer query references them; PostgreSQL does not derive a stable business-facing alias from a cast literal.
 - Edition deletion must go through `delete_race_event_edition`; direct row deletion would lose the last-edition guard and replacement-current selection even though the format cascade would still apply.
 - Keep first Racebook approval in `race_event_publication_requests`; do not restore edition-review inserts or organizer writes to catalog `is_live`. Approved organizers may write only `racebook_is_live`.
 - Superseding rule: new publication authorization comes from the edition entitlement, not a new admin request. Historical publication requests remain for audit and compatibility approvals, which now grant Pro.
