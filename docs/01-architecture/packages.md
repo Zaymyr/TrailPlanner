@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-05-17
+last_verified: 2026-09-08
 ai_priority: medium
 related_files:
   - package.json
@@ -9,6 +9,8 @@ related_files:
   - packages/shared/src/index.ts
   - packages/design-system/package.json
   - packages/design-system/src/index.ts
+  - packages/design-system/src/index.d.ts
+  - packages/design-system/src/branding.ts
   - packages/tanstack-react-query/package.json
   - packages/fuel-planner/computeFuelPlan.ts
 related_tables: []
@@ -45,7 +47,7 @@ This package is used for logic that should not depend on Next.js or Expo runtime
 
 Location: `packages/design-system`
 
-Exports tokens, fonts, and signature icons. The web app transpiles this package in `apps/web/next.config.mjs`.
+Exports tokens, fonts, signature icons, and the runtime-neutral RaceBook branding resolver. The web app transpiles this package in `apps/web/next.config.mjs`.
 
 Primary source files:
 
@@ -55,6 +57,7 @@ Primary source files:
 - `packages/design-system/src/tokens/radius.ts`
 - `packages/design-system/src/tokens/shadows.ts`
 - `packages/design-system/src/icons/index.ts`
+- `packages/design-system/src/branding.ts`
 
 ### `@tanstack/react-query`
 
@@ -100,6 +103,7 @@ Keep logic inside an app when:
 
 ## Gotchas
 
+- Keep the RaceBook branding resolver runtime-neutral: both Next.js and Expo import it, so it must not depend on DOM, Node, React, or React Native APIs.
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.
 - `apps/web/next.config.mjs` transpiles `@trailplanner/shared` and `@pace-yourself/design-system`. If a new package exports TS/TSX directly, the web config may need a matching transpile entry.
 - The local `@tanstack/react-query` package can mask assumptions about the upstream package. Inspect it before changing data-fetching code.

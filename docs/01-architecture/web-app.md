@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -119,6 +119,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
   - apps/web/app/organizer/_components/dashboard/sponsors-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/branding-editor.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -145,9 +146,13 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/route.test.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
+  - apps/web/app/api/organizer/editions/[id]/branding/route.ts
+  - apps/web/app/api/organizer/editions/[id]/branding/route.test.ts
   - apps/web/app/api/racebook-sponsors/route.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
   - apps/web/lib/racebook-sponsors.ts
+  - apps/web/lib/racebook-branding.ts
+  - apps/web/lib/racebook-branding.test.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
   - apps/web/app/api/organizer/publication-requests/route.test.ts
   - apps/web/app/api/organizer/publication-requests/readiness.test.ts
@@ -208,11 +213,14 @@ related_tables:
   - push_notification_events
   - race_slug_redirects
   - race_event_edition_sponsors
+  - race_event_edition_branding
 ---
 
 # Web App Architecture
 
 The organizer dashboard has lazy, module-local editors for structured edition services, format start waves and format awards. Each uses validated dedicated GET/PUT routes and a debounced atomic replacement save, keeping large collections out of the event bootstrap.
+
+The edition-level RaceBook branding editor is another lazy event module. It keeps local color edits separate from its saved draft, uploads logos through a dedicated authenticated server route, previews the resolved theme in the portal, and publishes only through the atomic database RPC. Non-Pro organizers receive an upsell instead of draft data.
 
 ## Purpose
 
@@ -424,6 +432,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 
 ## Gotchas
 
+- Keep the branding editor out of the Organizer bootstrap payload. It is Pro-gated, edition-scoped, and should load only when its module opens.
+- Do not proxy a branding logo through JSON/base64. Use multipart upload, validate MIME plus binary signature and size server-side, then store the public URL in the service-only projection.
 - Do not return an empty blog collection when `content/blog` cannot be located. The sitemap depends on explicit failure to expose a deployment/file-tracing problem instead of silently dropping every article URL.
 - Do not infer article language from accents or tags. French copy without accented characters previously received English bylines and CTAs; use validated frontmatter locale with the French default.
 - Keep `/organisateurs` as the indexable French acquisition page. `/organizers` is the authenticated creation workflow and `/race-planner/print/assistance` is a transient print view; both must remain `noindex`.

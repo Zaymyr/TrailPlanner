@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-06
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -31,6 +31,8 @@ related_files:
   - apps/mobile/components/race/GpxImportPreviewModal.tsx
   - apps/mobile/components/race/GpxRoutePreviewCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
+  - apps/mobile/components/plan-form/ProfileMiniChart.tsx
+  - packages/design-system/src/branding.ts
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/lib/gpx.ts
   - apps/mobile/hooks/usePremium.ts
@@ -58,6 +60,7 @@ related_tables:
   - race_event_update_reads
   - race_relay_points
   - race_event_edition_sponsors
+  - race_event_edition_branding
 ---
 
 # Mobile App Architecture
@@ -65,6 +68,8 @@ related_tables:
 ## Structured RaceBook modules
 
 RaceBook loads edition services, format SAS and podium programme rows alongside its detail payload. Course shows conditional **SAS** and **Podiums** views. Services render as actionable cards; per category, structured rows take precedence over legacy text. Approximate distance uses start-address coordinates, then GPX start, then format/event coordinates, and is hidden when either endpoint is invalid. Google Maps remains responsible for the real itinerary.
+
+These three normalized collections are additive reads. If one table is temporarily unavailable during a staggered database/app rollout, mobile records a bounded warning and treats that collection as empty; it continues rendering an otherwise valid legacy RaceBook. Core race, organizer-detail, ravito and relay failures still keep the unavailable state.
 
 ## Purpose
 
@@ -203,6 +208,12 @@ When a runner presses the RaceBook action in the Courses sheet, mobile starts th
 
 Active banner sponsors render in a roughly 44 dp strip before the identity card, with 24 dp logos and native text. One sponsor is centered without animation. With two or more sponsors, the banner is a width-independent horizontal carousel: one centered sponsor remains visible for three seconds, transitions to the next over 520 ms, and uses a duplicate first slide to loop without a visible backward jump. System reduced-motion preference disables autoplay and switches to a manually scrollable horizontal list. Only rows with a redirect URL are pressable, and all sponsor links open the counted server redirect rather than a direct target.
 
+## RaceBook Edition Branding
+
+The same lightweight request returns the edition's published logo, primary color, and accent color. Mobile normalizes that additive object through the shared design-system resolver and prefetches its logo alongside loading sponsors, so the initial composition does not flash the default theme. The logo uses `contain` without cropping in both the loading identity and identity card; an unavailable image hides silently.
+
+Primary colors style active tabs, buttons, links, icons, badges, and derived light surfaces with automatically selected black or white foreground text. Accent colors style progress, route, and elevation profile. The native header, bottom navigation, typography, neutral card backgrounds, sponsor panel, runner illustration, and semantic red/orange/blue states remain Pace Yourself-owned. Missing, unpublished, or invalid values resolve to `#2D5016` and `#B45309`.
+
 ## Plan Share Links
 
 `apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. The mobile app never generates database rows directly for public links and never handles service-role keys.
@@ -224,6 +235,8 @@ Confirmed favorite mutations emit `race favorite updated` with the public event 
 Do not copy actual keys into docs. Use environment variable names only.
 
 ## Gotchas
+
+- Do not make optional structured RaceBook modules part of the whole-screen failure boundary. A PostgREST `404` before the corresponding migration/Data API exposure is deployed must degrade SAS, awards or structured services to an empty collection instead of hiding historical organizer content.
 
 - Keep the shared/iOS runtime at `1.1.0` until a new iOS native build is released. Android overrides it with `1.1.1`; Android production OTAs must be published from configuration that resolves that platform runtime.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
@@ -259,6 +272,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep the mobile Racebook read-only. A course may remain in the catalog while its Racebook is hidden. The catalog CTA and direct screen load must enforce the public flags for runners and independently verify active event membership before granting an unpublished organizer preview. It must not import organizer dashboard mutation logic or admin routes. Preserve the identity, four primary tabs, conditional Services tab, the `Course` sub-tabs that separate route visuals, ravitos, and conditional relay legs, and the single-open ravito accordion so long station lists remain scannable without hiding their essential summary.
 - Keep sponsor requests server-mediated and edition-scoped. Reserve the unified two-slot loading panel before the lightweight sponsor response so late logos do not shift the page, but remove it once the lookup settles without placements. Restore the feedback action and inset-aware bottom tab bar as soon as loading completes or the screen unmounts. Keep the compact banner carousel based on viewport-sized slides rather than aggregate content measurement, and keep reduced-motion users on the manual list. Never expose direct sponsor table access or the destination website URL and never replay the 2.5-second sponsor gate on refresh.
 - Keep sponsor prefetch account-scoped and ephemeral. Catalog warmup may share the authorized server response with the immediately opened screen, but session changes must resolve a different cache key and direct navigation must remain fully functional.
+- Keep edition branding on the published side of the same server-mediated lookup. Never read its table or draft fields from mobile, and never recolor functional warning, danger, or information states with organizer colors.
 - Keep RaceBook engagement events scoped to public race/event metadata and screen interactions. Never attach sponsor identity or redirect data to the identified runner analytics stream, and use repeated opens for the same `race_id` when measuring RaceBook retention.
 - Keep analytics admin detection on trusted `app_metadata`; never derive `$internal_or_test_user` from editable `user_metadata`.
 - Keep the Racebook website, Instagram, Facebook, and emergency actions conditional on parsed event JSON. Accept only HTTP(S) link values and never construct a link from unvalidated free text. Keep icon-only social actions accessible with labels. Normalize French emergency numbers to the canonical `+33 X XX XX XX XX` display when organizer JSON is parsed, and strip display separators when opening the `tel:` URL.

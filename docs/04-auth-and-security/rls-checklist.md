@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-03
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -18,6 +18,9 @@ related_files:
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -42,6 +45,7 @@ related_tables:
   - race_aid_station_products
   - race_event_update_reads
   - race_event_edition_sponsors
+  - race_event_edition_branding
 ---
 
 # RLS Checklist
@@ -107,10 +111,13 @@ Use:
 - `supabase/tests/organizer_import_sessions_checks.sql` for service-only session grants, invoker RPC privileges, strict JSON payloads, and draft constraints;
 - `supabase/tests/race_slug_redirects_checks.sql` for public parent-gated redirect reads, service-only mutations/RPC execution, invoker security, and reserved-slug behavior;
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click increments;
+- `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 
 ## Gotchas
+
+- A child-table RLS policy runs with the querying role's privileges for referenced parents. Do not join `race_event_editions` from a client policy while that parent remains service-role-only; use the already-readable `races` publication relationship or a separately reviewed narrow access boundary.
 
 - `delete_race_event_edition` intentionally relies on the service role's existing table privileges while preserving invoker security. Do not convert it to `SECURITY DEFINER` or grant it directly to authenticated clients.
 - This project has direct default `EXECUTE` grants for `anon` and `authenticated`; for every new service-only function, revoke those roles explicitly in addition to `PUBLIC`, then verify with `has_function_privilege`.
@@ -139,6 +146,7 @@ Use:
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
 - `organizer_import_sessions` is service-only workflow state: no client policy is intentional. Both mutation RPCs must remain `SECURITY INVOKER`, revoke `PUBLIC` execution, and validate session expiry/scope plus every JSON key before writing.
 - `race_event_edition_sponsors` is also intentionally service-only. Public presentation must pass through the RaceBook gate and expose counted redirect URLs rather than direct destination fields.
+- `race_event_edition_branding` is intentionally service-only. Its organizer route requires active parent-event membership plus Pro; public/mobile presentation must expose only the published snapshot and keep downgrade behavior read-only rather than destructive.
 
 ## Related Docs
 

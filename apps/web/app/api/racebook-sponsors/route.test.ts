@@ -48,6 +48,18 @@ const sponsor = (id: string, loading: boolean, banner: boolean) => ({
   click_count: 0,
 });
 
+const branding = [{
+  edition_id: editionId,
+  draft_logo_url: "https://example.com/draft.png",
+  draft_primary_color: "#FFFFFF",
+  draft_accent_color: "#000000",
+  published_logo_url: "https://example.com/published.png",
+  published_primary_color: "#123456",
+  published_accent_color: "#ABCDEF",
+  published_at: "2026-09-07T12:00:00.000Z",
+  updated_at: "2026-09-07T12:00:00.000Z",
+}];
+
 afterEach(() => vi.restoreAllMocks());
 
 describe("GET /api/racebook-sponsors", () => {
@@ -57,7 +69,8 @@ describe("GET /api/racebook-sponsors", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify([
         sponsor("44444444-4444-4444-8444-444444444444", true, true),
         sponsor("55555555-5555-4555-8555-555555555555", false, true),
-      ]), { status: 200 }));
+      ]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify(branding), { status: 200 }));
 
     const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`));
     const payload = await response.json();
@@ -67,6 +80,8 @@ describe("GET /api/racebook-sponsors", () => {
     expect(payload.bannerSponsors).toHaveLength(2);
     expect(payload.loadingSponsors[0].clickUrl).toContain(`/api/racebook-sponsors/44444444-4444-4444-8444-444444444444/click`);
     expect(payload.loadingSponsors[0]).not.toHaveProperty("websiteUrl");
+    expect(payload.branding).toEqual({ logoUrl: "https://example.com/published.png", primaryColor: "#123456", accentColor: "#ABCDEF" });
+    expect(JSON.stringify(payload)).not.toContain("draft.png");
   });
 
   it("allows an authenticated organizer preview", async () => {
@@ -74,12 +89,26 @@ describe("GET /api/racebook-sponsors", () => {
     mocks.isOrganizerForEvent.mockResolvedValue(true);
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(false)), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }));
 
     const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`, {
       headers: { Authorization: "Bearer token" },
     }));
     expect(response.status).toBe(200);
+  });
+
+  it("falls back to Pace Yourself defaults when stored branding is invalid", async () => {
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(true)), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ ...branding[0], published_primary_color: "red" }]), { status: 200 }));
+
+    const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`));
+    expect(await response.json()).toMatchObject({
+      branding: { logoUrl: null, primaryColor: "#2D5016", accentColor: "#B45309" },
+    });
   });
 
   it("refuses a private RaceBook to anonymous callers", async () => {

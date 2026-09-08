@@ -879,7 +879,11 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       ? supabase.from('race_edition_services').select('id,service_type,name,description,address,latitude,longitude,google_maps_url,website_url,phone,order_index').eq('edition_id', String(raceRow.edition_id)).order('service_type').order('order_index')
       : Promise.resolve({ data: [], error: null }),
   ]);
-  if (startWaveError || awardError || editionServiceError) return null;
+  // These collections are additive. A staggered database/app rollout must not
+  // hide an otherwise valid legacy RaceBook when a new table is unavailable.
+  if (startWaveError) console.warn('Unable to load RaceBook start waves', startWaveError.code);
+  if (awardError) console.warn('Unable to load RaceBook awards', awardError.code);
+  if (editionServiceError) console.warn('Unable to load RaceBook edition services', editionServiceError.code);
 
   const eventRelation = Array.isArray(raceRow.race_events) ? raceRow.race_events[0] ?? null : raceRow.race_events ?? null;
   const { data: sessionData } = await supabase.auth.getSession();

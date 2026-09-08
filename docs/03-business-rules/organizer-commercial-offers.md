@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -12,6 +12,10 @@ related_files:
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/app/organizer/_components/dashboard/branding-editor.tsx
+  - apps/web/app/api/organizer/editions/[id]/branding/route.ts
+  - apps/web/lib/racebook-branding.ts
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - apps/web/app/organizer/_components/dashboard/shell.tsx
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/admin/event-publication-requests/route.ts
@@ -53,6 +57,7 @@ The organizer offer is purchased once per event edition. It is independent from 
 | Manage relay points | No | No | Yes |
 | Manage official aid-station products | No | No | Yes |
 | Manage edition sponsors and view click totals | No | No | Yes |
+| Manage and publish edition RaceBook branding | No | No | Yes |
 | Request assisted import | No | No | Yes |
 
 `apps/web/lib/organizer-entitlements.ts` is the central capability resolver. Routes and UI must request a capability rather than compare plan strings locally.
@@ -69,6 +74,8 @@ Any refund, including a partial refund event, or open/lost dispute invalidates i
 
 ## Historical and Admin Rights
 
+Published edition branding is durable content: a downgrade removes `branding.manage` and makes the organizer editor unavailable, but the last explicitly published identity remains visible on every accessible RaceBook format in that edition.
+
 The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer area keeps commercial controls in its `Publier le RaceBook` sub-tab, where admins can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant; organizer e-mail assignment lives separately under `Accès organisateurs`. In the ordinary `/organizer` publication dialog, a trusted admin sees a partner section after the commercial offer cards, with separate explanations and actions for gifting RaceBook or RaceBook Pro without Stripe; pending edits are saved first and the normal admin-authenticated route records `source = admin`. The organizer dashboard identifies an admin RaceBook grant as `Publication RaceBook offerte — valeur : 199 € HT` and an admin Pro grant as `Publication RaceBook Pro offerte — valeur : 299 € HT`; its publication button uses `offerte` instead of `active`. Legacy-admin editions are always presented as gifted RaceBook Pro. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
 
 ## Gotchas
@@ -79,6 +86,7 @@ The migration grants Pro with source `legacy_admin` to editions that already con
 - Never infer the billed edition only from transient editor state after the pricing dialog is open; capture its event id, edition id, year, and effective tier when opening the dialog.
 - A dated event format cannot be sold without a canonical edition id. Backfill orphaned formats and let the database assignment trigger create/reuse future event-year editions before opening checkout.
 - Never grant notification, relay, duplication, official-product, or sponsor-management access only in the browser; the server route or RLS boundary must enforce it too.
+- Treat `branding.manage` like the other Pro-only mutation capabilities. Do not erase or hide its last published state during entitlement recalculation.
 - Never expose the complimentary grant action from an organizer-supplied role flag. It is shown from the verified session and still requires the server route's trusted `app_metadata` admin check.
 - Keep the RaceBook and Pro complimentary actions distinct. They share the audited admin endpoint, but must send their explicit target tier and show their respective 199 € / 299 € HT reference values.
 - Do not reuse runner `subscriptions`, RevenueCat, trials, or `premium_grants` for organizer editions.

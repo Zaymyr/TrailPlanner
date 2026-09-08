@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -27,6 +27,8 @@ related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - apps/web/app/api/organizer/editions/[id]/branding/route.ts
   - supabase/tests/organizer_edition_entitlements_checks.sql
 related_tables:
   - race_event_editions
@@ -37,6 +39,7 @@ related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
   - race_event_edition_sponsors
+  - race_event_edition_branding
 ---
 
 # race_event_editions
@@ -55,6 +58,7 @@ related_tables:
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 - One permanent commercial entitlement covers every current and future format attached to the edition.
 - One optional ordered sponsor list also covers every current and future format attached to the edition, independently from the commercial tier.
+- One optional draft/published visual identity also covers every current and future format attached to the edition; only Pro organizers may change it.
 
 ## Columns
 
@@ -76,9 +80,10 @@ related_tables:
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
 - `races.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
+- `race_event_edition_branding.edition_id -> race_event_editions(id) on delete cascade`
 
 Deleting an event removes its editions. Deleting an edition removes its formats and their cascading source children; saved plans keep their snapshots because `race_plans.race_id` becomes null. The service-only deletion RPC rejects deletion of the event's only edition and promotes the newest remaining edition when the deleted row was current.
-Sponsor rows follow the edition cascade. The organizer deletion routes read their public `race-images` paths before deletion and remove those Storage objects after the database transaction succeeds.
+Sponsor and branding rows follow the edition cascade. The organizer deletion routes read their public `race-images` paths before deletion and remove those Storage objects after the database transaction succeeds.
 
 ## Indexes
 
@@ -139,6 +144,7 @@ where ree.event_id = :event_id
 - Do not republish Racebooks when an edition becomes visible again; hiding is destructive to their live flag, not to their durable approval timestamp.
 - Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.
 - Manual edition creation is free. Cloning a source edition requires Pro and is enforced by the compatibility edition-requests route.
+- Branding belongs to the edition, not an individual format. Do not duplicate or resolve it from `races.id` once the canonical `edition_id` is known.
 
 ## Related Docs
 

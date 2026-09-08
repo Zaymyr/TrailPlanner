@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   AccessibilityInfo,
   Animated,
@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { resolveRacebookTheme, type ResolvedRacebookTheme } from '@pace-yourself/design-system';
 
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
@@ -96,6 +97,34 @@ type BibPickupLocationGroup = {
 };
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
+const DEFAULT_RACEBOOK_THEME = resolveRacebookTheme(null);
+const RacebookBrandThemeContext = createContext<ResolvedRacebookTheme>(DEFAULT_RACEBOOK_THEME);
+
+function useRacebookBrandTheme() {
+  return useContext(RacebookBrandThemeContext);
+}
+
+function RacebookBrandLogo({
+  uri,
+  style,
+  accessibilityLabel,
+}: {
+  uri: string | null;
+  style: object;
+  accessibilityLabel: string;
+}) {
+  const [failedUri, setFailedUri] = useState<string | null>(null);
+  if (!uri || failedUri === uri) return null;
+  return (
+    <Image
+      source={{ uri }}
+      style={style}
+      resizeMode="contain"
+      accessibilityLabel={accessibilityLabel}
+      onError={() => setFailedUri(uri)}
+    />
+  );
+}
 
 function getDaysBeforeRace(raceDate: string | null, now = new Date()) {
   const match = raceDate?.match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -200,6 +229,7 @@ function RacebookLoadingScreen({
   sponsorLookupDone: boolean;
   title: string;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   const animatedProgress = useRef(new Animated.Value(progress)).current;
   const highestProgress = useRef(progress);
   const [trackWidth, setTrackWidth] = useState(0);
@@ -233,6 +263,11 @@ function RacebookLoadingScreen({
   return (
     <View style={styles.loadingScreen}>
       <View style={styles.loadingIntro}>
+        <RacebookBrandLogo
+          uri={brandTheme.logoUrl}
+          style={[styles.loadingBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
+          accessibilityLabel={title}
+        />
         <Heading variant="h3" style={styles.loadingTitle}>{title}</Heading>
       </View>
 
@@ -244,7 +279,7 @@ function RacebookLoadingScreen({
           accessibilityRole="progressbar"
           accessibilityValue={{ min: 0, max: 100, now: Math.round(safeProgress * 100) }}
         >
-          <Animated.View style={[styles.loadingProgressFill, { width: progressWidth }]} />
+          <Animated.View style={[styles.loadingProgressFill, { width: progressWidth, backgroundColor: brandTheme.accentColor }]} />
           <Animated.View style={[styles.loadingRunner, { transform: [{ translateX: runnerTranslateX }] }]}>
             <Ionicons name="walk" size={27} color={Colors.brandPrimary} />
           </Animated.View>
@@ -495,11 +530,12 @@ function CourseProfileCard({
   points: ElevationPoint[];
   emptyMessage: string;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <SectionCard title={title}>
       {points.length >= 2 ? (
         <View style={styles.courseProfileWrap}>
-          <ProfileMiniChart points={points} />
+          <ProfileMiniChart points={points} accentColor={brandTheme.accentColor} />
           <View style={styles.courseProfileMetaRow}>
             <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[0]?.distanceKm ?? 0)} km`}</DataText>
             <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[points.length - 1]?.distanceKm ?? 0)} km`}</DataText>
@@ -521,10 +557,11 @@ function CourseMapCard({
   points: MobileGpxPreviewPoint[];
   emptyMessage: string;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <SectionCard title={title}>
       {points.length >= 2 ? (
-        <RacebookLeafletMap points={points} />
+        <RacebookLeafletMap points={points} routeColor={brandTheme.accentColor} />
       ) : (
         <EmptyState message={emptyMessage} />
       )}
@@ -592,13 +629,14 @@ function AccessLocationsCard({
   openGeneralMapLabel: string;
   onOpenMap: (location: string) => void;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <SectionCard title={title}>
       <View style={styles.accessLocationList}>
         {locations.map((location, index) => (
           <View key={location.key} style={[styles.accessLocationItem, index > 0 ? styles.accessLocationItemBorder : null]}>
-            <View style={styles.accessLocationIcon}>
-              <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
+            <View style={[styles.accessLocationIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
+              <Ionicons name="location-outline" size={18} color={brandTheme.primaryColor} />
             </View>
             <View style={styles.accessLocationContent}>
               <Text style={styles.accessLocationLabel}>{location.label}</Text>
@@ -613,8 +651,8 @@ function AccessLocationsCard({
                   }}
                   style={({ pressed }) => [styles.accessMapAction, pressed ? styles.accessActionPressed : null]}
                 >
-                  <Ionicons name="navigate-outline" size={15} color={Colors.brandPrimary} />
-                  <Text style={styles.accessMapActionText}>{openMapsLabel}</Text>
+                  <Ionicons name="navigate-outline" size={15} color={brandTheme.primaryColor} />
+                  <Text style={[styles.accessMapActionText, { color: brandTheme.primaryColor }]}>{openMapsLabel}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -629,10 +667,10 @@ function AccessLocationsCard({
             onOpenMap('general');
             Linking.openURL(generalMapUrl).catch(() => {});
           }}
-          style={({ pressed }) => [styles.accessGeneralMapAction, pressed ? styles.accessActionPressed : null]}
+          style={({ pressed }) => [styles.accessGeneralMapAction, { backgroundColor: brandTheme.primaryColor }, pressed ? styles.accessActionPressed : null]}
         >
-          <Ionicons name="map-outline" size={17} color={Colors.textOnBrand} />
-          <Text style={styles.accessGeneralMapActionText}>{openGeneralMapLabel}</Text>
+          <Ionicons name="map-outline" size={17} color={brandTheme.onPrimaryColor} />
+          <Text style={[styles.accessGeneralMapActionText, { color: brandTheme.onPrimaryColor }]}>{openGeneralMapLabel}</Text>
         </Pressable>
       ) : null}
     </SectionCard>
@@ -656,6 +694,7 @@ function AccessTransportCard({
   hideDetailsLabel: string;
   scheduleLabel: string;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <SectionCard title={title}>
       <View style={styles.accessTransportList}>
@@ -675,8 +714,8 @@ function AccessTransportCard({
               ]}
             >
               <View style={styles.accessTransportHeader}>
-                <View style={styles.accessTransportIcon}>
-                  <Ionicons name={item.icon} size={18} color={Colors.brandPrimary} />
+                <View style={[styles.accessTransportIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
+                  <Ionicons name={item.icon} size={18} color={brandTheme.primaryColor} />
                 </View>
                 <View style={styles.accessTransportHeading}>
                   <Text style={styles.accessTransportTitle}>{item.title}</Text>
@@ -686,10 +725,10 @@ function AccessTransportCard({
               </View>
               <Text numberOfLines={isExpanded ? undefined : 2} style={styles.accessTransportText}>{item.description}</Text>
               {isExpanded && item.schedule ? (
-                <View style={styles.accessScheduleRow}>
-                  <Ionicons name="time-outline" size={16} color={Colors.brandPrimary} />
+                <View style={[styles.accessScheduleRow, { backgroundColor: brandTheme.primarySurfaceColor }]}>
+                  <Ionicons name="time-outline" size={16} color={brandTheme.primaryColor} />
                   <View style={styles.accessScheduleContent}>
-                    <Text style={styles.accessScheduleLabel}>{scheduleLabel}</Text>
+                    <Text style={[styles.accessScheduleLabel, { color: brandTheme.primaryColor }]}>{scheduleLabel}</Text>
                     <Text style={styles.accessScheduleText}>{item.schedule}</Text>
                   </View>
                 </View>
@@ -703,11 +742,12 @@ function AccessTransportCard({
 }
 
 function InfoList({ values }: { values: string[] }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <View style={styles.listGroup}>
       {values.map((value) => (
         <View key={value} style={styles.listRow}>
-          <View style={styles.listDot} />
+          <View style={[styles.listDot, { backgroundColor: brandTheme.primaryColor }]} />
           <Text style={styles.listText}>{value}</Text>
         </View>
       ))}
@@ -716,6 +756,7 @@ function InfoList({ values }: { values: string[] }) {
 }
 
 function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; emphasis?: boolean }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <View style={styles.listGroup}>
       {items.map((item) => (
@@ -725,6 +766,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
             styles.tableRow,
             emphasis ? styles.tableRowEmphasis : null,
             item.tone === 'positive' ? styles.tableRowPositive : null,
+            item.tone === 'positive' ? { backgroundColor: brandTheme.primarySurfaceColor } : null,
             item.tone === 'critical' ? styles.tableRowCritical : null,
           ]}
         >
@@ -738,7 +780,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
                 accessibilityRole="link"
                 accessibilityLabel={`Ouvrir ${item.label}`}
               >
-                <Text style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, styles.tableValueLink]}>
+                <Text style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}>
                   {item.value}
                 </Text>
               </Pressable>
@@ -746,7 +788,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
               <DataText
                 tone={item.tone === 'critical' ? 'danger' : item.tone === 'positive' ? 'brand' : 'primary'}
                 weight="semibold"
-                style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null]}
+                style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, item.tone === 'positive' ? { color: brandTheme.primaryColor } : null]}
               >
                 {item.value}
               </DataText>
@@ -778,13 +820,14 @@ function BibPickupLocationList({
   locationLabel: string;
   onOpenMap: (location: string) => void;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <View style={styles.bibLocationList}>
       {groups.map((group) => (
         <View key={group.key} style={styles.bibLocationCard}>
           <View style={styles.bibLocationHeader}>
-            <View style={styles.bibLocationIcon}>
-              <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
+            <View style={[styles.bibLocationIcon, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}>
+              <Ionicons name="location-outline" size={18} color={brandTheme.primaryColor} />
             </View>
             <View style={styles.bibLocationTextWrap}>
               {group.actionUrl ? (
@@ -797,7 +840,7 @@ function BibPickupLocationList({
                   }}
                   style={styles.bibLocationAction}
                 >
-                  <Text style={[styles.bibLocationValue, styles.tableValueLink]}>{group.location}</Text>
+                  <Text style={[styles.bibLocationValue, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}>{group.location}</Text>
                 </Pressable>
               ) : (
                 <Text style={styles.bibLocationValue}>{group.location}</Text>
@@ -839,11 +882,12 @@ function HeroDetailGroup({ title, values }: { title: string; values: string[] })
 }
 
 function ChipRow({ values }: { values: string[] }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <View style={styles.chipRow}>
       {values.map((value) => (
-        <View key={value} style={styles.chip}>
-          <Text style={styles.chipText}>{value}</Text>
+        <View key={value} style={[styles.chip, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}>
+          <Text style={[styles.chipText, { color: brandTheme.primaryColor }]}>{value}</Text>
         </View>
       ))}
     </View>
@@ -924,6 +968,7 @@ function ServiceIconButton({
   active: boolean;
   onPress: () => void;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
     <Pressable
       accessibilityRole="button"
@@ -931,9 +976,9 @@ function ServiceIconButton({
       accessibilityState={{ expanded: active }}
       hitSlop={4}
       onPress={onPress}
-      style={[styles.serviceIconButton, active ? styles.serviceIconButtonActive : null]}
+      style={[styles.serviceIconButton, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }, active ? styles.serviceIconButtonActive : null, active ? { backgroundColor: brandTheme.primaryColor, borderColor: brandTheme.primaryColor } : null]}
     >
-      <Ionicons name={icon} size={17} color={active ? Colors.textOnBrand : Colors.brandPrimary} />
+      <Ionicons name={icon} size={17} color={active ? brandTheme.onPrimaryColor : brandTheme.primaryColor} />
     </Pressable>
   );
 }
@@ -961,6 +1006,7 @@ function AidStationCard({
     aidCutoffTime: string;
   };
 }) {
+  const brandTheme = useRacebookBrandTheme();
   const [activeServiceLabel, setActiveServiceLabel] = useState<string | null>(null);
   const serviceItems = [
     station.waterAvailable ? { icon: 'water-outline' as const, label: copy.aidWater } : null,
@@ -1010,7 +1056,7 @@ function AidStationCard({
         ].join(', ')}
         accessibilityState={{ expanded }}
         onPress={onToggle}
-        style={({ pressed }) => [styles.aidStationSummary, pressed ? styles.aidStationSummaryPressed : null]}
+        style={({ pressed }) => [styles.aidStationSummary, pressed ? styles.aidStationSummaryPressed : null, pressed ? { backgroundColor: brandTheme.primarySurfaceColor } : null]}
       >
         <View style={styles.aidStationSummaryMain}>
           <Text style={styles.aidStationName} numberOfLines={1}>
@@ -1021,8 +1067,8 @@ function AidStationCard({
               {serviceItems.length > 0 ? (
                 <View style={styles.serviceSummaryRow}>
                   {serviceItems.map((item) => (
-                    <View key={`${station.id}-summary-${item.label}`} style={styles.serviceSummaryIcon}>
-                      <Ionicons name={item.icon} size={13} color={Colors.brandPrimary} />
+                    <View key={`${station.id}-summary-${item.label}`} style={[styles.serviceSummaryIcon, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}>
+                      <Ionicons name={item.icon} size={13} color={brandTheme.primaryColor} />
                     </View>
                   ))}
                 </View>
@@ -1242,9 +1288,11 @@ export default function RaceRacebookScreen() {
         setSponsorSplashVisible(true);
 
         await Promise.allSettled(
-          presentation.loadingSponsors.map((sponsor) =>
+          [...presentation.loadingSponsors.map((sponsor) => sponsor.logoUrl), presentation.branding.logoUrl]
+            .filter((url): url is string => Boolean(url))
+            .map((url) =>
             Promise.race([
-              Image.prefetch(sponsor.logoUrl),
+              Image.prefetch(url),
               new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 1_500)),
             ]),
           ),
@@ -1643,6 +1691,10 @@ export default function RaceRacebookScreen() {
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const bibPrimaryItems = bibItems.filter((item) => item.label !== t.catalog.racebookFieldBibDocuments);
   const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
+  const brandTheme = useMemo(
+    () => resolveRacebookTheme(sponsorPresentation.branding),
+    [sponsorPresentation.branding],
+  );
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
 
@@ -1788,6 +1840,7 @@ export default function RaceRacebookScreen() {
   }
 
   return (
+    <RacebookBrandThemeContext.Provider value={brandTheme}>
     <View style={styles.screen}>
       <ScrollView
         contentContainerStyle={[styles.container, showLoading && { minHeight: Math.max(520, viewportHeight - 120) }]}
@@ -1796,8 +1849,8 @@ export default function RaceRacebookScreen() {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
-            tintColor={Colors.brandPrimary}
-            colors={[Colors.brandPrimary]}
+            tintColor={brandTheme.primaryColor}
+            colors={[brandTheme.primaryColor]}
           />
         }
       >
@@ -1815,24 +1868,29 @@ export default function RaceRacebookScreen() {
       ) : unavailable ? (
         <View style={styles.centerState}>
           <View style={styles.emptyIconWrap}>
-            <Ionicons name="information-circle-outline" size={26} color={Colors.brandPrimary} />
+            <Ionicons name="information-circle-outline" size={26} color={brandTheme.primaryColor} />
           </View>
           <Heading variant="h3" style={styles.unavailableTitle}>
             {t.catalog.racebookUnavailableTitle}
           </Heading>
           <Text style={styles.unavailableBody}>{t.catalog.racebookUnavailableBody}</Text>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <Text style={styles.backButtonText}>{t.common.back}</Text>
+          <Pressable style={[styles.backButton, { backgroundColor: brandTheme.primaryColor }]} onPress={() => router.back()}>
+            <Text style={[styles.backButtonText, { color: brandTheme.onPrimaryColor }]}>{t.common.back}</Text>
           </Pressable>
         </View>
       ) : data ? (
         <>
           <SponsorBanner sponsors={sponsorPresentation.bannerSponsors} label={t.catalog.racebookSponsorsBannerLabel} />
           <Card style={styles.heroCard}>
+            <RacebookBrandLogo
+              uri={brandTheme.logoUrl}
+              style={[styles.heroBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
+              accessibilityLabel={data.event.name ?? data.race.name}
+            />
             <View style={styles.heroHeader}>
               <View style={styles.heroHeaderText}>
                 {data.event.name && data.event.name !== data.race.name ? (
-                  <Text style={styles.heroKicker}>{data.event.name}</Text>
+                  <Text style={[styles.heroKicker, { color: brandTheme.primaryColor }]}>{data.event.name}</Text>
                 ) : null}
                 <Heading variant="h2" style={styles.heroTitle}>
                   {data.race.name}
@@ -1840,7 +1898,7 @@ export default function RaceRacebookScreen() {
                 <View style={styles.heroMetaGroup}>
                   {formattedRaceDate ?? eventDateRange ? (
                     <View style={styles.heroMetaItem}>
-                      <Ionicons name="calendar-outline" size={18} color={Colors.brandPrimary} />
+                      <Ionicons name="calendar-outline" size={18} color={brandTheme.primaryColor} />
                       <Text style={styles.heroMeta}>{formattedRaceDate ?? eventDateRange}</Text>
                     </View>
                   ) : null}
@@ -1849,7 +1907,7 @@ export default function RaceRacebookScreen() {
                   ) : null}
                   {headerLocation ? (
                     <View style={styles.heroMetaItem}>
-                      <Ionicons name="location-outline" size={19} color={Colors.brandPrimary} />
+                      <Ionicons name="location-outline" size={19} color={brandTheme.primaryColor} />
                       {headerLocationUrl ? (
                         <Pressable
                           accessibilityRole="link"
@@ -1857,7 +1915,7 @@ export default function RaceRacebookScreen() {
                           onPress={() => openTrackedUrl(headerLocationUrl, 'map_opened', 'header_location')}
                           style={styles.heroLocationAction}
                         >
-                          <Text style={[styles.heroMeta, styles.tableValueLink]}>{headerLocation}</Text>
+                          <Text style={[styles.heroMeta, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}>{headerLocation}</Text>
                         </Pressable>
                       ) : (
                         <Text style={styles.heroMeta}>{headerLocation}</Text>
@@ -1871,7 +1929,7 @@ export default function RaceRacebookScreen() {
                         <View key={label} style={styles.heroParticipationItem}>
                           {index > 0 ? <Text style={styles.heroMetaSeparator}>•</Text> : null}
                           <View style={styles.heroParticipationBadge}>
-                            <Text style={styles.heroParticipationBadgeText}>{label}</Text>
+                            <Text style={[styles.heroParticipationBadgeText, { color: brandTheme.primaryColor }]}>{label}</Text>
                           </View>
                         </View>
                       ))}
@@ -1886,9 +1944,9 @@ export default function RaceRacebookScreen() {
                       accessibilityRole="link"
                       accessibilityLabel={t.catalog.racebookOfficialWebsite}
                       onPress={() => openTrackedUrl(officialWebsiteUrl, 'official_website_opened')}
-                      style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
+                      style={({ pressed }) => [styles.heroSocialAction, { borderColor: brandTheme.primaryBorderColor }, pressed && styles.heroQuickActionPressed]}
                     >
-                      <Ionicons name="globe-outline" size={22} color={Colors.brandPrimary} />
+                      <Ionicons name="globe-outline" size={22} color={brandTheme.primaryColor} />
                     </Pressable>
                   ) : null}
                   {instagramUrl || facebookUrl ? (
@@ -1898,9 +1956,9 @@ export default function RaceRacebookScreen() {
                           accessibilityRole="link"
                           accessibilityLabel="Instagram"
                           onPress={() => openTrackedUrl(instagramUrl, 'instagram_opened')}
-                          style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
+                          style={({ pressed }) => [styles.heroSocialAction, { borderColor: brandTheme.primaryBorderColor }, pressed && styles.heroQuickActionPressed]}
                         >
-                          <Ionicons name="logo-instagram" size={22} color={Colors.brandPrimary} />
+                          <Ionicons name="logo-instagram" size={22} color={brandTheme.primaryColor} />
                         </Pressable>
                       ) : null}
                       {facebookUrl ? (
@@ -1908,9 +1966,9 @@ export default function RaceRacebookScreen() {
                           accessibilityRole="link"
                           accessibilityLabel="Facebook"
                           onPress={() => openTrackedUrl(facebookUrl, 'facebook_opened')}
-                          style={({ pressed }) => [styles.heroSocialAction, pressed && styles.heroQuickActionPressed]}
+                          style={({ pressed }) => [styles.heroSocialAction, { borderColor: brandTheme.primaryBorderColor }, pressed && styles.heroQuickActionPressed]}
                         >
-                          <Ionicons name="logo-facebook" size={22} color={Colors.brandPrimary} />
+                          <Ionicons name="logo-facebook" size={22} color={brandTheme.primaryColor} />
                         </Pressable>
                       ) : null}
                     </View>
@@ -1944,9 +2002,9 @@ export default function RaceRacebookScreen() {
                       ) : null}
                     </View>
                   </View>
-                  <View style={styles.heroCallButton}>
-                    <Ionicons name="call-outline" size={18} color={Colors.brandPrimary} />
-                    <Text style={styles.heroCallButtonText}>{t.catalog.racebookCallAction}</Text>
+                  <View style={[styles.heroCallButton, { borderColor: brandTheme.primaryBorderColor }]}>
+                    <Ionicons name="call-outline" size={18} color={brandTheme.primaryColor} />
+                    <Text style={[styles.heroCallButtonText, { color: brandTheme.primaryColor }]}>{t.catalog.racebookCallAction}</Text>
                   </View>
                 </Pressable>
               </>
@@ -1975,6 +2033,7 @@ export default function RaceRacebookScreen() {
                     styles.tabButton,
                     tabs.length === 5 ? styles.tabButtonCompact : null,
                     active && styles.tabButtonActive,
+                    active && { backgroundColor: brandTheme.primaryColor, borderColor: brandTheme.primaryColor },
                   ]}
                   onPress={() => handleTabPress(tab.key)}
                 >
@@ -1983,6 +2042,7 @@ export default function RaceRacebookScreen() {
                       styles.tabButtonText,
                       tabs.length === 5 ? styles.tabButtonTextCompact : null,
                       active && styles.tabButtonTextActive,
+                      active && { color: brandTheme.onPrimaryColor },
                     ]}
                     numberOfLines={1}
                   >
@@ -2102,9 +2162,9 @@ export default function RaceRacebookScreen() {
                         accessibilityRole="tab"
                         accessibilityState={{ selected: active }}
                         onPress={() => handleCourseTabPress(tab.key)}
-                        style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null]}
+                        style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null, active ? { borderColor: brandTheme.primaryBorderColor } : null]}
                       >
-                        <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null]}>
+                        <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null, active ? { color: brandTheme.primaryColor } : null]}>
                           {tab.label}
                         </Text>
                       </Pressable>
@@ -2308,6 +2368,7 @@ export default function RaceRacebookScreen() {
         />
       ) : null}
     </View>
+    </RacebookBrandThemeContext.Provider>
   );
 }
 
@@ -2343,6 +2404,15 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     paddingHorizontal: 16,
+    gap: 12,
+  },
+  loadingBrandLogo: {
+    width: 84,
+    height: 64,
+    borderRadius: 16,
+    borderWidth: 1,
+    backgroundColor: Colors.surface,
+    padding: 8,
   },
   loadingTitle: {
     color: Colors.textPrimary,
@@ -2565,6 +2635,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 22,
     paddingBottom: 20,
+  },
+  heroBrandLogo: {
+    width: 72,
+    height: 56,
+    borderRadius: 14,
+    borderWidth: 1,
+    backgroundColor: Colors.surface,
+    padding: 6,
   },
   alertCard: {
     gap: 8,

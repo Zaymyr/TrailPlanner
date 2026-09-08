@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-08-30
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -12,8 +12,11 @@ related_files:
   - supabase/tests/race_slug_redirects_checks.sql
   - docs/02-database/schema-overview.md
   - docs/02-database/rls-policies.md
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/tests/racebook_branding_checks.sql
 related_tables:
   - race_slug_redirects
+  - race_event_edition_branding
 ---
 
 # Add New Table
@@ -63,7 +66,7 @@ npm run test
 If the policy is complex, add a manual SQL check under `supabase/tests/`.
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
 Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only tables and `SECURITY INVOKER` mutation RPCs. Use `supabase/tests/race_slug_redirects_checks.sql` for a public child mapping whose select policy inherits parent visibility while every mutation remains service-only.
-The organizer entitlement/payment pair is the current service-only projection-plus-ledger example; its transition SQL check exercises recalculation separately from route/webhook tests.
+The organizer entitlement/payment pair is the current service-only projection-plus-ledger example; its transition SQL check exercises recalculation separately from route/webhook tests. `race_event_edition_branding` is the edition-unique draft/published projection example: one invoker RPC publishes all fields atomically while explicit role checks prove drafts cannot be queried directly.
 
 ## Do Not
 
@@ -78,6 +81,7 @@ The organizer entitlement/payment pair is the current service-only projection-pl
 - Do not create a table or migration for a route-only query optimization such as replacing row materialization with a Data API exact count; document the access pattern in the existing schema/table docs instead.
 - Do not apply new-table DDL or policy steps to a data-only showcase seed; verify the existing table contracts and public visibility gates instead.
 - Do not expose a public redirect/mapping row merely because it exists; reapply all visibility gates of its target parent in RLS and again when loading the canonical resource.
+- Do not expose draft columns from a service-only projection through an additive public payload; map an explicit published DTO instead of serializing the database row.
 
 ## Related Docs
 

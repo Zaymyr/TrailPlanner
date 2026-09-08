@@ -7,6 +7,7 @@ import { styles } from './styles';
 
 type Props = {
   points: ElevationPoint[];
+  accentColor?: string;
 };
 
 const CHART_HEIGHT = 96;
@@ -42,7 +43,7 @@ function buildTicks(minElevation: number, maxElevation: number) {
   ];
 }
 
-export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }: Props) {
+export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points, accentColor }: Props) {
   const [width, setWidth] = useState(0);
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -77,7 +78,7 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
       const previousPoint = sampled[index] ?? point;
       const deltaDistanceKm = Math.max(point.distanceKm - previousPoint.distanceKm, 0.001);
       const gradePercent = ((point.elevationM - previousPoint.elevationM) / (deltaDistanceKm * 1000)) * 100;
-      const color = slopeToGreen(gradePercent);
+      const color = accentColor ?? slopeToGreen(gradePercent);
       const startOffset = `${Math.max(0, Math.min(100, ((previousPoint.distanceKm - minDistance) / distanceSpan) * 100))}%`;
       const endOffset = `${Math.max(0, Math.min(100, ((point.distanceKm - minDistance) / distanceSpan) * 100))}%`;
 
@@ -96,7 +97,7 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
       ticks: buildTicks(minElevation, maxElevation),
       yFor,
     };
-  }, [points, width]);
+  }, [accentColor, points, width]);
 
   if (points.length < 2) {
     return <View style={styles.profileChartEmpty} />;
@@ -111,8 +112,8 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
               {chart.gradientStops}
             </LinearGradient>
             <LinearGradient id="profile-area-gradient" x1="0%" y1="0%" x2="0%" y2="100%">
-              <Stop offset="0%" stopColor="#A9D6A1" stopOpacity="0.35" />
-              <Stop offset="100%" stopColor="#A9D6A1" stopOpacity="0.06" />
+              <Stop offset="0%" stopColor={accentColor ?? "#A9D6A1"} stopOpacity="0.35" />
+              <Stop offset="100%" stopColor={accentColor ?? "#A9D6A1"} stopOpacity="0.06" />
             </LinearGradient>
           </Defs>
 
@@ -150,6 +151,7 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points }:
     </View>
   );
 }, (prev, next) => {
+  if (prev.accentColor !== next.accentColor) return false;
   if (prev.points.length !== next.points.length) return false;
   return prev.points.every((point, index) => {
     const nextPoint = next.points[index];

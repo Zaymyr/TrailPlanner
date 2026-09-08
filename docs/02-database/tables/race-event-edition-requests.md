@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -44,6 +44,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - The runner-notification format selector reads live formats from the currently selected canonical edition; it does not create, reactivate, or consult legacy edition requests.
 - Deleting a previously sent organizer announcement is likewise event-membership scoped and does not read, restore, or mutate this retired table.
 - Direct admin assignment, including a newly invited Auth account confirmed through the admin access dialog, creates or reactivates only `race_event_organizers`; it does not create, reactivate, or review a legacy edition request.
+- Saving or publishing `race_event_edition_branding` targets an already-created canonical edition and never creates or reactivates this retired request type.
 
 ## Historical Columns
 
@@ -61,6 +62,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - Roadbook preview uploads may be 25 MB each because they use temporary private Storage and remain review-only; they do not create or reactivate an edition request.
 - The admin-only two-pass import binds its session directly to a canonical edition id. Format confirmation and signed field selections can affect only explicitly confirmed current rows under that edition; neither operation revives this retired request workflow.
 - Classifying additional official URLs or text PDFs may surface a date claim, but it never retargets the import session or creates a legacy edition request.
+- Do not couple the new edition branding tile or its completion signal to this retired workflow.
 
 ## Related Docs
 

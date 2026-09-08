@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -180,6 +180,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - The compact mobile RaceBook loader, its animated runner trail, unified two-slot sponsor panel, temporary navigation chrome hiding, and pre-navigation sponsor warmup are presentation-only; they do not change the event read, visibility gate, or `organizer_details` contract. The warmup reuses the same authorized sponsor API result through an ephemeral account/race key and adds no event query field.
 - The post-load automatic sponsor carousel is also presentation-only: viewport-sized slides rotate edition-scoped sponsors without changing event grouping, queries, or visibility.
 - Relay display is format-scoped: the Racebook reads `races.participation_mode` and published `race_relay_points`, then derives legs inside the conditional `Relais` course sub-tab without changing event or nutrition data.
+- Visual identity is edition-scoped rather than event-scoped. Mobile resolves the published branding through the format's edition while keeping the event name/content contract unchanged.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Racebook Identity Presentation
@@ -248,6 +249,7 @@ from public.races;
 - Never hide a course merely because its Racebook is hidden. `race_events.is_live` / `races.is_live` are catalog state; `races.racebook_is_live` is the ordinary runner Racebook state. Organizer preview access comes only from active event membership and must not flip publication state.
 - Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
 - Event deletion must collect edition sponsor logo paths before the edition cascade, then remove those `race-images` objects after the database delete succeeds.
+- Event deletion must also collect draft and published edition-branding logo paths before the cascade and remove each distinct unreferenced object afterward.
 - Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Do not edit the legacy event date fields as canonical organizer dates; update `race_event_editions` and let its trigger mirror the current range.

@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -175,6 +175,8 @@ The preview hash includes the SHA-256 digest of each recoverable GPX payload, no
 
 The organizer-side runner preview has been removed, but the GPX map and elevation profile remain inside the always-expanded `Course` editor because they validate the uploaded source file and drive ravito interpolation.
 
+Published RaceBook branding may recolor the mobile route and elevation-profile strokes through validated design-system colors. It never rewrites GPX content, computed metrics, Storage paths, or organizer import previews.
+
 ## Review Flow Conflict
 
 `apps/web/components/GpxAidStationImporter.tsx` contains logic for updating existing race aid stations from GPX:
@@ -219,6 +221,7 @@ The organizer-side runner preview has been removed, but the GPX map and elevatio
 - Removing a sent organizer announcement from public history also leaves GPX files, parsed metrics, and ravito interpolation state unchanged.
 - Editing the event-level website, Instagram, or Facebook URL in the same Organizer information component does not change GPX parsing, storage, or format metrics.
 - Public course visualization must remain a server-parsed preview. Do not expose a signed/private GPX URL, raw file contents, or a download action from the SEO page.
+- Keep edition accent application presentation-only; GPX parsing and distance/elevation calculations must remain color-independent.
 
 ## Related Docs
 

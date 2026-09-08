@@ -510,6 +510,7 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
     products: "Produits",
     services: "Services & alentours",
     awards: "Podiums & récompenses",
+    branding: "Identité visuelle",
     sponsors: "Sponsors",
   };
   return titles[moduleId];
@@ -526,6 +527,7 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
     products: "Produits officiels disponibles par ravito.",
     services: "Lieux pratiques structurés pour cette édition.",
     awards: "Catégories récompensées et horaires des podiums.",
+    branding: "Logo et couleurs appliqués à tous les formats du RaceBook de cette édition.",
     sponsors: "Logos et liens visibles pendant le chargement et dans le bandeau du RaceBook.",
   };
   return descriptions[moduleId];

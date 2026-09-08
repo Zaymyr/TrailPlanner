@@ -1,10 +1,11 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
   - apps/web/app/api/organizer/editions/[id]/services/route.ts
@@ -39,6 +40,8 @@ related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/tests/racebook_branding_checks.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
@@ -75,6 +78,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/aid-stations-editor.tsx
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
   - apps/web/app/organizer/_components/dashboard/sponsors-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/branding-editor.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
@@ -90,7 +94,11 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/route.test.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
+  - apps/web/app/api/organizer/editions/[id]/branding/route.ts
+  - apps/web/app/api/organizer/editions/[id]/branding/route.test.ts
   - apps/web/app/api/racebook-sponsors/route.ts
+  - apps/web/lib/racebook-branding.ts
+  - apps/web/lib/racebook-branding.test.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
   - apps/web/lib/racebook-sponsors.ts
   - apps/web/app/api/organizer/publication-requests/route.ts
@@ -160,6 +168,7 @@ related_tables:
   - products
   - user_favorite_race_events
   - race_event_edition_sponsors
+  - race_event_edition_branding
 ---
 
 # Organizer Race Management
@@ -171,6 +180,8 @@ The edition owns nearby services; each format owns start waves and podium progra
 The combined format module is **Départ, ravitos & relais**. It exposes native SAS times and conditional criterion bounds, the existing ravito type/altitude fields, relay handover/cutoff/notes, and formerly hidden schedule constraint notes. **Podiums & récompenses** is a separate format module. **Services & alentours** is edition-scoped and keeps legacy text visible in a non-destructive conversion accordion.
 
 Legacy service text is never parsed or deleted automatically. `schedule.startTime` is mirrored from the first SAS solely for backward compatibility.
+
+Structured mobile reads are additive and deployment-tolerant: an unavailable services, SAS or awards table yields an empty optional module while the existing published RaceBook continues to render. This does not relax the core catalog-live, RaceBook-live and meaningful-content gate.
 
 ## Purpose
 
@@ -227,6 +238,7 @@ Organizers with an active event membership can:
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
 - with RaceBook Pro, configure up to ten edition-scoped RaceBook sponsors, with at most two active on loading, independent loading/banner placements, ordering, logo replacement, activation, deletion, and aggregate click totals;
+- with RaceBook Pro, prepare, preview, save, reset, and explicitly publish one edition-wide RaceBook identity with a logo plus primary/accent colors;
 
 The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card, with a small destructive cross immediately beside it, and `Créer une nouvelle édition` stays on the right. The cross opens a dialog that enables deletion only after the organizer retypes the selected year. The button opens a dialog for the start/end dates: creating an empty edition is free, while duplication is available only with Pro. The edition supplies the default format date; the format date field appears only when the organizer enables a different date. Each selected-edition format row exposes its Racebook switch only when the edition has RaceBook or Pro. The edition offer badge, payment/gift explanation, and publication CTA render after the format rows. From Visibilité, the publication action opens a viewport-bounded wide RaceBook 199 € HT / Pro 299 € HT offer dialog with a fixed event/edition header and internally scrollable content; each offer presents its price separately from its advantages, stays beside the other offer on desktop, and stacks on smaller screens. Sponsor management appears only under Pro. After the commercial cards, a trusted admin sees two separate partner actions to gift RaceBook or RaceBook Pro without Stripe. Once active, the dashboard uses `offerte` on the publication button and displays `Publication RaceBook offerte — valeur : 199 € HT` or `Publication RaceBook Pro offerte — valeur : 299 € HT`; legacy historical activation is presented as gifted Pro. RaceBook organizers keep `Notifier les coureurs` visible, but activating it opens the Pro upgrade at 100 € HT. After Stripe redirects back, the dashboard polls the trusted edition entitlement until the webhook confirms it; URL parameters never grant access. A hidden edition guarantees its Racebook flags stay false. Checkout and complimentary activation save dirty foreground work first, so unsaved changes cannot be silently skipped. Completion remains independent from catalog and Racebook visibility.
 
@@ -358,6 +370,14 @@ On mobile, pressing RaceBook starts the authorized sponsor lookup and loading-lo
 
 Active banner placements rotate automatically one at a time in edition order, with a three-second hold and a 520 ms horizontal transition. The final sponsor advances into a duplicated first slide before the track resets, so all configured banner sponsors cycle reliably without depending on their combined rendered width. Reduced-motion users keep a manual horizontal list.
 
+## RaceBook Visual Identity
+
+The event-level `Identité visuelle` tile is edition-scoped and Pro-only. Non-Pro editions see an upsell. Pro organizers lazily load a working draft, upload or remove one official edition logo, edit strict `#RRGGBB` primary/accent values, and inspect a compact mobile preview covering identity, tabs, a tinted card, a primary action, and a route trace. Local color edits arm `beforeunload`; the organizer can discard them, save the draft, or reset the draft to Pace Yourself defaults. A `Brouillon non publié` state remains until explicit publication.
+
+Logo upload accepts only a matching PNG/JPEG/WebP/AVIF signature and MIME type up to 5 MB under `race-images/organizer-branding/{editionId}/`. Every organizer endpoint repeats authenticated parent-event membership and `branding.manage` checks. Publication atomically copies the complete draft to published fields. Downgrade disables the editor without deleting the published identity. Replaced/unreferenced files are cleaned after successful mutations and during edition/event deletion.
+
+The existing public sponsor payload transports only the published logo and colors. Mobile-prefetch and rendering never expose the draft. The shared theme resolver owns defaults, contrast text, and derived light surfaces. Layout, typography, neutral card backgrounds, sponsor placements, native navigation, the runner illustration, and semantic danger/warning/info colors remain Pace Yourself-owned.
+
 ## Mobile Scope
 
 No mobile organizer editor exists in v1. Mobile can consume published organizer details through the read-only `race/[id]/racebook` screen only when the catalog format is live, `races.racebook_is_live = true`, and there is meaningful non-ravito organizer content. Aid stations by themselves must not surface the Racebook entry point. The screen must stay runner-facing only: no mobile UI should assume organizer edit access, hidden Racebook visibility, or admin powers.
@@ -379,6 +399,10 @@ Manual empty edition creation remains free and unlimited. Only cloning the previ
 The pricing dialog snapshots and displays the selected event and canonical edition before checkout. A database backfill attaches legacy/imported dated formats that were created without `edition_id`, and an invoker trigger atomically creates or reuses the matching event/year edition for future service-side inserts.
 
 ## Gotchas
+
+- Keep branding draft and publication separate: saving or uploading must not change runner output until the organizer presses `Publier la DA`.
+- Do not fold the official edition logo into sponsor placements or sponsor click reporting; both asset families share a bucket but use distinct prefixes and contracts.
+- Keep the three structured mobile collections outside the RaceBook-wide error boundary so a staggered schema rollout cannot hide already published legacy content. Their RLS policies must resolve publication and organizer membership through `races`, not through the service-role-only `race_event_editions` table. This compatibility fallback does not replace deploying the migrations or granting Data API SELECT access.
 
 - L'action `Importer les informations` accepte la sélection de plusieurs PDF/images dans l'interface. En complément, le crawl de la page principale peut charger au plus deux PDF same-origin lorsque l'URL ou le libellé du lien les identifie explicitement comme PDF; chaque téléchargement garde la limite de 25 Mo et l'extraction texte celle de 100 pages. L'extraction PDF texte conserve le numéro de page lorsque le parseur le fournit pour un document envoyé. Une très longue ligne garde un extrait centré sur la donnée détectée, borné à 2 000 caractères pour la preuve et 500 pour la valeur; les claims documentaires équivalents sont dédupliqués et limités à huit par scope et champ pour chaque document afin qu'un roadbook verbeux ne rejette pas la découverte. Les images et PDF sans texte nécessitent encore un OCR ; aucune donnée n'est inventée en son absence.
 - Les documents sélectionnés par `Importer les informations` sont limités à 25 Mo par fichier et transférés directement depuis le navigateur vers le bucket privé temporaire `organizer-imports`, afin de ne pas traverser la limite de charge utile Vercel. Un PDF seul peut lancer la découverte sans URL principale. La session conserve uniquement les chemins nécessaires aux deux passes; apply, annulation ou nettoyage d'expiration supprime les objets. Le navigateur supprime aussi les objets déjà envoyés si la découverte ne peut pas démarrer. Les PDF texte produisent des claims paginés à confirmer; les images et PDF sans texte restent signalés `ocr-pending` tant qu'aucun OCR n'est disponible.

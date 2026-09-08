@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-03
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -17,6 +17,9 @@ related_files:
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
+  - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
+  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260824170652_restrict_delete_race_event_edition_rpc.sql
@@ -46,6 +49,7 @@ related_tables:
   - race_event_edition_requests
   - race_event_editions
   - race_event_edition_sponsors
+  - race_event_edition_branding
   - race_event_publication_requests
   - race_event_organizers
   - race_event_publication_requests
@@ -62,6 +66,8 @@ related_tables:
 # RLS Policies
 
 Structured services, SAS and awards permit SELECT for a published, visible RaceBook and for an authorized organizer preview of the parent event. Direct table and RPC mutations are revoked from `anon`/`authenticated`; Organizer routes execute atomic replacements with `service_role` after session, membership and capability checks.
+
+The client policies use `races` as their readable parent. They must not join `race_event_editions`: that table deliberately has no `anon`/`authenticated` SELECT grant, and using it inside the policy causes PostgREST to return `42501 permission denied` before RLS can return rows.
 
 ## Purpose
 
@@ -196,6 +202,8 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 - RLS is enabled with no client policy, and table privileges are revoked from `PUBLIC`, `anon`, and `authenticated`.
 - Only `service_role` can select or mutate sponsor rows. Organizer routes first require active membership on the edition's parent event; the public mobile route applies the RaceBook live gate or organizer-preview exception.
+
+`race_event_edition_branding` follows the same service-only table pattern but exposes no direct client policy at all. Its invoker-security publish function is executable only by `service_role`; the organizer route checks membership plus `branding.manage`, and the runner route maps only published columns after the existing RaceBook access gate.
 - `increment_racebook_sponsor_click(uuid, uuid)` is `SECURITY INVOKER`, executable only by `service_role`, and increments only when the sponsor is active, has a target, and shares the requested race's edition.
 - Only one aggregate `click_count` is stored. The route hashes the network identifier only for transient rate-limit selection and stores no identity or individual click row.
 

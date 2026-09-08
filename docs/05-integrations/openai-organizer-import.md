@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -55,6 +55,8 @@ Every dated format persisted by a service-side import must resolve to a canonica
 
 After import, manual format-specific bib-pickup, equipment, and access overrides use the ordinary race-details autosave path. They are not import claims and must remain durable when the admin leaves and reopens a format.
 
+Edition branding is also outside import reconciliation. The import model cannot propose logo URLs or colors, save a branding draft, or publish a visual identity; those actions remain in the explicit Pro editor.
+
 ## Environment Variables
 
 - `OPENAI_API_KEY`: server-only API credential.
@@ -73,6 +75,7 @@ After import, manual format-specific bib-pickup, equipment, and access overrides
 - Treat an unavailable, invalid, or `uncertain` LLM response as a review state, never as permission to invent a choice.
 - Never apply raw client values from the review payload. Verify the event/edition/session-bound signed field snapshot, expiry, field scope, target format, and selected claim ids first.
 - Never let an import proposal change edition visibility or request deletion. Those destructive controls require their dedicated membership-checked route and explicit organizer confirmation.
+- Never include edition branding fields in the LLM claim allowlist or infer a visual identity from crawled pages.
 
 ## Related Docs
 

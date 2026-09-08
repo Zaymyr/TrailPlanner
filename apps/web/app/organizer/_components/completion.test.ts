@@ -92,11 +92,11 @@ describe("organizer completion", () => {
       { aidStations: race.aidStationCount }
     );
 
-    const module = completion.formatModules.find((item) => item.id === "aidStations");
-    expect(module?.status).toBe("complete");
-    expect(module?.countLabel).toContain("3 ravitos");
-    expect(module?.countLabel).not.toContain("produit");
-    expect(module?.missingLabels).not.toContain("Ravitos");
+    const selectedModule = completion.formatModules.find((item) => item.id === "aidStations");
+    expect(selectedModule?.status).toBe("complete");
+    expect(selectedModule?.countLabel).toContain("3 ravitos");
+    expect(selectedModule?.countLabel).not.toContain("produit");
+    expect(selectedModule?.missingLabels).not.toContain("Ravitos");
   });
 
   it("shows edition sponsor and aggregate click counts on the optional tile", () => {
@@ -105,10 +105,21 @@ describe("organizer completion", () => {
       sponsorClicks: 12,
     });
 
-    const module = completion.eventModules.find((item) => item.id === "sponsors");
-    expect(module?.status).toBe("complete");
-    expect(module?.countLabel).toContain("3 sponsors");
-    expect(module?.countLabel).toContain("12 clics");
+    const selectedModule = completion.eventModules.find((item) => item.id === "sponsors");
+    expect(selectedModule?.status).toBe("complete");
+    expect(selectedModule?.countLabel).toContain("3 sponsors");
+    expect(selectedModule?.countLabel).toContain("12 clics");
+  });
+
+  it("prioritizes an unpublished branding draft over the last published state", () => {
+    const completion = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], [], {
+      brandingConfigured: true,
+      brandingUnpublished: true,
+    });
+
+    const selectedModule = completion.eventModules.find((item) => item.id === "branding");
+    expect(selectedModule?.status).toBe("incomplete");
+    expect(selectedModule?.countLabel).toBe("Brouillon non publié");
   });
 
   it("reports missing labels for event and format identity modules", () => {
@@ -230,10 +241,10 @@ describe("organizer completion", () => {
     );
 
     expect(completion.raceProgress).toEqual([
-      { id: "race-1", editionGroupId: "series-42k", seriesName: "42K", name: "42K", score: 20 },
-      { id: "race-2", editionGroupId: "series-25k", seriesName: "25K", name: "25K", score: 20 },
+      { id: "race-1", editionGroupId: "series-42k", seriesName: "42K", name: "42K", score: 17 },
+      { id: "race-2", editionGroupId: "series-25k", seriesName: "25K", name: "25K", score: 17 },
     ]);
-    expect(completion.raceProgressScore).toBe(20);
+    expect(completion.raceProgressScore).toBe(17);
   });
 
   it("does not change completion percentages when publication toggles change", () => {
@@ -277,8 +288,8 @@ describe("organizer completion", () => {
 
     expect(firstSelected.raceProgress).toEqual(secondSelected.raceProgress);
     expect(firstSelected.raceProgressScore).toBe(secondSelected.raceProgressScore);
-    expect(firstSelected.raceProgress[0]?.score).toBe(40);
-    expect(firstSelected.raceProgress[1]?.score).toBe(20);
+    expect(firstSelected.raceProgress[0]?.score).toBe(33);
+    expect(firstSelected.raceProgress[1]?.score).toBe(17);
   });
 
   it("marks re-enabled empty access sections as incomplete", () => {

@@ -27,11 +27,13 @@ describe("mobile RaceBook onboarding search", () => {
     expect(isRacebookOnboardingSearchReady(" ")).toBe(false);
     expect(isRacebookOnboardingSearchReady("u")).toBe(false);
     expect(isRacebookOnboardingSearchReady(" UT ")).toBe(true);
-    expect(getRacebookOnboardingResults(events, "u", (race) => race.published)).toEqual([]);
+    expect(getRacebookOnboardingResults(events, (race) => race.published)).toEqual([
+      { id: "event-a", races: [{ id: "race-published", published: true }] },
+    ]);
   });
 
   it("keeps only events and formats whose RaceBook can be opened", () => {
-    expect(getRacebookOnboardingResults(events, "utmb", (race) => race.published)).toEqual([
+    expect(getRacebookOnboardingResults(events, (race) => race.published)).toEqual([
       {
         id: "event-a",
         races: [{ id: "race-published", published: true }],

@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: medium
 related_files:
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
@@ -92,6 +92,7 @@ Each object stores:
 
 ## Gotchas
 
+- RaceBook branding may recolor Maps buttons and location icons, but it must not alter stored coordinates, generated Google Maps URLs, deduplication, or location inheritance.
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
 - Do not copy `eventLocation` into a new format merely to show inheritance; keep the race fields empty until the organizer explicitly enables a different location.
 - Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.
