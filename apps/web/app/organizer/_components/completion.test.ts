@@ -315,4 +315,16 @@ describe("organizer completion", () => {
     expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toContain("Parkings");
     expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toContain("Navettes");
   });
+
+  it("excludes inactive and locked modules from tiles, missing fields and scores", () => {
+    const full = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], []);
+    const filtered = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], [], undefined, {
+      event: new Set(["event"]),
+      races: { "race-1": new Set(["formats"]) },
+    });
+
+    expect(filtered.eventModules.map((module) => module.id)).toEqual(["event"]);
+    expect(filtered.formatModules.map((module) => module.id)).toEqual(["formats"]);
+    expect(filtered.score).toBeGreaterThan(full.score);
+  });
 });

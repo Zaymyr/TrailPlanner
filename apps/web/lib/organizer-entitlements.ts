@@ -2,13 +2,14 @@ import { z } from "zod";
 
 import type { SupabaseServiceConfig } from "./supabase";
 
-export const organizerTierSchema = z.enum(["visibility", "racebook", "pro"]);
+export const organizerTierSchema = z.enum(["visibility", "essential", "complete", "signature"]);
 export type OrganizerTier = z.infer<typeof organizerTierSchema>;
 
 export const organizerCapabilitySchema = z.enum([
   "catalog.manage",
   "racebook.publish",
-  "racebook_content.manage",
+  "racebook_content.basic.manage",
+  "racebook_content.advanced.manage",
   "followers.notify",
   "edition.duplicate",
   "relay.manage",
@@ -21,11 +22,20 @@ export type OrganizerCapability = z.infer<typeof organizerCapabilitySchema>;
 
 export const ORGANIZER_TIER_CAPABILITIES: Record<OrganizerTier, readonly OrganizerCapability[]> = {
   visibility: ["catalog.manage"],
-  racebook: ["catalog.manage", "racebook.publish", "racebook_content.manage"],
-  pro: [
+  essential: ["catalog.manage", "racebook.publish", "racebook_content.basic.manage"],
+  complete: [
     "catalog.manage",
     "racebook.publish",
-    "racebook_content.manage",
+    "racebook_content.basic.manage",
+    "racebook_content.advanced.manage",
+    "followers.notify",
+    "edition.duplicate",
+  ],
+  signature: [
+    "catalog.manage",
+    "racebook.publish",
+    "racebook_content.basic.manage",
+    "racebook_content.advanced.manage",
     "followers.notify",
     "edition.duplicate",
     "relay.manage",

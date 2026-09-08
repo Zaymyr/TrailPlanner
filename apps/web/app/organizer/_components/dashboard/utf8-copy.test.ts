@@ -103,12 +103,11 @@ describe("organizer dashboard UTF-8 copy", () => {
     const shellSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"), "utf8");
 
     expect(dashboardSource).toContain('action: "setEditionTier"');
-    expect(dashboardSource).toContain('grantComplimentaryOffer("racebook")');
-    expect(dashboardSource).toContain('grantComplimentaryOffer("pro")');
-    expect(dashboardSource).toContain("Offrir RaceBook — valeur 199 € HT");
-    expect(dashboardSource).toContain("Offrir RaceBook Pro — valeur 299 € HT");
-    expect(shellSource).toContain("Publication RaceBook offerte — valeur : 199 € HT");
-    expect(shellSource).toContain("Publication RaceBook Pro offerte — valeur : 299 € HT");
+    expect(dashboardSource).toContain("paidOrganizerTiers");
+    expect(dashboardSource).toContain("complimentaryGrantTarget === tier");
+    expect(dashboardSource).toContain("grantComplimentaryOffer(tier)");
+    expect(dashboardSource).toContain("ORGANIZER_TIER_PRICE_EUR[tier]");
+    expect(shellSource).toContain("ORGANIZER_TIER_PRICE_EUR[editionTier]");
     expect(shellSource).toContain("Offre ${activeOfferName} offerte");
   });
 
@@ -216,7 +215,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("Enregistrer le brouillon");
     expect(editorSource).toContain("Publier la DA");
     expect(editorSource).toContain('window.addEventListener("beforeunload"');
-    expect(dashboardSource).toContain('activeModule === "branding" && isEventTab && activeTier !== "pro"');
-    expect(dashboardSource).toContain("Découvrir RaceBook Pro");
+    expect(dashboardSource).toContain('activeModule === "branding" && isEventTab && activeTier !== "signature"');
+    expect(dashboardSource).toContain("Découvrir Signature");
   });
 });

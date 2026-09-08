@@ -53,15 +53,15 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     });
   });
 
-  it("grants a complimentary RaceBook tier through the audited admin function", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "racebook", source: "admin" }]));
+  it("grants a complimentary Essential tier through the audited admin function", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "essential", source: "admin" }]));
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
       method: "PATCH",
       headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
       body: JSON.stringify({
         action: "setEditionTier",
         editionId: "33333333-3333-3333-3333-333333333333",
-        tier: "racebook",
+        tier: "essential",
       }),
     });
 
@@ -72,19 +72,19 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(JSON.parse(init?.body as string)).toMatchObject({
       p_edition_id: "33333333-3333-3333-3333-333333333333",
       p_admin_id: "00000000-0000-0000-0000-000000000099",
-      p_tier: "racebook",
+      p_tier: "essential",
     });
   });
 
-  it("grants a complimentary Pro tier through the same audited admin function", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "pro", source: "admin" }]));
+  it("grants a complimentary Signature tier through the same audited admin function", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "signature", source: "admin" }]));
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
       method: "PATCH",
       headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
       body: JSON.stringify({
         action: "setEditionTier",
         editionId: "33333333-3333-3333-3333-333333333333",
-        tier: "pro",
+        tier: "signature",
       }),
     });
 
@@ -94,7 +94,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(JSON.parse(init?.body as string)).toMatchObject({
       p_edition_id: "33333333-3333-3333-3333-333333333333",
       p_admin_id: "00000000-0000-0000-0000-000000000099",
-      p_tier: "pro",
+      p_tier: "signature",
     });
   });
 
@@ -136,7 +136,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
       ]))
       .mockResolvedValueOnce(Response.json([{
         edition_id: "33333333-3333-3333-3333-333333333333",
-        tier: "racebook",
+        tier: "complete",
         source: "stripe",
         status: "active",
       }]))
@@ -156,7 +156,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(response.status).toBe(200);
     expect(payload.events[0].races).toHaveLength(1);
     expect(payload.events[0].races[0].name).toBe("42 km");
-    expect(payload.events[0].entitlement.tier).toBe("racebook");
+    expect(payload.events[0].entitlement.tier).toBe("complete");
     expect(payload.publicationRequests[0].requested_race.name).toBe("42 km");
     expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("requested_race:races");
   });

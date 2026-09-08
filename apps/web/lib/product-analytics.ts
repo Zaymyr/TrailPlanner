@@ -59,7 +59,7 @@ export function trackCrewStateUpdated(input: {
   });
 }
 
-type OrganizerTier = "visibility" | "racebook" | "pro";
+type OrganizerTier = "visibility" | "essential" | "complete" | "signature";
 
 export function trackOrganizerOfferViewed(input: {
   currentTier: OrganizerTier;

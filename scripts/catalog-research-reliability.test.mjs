@@ -3,11 +3,12 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, readFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildFormatQueue } from "./build-format-import-queue.mjs";
-import { applyClaims, deterministicExtract, enrichQueue } from "./enrich-format-import-queue.mjs";
+import { applyClaims, deterministicExtract, enrichQueue, sitemapLocations } from "./enrich-format-import-queue.mjs";
 import { buildExports, parseGpx, run, processGpx, resolveGpxAmbiguity } from "./research-format-catalog.mjs";
 import { buildDraftRequests } from "./import-format-queue-drafts.mjs";
 import { verifiedValue, parseResearchDate, classifySourceUrl } from "./catalog-research-contract.mjs";
 import { fetchResearchResource } from "./catalog-research-http.mjs";
+import { decodeJsonRpcLine } from "./race-research-mcp-client.mjs";
 import { serializeCsvTable } from "./prepare-betrail-outreach-csv.mjs";
 
 const makeRow = (extra={}) => ({...buildFormatQueue([{race_name:"Trail Test",race_url:"https://www.betrail.run/race/test/2025",official_website:"https://trail.test/",formats_raw:"12km/150 D+",city:"Wrong city",country:"France",date:"2027-06-20",event_date_basis:"date exacte"}],{asOf:"2027-01-01"})[0],...extra});
@@ -25,6 +26,30 @@ test("old edition URL cannot replace the requested edition",()=>{
 test("date and place not contained in a citation remain unverified",()=>{
   const row=makeRow(); apply(row,[claim("race_date","2027-06-20","Bienvenue au trail 12 km"),claim("location","Paris","Bienvenue au trail 12 km"),core()[2]]);
   assert.equal(row.ready_to_import,"FALSE"); assert.match(row.rejected_claims_json,/value_not_in_evidence/);
+});
+test("a distance found only in a price line is not verified",()=>{
+  const row=makeRow({format_name:"22km",distance_km:"22",prospect_distance_km:"22"});
+  apply(row,[claim("distance_km",21,"Duo relais 21 km : 18 € par personne")]);
+  assert.equal(verifiedValue(row,"distance_km"),undefined);
+  assert.match(row.rejected_claims_json,/distance_context_ambiguous/);
+});
+test("a decimal distance with a trailing zero is normalized and verified",()=>{
+  const row=makeRow({format_name:"22km",distance_km:"22",prospect_distance_km:"22"});
+  apply(row,[claim("distance_km",22.1,"22,10 km – Course chronométrée – départ à 9h30")]);
+  assert.equal(verifiedValue(row,"distance_km"),22.1);
+});
+test("non-date claims from a page belonging only to an older edition are rejected",()=>{
+  const row=makeRow();
+  applyClaims(row,{pages:[{url:row.official_website,text:"Règlement du 12 octobre 2025. Trail Test 12 km, départ à Paris."}],claims:[]},
+    {claims:[claim("distance_km",12,"Trail Test 12 km"),claim("location","Paris","départ à Paris")]});
+  assert.equal(verifiedValue(row,"distance_km"),undefined);
+  assert.match(row.rejected_claims_json,/edition_mismatch/);
+});
+test("a verified date outside the maximum campaign date is rejected",()=>{
+  const row=makeRow({max_event_date:"2027-05-31"});
+  apply(row,core());
+  assert.equal(row.ready_to_import,"FALSE");
+  assert.match(row.rejected_claims_json,/date_outside_campaign/);
 });
 test("a model alias cannot attach another format's start time",()=>{
   const row=makeRow(); apply(row,[{...claim("start_time","11:00","Trail Lafayette 27 km départ à 11h00"),format_label:"Trail Lafayette"}]);
@@ -65,6 +90,26 @@ test("each format receives a targeted crawl; optional data is still researched",
   const rows=[makeRow(),makeRow({format_key:"second",format_name:"27km",distance_km:"27",prospect_distance_km:"27"})]; const calls=[],semantic=[];
   await enrichQueue(rows,{delayMs:0,fetchImpl:async(url,row)=>{calls.push(row.format_name);return html;},llmImpl:async(row)=>{semantic.push(row.format_name);return {claims:[]};}});
   assert.deepEqual(calls,["12km","27km"]); assert.deepEqual(semantic,["12km","27km"]);
+});
+test("MCP transport restarts once and continues with the current race",async()=>{
+  const row=makeRow(); let created=0;
+  const factory=async()=>{created+=1;return created===1
+    ? {callTool:async()=>{throw new Error("MCP client closed");},close(){}}
+    : {callTool:async()=>({resolved_url:row.official_website,pages:[{url:row.official_website,html,authority:"official"}]}),close(){}};};
+  await enrichQueue([row],{noLlm:true,delayMs:0,useMcp:true,mcpClientFactory:factory,fetchImpl:async()=>{throw new Error("fallback should not run");}});
+  assert.equal(created,2);
+  assert.equal(row.crawl_transport,"mcp_stdio_restarted");
+  assert.notEqual(row.research_status,"source_error");
+});
+test("non JSON-RPC stdout is ignored without closing the client",()=>{
+  const warnings=[];
+  assert.equal(decodeJsonRpcLine("Warning: transient diagnostic",message=>warnings.push(message)),null);
+  assert.deepEqual(decodeJsonRpcLine('{"jsonrpc":"2.0","id":1,"result":{}}'),{jsonrpc:"2.0",id:1,result:{}});
+  assert.equal(warnings.length,1);
+});
+test("nested sitemap discovery keeps only organizer-host URLs",()=>{
+  const xml='<sitemapindex><sitemap><loc>https://trail.test/pages.xml</loc></sitemap><sitemap><loc>https://other.test/foreign.xml</loc></sitemap></sitemapindex>';
+  assert.deepEqual(sitemapLocations(xml,"https://trail.test/"),["https://trail.test/pages.xml"]);
 });
 test("failed source refresh cannot retain a stale ready flag",async()=>{
   const row=makeRow(); apply(row,core()); assert.equal(row.ready_to_import,"TRUE");
@@ -122,10 +167,11 @@ test("campaign resumes from the last completed format and refuses changed input"
   const input=`${dir}/input.csv`; const output=`${dir}/out`;
   const source=Array.from({length:3},(_,i)=>({race_name:`Trail Test ${i}`,race_url:`https://www.betrail.run/race/test-${i}/2025`,official_website:"https://trail.test/",formats_raw:"12km/150 D+",date:"2027-06-20",event_date_basis:"date exacte"}));
   await writeFile(input,serializeCsvTable(Object.keys(source[0]),source));
-  const argv=["--input",input,"--output-dir",output,"--as-of","2027-01-01","--min-days-before","0","--no-llm","--limit","2"];
+  const argv=["--input",input,"--output-dir",output,"--as-of","2027-01-01","--min-days-before","0","--date-from","2027-06-01","--date-to","2027-06-30","--no-llm","--limit","2"];
   let processed=0;
   await assert.rejects(run(argv,{enrichImpl:async(rows,{onRow})=>{await onRow(rows[0]);processed++;throw new Error("interrupted");}}),/interrupted/);
   const state=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(state.next_offset,1);
+  assert.equal(state.date_from,"2027-06-01"); assert.equal(state.date_to,"2027-06-30");
   await run([...argv,"--resume"],{enrichImpl:async(rows,{onRow})=>{for(const row of rows){await onRow(row);processed++;}}});
   const final=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(final.rows.length,3); assert.equal(final.complete,true); assert.equal(processed,3);
   await writeFile(input,"changed"); await assert.rejects(run([...argv,"--resume"]),/Entrée ou version/);

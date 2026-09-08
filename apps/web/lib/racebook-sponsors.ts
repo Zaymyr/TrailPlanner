@@ -79,8 +79,9 @@ export function hasOrganizerRacebookContent(
   eventValue: unknown,
   raceValue: unknown,
   participationMode: unknown,
+  modules?: Partial<Record<"equipment" | "bib_pickup" | "access" | "services" | "relay", boolean>> | null,
 ) {
-  if (participationMode === "relay" || participationMode === "solo_and_relay") return true;
+  if ((modules?.relay ?? true) && (participationMode === "relay" || participationMode === "solo_and_relay")) return true;
   const event = parseOrganizerEventDetails(eventValue);
   const race = parseOrganizerRaceDetails(raceValue);
   const runner = buildRunnerOrganizerDetails(event, race);
@@ -91,17 +92,15 @@ export function hasOrganizerRacebookContent(
     hasText(event.dateRange.endDate, event.emergencyContact.phone) ||
     hasLocation(event.eventLocation) ||
     hasLocation(race.raceLocation) ||
-    hasEquipment(event.mandatoryEquipment) ||
-    hasEquipment(race.mandatoryEquipment) ||
-    hasText(bib.location, bib.schedule, bib.requiredDocuments, bib.note) ||
-    hasLocation(bib.locationDetails) ||
-    bib.locations.some((location) =>
+    ((modules?.equipment ?? true) && (hasEquipment(event.mandatoryEquipment) || hasEquipment(race.mandatoryEquipment))) ||
+    ((modules?.bib_pickup ?? true) && (hasText(bib.location, bib.schedule, bib.requiredDocuments, bib.note) ||
+    hasLocation(bib.locationDetails) || bib.locations.some((location) =>
       hasText(location.location) ||
       hasLocation(location.locationDetails) ||
       location.slots.some((slot) => hasText(slot.date, slot.startTime, slot.endTime))) ||
     bib.thirdPartyPickupAllowed !== null ||
-    bib.equipmentCheck !== null ||
-    hasText(
+    bib.equipmentCheck !== null)) ||
+    ((modules?.access ?? true) && (hasText(
       access.startAddress,
       access.finishAddress,
       access.enabledSections.officialParkings ? access.officialParkings : null,
@@ -112,8 +111,8 @@ export function hasOrganizerRacebookContent(
       access.note,
     ) ||
     hasLocation(access.startLocation) ||
-    hasLocation(access.finishLocation) ||
-    hasText(
+    hasLocation(access.finishLocation))) ||
+    ((modules?.services ?? true) && hasText(
       runner.services.supporters,
       runner.services.accommodations,
       runner.services.restaurants,
@@ -121,6 +120,8 @@ export function hasOrganizerRacebookContent(
       runner.services.partners,
       runner.services.lastMinuteMessage,
       runner.services.note,
+    )) ||
+    hasText(
       runner.runnerInfo.startArea,
       runner.runnerInfo.briefing,
       runner.runnerInfo.rules,

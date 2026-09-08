@@ -214,6 +214,10 @@ The same lightweight request returns the edition's published logo, primary color
 
 Primary colors style active tabs, buttons, links, icons, badges, and derived light surfaces with automatically selected black or white foreground text. Accent colors style progress, route, and elevation profile. The native header, bottom navigation, typography, neutral card backgrounds, sponsor panel, runner illustration, and semantic red/orange/blue states remain Pace Yourself-owned. Missing, unpublished, or invalid values resolve to `#2D5016` and `#B45309`.
 
+## RaceBook Module Visibility
+
+The same lightweight server bootstrap returns an effective boolean map for edition and format modules. Mobile entirely removes inactive or locked Matériel, Dossard, Accès and Services tabs. Course remains permanent, while Ravitos, SAS, Relais and Podiums sub-tabs follow their format settings; official products are removed from ravito cards independently. Sponsors and branding are returned only when effective. When an older server response omits the map during rolling deployment, normalization defaults every module to the historical visible behavior.
+
 ## Plan Share Links
 
 `apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. The mobile app never generates database rows directly for public links and never handles service-role keys.

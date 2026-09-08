@@ -18,6 +18,7 @@ import {
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
 import { loadOrganizerEditionEntitlements } from "../../../../../lib/organizer-entitlements";
+import { isOrganizerEditionModuleEnabled } from "../../../../../lib/organizer-module-settings";
 
 const updateEventSchema = z.object({
   selectedEditionYear: z.string().regex(/^\d{4}$/).optional(),
@@ -230,7 +231,32 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.location !== undefined) updatePayload.location = parsedBody.data.location;
   if (parsedBody.data.raceDate !== undefined) updatePayload.race_date = parsedBody.data.raceDate;
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;
-  if (parsedBody.data.organizerDetails !== undefined) updatePayload.organizer_details = parsedBody.data.organizerDetails;
+  if (parsedBody.data.organizerDetails !== undefined) {
+    const [currentDetailsResponse, moduleEditionResponse] = await Promise.all([
+      fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${parsedParams.data.id}&select=organizer_details&limit=1`, { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }),
+      fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?event_id=eq.${parsedParams.data.id}&${parsedBody.data.selectedEditionYear ? `edition_year=eq.${parsedBody.data.selectedEditionYear}` : "is_current=eq.true"}&select=id&limit=1`, { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }),
+    ]);
+    if (!currentDetailsResponse.ok || !moduleEditionResponse.ok) return jsonError("Unable to preserve protected organizer details.", 502);
+    const currentDetails = parseOrganizerEventDetails(z.array(z.object({ organizer_details: z.unknown().nullable().optional() })).parse(await currentDetailsResponse.json())[0]?.organizer_details);
+    const moduleEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await moduleEditionResponse.json())[0]?.id;
+    const incoming = parsedBody.data.organizerDetails;
+    if (!moduleEditionId) updatePayload.organizer_details = currentDetails;
+    else {
+      const [equipment, bibPickup, access, services] = await Promise.all([
+        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "equipment"),
+        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "bib_pickup"),
+        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "access"),
+        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "services"),
+      ]);
+      updatePayload.organizer_details = {
+        ...incoming,
+        mandatoryEquipment: equipment ? incoming.mandatoryEquipment : currentDetails.mandatoryEquipment,
+        bibPickup: bibPickup ? incoming.bibPickup : currentDetails.bibPickup,
+        access: access ? incoming.access : currentDetails.access,
+        services: services ? incoming.services : currentDetails.services,
+      };
+    }
+  }
 
   if (Object.keys(updatePayload).length === 0 && !updatesEdition) return jsonError("No fields to update.", 400);
 

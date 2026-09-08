@@ -34,7 +34,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 - The organizer portal edits the draft and previews it locally.
 - Publication atomically copies all draft values to the published fields.
 - Runner and mobile preview payloads expose only published values.
-- Editing requires the RaceBook Pro `branding.manage` capability. A published identity remains visible after a downgrade, but becomes read-only.
+- Editing and publication require the Signature `branding.manage` capability and an active `branding` module. A downgrade or module deactivation masks the published identity without deleting it.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, and semantic danger/warning/info colors.
 
 ## Columns
@@ -93,6 +93,7 @@ where edition_id = :edition_id;
 - Do not delete a logo still referenced by either the draft or the published state.
 - Sponsor logos and organizer-branding logos use separate Storage prefixes and separate UI placements.
 - Invalid/missing branding and image load failures must fall back silently to the Pace Yourself theme.
+- Branding mutation requires an active Signature entitlement and active `branding` module. Inactive or locked branding remains stored but the runner bootstrap returns the Pace Yourself defaults.
 
 ## Related Docs
 

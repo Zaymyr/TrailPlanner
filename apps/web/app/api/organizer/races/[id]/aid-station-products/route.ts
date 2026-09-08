@@ -16,6 +16,7 @@ import {
 } from "../../../../../../lib/organizer";
 import type { FuelProduct } from "../../../../../../lib/product-types";
 import { requireOrganizerRaceCapability } from "../../../../../../lib/organizer-entitlements";
+import { isOrganizerRaceModuleEnabled } from "../../../../../../lib/organizer-module-settings";
 
 const supabaseProductSchema = z.object({
   id: z.string().uuid(),
@@ -145,7 +146,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
   if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "aid_station_products.manage"))) {
-    return jsonError("RaceBook Pro est requis pour gérer les produits aux ravitaillements.", 403);
+    return jsonError("L’offre Signature est requise pour gérer les produits aux ravitaillements.", 403);
   }
 
   const response = await fetch(
@@ -175,8 +176,10 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
   if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "aid_station_products.manage"))) {
-    return jsonError("RaceBook Pro est requis pour gérer les produits aux ravitaillements.", 403);
+    return jsonError("L’offre Signature est requise pour gérer les produits aux ravitaillements.", 403);
   }
+
+  if (!race.edition_id || !(await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, parsedParams.data.id, "official_products"))) return jsonError("La section Produits officiels est inactive.", 403);
 
   const parsedBody = updateProductsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid aid station products.", 400);
@@ -248,8 +251,10 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
   if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "aid_station_products.manage"))) {
-    return jsonError("RaceBook Pro est requis pour gérer les produits aux ravitaillements.", 403);
+    return jsonError("L’offre Signature est requise pour gérer les produits aux ravitaillements.", 403);
   }
+
+  if (!race.edition_id || !(await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, parsedParams.data.id, "official_products"))) return jsonError("La section Produits officiels est inactive.", 403);
 
   const parsedBody = createScopedProductSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid product payload.", 400);

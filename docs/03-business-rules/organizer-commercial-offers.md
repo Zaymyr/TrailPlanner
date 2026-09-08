@@ -5,96 +5,74 @@ last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
-  - apps/web/app/api/organizer/editions/[id]/services/route.ts
-  - apps/web/app/api/organizer/races/[id]/start-waves/route.ts
-  - apps/web/app/api/organizer/races/[id]/awards/route.ts
-  - apps/web/lib/organizer-entitlements.ts
+  - apps/web/lib/organizer-modules.ts
+  - apps/web/lib/organizer-module-settings.ts
+  - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
-  - apps/web/app/organizer/_components/dashboard/branding-editor.tsx
-  - apps/web/app/api/organizer/editions/[id]/branding/route.ts
-  - apps/web/lib/racebook-branding.ts
-  - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/dashboard/shell.tsx
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/admin/event-publication-requests/route.ts
-  - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
-  - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - apps/web/app/organisateurs/organizer-landing-page.tsx
+  - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
+  - supabase/tests/organizer_racebook_module_settings_checks.sql
 related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
+  - organizer_racebook_module_settings
   - race_event_editions
-  - race_event_organizers
-  - races
 ---
 
 # Organizer Commercial Offers
 
-Structured services, SAS and podium programmes share the `racebook_content.manage` capability and are included in both RaceBook and Pro offers. Relay editing and official ravito products continue to require their Pro capabilities.
-
 ## Purpose
 
-The organizer offer is purchased once per event edition. It is independent from participant count and from the runner Premium subscription.
+One offer is purchased per event edition, independently of participant and format counts. The offer authorizes modules; the organizer then activates only useful modules. Disabling or losing access masks content without deleting it.
 
-## Key Concepts
+## Offers
 
-- `Visibilité` is free and keeps the event and complete formats in the public catalog.
-- `RaceBook` costs 199 € excluding tax and unlocks mobile RaceBook publication.
-- `RaceBook Pro` costs 299 € excluding tax and adds notifications, edition duplication, relay management, official aid-station products, sponsor management and click totals, and assisted import.
-- Upgrading an already active RaceBook edition to Pro costs 100 € excluding tax.
-- Every active event organizer inherits the edition entitlement; formats added later are covered automatically.
+| Offer | HT per edition | Main rights |
+| --- | ---: | --- |
+| Visibilité | Free | Public catalog only. |
+| Essentiel | 99 € | RaceBook publication, basic equipment/bib/access, simple aid stations. |
+| Complet | 199 € | Essential plus advanced fields and per-format overrides, SAS, detailed aid stations, services, awards, notifications and duplication. |
+| Signature | 349 € | Complete plus relay, official products, sponsors/clicks, branding and assisted import. |
 
-## Capability Matrix
+Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100 €, Essential→Signature 250 € and Complete→Signature 150 €.
 
-| Capability | Visibilité | RaceBook | Pro |
-| --- | --- | --- | --- |
-| Catalog/event/format management | Yes | Yes | Yes |
-| Publish or hide RaceBooks | No | Yes | Yes |
-| Notify followers and view history/count | No | No | Yes |
-| Duplicate an edition | No | No | Yes |
-| Manage relay points | No | No | Yes |
-| Manage official aid-station products | No | No | Yes |
-| Manage edition sponsors and view click totals | No | No | Yes |
-| Manage and publish edition RaceBook branding | No | No | Yes |
-| Request assisted import | No | No | Yes |
+## Module Contract
 
-`apps/web/lib/organizer-entitlements.ts` is the central capability resolver. Routes and UI must request a capability rather than compare plan strings locally.
+`event` and Course/GPX are permanent. Edition modules are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Format modules are `aid_stations`, `start_waves`, `awards`, `relay`, `official_products`. Equipment, bib and access format values remain overrides of their edition module.
 
-## Stripe Lifecycle
+The states are:
 
-The checkout route accepts only `eventId`, `editionId`, and target `racebook|pro`. After authentication, active membership, edition ownership, and publication-readiness checks, the server selects one configured non-recurring EUR Price with exclusive tax behavior: 199 €, 299 €, or the 100 € upgrade. Stripe Checkout collects billing address and tax id, enables automatic tax and invoice creation, and carries payment/edition/user/tier metadata.
+- `active`: enabled by the organizer and allowed by the offer; editable, published and counted in completion;
+- `inactive`: allowed but disabled; data retained and excluded from mobile/completion;
+- `locked`: outside the effective offer; data retained and shown only as an upsell.
 
-The success URL is not authorization. The dashboard polls its normal organizer event read until the Stripe webhook has marked the transaction paid and recalculated the entitlement. Opening the pricing dialog captures a stable event/edition context, displayed in a fixed header and reused by checkout even when the current editor view resolves the edition through a format's `edition_id`. The dialog uses an explicit wide width, remains bounded to the viewport, and scrolls its offer/admin content internally so prices, benefits, and purchase actions remain reachable on smaller-height screens.
+`apps/web/lib/organizer-entitlements.ts` is the capability authority and `apps/web/lib/organizer-modules.ts` is the shared catalog. Server routes must check both capability and effective module state, never compare tier names locally.
 
-Consent-gated product analytics mirror those trustworthy boundaries: offer view when the valid pricing context opens, checkout start only after the server creates the Checkout URL, and purchase verification only after the refreshed edition entitlement is active. No analytics event is accounting truth.
+## Stripe and Rights Lifecycle
 
-Any refund, including a partial refund event, or open/lost dispute invalidates its transaction. A dispute later closed as won restores the disputed payment. Refunding an upgrade returns the edition to RaceBook when its base purchase remains paid. Invalidating a RaceBook or direct-Pro purchase returns the edition to Visibilité and hides every attached RaceBook without hiding the catalog formats. Active admin or legacy-admin grants remain authoritative.
+The server chooses one of six explicit one-time EUR Price IDs and validates active status, exact amount, non-recurring mode and exclusive tax behavior. Checkout enables automatic tax, billing address, tax-ID collection and invoice creation. A success redirect is not authorization; the webhook settles the payment and recalculates rights.
 
-## Historical and Admin Rights
-
-Published edition branding is durable content: a downgrade removes `branding.manage` and makes the organizer editor unavailable, but the last explicitly published identity remains visible on every accessible RaceBook format in that edition.
-
-The migration grants Pro with source `legacy_admin` to editions that already contained an approved or published RaceBook. Other editions start at Visibilité. The admin Organizer area keeps commercial controls in its `Publier le RaceBook` sub-tab, where admins can filter effective tiers and set Visibilité, RaceBook, or Pro through an audited admin grant; organizer e-mail assignment lives separately under `Accès organisateurs`. In the ordinary `/organizer` publication dialog, a trusted admin sees a partner section after the commercial offer cards, with separate explanations and actions for gifting RaceBook or RaceBook Pro without Stripe; pending edits are saved first and the normal admin-authenticated route records `source = admin`. The organizer dashboard identifies an admin RaceBook grant as `Publication RaceBook offerte — valeur : 199 € HT` and an admin Pro grant as `Publication RaceBook Pro offerte — valeur : 299 € HT`; its publication button uses `offerte` instead of `active`. Legacy-admin editions are always presented as gifted RaceBook Pro. Historical publication requests remain readable; approving one grants Pro to its edition for compatibility.
+Recalculation requires a valid paid path. Refunding/disputing a base purchase invalidates dependent upgrades; invalidating only an upgrade returns to the valid lower tier. Legacy `racebook` payments map to Complete and legacy `pro_direct` or `racebook + pro_upgrade` paths map to Signature. Existing RaceBook/Pro entitlements are upgraded to Complete/Signature. Admin grants remain authoritative.
 
 ## Gotchas
 
-- Never price by participant count or format count.
-- Never use a checkout success query parameter as proof of payment.
-- The checkout CTA enters its loading state before saving pending organizer edits and surfaces missing session/edition, save, API, and network failures inside the pricing dialog; a failed client-side prerequisite must never look like an inert button.
-- Never infer the billed edition only from transient editor state after the pricing dialog is open; capture its event id, edition id, year, and effective tier when opening the dialog.
-- A dated event format cannot be sold without a canonical edition id. Backfill orphaned formats and let the database assignment trigger create/reuse future event-year editions before opening checkout.
-- Never grant notification, relay, duplication, official-product, or sponsor-management access only in the browser; the server route or RLS boundary must enforce it too.
-- Treat `branding.manage` like the other Pro-only mutation capabilities. Do not erase or hide its last published state during entitlement recalculation.
-- Never expose the complimentary grant action from an organizer-supplied role flag. It is shown from the verified session and still requires the server route's trusted `app_metadata` admin check.
-- Keep the RaceBook and Pro complimentary actions distinct. They share the audited admin endpoint, but must send their explicit target tier and show their respective 199 € / 299 € HT reference values.
-- Do not reuse runner `subscriptions`, RevenueCat, trials, or `premium_grants` for organizer editions.
-- Hiding RaceBooks after invalidation must not hide the free catalog entry.
+- Never delete module content on disable or downgrade.
+- Never expose `organizer_racebook_module_settings` directly to clients; mobile receives only an effective boolean map.
+- Missing module configuration during rolling deployment uses the historical mobile behavior.
+- Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
+- Old clients saving a full `organizer_details` object must not erase protected subtrees.
 
 ## Related Docs
 
 - [Organizer Race Management](organizer-race-management.md)
 - [Stripe](../05-integrations/stripe.md)
+- [organizer_racebook_module_settings](../02-database/tables/organizer-racebook-module-settings.md)
 - [organizer_edition_entitlements](../02-database/tables/organizer-edition-entitlements.md)
 - [organizer_edition_payments](../02-database/tables/organizer-edition-payments.md)

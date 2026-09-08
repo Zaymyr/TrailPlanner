@@ -2,7 +2,15 @@ import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
-export const createRaceResearchMcpClient = async ({ serverPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "race-research-mcp.mjs"), timeoutMs = 300_000 } = {}) => {
+export const decodeJsonRpcLine = (line, onProtocolWarning = () => {}) => {
+  try { return JSON.parse(line); }
+  catch (error) {
+    onProtocolWarning(`MCP stdout ignoré (hors JSON-RPC) : ${String(line).slice(0, 240)}`);
+    return null;
+  }
+};
+
+export const createRaceResearchMcpClient = async ({ serverPath = path.join(path.dirname(fileURLToPath(import.meta.url)), "race-research-mcp.mjs"), timeoutMs = 300_000, onProtocolWarning = message => process.stderr.write(`${message}\n`) } = {}) => {
   const child = spawn(process.execPath, [serverPath], { stdio: ["pipe", "pipe", "inherit"] });
   let nextId = 1;
   let buffer = "";
@@ -16,15 +24,14 @@ export const createRaceResearchMcpClient = async ({ serverPath = path.join(path.
     buffer = lines.pop() || "";
     for (const line of lines) {
       if (!line.trim()) continue;
-      try {
-        const message = JSON.parse(line);
-        const request = pending.get(message.id);
-        if (!request) continue;
-        pending.delete(message.id);
-        clearTimeout(request.timer);
-        if (message.error) request.reject(new Error(message.error.message || "MCP error"));
-        else request.resolve(message.result);
-      } catch (error) { failAll(error); }
+      const message = decodeJsonRpcLine(line, onProtocolWarning);
+      if (!message) continue;
+      const request = pending.get(message.id);
+      if (!request) continue;
+      pending.delete(message.id);
+      clearTimeout(request.timer);
+      if (message.error) request.reject(new Error(message.error.message || "MCP error"));
+      else request.resolve(message.result);
     }
   });
   child.on("error", failAll);

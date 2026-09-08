@@ -139,6 +139,7 @@ order by created_at asc;
 ## Gotchas
 
 - Membership is event-scoped, but commercial rights are edition-scoped. Every active member shares the selected edition's entitlement; membership alone does not unlock paid capabilities.
+- Module mutation also requires the edition/format setting to be effective. Full legacy JSON saves preserve subtrees whose module is inactive or locked.
 
 - Do not authorize organizer edits with `races.created_by`; claimed catalog races deliberately avoid user ownership.
 - Do not physically delete public race/event rows when an organizer account is deleted or revoked.

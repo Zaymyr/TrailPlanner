@@ -11,7 +11,7 @@ import { parseCsvTable, serializeCsvTable } from "./prepare-betrail-outreach-csv
 import { parseResearchDate, classifySourceUrl } from "./catalog-research-contract.mjs";
 
 export const FORMAT_QUEUE_HEADERS = [
-  "research_schema_version", "target_edition_year", "campaign_as_of", "min_event_date", "field_provenance_json", "research_errors_json",
+  "research_schema_version", "target_edition_year", "campaign_as_of", "min_event_date", "max_event_date", "field_provenance_json", "research_errors_json",
   "prospect_distance_km", "prospect_elevation_gain_m", "gpx_verified_fields", "gpx_previous_values_json", "gpx_sha256",
   "format_key", "prospect_uuid", "event_name", "format_name", "official_format_name", "format_raw",
   "race_url", "official_website", "city", "country", "candidate_event_date",
@@ -106,9 +106,13 @@ const missingFor = ({ candidateEventDate, city, country, distanceKm, elevationGa
   elevationGainM === null && "elevation_gain_m",
 ].filter(Boolean).join(";");
 
-export const buildFormatQueue = (rows, { asOf = new Date().toISOString().slice(0, 10), minDaysBefore = 0, limit = null, offset = 0, onExcluded = () => {} } = {}) => {
-  if (!parseDate(asOf) || !Number.isInteger(minDaysBefore) || minDaysBefore < 0 || !Number.isInteger(offset) || offset < 0 || (limit !== null && (!Number.isInteger(limit) || limit < 1))) throw new Error("Paramètres de campagne invalides.");
-  const minStartDate = Number(minDaysBefore) > 0 ? addDays(asOf, Number(minDaysBefore)) : "";
+export const buildFormatQueue = (rows, { asOf = new Date().toISOString().slice(0, 10), minDaysBefore = 0, dateFrom = "", dateTo = "", limit = null, offset = 0, onExcluded = () => {} } = {}) => {
+  const parsedFrom = dateFrom ? parseDate(dateFrom) : "";
+  const parsedTo = dateTo ? parseDate(dateTo) : "";
+  if (!parseDate(asOf) || dateFrom && !parsedFrom || dateTo && !parsedTo || parsedFrom && parsedTo && parsedFrom > parsedTo
+    || !Number.isInteger(minDaysBefore) || minDaysBefore < 0 || !Number.isInteger(offset) || offset < 0 || (limit !== null && (!Number.isInteger(limit) || limit < 1))) throw new Error("Paramètres de campagne invalides.");
+  const leadTimeDate = Number(minDaysBefore) > 0 ? addDays(asOf, Number(minDaysBefore)) : asOf;
+  const minStartDate = [leadTimeDate, parsedFrom].filter(Boolean).sort().at(-1) || asOf;
   const queue = [];
   for (const row of rows) {
     const eventName = valueFor(row, aliases.eventName);
@@ -123,7 +127,8 @@ export const buildFormatQueue = (rows, { asOf = new Date().toISOString().slice(0
     const exactDate = isExactDate(dateBasis) || (!dateBasis && row.date) ? parseDate(valueFor(row, aliases.exactDate)) : "";
     const priorityDate = exactDate || aliases.planningDate.map(name => parseDate(row[name])).find(Boolean) || "9999-12-31";
     if (exactDate && exactDate < asOf) { exclude("past_exact_date"); continue; }
-    if (minStartDate && (priorityDate === "9999-12-31" || priorityDate < minStartDate)) { exclude(priorityDate === "9999-12-31" ? "missing_planning_date" : "before_campaign_window"); continue; }
+    if (priorityDate === "9999-12-31" || priorityDate < minStartDate) { exclude(priorityDate === "9999-12-31" ? "missing_planning_date" : "before_campaign_window"); continue; }
+    if (parsedTo && priorityDate > parsedTo) { exclude("after_campaign_window"); continue; }
     const formats = parseFormatText(valueFor(row, aliases.formats));
     if (!formats.length) exclude("missing_formats");
     formats.forEach((format, index) => {
@@ -131,7 +136,7 @@ export const buildFormatQueue = (rows, { asOf = new Date().toISOString().slice(0
       const coveragePct = coverageFor({ candidateEventDate: exactDate, city, country, ...format, officialWebsite });
       queue.push({
         research_schema_version: "", target_edition_year: priorityDate === "9999-12-31" ? "" : priorityDate.slice(0, 4),
-        campaign_as_of: asOf, min_event_date: minStartDate || asOf, field_provenance_json: "{}", research_errors_json: "[]",
+        campaign_as_of: asOf, min_event_date: minStartDate, max_event_date: parsedTo, field_provenance_json: "{}", research_errors_json: "[]",
         prospect_distance_km: format.distanceKm === null ? "" : String(format.distanceKm),
         prospect_elevation_gain_m: format.elevationGainM === null ? "" : String(format.elevationGainM),
         format_key: `format-${sha(`${raceUrl}|${index}|${format.entry}`)}`,
@@ -247,7 +252,7 @@ export const buildFormatQueue = (rows, { asOf = new Date().toISOString().slice(0
 };
 
 const parseArgs = (argv) => {
-  const args = { input: null, output: null, asOf: new Date().toISOString().slice(0, 10), minDaysBefore: 0, limit: null, offset: 0 };
+  const args = { input: null, output: null, asOf: new Date().toISOString().slice(0, 10), minDaysBefore: 0, dateFrom: "", dateTo: "", limit: null, offset: 0 };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     const next = argv[index + 1];
@@ -255,6 +260,8 @@ const parseArgs = (argv) => {
     if (arg === "--output") { args.output = next; index += 1; continue; }
     if (arg === "--as-of") { args.asOf = next; index += 1; continue; }
     if (arg === "--min-days-before") { args.minDaysBefore = Number(next); index += 1; continue; }
+    if (arg === "--date-from") { args.dateFrom = next; index += 1; continue; }
+    if (arg === "--date-to") { args.dateTo = next; index += 1; continue; }
     if (arg === "--limit") { args.limit = Number(next); index += 1; continue; }
     if (arg === "--offset") { args.offset = Number(next); index += 1; continue; }
     throw new Error(`Option inconnue : ${arg}`);
@@ -268,7 +275,7 @@ export const run = async (argv = process.argv.slice(2)) => {
   const args = parseArgs(argv);
   const input = await readFile(args.input, "utf8");
   const table = parseCsvTable(input);
-  const rows = buildFormatQueue(table.rows, { asOf: args.asOf, minDaysBefore: args.minDaysBefore, limit: args.limit, offset: args.offset });
+  const rows = buildFormatQueue(table.rows, { asOf: args.asOf, minDaysBefore: args.minDaysBefore, dateFrom: args.dateFrom, dateTo: args.dateTo, limit: args.limit, offset: args.offset });
   await writeFile(args.output, serializeCsvTable(FORMAT_QUEUE_HEADERS, rows), "utf8");
   console.error(`Queue formats : ${rows.length} ligne(s) écrite(s) dans ${args.output}.`);
   return rows;

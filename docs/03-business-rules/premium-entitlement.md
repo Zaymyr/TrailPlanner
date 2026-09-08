@@ -97,7 +97,7 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 - Billing source rows all flow into `subscriptions`.
 - Premium grants are overrides, not subscriptions.
 - Plan creation routes must check effective entitlements before allowing extra saved plans.
-- Organizer per-edition Visibilité/RaceBook/Pro rights are a separate commercial model stored in `organizer_edition_entitlements`; they never elevate runner Premium.
+- Organizer per-edition Visibilité/Essential/Complete/Signature rights are a separate commercial model stored in `organizer_edition_entitlements`; they never elevate runner Premium.
 
 ## Gotchas
 

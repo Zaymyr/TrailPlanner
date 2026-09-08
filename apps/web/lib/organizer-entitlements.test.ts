@@ -11,17 +11,24 @@ describe("organizer edition capabilities", () => {
     expect(hasOrganizerCapability(entitlement("visibility"), "edition.duplicate")).toBe(false);
   });
 
-  it("lets RaceBook publish without enabling runner notifications", () => {
-    expect(hasOrganizerCapability(entitlement("racebook"), "racebook.publish")).toBe(true);
-    expect(hasOrganizerCapability(entitlement("racebook"), "followers.notify")).toBe(false);
-    expect(hasOrganizerCapability(entitlement("racebook"), "relay.manage")).toBe(false);
-    expect(hasOrganizerCapability(entitlement("racebook"), "sponsors.manage")).toBe(false);
+  it("lets Essential publish basic content only", () => {
+    expect(hasOrganizerCapability(entitlement("essential"), "racebook.publish")).toBe(true);
+    expect(hasOrganizerCapability(entitlement("essential"), "racebook_content.basic.manage")).toBe(true);
+    expect(hasOrganizerCapability(entitlement("essential"), "followers.notify")).toBe(false);
+    expect(hasOrganizerCapability(entitlement("essential"), "relay.manage")).toBe(false);
   });
 
-  it("enables every declared capability for Pro and rejects revoked rights", () => {
-    for (const capability of ORGANIZER_TIER_CAPABILITIES.pro) {
-      expect(hasOrganizerCapability(entitlement("pro"), capability)).toBe(true);
-      expect(hasOrganizerCapability(entitlement("pro", "revoked"), capability)).toBe(false);
+  it("adds advanced operations at Complete", () => {
+    expect(hasOrganizerCapability(entitlement("complete"), "racebook_content.advanced.manage")).toBe(true);
+    expect(hasOrganizerCapability(entitlement("complete"), "followers.notify")).toBe(true);
+    expect(hasOrganizerCapability(entitlement("complete"), "edition.duplicate")).toBe(true);
+    expect(hasOrganizerCapability(entitlement("complete"), "branding.manage")).toBe(false);
+  });
+
+  it("enables every declared capability for Signature and rejects revoked rights", () => {
+    for (const capability of ORGANIZER_TIER_CAPABILITIES.signature) {
+      expect(hasOrganizerCapability(entitlement("signature"), capability)).toBe(true);
+      expect(hasOrganizerCapability(entitlement("signature", "revoked"), capability)).toBe(false);
     }
   });
 });

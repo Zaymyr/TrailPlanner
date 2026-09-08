@@ -41,6 +41,7 @@ export const validateClaimForRow = (input, row) => {
   if (claim.field === "race_date" || claim.field === "event_end_date") {
     if (targetEdition(row) && claim.value.slice(0,4) !== targetEdition(row)) return "edition_mismatch";
     if (row.min_event_date && claim.value < row.min_event_date) return "date_outside_campaign";
+    if (row.max_event_date && claim.value > row.max_event_date) return "date_outside_campaign";
     if (!datesInText(claim.evidence).includes(claim.value)) return "value_not_in_evidence";
     if (/(?:inscription|tarif).*(?:jusqu|avant|cloture)/.test(normalizeText(claim.evidence)) && !/(?:course|epreuve|trail).*(?:aura lieu|se deroul|depart)/.test(normalizeText(claim.evidence))) return "date_context_ambiguous";
   } else if (NUMERIC_FIELDS.has(claim.field)) {
@@ -49,8 +50,11 @@ export const validateClaimForRow = (input, row) => {
     if (claim.field === "latitude" && Math.abs(claim.value) > 90 || claim.field === "longitude" && Math.abs(claim.value) > 180) return "invalid_value";
     const numberText = escape(claim.value).replace("\\.", "[.,]");
     const normalizedEvidence = normalizeText(claim.evidence).replace(/(\d)[ \u00a0\u202f](?=\d{3}\b)/g, "$1");
-    if (!new RegExp(`(?<![\\d.,])${numberText}(?![\\d.,])`).test(normalizedEvidence)) return "value_not_in_evidence";
-    if (claim.field === "distance_km" && !distances(claim.evidence).includes(claim.value)) return "unit_not_in_evidence";
+    if (claim.field === "distance_km") {
+      if (!distances(claim.evidence).includes(claim.value)) return "unit_not_in_evidence";
+    } else if (!new RegExp(`(?<![\\d.,])${numberText}(?![\\d.,])`).test(normalizedEvidence)) return "value_not_in_evidence";
+    if (claim.field === "distance_km" && /(?:€|\beur(?:o)?s?\b)/i.test(claim.evidence)
+      && !/(?:distance|parcours|course\s+chronometree|epreuve\s+(?:de\s+)?\d)/.test(normalizedEvidence)) return "distance_context_ambiguous";
     const expected = numericValue(row.prospect_distance_km ?? row.distance_km);
     if (claim.field === "distance_km" && expected !== null && Math.abs(expected - claim.value) > Math.max(1, expected * .12)) return "distance_mismatch";
     if (claim.field === "elevation_gain_m" && !new RegExp(`(?:d\\s*\\+\\s*[:=-]?\\s*${numberText}(?![\\d.,])|(?<![\\d.,])${numberText}\\s*m?\\s*d\\s*\\+|denivele positif(?: total)?(?: de)?\\s*${numberText}(?![\\d.,]))`).test(normalizedEvidence)) return "unit_not_in_evidence";
@@ -82,7 +86,8 @@ export const refreshImportReadiness = (row) => {
   row.missing_fields = Object.keys(statuses).filter(field => statuses[field] === "missing").join(";");
   row.unverified_fields = Object.keys(statuses).filter(field => statuses[field] !== "verified").join(";");
   const date = verifiedValue(row, "race_date");
-  const validDate = date && parseResearchDate(date) && (!targetEdition(row) || date.slice(0,4) === targetEdition(row)) && (!row.min_event_date || date >= row.min_event_date);
+  const validDate = date && parseResearchDate(date) && (!targetEdition(row) || date.slice(0,4) === targetEdition(row))
+    && (!row.min_event_date || date >= row.min_event_date) && (!row.max_event_date || date <= row.max_event_date);
   const ready = row.research_schema_version === RESEARCH_SCHEMA_VERSION && row.source_role === "official_candidate"
     && classifySourceUrl(row.official_website).role === "official_candidate"
     && REQUIRED_FIELDS.every(field => verified.includes(field)) && validDate;
@@ -114,6 +119,10 @@ export const applyClaims = (row, extraction, llm = {}) => {
     if (!reason) {
       try { if (new URL(page.url).hostname !== new URL(row.official_website).hostname || page.authority === "secondary" || classifySourceUrl(page.url).role !== "official_candidate") reason = "secondary_source"; }
       catch { reason = "invalid_source"; }
+    }
+    if (!reason && targetEdition(row)) {
+      const pageDates = datesInText(page.text || "");
+      if (pageDates.length && !pageDates.some(date => date.slice(0, 4) === targetEdition(row))) reason = "edition_mismatch";
     }
     if (!reason) reason = validateClaimForRow({...claim, evidence: [page.format_context, claim.evidence].filter(Boolean).join(" ")}, row);
     if (reason) { rejected.push({...claim, reason}); continue; }

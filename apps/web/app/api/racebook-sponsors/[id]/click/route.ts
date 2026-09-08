@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../../lib/http";
 import { serviceHeaders } from "../../../../../lib/organizer";
+import { isOrganizerEditionModuleEnabled } from "../../../../../lib/organizer-module-settings";
 import { getSupabaseServiceConfig } from "../../../../../lib/supabase";
 
 const paramsSchema = z.object({ id: z.string().uuid() });
@@ -25,6 +26,9 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if (!targetResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 502 }));
   const target = z.array(targetSchema).parse(await targetResponse.json())[0] ?? null;
   if (!target) return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));
+  if (!(await isOrganizerEditionModuleEnabled(serviceConfig, target.edition_id, "sponsors"))) {
+    return withSecurityHeaders(NextResponse.json({ message: "Sponsor link unavailable." }, { status: 410 }));
+  }
 
   const raceResponse = await fetch(
     `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&edition_id=eq.${target.edition_id}&select=id&limit=1`,

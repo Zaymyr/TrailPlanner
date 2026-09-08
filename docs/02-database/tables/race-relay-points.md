@@ -66,6 +66,8 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 ## Gotchas
 
+- Relay writes require Signature and an active `relay` format module; public RLS masks stored points when the module is inactive or locked.
+
 - RaceBook onboarding is presentation-only and leaves relay-point loading and the conditional Relais tab unchanged.
 - Holding initial RaceBook progress for sponsor preparation does not delay, cache, or change the separate relay-point read contract.
 - RaceBook tab analytics may report that the Relay view was selected, but must not emit relay notes or other organizer-authored content as analytics properties.

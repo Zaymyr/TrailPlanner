@@ -113,7 +113,17 @@ describe("/api/organizer/events/[id]", () => {
 
   it("persists organizerDetails on patch", async () => {
     const mockFetch = vi.mocked(fetch);
-    mockFetch.mockResolvedValueOnce(
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse([{
+        organizer_details: {
+          mandatoryEquipment: {
+            weatherPlan: "heat",
+            items: [{ id: "item-1", label: "Casquette", required: false, cold: false, heat: true, note: null }],
+          },
+        },
+      }]))
+      .mockResolvedValueOnce(buildJsonResponse([{ id: "33333333-3333-4333-8333-333333333333" }]))
+      .mockResolvedValueOnce(
       buildJsonResponse([
         {
           id: eventId,
@@ -226,6 +236,10 @@ describe("/api/organizer/events/[id]", () => {
 
 vi.mock("../../../../../lib/http", () => ({
   withSecurityHeaders: (response: Response) => response,
+}));
+
+vi.mock("../../../../../lib/organizer-module-settings", () => ({
+  isOrganizerEditionModuleEnabled: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../lib/organizer", async () => {

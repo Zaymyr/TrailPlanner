@@ -142,6 +142,8 @@ where fuel_type = 'electrolyte'
 
 ## Gotchas
 
+- Associating products with organizer ravitos requires the effective Signature `official_products` module; this does not alter the reusable product catalog row.
+
 - Linking products as official organizer ravito availability is Pro-only and route-mediated; product ownership or `is_official` alone does not grant that edition capability.
 
 - Do not add `water_ml` to `products` just to support hydration planning. The current algorithm treats water as segment/carry demand.

@@ -17,6 +17,17 @@ import {
   type OrganizerEventDetails,
 } from "../../../lib/organizer-dashboard-details";
 import type { FuelProduct } from "../../../lib/product-types";
+import type { OrganizerTier } from "../../../lib/organizer-entitlements";
+import {
+  ORGANIZER_MODULES,
+  ORGANIZER_TIER_LABEL,
+  ORGANIZER_TIER_PRICE_EUR,
+  ORGANIZER_TIER_RANK,
+  getOrganizerModuleState,
+  type OrganizerEditionModuleKey,
+  type OrganizerModuleKey,
+  type OrganizerRaceModuleKey,
+} from "../../../lib/organizer-modules";
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { supportEmail } from "../../support/copy";
 import {
@@ -224,8 +235,34 @@ type OrganizerPricingContext = {
   eventName: string;
   editionId: string;
   editionYear: string;
-  tier: "visibility" | "racebook" | "pro";
+  tier: OrganizerTier;
 };
+
+type PaidOrganizerTier = Exclude<OrganizerTier, "visibility">;
+
+type OrganizerModuleSettingsPayload = {
+  setupCompletedAt: string | null;
+  tier: OrganizerTier;
+  edition: Record<OrganizerEditionModuleKey, boolean>;
+  races: Record<string, Record<OrganizerRaceModuleKey, boolean>>;
+};
+
+const ORGANIZER_OFFER_DETAILS: Record<PaidOrganizerTier, { description: string; features: string[] }> = {
+  essential: {
+    description: "Le RaceBook simple pour centraliser les informations indispensables.",
+    features: ["Publication mobile", "Course, GPX et profil", "Matériel, dossard et accès", "Ravitaillements simples"],
+  },
+  complete: {
+    description: "La logistique détaillée pour les événements établis.",
+    features: ["Tout Essentiel", "SAS, barrières et ravitos détaillés", "Services, navettes et podiums", "Notifications et duplication annuelle"],
+  },
+  signature: {
+    description: "L’expérience complète, personnalisée et valorisable auprès des partenaires.",
+    features: ["Tout Complet", "Relais et produits officiels", "Sponsors et suivi des clics", "Identité visuelle et import assisté"],
+  },
+};
+
+const paidOrganizerTiers: PaidOrganizerTier[] = ["essential", "complete", "signature"];
 
 export function OrganizerDashboard({
   requestedEventId = null,
@@ -270,9 +307,12 @@ export function OrganizerDashboard({
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [moduleSettingsOpen, setModuleSettingsOpen] = useState(false);
+  const [moduleSettings, setModuleSettings] = useState<OrganizerModuleSettingsPayload | null>(null);
+  const [moduleSettingsSaving, setModuleSettingsSaving] = useState<OrganizerModuleKey | "setup" | null>(null);
   const [pricingContext, setPricingContext] = useState<OrganizerPricingContext | null>(null);
-  const [checkoutTarget, setCheckoutTarget] = useState<"racebook" | "pro" | null>(null);
-  const [complimentaryGrantTarget, setComplimentaryGrantTarget] = useState<"racebook" | "pro" | null>(null);
+  const [checkoutTarget, setCheckoutTarget] = useState<Exclude<OrganizerTier, "visibility"> | null>(null);
+  const [complimentaryGrantTarget, setComplimentaryGrantTarget] = useState<Exclude<OrganizerTier, "visibility"> | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [eventUpdateMessage, setEventUpdateMessage] = useState("");
   const [eventUpdateRaceId, setEventUpdateRaceId] = useState<string | null>(null);
@@ -304,7 +344,7 @@ export function OrganizerDashboard({
   const gpxRequestsRef = useRef(new Map<string, Promise<GpxPreview | null>>());
   const cacheOwnerIdRef = useRef<string | null>(null);
   const cacheGenerationRef = useRef(0);
-  const previousActiveTierRef = useRef<"visibility" | "racebook" | "pro">("visibility");
+  const previousActiveTierRef = useRef<OrganizerTier>("visibility");
   const requestedBootstrapEventIdRef = useRef(requestedEventId);
   const skipNextEventLoadRef = useRef<string | null>(null);
 
@@ -335,6 +375,32 @@ export function OrganizerDashboard({
     activeSeries?.races[0] ??
     null;
   activeRaceIdRef.current = activeRace?.id ?? null;
+
+  const enabledCompletionModules = useMemo(() => {
+    const eventModules = new Set<OrganizerModuleId>(["event"]);
+    const races: Record<string, Set<OrganizerModuleId>> = {};
+    const editionEnabled = (key: OrganizerEditionModuleKey) =>
+      moduleSettings ? getOrganizerModuleState(activeTier, key, moduleSettings.edition[key]) === "active" : true;
+    if (editionEnabled("equipment")) eventModules.add("equipment");
+    if (editionEnabled("bib_pickup")) eventModules.add("bibPickup");
+    if (editionEnabled("access")) eventModules.add("access");
+    if (editionEnabled("services")) eventModules.add("services");
+    if (editionEnabled("branding")) eventModules.add("branding");
+    if (editionEnabled("sponsors")) eventModules.add("sponsors");
+    for (const race of eventDetail?.races ?? []) {
+      const enabled = new Set<OrganizerModuleId>(["formats"]);
+      if (editionEnabled("equipment")) enabled.add("equipment");
+      if (editionEnabled("bib_pickup")) enabled.add("bibPickup");
+      if (editionEnabled("access")) enabled.add("access");
+      const raceSettings = moduleSettings?.races[race.id];
+      const raceEnabled = (key: OrganizerRaceModuleKey) =>
+        moduleSettings ? getOrganizerModuleState(activeTier, key, raceSettings?.[key] ?? false) === "active" : true;
+      if (raceEnabled("aid_stations")) enabled.add("aidStations");
+      if (raceEnabled("awards")) enabled.add("awards");
+      races[race.id] = enabled;
+    }
+    return { event: eventModules, races };
+  }, [activeTier, eventDetail?.races, moduleSettings]);
 
   useEffect(() => {
     const ownerId = session?.id ?? null;
@@ -433,8 +499,16 @@ export function OrganizerDashboard({
         brandingSummary !== null && brandingSummary.editionId === activeEdition?.id
           ? brandingSummary.unpublished
           : false,
-    });
-  }, [activeEdition?.id, activeEdition?.serviceCount, activeRace?.aidStationCount, activeRace?.awardCount, activeRace?.id, activeRace?.startWaveCount, activeRaceForCompletion, aidStations, brandingSummary, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
+    }, enabledCompletionModules);
+  }, [activeEdition?.id, activeEdition?.serviceCount, activeRace?.aidStationCount, activeRace?.awardCount, activeRace?.id, activeRace?.startWaveCount, activeRaceForCompletion, aidStations, brandingSummary, enabledCompletionModules, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
+
+  useEffect(() => {
+    if (!completion) return;
+    const available = activeTab === EVENT_TAB_ID ? completion.eventModules : completion.formatModules;
+    if (!available.some((module) => module.id === activeModule)) {
+      setActiveModule(activeTab === EVENT_TAB_ID ? "event" : "formats");
+    }
+  }, [activeModule, activeTab, completion]);
 
   const markDirty = (moduleId: OrganizerModuleId) => {
     if (!activeDirtyScopeKey) return;
@@ -640,12 +714,93 @@ export function OrganizerDashboard({
   }, [selectedEventId, accessToken]);
 
   useEffect(() => {
+    if (!activeEdition?.id || !accessToken) {
+      setModuleSettings(null);
+      return;
+    }
+    let cancelled = false;
+    const loadModuleSettings = async () => {
+      const response = await fetch(`/api/organizer/editions/${activeEdition.id}/module-settings`, {
+        headers: authHeaders,
+        cache: "no-store",
+      });
+      const data = (await response.json().catch(() => null)) as OrganizerModuleSettingsPayload | { message?: string } | null;
+      if (cancelled) return;
+      if (!response.ok || !data || !("edition" in data)) {
+        showToast("error", (data && "message" in data ? data.message : null) ?? "Impossible de charger les sections du RaceBook.");
+        return;
+      }
+      setModuleSettings(data);
+      if (data.setupCompletedAt === null && data.tier !== "visibility") setModuleSettingsOpen(true);
+    };
+    void loadModuleSettings();
+    return () => { cancelled = true; };
+  }, [accessToken, activeEdition?.id, authHeaders]);
+
+  const updateModuleSetting = async (moduleKey: OrganizerModuleKey, enabled: boolean) => {
+    if (!activeEdition?.id || !moduleSettings) return;
+    const definition = ORGANIZER_MODULES.find((module) => module.key === moduleKey);
+    if (!definition) return;
+    const raceIds = definition.scope === "race"
+      ? activeRace ? [activeRace.id] : websiteImportExistingRaces.map((race) => race.id)
+      : [];
+    if (definition.scope === "race" && raceIds.length === 0) {
+      showToast("error", "Ajoute d’abord un format.");
+      return;
+    }
+    if (!enabled && !window.confirm("Désactiver cette section ? Ses données seront conservées et pourront être restaurées.")) return;
+    setModuleSettingsSaving(moduleKey);
+    try {
+      const response = await fetch(`/api/organizer/editions/${activeEdition.id}/module-settings`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          updates: definition.scope === "race"
+            ? raceIds.map((raceId) => ({ scope: "race", moduleKey, enabled, raceId }))
+            : [{ scope: "edition", moduleKey, enabled }],
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as OrganizerModuleSettingsPayload | { message?: string } | null;
+      if (!response.ok || !data || !("edition" in data)) {
+        if (response.status === 403) openPricingDialog();
+        throw new Error((data && "message" in data ? data.message : null) ?? "Impossible de modifier cette section.");
+      }
+      setModuleSettings(data);
+      showToast("success", enabled ? "Section activée." : "Section masquée, données conservées.");
+    } catch (caught) {
+      showToast("error", caught instanceof Error ? caught.message : "Impossible de modifier cette section.");
+    } finally {
+      setModuleSettingsSaving(null);
+    }
+  };
+
+  const completeModuleSetup = async () => {
+    if (!activeEdition?.id) return;
+    setModuleSettingsSaving("setup");
+    try {
+      const response = await fetch(`/api/organizer/editions/${activeEdition.id}/module-settings`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ updates: [], setupCompleted: true }),
+      });
+      const data = (await response.json().catch(() => null)) as OrganizerModuleSettingsPayload | null;
+      if (!response.ok || !data?.edition) throw new Error("Impossible de terminer la configuration.");
+      setModuleSettings(data);
+      setModuleSettingsOpen(false);
+    } catch (caught) {
+      showToast("error", caught instanceof Error ? caught.message : "Impossible de terminer la configuration.");
+    } finally {
+      setModuleSettingsSaving(null);
+    }
+  };
+
+  useEffect(() => {
     if (!selectedEventId || !accessToken || typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("organizerPayment") !== "success") return;
     const returnedEditionId = params.get("editionId");
     const targetTier = params.get("targetTier");
-    if (!returnedEditionId || (targetTier !== "racebook" && targetTier !== "pro")) return;
+    if (!returnedEditionId || (targetTier !== "essential" && targetTier !== "complete" && targetTier !== "signature")) return;
 
     let cancelled = false;
     let attempts = 0;
@@ -658,7 +813,7 @@ export function OrganizerDashboard({
       if (returnedEdition?.entitlement?.status === "active" && returnedEdition.entitlement.tier === targetTier) {
         trackOrganizerPurchaseVerified({ targetTier, editionYear: selectedEditionYear });
         applyLoadedEvent(data.event, activeTab, selectedEditionYear);
-        showToast("success", `L’offre ${targetTier === "pro" ? "RaceBook Pro" : "RaceBook"} est maintenant active.`);
+        showToast("success", `L’offre ${ORGANIZER_TIER_LABEL[targetTier]} est maintenant active.`);
         params.delete("organizerPayment");
         params.delete("targetTier");
         params.delete("session_id");
@@ -719,7 +874,7 @@ export function OrganizerDashboard({
           const aidData = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
           let relayPoints: RelayPointDraft[] = [];
           let products: StationProduct[] = [];
-          if (activeTier === "pro") {
+          if (activeTier === "signature") {
             const [relayResponse, productsResponse] = await Promise.all([
               fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" }),
               fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" }),
@@ -844,7 +999,7 @@ export function OrganizerDashboard({
   useEffect(() => {
     const previousTier = previousActiveTierRef.current;
     previousActiveTierRef.current = activeTier;
-    if (!activeRace || previousTier === activeTier || activeTier !== "pro") return;
+    if (!activeRace || previousTier === activeTier || activeTier !== "signature") return;
 
     invalidateOrganizerRaceSidecarsCache(activeRace.id);
     sidecarRequestsRef.current.delete(activeRace.id);
@@ -857,7 +1012,7 @@ export function OrganizerDashboard({
     if (needsSidecar && sidecarLoadedRaceId !== activeRace.id) {
       void loadRaceSidecar(activeRace.id);
     }
-    if (needsSidecar && activeTier === "pro") void loadCatalogProducts();
+    if (needsSidecar && activeTier === "signature") void loadCatalogProducts();
 
     const needsGpx = activeModule === "formats" || activeModule === "aidStations";
     if (needsGpx && activeRace.gpx_storage_path && gpxLoadedRaceKey !== `${activeRace.id}:${activeRace.gpx_storage_path}`) {
@@ -1108,7 +1263,7 @@ export function OrganizerDashboard({
         | (GpxPreview & { race?: RaceFormat; message?: string; appliedAidStationCount?: number })
         | null;
       if (!response.ok) {
-        showToast("error", data?.message ?? "GPX invalide ou impossible Ã  importer.");
+        showToast("error", data?.message ?? "GPX invalide ou impossible à importer.");
         return { ok: false };
       }
       if (activeRace?.id === raceId) {
@@ -1248,7 +1403,7 @@ export function OrganizerDashboard({
             }
           : current
       );
-      showToast("success", "Image du format mise Ã  jour.");
+      showToast("success", "Image du format mise à jour.");
     } finally {
       event.target.value = "";
     }
@@ -1396,7 +1551,7 @@ export function OrganizerDashboard({
         return false;
       }
       let savedRelayPoints: RelayPointDraft[] = [];
-      if (activeTier === "pro") {
+      if (activeTier === "signature") {
         const relayResponse = await fetch(`/api/organizer/races/${activeRace.id}/relay-points`, {
           method: "PUT",
           headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -1741,8 +1896,8 @@ export function OrganizerDashboard({
   };
 
   const requestPublication = () => {
-    if (activeTier === "pro") {
-      showToast("success", "L’offre RaceBook Pro est active pour cette édition.");
+    if (activeTier !== "visibility") {
+      showToast("success", `L’offre ${ORGANIZER_TIER_LABEL[activeTier]} est active pour cette édition.`);
       return;
     }
     openPricingDialog();
@@ -1778,7 +1933,7 @@ export function OrganizerDashboard({
     }
   };
 
-  const startCheckout = async (targetTier: "racebook" | "pro") => {
+  const startCheckout = async (targetTier: Exclude<OrganizerTier, "visibility">) => {
     if (checkoutTarget !== null) return;
     setCheckoutTarget(targetTier);
     setCheckoutError(null);
@@ -1834,7 +1989,7 @@ export function OrganizerDashboard({
     }
   };
 
-  const grantComplimentaryOffer = async (targetTier: "racebook" | "pro") => {
+  const grantComplimentaryOffer = async (targetTier: Exclude<OrganizerTier, "visibility">) => {
     if (!isAdmin || complimentaryGrantTarget !== null || checkoutTarget !== null) return;
     setComplimentaryGrantTarget(targetTier);
     setCheckoutError(null);
@@ -1868,7 +2023,7 @@ export function OrganizerDashboard({
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        const message = data?.message ?? `Impossible d’offrir l’offre ${targetTier === "pro" ? "RaceBook Pro" : "RaceBook"}.`;
+        const message = data?.message ?? `Impossible d’offrir l’offre ${ORGANIZER_TIER_LABEL[targetTier]}.`;
         setCheckoutError(message);
         showToast("error", message);
         return;
@@ -1878,12 +2033,7 @@ export function OrganizerDashboard({
       setPricingDialogOpen(false);
       setPricingContext(null);
       await loadEvent(grantedContext.eventId, activeTab, grantedContext.editionYear);
-      showToast(
-        "success",
-        targetTier === "pro"
-          ? "Offre RaceBook Pro offerte — valeur : 299 € HT."
-          : "Offre RaceBook offerte — valeur : 199 € HT."
-      );
+      showToast("success", `Offre ${ORGANIZER_TIER_LABEL[targetTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[targetTier]} € HT.`);
     } catch (caught) {
       console.error("Unable to grant complimentary organizer offer", caught);
       const message = "Impossible d’offrir la publication pour le moment. Vérifie ta connexion puis réessaie.";
@@ -2263,6 +2413,17 @@ export function OrganizerDashboard({
     }
   };
 
+  const visibleModuleChoices = ORGANIZER_MODULES.map((module) => {
+    const enabled = moduleSettings
+      ? module.scope === "edition"
+        ? moduleSettings.edition[module.key as OrganizerEditionModuleKey]
+        : activeRace
+          ? moduleSettings.races[activeRace.id]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled
+          : websiteImportExistingRaces.length > 0 && websiteImportExistingRaces.every((race) => moduleSettings.races[race.id]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled)
+      : module.defaultEnabled;
+    return { ...module, enabled, state: getOrganizerModuleState(activeTier, module.key, enabled) };
+  });
+
   const applyWebsiteImport = async () => {
     if (!selectedEventId || !accessToken || websiteImportWorkflow?.step !== "review") return;
     if (!(await saveBeforeNavigation())) return;
@@ -2360,7 +2521,7 @@ export function OrganizerDashboard({
         onImportWebsite={
           isAdmin
             ? openWebsiteImportDialog
-            : activeTier === "pro"
+            : activeTier === "signature"
               ? () => {
                   const subject = `Import assisté — ${eventDetail?.name ?? "événement"} — édition ${selectedEditionYear}`;
                   window.location.assign(`mailto:${supportEmail}?subject=${encodeURIComponent(subject)}`);
@@ -2376,7 +2537,7 @@ export function OrganizerDashboard({
           void saveAllDirty();
         }}
         onNotifyFollowers={(raceId) => {
-          if (activeTier !== "pro") {
+          if (ORGANIZER_TIER_RANK[activeTier] < ORGANIZER_TIER_RANK.complete) {
             openPricingDialog();
             return;
           }
@@ -2398,21 +2559,87 @@ export function OrganizerDashboard({
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
       {completion ? (
-        <CompletionTabsPanel
-          tabs={tabs}
-          activeTab={activeTab}
-          activeRace={activeRace}
-          completion={completion}
-          dirtyModules={dirtyModules}
-          onTabChange={handleTabChange}
-          onSelectModule={(moduleId) => {
-            if (moduleId === activeModule) return;
-            saveCurrentScopeInBackground();
-            setActiveModule(moduleId);
-          }}
-          activeModule={activeModule}
-        />
+        <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button type="button" variant="outline" onClick={() => setModuleSettingsOpen(true)} disabled={!moduleSettings}>
+              Ajouter ou masquer une section
+            </Button>
+          </div>
+          <CompletionTabsPanel
+            tabs={tabs}
+            activeTab={activeTab}
+            activeRace={activeRace}
+            completion={completion}
+            dirtyModules={dirtyModules}
+            onTabChange={handleTabChange}
+            onSelectModule={(moduleId) => {
+              if (moduleId === activeModule) return;
+              saveCurrentScopeInBackground();
+              setActiveModule(moduleId);
+            }}
+            activeModule={activeModule}
+          />
+        </div>
       ) : null}
+
+      <Dialog open={moduleSettingsOpen} onOpenChange={(open) => {
+        if (!open && moduleSettings?.setupCompletedAt === null) void completeModuleSetup();
+        else setModuleSettingsOpen(open);
+      }}>
+        <DialogContent className="max-h-[88vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre RaceBook" : "Sections du RaceBook"}</DialogTitle>
+            <DialogDescription>
+              Activez uniquement les sections utiles. Les informations restent conservées lorsqu’une section est masquée.
+              {activeRace ? ` Les sections de format ci-dessous concernent ${activeRace.name}.` : " Les réponses de format s’appliquent ici à tous les formats de l’édition."}
+            </DialogDescription>
+          </DialogHeader>
+          {(["active", "inactive", "locked"] as const).map((state) => {
+            const choices = visibleModuleChoices.filter((module) => module.state === state);
+            if (choices.length === 0) return null;
+            return (
+              <section key={state} className="space-y-2">
+                <h3 className="text-sm font-semibold text-foreground">
+                  {state === "active" ? "Sections actives" : state === "inactive" ? "Ajouter une section" : "Découvrir les autres fonctionnalités"}
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {choices.map((module) => (
+                    <div key={module.key} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+                      <div>
+                        <p className="text-sm font-medium text-foreground">{module.label}</p>
+                        <p className="text-xs text-muted-foreground">{module.description}</p>
+                        {module.scope === "race" ? <p className="mt-1 text-[11px] text-muted-foreground">Par format</p> : null}
+                      </div>
+                      {state === "locked" ? (
+                        <Button type="button" variant="outline" className="h-8 px-2 text-xs" onClick={openPricingDialog}>
+                          Offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
+                        </Button>
+                      ) : (
+                        <button
+                          type="button"
+                          role="switch"
+                          aria-checked={module.enabled}
+                          aria-label={`${module.enabled ? "Masquer" : "Activer"} ${module.label}`}
+                          disabled={moduleSettingsSaving !== null || (module.scope === "race" && websiteImportExistingRaces.length === 0)}
+                          onClick={() => void updateModuleSetting(module.key, !module.enabled)}
+                          className={`relative h-6 w-11 shrink-0 rounded-full transition ${module.enabled ? "bg-brand" : "bg-muted"} disabled:opacity-50`}
+                        >
+                          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${module.enabled ? "left-[22px]" : "left-0.5"}`} />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            );
+          })}
+          <DialogFooter>
+            <Button type="button" onClick={() => void completeModuleSetup()} disabled={moduleSettingsSaving !== null}>
+              {moduleSettingsSaving === "setup" ? "Enregistrement..." : moduleSettings?.setupCompletedAt === null ? "Terminer" : "Fermer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <Card className="rounded-lg">
         <CardHeader
@@ -2567,12 +2794,12 @@ export function OrganizerDashboard({
               activeRace={activeRace}
               aidStations={aidStations}
               participationMode={raceForm.participationMode}
-              relayPoints={activeTier === "pro" ? relayPoints : []}
+              relayPoints={activeTier === "signature" ? relayPoints : []}
               startTime={raceForm.organizerDetails.schedule.startTime ?? ""}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
               cutoffNote={raceForm.organizerDetails.schedule.cutoffNote ?? ""}
               scheduleNote={raceForm.organizerDetails.schedule.note ?? ""}
-              startWavesSlot={<StartWavesEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} />}
+              startWavesSlot={<StartWavesEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete} />}
               expandedStationKey={expandedStationKey}
               onExpandedStationKeyChange={setExpandedStationKey}
               onAddStation={() => {
@@ -2606,7 +2833,7 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onAddRelayPoint={() => {
-                if (activeTier !== "pro") {
+                if (activeTier !== "signature") {
                   openPricingDialog();
                   return;
                 }
@@ -2638,7 +2865,7 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onToggleStationRelayPoint={(station, checked) => {
-                if (activeTier !== "pro") {
+                if (activeTier !== "signature") {
                   openPricingDialog();
                   return;
                 }
@@ -2691,12 +2918,12 @@ export function OrganizerDashboard({
                 setAidStations((current) => current.filter((_, stationIndex) => stationIndex !== index));
                 markDirty("aidStations");
               }}
-              stationProducts={activeTier === "pro" ? stationProducts : []}
+              stationProducts={activeTier === "signature" ? stationProducts : []}
               productsById={productsById}
               productForm={productForm}
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
-                if (activeTier !== "pro") {
+                if (activeTier !== "signature") {
                   openPricingDialog();
                   return;
                 }
@@ -2741,12 +2968,12 @@ export function OrganizerDashboard({
               onEventChange={(details) => updateEventDetails(details, "access")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "access")}
             />
-          ) : activeModule === "products" && activeTier !== "pro" ? (
+          ) : activeModule === "products" && activeTier !== "signature" ? (
             <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
-              <p className="font-semibold text-foreground">Produits officiels aux ravitaillements — RaceBook Pro</p>
-              <p className="mt-2 text-sm text-muted-foreground">Passe à Pro pour gérer les produits disponibles et les intégrer au plan nutritionnel des coureurs.</p>
+              <p className="font-semibold text-foreground">Produits officiels aux ravitaillements — Signature</p>
+              <p className="mt-2 text-sm text-muted-foreground">Passe à Signature pour gérer les produits disponibles et les intégrer au plan nutritionnel des coureurs.</p>
               <Button type="button" className="mt-4" onClick={openPricingDialog}>
-                Découvrir RaceBook Pro
+                Découvrir Signature
               </Button>
             </div>
           ) : activeModule === "products" ? (
@@ -2771,17 +2998,17 @@ export function OrganizerDashboard({
               status={status}
             />
           ) : activeModule === "services" ? (
-            <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} />
+            <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} />
           ) : activeModule === "awards" ? (
-            <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={activeTier !== "visibility"} />
-          ) : activeModule === "branding" && isEventTab && activeTier !== "pro" ? (
+            <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete} />
+          ) : activeModule === "branding" && isEventTab && activeTier !== "signature" ? (
             <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
-              <p className="font-semibold text-foreground">Identité visuelle personnalisée — RaceBook Pro</p>
+              <p className="font-semibold text-foreground">Identité visuelle personnalisée — Signature</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Passe à Pro pour adapter le logo et les couleurs du RaceBook à la direction artistique de ton événement.
               </p>
               <Button type="button" className="mt-4" onClick={openPricingDialog}>
-                Découvrir RaceBook Pro
+                Découvrir Signature
               </Button>
             </div>
           ) : activeModule === "branding" && isEventTab && activeEdition?.id ? (
@@ -2793,14 +3020,14 @@ export function OrganizerDashboard({
               onSummaryChange={handleBrandingSummaryChange}
               onToast={showToast}
             />
-          ) : activeModule === "sponsors" && isEventTab && activeTier !== "pro" ? (
+          ) : activeModule === "sponsors" && isEventTab && activeTier !== "signature" ? (
             <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
-              <p className="font-semibold text-foreground">Gestion des sponsors — RaceBook Pro</p>
+              <p className="font-semibold text-foreground">Gestion des sponsors — Signature</p>
               <p className="mt-2 text-sm text-muted-foreground">
                 Passe à Pro pour ajouter les logos de tes sponsors, choisir leurs emplacements et suivre leurs clics.
               </p>
               <Button type="button" className="mt-4" onClick={openPricingDialog}>
-                Découvrir RaceBook Pro
+                Découvrir Signature
               </Button>
             </div>
           ) : activeModule === "sponsors" && isEventTab && activeEdition?.id ? (
@@ -2850,7 +3077,7 @@ export function OrganizerDashboard({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <DialogHeader className="space-y-2 sm:max-w-2xl">
                 <DialogTitle className="text-xl sm:text-2xl">
-                  {pricingContext?.tier === "racebook" ? "Passer à RaceBook Pro" : "Publier cette édition"}
+                  {pricingContext?.tier === "visibility" ? "Publier cette édition" : "Faire évoluer cette édition"}
                 </DialogTitle>
                 <DialogDescription className="leading-5">
                   Un achat unique pour cette édition et tous ses formats présents ou futurs. Prix HT, TVA calculée par Stripe.
@@ -2870,75 +3097,35 @@ export function OrganizerDashboard({
                 {checkoutError}
               </p>
             ) : null}
-            {pricingContext?.tier === "racebook" ? (
-              <Card className="border-brand">
-                <CardHeader className="pb-3">
-                  <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                    <span>RaceBook Pro</span>
-                    <span className="text-base font-semibold text-brand">Complément de 100 € HT</span>
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-5">
-                  <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
-                    <li>Notifications aux coureurs</li>
-                    <li>Duplication d’une édition</li>
-                    <li>Gestion des relais</li>
-                    <li>Produits officiels aux ravitaillements</li>
-                    <li>Logo et couleurs personnalisés</li>
-                    <li>Gestion et suivi des sponsors</li>
-                    <li>Import assisté</li>
-                  </ul>
-                  <Button type="button" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
-                    {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Passer à Pro pour 100 € HT"}
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid items-stretch gap-4 md:grid-cols-2">
-                <Card className="flex h-full flex-col">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                      <span>RaceBook</span>
-                      <span className="text-base font-semibold">199 € HT</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col gap-5">
-                    <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
-                      <li>Publication du RaceBook dans l’application mobile</li>
-                      <li>Parcours, horaires et ravitaillements</li>
-                      <li>Matériel, dossards et accès</li>
-                      <li>Informations pratiques pour les coureurs</li>
-                    </ul>
-                    <Button type="button" variant="outline" className="mt-auto w-full" onClick={() => void startCheckout("racebook")} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
-                      {checkoutTarget === "racebook" ? "Ouverture de Stripe…" : "Choisir RaceBook"}
-                    </Button>
-                  </CardContent>
-                </Card>
-                <Card className="flex h-full flex-col border-brand shadow-sm">
-                  <CardHeader className="pb-3">
-                    <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                      <span>RaceBook Pro</span>
-                      <span className="text-base font-semibold text-brand">299 € HT</span>
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="flex flex-1 flex-col gap-5">
-                    <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
-                      <li>Tout ce qui est inclus dans RaceBook</li>
-                      <li>Notifications aux coureurs</li>
-                      <li>Duplication d’une édition</li>
-                      <li>Gestion des relais</li>
-                      <li>Produits officiels aux ravitaillements</li>
-                      <li>Logo et couleurs personnalisés</li>
-                      <li>Gestion et suivi des sponsors</li>
-                      <li>Import assisté</li>
-                    </ul>
-                    <Button type="button" className="mt-auto w-full" onClick={() => void startCheckout("pro")} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
-                      {checkoutTarget === "pro" ? "Ouverture de Stripe…" : "Choisir RaceBook Pro"}
-                    </Button>
-                  </CardContent>
-                </Card>
-              </div>
-            )}
+            <div className="grid items-stretch gap-4 md:grid-cols-3">
+              {paidOrganizerTiers
+                .filter((tier) => !pricingContext || ORGANIZER_TIER_RANK[tier] > ORGANIZER_TIER_RANK[pricingContext.tier])
+                .map((tier) => {
+                  const currentPrice = pricingContext?.tier === "visibility" || !pricingContext
+                    ? 0
+                    : ORGANIZER_TIER_PRICE_EUR[pricingContext.tier];
+                  const amount = ORGANIZER_TIER_PRICE_EUR[tier] - currentPrice;
+                  return (
+                    <Card key={tier} className={`flex h-full flex-col ${tier === "complete" ? "border-brand shadow-sm" : ""}`}>
+                      <CardHeader className="pb-3">
+                        <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                          <span>{ORGANIZER_TIER_LABEL[tier]}</span>
+                          <span className="text-base font-semibold text-brand">{amount} € HT</span>
+                        </CardTitle>
+                        <CardDescription>{ORGANIZER_OFFER_DETAILS[tier].description}</CardDescription>
+                      </CardHeader>
+                      <CardContent className="flex flex-1 flex-col gap-5">
+                        <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
+                          {ORGANIZER_OFFER_DETAILS[tier].features.map((feature) => <li key={feature}>{feature}</li>)}
+                        </ul>
+                        <Button type="button" variant={tier === "complete" ? "default" : "outline"} className="mt-auto w-full" onClick={() => void startCheckout(tier)} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
+                          {checkoutTarget === tier ? "Ouverture de Stripe…" : `Choisir ${ORGANIZER_TIER_LABEL[tier]} · ${amount} € HT`}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+            </div>
             {isAdmin && pricingContext ? (
               <section className="space-y-4 rounded-xl border border-emerald-400 bg-emerald-50/50 p-4 sm:p-5 dark:bg-emerald-950/20">
                 <div className="space-y-1">
@@ -2947,42 +3134,26 @@ export function OrganizerDashboard({
                     Ces activations ne passent pas par Stripe. Le bouton de publication indiquera ensuite clairement que l’offre a été offerte.
                   </p>
                 </div>
-                <div className={pricingContext.tier === "visibility" ? "grid gap-3 md:grid-cols-2" : "grid gap-3"}>
-                  {pricingContext.tier === "visibility" ? (
-                    <div className="flex flex-col gap-3 rounded-lg border border-emerald-300 bg-background/80 p-4">
-                      <div className="space-y-1">
-                        <p className="font-semibold text-foreground">Offrir RaceBook</p>
-                        <p className="text-sm leading-5 text-muted-foreground">
-                          Active la publication mobile pour tous les formats de cette édition, sans paiement.
-                        </p>
+                <div className="grid gap-3 md:grid-cols-3">
+                  {paidOrganizerTiers
+                    .filter((tier) => ORGANIZER_TIER_RANK[tier] > ORGANIZER_TIER_RANK[pricingContext.tier])
+                    .map((tier) => (
+                      <div key={tier} className="flex flex-col gap-3 rounded-lg border border-emerald-300 bg-background/80 p-4">
+                        <div className="space-y-1">
+                          <p className="font-semibold text-foreground">Offrir {ORGANIZER_TIER_LABEL[tier]}</p>
+                          <p className="text-sm leading-5 text-muted-foreground">{ORGANIZER_OFFER_DETAILS[tier].description}</p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant={tier === "signature" ? "default" : "outline"}
+                          className="mt-auto w-full"
+                          onClick={() => void grantComplimentaryOffer(tier)}
+                          disabled={complimentaryGrantTarget !== null || checkoutTarget !== null}
+                        >
+                          {complimentaryGrantTarget === tier ? "Activation…" : `Offrir ${ORGANIZER_TIER_LABEL[tier]} — valeur ${ORGANIZER_TIER_PRICE_EUR[tier]} € HT`}
+                        </Button>
                       </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="mt-auto w-full"
-                        onClick={() => void grantComplimentaryOffer("racebook")}
-                        disabled={complimentaryGrantTarget !== null || checkoutTarget !== null}
-                      >
-                        {complimentaryGrantTarget === "racebook" ? "Activation…" : "Offrir RaceBook — valeur 199 € HT"}
-                      </Button>
-                    </div>
-                  ) : null}
-                  <div className="flex flex-col gap-3 rounded-lg border border-emerald-300 bg-background/80 p-4">
-                    <div className="space-y-1">
-                      <p className="font-semibold text-foreground">Offrir RaceBook Pro</p>
-                      <p className="text-sm leading-5 text-muted-foreground">
-                        Active la publication et toutes les fonctionnalités Pro de cette édition, y compris les sponsors.
-                      </p>
-                    </div>
-                    <Button
-                      type="button"
-                      className="mt-auto w-full"
-                      onClick={() => void grantComplimentaryOffer("pro")}
-                      disabled={complimentaryGrantTarget !== null || checkoutTarget !== null}
-                    >
-                      {complimentaryGrantTarget === "pro" ? "Activation…" : "Offrir RaceBook Pro — valeur 299 € HT"}
-                    </Button>
-                  </div>
+                    ))}
                 </div>
               </section>
             ) : null}

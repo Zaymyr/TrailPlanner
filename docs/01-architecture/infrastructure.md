@@ -141,9 +141,12 @@ Document variable names, not secret values. Important names visible in code incl
 - `STRIPE_CHECKOUT_SUCCESS_URL`
 - `STRIPE_CHECKOUT_CANCEL_URL`
 - `STRIPE_BILLING_RETURN_URL`
-- `STRIPE_ORGANIZER_RACEBOOK_PRICE_ID`
-- `STRIPE_ORGANIZER_PRO_PRICE_ID`
-- `STRIPE_ORGANIZER_PRO_UPGRADE_PRICE_ID`
+- `STRIPE_ORGANIZER_ESSENTIAL_PRICE_ID`
+- `STRIPE_ORGANIZER_COMPLETE_PRICE_ID`
+- `STRIPE_ORGANIZER_SIGNATURE_PRICE_ID`
+- `STRIPE_ORGANIZER_ESSENTIAL_TO_COMPLETE_PRICE_ID`
+- `STRIPE_ORGANIZER_ESSENTIAL_TO_SIGNATURE_PRICE_ID`
+- `STRIPE_ORGANIZER_COMPLETE_TO_SIGNATURE_PRICE_ID`
 - `STRIPE_ORGANIZER_CHECKOUT_SUCCESS_URL` (optional)
 - `STRIPE_ORGANIZER_CHECKOUT_CANCEL_URL` (optional)
 - `NEXT_PUBLIC_POSTHOG_KEY`
@@ -164,7 +167,7 @@ Document variable names, not secret values. Important names visible in code incl
 
 - Never commit actual environment values into docs.
 - The app only sends analytics through the public Web and Expo PostHog keys. The admin dashboard does not query PostHog and uses Supabase metrics only.
-- Organizer Stripe Price ids must point to active, one-time EUR prices at exactly 99 €, 299 €, and 200 € excluding tax; the server rejects mismatched Price configuration.
+- The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.

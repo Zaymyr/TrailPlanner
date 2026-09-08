@@ -30,6 +30,8 @@ related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
   - supabase/tests/organizer_edition_entitlements_checks.sql
+  - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
+  - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
 related_tables:
   - race_event_editions
   - race_events
@@ -40,6 +42,7 @@ related_tables:
   - organizer_edition_payments
   - race_event_edition_sponsors
   - race_event_edition_branding
+  - organizer_racebook_module_settings
 ---
 
 # race_event_editions
@@ -72,6 +75,7 @@ related_tables:
 | `end_date` | `date` | non-null, not before start | Canonical last day of the edition. |
 | `is_current` | `boolean` | one true row per event at most | Edition mirrored to legacy event date fields and used by event-wide admin publication controls. |
 | `is_visible` | `boolean` | non-null, default `true` | Whether complete attached formats may remain visible in course discovery. |
+| `module_setup_completed_at` | `timestamptz` | nullable | Completion or skip time for the module setup assistant. |
 
 `races.edition_id` is nullable only for legacy or undated rows. New organizer formats must provide it.
 
@@ -81,6 +85,7 @@ related_tables:
 - `races.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_edition_branding.edition_id -> race_event_editions(id) on delete cascade`
+- `organizer_racebook_module_settings.edition_id -> race_event_editions(id) on delete cascade`
 
 Deleting an event removes its editions. Deleting an edition removes its formats and their cascading source children; saved plans keep their snapshots because `race_plans.race_id` becomes null. The service-only deletion RPC rejects deletion of the event's only edition and promotes the newest remaining edition when the deleted row was current.
 Sponsor and branding rows follow the edition cascade. The organizer deletion routes read their public `race-images` paths before deletion and remove those Storage objects after the database transaction succeeds.
@@ -143,7 +148,7 @@ where ree.event_id = :event_id
 - Do not detach formats when deleting an edition. The cascade is intentional so no yearless organizer course survives a confirmed edition deletion.
 - Do not republish Racebooks when an edition becomes visible again; hiding is destructive to their live flag, not to their durable approval timestamp.
 - Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.
-- Manual edition creation is free. Cloning a source edition requires Pro and is enforced by the compatibility edition-requests route.
+- Manual edition creation is free. Cloning a source edition requires Complete or Signature and copies edition and cloned-format module settings.
 - Branding belongs to the edition, not an individual format. Do not duplicate or resolve it from `races.id` once the canonical `edition_id` is known.
 
 ## Related Docs

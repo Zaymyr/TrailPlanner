@@ -75,14 +75,14 @@ describe("product analytics events", () => {
 
   it("uses separate organizer offer, checkout, and verified-purchase steps", () => {
     trackOrganizerOfferViewed({ currentTier: "visibility", editionYear: "2027" });
-    trackOrganizerCheckoutStarted({ currentTier: "visibility", targetTier: "pro", editionYear: "2027" });
-    trackOrganizerPurchaseVerified({ targetTier: "pro", editionYear: "2027" });
+    trackOrganizerCheckoutStarted({ currentTier: "visibility", targetTier: "signature", editionYear: "2027" });
+    trackOrganizerPurchaseVerified({ targetTier: "signature", editionYear: "2027" });
 
     expect(track.mock.calls.map(([event]) => event)).toEqual([
       "organizer offer viewed",
       "organizer checkout started",
       "organizer purchase verified",
     ]);
-    expect(track.mock.calls[1]?.[1]).toMatchObject({ billing_provider: "stripe", target_tier: "pro" });
+    expect(track.mock.calls[1]?.[1]).toMatchObject({ billing_provider: "stripe", target_tier: "signature" });
   });
 });

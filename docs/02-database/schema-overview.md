@@ -99,7 +99,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Race slug redirect: a reserved former course slug targeting the stable race id so canonical renames do not break indexed URLs.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
 - Event publication request: retained legacy audit row from the former admin-approval workflow; current paid publication does not enqueue a request.
-- Racebook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. An active edition RaceBook or Pro entitlement authorizes publication, and the first atomic publication stores durable unlock provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`.
+- RaceBook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. An active Essential, Complete or Signature edition entitlement authorizes publication, and the first atomic publication stores durable unlock provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`. Effective module settings further control which optional content is exposed.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Final roadbook synchronization: the Les Amaz’Eaunes 2026 data-only migration corrects the canonical edition/format dates and organizer JSON while preserving unconfirmed course metrics and omitting unspecified ravito rows.
@@ -108,7 +108,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
-- Organizer edition entitlement: permanent Visibilité/RaceBook/Pro capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
+- Organizer edition entitlement: permanent Visibilité/Essential/Complete/Signature capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
 
 ## Tables
 

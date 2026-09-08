@@ -260,7 +260,11 @@ export function buildOrganizerCompletion(
   activeRace: CompletionRace | null,
   aidStations: CompletionAidStation[],
   stationProducts: CompletionStationProduct[],
-  persistedCounts?: { aidStations?: number; startWaves?: number; awards?: number; services?: number; stationProducts?: number; sponsors?: number; sponsorClicks?: number; brandingConfigured?: boolean; brandingUnpublished?: boolean }
+  persistedCounts?: { aidStations?: number; startWaves?: number; awards?: number; services?: number; stationProducts?: number; sponsors?: number; sponsorClicks?: number; brandingConfigured?: boolean; brandingUnpublished?: boolean },
+  enabledModules?: {
+    event: ReadonlySet<OrganizerModuleId>;
+    races: Readonly<Record<string, ReadonlySet<OrganizerModuleId>>>;
+  },
 ): OrganizerCompletionSummary {
   const eventDetails = event.organizerDetails ?? defaultOrganizerEventDetails;
   const activeEdition = getCompletionEdition(event, activeRace);
@@ -275,7 +279,11 @@ export function buildOrganizerCompletion(
       editionGroupId: race.edition_group_id,
       seriesName: race.series_name,
       name: race.name,
-      score: scoreModules(buildFormatProgressModules(eventDetails, race, race.aidStationCount ?? 0, null)),
+      score: scoreModules(
+        buildFormatProgressModules(eventDetails, race, race.aidStationCount ?? 0, null).filter(
+          (module) => enabledModules?.races[race.id]?.has(module.id) ?? true,
+        ),
+      ),
     };
   });
   const raceProgressScore = raceProgress.length > 0 ? Math.round(raceProgress.reduce((total, race) => total + race.score, 0) / raceProgress.length) : 0;
@@ -587,9 +595,18 @@ export function buildOrganizerCompletion(
       })
     : [];
 
-  const score = scoreModules(modules);
-  const eventScore = scoreModules(eventModules);
-  const formatScore = scoreModules(formatModules);
+  const visibleEventModules = enabledModules ? eventModules.filter((module) => enabledModules.event.has(module.id)) : eventModules;
+  const visibleFormatModules = enabledModules && activeRace
+    ? formatModules.filter((module) => enabledModules.races[activeRace.id]?.has(module.id) ?? false)
+    : formatModules;
+  const visibleModules = enabledModules
+    ? modules.filter((module) => activeRace
+      ? enabledModules.races[activeRace.id]?.has(module.id) ?? enabledModules.event.has(module.id)
+      : enabledModules.event.has(module.id))
+    : modules;
+  const score = scoreModules(visibleModules);
+  const eventScore = scoreModules(visibleEventModules);
+  const formatScore = scoreModules(visibleFormatModules);
 
   return {
     score,
@@ -599,8 +616,8 @@ export function buildOrganizerCompletion(
     raceProgressScore,
     informationComplete: isEventCompleteForProgress(event),
     requiredComplete: isEventReadyToPublish(event),
-    modules,
-    eventModules,
-    formatModules,
+    modules: visibleModules,
+    eventModules: visibleEventModules,
+    formatModules: visibleFormatModules,
   };
 }
