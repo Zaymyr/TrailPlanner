@@ -119,6 +119,26 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain");
   });
 
+  it("keeps the edition and format summary compact and collapsible", () => {
+    const shellSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"), "utf8");
+
+    expect(shellSource).toContain("open={isSummaryExpanded}");
+    expect(shellSource).toContain("onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}");
+    expect(shellSource).toContain('isSummaryExpanded ? "Réduire" : "Afficher"');
+    expect(shellSource).toContain('cn("h-5 overflow-hidden rounded-full"');
+  });
+
+  it("stages RaceBook section changes in a wide responsive dialog before one explicit save", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
+
+    expect(dashboardSource).toContain("setModuleSettingsDraft");
+    expect(dashboardSource).toContain("saveModuleSettings");
+    expect(dashboardSource).toContain("!max-w-6xl");
+    expect(dashboardSource).toContain("min-[900px]:grid-cols-3");
+    expect(dashboardSource).toContain("Enregistrement des sections en cours…");
+    expect(dashboardSource).toContain("en attente d’enregistrement.");
+  });
+
   it("keeps the emergency contact labels readable in event information", () => {
     const source = readFileSync(
       resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx"),
@@ -139,7 +159,9 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('{ id: "aidStations", label: "Ravitos" }');
     expect(source).toContain('{ id: "relay", label: "Relais" }');
     expect(source).toContain('activeView === "aidStations"');
-    expect(source).toContain('md:absolute md:-top-[4.75rem] md:right-0');
+    expect(source.indexOf("<FixedCourseCard")).toBeLessThan(source.indexOf("<TabsList"));
+    expect(source).toContain("disabled={startWaveCount > 0}");
+    expect(source).toContain("leurs horaires définissent le départ.");
     expect(source).toContain('title="Départ"');
     expect(source).toContain('title="Arrivée"');
     expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
@@ -147,6 +169,24 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).not.toContain('label="Passage prévu"');
     expect(source).not.toContain('label="Note de passage"');
     expect(source).not.toContain('" - Barrière à définir"');
+  });
+
+  it("keeps the earliest SAS synchronized with the shared start-time card", () => {
+    const editorSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/structured-content-editors.tsx"),
+      "utf8"
+    );
+    const dashboardSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"),
+      "utf8"
+    );
+
+    expect(editorSource).toContain("referenceStartTime");
+    expect(editorSource).toContain("onSummaryChange?.({ raceId, count: remote.items.length, referenceStartTime })");
+    expect(dashboardSource).toContain("startWaveCount={currentStartWaveCount}");
+    expect(dashboardSource).toContain("startTime={currentStartTime}");
+    expect(dashboardSource).toContain("previous.count > 0");
+    expect(dashboardSource).toContain("startTime: previous.referenceStartTime");
   });
 
   it("keeps format detail modules free from redundant nested headings", () => {

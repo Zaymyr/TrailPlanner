@@ -79,8 +79,23 @@ export function EditionServicesEditor({ editionId, headers, enabled, legacy, onL
   </div>;
 }
 
-export function StartWavesEditor({ raceId, headers, enabled }: { raceId:string|null; headers:Headers; enabled:boolean }) {
+export function StartWavesEditor({
+  raceId,
+  headers,
+  enabled,
+  onSummaryChange,
+}: {
+  raceId: string | null;
+  headers: Headers;
+  enabled: boolean;
+  onSummaryChange?: (summary: { raceId: string; count: number; referenceStartTime: string | null }) => void;
+}) {
   const remote=useRemoteList<StartWave>(enabled&&raceId?`/api/organizer/races/${raceId}/start-waves`:null,"startWaves",headers);
+  const referenceStartTime = remote.items.map((item) => item.startTime).filter(Boolean).sort()[0] ?? null;
+  useEffect(() => {
+    if (!raceId || !remote.loaded) return;
+    onSummaryChange?.({ raceId, count: remote.items.length, referenceStartTime });
+  }, [onSummaryChange, raceId, referenceStartTime, remote.items.length, remote.loaded]);
   if(!enabled)return <Locked label="Les SAS de départ sont inclus dans RaceBook."/>;
   const patch=(index:number,next:Partial<StartWave>)=>remote.update(remote.items.map((x,i)=>i===index?{...x,...next}:x));
   return <div className="space-y-4"><div className="flex justify-between"><div><p className="font-semibold">SAS de départ</p><p className="text-sm text-muted-foreground">Le premier horaire devient l’heure de départ de référence.</p></div><Button type="button" variant="outline" onClick={()=>remote.update([...remote.items,{name:`SAS ${remote.items.length+1}`,startTime:"08:00",eligibilityType:"all",eligibilityNote:null}])}>Ajouter un SAS</Button></div>

@@ -21,6 +21,7 @@ related_files:
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
+  - supabase/migrations/20260908160018_preserve_global_start_time_without_waves.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/organizer_rls_checks.sql
@@ -126,6 +127,7 @@ Use:
 
 - `delete_race_event_edition` intentionally relies on the service role's existing table privileges while preserving invoker security. Do not convert it to `SECURITY DEFINER` or grant it directly to authenticated clients.
 - This project has direct default `EXECUTE` grants for `anon` and `authenticated`; for every new service-only function, revoke those roles explicitly in addition to `PUBLIC`, then verify with `has_function_privilege`.
+- Replacing `replace_race_start_waves` to preserve the common start time when no waves remain does not broaden access: keep it `SECURITY INVOKER`, with an empty search path and execution restricted to `service_role`.
 - Admin aggregate KPI functions are a justified `SECURITY DEFINER` exception because they read `auth.users` and cross-owner rows. Keep their empty search path, service-role-only execute grant, bounded date range, and route-level trusted-admin authorization together.
 - `assign_race_event_edition()` remains `SECURITY INVOKER`, receives no client table privileges, and has explicit `PUBLIC`/`anon`/`authenticated` execute revocations; it is a service-write consistency trigger, not an authorization bypass.
 - Public child mappings such as `race_slug_redirects` need an explicit client `SELECT` grant plus an RLS `exists` check against every parent visibility gate. Keep all writes and the rename RPC service-role-only.

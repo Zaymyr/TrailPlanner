@@ -30,6 +30,8 @@ Stores ordered, structured restaurants, accommodation, recovery and other nearby
 - The organizer API replaces the list atomically through `replace_race_edition_services`, preserving submitted ids.
 - Deleting the edition cascades to its services. Edition duplication copies the rows with new ids.
 
+The shared web editor file also reports SAS count and earliest time to the format schedule card. That start-wave callback does not change this edition-scoped service contract.
+
 ## Access
 
 Services require Complete or Signature plus an active edition `services` module. Disabling masks published rows and blocks organizer writes without deleting them.

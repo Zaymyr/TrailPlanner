@@ -164,6 +164,30 @@ const atomicWrite = async (path, content) => {
   await writeFile(temporary,content,'utf8');
   await rename(temporary,path);
 };
+const processIsAlive = (pid) => {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try { process.kill(pid, 0); return true; }
+  catch (error) { return error?.code !== 'ESRCH'; }
+};
+export const acquireCampaignLock = async (lockPath) => {
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const lock = await open(lockPath,'wx');
+      await lock.writeFile(JSON.stringify({pid:process.pid,started_at:new Date().toISOString()}));
+      return lock;
+    } catch (error) {
+      if (error.code !== 'EEXIST') throw error;
+      let previous = null;
+      try { previous = JSON.parse(await readFile(lockPath,'utf8')); } catch { /* malformed locks are stale */ }
+      if (processIsAlive(previous?.pid)) throw new Error(`Répertoire déjà verrouillé par le processus ${previous.pid}.`);
+      if (attempt > 0) throw new Error('Impossible de remplacer le verrou orphelin de la campagne.');
+      try { await unlink(lockPath); }
+      catch (unlinkError) { if (unlinkError.code !== 'ENOENT') throw unlinkError; }
+      console.error(`Verrou orphelin supprimé${previous?.pid ? ` (PID ${previous.pid})` : ''}; reprise autorisée.`);
+    }
+  }
+  throw new Error('Impossible de verrouiller la campagne.');
+};
 export const resolveGpxAmbiguity = rows => {
   const groups = new Map();
   for (const row of rows) {
@@ -215,10 +239,19 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
   const args = parseArgs(argv);
   await mkdir(args.outputDir,{recursive:true});
   const lockPath = `${args.outputDir}/catalog.lock`;
-  let lock;
-  try { lock = await open(lockPath,'wx'); }
-  catch (error) { if (error.code === 'EEXIST') throw new Error('Répertoire déjà verrouillé par une campagne ; vérifier catalog.lock avant reprise.'); throw error; }
-  await lock.writeFile(JSON.stringify({pid:process.pid,started_at:new Date().toISOString()}));
+  let lock = await acquireCampaignLock(lockPath);
+  let releasing = null;
+  const releaseLock = () => releasing ||= (async () => {
+    const heldLock = lock;
+    lock = null;
+    if (heldLock) await heldLock.close();
+    try { await unlink(lockPath); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  })();
+  const stopOnSignal = (exitCode) => { void releaseLock().finally(() => process.exit(exitCode)); };
+  const onSigint = () => stopOnSignal(130);
+  const onSigterm = () => stopOnSignal(143);
+  process.once('SIGINT',onSigint);
+  process.once('SIGTERM',onSigterm);
   try {
     const inputText = await readFile(args.input,'utf8');
     const inputHash = createHash('sha256').update(inputText).digest('hex');
@@ -264,7 +297,11 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
       next_offset:state.next_offset,complete:state.complete,as_of:args.asOf,date_from:args.dateFrom,date_to:args.dateTo},null,2));
     console.error(`Exports écrits dans ${args.outputDir} : ${state.rows.length} formats, ${state.complete ? 'campagne terminée' : 'reprise disponible'}.`);
     return result;
-  } finally { await lock.close(); await unlink(lockPath); }
+  } finally {
+    process.removeListener('SIGINT',onSigint);
+    process.removeListener('SIGTERM',onSigterm);
+    await releaseLock();
+  }
 };
 
 const invokedPath = process.argv[1] ? pathToFileURL(process.argv[1]).href : "";

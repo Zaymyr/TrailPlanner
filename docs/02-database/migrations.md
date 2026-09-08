@@ -20,6 +20,7 @@ related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260908160018_preserve_global_start_time_without_waves.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -72,6 +73,8 @@ related_tables:
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 
 `20260907170842_fix_structured_racebook_rls_dependencies.sql` repairs the three client read paths after the original policies joined service-role-only `race_event_editions`. It recreates the affected policies through `races`, retaining the same publication and organizer gates without adding any edition-table grant.
+
+`20260908160018_preserve_global_start_time_without_waves.sql` keeps the earliest SAS authoritative while waves exist, but no longer erases `races.organizer_details.schedule.startTime` when the last SAS is removed. The replacement RPC remains security-invoker and executable only by `service_role`.
 
 ## Purpose
 

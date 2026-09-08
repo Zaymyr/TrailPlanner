@@ -23,6 +23,8 @@ This document describes the web geocoding/autocomplete integration used by the o
 
 Structured restaurant and accommodation cards reuse the organizer address autocomplete and require a geocoded address. Mobile derives a display-only great-circle distance from the best available race start coordinate; it does not claim routing distance. The Maps URL opens the external provider for directions.
 
+The structured-editor SAS summary contains only the format id, wave count, and earliest departure time. It drives the common schedule card above the Organizer tabs and does not alter or duplicate any geocoded start/finish location.
+
 ## Key Concepts
 
 - Address autocomplete: server-backed search suggestions for typed addresses/places.
