@@ -128,6 +128,8 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 
 ## Gotchas
 
+- Public reads require the effective `aid_stations` module; organizer writes are refused while the module is inactive or locked.
+
 - Base ravito editing remains available without Pro. Relay linkage and official station products are separate Pro capabilities and must not block ordinary station saves.
 
 - Old docs and migrations call the parent table `race_catalog`; current code uses `races`.

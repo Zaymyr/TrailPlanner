@@ -6,6 +6,7 @@ ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
+  - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
@@ -31,7 +32,7 @@ The row is edition-scoped, while human access remains event-scoped through `race
 | --- | --- | --- | --- |
 | `id` | `uuid` | primary key | Entitlement id. |
 | `edition_id` | `uuid` | unique FK, cascade | Covered edition. |
-| `tier` | `text` | `visibility|racebook|pro` | Effective offer. |
+| `tier` | `text` | `visibility|essential|complete|signature` | Effective offer. |
 | `source` | `text` | `system|stripe|admin|legacy_admin` | Activation authority. |
 | `status` | `text` | `active|revoked` | Current row status. |
 | `activated_at`, `revoked_at` | `timestamptz` | nullable | Lifecycle timestamps. |
@@ -57,8 +58,8 @@ RLS is enabled with no client grants. Only service role can read or mutate rows.
 - The canonical-edition repair creates missing edition rows before attaching dated formats, so the existing entitlement trigger also initializes their Visibilité projection.
 - Active admin and legacy-admin sources override Stripe recalculation.
 - Returning to Visibilité hides attached RaceBooks but does not change catalog visibility.
-- Legacy approved/published editions are backfilled Pro.
-- `branding.manage` is granted only by an active Pro entitlement. A downgrade blocks further draft reads and writes without erasing the last published identity.
+- Legacy RaceBook and Pro editions are mapped to Complete and Signature without charge.
+- `branding.manage` is granted only by an active Signature entitlement. A downgrade blocks further draft reads and writes without erasing stored identity data.
 
 ## Common Queries
 

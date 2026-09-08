@@ -62,7 +62,7 @@ const requireProEdition = async (
   if (!response.ok) return jsonError("Unable to verify event edition.", 502);
   if (((await response.json()) as unknown[]).length === 0) return jsonError("Event edition not found.", 404);
   if (!(await requireOrganizerEditionCapability(auth.serviceConfig, editionId, "followers.notify"))) {
-    return jsonError("RaceBook Pro est requis pour notifier les coureurs.", 403);
+    return jsonError("L’offre Complet est requise pour notifier les coureurs.", 403);
   }
   return null;
 };

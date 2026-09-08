@@ -20,6 +20,18 @@ vi.mock("../../../lib/organizer", () => ({
   serviceHeaders: () => ({}),
 }));
 
+vi.mock("../../../lib/organizer-entitlements", () => ({
+  loadOrganizerEditionEntitlement: () => Promise.resolve({ tier: "signature", status: "active" }),
+}));
+
+vi.mock("../../../lib/organizer-module-settings", () => ({
+  loadOrganizerModuleSettings: () => Promise.resolve({ edition: {}, races: {} }),
+  effectiveOrganizerModules: () => ({
+    equipment: true, bib_pickup: true, access: true, services: true, branding: true, sponsors: true,
+    aid_stations: true, start_waves: true, awards: true, relay: true, official_products: true,
+  }),
+}));
+
 const raceId = "11111111-1111-4111-8111-111111111111";
 const eventId = "22222222-2222-4222-8222-222222222222";
 const editionId = "33333333-3333-4333-8333-333333333333";

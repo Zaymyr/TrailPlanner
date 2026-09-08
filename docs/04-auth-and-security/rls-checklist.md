@@ -20,6 +20,8 @@ related_files:
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
+  - supabase/tests/organizer_racebook_module_settings_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -46,6 +48,7 @@ related_tables:
   - race_event_update_reads
   - race_event_edition_sponsors
   - race_event_edition_branding
+  - organizer_racebook_module_settings
 ---
 
 # RLS Checklist
@@ -53,6 +56,8 @@ related_tables:
 ## Purpose
 
 Use this checklist before adding or changing Supabase tables, policies, or service-role routes.
+
+`organizer_racebook_module_settings` is service-only: client roles have no table privileges or policies. Published structured collections use the narrow `private.racebook_module_is_enabled` security-definer helper to combine the active entitlement and stored module switch. The helper exposes only a boolean and keeps its explicit search path and execute grants bounded to the API roles.
 
 ## Key Concepts
 

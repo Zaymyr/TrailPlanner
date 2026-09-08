@@ -99,6 +99,8 @@ order by order_index asc;
 
 ## Gotchas
 
+- Official-product writes require Signature and an active `official_products` format module; public RLS masks links without deleting them otherwise.
+
 - Do not treat these rows as plan supplies by default. They are organization suggestions attached to source station rows and become plan supplies with `source: "organizer"` only after explicit runner selection or the web ravito-products auto-fill opt-in.
 - Do not assume an imported plan's stored `organizerAidStationProducts` is fresh. For plans with `race_id`, `/api/plans` should overlay the current source links and use the stored snapshot only as a fallback.
 - Do not infer crew access from these rows; crew access is stored per runner plan station as `assistanceAllowed`.

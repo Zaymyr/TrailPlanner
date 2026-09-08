@@ -107,7 +107,7 @@ type RacebookPublicationEvent = RaceEventOption & {
   editionId: string | null;
   entitlement: {
     edition_id: string;
-    tier: "visibility" | "racebook" | "pro";
+    tier: "visibility" | "essential" | "complete" | "signature";
     source: "system" | "stripe" | "admin" | "legacy_admin";
     status: "active" | "revoked";
   } | null;
@@ -140,7 +140,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [memberships, setMemberships] = useState<OrganizerMembership[]>([]);
   const [events, setEvents] = useState<RaceEventOption[]>([]);
   const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
-  const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "racebook" | "pro">("all");
+  const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "essential" | "complete" | "signature">("all");
   const [assignmentEmail, setAssignmentEmail] = useState("");
   const [assignmentEventId, setAssignmentEventId] = useState("");
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
@@ -346,7 +346,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
-  const setEditionTier = async (editionId: string, tier: "visibility" | "racebook" | "pro") => {
+  const setEditionTier = async (editionId: string, tier: "visibility" | "essential" | "complete" | "signature") => {
     if (!accessToken) return;
     setStatus("saving");
     setError(null);
@@ -584,8 +584,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             >
               <option value="all">Toutes les offres</option>
               <option value="visibility">Visibilité</option>
-              <option value="racebook">RaceBook</option>
-              <option value="pro">RaceBook Pro</option>
+              <option value="essential">Essentiel</option>
+              <option value="complete">Complet</option>
+              <option value="signature">Signature</option>
             </select>
           </div>
           {publicationEvents.length === 0 ? (
@@ -645,8 +646,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       }}
                     >
                       <option value="visibility">Visibilité</option>
-                      <option value="racebook">RaceBook</option>
-                      <option value="pro">RaceBook Pro</option>
+                      <option value="essential">Essentiel</option>
+                      <option value="complete">Complet</option>
+                      <option value="signature">Signature</option>
                     </select>
                     <LiveToggle
                       checked={isLive}

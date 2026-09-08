@@ -65,6 +65,21 @@ test("filters out races scheduled before the campaign minimum date", () => {
   assert.deepEqual(rows.map((row) => row.event_name), ["Dans trois semaines"]);
 });
 
+test("bounds a cross-year campaign with explicit inclusive dates", () => {
+  const excluded = [];
+  const rows = buildFormatQueue([
+    { race_name: "Octobre", race_url: "https://betrail.example/race/octobre/2026", formats_raw: "20km", date: "2026-10-31", event_date_basis: "date exacte" },
+    { race_name: "Novembre", race_url: "https://betrail.example/race/novembre/2026", formats_raw: "20km", date: "2026-11-01", event_date_basis: "date exacte" },
+    { race_name: "Février", race_url: "https://betrail.example/race/fevrier/2027", formats_raw: "20km", date: "2027-02-28", event_date_basis: "date exacte" },
+    { race_name: "Mars", race_url: "https://betrail.example/race/mars/2027", formats_raw: "20km", date: "2027-03-01", event_date_basis: "date exacte" },
+  ], { asOf: "2026-09-08", dateFrom: "2026-11-01", dateTo: "2027-02-28", onExcluded: row => excluded.push(row) });
+  assert.deepEqual(rows.map(row => row.event_name), ["Novembre", "Février"]);
+  assert.equal(rows[0].min_event_date, "2026-11-01");
+  assert.equal(rows[0].max_event_date, "2027-02-28");
+  assert.deepEqual(excluded.map(row => row.reason).sort(), ["after_campaign_window", "before_campaign_window"]);
+  assert.throws(() => buildFormatQueue([], { dateFrom: "2027-03-01", dateTo: "2027-02-28" }), /invalides/);
+});
+
 test("spreads a limited batch across events", () => {
   const rows = buildFormatQueue([
     { race_name: "Multi", race_url: "https://betrail.example/race/multi/2026", formats_raw: "30km/1200 D+; 15km/500 D+", city: "Lyon", country: "France", date: "2026-09-27", event_date_basis: "date exacte" },

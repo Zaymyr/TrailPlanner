@@ -113,13 +113,15 @@ const json = (value, fallback) => {
   try { return JSON.parse(value || ""); } catch { return fallback; }
 };
 const parseArgs = (argv) => {
-  const args = { input: "tmp/prospects.csv", outputDir: "tmp/catalog-research", asOf: new Date().toISOString().slice(0, 10), minDaysBefore: 21, limit: null, offset: 0, resume: false, noLlm: false, verbose: false, delayMs: 500 };
+  const args = { input: "tmp/prospects.csv", outputDir: "tmp/catalog-research", asOf: new Date().toISOString().slice(0, 10), minDaysBefore: 21, dateFrom: "", dateTo: "", limit: null, offset: 0, resume: false, noLlm: false, verbose: false, delayMs: 500 };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]; const next = argv[index + 1];
     if (arg === "--input") { args.input = next; index += 1; continue; }
     if (arg === "--output-dir") { args.outputDir = next; index += 1; continue; }
     if (arg === "--as-of") { args.asOf = next; index += 1; continue; }
     if (arg === "--min-days-before") { args.minDaysBefore = Number(next); index += 1; continue; }
+    if (arg === "--date-from") { args.dateFrom = next; index += 1; continue; }
+    if (arg === "--date-to") { args.dateTo = next; index += 1; continue; }
     if (arg === "--limit") { args.limit = Number(next); index += 1; continue; }
     if (arg === "--offset") { args.offset = Number(next); index += 1; continue; }
     if (arg === "--resume") { args.resume = true; continue; }
@@ -226,15 +228,16 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
     if (state && !args.resume) throw new Error('Cette campagne existe déjà : utiliser --resume ou un nouveau répertoire.');
     if (state && (state.schema_version !== RESEARCH_SCHEMA_VERSION || state.input_sha256 !== inputHash)) throw new Error('Entrée ou version différente : créer une nouvelle campagne pour conserver une reprise fiable.');
     if (state) {
-      if (argv.includes('--as-of') && args.asOf !== state.as_of || argv.includes('--min-days-before') && args.minDaysBefore !== state.min_days_before || args.noLlm !== state.no_llm) throw new Error('Paramètres différents de la campagne enregistrée.');
-      args.asOf = state.as_of; args.minDaysBefore = state.min_days_before;
+      if (argv.includes('--as-of') && args.asOf !== state.as_of || argv.includes('--min-days-before') && args.minDaysBefore !== state.min_days_before
+        || argv.includes('--date-from') && args.dateFrom !== state.date_from || argv.includes('--date-to') && args.dateTo !== state.date_to || args.noLlm !== state.no_llm) throw new Error('Paramètres différents de la campagne enregistrée.');
+      args.asOf = state.as_of; args.minDaysBefore = state.min_days_before; args.dateFrom = state.date_from || ''; args.dateTo = state.date_to || '';
     } else {
       try { await readFile(`${args.outputDir}/formats-wide.csv`); throw new Error('Export sans progression compatible : utiliser un nouveau répertoire.'); }
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
     const excluded = [];
-    const queue = buildFormatQueue(parseCsvTable(inputText).rows,{asOf:args.asOf,minDaysBefore:args.minDaysBefore,onExcluded:row=>excluded.push(row)});
-    state ||= {schema_version:RESEARCH_SCHEMA_VERSION,input_sha256:inputHash,as_of:args.asOf,min_days_before:args.minDaysBefore,
+    const queue = buildFormatQueue(parseCsvTable(inputText).rows,{asOf:args.asOf,minDaysBefore:args.minDaysBefore,dateFrom:args.dateFrom,dateTo:args.dateTo,onExcluded:row=>excluded.push(row)});
+    state ||= {schema_version:RESEARCH_SCHEMA_VERSION,input_sha256:inputHash,as_of:args.asOf,min_days_before:args.minDaysBefore,date_from:args.dateFrom,date_to:args.dateTo,
       no_llm:args.noLlm,next_offset:args.offset,rows:[],queue_keys:queue.map(row=>row.format_key)};
     if (JSON.stringify(state.queue_keys) !== JSON.stringify(queue.map(row=>row.format_key))) throw new Error('Ordre de sélection modifié : démarrer une nouvelle campagne.');
     await atomicWrite(`${args.outputDir}/excluded-prospects.csv`,serializeCsvTable(['prospect_uuid','event_name','race_url','reason'],excluded));
@@ -258,7 +261,7 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
     await atomicWrite(`${args.outputDir}/run-summary.json`,JSON.stringify({schema_version:RESEARCH_SCHEMA_VERSION,input_sha256:inputHash,
       selected:selected.length,processed:state.rows.length,total_eligible:queue.length,excluded:excluded.length,
       ready:state.rows.filter(row=>row.ready_to_import==='TRUE').length,source_errors:state.rows.filter(row=>row.research_status==='source_error').length,
-      next_offset:state.next_offset,complete:state.complete,as_of:args.asOf},null,2));
+      next_offset:state.next_offset,complete:state.complete,as_of:args.asOf,date_from:args.dateFrom,date_to:args.dateTo},null,2));
     console.error(`Exports écrits dans ${args.outputDir} : ${state.rows.length} formats, ${state.complete ? 'campagne terminée' : 'reprise disponible'}.`);
     return result;
   } finally { await lock.close(); await unlink(lockPath); }

@@ -5,6 +5,7 @@ import { Button } from "../../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../../components/ui/dialog";
 import { cn } from "../../../../components/utils";
+import { ORGANIZER_TIER_LABEL, ORGANIZER_TIER_PRICE_EUR, ORGANIZER_TIER_RANK } from "../../../../lib/organizer-modules";
 import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
 import { buildEditionYearOptions, formatEventDateRange, getEventEdition, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
@@ -180,16 +181,14 @@ export function OrganizerSummaryHeader({
   const selectedEdition = getEventEdition(event, selectedEditionYear);
   const editionIsVisible = selectedEdition?.is_visible !== false;
   const editionTier = selectedEdition?.entitlement?.status === "active" ? selectedEdition.entitlement.tier : "visibility";
-  const canPublishRacebook = editionTier === "racebook" || editionTier === "pro";
+  const canPublishRacebook = editionTier !== "visibility";
   const entitlementSource = selectedEdition?.entitlement?.source;
   const isComplimentaryOffer = entitlementSource === "admin" || entitlementSource === "legacy_admin";
-  const activeOfferName = editionTier === "pro" ? "RaceBook Pro" : "RaceBook";
+  const activeOfferName = ORGANIZER_TIER_LABEL[editionTier];
   const offerStatusLabel = entitlementSource === "stripe"
     ? "Paiement confirmé"
-    : isComplimentaryOffer && editionTier === "pro"
-      ? "Publication RaceBook Pro offerte — valeur : 299 € HT"
-      : isComplimentaryOffer && editionTier === "racebook"
-        ? "Publication RaceBook offerte — valeur : 199 € HT"
+    : isComplimentaryOffer && editionTier !== "visibility"
+      ? `Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[editionTier]} € HT`
         : "Aucun paiement actif";
 
   return (
@@ -297,7 +296,7 @@ export function OrganizerSummaryHeader({
                 type="button"
                 variant="outline"
                 onClick={() => {
-                  setDuplicatePreviousEdition(editionTier === "pro");
+                  setDuplicatePreviousEdition(ORGANIZER_TIER_RANK[editionTier] >= ORGANIZER_TIER_RANK.complete);
                   setNewEditionDialogOpen(true);
                 }}
                 disabled={status !== "idle"}
@@ -365,7 +364,7 @@ export function OrganizerSummaryHeader({
           <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
             <div className="text-right">
               <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold">
-                {editionTier === "pro" ? "RaceBook Pro" : editionTier === "racebook" ? "RaceBook" : "Visibilité"}
+                {ORGANIZER_TIER_LABEL[editionTier]}
               </span>
               <p className="mt-1 text-xs text-muted-foreground">{offerStatusLabel}</p>
             </div>
@@ -434,10 +433,10 @@ export function OrganizerSummaryHeader({
                 className="mt-0.5 h-4 w-4 rounded border-input accent-brand"
                 checked={duplicatePreviousEdition}
                 onChange={(event) => setDuplicatePreviousEdition(event.target.checked)}
-                disabled={editionTier !== "pro"}
+                disabled={ORGANIZER_TIER_RANK[editionTier] < ORGANIZER_TIER_RANK.complete}
               />
               <span>
-                <span className="block font-medium">Dupliquer depuis l’édition précédente {editionTier !== "pro" ? "— Pro" : ""}</span>
+                <span className="block font-medium">Dupliquer depuis l’édition précédente {ORGANIZER_TIER_RANK[editionTier] < ORGANIZER_TIER_RANK.complete ? "— Complet" : ""}</span>
                 <span className="mt-1 block text-xs text-muted-foreground">
                   Reprend les formats de l’édition {selectedEditionYear} dans la nouvelle édition.
                 </span>

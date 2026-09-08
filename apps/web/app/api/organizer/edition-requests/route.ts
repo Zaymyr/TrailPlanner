@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
   const previousCurrentEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await currentResponse.json())[0]?.id ?? null;
   let sourceRaces: z.infer<typeof sourceRaceSchema>[] = [];
   let sourceEditionId: string | null = null;
+  let sourceModuleSettings: Array<{ race_id: string | null; module_key: string; is_enabled: boolean }> = [];
   if (parsed.data.duplicatePreviousEdition) {
     const sourceEditionResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_editions?event_id=eq.${parsed.data.eventId}&edition_year=eq.${parsed.data.sourceYear}&select=id&limit=1`,
@@ -80,7 +81,7 @@ export async function POST(request: NextRequest) {
     sourceEditionId = z.array(z.object({ id: z.string().uuid() })).parse(await sourceEditionResponse.json())[0]?.id ?? null;
     if (!sourceEditionId) return jsonError("Source edition not found.", 409);
     if (!(await requireOrganizerEditionCapability(auth.serviceConfig, sourceEditionId, "edition.duplicate"))) {
-      return jsonError("RaceBook Pro est requis pour dupliquer une édition.", 403);
+      return jsonError("L’offre Complet est requise pour dupliquer une édition.", 403);
     }
 
     const sourceResponse = await fetch(
@@ -90,6 +91,12 @@ export async function POST(request: NextRequest) {
     if (!sourceResponse.ok) return jsonError("Unable to inspect source formats.", 502);
     sourceRaces = z.array(sourceRaceSchema).parse(await sourceResponse.json());
     if (sourceRaces.length === 0) return jsonError("No format exists for the source year.", 409);
+    const settingsResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings?edition_id=eq.${sourceEditionId}&select=race_id,module_key,is_enabled`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
+    );
+    if (!settingsResponse.ok) return jsonError("Unable to inspect source module settings.", 502);
+    sourceModuleSettings = z.array(z.object({ race_id: z.string().uuid().nullable(), module_key: z.string(), is_enabled: z.boolean() })).parse(await settingsResponse.json());
   }
 
   const earliestSourceDate = sourceRaces.map((race) => race.race_date).filter((date): date is string => Boolean(date)).sort()[0];
@@ -123,6 +130,23 @@ export async function POST(request: NextRequest) {
         const copyResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_edition_services`, { method: "POST", headers: serviceHeaders(auth.serviceConfig), body: JSON.stringify(services.map((service) => ({ ...service, edition_id: edition.id }))), cache: "no-store" });
         if (!copyResponse.ok) throw new Error("Unable to clone edition services.");
       }
+      const editionSettings = sourceModuleSettings.filter((setting) => setting.race_id === null);
+      for (const setting of editionSettings) {
+        const existingSettingResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings?edition_id=eq.${edition.id}&race_id=is.null&module_key=eq.${setting.module_key}&select=id`, { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" });
+        if (!existingSettingResponse.ok) throw new Error("Unable to inspect cloned edition module settings.");
+        const existingSettingId = z.array(z.object({ id: z.string().uuid() })).parse(await existingSettingResponse.json())[0]?.id;
+        const settingsCopyResponse = await fetch(existingSettingId
+          ? `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings?id=eq.${existingSettingId}`
+          : `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings`, {
+          method: existingSettingId ? "PATCH" : "POST",
+          headers: serviceHeaders(auth.serviceConfig),
+          body: JSON.stringify(existingSettingId
+            ? { is_enabled: setting.is_enabled, configured_by: auth.user.id }
+            : { edition_id: edition.id, race_id: null, module_key: setting.module_key, is_enabled: setting.is_enabled, configured_by: auth.user.id }),
+          cache: "no-store",
+        });
+        if (!settingsCopyResponse.ok) throw new Error("Unable to clone edition module settings.");
+      }
     }
     for (const sourceRace of sourceRaces) {
       const raceDate = sourceRace.race_date
@@ -142,7 +166,25 @@ export async function POST(request: NextRequest) {
       const response = await createRace(createRequest);
       const payload = (await response.json().catch(() => null)) as { race?: unknown; message?: string } | null;
       if (!response.ok || !payload?.race) throw new Error(payload?.message ?? "Unable to clone a format.");
-      createdRaces.push(createdRaceSchema.parse(payload.race));
+      const createdRace = createdRaceSchema.parse(payload.race);
+      createdRaces.push(createdRace);
+      const raceSettings = sourceModuleSettings.filter((setting) => setting.race_id === sourceRace.id);
+      for (const setting of raceSettings) {
+        const currentSettingResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings?race_id=eq.${createdRace.id}&module_key=eq.${setting.module_key}&select=id`, { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" });
+        if (!currentSettingResponse.ok) throw new Error("Unable to inspect cloned format module settings.");
+        const currentSettingId = z.array(z.object({ id: z.string().uuid() })).parse(await currentSettingResponse.json())[0]?.id;
+        const existingResponse = await fetch(currentSettingId
+          ? `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings?id=eq.${currentSettingId}`
+          : `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings`, {
+          method: currentSettingId ? "PATCH" : "POST",
+          headers: serviceHeaders(auth.serviceConfig),
+          body: JSON.stringify(currentSettingId
+            ? { is_enabled: setting.is_enabled, configured_by: auth.user.id }
+            : { edition_id: edition.id, race_id: createdRace.id, module_key: setting.module_key, is_enabled: setting.is_enabled, configured_by: auth.user.id }),
+          cache: "no-store",
+        });
+        if (!existingResponse.ok) throw new Error("Unable to clone format module settings.");
+      }
     }
 
     if (previousCurrentEditionId) {
@@ -163,7 +205,7 @@ export async function POST(request: NextRequest) {
       {
         method: "PATCH",
         headers: { ...serviceHeaders(auth.serviceConfig), Prefer: "return=representation" },
-        body: JSON.stringify({ is_current: true }),
+        body: JSON.stringify({ is_current: true, ...(sourceEditionId ? { module_setup_completed_at: new Date().toISOString() } : {}) }),
         cache: "no-store",
       }
     );

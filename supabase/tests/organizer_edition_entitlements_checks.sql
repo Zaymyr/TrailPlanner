@@ -1,5 +1,5 @@
 -- Organizer commercial entitlement transition checks.
--- Run after 20260829115507_add_organizer_edition_offers.sql in a privileged SQL session.
+-- Run after 20260908093008_add_organizer_offer_modules_v2.sql in a privileged SQL session.
 
 begin;
 
@@ -69,8 +69,8 @@ select public.recalculate_organizer_edition_entitlement((select edition_id from 
 
 do $$
 begin
-  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'racebook' then
-    raise exception 'Expected paid RaceBook transaction to activate RaceBook.';
+  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'complete' then
+    raise exception 'Expected a legacy RaceBook transaction to map to Complete.';
   end if;
 end $$;
 
@@ -84,8 +84,8 @@ select public.recalculate_organizer_edition_entitlement((select edition_id from 
 
 do $$
 begin
-  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'pro' then
-    raise exception 'Expected paid upgrade to activate Pro.';
+  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'signature' then
+    raise exception 'Expected a legacy paid upgrade to activate Signature.';
   end if;
 end $$;
 
@@ -98,8 +98,8 @@ select public.recalculate_organizer_edition_entitlement((select edition_id from 
 
 do $$
 begin
-  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'racebook' then
-    raise exception 'Expected refunded upgrade to return to RaceBook.';
+  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'complete' then
+    raise exception 'Expected refunded legacy upgrade to return to Complete.';
   end if;
 end $$;
 
@@ -127,8 +127,8 @@ select public.recalculate_organizer_edition_entitlement((select edition_id from 
 
 do $$
 begin
-  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'pro' then
-    raise exception 'Expected a paid direct Pro transaction to activate Pro.';
+  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'signature' then
+    raise exception 'Expected a legacy paid direct Pro transaction to activate Signature.';
   end if;
 end $$;
 
@@ -146,10 +146,45 @@ begin
   end if;
 end $$;
 
+insert into public.organizer_edition_payments (
+  edition_id, purchase_kind, from_tier, to_tier, status, amount_subtotal, currency
+)
+select edition_id, 'essential_direct', 'visibility', 'essential', 'paid', 9900, 'eur'
+from _organizer_offer_fixture;
+
+insert into public.organizer_edition_payments (
+  edition_id, purchase_kind, from_tier, to_tier, status, amount_subtotal, currency
+)
+select edition_id, 'essential_to_signature', 'essential', 'signature', 'paid', 25000, 'eur'
+from _organizer_offer_fixture;
+
+select public.recalculate_organizer_edition_entitlement((select edition_id from _organizer_offer_fixture));
+
+do $$
+begin
+  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'signature' then
+    raise exception 'Expected a valid Essential plus Signature upgrade path to activate Signature.';
+  end if;
+end $$;
+
+update public.organizer_edition_payments
+set status = 'disputed', invalidated_at = now()
+where edition_id = (select edition_id from _organizer_offer_fixture)
+  and purchase_kind = 'essential_direct';
+
+select public.recalculate_organizer_edition_entitlement((select edition_id from _organizer_offer_fixture));
+
+do $$
+begin
+  if (select tier from public.organizer_edition_entitlements where edition_id = (select edition_id from _organizer_offer_fixture)) <> 'visibility' then
+    raise exception 'Expected a disputed base purchase to invalidate its dependent upgrade.';
+  end if;
+end $$;
+
 select public.set_admin_organizer_edition_entitlement(
   (select edition_id from _organizer_offer_fixture),
   null,
-  'pro'
+  'signature'
 );
 select public.recalculate_organizer_edition_entitlement((select edition_id from _organizer_offer_fixture));
 
@@ -159,7 +194,7 @@ begin
     select 1
     from public.organizer_edition_entitlements
     where edition_id = (select edition_id from _organizer_offer_fixture)
-      and tier = 'pro'
+      and tier = 'signature'
       and source = 'admin'
       and status = 'active'
   ) then

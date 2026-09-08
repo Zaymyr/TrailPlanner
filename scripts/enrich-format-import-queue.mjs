@@ -30,9 +30,14 @@ const FIELD_PATH_HINTS = {
   cutoff_times: /(barriere|cut.?off|horaire|temps.?limite|limite)/i,
   mandatory_equipment: /(equipement|obligatoire|materiel)/i,
 };
-const CRAWL_PATH_HINTS = /(course|parcours|programme|horaire|reglement|règlement|pratique|inscription|ravito|ravitail|gpx|roadbook|dossard|acces|accès|parking|navette|equipement|équipement)/i;
+const CRAWL_PATH_HINTS = /(course|parcours|programme|horaire|reglement|règlement|organisation|pratique|inscription|ravito|ravitail|gpx|roadbook|dossard|acces|accès|parking|navette|equipement|équipement)/i;
 const EXTERNAL_OFFICIAL_HINTS = /(site officiel|organisateur|association|club|website|official|course)/i;
 const EXTERNAL_BLOCKED_HOSTS = /(?:facebook|instagram|linkedin|youtube|tiktok|chrono[-]?start|klikego|njuko|milesrepublic|sportsnconnect|timepulse|protiming|helloasso|billetweb)\./i;
+export const sitemapLocations = (xml, rootUrl) => [...String(xml).matchAll(/<loc[^>]*>([^<]+)<\/loc>/gi)]
+  .map(match => match[1].trim())
+  .filter(candidate => {
+    try { return new URL(candidate).hostname === new URL(rootUrl).hostname; } catch { return false; }
+  });
 
 const discoverOfficialLinks = (html, rootUrl) => {
   const discovered = [];
@@ -73,7 +78,8 @@ const discoverOfficialFromSecondary = (html, rootUrl) => {
 const SOURCE_TEXT_LIMIT = 80_000;
 // The full crawl stays local for evidence validation; only focused excerpts
 // are sent to the model to control input-token usage.
-const LLM_TEXT_LIMIT = 9_000;
+const LLM_TEXT_LIMIT = 24_000;
+const LLM_MAX_PAGES = 8;
 const DISTANCE_MATCH_RATIO = 0.12;
 const DATE_PATTERN = /\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.]\d{1,2}[/.]\d{4}|\d{1,2}\s+(?:janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+\d{4})\b/giu;
 const MONTHS = {
@@ -340,7 +346,7 @@ const callLlm = async (row, extraction, api) => {
       },
       messages: [
         { role: "developer", content: "Recherche exhaustive : extrais aussi les horaires, D-, barrières horaires, altitudes, GPX, ravitaillements, équipement obligatoire, retrait des dossards, accès, parking, navettes, services, réseaux sociaux et contact d'urgence lorsqu'ils sont explicitement présents. Les objets et tableaux doivent conserver leurs détails utiles sous forme de chaîne JSON valide dans value. N'invente rien et rattache chaque claim à une citation exacte." },
-          { role: "developer", content: "Tu analyses une page officielle de course trail. Utilise uniquement le texte fourni. N'invente jamais. Retourne uniquement des claims dont la preuve est une citation exacte du texte. Pour chaque claim lie a un format, renseigne format_label avec le nom officiel visible (ex: RENARDEAU), meme s'il differe du nom du prospect. Ignore les dates d'inscription, résultats historiques et archives si elles ne concernent pas l'édition du format demandé. Si une information est ambiguë, ne la retourne pas." },
+        { role: "developer", content: "Tu analyses une page officielle de course trail. Utilise uniquement le texte fourni. N'invente jamais. Retourne uniquement des claims dont la preuve est une citation exacte du texte. Pour chaque claim lie a un format, renseigne format_label avec le nom officiel visible (ex: RENARDEAU), meme s'il differe du nom du prospect. Ignore les dates d'inscription, résultats historiques et archives si elles ne concernent pas l'édition du format demandé. Une distance présente uniquement dans un tarif, un relais, un résultat ou une offre ne prouve pas la distance du format. N'utilise jamais les informations pratiques d'une ancienne édition pour l'édition demandée. Si une information est ambiguë, ne la retourne pas." },
         { role: "user", content: `<untrusted_page_payload>\n${JSON.stringify(prompt)}\n</untrusted_page_payload>` },
       ],
     }),
@@ -395,7 +401,7 @@ export const fetchPage = async (url, row = {}) => {
   }
   const formatNeedles = [row.format_name, row.distance_km && `${row.distance_km} km`, row.distance_km && `${row.distance_km}km`]
     .filter(Boolean).map((value) => String(value).toLowerCase());
-  const requestedFields = String(row.missing_fields || "").split(";").filter(Boolean);
+  const requestedFields = String(row.search_fields || row.missing_fields || "").split(";").filter(Boolean);
   const maxPages = row.search_depth === "deep" ? DEEP_CRAWL_MAX_PAGES : CRAWL_MAX_PAGES;
   const metadataLinks = discoverOfficialLinks(rootHtml, root.href).filter(link => new URL(link.href).hostname === root.hostname);
   const links = [...rootHtml.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
@@ -424,11 +430,14 @@ export const fetchPage = async (url, row = {}) => {
   if (row.search_depth === "deep") {
     try {
       const sitemapResponse = await fetchOne(new URL("/sitemap.xml", root).href);
-      sitemapLinks = [...sitemapResponse.matchAll(/<loc[^>]*>([^<]+)<\/loc>/gi)]
-        .map((match) => match[1].trim())
-        .filter((candidate) => {
-          try { return new URL(candidate).hostname === root.hostname; } catch { return false; }
-        })
+      const firstLevel = sitemapLocations(sitemapResponse, root.href);
+      const nested = [];
+      for (const sitemapUrl of firstLevel.filter(candidate => /\.xml(?:$|[?#])/i.test(candidate)).slice(0, 6)) {
+        try { nested.push(...sitemapLocations(await fetchOne(sitemapUrl), root.href)); }
+        catch { /* an individual sitemap must not block the crawl */ }
+      }
+      sitemapLinks = [...new Set([...firstLevel, ...nested])]
+        .filter(candidate => !/\.xml(?:$|[?#])/i.test(candidate))
         .map((candidate) => ({
           href: candidate,
           score: requestedFields.some((field) => FIELD_PATH_HINTS[field]?.test(candidate)) ? 35 : 5,
@@ -483,20 +492,33 @@ const parseArgs = (argv) => {
   return args;
 };
 
-export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs = 500, verbose = false, fetchImpl = fetchPage, llmImpl = callLlm, onRow = async () => {} } = {}) => {
+export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs = 500, verbose = false, fetchImpl = fetchPage, llmImpl = callLlm,
+  mcpClientFactory = createRaceResearchMcpClient, useMcp = fetchImpl === fetchPage && process.env.RACE_RESEARCH_USE_MCP !== '0', onRow = async () => {} } = {}) => {
   const api = {key:process.env.OPENAI_API_KEY?.trim() || process.env.LLM_API_KEY?.trim() || '',
     url:process.env.LLM_API_URL?.trim() || 'https://api.openai.com/v1/chat/completions',
     model:process.env.OPENAI_ORGANIZER_IMPORT_MODEL?.trim() || process.env.LLM_MODEL?.trim() || 'gpt-4.1-mini'};
   const selected = limit === null ? rows : rows.slice(0, limit);
   let mcpClient = null;
-  if (fetchImpl === fetchPage && process.env.RACE_RESEARCH_USE_MCP !== '0') {
-    try { mcpClient = await createRaceResearchMcpClient(); }
-    catch (error) { console.error(`MCP indisponible, HTTP local : ${error.message}`); }
-  }
-  const fetchSource = mcpClient ? (url,row) => mcpClient.callTool('crawl_source', {
-    url, event_name:row.event_name, format_name:row.format_name, distance_km:row.distance_km,
-    missing_fields:row.search_fields, search_depth:'deep', race_url:row.race_url,
-  }) : fetchImpl;
+  const closeMcp = () => { try { mcpClient?.close(); } catch { /* already closed */ } mcpClient = null; };
+  const fetchSource = async (url,row) => {
+    if (!useMcp) { row.crawl_transport = fetchImpl === fetchPage ? 'http_direct' : 'custom'; return fetchImpl(url,row); }
+    const params = {url, event_name:row.event_name, format_name:row.format_name, distance_km:row.distance_km,
+      missing_fields:row.search_fields, search_depth:'deep', race_url:row.race_url};
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      try {
+        mcpClient ||= await mcpClientFactory();
+        const result = await mcpClient.callTool('crawl_source', params);
+        row.crawl_transport = attempt ? 'mcp_stdio_restarted' : 'mcp_stdio';
+        return result;
+      } catch (error) {
+        closeMcp();
+        if (attempt === 0) { console.error(`MCP redémarré après erreur : ${error.message || error}`); continue; }
+        console.error(`MCP indisponible pour ${row.event_name}, HTTP local : ${error.message || error}`);
+      }
+    }
+    row.crawl_transport = 'http_direct_after_mcp';
+    return fetchImpl(url,row);
+  };
   const pageCache = new Map();
   try {
     for (const [index,row] of selected.entries()) {
@@ -512,7 +534,6 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
         if (!source) throw new Error('Source officielle ou secondaire manquante');
         row.search_fields = Object.keys(FIELD_COLUMNS).join(';');
         row.search_depth = 'deep';
-        row.crawl_transport = mcpClient ? 'mcp_stdio' : fetchImpl === fetchPage ? 'http_direct' : 'custom';
         const pageKey = JSON.stringify([source,row.race_url,row.format_name,row.prospect_distance_km || row.distance_km,targetEdition(row)]);
         if (!pageCache.has(pageKey)) pageCache.set(pageKey, await fetchSource(source,row));
         fetched = pageCache.get(pageKey);
@@ -529,7 +550,13 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
           return result;
         });
         const pages = extracts.flatMap(result=>result.pages);
-        const ranked = extracts.map(result => ({result, score:(result.pages[0].format_context ? 100 : 0) + result.claims.length * 3 - ((/archives?|resultats?/.test(result.pages[0].url) || [...result.pages[0].url.matchAll(/\b(20\d{2})\b/g)].some(match => match[1] !== targetEdition(row))) ? 10 : 0)})).sort((a,b)=>b.score-a.score).slice(0,10);
+        const ranked = extracts.map(result => {
+          const page = result.pages[0];
+          const pageDates = datesInText(page.text || '');
+          const wrongEditionOnly = pageDates.length > 0 && !pageDates.some(date => date.slice(0,4) === targetEdition(row));
+          const staleUrl = /archives?|resultats?/i.test(page.url) || [...page.url.matchAll(/\b(20\d{2})\b/g)].some(match => match[1] !== targetEdition(row));
+          return {result, score:(page.format_context ? 100 : 0) + result.claims.length * 3 - (wrongEditionOnly ? 200 : staleUrl ? 40 : 0)};
+        }).sort((a,b)=>b.score-a.score).slice(0,LLM_MAX_PAGES);
         const budget = Math.floor(LLM_TEXT_LIMIT / Math.max(1,ranked.length));
         const llmContext = ranked.map(({result}) => `SOURCE ${result.pages[0].url}\nFORMAT ${result.pages[0].format_context}\n${result.llm_context}`.slice(0,budget)).join('\n---\n').slice(0,LLM_TEXT_LIMIT);
         extraction = {text:pages.map(p=>p.text).join(' '), validation_text:pages.map(p=>p.text).join(' '),pages,
@@ -558,7 +585,7 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
         pages:fetched?.pages || [],request_context:extraction?.llm_context || '',llm_response:llm,errors:jsonValue(row.research_errors_json,[])});
       if (delayMs > 0 && index < selected.length-1) await sleep(delayMs);
     }
-  } finally { mcpClient?.close(); }
+  } finally { closeMcp(); }
   return rows;
 };
 

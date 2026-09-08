@@ -4,7 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../../lib/http";
-import { loadOrganizerEditionEntitlement } from "../../../../lib/organizer-entitlements";
+import { loadOrganizerEditionEntitlement, type OrganizerTier } from "../../../../lib/organizer-entitlements";
+import { ORGANIZER_TIER_RANK } from "../../../../lib/organizer-modules";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders } from "../../../../lib/organizer";
 import { validateOrganizerEditionPublication } from "../../../../lib/organizer-publication";
 import { getStripeConfig, getStripeJson, postStripeForm } from "../../../../lib/stripe";
@@ -13,7 +14,7 @@ import { isAnonymousUser } from "../../../../lib/supabase";
 const requestSchema = z.object({
   eventId: z.string().uuid(),
   editionId: z.string().uuid(),
-  targetTier: z.enum(["racebook", "pro"]),
+  targetTier: z.enum(["essential", "complete", "signature"]),
 });
 
 const stripePriceSchema = z.object({
@@ -31,10 +32,19 @@ const paymentRowSchema = z.object({
 });
 
 const OFFER_CONFIG = {
-  racebook: { purchaseKind: "racebook", fromTier: "visibility", amount: 19_900 },
-  pro_direct: { purchaseKind: "pro_direct", fromTier: "visibility", amount: 29_900 },
-  pro_upgrade: { purchaseKind: "pro_upgrade", fromTier: "racebook", amount: 10_000 },
+  essential_direct: { purchaseKind: "essential_direct", fromTier: "visibility", amount: 9_900 },
+  complete_direct: { purchaseKind: "complete_direct", fromTier: "visibility", amount: 19_900 },
+  signature_direct: { purchaseKind: "signature_direct", fromTier: "visibility", amount: 34_900 },
+  essential_to_complete: { purchaseKind: "essential_to_complete", fromTier: "essential", amount: 10_000 },
+  essential_to_signature: { purchaseKind: "essential_to_signature", fromTier: "essential", amount: 25_000 },
+  complete_to_signature: { purchaseKind: "complete_to_signature", fromTier: "complete", amount: 15_000 },
 } as const;
+
+type PaidTier = Exclude<OrganizerTier, "visibility">;
+type OfferKey = keyof typeof OFFER_CONFIG;
+
+const offerKeyFor = (currentTier: OrganizerTier, targetTier: PaidTier): OfferKey =>
+  (currentTier === "visibility" ? `${targetTier}_direct` : `${currentTier}_to_${targetTier}`) as OfferKey;
 
 export async function POST(request: NextRequest) {
   const auth = await requireOrganizerAuth(request);
@@ -65,23 +75,22 @@ export async function POST(request: NextRequest) {
 
   const current = await loadOrganizerEditionEntitlement(auth.serviceConfig, parsed.data.editionId);
   const currentTier = current?.status === "active" ? current.tier : "visibility";
-  if (currentTier === "pro" || currentTier === parsed.data.targetTier) {
+  if (ORGANIZER_TIER_RANK[parsed.data.targetTier] <= ORGANIZER_TIER_RANK[currentTier]) {
     return jsonError("Cette édition dispose déjà de cette offre.", 409);
   }
-  if (currentTier === "racebook" && parsed.data.targetTier !== "pro") {
-    return jsonError("Seul le passage à RaceBook Pro est disponible.", 409);
-  }
 
-  const offerKey = parsed.data.targetTier === "racebook" ? "racebook" : currentTier === "racebook" ? "pro_upgrade" : "pro_direct";
+  const offerKey = offerKeyFor(currentTier, parsed.data.targetTier);
   const offer = OFFER_CONFIG[offerKey];
   const stripeConfig = getStripeConfig();
   if (!stripeConfig) return jsonError("Stripe configuration is missing.", 500);
-  const priceId =
-    offerKey === "racebook"
-      ? stripeConfig.organizerRacebookPriceId
-      : offerKey === "pro_direct"
-        ? stripeConfig.organizerProPriceId
-        : stripeConfig.organizerProUpgradePriceId;
+  const priceId = {
+    essential_direct: stripeConfig.organizerEssentialPriceId,
+    complete_direct: stripeConfig.organizerCompletePriceId,
+    signature_direct: stripeConfig.organizerSignaturePriceId,
+    essential_to_complete: stripeConfig.organizerEssentialToCompletePriceId,
+    essential_to_signature: stripeConfig.organizerEssentialToSignaturePriceId,
+    complete_to_signature: stripeConfig.organizerCompleteToSignaturePriceId,
+  }[offerKey];
   if (!priceId) return jsonError("L’offre Stripe organisateur n’est pas configurée.", 500);
 
   let paymentId: string | null = null;

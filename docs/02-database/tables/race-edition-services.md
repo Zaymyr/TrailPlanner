@@ -32,6 +32,8 @@ Stores ordered, structured restaurants, accommodation, recovery and other nearby
 
 ## Access
 
+Services require Complete or Signature plus an active edition `services` module. Disabling masks published rows and blocks organizer writes without deleting them.
+
 Public reads follow the visible, published RaceBook edition. Authorized event organizers can preview rows. Clients cannot mutate the table directly; the service-role Organizer API checks membership and `racebook_content.manage`.
 
 Legacy `organizer_details.services` text remains untouched. Mobile prefers structured rows per matching category and falls back to that category's legacy text only when no structured row exists.

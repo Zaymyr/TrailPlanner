@@ -8,12 +8,12 @@ const editionId = "22222222-2222-2222-2222-222222222222";
 const paymentId = "33333333-3333-3333-3333-333333333333";
 
 const mocks = vi.hoisted(() => ({
-  currentTier: "visibility" as "visibility" | "racebook" | "pro",
+  currentTier: "visibility" as "visibility" | "essential" | "complete" | "signature",
   getStripeJson: vi.fn(),
   postStripeForm: vi.fn(),
 }));
 
-const request = (targetTier: "racebook" | "pro") =>
+const request = (targetTier: "essential" | "complete" | "signature") =>
   new NextRequest("http://localhost/api/organizer/publication-checkout", {
     method: "POST",
     headers: { authorization: "Bearer organizer-token", "content-type": "application/json" },
@@ -34,9 +34,12 @@ describe("POST /api/organizer/publication-checkout", () => {
   afterEach(() => vi.restoreAllMocks());
 
   it.each([
-    ["visibility", "racebook", "price_racebook", 19_900, "racebook"],
-    ["visibility", "pro", "price_pro", 29_900, "pro_direct"],
-    ["racebook", "pro", "price_upgrade", 10_000, "pro_upgrade"],
+    ["visibility", "essential", "price_essential", 9_900, "essential_direct"],
+    ["visibility", "complete", "price_complete", 19_900, "complete_direct"],
+    ["visibility", "signature", "price_signature", 34_900, "signature_direct"],
+    ["essential", "complete", "price_essential_complete", 10_000, "essential_to_complete"],
+    ["essential", "signature", "price_essential_signature", 25_000, "essential_to_signature"],
+    ["complete", "signature", "price_complete_signature", 15_000, "complete_to_signature"],
   ] as const)("charges the server-selected price for %s to %s", async (fromTier, targetTier, priceId, amount, purchaseKind) => {
     mocks.currentTier = fromTier;
     mocks.getStripeJson.mockResolvedValue({
@@ -75,10 +78,10 @@ describe("POST /api/organizer/publication-checkout", () => {
 
   it("reuses an existing pending Checkout instead of creating a duplicate", async () => {
     mocks.getStripeJson.mockResolvedValue({
-      id: "price_racebook",
+      id: "price_essential",
       active: true,
       currency: "eur",
-      unit_amount: 19_900,
+      unit_amount: 9_900,
       recurring: null,
       tax_behavior: "exclusive",
     });
@@ -90,7 +93,7 @@ describe("POST /api/organizer/publication-checkout", () => {
         stripe_checkout_url: "https://checkout.stripe.test/already-open",
       }])));
 
-    const response = await POST(request("racebook"));
+    const response = await POST(request("essential"));
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({
@@ -123,9 +126,12 @@ vi.mock("../../../../lib/organizer-entitlements", () => ({
 vi.mock("../../../../lib/stripe", () => ({
   getStripeConfig: () => ({
     secretKey: "sk_test",
-    organizerRacebookPriceId: "price_racebook",
-    organizerProPriceId: "price_pro",
-    organizerProUpgradePriceId: "price_upgrade",
+    organizerEssentialPriceId: "price_essential",
+    organizerCompletePriceId: "price_complete",
+    organizerSignaturePriceId: "price_signature",
+    organizerEssentialToCompletePriceId: "price_essential_complete",
+    organizerEssentialToSignaturePriceId: "price_essential_signature",
+    organizerCompleteToSignaturePriceId: "price_complete_signature",
   }),
   getStripeJson: mocks.getStripeJson,
   postStripeForm: mocks.postStripeForm,

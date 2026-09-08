@@ -1,15 +1,18 @@
 import { NextRequest } from "next/server";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET } from "./route";
 
-const mocks = vi.hoisted(() => ({ checkRateLimitAsync: vi.fn() }));
+const mocks = vi.hoisted(() => ({ checkRateLimitAsync: vi.fn(), isModuleEnabled: vi.fn() }));
 
 vi.mock("../../../../../lib/http", async () => {
   const actual = await vi.importActual<typeof import("../../../../../lib/http")>("../../../../../lib/http");
   return { ...actual, checkRateLimitAsync: mocks.checkRateLimitAsync };
 });
 vi.mock("../../../../../lib/organizer", () => ({ serviceHeaders: () => ({}) }));
+vi.mock("../../../../../lib/organizer-module-settings", () => ({
+  isOrganizerEditionModuleEnabled: mocks.isModuleEnabled,
+}));
 vi.mock("../../../../../lib/supabase", () => ({
   getSupabaseServiceConfig: () => ({ supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" }),
 }));
@@ -18,6 +21,7 @@ const sponsorId = "44444444-4444-4444-8444-444444444444";
 const raceId = "11111111-1111-4111-8111-111111111111";
 const editionId = "33333333-3333-4333-8333-333333333333";
 
+beforeEach(() => mocks.isModuleEnabled.mockResolvedValue(true));
 afterEach(() => vi.restoreAllMocks());
 
 describe("GET /api/racebook-sponsors/[id]/click", () => {
@@ -74,5 +78,17 @@ describe("GET /api/racebook-sponsors/[id]/click", () => {
       { params: { id: sponsorId } },
     );
     expect(response.status).toBe(410);
+  });
+
+  it("rejects a sponsor link when the sponsor module is inactive", async () => {
+    mocks.isModuleEnabled.mockResolvedValue(false);
+    const fetchMock = vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ website_url: "https://example.com/sponsor", edition_id: editionId }]), { status: 200 }));
+    const response = await GET(
+      new NextRequest(`http://localhost/api/racebook-sponsors/${sponsorId}/click?raceId=${raceId}`),
+      { params: { id: sponsorId } },
+    );
+    expect(response.status).toBe(410);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -13,6 +13,7 @@ import {
   organizerRaceDetailsSchema,
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
+import { isOrganizerEditionModuleEnabled, isOrganizerRaceModuleEnabled } from "../../../../../lib/organizer-module-settings";
 
 const optionalPatchTextOrNull = z
   .union([z.string().trim(), z.null()])
@@ -123,8 +124,31 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.locationText !== undefined) updatePayload.location_text = parsedBody.data.locationText;
   if (parsedBody.data.raceDate !== undefined) updatePayload.race_date = parsedBody.data.raceDate;
   if (parsedBody.data.thumbnailUrl !== undefined) updatePayload.thumbnail_url = parsedBody.data.thumbnailUrl;
-  if (parsedBody.data.organizerDetails !== undefined) updatePayload.organizer_details = parsedBody.data.organizerDetails;
-  if (parsedBody.data.participationMode !== undefined) updatePayload.participation_mode = parsedBody.data.participationMode;
+  if (parsedBody.data.organizerDetails !== undefined) {
+    const incoming = parsedBody.data.organizerDetails;
+    const current = parseOrganizerRaceDetails(race.organizer_details);
+    if (!race.edition_id) updatePayload.organizer_details = current;
+    else {
+      const [equipment, bibPickup, access, aidStations] = await Promise.all([
+        isOrganizerEditionModuleEnabled(auth.serviceConfig, race.edition_id, "equipment"),
+        isOrganizerEditionModuleEnabled(auth.serviceConfig, race.edition_id, "bib_pickup"),
+        isOrganizerEditionModuleEnabled(auth.serviceConfig, race.edition_id, "access"),
+        isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, race.id, "aid_stations"),
+      ]);
+      updatePayload.organizer_details = {
+        ...incoming,
+        mandatoryEquipment: equipment ? incoming.mandatoryEquipment : current.mandatoryEquipment,
+        bibPickup: bibPickup ? incoming.bibPickup : current.bibPickup,
+        access: access ? incoming.access : current.access,
+        schedule: aidStations ? incoming.schedule : current.schedule,
+      };
+    }
+  }
+  if (
+    parsedBody.data.participationMode !== undefined &&
+    race.edition_id &&
+    await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, race.id, "relay")
+  ) updatePayload.participation_mode = parsedBody.data.participationMode;
 
   const requiredFieldChanged =
     parsedBody.data.raceDate !== undefined ||
@@ -205,7 +229,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     return jsonError("Unable to update race format.", 502);
   }
 
-  if (parsedBody.data.participationMode === "solo") {
+  if (updatePayload.participation_mode === "solo") {
     const relayCleanupResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_relay_points?race_id=eq.${parsedParams.data.id}`,
       { method: "DELETE", headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },

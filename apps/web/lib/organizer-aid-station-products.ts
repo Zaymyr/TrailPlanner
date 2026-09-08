@@ -200,7 +200,7 @@ export const loadOrganizerAidStationProductsForRaceIds = async (
     raceRows.flatMap((race) => (race.edition_id ? [race.edition_id] : []))
   );
   const proRaceIds = raceRows
-    .filter((race) => race.edition_id && entitlements[race.edition_id]?.tier === "pro" && entitlements[race.edition_id]?.status === "active")
+    .filter((race) => race.edition_id && entitlements[race.edition_id]?.tier === "signature" && entitlements[race.edition_id]?.status === "active")
     .map((race) => race.id);
 
   if (proRaceIds.length === 0) return {};

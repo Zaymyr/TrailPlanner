@@ -84,7 +84,7 @@ RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, 
 
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.
-- Sponsor configuration and aggregate click totals are Pro-gated in both the Organizer UI and every organizer sponsor route. Do not rely on the browser gate alone. Existing active placements remain runner-visible whenever the selected RaceBook is accessible, even if the organizer entitlement is later downgraded.
+- Sponsor configuration and aggregate click totals require an active Signature entitlement and active `sponsors` module in every organizer route. The runner bootstrap returns no sponsor placements while that module is inactive or locked; stored rows and click totals remain intact for restoration.
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
 - Keep the mobile loading panel and its two slots reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
 - Keep the sponsor handoff cache short-lived and scoped by authenticated user id plus race id. It may share one in-flight request across the catalog and destination, but must not reuse an organizer-only draft response after a session change.

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { withSecurityHeaders } from "../../../../../../lib/http";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders, uuidParamSchema } from "../../../../../../lib/organizer";
-import { requireOrganizerEditionCapability } from "../../../../../../lib/organizer-entitlements";
+import { isOrganizerEditionModuleEnabled } from "../../../../../../lib/organizer-module-settings";
 import { editionServicesPayloadSchema, mapEditionServicePayload } from "../../../../../../lib/organizer-structured-content";
 
 const rowSchema = z.object({ id:z.string().uuid(), service_type:z.string(), name:z.string(), description:z.string().nullable(), address:z.string().nullable(), latitude:z.number().nullable(), longitude:z.number().nullable(), google_maps_url:z.string().nullable(), website_url:z.string().nullable(), phone:z.string().nullable(), order_index:z.number() });
@@ -14,7 +14,7 @@ async function authorize(request: NextRequest, id: string) {
   if(!response.ok) return {error:jsonError("Unable to load edition.",502)};
   const edition=z.array(z.object({event_id:z.string().uuid()})).parse(await response.json())[0]; if(!edition) return {error:jsonError("Edition not found.",404)};
   const organizer=await requireEventOrganizer(auth.serviceConfig,auth.user,edition.event_id); if(organizer!==true) return {error:organizer.error};
-  if(!(await requireOrganizerEditionCapability(auth.serviceConfig,id,"racebook_content.manage"))) return {error:jsonError("RaceBook est requis pour gérer les services.",403)};
+  if(!(await isOrganizerEditionModuleEnabled(auth.serviceConfig,id,"services"))) return {error:jsonError("Activez Services avec une offre Complet ou Signature.",403)};
   return auth;
 }
 async function load(config: Parameters<typeof serviceHeaders>[0], id:string){const r=await fetch(`${config.supabaseUrl}/rest/v1/race_edition_services?edition_id=eq.${id}&select=id,service_type,name,description,address,latitude,longitude,google_maps_url,website_url,phone,order_index&order=service_type.asc,order_index.asc`,{headers:serviceHeaders(config,""),cache:"no-store"});if(!r.ok)throw new Error(await r.text());return z.array(rowSchema).parse(await r.json()).map(mapRow)}

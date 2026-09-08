@@ -11,6 +11,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { requireOrganizerEditionCapability } from "../../../../../../lib/organizer-entitlements";
+import { isOrganizerEditionModuleEnabled } from "../../../../../../lib/organizer-module-settings";
 import {
   MAX_RACEBOOK_BRANDING_LOGO_SIZE_BYTES,
   RACEBOOK_BRANDING_LOGO_TYPES,
@@ -38,8 +39,9 @@ async function authorize(request: NextRequest, editionId: string) {
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, edition.event_id);
   if (organizer !== true) return organizer;
   if (!(await requireOrganizerEditionCapability(auth.serviceConfig, edition.id, "branding.manage"))) {
-    return { error: jsonError("RaceBook Pro is required to manage branding.", 403) };
+    return { error: jsonError("L’offre Signature est requise pour gérer l’identité visuelle.", 403) };
   }
+  if (!(await isOrganizerEditionModuleEnabled(auth.serviceConfig, edition.id, "branding"))) return { error: jsonError("La section Identité visuelle est inactive.", 403) };
   return { ...auth, edition };
 }
 

@@ -20,6 +20,8 @@ related_tables:
 
 ## Purpose and invariants
 
+Awards require Complete or Signature plus an active `awards` format module. Disabling masks published rows and blocks organizer writes without deleting them.
+
 Stores the podium programme for a format, not finisher results. A row records a preset (`scratch`, `u18`, `u20`, `u23`, `senior`, `master`) or custom category, its persisted display label, audience, inclusive rewarded-place range, required podium time, optional location and reward/note.
 
 Rows are ordered, replaced atomically with stable submitted ids, cascade with their format and are copied during Pro edition duplication. Public and organizer-preview reads use RLS; mutations only pass through the Organizer API after `racebook_content.manage` authorization.

@@ -13,6 +13,10 @@ vi.mock("../../../../../../lib/organizer-entitlements", () => ({
   requireOrganizerEditionCapability: mocks.requireOrganizerEditionCapability,
 }));
 
+vi.mock("../../../../../../lib/organizer-module-settings", () => ({
+  isOrganizerEditionModuleEnabled: () => Promise.resolve(true),
+}));
+
 vi.mock("../../../../../../lib/organizer", () => ({
   jsonError: (message: string, status: number) => NextResponse.json({ message }, { status }),
   requireEventOrganizer: mocks.requireEventOrganizer,

@@ -76,6 +76,12 @@ const setupSteps = [
   { number: "03", title: "Publiez votre Race Book", description: "Après validation, vos coureurs retrouvent les informations directement dans Pace Yourself." },
 ];
 
+const organizerOffers = [
+  { name: "Essentiel", price: "99 €", description: "Le RaceBook simple", features: ["Course et GPX", "Matériel et dossard", "Accès principal", "Ravitos simples"] },
+  { name: "Complet", price: "199 €", description: "La logistique avancée", features: ["Tout Essentiel", "SAS et barrières", "Services et navettes", "Podiums et notifications"] },
+  { name: "Signature", price: "349 €", description: "L'expérience personnalisée", features: ["Tout Complet", "Relais et produits officiels", "Sponsors et clics", "Identité visuelle et import assisté"] },
+] as const;
+
 const ArrowIcon = (props: SVGProps<SVGSVGElement>) => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden {...props}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M5 12h14m-6-6 6 6-6 6" />
@@ -260,6 +266,26 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
         </div>
         <div className="grid flex-none grid-cols-2 gap-2 text-xs font-medium text-foreground sm:grid-cols-3 lg:max-w-sm">
           {["Horaire", "Parcours", "Matériel", "Parking", "Navette", "Consigne"].map((item) => <span key={item} className="rounded-full border border-brand-border bg-card px-3 py-2 text-center dark:border-emerald-400/30">{item}</span>)}
+        </div>
+      </section>
+
+      <section aria-labelledby="offers-title" className="space-y-7">
+        <div className="max-w-3xl space-y-3">
+          <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Une offre adaptée à chaque course</p>
+          <h2 id="offers-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Activez seulement les sections dont vous avez besoin</h2>
+          <p className="leading-7 text-muted-foreground">Tarifs HT par édition, quel que soit le nombre de formats ou de participants. La présence au catalogue reste gratuite.</p>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {organizerOffers.map((offer) => (
+            <article key={offer.name} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+              <p className="text-sm font-semibold text-brand dark:text-emerald-200">{offer.name}</p>
+              <p className="mt-2 text-3xl font-semibold text-foreground">{offer.price} <span className="text-sm font-normal text-muted-foreground">HT / édition</span></p>
+              <p className="mt-2 text-sm text-muted-foreground">{offer.description}</p>
+              <ul className="mt-5 space-y-2 text-sm text-foreground">
+                {offer.features.map((feature) => <li key={feature} className="flex gap-2"><CheckIcon className="mt-0.5 h-4 w-4 shrink-0 text-brand" />{feature}</li>)}
+              </ul>
+            </article>
+          ))}
         </div>
       </section>
 

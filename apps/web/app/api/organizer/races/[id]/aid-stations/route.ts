@@ -13,6 +13,7 @@ import {
   organizerAidStationDetailsSchema,
   parseOrganizerAidStationDetails,
 } from "../../../../../../lib/organizer-dashboard-details";
+import { isOrganizerRaceModuleEnabled } from "../../../../../../lib/organizer-module-settings";
 
 const aidStationRowSchema = z.object({
   id: z.string().uuid(),
@@ -60,7 +61,6 @@ export async function GET(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-
   const response = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details&order=order_index.asc`,
     {
@@ -94,6 +94,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
+  if (!race.edition_id || !(await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, parsedParams.data.id, "aid_stations"))) return jsonError("La section Ravitos est inactive ou indisponible dans cette offre.", 403);
 
   const parsedBody = updateAidStationsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid aid stations.", 400);

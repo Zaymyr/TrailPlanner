@@ -46,7 +46,7 @@ const publicationEventSchema = z.object({
 
 const entitlementSchema = z.object({
   edition_id: z.string().uuid(),
-  tier: z.enum(["visibility", "racebook", "pro"]),
+  tier: z.enum(["visibility", "essential", "complete", "signature"]),
   source: z.enum(["system", "stripe", "admin", "legacy_admin"]),
   status: z.enum(["active", "revoked"]),
 });
@@ -74,7 +74,7 @@ const visibilitySchema = z.object({
 const tierSchema = z.object({
   action: z.literal("setEditionTier"),
   editionId: z.string().uuid(),
-  tier: z.enum(["visibility", "racebook", "pro"]),
+  tier: z.enum(["visibility", "essential", "complete", "signature"]),
 });
 
 export async function GET(request: NextRequest) {
@@ -204,12 +204,12 @@ export async function PATCH(request: NextRequest) {
         const grantResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_entitlement`, {
           method: "POST",
           headers: serviceHeaders(auth.serviceConfig),
-          body: JSON.stringify({ p_edition_id: editionId, p_admin_id: auth.user.id, p_tier: "pro" }),
+          body: JSON.stringify({ p_edition_id: editionId, p_admin_id: auth.user.id, p_tier: "signature" }),
           cache: "no-store",
         });
         if (!grantResponse.ok) {
-          console.error("Publication request approved but legacy Pro entitlement failed", await grantResponse.text());
-          return jsonError("Publication approved, but the Pro entitlement could not be applied.", 502);
+          console.error("Publication request approved but legacy Signature entitlement failed", await grantResponse.text());
+          return jsonError("Publication approved, but the Signature entitlement could not be applied.", 502);
         }
       }
     }

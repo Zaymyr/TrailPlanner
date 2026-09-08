@@ -231,9 +231,17 @@ vi.mock("../../../../../../lib/http", () => ({
   withSecurityHeaders: (response: Response) => response,
 }));
 
+vi.mock("../../../../../../lib/organizer-module-settings", () => ({
+  isOrganizerRaceModuleEnabled: () => Promise.resolve(true),
+}));
+
 vi.mock("../../../../../../lib/organizer", () => ({
   jsonError: (message: string, status: number) => Response.json({ message }, { status }),
-  loadRaceForOrganizer: () => Promise.resolve({ id: raceId, event_id: "44444444-4444-4444-4444-444444444444" }),
+  loadRaceForOrganizer: () => Promise.resolve({
+    id: raceId,
+    event_id: "44444444-4444-4444-4444-444444444444",
+    edition_id: "55555555-5555-4555-8555-555555555555",
+  }),
   requireOrganizerAuth: () =>
     Promise.resolve({
       user: { id: "00000000-0000-0000-0000-000000000001" },

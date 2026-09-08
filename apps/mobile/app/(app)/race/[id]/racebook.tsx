@@ -1438,20 +1438,20 @@ export default function RaceRacebookScreen() {
   }, [data]);
 
   const tabs = useMemo(() => {
-    const availableTabs: Array<{ key: RacebookTabKey; label: string }> = [
-      { key: 'gear', label: t.catalog.racebookTabGear },
-      { key: 'bib', label: t.catalog.racebookTabBib },
-      { key: 'course', label: t.catalog.racebookTabCourse },
-      { key: 'access', label: t.catalog.racebookTabAccess },
-    ];
+    const availableTabs: Array<{ key: RacebookTabKey; label: string }> = [];
+    if (sponsorPresentation.modules.equipment) availableTabs.push({ key: 'gear', label: t.catalog.racebookTabGear });
+    if (sponsorPresentation.modules.bib_pickup) availableTabs.push({ key: 'bib', label: t.catalog.racebookTabBib });
+    availableTabs.push({ key: 'course', label: t.catalog.racebookTabCourse });
+    if (sponsorPresentation.modules.access) availableTabs.push({ key: 'access', label: t.catalog.racebookTabAccess });
 
-    if (serviceSections.length > 0 || structuredServices.length > 0) {
+    if (sponsorPresentation.modules.services && (serviceSections.length > 0 || structuredServices.length > 0)) {
       availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices });
     }
 
     return availableTabs;
   }, [
     serviceSections.length,
+    sponsorPresentation.modules,
     structuredServices.length,
     t.catalog.racebookSectionServices,
     t.catalog.racebookTabAccess,
@@ -1461,10 +1461,8 @@ export default function RaceRacebookScreen() {
   ]);
 
   useEffect(() => {
-    if (activeTab === 'services' && serviceSections.length === 0 && structuredServices.length === 0) {
-      setActiveTab('gear');
-    }
-  }, [activeTab, serviceSections.length, structuredServices.length]);
+    if (!tabs.some((tab) => tab.key === activeTab)) setActiveTab(tabs[0]?.key ?? 'course');
+  }, [activeTab, tabs]);
 
   const bibLocationGroups = useMemo(() => {
     if (!data) return [];
@@ -1588,20 +1586,21 @@ export default function RaceRacebookScreen() {
   const courseTabs = useMemo(() => {
     const availableTabs: Array<{ key: CourseTabKey; label: string }> = [
       { key: 'route', label: t.catalog.racebookCourseTabRoute },
-      { key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations },
     ];
+    if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
 
-    if (relaySegments.length > 0) {
+    if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
       availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
     }
-    if ((data?.startWaves.length ?? 0) > 0) availableTabs.splice(1, 0, { key: 'start-waves', label: t.catalog.racebookCourseTabStartWaves });
-    if ((data?.awards.length ?? 0) > 0) availableTabs.push({ key: 'awards', label: t.catalog.racebookCourseTabAwards });
+    if (sponsorPresentation.modules.start_waves && (data?.startWaves.length ?? 0) > 0) availableTabs.splice(1, 0, { key: 'start-waves', label: t.catalog.racebookCourseTabStartWaves });
+    if (sponsorPresentation.modules.awards && (data?.awards.length ?? 0) > 0) availableTabs.push({ key: 'awards', label: t.catalog.racebookCourseTabAwards });
 
     return availableTabs;
   }, [
     relaySegments.length,
     data?.startWaves.length,
     data?.awards.length,
+    sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
     t.catalog.racebookCourseTabAwards,
     t.catalog.racebookCourseTabRoute,
@@ -1610,14 +1609,8 @@ export default function RaceRacebookScreen() {
   ]);
 
   useEffect(() => {
-    if (
-      (activeCourseTab === 'relay' && relaySegments.length === 0) ||
-      (activeCourseTab === 'start-waves' && (data?.startWaves.length ?? 0) === 0) ||
-      (activeCourseTab === 'awards' && (data?.awards.length ?? 0) === 0)
-    ) {
-      setActiveCourseTab('route');
-    }
-  }, [activeCourseTab, data?.awards.length, data?.startWaves.length, relaySegments.length]);
+    if (!courseTabs.some((tab) => tab.key === activeCourseTab)) setActiveCourseTab('route');
+  }, [activeCourseTab, courseTabs]);
 
   const accessPresentation = useMemo(() => {
     if (!data) return null;
@@ -2247,7 +2240,7 @@ export default function RaceRacebookScreen() {
                         {data.aidStations.map((station: RacebookAidStation, index: number) => (
                           <AidStationCard
                             key={station.id}
-                            station={station}
+                            station={sponsorPresentation.modules.official_products ? station : { ...station, products: [] }}
                             previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
                             expanded={expandedAidStationId === station.id}
                             onToggle={() => {

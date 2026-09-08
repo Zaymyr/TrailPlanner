@@ -1,10 +1,11 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-08
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
+  - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
 related_tables:
@@ -21,7 +22,7 @@ Stores organizer Stripe payment attempts and their tax-inclusive settlement valu
 
 ## Key Concepts
 
-Purchase kinds are `racebook` (199 € HT), `pro_direct` (299 € HT), and `pro_upgrade` (100 € HT). Only `paid` rows contribute to recalculation.
+Current purchase kinds are `essential_direct`, `complete_direct`, `signature_direct`, `essential_to_complete`, `essential_to_signature` and `complete_to_signature`. Legacy kinds remain valid history. Only `paid` rows on a complete base/upgrade path contribute to recalculation.
 
 ## Columns
 
@@ -30,7 +31,7 @@ Purchase kinds are `racebook` (199 € HT), `pro_direct` (299 € HT), and `pro_
 | `id` | `uuid` | primary key | Payment attempt and Checkout reference. |
 | `edition_id` | `uuid` | FK, cascade | Purchased edition. |
 | `purchaser_user_id` | `uuid` | nullable Auth FK | Checkout user, retained nullable on Auth deletion. |
-| `purchase_kind` | `text` | constrained | Base, direct Pro, or upgrade. |
+| `purchase_kind` | `text` | constrained | Direct purchase or an explicit tier-to-tier upgrade. |
 | `from_tier`, `to_tier` | `text` | constrained | Authorized transition. |
 | `status` | `text` | constrained | `pending|paid|failed|expired|refunded|disputed`. |
 | Stripe ids and URL | `text` | session/intent unique | Provider reconciliation. |
@@ -58,7 +59,7 @@ RLS is enabled with service-role-only grants. Checkout and webhook routes are th
 
 - Server code selects the Price and expected amount; clients never supply a Price id or amount.
 - Any refund event, including partial, and any open/lost dispute invalidates the complete transaction. A dispute closed as won restores only a row currently marked `disputed`.
-- Recalculation uses valid paid transaction combinations and preserves admin overrides.
+- Recalculation uses valid paid transaction paths, so a refunded/disputed base invalidates its dependent upgrade, and preserves admin overrides.
 
 ## Common Queries
 

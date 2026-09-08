@@ -16,6 +16,35 @@ export type RacebookSponsorPresentation = {
   loadingSponsors: RacebookSponsor[];
   bannerSponsors: RacebookSponsor[];
   branding: RacebookBranding;
+  modules: RacebookModuleVisibility;
+};
+
+export type RacebookModuleVisibility = {
+  equipment: boolean;
+  bib_pickup: boolean;
+  access: boolean;
+  services: boolean;
+  branding: boolean;
+  sponsors: boolean;
+  aid_stations: boolean;
+  start_waves: boolean;
+  awards: boolean;
+  relay: boolean;
+  official_products: boolean;
+};
+
+export const LEGACY_RACEBOOK_MODULES: RacebookModuleVisibility = {
+  equipment: true,
+  bib_pickup: true,
+  access: true,
+  services: true,
+  branding: true,
+  sponsors: true,
+  aid_stations: true,
+  start_waves: true,
+  awards: true,
+  relay: true,
+  official_products: true,
 };
 
 export const EMPTY_RACEBOOK_SPONSORS: RacebookSponsorPresentation = {
@@ -26,6 +55,7 @@ export const EMPTY_RACEBOOK_SPONSORS: RacebookSponsorPresentation = {
     primaryColor: DEFAULT_RACEBOOK_PRIMARY_COLOR,
     accentColor: DEFAULT_RACEBOOK_ACCENT_COLOR,
   },
+  modules: LEGACY_RACEBOOK_MODULES,
 };
 
 export const RACEBOOK_SPONSOR_MINIMUM_MS = 2_500;
@@ -45,6 +75,9 @@ export function normalizeRacebookSponsorPresentation(payload: unknown): Racebook
   if (!payload || typeof payload !== 'object') return EMPTY_RACEBOOK_SPONSORS;
   const presentation = payload as Partial<RacebookSponsorPresentation>;
   const branding = resolveRacebookTheme(presentation.branding);
+  const rawModules = presentation.modules && typeof presentation.modules === 'object'
+    ? presentation.modules as Partial<RacebookModuleVisibility>
+    : null;
   return {
     loadingSponsors: Array.isArray(presentation.loadingSponsors)
       ? presentation.loadingSponsors.filter(isSponsor).slice(0, 2)
@@ -57,5 +90,13 @@ export function normalizeRacebookSponsorPresentation(payload: unknown): Racebook
       primaryColor: branding.primaryColor,
       accentColor: branding.accentColor,
     },
+    modules: Object.fromEntries(
+      Object.entries(LEGACY_RACEBOOK_MODULES).map(([key, legacyDefault]) => [
+        key,
+        typeof rawModules?.[key as keyof RacebookModuleVisibility] === 'boolean'
+          ? rawModules[key as keyof RacebookModuleVisibility]
+          : legacyDefault,
+      ]),
+    ) as RacebookModuleVisibility,
   };
 }
