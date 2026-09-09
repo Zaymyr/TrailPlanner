@@ -72,6 +72,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 - Holding initial RaceBook progress for sponsor preparation does not delay, cache, or change the separate relay-point read contract.
 - RaceBook tab analytics may report that the Relay view was selected, but must not emit relay notes or other organizer-authored content as analytics properties.
 - Do not use organizer branding colors to reinterpret relay cutoff or warning semantics.
+- Published primary surfaces may decorate relay segment cards, but handover/cutoff meaning, ordering, and warning treatment remain unchanged.
 
 - A handover is not necessarily a ravito, and a ravito is not necessarily a handover.
 - Do not copy relay points into `plan_aid_stations` or nutrition calculations in this first version.

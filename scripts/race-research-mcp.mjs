@@ -6,6 +6,7 @@
 import { fetchPage, searchFieldContexts } from "./enrich-format-import-queue.mjs";
 import { parseGpx } from "./research-format-catalog.mjs";
 import { isUnsafeResearchUrl } from "./catalog-research-contract.mjs";
+import { fetchResearchResource } from "./catalog-research-http.mjs";
 
 const tools = [
   {
@@ -76,30 +77,31 @@ const callTool = async (name, args) => {
       resolved_url: result.resolved_url || args.url,
       discovered_from: result.discovered_from || "",
       discovery_method: result.discovery_method || "",
+      source_identity_status: result.source_identity_status || "",
+      source_identity_score: result.source_identity_score ?? "",
+      source_identity: result.source_identity || {},
+      rendering_status: result.rendering_status || "",
       field_contexts: searchFieldContexts(result.html, args, String(args.missing_fields || "").split(";").filter(Boolean)),
     };
   }
   if (name === "fetch_page") {
-    const response = await fetch(String(args.url), { signal: AbortSignal.timeout(12_000), headers: { "user-agent": "PaceYourself-RaceResearch-MCP/1.0" } });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const body = await response.text();
+    const resource = await fetchResearchResource(String(args.url));
+    const body = resource.html;
     const maxChars = Math.min(250_000, Math.max(1_000, Number(args.max_chars || 250_000)));
-    return { url: args.url, status: response.status, contentType: response.headers.get("content-type") || "", body: body.slice(0, maxChars), truncated: body.length > maxChars };
+    return { url: resource.url, status: 200, contentType: resource.content_type || "", body: body.slice(0, maxChars), truncated: body.length > maxChars };
   }
   if (name === "search_page") {
-    const response = await fetch(String(args.url), { signal: AbortSignal.timeout(12_000), headers: { "user-agent": "PaceYourself-RaceResearch-MCP/1.0" } });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const body = await response.text();
+    const resource = await fetchResearchResource(String(args.url));
+    const body = resource.html;
     return {
-      url: args.url,
+      url: resource.url,
       fields: searchFieldContexts(body, args, Array.isArray(args.fields) ? args.fields : []),
     };
   }
   if (name === "parse_gpx") return parseGpx(String(args.content));
   if (name === "download_and_parse_gpx") {
-    const response = await fetch(String(args.url), { signal: AbortSignal.timeout(12_000), headers: { accept: "application/gpx+xml,text/xml,application/xml" } });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return { url: args.url, ...parseGpx(await response.text()) };
+    const resource = await fetchResearchResource(String(args.url),{maxBytes:12_000_000});
+    return { url: resource.url, ...parseGpx(resource.html) };
   }
   throw new Error(`Unknown tool: ${name}`);
 };

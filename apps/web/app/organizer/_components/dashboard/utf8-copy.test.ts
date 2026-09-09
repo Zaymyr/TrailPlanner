@@ -133,6 +133,11 @@ describe("organizer dashboard UTF-8 copy", () => {
 
     expect(dashboardSource).toContain("setModuleSettingsDraft");
     expect(dashboardSource).toContain("saveModuleSettings");
+    expect(dashboardSource).toContain("Sections communes à l’édition");
+    expect(dashboardSource).toContain("Sections propres aux formats");
+    expect(dashboardSource).toContain("Réglages différents selon les formats");
+    expect(dashboardSource).toContain('module.scope === "edition"');
+    expect(dashboardSource).toContain('module.scope === "race"');
     expect(dashboardSource).toContain("!max-w-6xl");
     expect(dashboardSource).toContain("min-[900px]:grid-cols-3");
     expect(dashboardSource).toContain("Enregistrement des sections en cours…");

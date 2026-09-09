@@ -27,7 +27,7 @@ related_tables:
 
 ## Purpose
 
-Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published colors; logo data is retained but its editor and runner presentation are temporarily disabled.
+Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published colors and module switch; no per-format activation is required. Logo data is retained but its editor and runner presentation are temporarily disabled.
 
 ## Key Concepts
 
@@ -93,6 +93,7 @@ where edition_id = :edition_id;
 - Do not delete a logo still referenced by either the draft or the published state.
 - Sponsor logos and organizer-branding logos use separate Storage prefixes. Edition-logo controls and rendering are dormant behind `RACEBOOK_EDITION_LOGO_ENABLED`; do not delete stored URLs merely because the flag is off.
 - Invalid/missing branding and image load failures must fall back silently to the Pace Yourself theme.
+- Mobile waits for the edition bootstrap before revealing RaceBook content; do not reintroduce a short presentation timeout that permanently replaces a valid slow response with default colors.
 - Branding mutation requires an active Signature entitlement and active `branding` module. Inactive or locked branding remains stored but the runner bootstrap returns the Pace Yourself defaults.
 
 ## Related Docs

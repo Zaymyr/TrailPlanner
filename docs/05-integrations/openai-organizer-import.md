@@ -64,7 +64,7 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 ## Gotchas
 
-- The Organizer section chooser's local draft and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
+- The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
 
 - The self-service complex import route remains admin-only. Pro organizers receive an assisted-import contact CTA; Pro does not authorize direct LLM import execution.
 

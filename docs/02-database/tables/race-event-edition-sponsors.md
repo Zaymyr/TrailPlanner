@@ -79,6 +79,7 @@ RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, 
 
 ## Gotchas
 
+- The destination waits for the lightweight sponsor/module/branding response before revealing RaceBook content. Do not restore a short UI timeout that commits defaults while the valid edition response is still in flight.
 - The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.
 - Do not merge organizer branding with sponsor rows, placements, or click counters merely because the lightweight payload transports both.
 

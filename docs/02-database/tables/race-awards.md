@@ -28,4 +28,4 @@ Rows are ordered, replaced atomically with stable submitted ids, cascade with th
 
 The shared web editor file also reports SAS count and earliest time to the surrounding schedule card. That callback is start-wave-only and does not change award persistence or completion.
 
-The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no awards and does not invalidate the rest of the RaceBook. Its public policy resolves publication through `races`, without requiring client access to `race_event_editions`. Edition accent surfaces remain presentation-only and never change award ordering or meaning.
+The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no awards and does not invalidate the rest of the RaceBook. Its public policy resolves publication through `races`, without requiring client access to `race_event_editions`. Published edition primary surfaces and borders style podium cards only; they never change award ordering or meaning, while semantic states remain independent.
