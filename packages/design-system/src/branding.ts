@@ -1,5 +1,6 @@
 export const DEFAULT_RACEBOOK_PRIMARY_COLOR = "#2D5016";
 export const DEFAULT_RACEBOOK_ACCENT_COLOR = "#B45309";
+export const RACEBOOK_EDITION_LOGO_ENABLED = false;
 
 export type RacebookBranding = {
   logoUrl: string | null;
@@ -12,6 +13,7 @@ export type ResolvedRacebookTheme = RacebookBranding & {
   primarySurfaceColor: string;
   primaryBorderColor: string;
   accentSurfaceColor: string;
+  accentBorderColor: string;
 };
 
 const HEX_COLOR = /^#[0-9A-F]{6}$/;
@@ -66,12 +68,16 @@ export function resolveRacebookTheme(input?: Partial<RacebookBranding> | null): 
   const darkContrast = contrastRatio(primaryColor, "#1A1A1A");
 
   return {
-    logoUrl: typeof input?.logoUrl === "string" && /^https:\/\//i.test(input.logoUrl) ? input.logoUrl : null,
+    logoUrl:
+      RACEBOOK_EDITION_LOGO_ENABLED && typeof input?.logoUrl === "string" && /^https:\/\//i.test(input.logoUrl)
+        ? input.logoUrl
+        : null,
     primaryColor,
     accentColor,
     onPrimaryColor: whiteContrast >= darkContrast ? "#FFFFFF" : "#1A1A1A",
     primarySurfaceColor: mixWithWhite(primaryColor, 0.12),
     primaryBorderColor: mixWithWhite(primaryColor, 0.35),
     accentSurfaceColor: mixWithWhite(accentColor, 0.12),
+    accentBorderColor: mixWithWhite(accentColor, 0.35),
   };
 }

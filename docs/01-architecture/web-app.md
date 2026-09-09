@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -95,6 +95,7 @@ related_files:
   - apps/web/lib/organizer.ts
   - apps/web/app/organisateurs/page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
+  - apps/web/app/organisateurs/organizer-landing-page.test.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizers/layout.tsx
   - apps/web/app/(planner)/race-planner/print/assistance/page.tsx
@@ -220,7 +221,7 @@ related_tables:
 
 The organizer dashboard has lazy, module-local editors for structured edition services, format start waves and format awards. Each uses validated dedicated GET/PUT routes and a debounced atomic replacement save, keeping large collections out of the event bootstrap. Its shared module catalog combines the edition entitlement with organizer switches; inactive or locked tiles leave primary navigation and completion, while the service-only settings API retains data and supports later restoration. The section chooser stages every switch locally, submits all pending changes in one PATCH, and updates navigation/completion only after the server response; its wide responsive dialog keeps header, progress state, and footer fixed around an independently scrollable module grid.
 
-The edition-level RaceBook branding editor is another lazy event module. It keeps local color edits separate from its saved draft, uploads logos through a dedicated authenticated server route, previews the resolved theme in the portal, and publishes only through the atomic database RPC. Non-Pro organizers receive an upsell instead of draft data.
+The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. Edition-logo upload infrastructure and stored values remain intact, but the shared kill switch currently hides its controls and prevents public resolution. Non-Pro organizers receive an upsell instead of draft data.
 
 ## Purpose
 
@@ -318,7 +319,7 @@ Public metadata uses `/landing/secondary.png` as the shared Open Graph/Twitter f
 
 Blog frontmatter supports an explicit `locale` of `fr` or `en` and otherwise defaults to French. Article metadata, Open Graph locale, visible byline/CTA copy, `hreflang`, and `BlogPosting.inLanguage` all use that stored locale rather than guessing from accents or tags. `BlogPosting` identifies the verifiable Pace Yourself organization and its About page; no personal qualification is inferred.
 
-`/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with four real TST mobile screenshots (course and aid stations, bib collection, equipment, and access), keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the embedded, accessible screenshot selector. The selected screenshot is shown in full with a viewport-constrained height so the selector and preview remain usable together. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
+`/organisateurs` is the French, indexable organizer-acquisition landing page. It explains the mobile Racebook with four real TST mobile screenshots (course and aid stations, bib collection, equipment, and access), keeps `/organizers` as the authenticated event-creation form, and sends its secondary CTA to the production Google Play listing. The TST section gives the exact in-app path: open Courses, search for `Trail TST`, select one of its three formats, then press `Racebook`. The selected screenshot is shown in full with a viewport-constrained height so the selector and preview remain usable together. The footer links to the landing page while the authenticated header continues to route "Mes courses" to `/organizers` or `/organizer` according to membership state. Only the supported UTM keys are forwarded to the creation flow.
 
 The public race discovery surface lives at `/courses`. It loads only rows where both `races.is_live` and `races.is_public` are true through the Supabase anon key, using explicit public column selects. The server-rendered catalog emits an `ItemList`; its mobile-first client controls combine text, distance, and upcoming/past/all filters without creating crawlable URL combinations. The default view puts upcoming/current formats before undated formats, while the past view sorts newest first. After filtering, formats sharing a stable non-null `eventId + editionId` render inside one semantic event-edition card ordered by distance; legacy event rows without an edition fall back to `eventId`, and standalone races remain separate cards. Event and format image URLs stay distinct, missing images reserve no space, and every format keeps a crawlable course link.
 
@@ -433,7 +434,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 ## Gotchas
 
 - Keep the branding editor out of the Organizer bootstrap payload. It is Pro-gated, edition-scoped, and should load only when its module opens.
-- Do not proxy a branding logo through JSON/base64. Use multipart upload, validate MIME plus binary signature and size server-side, then store the public URL in the service-only projection.
+- Do not proxy a branding logo through JSON/base64. If the dormant control is re-enabled, use the existing multipart upload, validate MIME plus binary signature and size server-side, then store the public URL in the service-only projection.
 - Do not return an empty blog collection when `content/blog` cannot be located. The sitemap depends on explicit failure to expose a deployment/file-tracing problem instead of silently dropping every article URL.
 - Do not infer article language from accents or tags. French copy without accented characters previously received English bylines and CTAs; use validated frontmatter locale with the French default.
 - Keep `/organisateurs` as the indexable French acquisition page. `/organizers` is the authenticated creation workflow and `/race-planner/print/assistance` is a transient print view; both must remain `noindex`.

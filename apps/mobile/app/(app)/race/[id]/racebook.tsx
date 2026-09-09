@@ -15,7 +15,11 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { resolveRacebookTheme, type ResolvedRacebookTheme } from '@pace-yourself/design-system';
+import {
+  RACEBOOK_EDITION_LOGO_ENABLED,
+  resolveRacebookTheme,
+  type ResolvedRacebookTheme,
+} from '@pace-yourself/design-system';
 
 import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
@@ -263,11 +267,13 @@ function RacebookLoadingScreen({
   return (
     <View style={styles.loadingScreen}>
       <View style={styles.loadingIntro}>
-        <RacebookBrandLogo
-          uri={brandTheme.logoUrl}
-          style={[styles.loadingBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
-          accessibilityLabel={title}
-        />
+        {RACEBOOK_EDITION_LOGO_ENABLED ? (
+          <RacebookBrandLogo
+            uri={brandTheme.logoUrl}
+            style={[styles.loadingBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
+            accessibilityLabel={title}
+          />
+        ) : null}
         <Heading variant="h3" style={styles.loadingTitle}>{title}</Heading>
       </View>
 
@@ -505,12 +511,20 @@ function formatStationDistance(km: number) {
 function SectionCard({
   title,
   children,
+  accent = false,
 }: {
   title: string;
   children: ReactNode;
+  accent?: boolean;
 }) {
+  const brandTheme = useRacebookBrandTheme();
   return (
-    <Card style={styles.sectionCard}>
+    <Card
+      style={[
+        styles.sectionCard,
+        accent ? { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor } : null,
+      ]}
+    >
       <Text style={styles.sectionTitle}>{title}</Text>
       {children}
     </Card>
@@ -532,7 +546,7 @@ function CourseProfileCard({
 }) {
   const brandTheme = useRacebookBrandTheme();
   return (
-    <SectionCard title={title}>
+    <SectionCard title={title} accent>
       {points.length >= 2 ? (
         <View style={styles.courseProfileWrap}>
           <ProfileMiniChart points={points} accentColor={brandTheme.accentColor} />
@@ -559,7 +573,7 @@ function CourseMapCard({
 }) {
   const brandTheme = useRacebookBrandTheme();
   return (
-    <SectionCard title={title}>
+    <SectionCard title={title} accent>
       {points.length >= 2 ? (
         <RacebookLeafletMap points={points} routeColor={brandTheme.accentColor} />
       ) : (
@@ -725,8 +739,8 @@ function AccessTransportCard({
               </View>
               <Text numberOfLines={isExpanded ? undefined : 2} style={styles.accessTransportText}>{item.description}</Text>
               {isExpanded && item.schedule ? (
-                <View style={[styles.accessScheduleRow, { backgroundColor: brandTheme.primarySurfaceColor }]}>
-                  <Ionicons name="time-outline" size={16} color={brandTheme.primaryColor} />
+                <View style={[styles.accessScheduleRow, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
+                  <Ionicons name="time-outline" size={16} color={brandTheme.accentColor} />
                   <View style={styles.accessScheduleContent}>
                     <Text style={[styles.accessScheduleLabel, { color: brandTheme.primaryColor }]}>{scheduleLabel}</Text>
                     <Text style={styles.accessScheduleText}>{item.schedule}</Text>
@@ -766,7 +780,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
             styles.tableRow,
             emphasis ? styles.tableRowEmphasis : null,
             item.tone === 'positive' ? styles.tableRowPositive : null,
-            item.tone === 'positive' ? { backgroundColor: brandTheme.primarySurfaceColor } : null,
+            item.tone === 'positive' ? { backgroundColor: brandTheme.accentSurfaceColor } : null,
             item.tone === 'critical' ? styles.tableRowCritical : null,
           ]}
         >
@@ -1875,11 +1889,13 @@ export default function RaceRacebookScreen() {
         <>
           <SponsorBanner sponsors={sponsorPresentation.bannerSponsors} label={t.catalog.racebookSponsorsBannerLabel} />
           <Card style={styles.heroCard}>
-            <RacebookBrandLogo
-              uri={brandTheme.logoUrl}
-              style={[styles.heroBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
-              accessibilityLabel={data.event.name ?? data.race.name}
-            />
+            {RACEBOOK_EDITION_LOGO_ENABLED ? (
+              <RacebookBrandLogo
+                uri={brandTheme.logoUrl}
+                style={[styles.heroBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
+                accessibilityLabel={data.event.name ?? data.race.name}
+              />
+            ) : null}
             <View style={styles.heroHeader}>
               <View style={styles.heroHeaderText}>
                 {data.event.name && data.event.name !== data.race.name ? (
@@ -3004,7 +3020,7 @@ const styles = StyleSheet.create({
   accessTransportTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
   accessTransportHint: { color: Colors.textSecondary, fontSize: 11 },
   accessTransportText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  accessScheduleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 12, backgroundColor: Colors.brandSurface },
+  accessScheduleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 12, borderWidth: 1, backgroundColor: Colors.brandSurface },
   accessScheduleContent: { flex: 1, gap: 2 },
   accessScheduleLabel: { color: Colors.brandPrimary, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
   accessScheduleText: { color: Colors.textPrimary, fontSize: 13, lineHeight: 18 },

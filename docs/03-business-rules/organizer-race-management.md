@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -59,6 +59,7 @@ related_files:
   - apps/web/lib/push.ts
   - apps/web/app/organisateurs/page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
+  - apps/web/app/organisateurs/organizer-landing-page.test.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/lib/organizer-acquisition.ts
   - apps/web/lib/organizer-acquisition.test.ts
@@ -212,7 +213,7 @@ This document records the organizer portal rules: authenticated users create a c
 
 ## Direct Event Creation
 
-`/organisateurs` is the public French acquisition page. Its primary CTA forwards the supported campaign UTM parameters to `/organizers`; its secondary CTA opens an embedded demonstration made from four real TST Racebook screenshots. The complete selected screenshot is constrained to a compact, viewport-relative height. Switching between the course, bib collection, equipment, and access views is presentational only. The landing does not create an event, claim, membership, or publication request.
+`/organisateurs` is the public French acquisition page. Its primary CTA forwards the supported campaign UTM parameters to `/organizers`; its secondary CTA opens the production Google Play listing so prospects can inspect the published Trail TST Racebook in the app. The embedded demonstration still presents four real TST Racebook screenshots and now explains the in-app route through Courses, the `Trail TST` search result, a format choice, and the `Racebook` action. The complete selected screenshot is constrained to a compact, viewport-relative height. Switching between the course, bib collection, equipment, and access views is presentational only. The landing does not create an event, claim, membership, or publication request.
 
 `/organizers` lets an authenticated user create an event from a name, optional location, and a required initial edition start/end range. The standard creation page does not expose the admin-only URL importer and does not send an official website URL. `POST /api/organizer/events` inserts the catalog-visible event, creates its initial current `race_event_editions` row, then creates the active owner membership. Its Racebook formats remain hidden by default. Failure cleanup removes an event whose membership could not be created. After success, the page redirects to `/organizer` with only the new event selected; it does not bootstrap an import. Redirect bootstrap values remain passed from the `/organizer` server page as plain props for authorized admin/legacy links.
 
@@ -250,7 +251,7 @@ Organizers with an active event membership can:
 - attach existing catalog products to a station from a picker that groups products by brand and shows quick fuel-type filters, product image, type, and nutrition characteristics;
 - create non-live organizer-scoped products and attach them to a station;
 - with Signature, configure up to ten edition-scoped RaceBook sponsors, with at most two active on loading, independent loading/banner placements, ordering, logo replacement, activation, deletion, and aggregate click totals;
-- with Signature, prepare, preview, save, reset, and explicitly publish one edition-wide RaceBook identity with a logo plus primary/accent colors;
+- with Signature, prepare, preview, save, reset, and explicitly publish one edition-wide RaceBook identity with primary/accent colors; edition-logo storage remains available but its UI and runner use are temporarily dormant;
 
 The dashboard is organized as a compact top synthesis plus one tabbed completion surface. The event-level year selector stays on the left of a compact edition card, with a small destructive cross immediately beside it, and `Créer une nouvelle édition` stays on the right. The cross opens a dialog that enables deletion only after the organizer retypes the selected year. The creation dialog collects the date range; creating an empty edition is free, while duplication requires Complete or Signature. Each selected-edition format row exposes its RaceBook switch only with a paid or complimentary offer. From Visibilité, the publication action presents Essential 99 € HT, Complete 199 € HT and Signature 349 € HT; from a paid tier it presents only valid higher-tier upgrades. A trusted admin can grant any paid tier without Stripe and the displayed value comes from the shared tier catalog. After Stripe redirects back, the dashboard polls the trusted edition entitlement until the webhook confirms it; URL parameters never grant access. A hidden edition guarantees its RaceBook flags stay false. Checkout and complimentary activation save dirty foreground work first, so unsaved changes cannot be silently skipped. Completion includes only effectively active modules and remains independent from catalog and RaceBook visibility.
 
@@ -384,11 +385,11 @@ Active banner placements rotate automatically one at a time in edition order, wi
 
 ## RaceBook Visual Identity
 
-The event-level `Identité visuelle` tile is edition-scoped and Pro-only. Non-Pro editions see an upsell. Pro organizers lazily load a working draft, upload or remove one official edition logo, edit strict `#RRGGBB` primary/accent values, and inspect a compact mobile preview covering identity, tabs, a tinted card, a primary action, and a route trace. Local color edits arm `beforeunload`; the organizer can discard them, save the draft, or reset the draft to Pace Yourself defaults. A `Brouillon non publié` state remains until explicit publication.
+The event-level `Identité visuelle` tile is edition-scoped and Pro-only. Non-Pro editions see an upsell. Pro organizers lazily load a working draft, edit strict `#RRGGBB` primary/accent values, and inspect a compact mobile preview covering identity, tabs, an accent-tinted information card, a primary action, and a route trace. Local color edits arm `beforeunload`; the organizer can discard them, save the draft, or reset only the colors to Pace Yourself defaults. A `Brouillon non publié` state remains until explicit publication. Edition-logo controls are hidden by the shared temporary feature flag.
 
-Logo upload accepts only a matching PNG/JPEG/WebP/AVIF signature and MIME type up to 5 MB under `race-images/organizer-branding/{editionId}/`. Every organizer endpoint repeats authenticated parent-event membership and `branding.manage` checks. Publication atomically copies the complete draft to published fields. Downgrade disables the editor without deleting the published identity. Replaced/unreferenced files are cleaned after successful mutations and during edition/event deletion.
+The dormant logo API accepts only a matching PNG/JPEG/WebP/AVIF signature and MIME type up to 5 MB under `race-images/organizer-branding/{editionId}/`. Every organizer endpoint repeats authenticated parent-event membership and `branding.manage` checks. Publication atomically copies the complete draft to published fields. Downgrade disables the editor without deleting the published identity. Replaced/unreferenced files are cleaned after successful mutations and during edition/event deletion; disabling the UI alone never deletes stored logos.
 
-The existing public sponsor payload transports only the published logo and colors. Mobile-prefetch and rendering never expose the draft. The shared theme resolver owns defaults, contrast text, and derived light surfaces. Layout, typography, neutral card backgrounds, sponsor placements, native navigation, the runner illustration, and semantic danger/warning/info colors remain Pace Yourself-owned.
+The existing public sponsor payload transports only resolved published branding. While `RACEBOOK_EDITION_LOGO_ENABLED` is false, its logo is forced to `null`, is not prefetched, and is not rendered. The shared theme resolver owns defaults, contrast text, and derived light surfaces/borders for both colors. Accent is used beyond the trace for related graphic cards, positive information and decorative schedule highlights. Layout, typography, neutral card backgrounds, sponsor placements, native navigation, the runner illustration, and semantic danger/warning/info colors remain Pace Yourself-owned.
 
 ## Mobile Scope
 
@@ -413,7 +414,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 ## Gotchas
 
 - Keep branding draft and publication separate: saving or uploading must not change runner output until the organizer presses `Publier la DA`.
-- Do not fold the official edition logo into sponsor placements or sponsor click reporting; both asset families share a bucket but use distinct prefixes and contracts.
+- Do not fold the dormant official edition logo into sponsor placements or sponsor click reporting; both asset families share a bucket but use distinct prefixes and contracts. Re-enabling it must happen through the shared feature flag.
 - Keep the three structured mobile collections outside the RaceBook-wide error boundary so a staggered schema rollout cannot hide already published legacy content. Their RLS policies must resolve publication and organizer membership through `races`, not through the service-role-only `race_event_editions` table. This compatibility fallback does not replace deploying the migrations or granting Data API SELECT access.
 
 - L'action `Importer les informations` accepte la sélection de plusieurs PDF/images dans l'interface. En complément, le crawl de la page principale peut charger au plus deux PDF same-origin lorsque l'URL ou le libellé du lien les identifie explicitement comme PDF; chaque téléchargement garde la limite de 25 Mo et l'extraction texte celle de 100 pages. L'extraction PDF texte conserve le numéro de page lorsque le parseur le fournit pour un document envoyé. Une très longue ligne garde un extrait centré sur la donnée détectée, borné à 2 000 caractères pour la preuve et 500 pour la valeur; les claims documentaires équivalents sont dédupliqués et limités à huit par scope et champ pour chaque document afin qu'un roadbook verbeux ne rejette pas la découverte. Les images et PDF sans texte nécessitent encore un OCR ; aucune donnée n'est inventée en son absence.

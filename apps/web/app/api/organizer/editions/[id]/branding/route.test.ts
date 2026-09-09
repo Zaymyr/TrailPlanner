@@ -110,7 +110,7 @@ describe("organizer RaceBook branding route", () => {
       body: JSON.stringify({ action: "publish" }),
     }), { params: { id: editionId } });
     expect(response.status).toBe(200);
-    expect(await response.json()).toMatchObject({ branding: { published: { logoUrl: brandingRow.draft_logo_url }, hasUnpublishedChanges: false } });
+    expect(await response.json()).toMatchObject({ branding: { published: { logoUrl: null }, hasUnpublishedChanges: false } });
     expect(fetchMock).toHaveBeenNthCalledWith(3, "https://db.example.com/rest/v1/rpc/publish_racebook_edition_branding", expect.objectContaining({ method: "POST" }));
     expect(fetchMock).toHaveBeenNthCalledWith(4, "https://db.example.com/storage/v1/object/race-images/organizer-branding/edition/old.png", expect.objectContaining({ method: "DELETE" }));
   });

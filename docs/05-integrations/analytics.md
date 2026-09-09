@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -9,6 +9,7 @@ related_files:
   - apps/web/app/posthog-provider.tsx
   - apps/web/app/analytics.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
+  - apps/web/app/organisateurs/organizer-landing-page.test.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/lib/google-analytics.ts
   - apps/web/lib/organizer-acquisition.ts
@@ -96,7 +97,7 @@ Vercel analytics are loaded through:
 
 ## Organizer Acquisition
 
-The French `/organisateurs` landing page forwards only `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, and `utm_term` to `/organizers`. CTA clicks emit `organizer_landing_cta_clicked` with the CTA kind, placement, destination, and available attribution. Switching among the four TST screenshot tabs, including through the compact viewport-constrained preview, is deliberately not tracked. A successful event creation emits `organizer_event_created` with the same attribution before redirecting to the selected event; the creation page no longer gathers an import URL or starts the admin-only import flow. Both tracked events use the existing consent-gated `trackGoogleAnalyticsEvent` bridge, so PostHog and Google Analytics receive nothing before analytics consent.
+The French `/organisateurs` landing page forwards only `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, and `utm_term` to `/organizers`. CTA clicks emit `organizer_landing_cta_clicked` with the CTA kind, placement, destination, and available attribution. Primary clicks target the organizer creation flow; secondary clicks target the production Google Play listing from the hero, TST demonstration, or final section. Switching among the four TST screenshot tabs, including through the compact viewport-constrained preview, is deliberately not tracked. A successful event creation emits `organizer_event_created` with the same attribution before redirecting to the selected event; the creation page no longer gathers an import URL or starts the admin-only import flow. Both tracked events use the existing consent-gated `trackGoogleAnalyticsEvent` bridge, so PostHog and Google Analytics receive nothing before analytics consent.
 
 The authenticated organizer dashboard adds a separate commercial funnel: `organizer offer viewed` when the pricing dialog opens with a valid edition context, `organizer checkout started` only after the server creates a Stripe Checkout URL, and `organizer purchase verified` only after the normal dashboard refresh observes the requested active edition entitlement. These events contain tier and edition-year context, not amounts or payment identifiers; Stripe and `organizer_edition_payments` remain the financial source of truth.
 
@@ -163,7 +164,7 @@ The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 
-Edition branding is presentation state only. Logo URLs and custom color values are not attached to identified RaceBook analytics events; existing race/event identifiers remain the comparison dimensions across default and customized editions.
+Edition branding is presentation state only. Logo URLs, the temporary logo feature flag, custom color values, and derived accent-surface usage are not attached to identified RaceBook analytics events; existing race/event identifiers remain the comparison dimensions across default and customized editions.
 
 ## Admin Growth Dashboard
 

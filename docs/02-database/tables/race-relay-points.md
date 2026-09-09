@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -37,7 +37,7 @@ The compact runner-progress and unified sponsor loading composition is presentat
 
 The post-load automatic sponsor carousel likewise remains independent from relay ordering and the conditional `Relais` sub-tab.
 
-The published edition accent may recolor the route/profile graphics and primary may recolor the active `Relais` tab, but neither value changes relay rows, ordering, semantic cutoff states, or derived-leg calculations.
+The published edition accent may recolor route/profile graphics and their lightly tinted cards, while primary may recolor the active `Relais` tab. Neither value changes relay rows, ordering, semantic cutoff states, or derived-leg calculations.
 
 Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engagement with the parent race id. Relay-point payloads and persistence remain unchanged.
 

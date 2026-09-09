@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -180,7 +180,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - The compact mobile RaceBook loader, its animated runner trail, unified two-slot sponsor panel, temporary navigation chrome hiding, and pre-navigation sponsor warmup are presentation-only; they do not change the event read, visibility gate, or `organizer_details` contract. The warmup reuses the same authorized sponsor API result through an ephemeral account/race key and adds no event query field.
 - The post-load automatic sponsor carousel is also presentation-only: viewport-sized slides rotate edition-scoped sponsors without changing event grouping, queries, or visibility.
 - Relay display is format-scoped: the Racebook reads `races.participation_mode` and published `race_relay_points`, then derives legs inside the conditional `Relais` course sub-tab without changing event or nutrition data.
-- Visual identity is edition-scoped rather than event-scoped. Mobile resolves the published branding through the format's edition while keeping the event name/content contract unchanged.
+- Visual identity is edition-scoped rather than event-scoped. Mobile resolves the published colors through the format's edition while keeping the event name/content contract unchanged; edition-logo data is retained but currently masked by the shared presentation flag.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Racebook Identity Presentation

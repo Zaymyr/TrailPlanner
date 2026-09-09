@@ -65,9 +65,22 @@ export const classifySourceUrl = (value) => {
     if (!["http:", "https:"].includes(url.protocol)) throw new Error("Unsupported protocol");
     const host = url.hostname.toLowerCase();
     if (/(^|\.)(facebook|instagram|linkedin|youtube|tiktok)\./.test(host)) return {role:"social",quality:"low"};
-    if (/(^|\.)(betrail|runtrail|normandiecourseapied|klikego|chrono-?start|njuko|milesrepublic|sportsnconnect|timepulse|protiming|ikinoa|ats-sport|helloasso|billetweb|le-sportif|espace-competition|logicourse|chronopale|chronopuces|nordsport-chronometrage|wanatime|finishers|pyreneeschrono|ok-time|sportips)\./.test(host)) return {role:"registration_or_aggregator",quality:"secondary"};
+    if (/(^|\.)(betrail|runtrail|kerrun|normandiecourseapied|klikego|chrono-?start|njuko|milesrepublic|sportsnconnect|timepulse|protiming|ikinoa|ats-sport|helloasso|billetweb|le-sportif|espace-competition|logicourse|chronopale|chronopuces|nordsport-chronometrage|wanatime|finishers|pyreneeschrono|ok-time|sportips)\./.test(host)) return {role:"registration_or_aggregator",quality:"secondary"};
     return {role:"official_candidate",quality:"unclassified"};
   } catch { return {role:"invalid",quality:"invalid"}; }
+};
+export const isUnsafeResearchUrl = value => {
+  try {
+    const url = new URL(value);
+    let target = `${url.pathname} ${url.search}`;
+    try { target = decodeURIComponent(target); } catch { /* inspect the encoded path conservatively */ }
+    const normalized = normalizeText(target).replace(/[^a-z0-9]+/g, "-");
+    return /(?:^|-)(?:admin|wp-admin|participants?|inscrits?|resultats?|classements?|exports?)(?:-|$)/.test(normalized)
+      || /(?:liste|listing)(?:-|)*(?:des-)?(?:inscriptions?|inscrits?|participants?)(?:-|$)/.test(normalized)
+      || /(?:inscrits?|participants?)(?:-|)*(?:liste|listing|export)(?:-|$)/.test(normalized)
+      || /(?:^|-)(?:comptes?-rendus?|bilans?|race-recaps?)(?:-|$)/.test(normalized)
+      || /(?:^|-)(?:download|action)-export(?:-|$)/.test(normalized);
+  } catch { return false; }
 };
 export const normalizeAidStations = (value) => {
   const records = jsonValue(value, []);

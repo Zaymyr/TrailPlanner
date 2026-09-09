@@ -92,7 +92,7 @@ describe("GET /api/racebook-sponsors", () => {
     expect(payload.bannerSponsors).toHaveLength(2);
     expect(payload.loadingSponsors[0].clickUrl).toContain(`/api/racebook-sponsors/44444444-4444-4444-8444-444444444444/click`);
     expect(payload.loadingSponsors[0]).not.toHaveProperty("websiteUrl");
-    expect(payload.branding).toEqual({ logoUrl: "https://example.com/published.png", primaryColor: "#123456", accentColor: "#ABCDEF" });
+    expect(payload.branding).toEqual({ logoUrl: null, primaryColor: "#123456", accentColor: "#ABCDEF" });
     expect(JSON.stringify(payload)).not.toContain("draft.png");
   });
 

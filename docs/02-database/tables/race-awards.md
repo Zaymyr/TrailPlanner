@@ -1,7 +1,7 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -28,4 +28,4 @@ Rows are ordered, replaced atomically with stable submitted ids, cascade with th
 
 The shared web editor file also reports SAS count and earliest time to the surrounding schedule card. That callback is start-wave-only and does not change award persistence or completion.
 
-The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no awards and does not invalidate the rest of the RaceBook. Its public policy resolves publication through `races`, without requiring client access to `race_event_editions`.
+The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no awards and does not invalidate the rest of the RaceBook. Its public policy resolves publication through `races`, without requiring client access to `race_event_editions`. Edition accent surfaces remain presentation-only and never change award ordering or meaning.

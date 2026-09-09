@@ -15,6 +15,8 @@ type OrganizerLandingPageProps = {
 
 type DemoKey = "course" | "dossards" | "materiel" | "acces";
 
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.paceyourself.app";
+
 const demoViews: Array<{
   key: DemoKey;
   label: string;
@@ -76,6 +78,24 @@ const setupSteps = [
   { number: "03", title: "Publiez votre Race Book", description: "Après validation, vos coureurs retrouvent les informations directement dans Pace Yourself." },
 ];
 
+const tstDiscoverySteps = [
+  {
+    number: "01",
+    title: "Téléchargez Pace Yourself",
+    description: "Installez gratuitement l’application depuis Google Play, puis ouvrez-la.",
+  },
+  {
+    number: "02",
+    title: "Recherchez Trail TST",
+    description: "Dans l’onglet Courses, utilisez la recherche et ouvrez la fiche Trail TST.",
+  },
+  {
+    number: "03",
+    title: "Ouvrez son RaceBook",
+    description: "Choisissez l’un des trois formats, puis appuyez sur « Racebook » pour parcourir toutes les informations.",
+  },
+] as const;
+
 const organizerOffers = [
   { name: "Essentiel", price: "99 €", description: "Le RaceBook simple", features: ["Course et GPX", "Matériel et dossard", "Accès principal", "Ravitos simples"] },
   { name: "Complet", price: "199 €", description: "La logistique avancée", features: ["Tout Essentiel", "SAS et barrières", "Services et navettes", "Podiums et notifications"] },
@@ -119,14 +139,16 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
     </Link>
   );
 
-  const secondaryCta = (placement: "hero" | "final") => (
-    <Link
-      href="#exemple-tst"
-      onClick={() => trackCta("secondary", placement, "#exemple-tst")}
+  const appCta = (placement: "hero" | "demo" | "final", label = "Télécharger l’app et voir TST") => (
+    <a
+      href={PLAY_STORE_URL}
+      target="_blank"
+      rel="noreferrer"
+      onClick={() => trackCta("secondary", placement, PLAY_STORE_URL)}
       className="inline-flex min-h-12 items-center justify-center rounded-lg border border-border bg-card px-5 py-3 text-center text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:border-emerald-300 dark:hover:text-emerald-100"
     >
-      Voir un exemple complet
-    </Link>
+      {label}
+    </a>
   );
 
   return (
@@ -148,7 +170,7 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               {primaryCta("hero", "Créer mon Race Book")}
-              {secondaryCta("hero")}
+              {appCta("hero")}
             </div>
             <p className="text-sm text-muted-foreground">Vos informations existent déjà. Pace Yourself les rend simplement plus faciles à retrouver.</p>
           </div>
@@ -218,8 +240,18 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
             <h2 id="demo-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Voyez concrètement ce que peuvent retrouver vos coureurs</h2>
             <p className="leading-7 text-muted-foreground">Découvrez les informations réellement publiées dans le Race Book de notre course de démonstration.</p>
           </div>
-          {primaryCta("demo", "Créer le Race Book de mon événement")}
+          {appCta("demo", "Télécharger l’app")}
         </div>
+
+        <ol className="grid gap-4 md:grid-cols-3">
+          {tstDiscoverySteps.map((step) => (
+            <li key={step.number} className="rounded-2xl border border-border bg-muted/40 p-5">
+              <span className="font-mono text-sm font-semibold text-brand dark:text-emerald-200">{step.number}</span>
+              <h3 className="mt-3 text-lg font-semibold text-foreground">{step.title}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.description}</p>
+            </li>
+          ))}
+        </ol>
 
         <div className="overflow-x-auto" role="tablist" aria-label="Vues du Race Book TST">
           <div className="flex min-w-max gap-2 border-b border-border pb-2">
@@ -295,7 +327,7 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
           <p className="text-base leading-7 text-background/75 dark:text-emerald-100/80">Commencez avec les informations que vous possédez déjà, puis complétez votre événement à votre rythme.</p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
             {primaryCta("final", "Créer le Race Book de mon événement")}
-            {secondaryCta("final")}
+            {appCta("final")}
           </div>
         </div>
       </section>

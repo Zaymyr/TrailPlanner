@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -16,6 +16,7 @@ related_files:
   - apps/web/app/admin/_components/AdminOrganizerClaimsTab.tsx
   - apps/web/app/api/admin/event-publication-requests/route.ts
   - apps/web/app/organisateurs/organizer-landing-page.tsx
+  - apps/web/app/organisateurs/organizer-landing-page.test.ts
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
@@ -31,6 +32,8 @@ related_tables:
 ## Purpose
 
 One offer is purchased per event edition, independently of participant and format counts. The offer authorizes modules; the organizer then activates only useful modules. Disabling or losing access masks content without deleting it.
+
+The public `/organisateurs` page presents these edition offers alongside a separate Google Play CTA for inspecting the Trail TST example in the runner app. That demonstration path does not create an organizer entitlement or start a checkout.
 
 ## Offers
 
