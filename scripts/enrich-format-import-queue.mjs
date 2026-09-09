@@ -12,7 +12,7 @@ import { FORMAT_QUEUE_HEADERS } from "./build-format-import-queue.mjs";
 import { createRaceResearchMcpClient } from "./race-research-mcp-client.mjs";
 import { cachedResearchResource } from "./catalog-research-http.mjs";
 import { RESEARCH_SCHEMA_VERSION, FIELD_COLUMNS, REQUIRED_FIELDS, jsonValue, numericValue, normalizeText,
-  parseResearchDate, datesInText, targetEdition, classifySourceUrl, normalizeAidStations, verifiedValue } from "./catalog-research-contract.mjs";
+  parseResearchDate, datesInText, targetEdition, classifySourceUrl, isUnsafeResearchUrl, normalizeAidStations, verifiedValue } from "./catalog-research-contract.mjs";
 
 import { applyClaims, refreshImportReadiness, evidenceIdentifiesFormat, validateClaimForRow } from "./catalog-research-validation.mjs";
 export { applyClaims, refreshImportReadiness, evidenceIdentifiesFormat, validateClaimForRow };
@@ -36,7 +36,7 @@ const EXTERNAL_BLOCKED_HOSTS = /(?:facebook|instagram|linkedin|youtube|tiktok|ch
 export const sitemapLocations = (xml, rootUrl) => [...String(xml).matchAll(/<loc[^>]*>([^<]+)<\/loc>/gi)]
   .map(match => match[1].trim())
   .filter(candidate => {
-    try { return new URL(candidate).hostname === new URL(rootUrl).hostname; } catch { return false; }
+    try { return new URL(candidate).hostname === new URL(rootUrl).hostname && !isUnsafeResearchUrl(candidate); } catch { return false; }
   });
 
 const discoverOfficialLinks = (html, rootUrl) => {
@@ -45,7 +45,7 @@ const discoverOfficialLinks = (html, rootUrl) => {
     if (typeof value !== "string" || !value.trim()) return;
     try {
       const candidate = new URL(value, rootUrl);
-      if (EXTERNAL_BLOCKED_HOSTS.test(candidate.hostname)) return;
+      if (EXTERNAL_BLOCKED_HOSTS.test(candidate.hostname) || isUnsafeResearchUrl(candidate.href)) return;
       discovered.push({ href: candidate.href.split("#")[0], score });
     } catch { /* ignore malformed metadata */ }
   };
@@ -70,10 +70,80 @@ const discoverOfficialFromSecondary = (html, rootUrl) => {
     if (!/(site\s*(officiel|web)|organisateur|website|official)/i.test(label)) continue;
     try {
       const href = new URL(match[1], rootUrl);
-      if (!EXTERNAL_BLOCKED_HOSTS.test(href.hostname)) candidates.push({ href: href.href.split("#")[0], score: 120 });
+      if (!EXTERNAL_BLOCKED_HOSTS.test(href.hostname) && !isUnsafeResearchUrl(href.href)) candidates.push({ href: href.href.split("#")[0], score: 120 });
     } catch { /* ignore malformed links */ }
   }
   return [...new Map(candidates.sort((a, b) => b.score - a.score).filter(item => new URL(item.href).hostname !== new URL(rootUrl).hostname && classifySourceUrl(item.href).role === "official_candidate").map((item) => [item.href, item])).values()];
+};
+const eventIdentityTokens = row => normalizeText(String(row.event_name || '').replace(/\s*\(\d+\)\s*$/,''))
+  .match(/[a-z0-9]+/g)?.filter(token=>token.length >= 3 && !['trail','course','courses','des','les','run'].includes(token)) || [];
+export const likelyOrganizerPage = (html, url, row) => {
+  const heading = htmlToText(`${html.match(/<title\b[^>]*>([\s\S]*?)<\/title>/i)?.[1] || ''} ${html.match(/<h1\b[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || ''}`);
+  const tokens = eventIdentityTokens(row);
+  const normalizedHeading = normalizeText(heading);
+  const normalizedPage = normalizeText(htmlToText(html));
+  const identityCoverage = tokens.length ? tokens.filter(token=>normalizedHeading.includes(token)).length / tokens.length : 0;
+  const normalizedHost = normalizeText(new URL(url).hostname.replace(/^www\./,'').replace(/[.-]/g,' '));
+  const hostMatchesIdentity = tokens.some(token=>token.length >= 4 && normalizedHost.includes(token));
+  const locationTokens = normalizeText(row.prospect_city || row.city || '').match(/[a-z0-9]+/g)?.filter(token=>token.length >= 3) || [];
+  const locationMatches = !locationTokens.length || locationTokens.every(token=>normalizedPage.includes(token));
+  const locationConfirmsIdentity = locationTokens.length > 0 && locationMatches;
+  let signals = 0;
+  for (const match of html.matchAll(/<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi)) {
+    try {
+      const candidate = new URL(match[1],url);
+      if (candidate.hostname === new URL(url).hostname && CRAWL_PATH_HINTS.test(`${candidate.pathname} ${htmlToText(match[2])}`)) signals += 1;
+    } catch { /* ignore malformed links */ }
+  }
+  const identityConfirmed = identityCoverage >= .7 || (hostMatchesIdentity && locationConfirmsIdentity);
+  return identityConfirmed && hostMatchesIdentity && locationMatches && (signals >= 2 || locationConfirmsIdentity);
+};
+export const linkedOrganizerCandidates = (html, rootUrl, row = {}) => {
+  const tokens = eventIdentityTokens(row);
+  const rootHost = new URL(rootUrl).hostname;
+  const candidates = [];
+  for (const match of String(html).matchAll(/<a\b[^>]*href=["']([^"']+)["']/gi)) {
+    try {
+      const href = new URL(match[1], rootUrl);
+      const normalizedTarget = normalizeText(`${href.hostname} ${href.pathname}`);
+      const score = tokens.filter(token=>token.length >= 4 && normalizedTarget.includes(token)).length;
+      if (href.hostname !== rootHost && score && classifySourceUrl(href.href).role === 'official_candidate' && !EXTERNAL_BLOCKED_HOSTS.test(href.hostname) && !isUnsafeResearchUrl(href.href)) {
+        candidates.push({href:href.href.split('#')[0],score});
+      }
+    } catch { /* ignore malformed links */ }
+  }
+  return [...new Map(candidates.sort((a,b)=>b.score-a.score).map(candidate=>[candidate.href,candidate])).values()];
+};
+export const pageMentionsExpectedEvent = (html, row = {}) => {
+  const page = normalizeText(htmlToText(String(html)));
+  const eventTokens = eventIdentityTokens(row);
+  const cityTokens = normalizeText(row.prospect_city || row.city || '').match(/[a-z0-9]+/g)?.filter(token=>token.length >= 3) || [];
+  return eventTokens.length > 0 && eventTokens.filter(token=>page.includes(token)).length / eventTokens.length >= .7
+    && (!cityTokens.length || cityTokens.every(token=>page.includes(token)));
+};
+export const weakOrganizerPage = html => {
+  const text = normalizeText(htmlToText(String(html)));
+  return text.length < 200 || /directory index|domain (?:is )?for sale|buy this domain|privacy policy terms of service|sedo parking|parkingcrew/.test(text);
+};
+const unwrapSearchResult = value => {
+  try {
+    const parsed = new URL(String(value).replace(/&amp;/g,'&'),'https://html.duckduckgo.com');
+    if (/(?:^|\.)duckduckgo\.com$/i.test(parsed.hostname) && parsed.searchParams.get('uddg')) return decodeURIComponent(parsed.searchParams.get('uddg'));
+    return parsed.href;
+  } catch { return ''; }
+};
+export const searchResultCandidates = (html, row = {}) => {
+  const tokens = eventIdentityTokens(row);
+  const candidates = [];
+  for (const match of String(html).matchAll(/<a\b([^>]*)href=["']([^"']+)["']([^>]*)>([\s\S]*?)<\/a>/gi)) {
+    if (!/result__a/i.test(`${match[1]} ${match[3]}`)) continue;
+    const href = unwrapSearchResult(match[2]);
+    if (!href || classifySourceUrl(href).role !== 'official_candidate' || isUnsafeResearchUrl(href)) continue;
+    const label = normalizeText(htmlToText(match[4]));
+    const score = tokens.filter(token=>label.includes(token) || normalizeText(href).includes(token)).length;
+    if (score) candidates.push({href:href.split('#')[0],score});
+  }
+  return [...new Map(candidates.sort((a,b)=>b.score-a.score).map(candidate=>[candidate.href,candidate])).values()];
 };
 const SOURCE_TEXT_LIMIT = 80_000;
 // The full crawl stays local for evidence validation; only focused excerpts
@@ -81,8 +151,9 @@ const SOURCE_TEXT_LIMIT = 80_000;
 const LLM_TEXT_LIMIT = 24_000;
 const LLM_MAX_PAGES = 8;
 const DISTANCE_MATCH_RATIO = 0.12;
-const DATE_PATTERN = /\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.]\d{1,2}[/.]\d{4}|\d{1,2}\s+(?:janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+\d{4})\b/giu;
-const YEARLESS_EVENT_DATE_PATTERN = /\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+(\d{1,2})(?:er)?\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\b(?!\s+\d{4})/giu;
+const DATE_PATTERN = /\b(?:\d{4}-\d{2}-\d{2}|\d{1,2}[/.]\d{1,2}[/.]\d{4}|\d{1,2}(?:er)?\s+(?:janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\s+\d{4})\b/giu;
+const YEARLESS_EVENT_DATE_PATTERN = /\b(?:(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+)?(\d{1,2})(?:er)?\s+(janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)\b(?!\s+\d{4})/giu;
+const EVENT_DATE_CONTEXT_PATTERN = /(?:programme|edition|aura lieu|se deroul|rendez-vous|depart|partira|venez courir)/;
 const MONTHS = {
   janvier: 0, fevrier: 1, février: 1, mars: 2, avril: 3, mai: 4, juin: 5,
   juillet: 6, aout: 7, août: 7, septembre: 8, octobre: 9, novembre: 10, decembre: 11, décembre: 11,
@@ -252,19 +323,47 @@ export const deterministicExtract = (html, row) => {
     }
   }
   const dates = [...new Set(datesInText(text))];
+  const headingDates = [...new Set(datesInText(heading))];
+  if (headingDates.length === 1 && /\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\b/i.test(heading)
+    && isApplicableEditionDate(headingDates[0], row)) add('race_date', headingDates[0], heading);
+  for (const match of text.matchAll(DATE_PATTERN)) {
+    const evidence = text.slice(Math.max(0,match.index-50),Math.min(text.length,match.index+match[0].length+180));
+    const date = isApplicableEditionDate(match[0],row);
+    if (date && EVENT_DATE_CONTEXT_PATTERN.test(normalizeText(evidence))) add('race_date',date,evidence);
+  }
   if (dates.length === 1 && matchesEvent(text)) {
     const dateEvidence = text.length < 700 ? text : (text.match(DATE_PATTERN) || []).map(value => findContext(text,value)).find(value => datesInText(value).includes(dates[0]));
     if (dateEvidence) add('race_date', dates[0], dateEvidence);
   }
   const editionYear = targetEdition(row);
   if (editionYear) for (const match of text.matchAll(YEARLESS_EVENT_DATE_PATTERN)) {
-    const inferred = isApplicableEditionDate(`${match[1]} ${match[2]} ${editionYear}`, row);
-    if (inferred) claims.push({field:'race_date',value:inferred,evidence:findContext(text,match[0]),source_url:sourceUrl,method:'deterministic_inferred_year'});
+    const evidence = text.slice(Math.max(0,match.index-50),Math.min(text.length,match.index+match[0].length+180));
+    if (!EVENT_DATE_CONTEXT_PATTERN.test(normalizeText(evidence))) continue;
+    const inferred = isApplicableEditionDate(`${match[2]} ${match[3]} ${editionYear}`, row);
+    if (inferred) claims.push({field:'race_date',value:inferred,evidence,source_url:sourceUrl,method:'deterministic_inferred_year'});
   }
-  const explicitLocation = text.match(/(?:rendez-vous|lieu\s+(?:de\s+)?d[ée]part|d[ée]part)\s+(?:[àa]|au|aux)\s+([\p{Lu}][\p{L}'’.-]*(?:\s+[\p{Lu}][\p{L}'’.-]*){0,3})/u)
-    || text.match(/(?:[ÀA]|Ã€)\s+([\p{Lu}][\p{L}'’.-]*(?:\s+[\p{Lu}][\p{L}'’.-]*){0,3}),\s+(?:le|la|les)\s+(?:trail|course|marche|[ée]preuve)/u);
+  const datedBannerTail = text.match(/rendez-vous\s+le\s+(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)\s+\d{1,2}(?:er)?\s+(?:janvier|février|fevrier|mars|avril|mai|juin|juillet|août|aout|septembre|octobre|novembre|décembre|decembre)(?:\s+\d{4})?\s+([^.!?\n]{1,100})/iu)?.[1] || '';
+  const datedLocationValue = datedBannerTail.match(/^([\p{Lu}][\p{L}'’-]*(?:\s+[\p{Lu}][\p{L}'’-]*){0,5}(?:,\s*[\p{Lu}][\p{L}'’-]*(?:\s+[\p{Lu}][\p{L}'’-]*){0,3})?(?:\s*\(\d{2,3}\))?)/u)?.[1] || '';
+  const datedRendezVousLocation = datedLocationValue ? [datedBannerTail,datedLocationValue] : null;
+  const pairedDepartureMatch = text.match(/\b[Dd][ée]part\s*(?:[àa]|au|aux|:)?\s+([^.!?]{2,160}?)(?=\s+(?:(?:et|avec)\s+une\s+)?[Aa]rriv[ée]e\b)/u);
+  const pairedDepartureValue = compact(pairedDepartureMatch?.[1] || '').replace(/\s*[-–]\s*$/,'');
+  const pairedDepartureLocation = pairedDepartureValue ? [pairedDepartureMatch[0],pairedDepartureValue] : null;
+  const eventVenueMatch = text.match(/(?:aura\s+lieu|se\s+d[ée]roulera)[^.!?]{0,120}?\s(?:au|[àa]\s+la|[àa]\s+l['’]|aux)\s+([^.!?]{2,120})(?:\.\s*\(\s*([^)]*\b\d{5}\b[^)]*)\))?/iu);
+  const eventVenueValue = eventVenueMatch ? [eventVenueMatch[1],eventVenueMatch[2]].filter(Boolean).map(compact).join(', ') : '';
+  const eventVenueLocation = eventVenueValue ? [eventVenueMatch[0],eventVenueValue] : null;
+  const namedRendezVousMatch = text.match(/(?:[Rr]endez-vous|[Ll]ieu\s+(?:de\s+)?[Dd][ée]part|[Dd][ée]part)\s+(?:[àa]|au|aux)\s+([\p{Lu}][\p{L}'’-]*(?:\s+(?:(?:de|du|des|la|le|les|en|sur|sous)\s+)?(?!(?:Matériel|Materiel|Inscriptions?|Ravitaillement|Programme|Article|Départ)\b)[\p{Lu}][\p{L}'’-]*){0,7})/u);
+  const namedRendezVousLocation = namedRendezVousMatch ? [namedRendezVousMatch[0],namedRendezVousMatch[1]] : null;
+  const explicitLocation = datedRendezVousLocation
+    || pairedDepartureLocation
+    || eventVenueLocation
+    || namedRendezVousLocation
+    || text.match(/(?:lieux?|sites?)\s+de\s+d[ée]part(?:\s+et\s+d['’]arriv[ée]e)?\s+(?:se\s+situe(?:nt)?|sont)[^.!?]{0,140}?\s[àa]\s+([\p{Lu}][\p{L}'’-]*(?:\s+[\p{Lu}][\p{L}'’-]*){0,7})/u)
+    || text.match(/(?:[Rr]endez-vous|[Ll]ieu\s+(?:de\s+)?[Dd][ée]part|[Dd][ée]part)\s+(?:[àa]|au|aux)\s+([\p{Lu}][\p{L}'’-]*(?:\s+[\p{Lu}][\p{L}'’-]*){0,7})/u)
+    || text.match(/(?:[ÀA]|Ã€)\s+([\p{Lu}][\p{L}'’-]*(?:\s+[\p{Lu}][\p{L}'’-]*){0,7}),\s+(?:le|la|les)\s+(?:trail|course|marche|[ée]preuve)/u);
   if (explicitLocation) add('location', explicitLocation[1], findContext(text, explicitLocation[0]));
-  const contentHtml = html.replace(/<(nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi,' ');
+  const contentHtml = html
+    .replace(/<(script|style|noscript|template)\b[^>]*>[\s\S]*?<\/\1>/gi,' ')
+    .replace(/<(nav|header|footer)\b[^>]*>[\s\S]*?<\/\1>/gi,' ');
   const blocks = contentHtml.replace(/<\/(?:p|li|tr|h[1-6]|div|section|article)>/gi,'\n').split('\n').map(htmlToText).filter(Boolean);
   for (const block of blocks) {
     const evidence = formatContext ? `${formatContext} ${block}` : block;
@@ -379,44 +478,98 @@ export const fetchPage = async (url, row = {}) => {
   const errors = [];
   const resources = new Map();
   const fetchOne = async target => {
+    if (isUnsafeResearchUrl(target)) throw new Error(`${target}: URL exclue de la recherche (liste de participants, résultats ou administration)`);
     const resource = await cachedResearchResource(target);
     resources.set(target, resource);
+    resources.set(resource.url, resource);
     return resource.html;
+  };
+  const searchForOrganizer = async excludedHosts => {
+    const query = [row.event_name,row.format_name,targetEdition(row),row.city,row.country,'site officiel'].filter(Boolean).join(' ');
+    if (!query.trim()) return null;
+    const searchUrl = `https://html.duckduckgo.com/html/?q=${encodeURIComponent(query)}`;
+    let searchHtml;
+    try { searchHtml = await fetchOne(searchUrl); }
+    catch (error) { errors.push({url:searchUrl,error:String(error.message || error)}); return null; }
+    for (const candidate of searchResultCandidates(searchHtml,row).slice(0,8)) {
+      try {
+        const candidateUrl = new URL(candidate.href);
+        if (excludedHosts.has(candidateUrl.hostname)) continue;
+        const candidateHtml = await fetchOne(candidate.href);
+        const resolved = resources.get(candidate.href)?.url || candidate.href;
+        if (likelyOrganizerPage(candidateHtml,resolved,row)) return {url:resolved,html:candidateHtml,search_url:searchUrl};
+      } catch (error) { errors.push({url:candidate.href,error:String(error.message || error)}); }
+    }
+    return null;
   };
   let root = new URL(url);
   let rootHtml;
   let discoveredFrom = '';
+  let discoveryMethod = '';
   try {
     rootHtml = await fetchOne(root.href);
     root = new URL(resources.get(root.href).url);
   } catch (error) {
     errors.push({url, error:String(error.message || error)});
-    if (!row.race_url || row.race_url === url) throw error;
-    let secondaryHtml;
-    try { secondaryHtml = await fetchOne(String(row.race_url)); }
-    catch (secondaryError) { throw new Error(`${error.message}; fallback: ${secondaryError.message}`); }
-    const fallback = discoverOfficialFromSecondary(secondaryHtml, String(row.race_url))[0];
-    if (!fallback) throw error;
-    root = new URL(fallback.href);
-    rootHtml = await fetchOne(root.href);
-    discoveredFrom = String(row.race_url);
+    let fallbackError = null;
+    const originUrl = new URL('/',root).href;
+    if (originUrl !== root.href) {
+      try {
+        const originHtml = await fetchOne(originUrl);
+        if (pageMentionsExpectedEvent(originHtml,{...row,city:'',prospect_city:''})) { root = new URL(resources.get(originUrl)?.url || originUrl); rootHtml = originHtml; discoveredFrom = url; discoveryMethod = 'origin_root'; }
+      } catch (originError) { errors.push({url:originUrl,error:String(originError.message || originError)}); }
+    }
+    if (!rootHtml && row.race_url && row.race_url !== url) {
+      try {
+        const secondaryHtml = await fetchOne(String(row.race_url));
+        const fallback = discoverOfficialFromSecondary(secondaryHtml, String(row.race_url))[0];
+        if (fallback) { root = new URL(fallback.href); rootHtml = await fetchOne(root.href); discoveredFrom = String(row.race_url); }
+      } catch (secondaryError) { fallbackError = secondaryError; errors.push({url:row.race_url,error:String(secondaryError.message || secondaryError)}); }
+    }
+    if (!rootHtml) {
+      const excludedHosts = new Set([new URL(url).hostname]);
+      try { if (row.race_url) excludedHosts.add(new URL(row.race_url).hostname); } catch { /* invalid fallback URL is already non-authoritative */ }
+      const discovered = await searchForOrganizer(excludedHosts);
+      if (!discovered) throw new Error(`${error.message}${fallbackError ? `; fallback: ${fallbackError.message}` : ''}; recherche de source: aucun site organisateur confirmé`);
+      root = new URL(discovered.url); rootHtml = discovered.html; discoveredFrom = url; discoveryMethod = 'web_search';
+    }
   }
   if (classifySourceUrl(root.href).role !== 'official_candidate') {
     const official = discoverOfficialFromSecondary(rootHtml,root.href)[0];
-    if (!official) throw new Error(`${root.href}: official organizer source not found`);
-    discoveredFrom = root.href;
-    root = new URL(official.href);
-    rootHtml = await fetchOne(root.href);
+    if (official) {
+      discoveredFrom = root.href;
+      root = new URL(official.href);
+      rootHtml = await fetchOne(root.href);
+    } else {
+      const discovered = await searchForOrganizer(new Set([root.hostname]));
+      if (!discovered) throw new Error(`${root.href}: official organizer source not found; recherche de source: aucun site organisateur confirmé`);
+      discoveredFrom = root.href; discoveryMethod = 'web_search'; root = new URL(discovered.url); rootHtml = discovered.html;
+    }
+  }
+  if (weakOrganizerPage(rootHtml)) {
+    let discovered = null;
+    let weakRootDiscoveryMethod = '';
+    for (const candidate of linkedOrganizerCandidates(rootHtml, root.href, row).slice(0, 6)) {
+      try {
+        const candidateHtml = await fetchOne(candidate.href);
+        const resolved = resources.get(candidate.href)?.url || candidate.href;
+        if (likelyOrganizerPage(candidateHtml, resolved, row)) { discovered = {url:resolved,html:candidateHtml}; weakRootDiscoveryMethod = 'legacy_link'; break; }
+      } catch (error) { errors.push({url:candidate.href,error:String(error.message || error)}); }
+    }
+    if (!discovered) { discovered = await searchForOrganizer(new Set([root.hostname])); weakRootDiscoveryMethod = discovered ? 'web_search' : ''; }
+    if (discovered) { discoveredFrom = root.href; discoveryMethod = weakRootDiscoveryMethod; root = new URL(discovered.url); rootHtml = discovered.html; }
+    else throw new Error(`${root.href}: page organisateur vide ou inactive; recherche de source: aucun site organisateur confirmé`);
   }
   const formatNeedles = [row.format_name, row.distance_km && `${row.distance_km} km`, row.distance_km && `${row.distance_km}km`]
     .filter(Boolean).map((value) => String(value).toLowerCase());
   const requestedFields = String(row.search_fields || row.missing_fields || "").split(";").filter(Boolean);
   const maxPages = row.search_depth === "deep" ? DEEP_CRAWL_MAX_PAGES : CRAWL_MAX_PAGES;
-  const metadataLinks = discoverOfficialLinks(rootHtml, root.href).filter(link => new URL(link.href).hostname === root.hostname);
+  const metadataLinks = discoverOfficialLinks(rootHtml, root.href).filter(link => new URL(link.href).hostname === root.hostname && !isUnsafeResearchUrl(link.href));
   const links = [...rootHtml.matchAll(/<a\b[^>]*href=["']([^"'#]+)["'][^>]*>([\s\S]*?)<\/a>/gi)]
     .map((match) => {
       try {
         const candidate = new URL(match[1], root.href);
+        if (isUnsafeResearchUrl(candidate.href)) return null;
         const label = compact(match[2].replace(/<[^>]+>/g, " ")).toLowerCase();
         const target = `${candidate.pathname} ${candidate.search} ${label}`.toLowerCase();
         const isGpx = /\.gpx(?:$|[?#])|(?:trace|parcours).*(?:gpx|download|telecharg|télécharg)/i.test(target);
@@ -446,7 +599,7 @@ export const fetchPage = async (url, row = {}) => {
         catch { /* an individual sitemap must not block the crawl */ }
       }
       sitemapLinks = [...new Set([...firstLevel, ...nested])]
-        .filter(candidate => !/\.xml(?:$|[?#])/i.test(candidate))
+        .filter(candidate => !/\.xml(?:$|[?#])/i.test(candidate) && !isUnsafeResearchUrl(candidate))
         .map((candidate) => ({
           href: candidate,
           score: requestedFields.some((field) => FIELD_PATH_HINTS[field]?.test(candidate)) ? 35 : 5,
@@ -455,7 +608,7 @@ export const fetchPage = async (url, row = {}) => {
         .map((item) => item.href);
     } catch { /* sitemap is optional */ }
   }
-  const urls = [...new Set([root.href, ...metadataLinks.sort((left, right) => right.score - left.score).map((item) => item.href), ...links, ...sitemapLinks])].slice(0, maxPages);
+  const urls = [...new Set([root.href, ...metadataLinks.sort((left, right) => right.score - left.score).map((item) => item.href), ...links, ...sitemapLinks])].filter(candidate=>!isUnsafeResearchUrl(candidate)).slice(0, maxPages);
   const pageRecords = [{ url: root.href, html: rootHtml }];
   for (const childUrl of urls.slice(1)) {
     try { pageRecords.push({ url: childUrl, html: await fetchOne(childUrl) }); } catch (error) { errors.push({url:childUrl,error:String(error.message || error)}); }
@@ -468,6 +621,7 @@ export const fetchPage = async (url, row = {}) => {
     errors,
     resolved_url: root.href,
     discovered_from: discoveredFrom,
+    discovery_method: discoveryMethod,
   };
 };
 
@@ -512,6 +666,8 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
   const fetchSource = async (url,row) => {
     if (!useMcp) { row.crawl_transport = fetchImpl === fetchPage ? 'http_direct' : 'custom'; return fetchImpl(url,row); }
     const params = {url, event_name:row.event_name, format_name:row.format_name, distance_km:row.distance_km,
+      target_edition_year:targetEdition(row), city:row.city, prospect_city:row.prospect_city, country:row.country,
+      min_event_date:row.min_event_date, max_event_date:row.max_event_date,
       missing_fields:row.search_fields, search_depth:'deep', race_url:row.race_url};
     for (let attempt = 0; attempt < 2; attempt += 1) {
       try {
@@ -536,6 +692,7 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
       console.error(`[${index+1}/${selected.length}] ${row.event_name} / ${row.format_name} — recherche en cours...`);
       // Never inherit a previously exported TRUE flag after a failed refresh.
       row.ready_to_import = 'FALSE';
+      row.research_status = 'researching';
       row.field_provenance_json = '{}';
       row.verified_fields = '';
       row.research_errors_json = '[]';
@@ -550,7 +707,7 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
         if (fetched?.resolved_url) {
           row.official_website = fetched.resolved_url;
           row.source_role = classifySourceUrl(fetched.resolved_url).role;
-          if (fetched.discovered_from) row.source_quality = 'discovered_organizer';
+          if (fetched.discovered_from) row.source_quality = fetched.discovery_method === 'web_search' ? 'discovered_search_organizer' : 'discovered_organizer';
         }
         row.source_role ||= classifySourceUrl(row.official_website).role;
         const records = fetched?.pages || [{url:row.official_website || source, html:typeof fetched === 'string' ? fetched : fetched.html}];
@@ -565,7 +722,8 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
           const pageDates = datesInText(page.text || '');
           const wrongEditionOnly = pageDates.length > 0 && !pageDates.some(date => date.slice(0,4) === targetEdition(row));
           const staleUrl = /archives?|resultats?/i.test(page.url) || [...page.url.matchAll(/\b(20\d{2})\b/g)].some(match => match[1] !== targetEdition(row));
-          return {result, score:(page.format_context ? 100 : 0) + result.claims.length * 3 - (wrongEditionOnly ? 200 : staleUrl ? 40 : 0)};
+          const transactionalUrl = /inscri|enregistrement|checkout|panier|commande/i.test(page.url);
+          return {result, score:(page.format_context ? 100 : 0) + result.claims.length * 3 - (wrongEditionOnly ? 200 : staleUrl ? 40 : transactionalUrl ? 60 : 0)};
         }).sort((a,b)=>b.score-a.score).slice(0,LLM_MAX_PAGES);
         const budget = Math.floor(LLM_TEXT_LIMIT / Math.max(1,ranked.length));
         const llmContext = ranked.map(({result}) => `SOURCE ${result.pages[0].url}\nFORMAT ${result.pages[0].format_context}\n${result.llm_context}`.slice(0,budget)).join('\n---\n').slice(0,LLM_TEXT_LIMIT);
@@ -592,7 +750,8 @@ export const enrichQueue = async (rows, { noLlm = false, limit = null, delayMs =
       if (verbose) console.error(`  ${row.verified_fields || 'aucun champ vérifié'} | ${row.verification_alert}`);
       await onRow(row, {schema_version:RESEARCH_SCHEMA_VERSION,format_key:row.format_key,model:api.model,
         target_edition_year:targetEdition(row),duration_ms:Date.now()-started,fetched_at:new Date().toISOString(),
-        pages:fetched?.pages || [],request_context:extraction?.llm_context || '',llm_response:llm,errors:jsonValue(row.research_errors_json,[])});
+        pages:(extraction?.pages || []).map(page=>({url:page.url,title:page.title || '',text:page.text || '',authority:page.authority || ''})),
+        request_context:extraction?.llm_context || '',llm_response:llm,errors:jsonValue(row.research_errors_json,[])});
       if (delayMs > 0 && index < selected.length-1) await sleep(delayMs);
     }
   } finally { closeMcp(); }

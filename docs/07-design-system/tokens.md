@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -57,9 +57,9 @@ The web app also defines HSL CSS variables in `apps/web/app/globals.css` for lig
 
 ### RaceBook edition theme
 
-`packages/design-system/src/branding.ts` owns the shared runtime theme contract used by the organizer preview and mobile RaceBook. Defaults are `#2D5016` for primary and `#B45309` for accent. It accepts only `#RRGGBB`, computes black or white text with the stronger contrast against the primary color, and derives light primary/accent surfaces plus a primary border by mixing with white.
+`packages/design-system/src/branding.ts` owns the shared runtime theme contract used by the organizer preview and mobile RaceBook. Defaults are `#2D5016` for primary and `#B45309` for accent. It accepts only `#RRGGBB`, computes black or white text with the stronger contrast against the primary color, and derives light surfaces and borders from both colors by mixing with white. `RACEBOOK_EDITION_LOGO_ENABLED` is the shared temporary kill switch for the dormant edition-logo presentation.
 
-Primary colors style interactions, links, active tabs, icons, and tinted surfaces. Accent colors are reserved for graphics such as progress, route, and elevation profile. Typography, neutral backgrounds, layout, and semantic danger/warning/info colors are never organizer-controlled.
+Primary colors style interactions, links, active tabs and icons. Accent colors style progress, route and elevation profile together with their related cards, positive information rows and other non-semantic highlights. Typography, neutral backgrounds, layout, and semantic danger/warning/info colors are never organizer-controlled.
 
 ## Typography
 

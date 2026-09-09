@@ -1,6 +1,7 @@
 import {
   DEFAULT_RACEBOOK_ACCENT_COLOR,
   DEFAULT_RACEBOOK_PRIMARY_COLOR,
+  RACEBOOK_EDITION_LOGO_ENABLED,
   isHexColor,
   resolveRacebookTheme,
 } from "@pace-yourself/design-system";
@@ -141,18 +142,15 @@ export function BrandingEditor({
 
   const resetDraft = async () => {
     setBusy("reset");
-    setDraft({ logoUrl: null, primaryColor: DEFAULT_RACEBOOK_PRIMARY_COLOR, accentColor: DEFAULT_RACEBOOK_ACCENT_COLOR });
+    setDraft((current) => ({ ...current, primaryColor: DEFAULT_RACEBOOK_PRIMARY_COLOR, accentColor: DEFAULT_RACEBOOK_ACCENT_COLOR }));
     try {
       const colorsResponse = await fetch(`/api/organizer/editions/${editionId}/branding`, {
         method: "PATCH",
         headers: { ...authHeaders, "Content-Type": "application/json" },
         body: JSON.stringify({ primaryColor: DEFAULT_RACEBOOK_PRIMARY_COLOR, accentColor: DEFAULT_RACEBOOK_ACCENT_COLOR }),
       });
-      const logoResponse = colorsResponse.ok
-        ? await fetch(`/api/organizer/editions/${editionId}/branding`, { method: "DELETE", headers: authHeaders })
-        : new Response(null, { status: 502 });
-      if (!colorsResponse.ok || !logoResponse.ok) throw new Error("Impossible de réinitialiser le brouillon.");
-      const data = (await logoResponse.json()) as { branding: OrganizerBrandingState };
+      if (!colorsResponse.ok) throw new Error("Impossible de réinitialiser le brouillon.");
+      const data = (await colorsResponse.json()) as { branding: OrganizerBrandingState };
       updateState(data.branding);
       onToast("success", "DA Pace Yourself restaurée dans le brouillon.");
     } catch (error) {
@@ -206,14 +204,16 @@ export function BrandingEditor({
           ))}
         </div>
 
-        <div className="space-y-2">
-          <Label>Logo officiel de l’édition</Label>
-          <p className="text-xs text-muted-foreground">PNG, JPEG, WebP ou AVIF · 5 Mo maximum. Un fond transparent est recommandé.</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <Input type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void uploadLogo(event)} disabled={busy !== null} className="max-w-sm" />
-            {draft.logoUrl ? <Button type="button" variant="outline" onClick={() => void removeLogo()} disabled={busy !== null}>Retirer le logo</Button> : null}
+        {RACEBOOK_EDITION_LOGO_ENABLED ? (
+          <div className="space-y-2">
+            <Label>Logo officiel de l’édition</Label>
+            <p className="text-xs text-muted-foreground">PNG, JPEG, WebP ou AVIF · 5 Mo maximum. Un fond transparent est recommandé.</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <Input type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void uploadLogo(event)} disabled={busy !== null} className="max-w-sm" />
+              {draft.logoUrl ? <Button type="button" variant="outline" onClick={() => void removeLogo()} disabled={busy !== null}>Retirer le logo</Button> : null}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="flex flex-wrap gap-3">
           <Button type="button" onClick={() => void saveColors()} disabled={busy !== null || !localDirty}>Enregistrer le brouillon</Button>
@@ -227,11 +227,11 @@ export function BrandingEditor({
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu mobile</p>
         <div className="space-y-3 rounded-2xl bg-white p-4">
           <div className="flex items-start gap-3">
-            {theme.logoUrl ? <img src={theme.logoUrl} alt={`Logo ${eventName}`} className="h-14 w-14 rounded-xl border object-contain p-1" /> : null}
+            {RACEBOOK_EDITION_LOGO_ENABLED && theme.logoUrl ? <img src={theme.logoUrl} alt={`Logo ${eventName}`} className="h-14 w-14 rounded-xl border object-contain p-1" /> : null}
             <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase" style={{ color: theme.primaryColor }}>{eventName}</p><p className="truncate text-lg font-bold">RaceBook</p><p className="text-xs text-muted-foreground">Édition sélectionnée</p></div>
           </div>
           <div className="flex gap-2"><span className="flex-1 rounded-xl px-2 py-2 text-center text-xs font-bold" style={{ backgroundColor: theme.primaryColor, color: theme.onPrimaryColor }}>Course</span><span className="flex-1 rounded-xl border px-2 py-2 text-center text-xs">Accès</span></div>
-          <div className="rounded-xl border p-3" style={{ borderColor: theme.primaryBorderColor, backgroundColor: theme.primarySurfaceColor }}><p className="text-xs font-bold" style={{ color: theme.primaryColor }}>Informations importantes</p><p className="mt-1 text-xs text-muted-foreground">Les contenus et alertes restent lisibles.</p></div>
+          <div className="rounded-xl border p-3" style={{ borderColor: theme.accentBorderColor, backgroundColor: theme.accentSurfaceColor }}><p className="text-xs font-bold">Informations importantes</p><p className="mt-1 text-xs text-muted-foreground">La couleur d’accent habille aussi les encarts non critiques.</p></div>
           <svg viewBox="0 0 240 56" role="img" aria-label="Aperçu du tracé" className="h-14 w-full"><polyline points="4,44 38,30 72,36 110,12 150,24 188,8 236,18" fill="none" stroke={theme.accentColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" /></svg>
           <button type="button" className="w-full rounded-xl px-3 py-2 text-sm font-bold" style={{ backgroundColor: theme.primaryColor, color: theme.onPrimaryColor }}>Action principale</button>
         </div>

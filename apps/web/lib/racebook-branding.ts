@@ -1,6 +1,7 @@
 import {
   DEFAULT_RACEBOOK_ACCENT_COLOR,
   DEFAULT_RACEBOOK_PRIMARY_COLOR,
+  RACEBOOK_EDITION_LOGO_ENABLED,
   normalizeHexColor,
   resolveRacebookTheme,
   type RacebookBranding,
@@ -101,7 +102,7 @@ export const toOrganizerBranding = (row: RacebookBrandingRow | null) => {
     published,
     publishedAt: row?.published_at ?? null,
     hasUnpublishedChanges:
-      draft.logoUrl !== published.logoUrl ||
+      (RACEBOOK_EDITION_LOGO_ENABLED && draft.logoUrl !== published.logoUrl) ||
       draft.primaryColor !== published.primaryColor ||
       draft.accentColor !== published.accentColor,
   };

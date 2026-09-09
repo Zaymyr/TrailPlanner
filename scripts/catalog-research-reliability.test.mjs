@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { mkdtemp, writeFile, readFile, mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import { buildFormatQueue } from "./build-format-import-queue.mjs";
-import { applyClaims, deterministicExtract, enrichQueue, sitemapLocations } from "./enrich-format-import-queue.mjs";
+import { applyClaims, deterministicExtract, enrichQueue, evidenceIdentifiesFormat, likelyOrganizerPage, linkedOrganizerCandidates, pageMentionsExpectedEvent, searchResultCandidates, sitemapLocations, weakOrganizerPage } from "./enrich-format-import-queue.mjs";
 import { acquireCampaignLock, buildExports, parseGpx, run, processGpx, resolveGpxAmbiguity } from "./research-format-catalog.mjs";
 import { buildDraftRequests } from "./import-format-queue-drafts.mjs";
-import { verifiedValue, parseResearchDate, classifySourceUrl } from "./catalog-research-contract.mjs";
+import { verifiedValue, parseResearchDate, classifySourceUrl, isUnsafeResearchUrl } from "./catalog-research-contract.mjs";
+import { citationMatchesPage, validateClaimForRow } from "./catalog-research-validation.mjs";
 import { fetchResearchResource } from "./catalog-research-http.mjs";
 import { decodeJsonRpcLine } from "./race-research-mcp-client.mjs";
 import { serializeCsvTable } from "./prepare-betrail-outreach-csv.mjs";
@@ -82,6 +83,159 @@ test("infers the campaign year from an explicit French event date and location",
   assert.equal(verifiedValue(row,"race_date"),"2026-11-01"); assert.equal(verifiedValue(row,"location"),"Tourouvre");
   assert.equal(JSON.parse(row.field_provenance_json).race_date.method,"deterministic_inferred_year");
 });
+test("infers a yearless event date when the edition is explicit nearby",()=>{
+  const row=makeRow({candidate_event_date:"2026-11-01",prospect_date:"2026-11-01",priority_date:"2026-11-01",target_edition_year:"2026",min_event_date:"2026-11-01",max_event_date:"2027-02-28"});
+  const extraction=deterministicExtract('<h1>Trail des Sorcières - 1er Novembre</h1><p>PROGRAMME 2026 : Trail Test 12 km</p>',row);
+  applyClaims(row,extraction,{claims:[]}); assert.equal(verifiedValue(row,"race_date"),"2026-11-01");
+});
+test("extracts a current weekday date from a root title despite historical articles",()=>{
+  const row=makeRow({target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28',official_website:'https://traildesroches.test/'});
+  const page='<title>Dimanche 8 novembre 2026</title><article>Edition 2025 : le 9 novembre 2025</article>';
+  const dateClaim=deterministicExtract(page,row).claims.find(item=>item.field==='race_date' && item.value==='2026-11-08');
+  assert.ok(dateClaim);
+});
+test("extracts a current venue from official regulation wording",()=>{
+  const row=makeRow({candidate_event_date:"2026-11-01",prospect_date:"2026-11-01",target_edition_year:"2026",min_event_date:"2026-11-01",max_event_date:"2027-02-28"});
+  const extraction=deterministicExtract('<h1>Règlement 2026 Trail Test 12 km</h1><p>Les lieux de départ et d’arrivée se situent près de la salle des fêtes à Mâlain. Les départs seront donnés le dimanche 1er novembre 2026.</p>',row);
+  applyClaims(row,extraction,{claims:[]}); assert.equal(verifiedValue(row,'location'),'Mâlain');
+});
+test("does not truncate a multi-word uppercase start venue",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract('<p>Départ à GÉOPARC SAINT DIE DES VOSGES avec une arrivée au col.</p>',row);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'GÉOPARC SAINT DIE DES VOSGES');
+});
+test("extracts a venue placed after a dated rendez-vous banner",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract('<p>RENDEZ-VOUS LE SAMEDI 7 NOVEMBRE MEYRUEIS, LOZERE (48)</p>',row);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'MEYRUEIS, LOZERE (48)');
+});
+test("extracts the complete venue between departure and arrival labels",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract('<p>Départ Musée de Bibracte - Saint-Léger-Sous-Beuvray (71990) Arrivée Musée de Bibracte - Saint-Léger-Sous-Beuvray (71990)</p>',row);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Musée de Bibracte - Saint-Léger-Sous-Beuvray (71990)');
+});
+test("extracts an event venue and its adjacent postal address",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract("<p>L'Endurance Trail aura lieu le mercredi 11 novembre 2026 au Complexe Sportif de Bellefontaine. (Rue de Roncevaux 54250 CHAMPIGNEULLES)</p>",row);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Complexe Sportif de Bellefontaine, Rue de Roncevaux 54250 CHAMPIGNEULLES');
+});
+test("keeps lowercase connectors inside a named rendez-vous venue",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract('<p>Rendez-vous au Fort de Cormeilles-en-Parisis Matériel obligatoire.</p>',row);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Fort de Cormeilles-en-Parisis');
+});
+test("rejects a historical event caption as current field evidence",()=>{
+  const row=makeRow({target_edition_year:'2026'});
+  assert.equal(validateClaimForRow(claim('location','Mâlain',"Trail des Sorcières 2023 - arrivée à Mâlain"),row),'historical_evidence');
+});
+test("does not infer the target year from a yearless date inside an older edition",()=>{
+  const row=makeRow({target_edition_year:'2026'});
+  const inferred={...claim('race_date','2026-11-09','Edition 2025. Le Trail aura lieu le Dimanche 9 Novembre 2025.'),method:'deterministic_inferred_year'};
+  assert.equal(validateClaimForRow(inferred,row),'historical_evidence');
+});
+test("rejects administrative dates and impossible weekday combinations",()=>{
+  const row=makeRow({target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28'});
+  assert.equal(validateClaimForRow({...claim('race_date','2026-11-13','Retrait des dossards vendredi 13 novembre'),method:'deterministic_inferred_year'},row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow({...claim('race_date','2026-11-13','Les missions bénévoles débuteront vendredi 13 novembre'),method:'deterministic_inferred_year'},row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow({...claim('race_date','2026-12-07','Dimanche 7 décembre : départ du trail'),method:'deterministic_inferred_year'},row),'weekday_mismatch');
+  assert.equal(validateClaimForRow({...claim('race_date','2026-12-19','Départ samedi 19 décembre du Trail Test'),method:'deterministic_inferred_year'},row),'');
+});
+test("rejects a registration cutoff even when the real start appears later",()=>{
+  const row=makeRow({target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28'});
+  const cutoff={...claim('race_date','2026-12-11',"Marche sur Chrono-start jusqu'au vendredi 11 décembre inclus dans la limite des places disponibles. Programme : départ dimanche 13 décembre à 9h."),method:'deterministic_inferred_year'};
+  assert.equal(validateClaimForRow(cutoff,row),'date_context_ambiguous');
+});
+test("rejects dates scoped to another format or an unscoped event range",()=>{
+  const row=makeRow({format_name:'36km',distance_km:'36',prospect_distance_km:'36',target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28'});
+  assert.equal(validateClaimForRow({...claim('race_date','2026-11-14','Samedi 14 novembre : canitrail 15 km'),method:'deterministic_inferred_year'},row),'neighboring_format');
+  assert.equal(validateClaimForRow({...claim('race_date','2026-11-15','Rendez-vous les 14 & 15 novembre pour un événement unique'),method:'deterministic_inferred_year'},row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow({...claim('race_date','2026-11-14','DEPART 17H30 SAMEDI 14 NOVEMBRE'),source_url:'https://trail.test/12km-nocturne',method:'deterministic_inferred_year'},row),'neighboring_format');
+});
+test("does not treat bib pickup or a club contact address as the event location",()=>{
+  const row=makeRow({target_edition_year:'2026'});
+  assert.equal(validateClaimForRow(claim('location','Bellefontaine','La remise des dossards se fera au complexe sportif de Bellefontaine'),row),'location_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('location','Paris','Notre adresse : 10 rue du Club, Paris'),row),'location_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('location','Bellefontaine','La course aura lieu au complexe sportif de Bellefontaine'),row),'');
+});
+test("rejects mandatory claims sourced from a historical results URL",()=>{
+  const row=makeRow({target_edition_year:'2026'});
+  assert.equal(validateClaimForRow({...claim('distance_km',12,'Trail Test 12 km'),source_url:'https://trail.test/pdf/results_2024_12km.pdf'},row),'historical_evidence');
+  assert.equal(validateClaimForRow({...claim('distance_km',12,'Trail Test 12 km'),source_url:'https://trail.test/editions-precedentes/'},row),'historical_evidence');
+});
+test("keeps yearless date evidence local to its format",()=>{
+  const row=makeRow({format_name:'185km',distance_km:'185',prospect_distance_km:'185',target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28'});
+  const page='<p>Ultra 185 km partira le vendredi 13 novembre à 14h.</p><p>Grand Trail 100 km partira le samedi 14 novembre à 12h.</p>';
+  const claims=deterministicExtract(page,row).claims.filter(item=>item.field==='race_date');
+  assert.equal(evidenceIdentifiesFormat(claims.find(item=>item.value==='2026-11-13').evidence,row),true);
+  assert.equal(evidenceIdentifiesFormat(claims.find(item=>item.value==='2026-11-14').evidence,row),false);
+  assert.equal(deterministicExtract('<p>km 30 : dimanche 15 novembre 14h, soit 5h30 de course.</p>',row).claims.some(item=>item.field==='race_date'),false);
+});
+test("extracts format-local dates when an official page lists several formats",()=>{
+  const row=makeRow({format_name:'185km',distance_km:'185',prospect_distance_km:'185',target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28'});
+  const page='<p>Ultra 185 km partira le vendredi 13 novembre 2026 à 14h.</p><p>Grand Trail 100 km partira le samedi 14 novembre 2026 à 12h.</p>';
+  const claims=deterministicExtract(page,row).claims.filter(item=>item.field==='race_date');
+  assert.equal(evidenceIdentifiesFormat(claims.find(item=>item.value==='2026-11-13').evidence,row),true);
+  assert.equal(evidenceIdentifiesFormat(claims.find(item=>item.value==='2026-11-14').evidence,row),false);
+  applyClaims(row,deterministicExtract(page,row),{claims:[]});
+  assert.equal(verifiedValue(row,'race_date'),'2026-11-13');
+  assert.match(JSON.parse(row.field_provenance_json).race_date.evidence,/185 km/);
+});
+test("removes scripts and styles before deterministic block extraction",()=>{
+  const row=makeRow({format_name:"26km",distance_km:"26",prospect_distance_km:"26"});
+  const extraction=deterministicExtract('<script>const url="/trail-26-km";\nwindow.dataLayer=[];</script><style>.trail-26-km { display:block }</style><p>Bienvenue</p>',row);
+  assert.equal(extraction.claims.filter(item=>item.field==='distance_km').length,0);
+});
+test("accepts a near-verbatim citation but rejects loose token overlap",()=>{
+  assert.equal(citationMatchesPage('Le trail a lieu sur le Plateau des Petites Roches à Saint Hilaire du Touvet','Le trail a lieu sur le Plateau des Petites Roches, à Saint-Hilaire-du-Touvet, le deuxième dimanche.'),true);
+  assert.equal(citationMatchesPage('Le trail aura lieu à Paris avec un parcours de 12 kilomètres','Cette page parle du trail, de Paris et présente séparément un ancien parcours de 12 kilomètres.'),false);
+});
+test("a dedicated format page supersedes event-wide dates and locations",()=>{
+  const row=makeRow({format_name:"185km",distance_km:"185",prospect_distance_km:"185",candidate_event_date:"2026-11-13",prospect_date:"2026-11-13",target_edition_year:"2026",min_event_date:"2026-11-01",max_event_date:"2027-02-28"});
+  const faq={url:"https://trail.test/faq",title:"FAQ",text:"Samedi 14 novembre. 185 km, 100 km et 50 km. Départs en Bourgogne."};
+  const dedicated={url:"https://trail.test/ultra",title:"L'Ultra des Druides",text:"L'Ultra des Druides. Distance 185 km. Date 13 novembre 2026. Départ Musée de Bibracte."};
+  applyClaims(row,{pages:[faq,dedicated],claims:[{...claim('race_date','2026-11-14','Samedi 14 novembre'),method:'deterministic_inferred_year',source_url:faq.url},claim('location','Bourgogne','Départs en Bourgogne')]},
+    {claims:[{...claim('race_date','2026-11-13','Date 13 novembre 2026'),source_url:dedicated.url,format_label:"L'Ultra des Druides"},{...claim('location','Musée de Bibracte','Départ Musée de Bibracte'),source_url:dedicated.url,format_label:"L'Ultra des Druides"}]});
+  assert.equal(verifiedValue(row,'race_date'),'2026-11-13'); assert.equal(verifiedValue(row,'location'),'Musée de Bibracte'); assert.equal(row.conflict_fields,'');
+});
+test("compatible venue descriptions merge without a false location conflict",()=>{
+  const row=makeRow();
+  apply(row,[...core().filter(item=>item.field!=='location'),claim('location','Tourouvre','Rendez-vous à Tourouvre'),claim('location','Tourouvre, forêt du Perche','à Tourouvre, forêt du Perche')]);
+  assert.equal(verifiedValue(row,'location'),'Tourouvre, forêt du Perche');
+  assert.doesNotMatch(row.conflict_fields,/location/);
+});
+test("an official distance drift requires explicit format identity review",()=>{
+  const row=makeRow({format_name:'64km',format_raw:'64km/3100 D+',distance_km:'64',prospect_distance_km:'64'});
+  apply(row,[claim('race_date','2027-06-20','Trail Test : le 20 juin 2027'),claim('location','Paris','Lieu de départ : Paris'),claim('distance_km',70,'Parcours 70 km')]);
+  assert.equal(verifiedValue(row,'distance_km'),70);
+  assert.equal(row.ready_to_import,'FALSE');
+  assert.match(row.conflict_fields,/format_identity/);
+  assert.equal(buildDraftRequests([row],{asOf:'2027-01-01'}).length,0);
+  const renamed=makeRow({format_name:'26km',format_raw:'26km/650 D+',distance_km:'26',prospect_distance_km:'26'});
+  apply(renamed,[claim('race_date','2027-06-20','Trail Test : le 20 juin 2027'),claim('location','Paris','Lieu de départ : Paris'),claim('distance_km',25,'Parcours 25 km')]);
+  assert.match(renamed.conflict_fields,/format_identity/);
+});
+test("a format-specific date outranks an unrelated date on the event homepage",()=>{
+  const row=makeRow({format_name:'36km',distance_km:'36',prospect_distance_km:'36',target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28'});
+  const root={url:'https://trail.test/',title:'Trail des Châtaignes',text:'Samedi 14 novembre 2026. Trail principal 36 km.'};
+  const format={url:'https://trail.test/les-courses/les-chataignes/',title:'Les Châtaignes 36 km',format_context:'Les Châtaignes 36 km',text:'Départ dimanche 15 novembre du trail 36 km.'};
+  applyClaims(row,{pages:[root,format],claims:[
+    {...claim('race_date','2026-11-14','Samedi 14 novembre 2026'),source_url:root.url,method:'deterministic'},
+    {...claim('race_date','2026-11-15','Départ dimanche 15 novembre du trail 36 km'),source_url:format.url,method:'deterministic_inferred_year'},
+  ]},{claims:[]});
+  assert.equal(verifiedValue(row,'race_date'),'2026-11-15');
+  assert.doesNotMatch(row.conflict_fields,/race_date/);
+});
+test("a current course page outranks a stale transactional registration page",()=>{
+  const row=makeRow({format_name:'32km',distance_km:'32',prospect_distance_km:'32'});
+  const home={url:'https://trail.test/',title:'Trail Test',text:'La Poncinoise 32 km - 1200 D+'};
+  const registration={url:'https://trail.test/inscription-en-ligne/',title:'Inscription',text:'INSCRIPTIONS FERMEES - La Poncinoise 31 km - 1100 D+'};
+  applyClaims(row,{pages:[home,registration],claims:[
+    {...claim('distance_km',32,'La Poncinoise 32 km - 1200 D+'),source_url:home.url},
+    {...claim('distance_km',31,'La Poncinoise 31 km - 1100 D+'),source_url:registration.url},
+  ]},{claims:[]});
+  assert.equal(verifiedValue(row,'distance_km'),32);
+  assert.doesNotMatch(row.conflict_fields,/distance_km/);
+});
 test("a specific page heading grounds a short format-scoped excerpt",()=>{
   const row=makeRow(); const extraction=deterministicExtract('<h1>Trail Test 12 km</h1><p>Départ à 09h00</p>',row);
   applyClaims(row,extraction,{claims:[claim("start_time","09:00","Départ à 09h00")]});
@@ -98,14 +252,21 @@ test("each format receives a targeted crawl; optional data is still researched",
   await enrichQueue(rows,{delayMs:0,fetchImpl:async(url,row)=>{calls.push(row.format_name);return html;},llmImpl:async(row)=>{semantic.push(row.format_name);return {claims:[]};}});
   assert.deepEqual(calls,["12km","27km"]); assert.deepEqual(semantic,["12km","27km"]);
 });
+test("audit snapshots retain validation text without duplicating raw HTML",async()=>{
+  const row=makeRow(); let audit;
+  await enrichQueue([row],{noLlm:true,delayMs:0,fetchImpl:async()=>({pages:[{url:row.official_website,html,authority:'official'}]}),onRow:async(_row,value)=>{audit=value;}});
+  assert.equal(typeof audit.pages[0].text,'string'); assert.ok(audit.pages[0].text.includes('Trail Test'));
+  assert.equal('html' in audit.pages[0],false);
+});
 test("MCP transport restarts once and continues with the current race",async()=>{
-  const row=makeRow(); let created=0;
+  const row=makeRow({target_edition_year:'2027',prospect_city:'Paris',city:'Paris',country:'France'}); let created=0,received;
   const factory=async()=>{created+=1;return created===1
     ? {callTool:async()=>{throw new Error("MCP client closed");},close(){}}
-    : {callTool:async()=>({resolved_url:row.official_website,pages:[{url:row.official_website,html,authority:"official"}]}),close(){}};};
+    : {callTool:async(_name,args)=>{received=args;return {resolved_url:row.official_website,pages:[{url:row.official_website,html,authority:"official"}]};},close(){}};};
   await enrichQueue([row],{noLlm:true,delayMs:0,useMcp:true,mcpClientFactory:factory,fetchImpl:async()=>{throw new Error("fallback should not run");}});
   assert.equal(created,2);
   assert.equal(row.crawl_transport,"mcp_stdio_restarted");
+  assert.equal(received.target_edition_year,'2027'); assert.equal(received.prospect_city,'Paris'); assert.equal(received.country,'France');
   assert.notEqual(row.research_status,"source_error");
 });
 test("non JSON-RPC stdout is ignored without closing the client",()=>{
@@ -118,10 +279,49 @@ test("nested sitemap discovery keeps only organizer-host URLs",()=>{
   const xml='<sitemapindex><sitemap><loc>https://trail.test/pages.xml</loc></sitemap><sitemap><loc>https://other.test/foreign.xml</loc></sitemap></sitemapindex>';
   assert.deepEqual(sitemapLocations(xml,"https://trail.test/"),["https://trail.test/pages.xml"]);
 });
+test("research excludes participant, result, export and administration URLs",()=>{
+  assert.equal(isUnsafeResearchUrl('https://trail.test/admin/liste-inscriptions/'),true);
+  assert.equal(isUnsafeResearchUrl('https://trail.test/liste-des-inscrits'),true);
+  assert.equal(isUnsafeResearchUrl('https://trail.test/resultats-2025'),true);
+  assert.equal(isUnsafeResearchUrl('https://trail.test/export/participants.csv'),true);
+  assert.equal(isUnsafeResearchUrl('https://trail.test/le-club/comptes-rendus/courses-sur-route.html'),true);
+  assert.equal(isUnsafeResearchUrl('https://trail.test/bilan-du-trail-2025'),true);
+  assert.equal(isUnsafeResearchUrl('https://trail.test/inscriptions/'),false);
+  const xml='<urlset><url><loc>https://trail.test/parcours</loc></url><url><loc>https://trail.test/admin/liste-inscriptions</loc></url></urlset>';
+  assert.deepEqual(sitemapLocations(xml,'https://trail.test/'),['https://trail.test/parcours']);
+});
+test("search result parsing keeps organizer candidates and rejects known aggregators",()=>{
+  const html='<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Ftrail-amoureux.fr%2F">Courses des Amoureux du Fer - officiel</a><a class="result__a" href="https://www.betrail.run/race/x">Courses des Amoureux du Fer</a><a class="result__a" href="https://kerrun.com/events/amoureux">Courses des Amoureux du Fer 2026</a>';
+  assert.deepEqual(searchResultCandidates(html,{event_name:'Courses des Amoureux du Fer'}).map(item=>item.href),['https://trail-amoureux.fr/']);
+});
+test("organizer discovery requires the prospect city to prevent homonyms",()=>{
+  const organizer='<title>Trail des Roches</title><h1>Trail des Roches</h1><p>Rendez-vous à Leymiat.</p><a href="/parcours">Parcours</a><a href="/inscription">Inscription</a>';
+  const row={event_name:'Trail des Roches (01)',prospect_city:'Leymiat'};
+  assert.equal(likelyOrganizerPage(organizer,'https://traildesroches-ain.fr/',row),true);
+  const dateTitleOnly='<title>Dimanche 8 novembre 2026</title><p>Leymiat</p><a href="/parcours">Parcours</a><a href="/inscription">Inscription</a>';
+  assert.equal(likelyOrganizerPage(dateTitleOnly,'https://traildesroches-ain.fr/',row),true);
+  assert.equal(likelyOrganizerPage(organizer.replace('Leymiat','Saint-Dié'),'https://traildesroches-vosges.fr/',row),false);
+});
+test("a thin legacy landing page exposes a location-checked organizer candidate",()=>{
+  const row=makeRow({event_name:'Trail des Roches (01)',city:'Leymiat',prospect_city:'Leymiat'});
+  const landing='<h1>Bienvenue sur nos nouveaux sites</h1><a href="https://raid.raidfeminain.fr"><img alt="Raid"></a><a href="https://traildesroches.raidfeminain.fr"><img alt="Trail"></a>';
+  assert.deepEqual(linkedOrganizerCandidates(landing,'https://www.raidfeminain.fr/legacy',row).map(item=>item.href),['https://traildesroches.raidfeminain.fr/']);
+});
+test("recognizes an event homepage and rejects empty or parked pages",()=>{
+  const row={event_name:'Trail des Oufs',prospect_city:'Montastruc la Conseillere'};
+  assert.equal(pageMentionsExpectedEvent('<h1>Trail des Oufs</h1><p>Montastruc-la-Conseillère</p>',row),true);
+  assert.equal(weakOrganizerPage('<h1>Directory Index</h1><p>Privacy Policy Terms of Service</p>'.repeat(8)),true);
+  assert.equal(weakOrganizerPage('<h1>Trail des Oufs</h1><p>Informations organisateur et parcours détaillés.</p>'.repeat(8)),false);
+});
 test("failed source refresh cannot retain a stale ready flag",async()=>{
   const row=makeRow(); apply(row,core()); assert.equal(row.ready_to_import,"TRUE");
   await enrichQueue([row],{noLlm:true,delayMs:0,fetchImpl:async()=>{throw new Error("HTTP 403");}});
   assert.equal(row.ready_to_import,"FALSE"); assert.equal(row.research_status,"source_error");
+});
+test("a successful retry clears a previous source error status",async()=>{
+  const row=makeRow({research_status:'source_error'});
+  await enrichQueue([row],{noLlm:true,delayMs:0,useMcp:false,fetchImpl:async()=>({pages:[{url:row.official_website,html,authority:'official'}]})});
+  assert.equal(row.research_status,'ready_to_import');
 });
 test("imports verified location and omits candidate elevation; preserves logistics",()=>{
   const row=makeRow(); apply(row,[...core(),claim("start_time","09:00","12 km : départ à 09h00")]);
@@ -177,7 +377,7 @@ test("campaign resumes from the last completed format and refuses changed input"
   const argv=["--input",input,"--output-dir",output,"--as-of","2027-01-01","--min-days-before","0","--date-from","2027-06-01","--date-to","2027-06-30","--no-llm","--limit","2"];
   let processed=0;
   await assert.rejects(run(argv,{enrichImpl:async(rows,{onRow})=>{await onRow(rows[0]);processed++;throw new Error("interrupted");}}),/interrupted/);
-  const state=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(state.next_offset,1);
+  const state=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(state.next_offset,1); assert.equal(state.pipeline_version,"7");
   assert.equal(state.date_from,"2027-06-01"); assert.equal(state.date_to,"2027-06-30");
   await run([...argv,"--resume"],{enrichImpl:async(rows,{onRow})=>{for(const row of rows){await onRow(row);processed++;}}});
   const final=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(final.rows.length,3); assert.equal(final.complete,true); assert.equal(processed,3);

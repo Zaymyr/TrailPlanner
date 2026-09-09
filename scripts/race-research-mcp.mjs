@@ -5,6 +5,7 @@
 // stdout is reserved for JSON-RPC; diagnostics go to stderr.
 import { fetchPage, searchFieldContexts } from "./enrich-format-import-queue.mjs";
 import { parseGpx } from "./research-format-catalog.mjs";
+import { isUnsafeResearchUrl } from "./catalog-research-contract.mjs";
 
 const tools = [
   {
@@ -13,6 +14,8 @@ const tools = [
     inputSchema: { type: "object", additionalProperties: false, required: ["url"], properties: {
       url: { type: "string", description: "Source URL" },
       event_name: { type: "string" }, format_name: { type: "string" }, distance_km: { type: ["string", "number"] },
+      target_edition_year: { type: "string" }, city: { type: "string" }, prospect_city: { type: "string" }, country: { type: "string" },
+      min_event_date: { type: "string" }, max_event_date: { type: "string" },
       missing_fields: { type: "string" }, search_depth: { type: "string", enum: ["normal", "deep"] },
       race_url: { type: "string" },
     } },
@@ -48,11 +51,17 @@ const success = (id, value) => reply(id, { content: [{ type: "text", text: JSON.
 const argsObject = (params) => (params && typeof params.arguments === "object" ? params.arguments : (params || {}));
 
 const callTool = async (name, args) => {
+  if (["fetch_page", "search_page"].includes(name) && isUnsafeResearchUrl(String(args.url || ""))) {
+    throw new Error("URL excluded from race research: participant list, results, export or administration path");
+  }
   if (name === "crawl_source") {
     const result = await fetchPage(String(args.url), {
       event_name: String(args.event_name || ""),
       format_name: String(args.format_name || ""),
       distance_km: args.distance_km === undefined ? "" : String(args.distance_km),
+      target_edition_year: String(args.target_edition_year || ""),
+      city: String(args.city || ""), prospect_city: String(args.prospect_city || ""), country: String(args.country || ""),
+      min_event_date: String(args.min_event_date || ""), max_event_date: String(args.max_event_date || ""),
       missing_fields: String(args.missing_fields || ""),
       search_depth: String(args.search_depth || "normal"),
       race_url: String(args.race_url || ""),
@@ -66,6 +75,7 @@ const callTool = async (name, args) => {
       errors: result.errors || [],
       resolved_url: result.resolved_url || args.url,
       discovered_from: result.discovered_from || "",
+      discovery_method: result.discovery_method || "",
       field_contexts: searchFieldContexts(result.html, args, String(args.missing_fields || "").split(";").filter(Boolean)),
     };
   }

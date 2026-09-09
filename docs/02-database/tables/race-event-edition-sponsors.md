@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -69,7 +69,7 @@ The fictitious Trail TST assets are reproducible under `supabase/demo-assets/spo
 
 ## Mobile Presentation
 
-The same backward-compatible `/api/racebook-sponsors` response now carries the edition's published `branding` object beside sponsor arrays. Sponsor and branding logos are prefetched together, but remain separate placements: branding appears in the loading identity and RaceBook identity card, never in sponsor slots or click reporting. Missing/unpublished branding resolves to Pace Yourself defaults without changing sponsor behavior.
+The same backward-compatible `/api/racebook-sponsors` response carries the edition's resolved published `branding` object beside sponsor arrays. The temporary edition-logo kill switch forces `branding.logoUrl` to `null`, so only sponsor logos are currently prefetched and displayed. The stored edition-logo contract remains separate from sponsor slots and click reporting. Missing/unpublished branding resolves to Pace Yourself color defaults without changing sponsor behavior.
 
 The Courses sheet starts a short-lived, account-scoped sponsor request and logo warmup immediately before navigating to a RaceBook. The destination reuses that in-flight/cached request, holds visible progress at its initial position until loading logos are ready, then starts the normal animation with sponsors already displayed. Direct links keep the same lookup and logo-prefetch fallback. The RaceBook reserves one unified loading panel with two vertical logo slots while that preparation is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears. The presentation does not add impression tracking or expose direct destination URLs.
 

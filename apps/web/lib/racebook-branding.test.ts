@@ -1,4 +1,4 @@
-import { resolveRacebookTheme } from "@pace-yourself/design-system";
+import { RACEBOOK_EDITION_LOGO_ENABLED, resolveRacebookTheme } from "@pace-yourself/design-system";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -35,12 +35,24 @@ describe("RaceBook branding mapping", () => {
       accentColor: "#123ABC",
       onPrimaryColor: "#1A1A1A",
       primarySurfaceColor: expect.stringMatching(/^#[0-9A-F]{6}$/),
+      accentSurfaceColor: expect.stringMatching(/^#[0-9A-F]{6}$/),
+      accentBorderColor: expect.stringMatching(/^#[0-9A-F]{6}$/),
     });
+  });
+
+  it("keeps edition logos dormant in resolved themes", () => {
+    expect(RACEBOOK_EDITION_LOGO_ENABLED).toBe(false);
+    expect(resolveRacebookTheme({ logoUrl: "https://example.com/published.png" }).logoUrl).toBeNull();
+    expect(toOrganizerBranding({
+      ...row,
+      draft_primary_color: row.published_primary_color,
+      draft_accent_color: row.published_accent_color,
+    }).hasUnpublishedChanges).toBe(false);
   });
 
   it("exposes only published values to runners", () => {
     expect(toPublishedBranding(row)).toEqual({
-      logoUrl: "https://example.com/published.png",
+      logoUrl: null,
       primaryColor: "#654321",
       accentColor: "#FEDCBA",
     });

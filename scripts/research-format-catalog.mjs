@@ -15,6 +15,7 @@ import { RESEARCH_SCHEMA_VERSION, FIELD_COLUMNS, jsonValue, numericValue, normal
 import { fetchResearchResource } from "./catalog-research-http.mjs";
 
 const GPX_TIMEOUT_MS = 15_000;
+const RESEARCH_PIPELINE_VERSION = "7";
 const DISTANCE_MATCH_RATIO = 0.12;
 const GPX_ELEVATION_MATCH_RATIO = 0.5;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -259,7 +260,7 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
     let state;
     try { state = JSON.parse(await readFile(statePath,'utf8')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     if (state && !args.resume) throw new Error('Cette campagne existe déjà : utiliser --resume ou un nouveau répertoire.');
-    if (state && (state.schema_version !== RESEARCH_SCHEMA_VERSION || state.input_sha256 !== inputHash)) throw new Error('Entrée ou version différente : créer une nouvelle campagne pour conserver une reprise fiable.');
+    if (state && (state.schema_version !== RESEARCH_SCHEMA_VERSION || state.pipeline_version !== RESEARCH_PIPELINE_VERSION || state.input_sha256 !== inputHash)) throw new Error('Entrée ou version de pipeline différente : créer une nouvelle campagne pour conserver une reprise fiable.');
     if (state) {
       if (argv.includes('--as-of') && args.asOf !== state.as_of || argv.includes('--min-days-before') && args.minDaysBefore !== state.min_days_before
         || argv.includes('--date-from') && args.dateFrom !== state.date_from || argv.includes('--date-to') && args.dateTo !== state.date_to || args.noLlm !== state.no_llm) throw new Error('Paramètres différents de la campagne enregistrée.');
@@ -270,7 +271,7 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
     }
     const excluded = [];
     const queue = buildFormatQueue(parseCsvTable(inputText).rows,{asOf:args.asOf,minDaysBefore:args.minDaysBefore,dateFrom:args.dateFrom,dateTo:args.dateTo,onExcluded:row=>excluded.push(row)});
-    state ||= {schema_version:RESEARCH_SCHEMA_VERSION,input_sha256:inputHash,as_of:args.asOf,min_days_before:args.minDaysBefore,date_from:args.dateFrom,date_to:args.dateTo,
+    state ||= {schema_version:RESEARCH_SCHEMA_VERSION,pipeline_version:RESEARCH_PIPELINE_VERSION,input_sha256:inputHash,as_of:args.asOf,min_days_before:args.minDaysBefore,date_from:args.dateFrom,date_to:args.dateTo,
       no_llm:args.noLlm,next_offset:args.offset,rows:[],queue_keys:queue.map(row=>row.format_key)};
     if (JSON.stringify(state.queue_keys) !== JSON.stringify(queue.map(row=>row.format_key))) throw new Error('Ordre de sélection modifié : démarrer une nouvelle campagne.');
     await atomicWrite(`${args.outputDir}/excluded-prospects.csv`,serializeCsvTable(['prospect_uuid','event_name','race_url','reason'],excluded));
@@ -291,7 +292,7 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
       await checkpoint();
     }});
     const result = await writeExports(args.outputDir,state.rows);
-    await atomicWrite(`${args.outputDir}/run-summary.json`,JSON.stringify({schema_version:RESEARCH_SCHEMA_VERSION,input_sha256:inputHash,
+    await atomicWrite(`${args.outputDir}/run-summary.json`,JSON.stringify({schema_version:RESEARCH_SCHEMA_VERSION,pipeline_version:RESEARCH_PIPELINE_VERSION,input_sha256:inputHash,
       selected:selected.length,processed:state.rows.length,total_eligible:queue.length,excluded:excluded.length,
       ready:state.rows.filter(row=>row.ready_to_import==='TRUE').length,source_errors:state.rows.filter(row=>row.research_status==='source_error').length,
       next_offset:state.next_offset,complete:state.complete,as_of:args.asOf,date_from:args.dateFrom,date_to:args.dateTo},null,2));

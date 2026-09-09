@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -114,7 +114,7 @@ Summary:
 - Optional GPX selection during new-format creation follows the same authorization boundary: the organizer can queue the file in the approved-only dashboard, but the actual import still happens after the `races` row is created and must stay behind the organizer server routes. Replacing an existing GPX may synchronize its returned metrics into the active client form, but this presentation refresh does not replace the membership check or grant claim-based access.
 - Rejection stores review metadata but does not create membership.
 - Direct e-mail assignment is not a synthetic claim: it leaves this table unchanged and stores `claim_id = null` on a new delegated membership.
-- RaceBook visual identity is not claim state. Once membership exists, its organizer route still requires the selected edition's Pro `branding.manage` capability before returning or mutating a draft.
+- RaceBook visual identity is not claim state. Once membership exists, its organizer route still requires the selected edition's Pro `branding.manage` capability before returning or mutating a draft; the temporary edition-logo presentation flag does not alter this authorization boundary.
 
 ## Common Queries
 

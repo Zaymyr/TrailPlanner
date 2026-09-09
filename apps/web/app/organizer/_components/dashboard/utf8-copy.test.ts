@@ -255,6 +255,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("Enregistrer le brouillon");
     expect(editorSource).toContain("Publier la DA");
     expect(editorSource).toContain('window.addEventListener("beforeunload"');
+    expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");
+    expect(editorSource).toContain("theme.accentSurfaceColor");
     expect(dashboardSource).toContain('activeModule === "branding" && isEventTab && activeTier !== "signature"');
     expect(dashboardSource).toContain("Découvrir Signature");
   });

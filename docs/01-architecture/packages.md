@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: medium
 related_files:
   - package.json
@@ -47,7 +47,7 @@ This package is used for logic that should not depend on Next.js or Expo runtime
 
 Location: `packages/design-system`
 
-Exports tokens, fonts, signature icons, and the runtime-neutral RaceBook branding resolver. The web app transpiles this package in `apps/web/next.config.mjs`.
+Exports tokens, fonts, signature icons, and the runtime-neutral RaceBook branding resolver. The resolver derives primary/accent surfaces and borders and owns the temporary edition-logo kill switch used consistently by web and mobile. The web app transpiles this package in `apps/web/next.config.mjs`.
 
 Primary source files:
 

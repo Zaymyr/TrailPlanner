@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -27,13 +27,13 @@ related_tables:
 
 ## Purpose
 
-Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published logo and colors.
+Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published colors; logo data is retained but its editor and runner presentation are temporarily disabled.
 
 ## Key Concepts
 
 - The organizer portal edits the draft and previews it locally.
 - Publication atomically copies all draft values to the published fields.
-- Runner and mobile preview payloads expose only published values.
+- Runner and mobile preview payloads expose only published color values. `RACEBOOK_EDITION_LOGO_ENABLED` currently forces the resolved logo to `null` without deleting stored draft or published URLs.
 - Editing and publication require the Signature `branding.manage` capability and an active `branding` module. A downgrade or module deactivation masks the published identity without deleting it.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, and semantic danger/warning/info colors.
 
@@ -44,8 +44,8 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 | `edition_id` | UUID primary key, edition FK with cascade | Shared edition scope and one-row uniqueness. |
 | `draft_logo_url` | nullable HTTPS URL | Organizer working logo. |
 | `draft_primary_color` | `#RRGGBB`, default `#2D5016` | Working interaction color. |
-| `draft_accent_color` | `#RRGGBB`, default `#B45309` | Working graphic accent. |
-| `published_logo_url` | nullable HTTPS URL | Runner-visible logo. |
+| `draft_accent_color` | `#RRGGBB`, default `#B45309` | Working graphic and decorative-surface accent. |
+| `published_logo_url` | nullable HTTPS URL | Preserved published logo, dormant while the shared feature flag is disabled. |
 | `published_primary_color` | nullable `#RRGGBB` | Runner-visible interaction color after publication. |
 | `published_accent_color` | nullable `#RRGGBB` | Runner-visible graphic accent after publication. |
 | `published_at` | nullable timestamp | Explicit publication marker. |
@@ -75,7 +75,7 @@ RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated` ha
 - Replaced unpublished logos, superseded published logos, and logos belonging to deleted editions/events are removed from Storage when no draft or published field still references them.
 - `publish_racebook_edition_branding(uuid)` copies logo and both colors in one SQL update and timestamps the publication.
 - The additive public sponsors payload always includes defaults when no valid published identity exists.
-- The shared design-system resolver chooses black or white primary text by contrast and derives light surfaces/borders; the accent stays limited to graphic elements such as route and progress.
+- The shared design-system resolver chooses black or white primary text by contrast and derives light surfaces/borders from both colors. Accent now covers route/progress graphics plus related non-semantic cards and positive information highlights; warning, danger and information semantics keep Pace Yourself colors.
 
 ## Common Queries
 
@@ -91,7 +91,7 @@ where edition_id = :edition_id;
 - Never return draft columns from a runner-facing route.
 - Do not grant direct mobile/browser access to this table; the existing server route is the compatibility and authorization boundary.
 - Do not delete a logo still referenced by either the draft or the published state.
-- Sponsor logos and organizer-branding logos use separate Storage prefixes and separate UI placements.
+- Sponsor logos and organizer-branding logos use separate Storage prefixes. Edition-logo controls and rendering are dormant behind `RACEBOOK_EDITION_LOGO_ENABLED`; do not delete stored URLs merely because the flag is off.
 - Invalid/missing branding and image load failures must fall back silently to the Pace Yourself theme.
 - Branding mutation requires an active Signature entitlement and active `branding` module. Inactive or locked branding remains stored but the runner bootstrap returns the Pace Yourself defaults.
 
