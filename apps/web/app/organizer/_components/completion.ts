@@ -27,11 +27,17 @@ export type CompletionRace = {
   edition_group_id: string;
   series_name: string;
   name: string;
+  slug?: string | null;
+  location_text?: string | null;
+  source_url?: string | null;
+  external_site_url?: string | null;
   distance_km: number;
-  elevation_gain_m: number;
+  elevation_gain_m: number | null;
   race_date?: string | null;
   gpx_storage_path?: string | null;
   is_live: boolean;
+  data_status?: "draft" | "complete";
+  missing_required_fields?: Array<"race_date" | "location" | "distance_km" | "source_url">;
   organizerDetails?: OrganizerRaceDetails;
   aidStationCount?: number;
   startWaveCount?: number;
@@ -50,6 +56,11 @@ export type CompletionEvent = {
     start_date: string;
     end_date: string;
     is_current: boolean;
+    serviceCount?: number;
+    sponsorCount?: number;
+    sponsorClicks?: number;
+    brandingConfigured?: boolean;
+    brandingUnpublished?: boolean;
   }>;
   races: CompletionRace[];
 };
@@ -115,17 +126,23 @@ const filledCount = (values: Array<unknown>) =>
 export const isPublishableRace = (race: CompletionRace) =>
   race.is_live &&
   hasText(race.name) &&
+  hasText(race.slug) &&
+  hasText(race.race_date) &&
+  hasText(race.location_text) &&
+  hasText(race.source_url ?? race.external_site_url) &&
   Number.isFinite(race.distance_km) &&
   race.distance_km > 0 &&
-  Number.isFinite(race.elevation_gain_m) &&
-  race.elevation_gain_m >= 0;
+  (race.data_status ?? "complete") === "complete" &&
+  (race.missing_required_fields?.length ?? 0) === 0;
 
 const isRaceIdentityComplete = (race: CompletionRace) =>
   hasText(race.name) &&
+  hasText(race.slug) &&
+  hasText(race.race_date) &&
+  hasText(race.location_text) &&
+  hasText(race.source_url ?? race.external_site_url) &&
   Number.isFinite(race.distance_km) &&
-  race.distance_km > 0 &&
-  Number.isFinite(race.elevation_gain_m) &&
-  race.elevation_gain_m >= 0;
+  race.distance_km > 0;
 
 const getCompletionEdition = (event: CompletionEvent, race?: CompletionRace | null) =>
   event.editions?.find((edition) => edition.id === race?.edition_id)
@@ -155,8 +172,12 @@ const statusFrom = (filled: number, total: number, requiredFilled = total): Orga
   return "incomplete";
 };
 
-const scoreModules = (modules: OrganizerModuleSummary[]) =>
-  modules.length === 0 ? 0 : Math.round((modules.filter((module) => module.status === "complete").length / modules.length) * 100);
+const scoreModules = (modules: OrganizerModuleSummary[]) => {
+  const requiredModules = modules.filter((module) => module.level === "required");
+  return requiredModules.length === 0
+    ? 100
+    : Math.round((requiredModules.filter((module) => module.status === "complete").length / requiredModules.length) * 100);
+};
 
 const compactMissingLabels = (entries: Array<[label: string, isFilled: boolean]>) =>
   entries.filter(([, isFilled]) => !isFilled).map(([label]) => label);
@@ -169,14 +190,75 @@ const buildFormatProgressModules = (
 ): OrganizerModuleSummary[] => {
   const runnerDetails = buildRunnerOrganizerDetails(eventDetails, race.organizerDetails);
   const equipmentItems = runnerDetails.equipment.items;
+  const equipmentOverrideEnabled = race.organizerDetails?.mandatoryEquipment.overrideEnabled === true;
   const access = runnerDetails.access;
   const bibPickup = runnerDetails.bibPickup;
+  const hasStructuredBibLocations = bibPickup.locations.length > 0;
+  const hasCompleteBibLocations = hasStructuredBibLocations
+    ? bibPickup.locations.every((pickupLocation) => hasText(pickupLocation.location))
+    : hasText(bibPickup.location);
+  const hasCompleteBibSchedules = hasStructuredBibLocations
+    ? bibPickup.locations.every((pickupLocation) =>
+        pickupLocation.slots.some((slot) => hasText(slot.date) && hasText(slot.startTime) && hasText(slot.endTime))
+      )
+    : hasText(bibPickup.schedule);
+  const hasAnyBibPickupData = hasStructuredBibLocations || filledCount([
+    bibPickup.location,
+    bibPickup.schedule,
+    bibPickup.requiredDocuments,
+    bibPickup.thirdPartyPickupAllowed,
+    bibPickup.equipmentCheck,
+    bibPickup.note,
+  ]) > 0;
+  const bibPickupStatus: OrganizerModuleStatus = hasCompleteBibLocations && hasCompleteBibSchedules
+    ? "complete"
+    : hasAnyBibPickupData || bibPickup.overrideEnabled
+      ? "incomplete"
+      : "empty";
+  const accessMissingLabels = compactMissingLabels([
+    ["Départ", hasText(access.startAddress)],
+    ["Parkings", !access.enabledSections.officialParkings || hasText(access.officialParkings)],
+    ["Navettes", !access.enabledSections.shuttles || hasText(access.shuttles) || hasText(access.shuttleSchedule)],
+    ["Restrictions route", !access.enabledSections.roadRestrictions || hasText(access.roadRestrictions)],
+    ["Carte / Google Maps", !access.enabledSections.mapUrl || hasText(access.mapUrl)],
+    [
+      "Infos coureur",
+      !access.enabledSections.runnerInfo || filledCount([
+        race.organizerDetails?.runnerInfo.startArea,
+        race.organizerDetails?.runnerInfo.briefing,
+        race.organizerDetails?.runnerInfo.rules,
+        race.organizerDetails?.runnerInfo.note,
+      ]) > 0,
+    ],
+  ]);
+  const hasAnyAccessData = filledCount([
+    access.startAddress,
+    access.finishAddress,
+    access.officialParkings,
+    access.shuttles,
+    access.shuttleSchedule,
+    access.roadRestrictions,
+    access.mapUrl,
+    access.note,
+    race.organizerDetails?.runnerInfo.startArea,
+    race.organizerDetails?.runnerInfo.briefing,
+    race.organizerDetails?.runnerInfo.rules,
+    race.organizerDetails?.runnerInfo.note,
+  ]) > 0;
+  const accessStatus: OrganizerModuleStatus = accessMissingLabels.length === 0
+    ? "complete"
+    : hasAnyAccessData || access.overrideEnabled === true
+      ? "incomplete"
+      : "empty";
+  const hasStartTime = hasText(race.organizerDetails?.schedule.startTime) || (race.startWaveCount ?? 0) > 0;
+  const hasFinishCutoff = hasText(race.organizerDetails?.schedule.finishCutoffTime);
+  const hasAidStations = aidStationCount > 0;
 
   return [
     {
       id: "formats",
       title: "Course",
-      description: "Nom, distance, dénivelé et GPX.",
+      description: "Nom, date, lieu, distance et source. Dénivelé et GPX facultatifs.",
       level: "required",
       status: isRaceIdentityComplete(race) ? "complete" : hasText(race.name) ? "incomplete" : "empty",
       countLabel: race.gpx_storage_path ? "GPX prêt" : "Sans GPX",
@@ -185,8 +267,8 @@ const buildFormatProgressModules = (
       id: "equipment",
       title: "Matériel",
       description: "Matériel visible sur cette course.",
-      level: "recommended",
-      status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
+      level: equipmentOverrideEnabled ? "required" : "optional",
+      status: equipmentItems.length > 0 ? "complete" : equipmentOverrideEnabled || hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
       countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
     },
     {
@@ -194,18 +276,7 @@ const buildFormatProgressModules = (
       title: "Dossard",
       description: "Retrait et documents utilisés par ce format.",
       level: "recommended",
-      status: statusFrom(
-        filledCount([
-          bibPickup.location,
-          bibPickup.schedule,
-          bibPickup.requiredDocuments,
-          bibPickup.thirdPartyPickupAllowed,
-          bibPickup.equipmentCheck,
-          bibPickup.note,
-        ]),
-        6,
-        2
-      ),
+      status: bibPickupStatus,
       countLabel: bibPickup.overrideEnabled ? "Spécifique" : "Hérité de l'événement",
     },
     {
@@ -213,25 +284,7 @@ const buildFormatProgressModules = (
       title: "Accès",
       description: "Accès format, transports et infos coureur activées.",
       level: "recommended",
-      status: statusFrom(
-        filledCount([
-          access.startAddress,
-          access.finishAddress,
-          access.enabledSections.officialParkings ? access.officialParkings : true,
-          access.enabledSections.shuttles ? access.shuttles || access.shuttleSchedule : true,
-          access.enabledSections.roadRestrictions ? access.roadRestrictions : true,
-          access.enabledSections.mapUrl ? access.mapUrl : true,
-          access.enabledSections.runnerInfo
-            ? race.organizerDetails?.runnerInfo.startArea ||
-              race.organizerDetails?.runnerInfo.briefing ||
-              race.organizerDetails?.runnerInfo.rules ||
-              race.organizerDetails?.runnerInfo.note
-            : true,
-          access.note,
-        ]),
-        8,
-        2
-      ),
+      status: accessStatus,
       countLabel: race.organizerDetails && hasRaceAccessOverride(race.organizerDetails.access)
         ? "Spécifique"
         : hasText(access.startAddress)
@@ -243,11 +296,10 @@ const buildFormatProgressModules = (
       title: "Départ, ravitos & relais",
       description: "Départ, arrivée, ravitos, relais, barrières et produits du format.",
       level: "recommended",
-      status:
-        hasText(race.organizerDetails?.schedule.startTime) ||
-        hasText(race.organizerDetails?.schedule.finishCutoffTime) ||
-        aidStationCount > 0
-          ? "complete"
+      status: hasStartTime && hasFinishCutoff && hasAidStations
+        ? "complete"
+        : hasStartTime || hasFinishCutoff || hasAidStations
+          ? "incomplete"
           : "empty",
       countLabel: `${race.startWaveCount ?? 0} SAS · ${aidStationCount} ravito${aidStationCount > 1 ? "s" : ""}${aidStationCount > 0 && stationProductCount !== null ? ` · ${stationProductCount} produit${stationProductCount > 1 ? "s" : ""}` : ""}`,
     },
@@ -298,14 +350,14 @@ export function buildOrganizerCompletion(
   const activeAidStationCount = persistedCounts?.aidStations ?? aidStations.length;
   const startWaveCount = persistedCounts?.startWaves ?? activeRace?.startWaveCount ?? 0;
   const awardCount = persistedCounts?.awards ?? activeRace?.awardCount ?? 0;
-  const structuredServiceCount = persistedCounts?.services ?? 0;
+  const structuredServiceCount = persistedCounts?.services ?? activeEdition?.serviceCount ?? 0;
   const linkedStationProductCount = persistedCounts
     ? persistedCounts.stationProducts ?? null
     : stationProducts.length;
-  const sponsorCount = persistedCounts?.sponsors ?? 0;
-  const sponsorClicks = persistedCounts?.sponsorClicks ?? 0;
-  const brandingConfigured = persistedCounts?.brandingConfigured ?? false;
-  const brandingUnpublished = persistedCounts?.brandingUnpublished ?? false;
+  const sponsorCount = persistedCounts?.sponsors ?? activeEdition?.sponsorCount ?? 0;
+  const sponsorClicks = persistedCounts?.sponsorClicks ?? activeEdition?.sponsorClicks ?? 0;
+  const brandingConfigured = persistedCounts?.brandingConfigured ?? activeEdition?.brandingConfigured ?? false;
+  const brandingUnpublished = persistedCounts?.brandingUnpublished ?? activeEdition?.brandingUnpublished ?? false;
   const eventMissingLabels = compactMissingLabels([
     ["Nom", hasText(event.name)],
     ["Lieu", hasText(event.location)],
@@ -315,19 +367,23 @@ export function buildOrganizerCompletion(
   const formatMissingLabels = activeRace
     ? compactMissingLabels([
         ["Nom", hasText(activeRace.name)],
+        ["Date", hasText(activeRace.race_date)],
+        ["Lieu", hasText(activeRace.location_text)],
         ["Distance", Number.isFinite(activeRace.distance_km) && activeRace.distance_km > 0],
-        ["D+", Number.isFinite(activeRace.elevation_gain_m) && activeRace.elevation_gain_m >= 0],
+        ["Source", hasText(activeRace.source_url ?? activeRace.external_site_url)],
       ])
     : [];
   const aidStationMissingLabels = activeRace
     ? compactMissingLabels([
-        ["Heure départ", hasText(activeRace.organizerDetails?.schedule.startTime)],
+        ["Heure départ", hasText(activeRace.organizerDetails?.schedule.startTime) || startWaveCount > 0],
         ["Barrière arrivée", hasText(activeRace.organizerDetails?.schedule.finishCutoffTime)],
         ["Ravitos", activeAidStationCount > 0],
       ])
     : [];
-  const commonEquipmentMissingLabels = compactMissingLabels([["Matériel", commonEquipment.items.length > 0 || hasText(commonEquipment.note)]]);
-  const formatEquipmentMissingLabels = compactMissingLabels([["Matériel", equipmentItems.length > 0 || hasText(runnerDetails.equipment.note)]]);
+  const commonEquipmentMissingLabels: string[] = [];
+  const formatEquipmentMissingLabels = activeRace?.organizerDetails?.mandatoryEquipment.overrideEnabled === true && equipmentItems.length === 0
+    ? ["Matériel"]
+    : [];
   const hasStructuredBibLocations = commonBibPickup.locations.length > 0;
   const hasCompleteBibLocations = hasStructuredBibLocations
     ? commonBibPickup.locations.every((pickupLocation) => hasText(pickupLocation.location))
@@ -341,6 +397,19 @@ export function buildOrganizerCompletion(
     ["Lieux retrait", hasCompleteBibLocations],
     ["Jours et horaires", hasCompleteBibSchedules],
   ]);
+  const hasAnyCommonBibPickupData = hasStructuredBibLocations || filledCount([
+    commonBibPickup.location,
+    commonBibPickup.schedule,
+    commonBibPickup.requiredDocuments,
+    commonBibPickup.thirdPartyPickupAllowed,
+    commonBibPickup.equipmentCheck,
+    commonBibPickup.note,
+  ]) > 0;
+  const commonBibPickupStatus: OrganizerModuleStatus = bibPickupMissingLabels.length === 0
+    ? "complete"
+    : hasAnyCommonBibPickupData
+      ? "incomplete"
+      : "empty";
   const commonAccessMissingLabels = compactMissingLabels([
     ["Départ", hasText(commonAccess.startAddress)],
     ["Parkings", !commonAccess.enabledSections.officialParkings || hasText(commonAccess.officialParkings)],
@@ -365,6 +434,31 @@ export function buildOrganizerCompletion(
         ]) > 0,
     ],
   ]);
+  const hasAnyCommonAccessData = filledCount([
+    commonAccess.startAddress,
+    commonAccess.finishAddress,
+    commonAccess.officialParkings,
+    commonAccess.shuttles,
+    commonAccess.shuttleSchedule,
+    commonAccess.roadRestrictions,
+    commonAccess.mapUrl,
+    commonAccess.note,
+  ]) > 0;
+  const commonAccessStatus: OrganizerModuleStatus = commonAccessMissingLabels.length === 0
+    ? "complete"
+    : hasAnyCommonAccessData
+      ? "incomplete"
+      : "empty";
+  const activeHasStartTime = activeRace
+    ? hasText(activeRace.organizerDetails?.schedule.startTime) || startWaveCount > 0
+    : false;
+  const activeHasFinishCutoff = activeRace ? hasText(activeRace.organizerDetails?.schedule.finishCutoffTime) : false;
+  const activeHasAidStations = Boolean(activeRace) && activeAidStationCount > 0;
+  const activeAidStationStatus: OrganizerModuleStatus = activeHasStartTime && activeHasFinishCutoff && activeHasAidStations
+    ? "complete"
+    : activeHasStartTime || activeHasFinishCutoff || activeHasAidStations
+      ? "incomplete"
+      : "empty";
 
   const modules: OrganizerModuleSummary[] = [
     {
@@ -389,13 +483,7 @@ export function buildOrganizerCompletion(
       title: "Départ, ravitos & relais",
       description: "Départ, arrivée, ravitos, relais, barrières et produits officiels.",
       level: "recommended",
-      status:
-        activeRace &&
-        (hasText(activeRace.organizerDetails?.schedule.startTime) ||
-          hasText(activeRace.organizerDetails?.schedule.finishCutoffTime) ||
-          activeAidStationCount > 0)
-          ? "complete"
-          : "empty",
+      status: activeAidStationStatus,
       countLabel: `${startWaveCount} SAS · ${activeAidStationCount} ravito${activeAidStationCount > 1 ? "s" : ""}${activeAidStationCount > 0 && linkedStationProductCount !== null ? ` · ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,
       missingLabels: aidStationMissingLabels,
     },
@@ -403,8 +491,12 @@ export function buildOrganizerCompletion(
       id: "equipment",
       title: "Matériel",
       description: "Matériel visible sur la course sélectionnée.",
-      level: "recommended",
-      status: equipmentItems.length > 0 ? "complete" : hasText(runnerDetails.equipment.note) ? "incomplete" : "empty",
+      level: activeRace?.organizerDetails?.mandatoryEquipment.overrideEnabled === true ? "required" : "optional",
+      status: equipmentItems.length > 0
+        ? "complete"
+        : activeRace?.organizerDetails?.mandatoryEquipment.overrideEnabled === true || hasText(runnerDetails.equipment.note)
+          ? "incomplete"
+          : "empty",
       countLabel: `${equipmentItems.length} item${equipmentItems.length > 1 ? "s" : ""}`,
       missingLabels: formatEquipmentMissingLabels,
     },
@@ -413,19 +505,12 @@ export function buildOrganizerCompletion(
       title: "Dossard commun",
       description: "Retrait et documents communs à tout l'événement.",
       level: "recommended",
-      status: statusFrom(
-        filledCount([
-          commonBibPickup.location,
-          commonBibPickup.schedule,
-          commonBibPickup.requiredDocuments,
-          commonBibPickup.thirdPartyPickupAllowed,
-          commonBibPickup.equipmentCheck,
-          commonBibPickup.note,
-        ]),
-        6,
-        2
-      ),
-      countLabel: hasText(commonBibPickup.location) ? "Lieu renseigné" : "Non renseigné",
+      status: commonBibPickupStatus,
+      countLabel: commonBibPickup.locations.length > 0
+        ? `${commonBibPickup.locations.length} lieu${commonBibPickup.locations.length > 1 ? "x" : ""}`
+        : hasText(commonBibPickup.location)
+          ? "Lieu renseigné"
+          : "Non renseigné",
       missingLabels: bibPickupMissingLabels,
     },
     {
@@ -433,20 +518,9 @@ export function buildOrganizerCompletion(
       title: "Accès",
       description: "Accès, transport et consignes utiles aux coureurs.",
       level: "recommended",
-      status: statusFrom(
-        filledCount([
-          access.startAddress,
-          access.finishAddress,
-          access.enabledSections.officialParkings ? access.officialParkings : true,
-          access.enabledSections.shuttles ? access.shuttles || access.shuttleSchedule : true,
-          access.enabledSections.roadRestrictions ? access.roadRestrictions : true,
-          access.enabledSections.mapUrl ? access.mapUrl : true,
-          access.note,
-        ]),
-        7,
-        2
-      ),
-      countLabel: hasText(access.officialParkings) || hasText(access.shuttles) ? "Infos transport" : "Non renseigné",
+      status: activeRace ? buildFormatProgressModules(eventDetails, activeRace, activeAidStationCount, linkedStationProductCount)
+        .find((module) => module.id === "access")?.status ?? "empty" : commonAccessStatus,
+      countLabel: hasText(access.startAddress) ? "Accès renseignés" : "Non renseigné",
       missingLabels: formatAccessMissingLabels,
     },
     {
@@ -501,7 +575,7 @@ export function buildOrganizerCompletion(
       id: "equipment",
       title: "Matériel",
       description: "Matériel valable pour tous les formats.",
-      level: "recommended",
+      level: "optional",
       status: commonEquipment.items.length > 0 ? "complete" : hasText(commonEquipment.note) ? "incomplete" : "empty",
       countLabel: `${commonEquipment.items.length} item${commonEquipment.items.length > 1 ? "s" : ""}`,
       missingLabels: commonEquipmentMissingLabels,
@@ -511,19 +585,12 @@ export function buildOrganizerCompletion(
       title: "Dossard",
       description: "Retrait et documents communs à l'événement.",
       level: "recommended",
-      status: statusFrom(
-        filledCount([
-          commonBibPickup.location,
-          commonBibPickup.schedule,
-          commonBibPickup.requiredDocuments,
-          commonBibPickup.thirdPartyPickupAllowed,
-          commonBibPickup.equipmentCheck,
-          commonBibPickup.note,
-        ]),
-        6,
-        2
-      ),
-      countLabel: hasText(commonBibPickup.location) ? "Lieu commun" : "Non renseigné",
+      status: commonBibPickupStatus,
+      countLabel: commonBibPickup.locations.length > 0
+        ? `${commonBibPickup.locations.length} lieu${commonBibPickup.locations.length > 1 ? "x" : ""}`
+        : hasText(commonBibPickup.location)
+          ? "Lieu commun"
+          : "Non renseigné",
       missingLabels: bibPickupMissingLabels,
     },
     {
@@ -531,20 +598,8 @@ export function buildOrganizerCompletion(
       title: "Accès",
       description: "Accès, parking et navettes par défaut.",
       level: "recommended",
-      status: statusFrom(
-        filledCount([
-          commonAccess.startAddress,
-          commonAccess.finishAddress,
-          commonAccess.enabledSections.officialParkings ? commonAccess.officialParkings : true,
-          commonAccess.enabledSections.shuttles ? commonAccess.shuttles || commonAccess.shuttleSchedule : true,
-          commonAccess.enabledSections.roadRestrictions ? commonAccess.roadRestrictions : true,
-          commonAccess.enabledSections.mapUrl ? commonAccess.mapUrl : true,
-          commonAccess.note,
-        ]),
-        6,
-        2
-      ),
-      countLabel: hasText(commonAccess.officialParkings) || hasText(commonAccess.shuttles) ? "Infos transport" : "Non renseigné",
+      status: commonAccessStatus,
+      countLabel: hasText(commonAccess.startAddress) ? "Accès renseignés" : "Non renseigné",
       missingLabels: commonAccessMissingLabels,
     },
     {
@@ -552,7 +607,7 @@ export function buildOrganizerCompletion(
       title: "Services",
       description: "Accompagnants, hébergement, restauration, partenaires.",
       level: "optional",
-      status: statusFrom(
+      status: structuredServiceCount > 0 ? "complete" : statusFrom(
         filledCount([
           services.supporters,
           services.accommodations,
@@ -565,7 +620,11 @@ export function buildOrganizerCompletion(
         7,
         1
       ),
-      countLabel: hasText(services.partners) ? "Partenaires renseignés" : "Optionnel",
+      countLabel: structuredServiceCount > 0
+        ? `${structuredServiceCount} fiche${structuredServiceCount > 1 ? "s" : ""}`
+        : hasText(services.partners)
+          ? "Partenaires renseignés"
+          : "Optionnel",
     },
     {
       id: "branding",

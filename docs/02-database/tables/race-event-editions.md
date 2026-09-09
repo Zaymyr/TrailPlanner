@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -120,6 +120,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - Two-pass import sessions reference one edition and verify it belongs to the selected event. New confirmed format drafts inherit this edition's `start_date`; field apply cannot target a format in another edition.
 - Dates extracted from classified additional URLs or documents remain review evidence. Source intelligence cannot change `edition_id`, and registration/result dates are not promoted into edition claims.
 - The module assistant may submit several staged edition/format settings together with `setupCompleted`; `module_setup_completed_at` changes only during that explicit server save, never when a browser switch is toggled locally.
+- Organizer bootstrap/event reads may aggregate narrow service, active-sponsor/click, and branding publication projections on each edition for initial tile status; full editor collections remain behind their dedicated routes.
 
 ## Common Queries
 

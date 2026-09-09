@@ -158,6 +158,67 @@ describe("/api/organizer/bootstrap", () => {
     expect(payload.event).toBeNull();
     expect(mockFetch).toHaveBeenCalledTimes(4);
   });
+
+  it("returns lightweight tile status summaries in the initial bootstrap", async () => {
+    const editionId = "33333333-3333-4333-8333-333333333333";
+    const raceId = "44444444-4444-4444-8444-444444444444";
+    installFetch({
+      memberships: [membership(firstEventId, "A Trail")],
+      events: {
+        [firstEventId]: {
+          ...eventDetail(firstEventId, "A Trail"),
+          race_event_editions: [{
+            id: editionId,
+            event_id: firstEventId,
+            edition_year: 2026,
+            start_date: "2026-09-12",
+            end_date: "2026-09-13",
+            is_current: true,
+            is_visible: true,
+            race_edition_services: [{ id: "55555555-5555-4555-8555-555555555555" }],
+            race_event_edition_sponsors: [{ id: "66666666-6666-4666-8666-666666666666", is_active: true, click_count: 7 }],
+            race_event_edition_branding: {
+              edition_id: editionId,
+              draft_logo_url: null,
+              draft_primary_color: "#112233",
+              draft_accent_color: "#445566",
+              published_logo_url: null,
+              published_primary_color: "#112233",
+              published_accent_color: "#445566",
+              published_at: "2026-09-01T10:00:00.000Z",
+              updated_at: "2026-09-01T10:00:00.000Z",
+            },
+          }],
+          races: [{
+            id: raceId,
+            edition_id: editionId,
+            edition_group_id: "77777777-7777-4777-8777-777777777777",
+            series_name: "42K",
+            name: "42K",
+            race_date: "2026-09-12",
+            distance_km: 42,
+            elevation_gain_m: 2100,
+            is_live: true,
+            race_aid_stations: [{ id: "88888888-8888-4888-8888-888888888888" }],
+            race_start_waves: [{ id: "99999999-9999-4999-8999-999999999999" }],
+            race_awards: [{ id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" }],
+          }],
+        },
+      },
+    });
+
+    const response = await GET(request());
+    const payload = await response.json();
+
+    expect(payload.event.editions[0]).toMatchObject({
+      serviceCount: 1,
+      sponsorCount: 1,
+      sponsorClicks: 7,
+      brandingConfigured: true,
+      brandingUnpublished: false,
+    });
+    expect(payload.event.races[0]).toMatchObject({ aidStationCount: 1, startWaveCount: 1, awardCount: 1 });
+  });
 });
 
 vi.mock("../../../../lib/http", () => ({
@@ -175,4 +236,8 @@ vi.mock("../../../../lib/organizer", () => ({
 
 vi.mock("../../../../lib/supabase", () => ({
   isAdminUser: () => authState.admin,
+}));
+
+vi.mock("../../../../lib/organizer-entitlements", () => ({
+  loadOrganizerEditionEntitlements: () => Promise.resolve({}),
 }));

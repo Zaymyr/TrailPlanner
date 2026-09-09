@@ -94,7 +94,7 @@ export type OrganizerImportReconciliation = z.infer<typeof reconciliationSchema>
 
 type ExistingRace = {
   id: string; name: string; seriesName: string; raceDate: string | null; distanceKm: number;
-  elevationGainM: number; elevationLossM: number | null;
+  elevationGainM: number | null; elevationLossM: number | null;
 };
 
 type ReconciliationInput = {

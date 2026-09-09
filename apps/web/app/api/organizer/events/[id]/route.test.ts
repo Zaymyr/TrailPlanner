@@ -109,6 +109,9 @@ describe("/api/organizer/events/[id]", () => {
     expect(payload.event.races[0].race_aid_stations).toBeUndefined();
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_aid_stations(id)");
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_start_waves(id)");
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_edition_services(id)");
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_event_edition_sponsors(id,is_active,click_count)");
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_event_edition_branding(*)");
   });
 
   it("persists organizerDetails on patch", async () => {

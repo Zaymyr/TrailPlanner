@@ -145,11 +145,12 @@ begin
 
   if imported_race.id is null
     or imported_race.data_status <> 'draft'
-    or imported_race.missing_required_fields <> array['distance_km', 'elevation_gain_m']::text[]
+    or imported_race.missing_required_fields <> array['distance_km', 'location', 'source_url']::text[]
     or imported_race.distance_km <> 0
-    or imported_race.elevation_gain_m <> 0
+    or imported_race.elevation_gain_m is not null
     or imported_race.race_date is null
-    or imported_race.gpx_path not like 'organizer/%'
+    or imported_race.gpx_path is not null
+    or imported_race.gpx_hash is not null
     or imported_race.gpx_storage_path is not null
     or imported_race.is_live
     or imported_race.racebook_is_live
@@ -197,8 +198,8 @@ begin
         'raceId', (select race_id from _organizer_import_fixture),
         'fields', jsonb_build_object(
           'distanceKm', 42.3,
-          'elevationGainM', 1250,
-          'elevationLossM', 1230,
+          'externalSiteUrl', 'https://example.test/race/42k',
+          'locationText', 'SQL Test Village',
           'aidStations', jsonb_build_array(
             jsonb_build_object(
               'name', 'Ravito SQL 1',
@@ -227,7 +228,9 @@ begin
   if imported_race.data_status <> 'complete'
     or cardinality(imported_race.missing_required_fields) <> 0
     or imported_race.distance_km <> 42.3
-    or imported_race.elevation_gain_m <> 1250
+    or imported_race.elevation_gain_m is not null
+    or imported_race.gpx_path is not null
+    or imported_race.gpx_hash is not null
     or imported_race.is_live is not true
     or imported_race.is_public is not true
     or imported_race.racebook_is_live is not false then

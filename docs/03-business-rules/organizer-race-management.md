@@ -299,7 +299,7 @@ Organizer access is event-scoped. An active membership grants access to every fo
 
 Admins are the explicit exception to the membership boundary: trusted `app_metadata` admin status lets the existing Organizer routes read and mutate any event. For admins, `/api/organizer/claims` supplies every `race_events` row, live or draft and ordered by name, to the existing event selector; ordinary users still receive only their active memberships.
 
-The initial dashboard read uses `GET /api/organizer/bootstrap`. It preserves the four collections returned by `GET /api/organizer/claims` and adds the selected event detail after a single bearer-token verification. A requested `eventId` is accepted only when present in the caller's active membership set, or in the trusted admin's complete event selector. Without an explicit selection, the first selectable event is loaded; with no active membership, the event detail is `null`. Heavy format sidecars, GPX parsing, products, runner updates, and follower information are excluded from this bootstrap contract. GPX is requested only when Course or Ravitos needs it; ravito/relay/product sidecars and the catalog wait for Ravitos or Products; announcements and follower totals wait for the notification dialog. Until sidecars arrive, the completion header retains the persisted per-format ravito count returned by the event detail.
+The initial dashboard read uses `GET /api/organizer/bootstrap`. It preserves the four collections returned by `GET /api/organizer/claims` and adds the selected event detail after a single bearer-token verification. A requested `eventId` is accepted only when present in the caller's active membership set, or in the trusted admin's complete event selector. Without an explicit selection, the first selectable event is loaded; with no active membership, the event detail is `null`. Heavy format sidecars, GPX parsing, products, runner updates, follower information, and editable service/sponsor/branding collections are excluded from this bootstrap contract. GPX is requested only when Course or Ravitos needs it; ravito/relay/product sidecars and the catalog wait for Ravitos or Products; announcements and follower totals wait for the notification dialog. The bootstrap nevertheless includes lightweight persisted status projections for ravitos, SAS, podiums, services, active sponsors/clicks, and branding published/draft state, so tiles are correct before their lazy editors open.
 
 Module-scoped reads reuse a route-local in-memory cache: the product catalog is fresh for 5 minutes, complete ravito/relay/station-product sidecars are isolated by race id for 2 minutes, and parsed GPX previews are isolated by race id plus `gpx_storage_path` for 10 minutes. A GPX path replacement therefore misses without comparing payload contents. Successful mutations invalidate the affected race snapshot; changing the authenticated user clears every Organizer cache entry.
 
@@ -309,13 +309,13 @@ Creating a request through `/api/organizer/publication-requests` requires:
 
 - event name;
 - event location plus the selected `race_event_editions.start_date` / `end_date` range;
-- at least one format with a non-empty name, `distance_km > 0`, and `elevation_gain_m >= 0`.
+- at least one format with a non-empty name and date, `distance_km > 0`, and `elevation_gain_m >= 0`.
 
 The organizer event and race mutation routes ignore/reject direct catalog live-state writes. RaceBook publication goes through a membership-checked atomic RPC that rechecks the edition entitlement and format completeness. Legacy admin publication requests remain reviewable only for history; approving one grants Pro to its edition.
 
-Recommended modules improve the dashboard score but do not block publication: GPX, ravitos, equipment, bib pickup, and access/shuttles.
+Only required tiles advance the dashboard percentage. Recommended and optional modules retain visible status and missing-field guidance but neither raise nor lower the bars.
 
-Optional modules also improve the score but never block publication: ravito products, supporter notes, accommodations/restaurants/recovery, partners, and last-minute messages.
+Event equipment is optional, and a format inheriting that list remains optional. An explicit `mandatoryEquipment.overrideEnabled = true` makes equipment required for that format until at least one list item exists; the equipment note and item note fields stay optional and do not satisfy the requirement. Course completion requires name, format date, distance, and D+. Dossard completion requires a location and a schedule (or one complete dated slot for every structured location). Access completion requires a start address plus every enabled subsection. The combined departure/ravito tile is complete only with a start time or SAS, a finish cutoff, and at least one ravito; partial values remain `incomplete` rather than falsely complete.
 
 Published runner-facing surfaces resolve details as:
 
@@ -435,8 +435,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Do not let the mobile Racebook bypass its three-part gate: catalog-live format, `racebook_is_live = true`, and meaningful organizer content. Direct links that fail any part must show the unavailable state.
 - Do not make the new route sketch or elevation-profile blocks part of the availability gate. They are best-effort visuals and must stay optional when stored GPX/elevation data is missing.
 - New organizer formats remain visible as courses (`is_live = true`) but start with `racebook_is_live = false`; first entitled publication records the durable unlock timestamp.
-- The two-pass import is the incomplete-format exception: a newly confirmed import format remains `data_status = draft` and `is_live = false` until date, distance, and D+ are known; completion restores course visibility only.
-- The normal Organizer format editor participates in the same lifecycle. Explicitly saving a missing date, distance, or D+ removes that key from `missing_required_fields`; the last required value changes the imported row to `complete`, restores `is_live`, and leaves `racebook_is_live = false`. Clearing a required date makes the row a hidden draft again. The dashboard exposes the draft state and the remaining required fields after reload.
+- The two-pass import is the incomplete-format exception: a newly confirmed import format remains `data_status = draft` and `is_live = false` until its date, location, positive distance, and source are known. D+ and GPX remain optional; completion restores course visibility only.
+- The normal Organizer format editor participates in the same lifecycle. Saving the last missing date, location, positive distance, or source changes the imported row to `complete`, restores `is_live`, and leaves `racebook_is_live = false`. Clearing a required catalog value makes the row a hidden draft again. The dashboard exposes the draft state and the remaining required fields after reload.
 - Do not make organizer-created products live just to show them to runners; use planner import suggestions.
 - Do not auto-create `race_event_updates` rows on organizer saves, publication approval, image upload, or GPX replacement. Runner notifications stay manual.
 - Format scope changes the title and in-app context, not the follower source: delivery still targets users who favorited the parent event.
@@ -463,6 +463,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Background navigation must keep dirty revisions and save queues scoped by event/race. A completed save from one format must not clear newer edits from another format or reload the previous tab over the current one.
 - Ignore late ravito/product/GPX responses when their race id is no longer active; immediate tab navigation otherwise lets stale sidecars overwrite the newly selected course.
 - Keep per-format header completion based on each format's persisted ravito count. Reusing only the active tab's loaded ravito state makes completion points move between formats during navigation.
+- Keep completion percentage eligibility separate from tile status. Optional data may turn its tile green, but it must not move a bar; a checked empty format-equipment override is the deliberate conditional exception and must lower that format until one item is added.
 - Do not bypass the organizer GPX route when a GPX is selected during format creation; the client still has to create the race first, then import the file server-side.
 - Do not rely only on the event reload to refresh active-format GPX metrics: the active race id stays stable on replacement, so the form must consume the successful response and preserve the race's edition year explicitly.
 - Do not let the review-stage website import create or reassign another `race_events` row. The flow enriches only the currently selected organizer event and formats that remain attached to it.
@@ -482,7 +483,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Keep edition visibility and deletion membership-checked on the server. Deletion must use the database transaction boundary, must not detach orphan formats, and must retain at least one edition for an event.
 - Re-showing an edition may restore complete course rows, but must never silently republish its Racebooks after they were hidden.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.
-- A website-imported format without a GPX is still a valid draft. Preserve `gpx_storage_path = null`, but populate the legacy required `gpx_path` with its deterministic organizer placeholder; do not upload an invented GPX file.
+- A website-imported format without a GPX may still be complete when the catalog minimum is verified. Preserve `gpx_storage_path`, `gpx_path`, and `gpx_hash` as `null`; do not create a placeholder or upload an invented GPX file.
 - Do not purge expired import sessions directly in SQL. The hourly web cleanup removes every manifest Storage object before deleting the row.
 - Do not use the website-import quality score as authorization or automatic validation. It is only a transparent summary of coverage and heuristic source confidence for the organizer review.
 - Keep existence and completeness separate. A credible incomplete candidate must remain confirmable, and confirmation may create a hidden draft with missing fields.

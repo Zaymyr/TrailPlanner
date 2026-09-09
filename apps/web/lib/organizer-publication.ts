@@ -18,8 +18,15 @@ const publicationEventSchema = z.object({
         id: z.string().uuid(),
         edition_id: z.string().uuid().nullable().optional(),
         name: z.string().nullable().optional(),
+        slug: z.string().nullable().optional(),
+        race_date: z.string().nullable().optional(),
+        location_text: z.string().nullable().optional(),
+        source_url: z.string().nullable().optional(),
+        external_site_url: z.string().nullable().optional(),
         distance_km: z.number(),
-        elevation_gain_m: z.number(),
+        elevation_gain_m: z.number().nullable(),
+        data_status: z.enum(["draft", "complete"]).optional().default("complete"),
+        missing_required_fields: z.array(z.string()).optional().default([]),
       })
     )
     .nullable()
@@ -30,13 +37,30 @@ export type PublicationReadiness =
   | { ok: true; publishableRaceCount: number; raceId: string | null }
   | { ok: false; message: string; status: number };
 
+const hasCatalogMinimum = (race: {
+  name?: string | null;
+  slug?: string | null;
+  race_date?: string | null;
+  location_text?: string | null;
+  source_url?: string | null;
+  external_site_url?: string | null;
+  distance_km: number;
+  data_status: "draft" | "complete";
+  missing_required_fields: string[];
+}) => Boolean(
+  race.name?.trim() && race.slug?.trim() && race.race_date && race.location_text?.trim() &&
+  (race.source_url?.trim() || race.external_site_url?.trim()) &&
+  Number.isFinite(race.distance_km) && race.distance_km > 0 &&
+  race.data_status === "complete" && race.missing_required_fields.length === 0
+);
+
 export async function validateOrganizerEventPublication(
   serviceConfig: OrganizerAuth["serviceConfig"],
   eventId: string,
   raceId?: string
 ): Promise<PublicationReadiness> {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_event_editions(id,start_date,end_date,is_current),races(id,edition_id,name,distance_km,elevation_gain_m)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_event_editions(id,start_date,end_date,is_current),races(id,edition_id,name,slug,race_date,location_text,source_url,external_site_url,distance_km,elevation_gain_m,data_status,missing_required_fields)&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" }
   );
 
@@ -59,14 +83,10 @@ export async function validateOrganizerEventPublication(
     const publishableRaces = (event.races ?? []).filter(
       (race) =>
         race.edition_id === currentEdition.id &&
-        race.name?.trim() &&
-        Number.isFinite(race.distance_km) &&
-        race.distance_km > 0 &&
-        Number.isFinite(race.elevation_gain_m) &&
-        race.elevation_gain_m >= 0
+        hasCatalogMinimum(race)
     );
     if (publishableRaces.length === 0) {
-      return { ok: false, message: "Complète au moins un format (nom, distance, D+) avant de publier cette édition.", status: 409 };
+      return { ok: false, message: "Complète au moins un format (nom, date, lieu, distance et source) avant de publier cette édition.", status: 409 };
     }
 
     return { ok: true, publishableRaceCount: publishableRaces.length, raceId: null };
@@ -79,13 +99,9 @@ export async function validateOrganizerEventPublication(
   if (!requestedEdition?.start_date) return { ok: false, message: "Ajoute une date de début à cette édition avant de la publier.", status: 409 };
   if (!requestedEdition.end_date) return { ok: false, message: "Ajoute une date de fin à cette édition avant de la publier.", status: 409 };
   if (
-    !requestedRace.name?.trim() ||
-    !Number.isFinite(requestedRace.distance_km) ||
-    requestedRace.distance_km <= 0 ||
-    !Number.isFinite(requestedRace.elevation_gain_m) ||
-    requestedRace.elevation_gain_m < 0
+    !hasCatalogMinimum(requestedRace)
   ) {
-    return { ok: false, message: "Complète le nom, la distance et le D+ de ce format avant de demander sa publication.", status: 409 };
+    return { ok: false, message: "Complète le nom, la date, le lieu, la distance et la source de ce format avant de demander sa publication.", status: 409 };
   }
 
   return { ok: true, publishableRaceCount: 1, raceId: requestedRace.id };
@@ -97,7 +113,7 @@ export async function validateOrganizerEditionPublication(
   editionId: string
 ): Promise<PublicationReadiness> {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_event_editions(id,start_date,end_date,is_current),races(id,edition_id,name,distance_km,elevation_gain_m)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${eventId}&select=id,name,location,race_event_editions(id,start_date,end_date,is_current),races(id,edition_id,name,slug,race_date,location_text,source_url,external_site_url,distance_km,elevation_gain_m,data_status,missing_required_fields)&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" }
   );
   if (!response.ok) {
@@ -117,14 +133,10 @@ export async function validateOrganizerEditionPublication(
   const publishableRaces = (event.races ?? []).filter(
     (race) =>
       race.edition_id === editionId &&
-      race.name?.trim() &&
-      Number.isFinite(race.distance_km) &&
-      race.distance_km > 0 &&
-      Number.isFinite(race.elevation_gain_m) &&
-      race.elevation_gain_m >= 0
+      hasCatalogMinimum(race)
   );
   if (publishableRaces.length === 0) {
-    return { ok: false, message: "Complète au moins un format (nom, distance, D+) avant de publier.", status: 409 };
+    return { ok: false, message: "Complète au moins un format (nom, date, lieu, distance et source) avant de publier.", status: 409 };
   }
   return { ok: true, publishableRaceCount: publishableRaces.length, raceId: null };
 }

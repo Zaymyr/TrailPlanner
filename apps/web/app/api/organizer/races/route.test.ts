@@ -111,8 +111,7 @@ describe("/api/organizer/races POST", () => {
         editionId: "44444444-4444-4444-4444-444444444444",
         name: "Trail 42",
         distanceKm: 42,
-        elevationGainM: 1800,
-        elevationLossM: 1700,
+        externalSiteUrl: "https://trail.example/42-km",
         locationText: "Chamonix",
         raceDate: "2026-09-12",
         thumbnailUrl: "",
@@ -128,6 +127,9 @@ describe("/api/organizer/races POST", () => {
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
       is_live: true,
       is_public: true,
+      elevation_gain_m: null,
+      gpx_path: null,
+      gpx_hash: null,
     });
   });
 

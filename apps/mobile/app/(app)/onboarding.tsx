@@ -76,13 +76,15 @@ type RaceOption = {
   id: string;
   name: string;
   distance_km: number;
-  elevation_gain_m: number;
+  elevation_gain_m: number | null;
   location_text: string | null;
   race_date: string | null;
   is_public: boolean;
   created_by: string | null;
   thumbnail_url?: string | null;
 };
+
+type RaceOptionWithElevation = RaceOption & { elevation_gain_m: number };
 
 type RaceEventGroup = {
   id: string;
@@ -159,8 +161,8 @@ function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
-function formatElevation(elevationGainM: number) {
-  return Math.round(elevationGainM).toString();
+function formatElevation(elevationGainM: number | null) {
+  return elevationGainM === null ? 'non renseigné' : Math.round(elevationGainM).toString();
 }
 
 function getRaceShortLabel(raceName: string, eventName: string) {
@@ -474,10 +476,10 @@ export default function OnboardingScreen() {
     () => [...personalRaceOptions, ...raceEventGroups.flatMap((event) => event.races)],
     [personalRaceOptions, raceEventGroups],
   );
-  const selectedRace = useMemo(
-    () => allRaceOptions.find((race) => race.id === selectedRaceId) ?? null,
-    [allRaceOptions, selectedRaceId],
-  );
+  const selectedRace = useMemo((): RaceOptionWithElevation | null => {
+    const race = allRaceOptions.find((candidate) => candidate.id === selectedRaceId) ?? null;
+    return race?.elevation_gain_m === null ? null : race as RaceOptionWithElevation;
+  }, [allRaceOptions, selectedRaceId]);
   const selectedRaceSummary = useMemo(() => {
     if (!selectedRace) return null;
 
@@ -2314,6 +2316,7 @@ export default function OnboardingScreen() {
                           styles.raceChoiceCard,
                           selected && styles.raceChoiceCardSelected,
                         ]}
+                        disabled={race.elevation_gain_m === null}
                         onPress={() => handleSelectRace(race.id)}
                       >
                         <View style={styles.raceChoiceHeader}>
@@ -2327,7 +2330,7 @@ export default function OnboardingScreen() {
                           ) : null}
                         </View>
                         <Text style={styles.raceChoiceStats}>
-                          {race.distance_km} km • D+ {race.elevation_gain_m} m
+                          {race.distance_km} km • {race.elevation_gain_m === null ? 'D+ non renseigné' : `D+ ${race.elevation_gain_m} m`}
                         </Text>
                         {raceMeta ? <Text style={styles.raceChoiceMeta}>{raceMeta}</Text> : null}
                       </TouchableOpacity>
@@ -2365,6 +2368,7 @@ export default function OnboardingScreen() {
                           styles.raceChoiceCard,
                           selected && styles.raceChoiceCardSelected,
                         ]}
+                        disabled={race.elevation_gain_m === null}
                         onPress={() => handleSelectRace(race.id)}
                       >
                         <View style={styles.raceChoiceHeader}>
@@ -2378,7 +2382,7 @@ export default function OnboardingScreen() {
                           ) : null}
                         </View>
                         <Text style={styles.raceChoiceStats}>
-                          {race.distance_km} km • D+ {race.elevation_gain_m} m
+                          {race.distance_km} km • {race.elevation_gain_m === null ? 'D+ non renseigné' : `D+ ${race.elevation_gain_m} m`}
                         </Text>
                         {raceMeta ? <Text style={styles.raceChoiceMeta}>{raceMeta}</Text> : null}
                       </TouchableOpacity>
@@ -2449,15 +2453,20 @@ export default function OnboardingScreen() {
                     <TouchableOpacity
                       key={race.id}
                       style={[styles.formatRow, selected && styles.formatRowSelected]}
+                      disabled={race.elevation_gain_m === null}
                       onPress={() => handleSelectRace(race.id)}
                     >
                       <View style={styles.formatRowContent}>
                         <Text style={styles.formatTitle}>
                           {selectedRaceEvent ? getRaceShortLabel(race.name, selectedRaceEvent.name) : race.name}
                         </Text>
+                        {race.elevation_gain_m === null ? (
+                          <Text style={styles.formatSubtitle}>D+ non renseigné</Text>
+                        ) : (
                         <Text style={styles.formatSubtitle}>
                           {`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m`}
                         </Text>
+                        )}
                       </View>
 
                       {selected ? (

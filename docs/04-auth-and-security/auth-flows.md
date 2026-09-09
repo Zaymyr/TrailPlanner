@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-06
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -69,6 +69,8 @@ After a web session is verified, `useVerifiedSession` exposes the verified sessi
 The organizer acquisition flow may send `next=/organizers` through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only that exact internal pathname, retains only the five supported UTM parameters, and falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation.
 
 ## Mobile Auth
+
+The authenticated onboarding catalog accepts source-backed formats whose D+ is still unpublished. It shows the missing value explicitly and does not allow that format to start plan calculation until the elevation is supplied; this does not alter authentication or onboarding-gate state.
 
 `apps/mobile/app/_layout.tsx` listens to Supabase auth state. On active sessions it:
 

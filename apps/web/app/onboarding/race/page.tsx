@@ -18,7 +18,7 @@ type Race = {
   id: string;
   name: string;
   distance_km: number;
-  elevation_gain_m: number;
+  elevation_gain_m: number | null;
   race_aid_stations: AidStation[];
 };
 
@@ -79,7 +79,7 @@ export default function RacePage() {
   }, []);
 
   const canContinue =
-    selectedRaceId !== null ||
+    races.some((race) => race.id === selectedRaceId && race.elevation_gain_m !== null) ||
     (isManual &&
       distanceInput !== "" &&
       elevationInput !== "" &&
@@ -95,6 +95,7 @@ export default function RacePage() {
   );
 
   function handleSelectRace(race: Race) {
+    if (race.elevation_gain_m === null) return;
     trackOnboardingEvent("action", {
       action: "race_selected",
       aid_station_count: race.race_aid_stations.length,
@@ -139,7 +140,7 @@ export default function RacePage() {
       Number(distanceInput) > 0 &&
       Number(elevationInput) >= 0;
 
-    if (!race && !manualValid) {
+    if ((!race || race.elevation_gain_m === null) && !manualValid) {
       trackOnboardingEvent("validation_error", {
         reason: "missing_race_or_manual_values",
         step_name: "race",
@@ -147,7 +148,7 @@ export default function RacePage() {
       return;
     }
 
-    if (race) {
+    if (race && race.elevation_gain_m !== null) {
       const checkpoints: RaceCheckpoint[] = race.race_aid_stations.map((s) => ({
         km: s.km,
         name: s.name,
@@ -210,11 +211,13 @@ export default function RacePage() {
               <button
                 key={race.id}
                 onClick={() => handleSelectRace(race)}
+                disabled={race.elevation_gain_m === null}
                 className="flex w-full flex-col gap-1.5 rounded-2xl p-3.5 text-left transition-all active:scale-[0.98]"
                 style={{
                   backgroundColor: "#ffffff",
                   boxShadow: "0 2px 12px rgba(0,0,0,0.08)",
                   border: isSelected ? "2px solid #2D5016" : "2px solid transparent",
+                  opacity: race.elevation_gain_m === null ? 0.6 : 1,
                 }}
               >
                 <div className="flex min-w-0 items-center justify-between gap-3">
@@ -239,7 +242,7 @@ export default function RacePage() {
                   )}
                 </div>
                 <p className="text-xs" style={{ color: "#6b7c5a" }}>
-                  {race.distance_km} km • {race.elevation_gain_m} m D+
+                  {race.distance_km} km • {race.elevation_gain_m === null ? "D+ non renseigné" : `${race.elevation_gain_m} m D+`}
                   {race.race_aid_stations.length > 0 ? ` • ${race.race_aid_stations.length} ravitos` : ""}
                 </p>
               </button>

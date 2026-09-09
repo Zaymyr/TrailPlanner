@@ -59,7 +59,7 @@ const raceRowSchema = z.object({
   slug: z.string(),
   event_id: z.string().uuid().nullable().optional(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   location_text: z.string().nullable().optional(),
   data_status: z.string(),
   missing_required_fields: z.array(z.string()),
@@ -285,7 +285,6 @@ export async function POST(request: NextRequest) {
     const missingRequiredFields: string[] = [];
     if (!date) missingRequiredFields.push("race_date");
     if (format.distanceKm === null) missingRequiredFields.push("distance_km");
-    if (format.elevationGainM === null) missingRequiredFields.push("elevation_gain_m");
 
     const raceId = randomUUID();
     const raceName = `${body.raceName} ${format.name || format.distance}`.trim();
@@ -303,13 +302,13 @@ export async function POST(request: NextRequest) {
         race_date: date,
         location_text: locationText,
         distance_km: format.distanceKm ?? 0,
-        elevation_gain_m: format.elevationGainM ?? 0,
+        elevation_gain_m: format.elevationGainM,
         elevation_loss_m: format.research?.fields.elevation_loss_m === undefined ? 0 : Number(format.research.fields.elevation_loss_m),
         ...(format.research ? {organizer_details:buildResearchDetails(format.research)} : {}),
         external_site_url: officialWebsite,
         source_url: body.raceUrl,
-        gpx_path: `betrail-import/${eventId}/${raceId}.gpx`,
-        gpx_hash: `pending:${raceId}`,
+        gpx_path: null,
+        gpx_hash: null,
         is_live: false,
         is_public: false,
         is_published: false,

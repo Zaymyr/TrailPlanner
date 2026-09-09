@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -15,6 +15,8 @@ related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
+  - supabase/migrations/20260909192254_make_catalog_elevation_and_gpx_optional.sql
+  - supabase/migrations/20260909192326_seed_verified_seo_races_2026_2027.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -59,9 +61,9 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 | --- | --- | --- |
 | `id`, `slug`, `name` | `uuid`, `text`, `text` | Stable id, unique catalog slug, and display name; import RPCs cap names at 300 characters. |
 | `event_id`, `edition_id`, `edition_group_id`, `series_name`, `race_date` | ids/text/date-like | Event, yearly edition, cross-year format series, and format date. |
-| `distance_km`, `elevation_gain_m`, `elevation_loss_m` | `numeric` | Course metrics; legacy non-null zero can be an import sentinel only when listed missing. |
+| `distance_km`, `elevation_gain_m`, `elevation_loss_m` | `numeric` | Course metrics; distance is required for a complete catalog row, while D+ is nullable when the official source has not published it. |
 | `location_text`, `external_site_url`, `thumbnail_url` | nullable text | Format location and official presentation sources. |
-| `gpx_path`, `gpx_hash` | non-null text | Legacy GPX compatibility fields. |
+| `gpx_path`, `gpx_hash` | nullable text | Legacy GPX compatibility fields; null is valid when no verified trace is available. |
 | `gpx_storage_path`, `gpx_sha256` | nullable text | Actual private Storage object and digest; null means no imported GPX. |
 | altitude/start/bounds columns | nullable numeric | GPX-derived geographic summary. |
 | `organizer_details` | nullable `jsonb` | Progressive format schedule, logistics, equipment override, and notes. |
@@ -69,7 +71,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 | `racebook_is_live`, approval columns | boolean/timestamps/FK | Runner Racebook state and trusted approval provenance. |
 | `participation_mode` | nullable text | `solo`, `relay`, or `solo_and_relay`; null means an unconfirmed historical format. |
 | `data_status` | `text` | `draft` or `complete`; existing rows default to `complete`. |
-| `missing_required_fields` | `text[]` | Subset of `race_date`, `distance_km`, and `elevation_gain_m`. |
+| `missing_required_fields` | `text[]` | Subset of `race_date`, `location`, `distance_km`, and `source_url`. |
 
 ## Foreign Keys
 
@@ -94,8 +96,9 @@ Existing `races` policies control the whole row, including import status. Organi
 
 - `data_status = complete` requires an empty `missing_required_fields` array.
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
-- Unknown imported distance/D+ use zero only while the corresponding snake_case field is listed missing; an explicitly known flat D+ may be zero without being missing.
-- A confirmed new import format inherits the edition start date, uses legacy GPX placeholders without creating a file, and starts missing distance and D+.
+- Complete catalog formats require a name, slug, exact date, location, positive distance and official source. D+ and GPX are optional enrichments and remain null when unknown.
+- Unknown imported distance uses zero only while `distance_km` is listed missing; an explicitly known flat D+ may be zero, while an unknown D+ is null.
+- A confirmed new import format inherits the edition start date, keeps absent GPX and D+ values null, and remains a hidden draft while any catalog-minimum value (date, location, positive distance, or source) is missing.
 - A grounded named format from an event/format/regulation source can be confirmed even when its other claims are missing. Additional registration, results/archive, other, or unusable URLs cannot create the row.
 - Completing an imported draft sets `is_live = true`, leaves `is_public` unchanged, and keeps `racebook_is_live = false`.
 - The Organizer format PATCH route and GPX upload route recompute these markers too, so a draft completed outside the import review cannot remain stuck on sentinel values.
@@ -105,7 +108,8 @@ Existing `races` policies control the whole row, including import status. Organi
 - Relay legs are derived from start, ordered relay points, and finish; they are not separate race rows.
 - A slug change atomically reserves the old value in `race_slug_redirects`; inserts and updates cannot reuse a reserved former slug.
 - Final-roadbook data corrections may update confirmed dates and organizer JSON without replacing more precise existing metrics when the source only gives rounded format labels. The Les Amaz’Eaunes 2026 migration therefore preserves stored distance and elevation values and does not create unspecified ravito rows.
-- Source-backed event integrations may mix complete and incomplete formats. La Tou’Run 2026 keeps its 6 km walk hidden as a draft with the D+ sentinel listed in `missing_required_fields`, while publishing the four formats whose date, distance, and D+ are all confirmed; its unsituated La Bastidonne ravitailment remains descriptive text rather than an invented station row.
+- Source-backed event integrations may mix complete and incomplete formats. Legacy rows retain their current publication state until a targeted catalog-field update or backfill; new writes use date, location, positive distance, and source as the publication minimum. D+ and GPX remain optional enrichment, and unsituated ravitailments remain descriptive text rather than invented station rows.
+- The September 2026 curated SEO seed publishes 20 upcoming formats backed by organiser pages and enriches the 5 existing Grand Raid formats without replacing their more precise GPX-derived metrics. Candidate formats without a verified exact date, distance, location and source stay out of the public catalog.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
 - Public SEO detail reads revalidate `is_live = true` and `is_public = true` with service credentials before reading `organizer_details`, ravitos, or private `gpx_storage_path`. An attached event and edition must also remain visible. Only an explicit sanitized DTO crosses into rendering; emergency/last-minute organizer fields and raw JSON do not.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
@@ -134,8 +138,9 @@ where is_live = true
 
 ## Gotchas
 
-- Do not treat zero D+ as unknown without checking `missing_required_fields`.
-- `gpx_path` may contain a deterministic placeholder while `gpx_storage_path` remains null; never fetch the placeholder as a Storage object.
+- Do not replace an unknown D+ or absent GPX with a fabricated zero or placeholder.
+- New rows without a GPX keep `gpx_path`, `gpx_hash`, and `gpx_storage_path` null. Historical placeholders are cleared by the catalog-contract migration when no stored object exists.
+- A declarative complete-row check is intentionally deferred until legacy catalog rows have been backfilled. The column-scoped completeness trigger protects new and catalog-relevant writes without blocking unrelated updates to legacy rows.
 - Do not set a draft live. The database constraint rejects both course and Racebook visibility.
 - Do not use `edition_group_id` as yearly edition membership; use `edition_id`.
 - Do not derive Racebook visibility from catalog completion or `is_live`.

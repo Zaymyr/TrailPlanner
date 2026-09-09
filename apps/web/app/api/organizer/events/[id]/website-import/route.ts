@@ -355,7 +355,7 @@ const workflowConfirmedSessionFormatSchema = z.object({
   name: z.string().trim().min(1).max(300),
   mode: z.enum(["create", "bind-existing"]),
   dataStatus: z.enum(["draft", "complete"]),
-  missingRequiredFields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])),
+  missingRequiredFields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])),
 });
 
 const confirmFormatsRpcResponseSchema = z.object({
@@ -366,7 +366,7 @@ const confirmFormatsRpcResponseSchema = z.object({
     name: z.string(),
     mode: z.enum(["create", "bind-existing"]),
     dataStatus: z.enum(["draft", "complete"]),
-    missingRequiredFields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])),
+    missingRequiredFields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])),
   })),
   createdCount: z.number().int().nonnegative(),
   boundExistingCount: z.number().int().nonnegative(),
@@ -464,7 +464,7 @@ const eventContextSchema = z.object({
         name: z.string(),
         race_date: z.string().nullable().optional(),
         distance_km: z.number(),
-        elevation_gain_m: z.number(),
+        elevation_gain_m: z.number().nullable(),
         elevation_loss_m: z.number().nullable().optional(),
         external_site_url: z.string().nullable().optional(),
         location_text: z.string().nullable().optional(),
@@ -512,7 +512,7 @@ const buildDocumentOnlyPreview = (event: EventContext): OrganizerWebsiteImportPr
       ["name", "Nom du format", race.name],
       ["raceDate", "Date", race.race_date ?? null],
       ["distanceKm", "Distance", `${race.distance_km} km`],
-      ["elevationGainM", "Dénivelé positif", `${race.elevation_gain_m} m`],
+      ["elevationGainM", "Dénivelé positif", race.elevation_gain_m === null ? null : `${race.elevation_gain_m} m`],
       ["elevationLossM", "Dénivelé négatif", race.elevation_loss_m === null ? null : `${race.elevation_loss_m} m`],
       ["locationText", "Lieu", race.location_text ?? null],
       ["externalSiteUrl", "Page du format", race.external_site_url ?? null],
@@ -544,7 +544,7 @@ const buildDocumentOnlyPreview = (event: EventContext): OrganizerWebsiteImportPr
           key,
           label,
           value,
-          required: ["name", "raceDate", "distanceKm", "elevationGainM"].includes(key),
+          required: ["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"].includes(key),
           confidence: value === null ? null : "high" as const,
           sourceUrl: null,
           sourceLabel: value === null ? null : "Données actuelles",
@@ -1230,9 +1230,9 @@ const buildSourceIntelligenceCandidates = (
       ...buildIntelligenceEvidenceSource(analysis, assertion.evidence, documents),
       evidence: assertion.evidence,
     })).slice(0, 30);
-    const knownRequiredFields = (["name", "raceDate", "distanceKm", "elevationGainM"] as OrganizerImportClaimField[])
+    const knownRequiredFields = (["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"] as OrganizerImportClaimField[])
       .filter((field) => claims.some((claim) => claim.field === field));
-    const missingRequiredFields = (["name", "raceDate", "distanceKm", "elevationGainM"] as OrganizerImportClaimField[])
+    const missingRequiredFields = (["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"] as OrganizerImportClaimField[])
       .filter((field) => !knownRequiredFields.includes(field));
     const raceDate = claims.find((claim) => claim.field === "raceDate" && typeof claim.value === "string")?.value;
     const exactExisting = existingRaces.filter((race) =>
@@ -1290,7 +1290,7 @@ const mergeSourceIntelligenceCandidates = (
     const claims = [...target.claims, ...reScopedClaims]
       .filter((claim, index, all) => all.findIndex((candidateClaim) => candidateClaim.claimId === claim.claimId) === index)
       .slice(0, 100);
-    const requiredFields = ["name", "raceDate", "distanceKm", "elevationGainM"] as OrganizerImportClaimField[];
+    const requiredFields = ["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"] as OrganizerImportClaimField[];
     merged[targetIndex] = formatCandidateSchema.parse({
       ...target,
       detectionKeys: Array.from(new Set([...target.detectionKeys, ...candidate.detectionKeys])).slice(0, 30),
@@ -1446,7 +1446,7 @@ const raceToWorkflowValues = (race: EventRace) => {
     raceDate: missing.has("race_date") ? undefined : race.race_date ?? undefined,
     locationText: race.location_text ?? undefined,
     distanceKm: missing.has("distance_km") ? undefined : race.distance_km,
-    elevationGainM: missing.has("elevation_gain_m") ? undefined : race.elevation_gain_m,
+    elevationGainM: race.elevation_gain_m ?? undefined,
     elevationLossM: race.elevation_loss_m ?? undefined,
     externalSiteUrl: race.external_site_url ?? undefined,
     thumbnailUrl: race.thumbnail_url ?? undefined,
@@ -1916,12 +1916,13 @@ const createRaceFromPreview = async (
   editionId: string
 ) => {
   const selectedFields = new Set(proposals.map((proposal) => proposal.field));
-  const requiredFields: OrganizerImportRaceField[] = ["name", "raceDate", "distanceKm", "elevationGainM"];
+  const requiredFields: OrganizerImportRaceField[] = ["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"];
   if (
     requiredFields.some((field) => !selectedFields.has(field)) ||
     !race.raceDate ||
+    !race.locationText ||
     race.distanceKm === null ||
-    race.elevationGainM === null
+    !race.externalSiteUrl
   ) {
     throw new Error("Incomplete race preview.");
   }
@@ -1930,8 +1931,6 @@ const createRaceFromPreview = async (
   const gpxStoragePath = selectedFields.has("gpx") && race.gpxContent
     ? await uploadRaceGpx(serviceConfig, eventId, raceId, race)
     : null;
-  // `gpx_path` is a legacy required column, while `gpx_storage_path` accurately signals whether a GPX was imported.
-  const legacyGpxPath = gpxStoragePath ?? `organizer/${eventId}/${raceId}.gpx`;
   const insertResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/races`, {
     method: "POST",
     headers: {
@@ -1948,13 +1947,14 @@ const createRaceFromPreview = async (
       name: race.name,
       race_date: race.raceDate,
       distance_km: race.distanceKm,
-      elevation_gain_m: race.elevationGainM,
+      elevation_gain_m: selectedFields.has("elevationGainM") ? race.elevationGainM : null,
       elevation_loss_m: selectedFields.has("elevationLossM") ? race.elevationLossM : null,
       location_text: selectedFields.has("locationText") ? race.locationText : null,
       external_site_url: selectedFields.has("externalSiteUrl") ? race.externalSiteUrl : null,
       thumbnail_url: selectedFields.has("thumbnailUrl") ? race.thumbnailUrl : null,
-      gpx_path: legacyGpxPath,
-      gpx_hash: gpxStoragePath ? `website-import:${raceId}` : `manual:${raceId}`,
+      source_url: race.externalSiteUrl,
+      gpx_path: gpxStoragePath,
+      gpx_hash: gpxStoragePath ? `website-import:${raceId}` : null,
       gpx_storage_path: gpxStoragePath,
       gpx_sha256: gpxStoragePath ? null : null,
       is_live: true,
@@ -2425,13 +2425,15 @@ const handleOrganizerImportWorkflow = async (
         if (selection.decision === "missing") {
           if (selection.field === "raceDate") missingRequiredFields.add("race_date");
           if (selection.field === "distanceKm") missingRequiredFields.add("distance_km");
-          if (selection.field === "elevationGainM") missingRequiredFields.add("elevation_gain_m");
+          if (selection.field === "locationText") missingRequiredFields.add("location");
+          if (selection.field === "externalSiteUrl") missingRequiredFields.add("source_url");
           continue;
         }
         if (selection.decision !== "claim") continue;
         if (selection.field === "raceDate") missingRequiredFields.delete("race_date");
         if (selection.field === "distanceKm") missingRequiredFields.delete("distance_km");
-        if (selection.field === "elevationGainM") missingRequiredFields.delete("elevation_gain_m");
+        if (selection.field === "locationText") missingRequiredFields.delete("location");
+        if (selection.field === "externalSiteUrl") missingRequiredFields.delete("source_url");
         const directFieldMap: Partial<Record<OrganizerImportClaimField, string>> = {
           name: "name",
           seriesName: "seriesName",
@@ -2503,7 +2505,13 @@ const handleOrganizerImportWorkflow = async (
         }
       }
       if (raceDetailsChanged) fields.organizerDetails = raceDetails;
-      racePatches.push({ raceId: race.id, fields, missingRequiredFields: [...missingRequiredFields] });
+      // The legacy RPC validates only date/distance labels. The database
+      // completeness trigger derives location/source labels from stored values.
+      racePatches.push({
+        raceId: race.id,
+        fields,
+        missingRequiredFields: [...missingRequiredFields].filter((field) => field === "race_date" || field === "distance_km"),
+      });
     }
 
     let applied: z.infer<typeof applyFieldsRpcResponseSchema>;

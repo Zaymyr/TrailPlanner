@@ -25,7 +25,7 @@ const raceSchema = z.object({
   location_text: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   trace_provider: z.string().nullable().optional(),
   trace_id: z.number().nullable().optional(),
@@ -204,7 +204,7 @@ export function RaceCatalogModal({
                         {formatNumber(race.distance_km, 1)} {copy.units.kilometer}
                       </TableCell>
                       <TableCell>
-                        {formatNumber(race.elevation_gain_m)} {copy.units.meter}
+                        {race.elevation_gain_m === null ? "—" : `${formatNumber(race.elevation_gain_m)} ${copy.units.meter}`}
                       </TableCell>
                       <TableCell>{race.location_text ?? race.location ?? "-"}</TableCell>
                       <TableCell>

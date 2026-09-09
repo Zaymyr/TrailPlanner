@@ -89,7 +89,7 @@ const sourceRaceSchema = z.object({
   series_name: z.string().nullable().optional(),
   name: z.string(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   location_text: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),

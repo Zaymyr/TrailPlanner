@@ -107,7 +107,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
       event_id: eventId,
       race_date: "2027-09-12",
       data_status: "draft",
-      missing_required_fields: ["distance_km", "elevation_gain_m"],
+      missing_required_fields: ["distance_km"],
     });
     vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse([{
       id: raceId,
@@ -117,21 +117,20 @@ describe("/api/organizer/races/[id] PATCH", () => {
       event_id: eventId,
       race_date: "2027-09-12",
       distance_km: 42,
-      elevation_gain_m: 1800,
+      elevation_gain_m: null,
       is_live: true,
       data_status: "complete",
       missing_required_fields: [],
     }]));
 
     const response = await PATCH(
-      patchRequest({ distanceKm: 42, elevationGainM: 1800 }),
+      patchRequest({ distanceKm: 42 }),
       { params: { id: raceId } }
     );
 
     expect(response.status).toBe(200);
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[0]?.[1]?.body))).toMatchObject({
       distance_km: 42,
-      elevation_gain_m: 1800,
       data_status: "complete",
       missing_required_fields: [],
       is_live: true,

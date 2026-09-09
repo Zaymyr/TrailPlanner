@@ -40,7 +40,7 @@ type Race = {
   id: string;
   name: string;
   distance_km: number;
-  elevation_gain_m: number;
+  elevation_gain_m: number | null;
   race_date?: string | null;
   is_live: boolean | null;
   racebook_is_live?: boolean | null;
@@ -98,8 +98,8 @@ function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
-function formatElevation(elevationGainM: number) {
-  return Math.round(elevationGainM).toString();
+function formatElevation(elevationGainM: number | null) {
+  return elevationGainM === null ? 'D+ non renseigné' : `D+ ${Math.round(elevationGainM)} m`;
 }
 
 function getEventDistanceRange(races: Race[]) {
@@ -338,9 +338,9 @@ function PersonalRacesSection({
           <RaceRow
             key={race.id}
             title={race.name}
-            subtitle={`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m`}
-            primaryActionLabel={createPlanLabel}
-            onPrimaryPress={() => onCreatePlan(race.id)}
+            subtitle={`${formatDistance(race.distance_km)} km • ${formatElevation(race.elevation_gain_m)}`}
+            primaryActionLabel={race.elevation_gain_m === null ? undefined : createPlanLabel}
+            onPrimaryPress={race.elevation_gain_m === null ? undefined : () => onCreatePlan(race.id)}
           />
         ))}
       </View>
@@ -1384,9 +1384,9 @@ export default function CatalogScreen() {
                       params: { id: race.id },
                     });
                   }}
-                  subtitle={`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m${race.id === selectedRaceIdParam ? ' • Format concerné' : ''}`}
-                  primaryActionLabel={onboardingMode === 'racebook' ? undefined : t.catalog.createPlan}
-                  onPrimaryPress={onboardingMode === 'racebook' ? undefined : () => {
+                  subtitle={`${formatDistance(race.distance_km)} km • ${formatElevation(race.elevation_gain_m)}${race.id === selectedRaceIdParam ? ' • Format concerné' : ''}`}
+                  primaryActionLabel={onboardingMode === 'racebook' || race.elevation_gain_m === null ? undefined : t.catalog.createPlan}
+                  onPrimaryPress={onboardingMode === 'racebook' || race.elevation_gain_m === null ? undefined : () => {
                     setSelectedEvent(null);
                     handleCreatePlan(race.id);
                   }}

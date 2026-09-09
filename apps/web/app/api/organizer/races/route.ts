@@ -43,7 +43,7 @@ const raceRowSchema = z.object({
   event_id: z.string().uuid().nullable().optional(),
   external_site_url: z.string().nullable().optional(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   location_text: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),
@@ -65,7 +65,7 @@ const cloneSourceRaceSchema = z.object({
   slug: z.string().nullable().optional(),
   external_site_url: z.string().nullable().optional(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   location_text: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),
@@ -134,7 +134,7 @@ export async function POST(request: NextRequest) {
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, parsed.data.eventId);
   if (organizer !== true) return organizer.error;
 
-  if (!parsed.data.cloneFromRaceId && (!parsed.data.distanceKm || parsed.data.elevationGainM === undefined)) {
+  if (!parsed.data.cloneFromRaceId && !parsed.data.distanceKm) {
     return jsonError("Invalid race fields.", 400);
   }
 
@@ -209,7 +209,7 @@ export async function POST(request: NextRequest) {
     slug: buildSlug(parsed.data.name),
     name: parsed.data.name,
     distance_km: Number((parsed.data.distanceKm ?? 0).toFixed(2)),
-    elevation_gain_m: Math.round(parsed.data.elevationGainM ?? 0),
+    elevation_gain_m: parsed.data.elevationGainM === undefined ? null : Math.round(parsed.data.elevationGainM),
     elevation_loss_m: Math.round(parsed.data.elevationLossM ?? 0),
     external_site_url: parsed.data.externalSiteUrl,
     location_text: parsed.data.locationText,
@@ -217,8 +217,8 @@ export async function POST(request: NextRequest) {
     thumbnail_url: parsed.data.thumbnailUrl,
     organizer_details: parsed.data.organizerDetails ?? null,
     participation_mode: parsed.data.participationMode,
-    gpx_path: `organizer/${parsed.data.eventId}/${raceId}.gpx`,
-    gpx_hash: `manual:${raceId}`,
+    gpx_path: null,
+    gpx_hash: null,
     gpx_storage_path: null,
     gpx_sha256: null,
     is_live: true,

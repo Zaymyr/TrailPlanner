@@ -81,7 +81,7 @@ const raceAccessRowSchema = z.object({
   name: z.string().optional(),
   race_date: z.string().nullable().optional(),
   data_status: z.enum(["draft", "complete"]).optional().default("complete"),
-  missing_required_fields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])).optional().default([]),
+  missing_required_fields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])).optional().default([]),
   racebook_is_live: z.boolean().optional(),
   racebook_publication_approved_at: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),

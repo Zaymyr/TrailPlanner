@@ -401,7 +401,7 @@ describe("/api/organizer/events/[id]/website-import apply", () => {
       is_live: true,
       gpx_storage_path: null,
     });
-    expect(JSON.parse(String(raceInsert?.[1]?.body)).gpx_path).toMatch(/^organizer\/11111111-1111-1111-1111-111111111111\/.+\.gpx$/);
+    expect(JSON.parse(String(raceInsert?.[1]?.body)).gpx_path).toBeNull();
   });
 
   it("updates only explicitly selected fields from the signed review", async () => {
@@ -586,7 +586,7 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
           name: format.name,
           race_date: "2026-08-20",
           distance_km: 0,
-          elevation_gain_m: 0,
+          elevation_gain_m: null,
           elevation_loss_m: null,
           external_site_url: null,
           location_text: null,
@@ -595,7 +595,7 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
           organizer_details: {},
           is_live: false,
           data_status: "draft",
-          missing_required_fields: ["distance_km", "elevation_gain_m"],
+          missing_required_fields: ["distance_km", "location", "source_url"],
         };
         const confirmedFormat = {
           formatKey: format.formatKey,
@@ -604,7 +604,7 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
           name: format.name,
           mode: format.mode,
           dataStatus: "draft",
-          missingRequiredFields: ["distance_km", "elevation_gain_m"],
+          missingRequiredFields: ["distance_km", "location", "source_url"],
         };
         session = { ...session, status: "formats_confirmed", confirmed_formats: [confirmedFormat] };
         return buildJsonResponse({
@@ -685,7 +685,7 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
     expect(confirmed.workflow.confirmedFormats[0]).toMatchObject({
       raceId,
       dataStatus: "draft",
-      missingRequiredFields: ["distance_km", "elevation_gain_m"],
+      missingRequiredFields: ["distance_km", "location", "source_url"],
     });
 
     const analyzeResponse = await POST(importRequest({
@@ -697,6 +697,8 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
     const formatReport = analysis.workflow.formatReports[0];
     const distance = formatReport.resolutions.find((resolution: { field: string }) => resolution.field === "distanceKm");
     const elevation = formatReport.resolutions.find((resolution: { field: string }) => resolution.field === "elevationGainM");
+    const location = formatReport.resolutions.find((resolution: { field: string }) => resolution.field === "locationText");
+    const source = formatReport.resolutions.find((resolution: { field: string }) => resolution.field === "externalSiteUrl");
     expect(distance).toMatchObject({ status: "safe", currentValue: null });
     expect(elevation).toMatchObject({ status: "safe", currentValue: null });
 
@@ -708,6 +710,8 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
       selections: [
         { scope: "format", raceId, field: "distanceKm", decision: "claim", claimId: distance.claims[0].id },
         { scope: "format", raceId, field: "elevationGainM", decision: "claim", claimId: elevation.claims[0].id },
+        { scope: "format", raceId, field: "locationText", decision: "claim", claimId: location.claims[0].id },
+        { scope: "format", raceId, field: "externalSiteUrl", decision: "claim", claimId: source.claims[0].id },
       ],
     }), { params: { id: eventId } });
     const applied = await applyResponse.json();
@@ -717,7 +721,7 @@ describe("/api/organizer/events/[id]/website-import two-pass workflow", () => {
       p_session_id: sessionId,
       p_race_patches: [{
         raceId,
-        fields: { distanceKm: 42, elevationGainM: 2400 },
+        fields: expect.objectContaining({ distanceKm: 42, elevationGainM: 2400 }),
         missingRequiredFields: [],
       }],
     });

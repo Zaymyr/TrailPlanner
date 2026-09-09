@@ -52,13 +52,15 @@ Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100
 
 The states are:
 
-- `active`: enabled by the organizer and allowed by the offer; editable, published and counted in completion;
+- `active`: enabled by the organizer and allowed by the offer; editable, published and shown in completion, but it contributes to the percentage only when the module is required;
 - `inactive`: allowed but disabled; data retained and excluded from mobile/completion;
 - `locked`: outside the effective offer; data retained and shown only as an upsell.
 
 `apps/web/lib/organizer-entitlements.ts` is the capability authority and `apps/web/lib/organizer-modules.ts` is the shared catalog. Server routes must check both capability and effective module state, never compare tier names locally.
 
 The web section chooser separates edition-common modules from per-format modules before batching local switch drafts into one typed module-settings PATCH. On the event tab, format-scoped changes target all existing formats and mixed values are labelled; on a format tab they target only the active format. Until the PATCH succeeds, the active dashboard navigation and completion use the last persisted configuration; failures keep the draft available for retry, and closing a modified regular chooser requires explicit discard confirmation.
+
+Completion percentages count required modules only. Recommended and optional tiles keep their own empty/incomplete/complete status without lowering the bars. Event equipment is optional; inherited format equipment is optional too. Checking a format-specific equipment override makes that format tile required until its list contains at least one item, while free-text notes never satisfy that conditional requirement.
 
 ## Stripe and Rights Lifecycle
 

@@ -529,19 +529,19 @@ export function OrganizerDashboard({
       sponsors:
         sponsorSummary !== null && sponsorSummary.editionId === activeEdition?.id
           ? sponsorSummary.sponsors
-          : 0,
+          : undefined,
       sponsorClicks:
         sponsorSummary !== null && sponsorSummary.editionId === activeEdition?.id
           ? sponsorSummary.clicks
-          : 0,
+          : undefined,
       brandingConfigured:
         brandingSummary !== null && brandingSummary.editionId === activeEdition?.id
           ? brandingSummary.configured
-          : false,
+          : undefined,
       brandingUnpublished:
         brandingSummary !== null && brandingSummary.editionId === activeEdition?.id
           ? brandingSummary.unpublished
-          : false,
+          : undefined,
     }, enabledCompletionModules);
   }, [activeEdition?.id, activeEdition?.serviceCount, activeRace?.aidStationCount, activeRace?.awardCount, activeRace?.id, activeRace?.startWaveCount, activeRaceForCompletion, aidStations, brandingSummary, enabledCompletionModules, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
 
