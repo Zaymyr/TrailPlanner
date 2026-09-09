@@ -65,7 +65,7 @@ This table is retained publication-review history. New organizer publication use
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
 - The current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A trusted admin may grant RaceBook from that dialog without payment through `set_admin_organizer_edition_entitlement`; the grant is edition-scoped, records `source = admin`, and leaves this legacy table unchanged.
 - Collapsing the compact edition/format summary hides only its controls visually; it does not publish, hide, or create a publication-request row.
-- Staged section switches affect publication and completion only after their single module-settings PATCH succeeds; they never insert a row in this legacy publication queue.
+- Staged section switches affect publication and completion only after their single module-settings PATCH succeeds; their edition-common/per-format grouping never inserts a row in this legacy publication queue.
 - Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.

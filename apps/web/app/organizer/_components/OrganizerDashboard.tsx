@@ -2490,15 +2490,26 @@ export function OrganizerDashboard({
   };
 
   const visibleModuleChoices = ORGANIZER_MODULES.map((module) => {
+    const racePersistedValues = moduleSettings && module.scope === "race"
+      ? websiteImportExistingRaces.map(
+          (race) => moduleSettings.races[race.id]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled,
+        )
+      : [];
     const persistedEnabled = moduleSettings
       ? module.scope === "edition"
         ? moduleSettings.edition[module.key as OrganizerEditionModuleKey]
         : activeRace
           ? moduleSettings.races[activeRace.id]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled
-          : websiteImportExistingRaces.length > 0 && websiteImportExistingRaces.every((race) => moduleSettings.races[race.id]?.[module.key as OrganizerRaceModuleKey] ?? module.defaultEnabled)
+          : racePersistedValues.length > 0 && racePersistedValues.every(Boolean)
       : module.defaultEnabled;
-    const enabled = moduleSettingsDraft[module.key] ?? persistedEnabled;
-    return { ...module, enabled, persistedEnabled, state: getOrganizerModuleState(activeTier, module.key, enabled) };
+    const stagedEnabled = moduleSettingsDraft[module.key];
+    const enabled = stagedEnabled ?? persistedEnabled;
+    const mixed = stagedEnabled === undefined
+      && module.scope === "race"
+      && !activeRace
+      && racePersistedValues.some(Boolean)
+      && racePersistedValues.some((value) => !value);
+    return { ...module, enabled, persistedEnabled, mixed, state: getOrganizerModuleState(activeTier, module.key, enabled) };
   });
   const moduleSettingsChangesCount = Object.keys(moduleSettingsDraft).length;
 
@@ -2668,47 +2679,71 @@ export function OrganizerDashboard({
           <DialogHeader>
             <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre RaceBook" : "Sections du RaceBook"}</DialogTitle>
             <DialogDescription>
-              Activez uniquement les sections utiles. Les informations restent conservées lorsqu’une section est masquée.
-              {activeRace ? ` Les sections de format ci-dessous concernent ${activeRace.name}.` : " Les réponses de format s’appliquent ici à tous les formats de l’édition."}
+              Activez uniquement les sections utiles. Les informations restent conservées lorsqu’une section est masquée. La portée de chaque réglage est indiquée ci-dessous.
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
-            {(["active", "inactive", "locked"] as const).map((state) => {
-              const choices = visibleModuleChoices.filter((module) => module.state === state);
-              if (choices.length === 0) return null;
+            {([
+              {
+                scope: "edition" as const,
+                title: "Sections communes à l’édition",
+                description: "Un seul réglage pour l’événement : il s’applique automatiquement à tous les formats de cette édition.",
+              },
+              {
+                scope: "race" as const,
+                title: activeRace ? `Sections du format ${activeRace.name}` : "Sections propres aux formats",
+                description: activeRace
+                  ? `Ces réglages concernent uniquement le format ${activeRace.name}.`
+                  : "Depuis la vue événement, une modification est appliquée à tous les formats existants de l’édition.",
+              },
+            ]).map((group) => {
+              const groupChoices = visibleModuleChoices.filter((module) => module.scope === group.scope);
+              if (groupChoices.length === 0) return null;
               return (
-                <section key={state} className="space-y-2">
-                  <h3 className="text-sm font-semibold text-foreground">
-                    {state === "active" ? "Sections actives" : state === "inactive" ? "Ajouter une section" : "Découvrir les autres fonctionnalités"}
-                  </h3>
-                  <div className="grid gap-2 sm:grid-cols-2 min-[900px]:grid-cols-3">
-                    {choices.map((module) => (
-                      <div key={module.key} className="flex min-h-20 items-center justify-between gap-3 rounded-lg border border-border p-3">
-                        <div>
-                          <p className="text-sm font-medium text-foreground">{module.label}</p>
-                          <p className="text-xs text-muted-foreground">{module.description}</p>
-                          {module.scope === "race" ? <p className="mt-1 text-[11px] text-muted-foreground">Par format</p> : null}
-                        </div>
-                        {state === "locked" ? (
-                          <Button type="button" variant="outline" className="!h-8 px-2 text-xs" onClick={openPricingDialog}>
-                            Offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
-                          </Button>
-                        ) : (
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={module.enabled}
-                            aria-label={`${module.enabled ? "Masquer" : "Activer"} ${module.label}`}
-                            disabled={moduleSettingsSaving || (module.scope === "race" && websiteImportExistingRaces.length === 0)}
-                            onClick={() => stageModuleSetting(module.key, !module.enabled, module.persistedEnabled)}
-                            className={`relative h-6 w-11 shrink-0 rounded-full transition ${module.enabled ? "bg-brand" : "bg-muted"} disabled:cursor-wait disabled:opacity-50`}
-                          >
-                            <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${module.enabled ? "left-[22px]" : "left-0.5"}`} />
-                          </button>
-                        )}
-                      </div>
-                    ))}
+                <section key={group.scope} className="space-y-3 rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
+                  <div>
+                    <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
+                    <p className="text-xs text-muted-foreground">{group.description}</p>
                   </div>
+                  {(["active", "inactive", "locked"] as const).map((state) => {
+                    const choices = groupChoices.filter((module) => module.state === state);
+                    if (choices.length === 0) return null;
+                    return (
+                      <div key={state} className="space-y-2">
+                        <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                          {state === "active" ? "Actives" : state === "inactive" ? "Disponibles" : "Avec une offre supérieure"}
+                        </h4>
+                        <div className="grid gap-2 sm:grid-cols-2 min-[900px]:grid-cols-3">
+                          {choices.map((module) => (
+                            <div key={module.key} className="flex min-h-20 items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
+                              <div>
+                                <p className="text-sm font-medium text-foreground">{module.label}</p>
+                                <p className="text-xs text-muted-foreground">{module.description}</p>
+                                {module.mixed ? <p className="mt-1 text-[11px] font-medium text-amber-700">Réglages différents selon les formats</p> : null}
+                              </div>
+                              {state === "locked" ? (
+                                <Button type="button" variant="outline" className="!h-8 px-2 text-xs" onClick={openPricingDialog}>
+                                  Offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
+                                </Button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={module.enabled}
+                                  aria-label={`${module.enabled ? "Masquer" : "Activer"} ${module.label}`}
+                                  disabled={moduleSettingsSaving || (module.scope === "race" && websiteImportExistingRaces.length === 0)}
+                                  onClick={() => stageModuleSetting(module.key, !module.enabled, module.persistedEnabled)}
+                                  className={`relative h-6 w-11 shrink-0 rounded-full transition ${module.enabled ? "bg-brand" : "bg-muted"} disabled:cursor-wait disabled:opacity-50`}
+                                >
+                                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${module.enabled ? "left-[22px]" : "left-0.5"}`} />
+                                </button>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </section>
               );
             })}

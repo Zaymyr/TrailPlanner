@@ -58,7 +58,7 @@ The states are:
 
 `apps/web/lib/organizer-entitlements.ts` is the capability authority and `apps/web/lib/organizer-modules.ts` is the shared catalog. Server routes must check both capability and effective module state, never compare tier names locally.
 
-The web section chooser batches local switch drafts into one typed module-settings PATCH. Until it succeeds, the active dashboard navigation and completion use the last persisted configuration; failures keep the draft available for retry, and closing a modified regular chooser requires explicit discard confirmation.
+The web section chooser separates edition-common modules from per-format modules before batching local switch drafts into one typed module-settings PATCH. On the event tab, format-scoped changes target all existing formats and mixed values are labelled; on a format tab they target only the active format. Until the PATCH succeeds, the active dashboard navigation and completion use the last persisted configuration; failures keep the draft available for retry, and closing a modified regular chooser requires explicit discard confirmation.
 
 ## Stripe and Rights Lifecycle
 

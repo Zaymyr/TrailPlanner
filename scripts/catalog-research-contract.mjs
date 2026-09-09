@@ -59,6 +59,11 @@ export const datesInText = (text) => [...normalizeText(text).replace(/(\d{4}-\d{
   .map(match => parseResearchDate(match[0])).filter(Boolean);
 export const targetEdition = (row) => String(row.target_edition_year || row.prospect_date || row.priority_date || row.candidate_event_date || "")
   .match(/\b(20\d{2})\b/)?.[1] || "";
+export const SOURCE_IDENTITY_STATUS = Object.freeze({
+  VERIFIED: "official_verified",
+  PROBABLE: "official_probable",
+  UNKNOWN: "unknown",
+});
 export const classifySourceUrl = (value) => {
   try {
     const url = new URL(value);

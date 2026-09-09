@@ -13,9 +13,10 @@ import { parseResearchDate, classifySourceUrl } from "./catalog-research-contrac
 export const FORMAT_QUEUE_HEADERS = [
   "research_schema_version", "target_edition_year", "campaign_as_of", "min_event_date", "max_event_date", "field_provenance_json", "research_errors_json",
   "prospect_distance_km", "prospect_elevation_gain_m", "gpx_verified_fields", "gpx_previous_values_json", "gpx_sha256",
-  "format_key", "prospect_uuid", "event_name", "format_name", "official_format_name", "format_raw",
+  "format_key", "prospect_uuid", "event_name", "format_name", "official_format_name", "format_raw", "format_source_raw",
+  "format_kind", "prospect_format_tags", "prospect_distance_value", "prospect_distance_unit", "prospect_duration_hours", "prospect_participation_hint",
   "race_url", "official_website", "city", "country", "candidate_event_date",
-  "source_role", "source_quality",
+  "source_role", "source_quality", "source_identity_status", "source_identity_score", "source_identity_json", "rendering_status",
   "event_date_basis", "priority_date", "prospect_date", "prospect_city", "prospect_country",
   "official_date", "official_location", "official_distance_km", "official_source_url",
   "distance_km", "elevation_gain_m",
@@ -69,18 +70,81 @@ const parseNumber = (value) => {
   return Number.isFinite(parsed) ? parsed : null;
 };
 
+const MILES_TO_KM = 1.609344;
+
+const distanceFromMatch = (match) => {
+  if (!match) return { distanceKm: null, distanceValue: null, distanceUnit: "" };
+  const distanceValue = parseNumber(match[1]);
+  const distanceUnit = /^m(?:i|ile)/i.test(match[2]) ? "mi" : "km";
+  return {
+    distanceKm: distanceValue === null ? null : distanceUnit === "mi" ? Number((distanceValue * MILES_TO_KM).toFixed(3)) : distanceValue,
+    distanceValue,
+    distanceUnit,
+  };
+};
+
+const formatKindFor = ({ entry, distanceKm, durationHours }) => {
+  if (durationHours !== null) return "timed";
+  if (/\b(?:vk|kilom[eè]tre\s+vertical)\b/i.test(entry)) return "vertical_kilometer";
+  if (/\b(?:boucle(?:s)?|loop(?:s)?|lap(?:s)?)\b/i.test(entry)) return "loop";
+  if (/\b(?:relais|relay)\b/i.test(entry)) return "relay";
+  if (distanceKm !== null) return "distance";
+  if (/\b(?:semi[-\s]?marathon|marathon)\b/i.test(entry)) return "named_distance";
+  return "label_only";
+};
+
+const participationHintFor = (entry) => {
+  if (/\b(?:relais|relay)\b/i.test(entry)) return "relay";
+  if (/\b(?:duo|bin[oô]me)\b/i.test(entry)) return "duo";
+  if (/(?:\b(?:equipe|team)\b|équipe)/i.test(entry)) return "team";
+  return "";
+};
+
+const formatTagsFor = (entry, durationHours) => [
+  durationHours !== null && "timed",
+  /\b(?:boucle(?:s)?|loop(?:s)?|lap(?:s)?)\b/i.test(entry) && "loop",
+  /\b(?:relais|relay)\b/i.test(entry) && "relay",
+  /\b(?:duo|bin[oô]me)\b/i.test(entry) && "duo",
+  /(?:\b(?:equipe|team)\b|équipe)/i.test(entry) && "team",
+  /\b(?:vk|kilom[eè]tre\s+vertical)\b/i.test(entry) && "vertical_kilometer",
+  /\b(?:semi[-\s]?marathon)\b/i.test(entry) && "semi_marathon",
+  /\bmarathon\b/i.test(entry) && "marathon",
+].filter(Boolean);
+
+const compactDistanceEntries = (entry) => {
+  const match = entry.match(/^\s*((?:\d+(?:[.,]\d+)?\s*\/\s*)+\d+(?:[.,]\d+)?)\s*(km|kms?|kilom(?:e|è)tres?|mi|miles?)\b\s*$/i);
+  if (!match) return [];
+  const unit = /^m(?:i|ile)/i.test(match[2]) ? "mi" : "km";
+  return match[1].split("/").map(value => `${value.trim()} ${unit}`);
+};
+
 export const parseFormatText = (raw) => {
-  const formats = String(raw ?? "").split(";").map((entry) => entry.trim()).filter(Boolean);
-  return formats.map((entry, index) => {
-    const distanceMatch = entry.match(/(\d+(?:[.,]\d+)?)\s*km/i);
+  const sourceEntries = String(raw ?? "").split(";").map((entry) => entry.trim()).filter(Boolean);
+  const formats = sourceEntries.flatMap((entry) => {
+    const compactEntries = compactDistanceEntries(entry);
+    return compactEntries.length ? compactEntries.map(compactEntry => ({ entry: compactEntry, sourceEntry: entry })) : [{ entry, sourceEntry: entry }];
+  });
+  return formats.map(({ entry, sourceEntry }, index) => {
+    const distance = distanceFromMatch(entry.match(/(\d+(?:[.,]\d+)?)\s*(km|kms?|kilom(?:e|è)tres?|mi|miles?)\b/i));
     const elevationMatch = entry.match(/(\d+(?:[.,]\d+)?)\s*d\s*\+/i);
-    const distanceKm = distanceMatch ? parseNumber(distanceMatch[1]) : null;
     const elevationGainM = elevationMatch ? parseNumber(elevationMatch[1]) : null;
+    const durationMatch = entry.match(/(\d+(?:[.,]\d+)?)\s*(?:h|heures?)\b/i);
+    const durationHours = durationMatch ? parseNumber(durationMatch[1]) : null;
     const formatName = entry
       .replace(/\s*\/\s*[^/]*d\s*\+.*$/i, "")
       .replace(/\s*\/.*$/, "")
       .trim() || `Format ${index + 1}`;
-    return { entry, formatName, distanceKm, elevationGainM };
+    return {
+      entry,
+      sourceEntry,
+      formatName,
+      ...distance,
+      elevationGainM,
+      durationHours,
+      formatKind: formatKindFor({ entry, distanceKm: distance.distanceKm, durationHours }),
+      formatTags: formatTagsFor(entry, durationHours),
+      participationHint: participationHintFor(entry),
+    };
   });
 };
 
@@ -144,10 +208,21 @@ export const buildFormatQueue = (rows, { asOf = new Date().toISOString().slice(0
         event_name: eventName,
         format_name: format.formatName,
         format_raw: format.entry,
+        format_source_raw: format.sourceEntry,
+        format_kind: format.formatKind,
+        prospect_format_tags: JSON.stringify(format.formatTags),
+        prospect_distance_value: format.distanceValue === null ? "" : String(format.distanceValue),
+        prospect_distance_unit: format.distanceUnit,
+        prospect_duration_hours: format.durationHours === null ? "" : String(format.durationHours),
+        prospect_participation_hint: format.participationHint,
         race_url: raceUrl,
         official_website: officialWebsite,
         source_role: sourceClassification.role,
         source_quality: sourceClassification.quality,
+        source_identity_status: "not_checked",
+        source_identity_score: "",
+        source_identity_json: "{}",
+        rendering_status: "unknown",
         city,
         country,
         candidate_event_date: exactDate,

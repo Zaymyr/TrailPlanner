@@ -1283,15 +1283,10 @@ export default function RaceRacebookScreen() {
         }
       });
 
-    const sponsorRequestTimeout = new Promise<RacebookSponsorPresentation>((resolve) => {
-      sponsorTimer = setTimeout(() => resolve(EMPTY_RACEBOOK_SPONSORS), 1_200);
-    });
-
-    Promise.race([fetchRacebookSponsors(id), sponsorRequestTimeout])
+    fetchRacebookSponsors(id)
       .then(async (presentation) => {
         if (cancelled) return;
 
-        if (sponsorTimer) clearTimeout(sponsorTimer);
         setSponsorPresentation(presentation);
         if (presentation.loadingSponsors.length === 0) {
           setSponsorLookupDone(true);
@@ -2211,9 +2206,15 @@ export default function RaceRacebookScreen() {
                   <SectionCard title={t.catalog.racebookSectionRelay}>
                     <View style={styles.relaySegmentsList}>
                       {relaySegments.map((segment, index) => (
-                        <View key={`${segment.start.name}-${segment.end.name}-${index}`} style={styles.relaySegmentCard}>
+                        <View
+                          key={`${segment.start.name}-${segment.end.name}-${index}`}
+                          style={[
+                            styles.relaySegmentCard,
+                            { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor },
+                          ]}
+                        >
                           <View style={styles.relaySegmentHeader}>
-                            <Text style={styles.relaySegmentKicker}>
+                            <Text style={[styles.relaySegmentKicker, { color: brandTheme.primaryColor }]}>
                               {t.catalog.racebookRelayLeg.replace('{number}', String(index + 1))}
                             </Text>
                             <DataText style={styles.relaySegmentDistance}>{formatStationDistance(segment.distanceKm)}</DataText>
@@ -2236,7 +2237,7 @@ export default function RaceRacebookScreen() {
                   <SectionCard title={t.catalog.racebookSectionStartWaves}>
                     <View style={styles.relaySegmentsList}>{data.startWaves.map((wave) => {
                       const criterion = wave.eligibilityType === 'bib_range' ? `${t.catalog.racebookWaveBibNumbers} ${wave.bibNumberMin}–${wave.bibNumberMax}` : wave.eligibilityType === 'estimated_finish_time' ? `${wave.finishMinutesMin}–${wave.finishMinutesMax} min` : wave.eligibilityType === 'pace' ? `${wave.paceSecondsMin}–${wave.paceSecondsMax} s/km` : wave.eligibilityType === 'custom' ? wave.eligibilityNote : t.catalog.racebookWaveAll;
-                      return <View key={wave.id} style={styles.relaySegmentCard}><View style={styles.relaySegmentHeader}><Text style={styles.relaySegmentTitle}>{wave.name}</Text><DataText style={styles.relaySegmentDistance}>{wave.startTime}</DataText></View>{criterion ? <Text style={styles.noteText}>{criterion}</Text> : null}</View>;
+                      return <View key={wave.id} style={[styles.relaySegmentCard, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}><View style={styles.relaySegmentHeader}><Text style={styles.relaySegmentTitle}>{wave.name}</Text><DataText style={[styles.relaySegmentDistance, { color: brandTheme.primaryColor }]}>{wave.startTime}</DataText></View>{criterion ? <Text style={styles.noteText}>{criterion}</Text> : null}</View>;
                     })}</View>
                   </SectionCard>
                 ) : null}
@@ -2244,7 +2245,7 @@ export default function RaceRacebookScreen() {
                 {activeCourseTab === 'awards' ? (
                   <View style={styles.relaySegmentsList}>{awardsByTime.map(([podiumTime, awards]) => (
                     <SectionCard key={podiumTime} title={`${t.catalog.racebookSectionAwards} · ${podiumTime}`}>
-                      <View style={styles.relaySegmentsList}>{awards.map((award) => <View key={award.id} style={styles.relaySegmentCard}><Text style={styles.relaySegmentTitle}>{award.categoryLabel}</Text><Text style={styles.relaySegmentMeta}>{`${award.audience === 'women' ? t.catalog.racebookAwardWomen : award.audience === 'men' ? t.catalog.racebookAwardMen : t.catalog.racebookAwardMixed} · ${award.placeFrom}–${award.placeTo}`}</Text>{award.podiumLocation ? <Text style={styles.noteText}>{award.podiumLocation}</Text> : null}{award.rewardNote ? <Text style={styles.noteText}>{award.rewardNote}</Text> : null}</View>)}</View>
+                      <View style={styles.relaySegmentsList}>{awards.map((award) => <View key={award.id} style={[styles.relaySegmentCard, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}><Text style={styles.relaySegmentTitle}>{award.categoryLabel}</Text><Text style={styles.relaySegmentMeta}>{`${award.audience === 'women' ? t.catalog.racebookAwardWomen : award.audience === 'men' ? t.catalog.racebookAwardMen : t.catalog.racebookAwardMixed} · ${award.placeFrom}–${award.placeTo}`}</Text>{award.podiumLocation ? <Text style={styles.noteText}>{award.podiumLocation}</Text> : null}{award.rewardNote ? <Text style={styles.noteText}>{award.rewardNote}</Text> : null}</View>)}</View>
                     </SectionCard>
                   ))}</View>
                 ) : null}

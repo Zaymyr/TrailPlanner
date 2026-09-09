@@ -114,10 +114,26 @@ test("extracts the complete venue between departure and arrival labels",()=>{
   const extraction=deterministicExtract('<p>Départ Musée de Bibracte - Saint-Léger-Sous-Beuvray (71990) Arrivée Musée de Bibracte - Saint-Léger-Sous-Beuvray (71990)</p>',row);
   assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Musée de Bibracte - Saint-Léger-Sous-Beuvray (71990)');
 });
+test("extracts a venue after shared departure and arrival labels",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract('<p>Départ et Arrivée : Paléosite, Route de la montée verte, 17770 Saint-Césaire Les parcours traversent des propriétés privées.</p>',row);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Paléosite, Route de la montée verte, 17770 Saint-Césaire');
+});
+test("extracts the complete unique start and finish address",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract("<p>L’unique lieu de départ et d’ arrivée se situe au Château de Ménilles, rue Roederer, 27120 Ménilles.</p>",row);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Château de Ménilles, rue Roederer, 27120 Ménilles');
+});
 test("extracts an event venue and its adjacent postal address",()=>{
   const row=makeRow({official_website:'https://trail.test/'});
   const extraction=deterministicExtract("<p>L'Endurance Trail aura lieu le mercredi 11 novembre 2026 au Complexe Sportif de Bellefontaine. (Rue de Roncevaux 54250 CHAMPIGNEULLES)</p>",row);
   assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Complexe Sportif de Bellefontaine, Rue de Roncevaux 54250 CHAMPIGNEULLES');
+});
+test("cleans control characters and extracts a venue introduced by a lieu sur",()=>{
+  const row=makeRow({official_website:'https://trail.test/'});
+  const extraction=deterministicExtract('<p>Le trail a lieu sur le Plateau des Petites Roches \u0000 &agrave; Saint Hilaire-du-Touvet le deuxi&egrave;me dimanche de novembre.</p>',row);
+  assert.equal(extraction.text.includes('\u0000'),false);
+  assert.equal(extraction.claims.find(item=>item.field==='location')?.value,'Plateau des Petites Roches à Saint Hilaire-du-Touvet');
 });
 test("keeps lowercase connectors inside a named rendez-vous venue",()=>{
   const row=makeRow({official_website:'https://trail.test/'});
@@ -149,12 +165,20 @@ test("rejects dates scoped to another format or an unscoped event range",()=>{
   const row=makeRow({format_name:'36km',distance_km:'36',prospect_distance_km:'36',target_edition_year:'2026',min_event_date:'2026-11-01',max_event_date:'2027-02-28'});
   assert.equal(validateClaimForRow({...claim('race_date','2026-11-14','Samedi 14 novembre : canitrail 15 km'),method:'deterministic_inferred_year'},row),'neighboring_format');
   assert.equal(validateClaimForRow({...claim('race_date','2026-11-15','Rendez-vous les 14 & 15 novembre pour un événement unique'),method:'deterministic_inferred_year'},row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('race_date','2026-11-15','Le règlement des trails 22 km, 17 km et 36 km s’applique aux épreuves se déroulant les 14 et 15 novembre 2026.'),row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('race_date','2026-11-14','Samedi 14 novembre 2026 : Canitrail 15 km. Dimanche 15 novembre 2026 : Les Châtaignes 36 km.'),row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('race_date','2026-11-15','Samedi 14 novembre 2026 : Canitrail 15 km. Dimanche 15 novembre 2026 : Les Châtaignes 36 km.'),row),'');
+  assert.equal(validateClaimForRow({...claim('race_date','2026-11-14','Samedi 14 novembre : Canitrail 15 km. Dimanche 15 novembre : Les Châtaignes 36 km.'),method:'deterministic_inferred_year'},row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('race_date','2026-11-14','22 km nocturne départ à 18h00 le samedi 14 novembre 2026 36 km départ à 9h00 le dimanche 15 novembre 2026 17 km départ à 10h30 le dimanche 15 novembre 2026'),row),'date_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('race_date','2026-11-15','22 km nocturne départ à 18h00 le samedi 14 novembre 2026 36 km départ à 9h00 le dimanche 15 novembre 2026 17 km départ à 10h30 le dimanche 15 novembre 2026'),row),'');
   assert.equal(validateClaimForRow({...claim('race_date','2026-11-14','DEPART 17H30 SAMEDI 14 NOVEMBRE'),source_url:'https://trail.test/12km-nocturne',method:'deterministic_inferred_year'},row),'neighboring_format');
 });
 test("does not treat bib pickup or a club contact address as the event location",()=>{
   const row=makeRow({target_edition_year:'2026'});
   assert.equal(validateClaimForRow(claim('location','Bellefontaine','La remise des dossards se fera au complexe sportif de Bellefontaine'),row),'location_context_ambiguous');
   assert.equal(validateClaimForRow(claim('location','Paris','Notre adresse : 10 rue du Club, Paris'),row),'location_context_ambiguous');
+  assert.equal(validateClaimForRow(claim('location','et','Départ et Arrivée : Paléosite'),row),'invalid_location');
+  assert.equal(validateClaimForRow(claim('location','et d’','L’unique lieu de départ et d’arrivée se situe au Château de Ménilles'),row),'invalid_location');
   assert.equal(validateClaimForRow(claim('location','Bellefontaine','La course aura lieu au complexe sportif de Bellefontaine'),row),'');
 });
 test("rejects mandatory claims sourced from a historical results URL",()=>{
@@ -377,7 +401,7 @@ test("campaign resumes from the last completed format and refuses changed input"
   const argv=["--input",input,"--output-dir",output,"--as-of","2027-01-01","--min-days-before","0","--date-from","2027-06-01","--date-to","2027-06-30","--no-llm","--limit","2"];
   let processed=0;
   await assert.rejects(run(argv,{enrichImpl:async(rows,{onRow})=>{await onRow(rows[0]);processed++;throw new Error("interrupted");}}),/interrupted/);
-  const state=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(state.next_offset,1); assert.equal(state.pipeline_version,"7");
+  const state=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(state.next_offset,1); assert.equal(state.pipeline_version,"9");
   assert.equal(state.date_from,"2027-06-01"); assert.equal(state.date_to,"2027-06-30");
   await run([...argv,"--resume"],{enrichImpl:async(rows,{onRow})=>{for(const row of rows){await onRow(row);processed++;}}});
   const final=JSON.parse(await readFile(`${output}/catalog-progress.json`,"utf8")); assert.equal(final.rows.length,3); assert.equal(final.complete,true); assert.equal(processed,3);

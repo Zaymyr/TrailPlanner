@@ -1,5 +1,6 @@
 import { RESEARCH_SCHEMA_VERSION, FIELD_COLUMNS, REQUIRED_FIELDS, jsonValue, numericValue,
   normalizeText, parseResearchDate, datesInText, targetEdition, classifySourceUrl, isUnsafeResearchUrl, normalizeAidStations, verifiedValue } from "./catalog-research-contract.mjs";
+import { canonicalClaimValue, resolveClaimLedger, stableClaimOrder } from "./catalog-research-claim-ledger.mjs";
 
 const NUMERIC_FIELDS = new Set(["distance_km", "elevation_gain_m", "elevation_loss_m", "altitude_min_m", "altitude_max_m", "latitude", "longitude"]);
 const FORMAT_FIELDS = new Set(["distance_km", "elevation_gain_m", "elevation_loss_m", "start_time", "end_time", "cutoff_times", "gpx_url", "aid_stations", "participation_mode", "mandatory_equipment"]);
@@ -81,6 +82,34 @@ const sourceIdentifiesAnotherFormat = (sourceUrl, row) => {
   try { source = decodeURIComponent(new URL(source).pathname); } catch { /* malformed sources fail elsewhere */ }
   return evidenceIdentifiesAnotherFormat(source.replace(/[-_/]+/g," "),row);
 };
+const dateIsUnscopedAcrossEventDays = (claim, row) => {
+  if (claim.field !== "race_date") return false;
+  const evidence = normalizeText(claim.evidence);
+  const expected = numericValue(row.prospect_distance_km ?? row.distance_km);
+  const distancePattern = expected === null ? "" : `${escape(expected).replace("\\.", "[.,]")}\\s*(?:km|kms|k|kilometres?)`;
+  const [, month, day] = String(claim.value).match(/^\d{4}-(\d{2})-(\d{2})$/) || [];
+  const monthName = ["janvier","fevrier","mars","avril","mai","juin","juillet","aout","septembre","octobre","novembre","decembre"][Number(month)-1];
+  if (!monthName || !day) return false;
+  const claimedDatePattern = `(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\\s*0?${Number(day)}(?:er)?\\s+${monthName}(?:\\s+20\\d{2})?`;
+  const explicitDeparture = distancePattern && (new RegExp(`${distancePattern}[^.!?]{0,100}(?:depart|partira)[^.!?]{0,70}${claimedDatePattern}`).test(evidence)
+    || new RegExp(`${claimedDatePattern}[^.!?]{0,100}(?:depart|partira)[^.!?]{0,70}${distancePattern}`).test(evidence));
+  const textualRange = /\b(?:les?|du)\s+\d{1,2}(?:er)?\s*(?:&|et|au|-)\s*\d{1,2}(?:er)?\s+(?:janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/.test(evidence);
+  if (textualRange) return !explicitDeparture;
+  const eventDates = [...new Set(datesInText(evidence))];
+  const dateMentions = [...evidence.matchAll(/\b(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche)?\s*\d{1,2}(?:er)?\s+(?:janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)(?:\s+20\d{2})?\b/g)];
+  if (eventDates.length < 2 && dateMentions.length < 2 || expected === null) return false;
+  const matchingIndex = dateMentions.findIndex(match=>new RegExp(`^${claimedDatePattern}$`).test(match[0]));
+  if (matchingIndex < 0) return !explicitDeparture;
+  const distanceMentions = [...evidence.matchAll(/\b\d+(?:[.,]\d+)?\s*(?:km|kms|k|kilometres?)\b/g)];
+  const distanceBeforeDate = distanceMentions.length && distanceMentions[0].index < dateMentions[0].index;
+  const start = distanceBeforeDate
+    ? matchingIndex ? dateMentions[matchingIndex-1].index + dateMentions[matchingIndex-1][0].length : 0
+    : dateMentions[matchingIndex].index;
+  const end = distanceBeforeDate
+    ? dateMentions[matchingIndex].index + dateMentions[matchingIndex][0].length
+    : matchingIndex + 1 < dateMentions.length ? dateMentions[matchingIndex+1].index : evidence.length;
+  return !evidenceIdentifiesFormat(evidence.slice(start,end),row) && !explicitDeparture;
+};
 const locationTokens = value => normalizeText(value).match(/[a-z0-9]+/g) || [];
 const equivalentLocations = (left, right) => {
   const a = locationTokens(left), b = locationTokens(right);
@@ -128,6 +157,9 @@ export const validateClaimForRow = (input, row) => {
     if (historicalEdition) return "historical_evidence";
     if (claim.field === "location") {
       const evidenceText = normalizeText(claim.evidence);
+      const locationValue = normalizeText(claim.value);
+      const meaningfulLocationTokens = locationTokens(locationValue).filter(token=>!["et","avec","d","de","du","des","la","le","les"].includes(token));
+      if (!locationValue || !meaningfulLocationTokens.length) return "invalid_location";
       const administrativeVenue = /(?:retrait|remise)[^.!?]{0,50}dossards?|notre\s+adresse|adresse\s+du\s+(?:club|siege|contact)/.test(evidenceText);
       const eventVenue = /(?:lieu|site)\s+(?:de\s+)?(?:depart|arrivee)|(?:depart|arrivee)\s+(?:a|au|aux)|aura\s+lieu|se\s+deroul/.test(evidenceText);
       if (administrativeVenue && !eventVenue) return "location_context_ambiguous";
@@ -147,6 +179,7 @@ export const validateClaimForRow = (input, row) => {
     if (weekdayContradictsDate(claim.value,claim.evidence)) return "weekday_mismatch";
     if (claim.field === "race_date" && sourceIdentifiesAnotherFormat(claim.source_url,row)) return "neighboring_format";
     if (claim.field === "race_date" && evidenceIdentifiesAnotherFormat(claim.evidence,row)) return "neighboring_format";
+    if (dateIsUnscopedAcrossEventDays(claim,row)) return "date_context_ambiguous";
     if (claim.field === "race_date" && claim.method === "deterministic_inferred_year"
       && /\b\d{1,2}\s*(?:&|et|au|-)\s*\d{1,2}\s+(?:janvier|fevrier|mars|avril|mai|juin|juillet|aout|septembre|octobre|novembre|decembre)\b/.test(normalizeText(claim.evidence))
       && !evidenceIdentifiesFormat(claim.evidence,row)) return "date_context_ambiguous";
@@ -226,9 +259,12 @@ export const applyClaims = (row, extraction, llm = {}) => {
   row.prospect_distance_km ??= row.distance_km || "";
   row.prospect_elevation_gain_m ??= row.elevation_gain_m || "";
   row.target_edition_year ||= targetEdition(row);
-  const pages = extraction.pages || [{url: row.official_website, text: extraction.validation_text || extraction.text || ""}];
+  const pages = (extraction.pages || [{url: row.official_website, text: extraction.validation_text || extraction.text || ""}])
+    .sort((left,right)=>String(left.url || "").localeCompare(String(right.url || ""))
+      || String(left.title || "").localeCompare(String(right.title || ""))
+      || String(left.text || "").localeCompare(String(right.text || "")));
   const proposals = [...(extraction.claims || []), ...(Array.isArray(llm.claims) ? llm.claims : [])];
-  const proofs = {}, rejected = [], conflicts = new Set();
+  const accepted = [], rejected = [];
   for (const proposal of proposals) {
     const claim = normalizedClaim(proposal);
     const page = pages.find(p => (!claim.source_url || p.url === claim.source_url) && claim.evidence && citationMatchesPage(claim.evidence,p.text));
@@ -248,7 +284,6 @@ export const applyClaims = (row, extraction, llm = {}) => {
       const stations = normalizeAidStations(value);
       if (stations.length) value = JSON.stringify(stations);
     }
-    const column = FIELD_COLUMNS[claim.field];
     const pageDistances = [...new Set(distances(page.text || ''))];
     const expectedDistance = numericValue(row.prospect_distance_km ?? row.distance_km);
     const namedPage = claim.format_label && normalizeText(page.title || '').includes(normalizeText(claim.format_label));
@@ -258,25 +293,31 @@ export const applyClaims = (row, extraction, llm = {}) => {
       : evidenceIdentifiesFormat(claim.evidence,row) ? 2 : 1;
     const transactionalPage = /(?:inscri|enregistrement|checkout|panier|commande)/.test(normalizeText(page.url));
     const specificity = Math.max(0, baseSpecificity - (transactionalPage ? 2 : 0));
-    const existing = proofs[claim.field];
-    if (existing && claim.field === "location" && String(existing.value) !== String(value) && equivalentLocations(existing.value,value)) {
-      const useNew = specificity > existing.specificity || specificity === existing.specificity && String(value).length > String(existing.value).length;
-      if (!useNew) { rejected.push({...claim,reason:'equivalent_location'}); conflicts.delete('location'); continue; }
-      rejected.push({...existing,field:claim.field,reason:'superseded_by_more_complete_location'});
-      conflicts.delete('location');
-    } else if (existing && String(existing.value) === String(value) && specificity < existing.specificity) {
-      rejected.push({...claim,reason:'lower_format_specificity'}); continue;
-    }
-    if (existing && String(existing.value) !== String(value) && !(claim.field === "location" && equivalentLocations(existing.value,value))) {
-      if (specificity < existing.specificity) { rejected.push({...claim,reason:'lower_format_specificity'}); continue; }
-      if (specificity === existing.specificity) { conflicts.add(claim.field); rejected.push({...claim, reason:"conflicting_verified_values"}); continue; }
-      rejected.push({...existing,field:claim.field,reason:'superseded_by_format_specific_claim'});
-      conflicts.delete(claim.field);
-    }
-    proofs[claim.field] = {value, evidence:claim.evidence, context:page.format_context || "", source_url:page.url, method:claim.method || "llm", status:"verified", edition_year:targetEdition(row),specificity};
-    row[column] = typeof value === "object" ? JSON.stringify(value) : String(value);
-    if (claim.format_label && evidenceIdentifiesFormat(claim.evidence, row) && normalizeText(claim.evidence).includes(normalizeText(claim.format_label))) row.official_format_name = claim.format_label;
+    accepted.push({...claim, value, context:page.format_context || "", source_url:page.url,
+      method:claim.method || "llm", edition_year:targetEdition(row), specificity});
   }
+  const resolution = resolveClaimLedger(accepted, {
+    equivalent: (field, left, right) => canonicalClaimValue(left) === canonicalClaimValue(right)
+      || field === "location" && equivalentLocations(left,right),
+    representativeOrder: (field, left, right) => Number(right.specificity || 0) - Number(left.specificity || 0)
+      || (field === "location" ? String(right.value).length - String(left.value).length : 0)
+      || stableClaimOrder(left,right),
+  });
+  const {proofs, conflicts} = resolution;
+  rejected.push(...resolution.rejected);
+  for (const [field, proof] of Object.entries(proofs)) {
+    const column = FIELD_COLUMNS[field];
+    row[column] = typeof proof.value === "object" ? JSON.stringify(proof.value) : String(proof.value);
+    const labelled = proof.supporting_claims.find(item => item.format_label
+      && evidenceIdentifiesFormat(item.evidence,row)
+      && normalizeText(item.evidence).includes(normalizeText(item.format_label)));
+    if (labelled) row.official_format_name = labelled.format_label;
+  }
+  rejected.sort((left,right)=>String(left.field || "").localeCompare(String(right.field || ""))
+    || String(left.reason || "").localeCompare(String(right.reason || ""))
+    || String(left.value ?? "").localeCompare(String(right.value ?? ""))
+    || String(left.source_url || "").localeCompare(String(right.source_url || ""))
+    || String(left.evidence || "").localeCompare(String(right.evidence || "")));
   row.research_schema_version = RESEARCH_SCHEMA_VERSION;
   row.field_provenance_json = JSON.stringify(proofs);
   row.field_evidence_json = JSON.stringify(Object.fromEntries(Object.entries(proofs).map(([field, proof]) => [field, proof.evidence])));

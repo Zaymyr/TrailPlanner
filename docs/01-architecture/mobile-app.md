@@ -210,9 +210,11 @@ Active banner sponsors render in a roughly 44 dp strip before the identity card,
 
 ## RaceBook Edition Branding
 
+The destination now waits for the real lightweight edition response before revealing RaceBook content. A slow response therefore cannot permanently leave one format on the default module map or colors while sibling formats use the published edition identity.
+
 The same lightweight request carries the edition's published identity. Mobile normalizes that additive object through the shared design-system resolver. Edition-logo presentation is temporarily dormant: the shared feature flag resolves its URL to `null`, so mobile neither prefetches nor renders it while stored server data remains intact.
 
-Primary colors style active tabs, buttons, links, icons and badges with automatically selected black or white foreground text. Accent colors style progress, route, elevation profile, their lightly tinted cards, positive information rows, and decorative schedule highlights. The native header, bottom navigation, typography, neutral card backgrounds, sponsor panel, runner illustration, and semantic red/orange/blue states remain Pace Yourself-owned. Missing, unpublished, or invalid values resolve to `#2D5016` and `#B45309`.
+Primary colors style active tabs, buttons, links, icons, badges, and structured relay/SAS/podium cards with automatically selected black or white foreground text where needed. Accent colors style progress, route, elevation profile, their lightly tinted cards, positive information rows, and decorative schedule highlights. The native header, bottom navigation, typography, neutral card backgrounds, sponsor panel, runner illustration, and semantic red/orange/blue states remain Pace Yourself-owned. Missing, unpublished, or invalid values resolve to `#2D5016` and `#B45309`.
 
 ## RaceBook Module Visibility
 

@@ -15,7 +15,7 @@ import { RESEARCH_SCHEMA_VERSION, FIELD_COLUMNS, jsonValue, numericValue, normal
 import { fetchResearchResource } from "./catalog-research-http.mjs";
 
 const GPX_TIMEOUT_MS = 15_000;
-const RESEARCH_PIPELINE_VERSION = "7";
+const RESEARCH_PIPELINE_VERSION = "9";
 const DISTANCE_MATCH_RATIO = 0.12;
 const GPX_ELEVATION_MATCH_RATIO = 0.5;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -114,10 +114,11 @@ const json = (value, fallback) => {
   try { return JSON.parse(value || ""); } catch { return fallback; }
 };
 const parseArgs = (argv) => {
-  const args = { input: "tmp/prospects.csv", outputDir: "tmp/catalog-research", asOf: new Date().toISOString().slice(0, 10), minDaysBefore: 21, dateFrom: "", dateTo: "", limit: null, offset: 0, resume: false, noLlm: false, verbose: false, delayMs: 500 };
+  const args = { input: "tmp/prospects.csv", inputMode:"prospects", outputDir: "tmp/catalog-research", asOf: new Date().toISOString().slice(0, 10), minDaysBefore: 21, dateFrom: "", dateTo: "", limit: null, offset: 0, resume: false, noLlm: false, verbose: false, delayMs: 500 };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index]; const next = argv[index + 1];
-    if (arg === "--input") { args.input = next; index += 1; continue; }
+    if (arg === "--input") { args.input = next; args.inputMode = "prospects"; index += 1; continue; }
+    if (arg === "--queue-input") { args.input = next; args.inputMode = "queue"; index += 1; continue; }
     if (arg === "--output-dir") { args.outputDir = next; index += 1; continue; }
     if (arg === "--as-of") { args.asOf = next; index += 1; continue; }
     if (arg === "--min-days-before") { args.minDaysBefore = Number(next); index += 1; continue; }
@@ -140,15 +141,29 @@ export const buildExports = (rows) => {
   const aidStations = [];
   const gpx = [];
   const formatHeaders = FORMAT_QUEUE_HEADERS;
-  const eventHeaders = ["event_key", "event_name", "official_website", "city", "country", "candidate_event_date", "event_end_date", "format_location", "event_social_links_json", "event_contact_json", "event_details_json", "access_json", "parking_json", "shuttle_json", "services_json", "bib_pickup_json", "source_pages_json", "format_count"];
+  const eventHeaders = ["event_key", "event_name", "official_website", "city", "country", "candidate_event_date", "event_end_date", "format_location", "event_social_links_json", "event_contact_json", "event_details_json", "access_json", "parking_json", "shuttle_json", "services_json", "bib_pickup_json", "source_pages_json", "event_conflicts_json", "event_field_provenance_json", "format_count"];
   const formatRows = rows.map((row) => Object.fromEntries(formatHeaders.map((header) => [header, row[header] ?? ""])));
+  const eventFields = ["event_name", "official_website", "city", "country", "candidate_event_date", "event_end_date", "format_location", "event_social_links_json", "event_contact_json", "event_details_json", "access_json", "parking_json", "shuttle_json", "services_json", "bib_pickup_json"];
+  const proofField = {candidate_event_date:"race_date",event_end_date:"event_end_date",format_location:"location",event_social_links_json:"social_links",event_contact_json:"emergency_contact",event_details_json:"event_details",access_json:"access",parking_json:"parking",shuttle_json:"shuttle",services_json:"services",bib_pickup_json:"bib_pickup"};
+  const eventCandidates = new Map();
+  const normalizedComparable = (value) => compact(value).toLocaleLowerCase("fr");
+  const addCandidate = (eventKey, field, value, row, provenance) => {
+    if (value == null || compact(value) === "") return;
+    const fieldProof = provenance[proofField[field]] || {};
+    const key = `${eventKey}\u0000${field}`;
+    const candidates = eventCandidates.get(key) || [];
+    candidates.push({value:String(value),format_key:row.format_key || "",source_url:fieldProof.source_url || "",method:fieldProof.method || "candidate",specificity:Number(fieldProof.specificity || 0),verified:Boolean(fieldProof.status === "verified"),identity_verified:row.source_identity_status === "official_verified"});
+    eventCandidates.set(key,candidates);
+  };
   for (const row of rows) {
     const eventKey = `${row.race_url || row.event_name}|${targetEdition(row)}`;
-    if (!eventMap.has(eventKey)) eventMap.set(eventKey, { event_key: eventKey, event_name: row.event_name, official_website: row.official_website, city: row.city, country: row.country, candidate_event_date: row.candidate_event_date, event_end_date: row.event_end_date, format_location: row.format_location, event_social_links_json: row.event_social_links_json, event_contact_json: row.event_contact_json, event_details_json: row.event_details_json, access_json: row.access_json, parking_json: row.parking_json, shuttle_json: row.shuttle_json, services_json: row.services_json, bib_pickup_json: row.bib_pickup_json, source_pages_json: row.source_pages_json, format_count: 0 });
+    if (!eventMap.has(eventKey)) eventMap.set(eventKey, { event_key: eventKey, source_pages_json:"[]", event_conflicts_json:"{}", event_field_provenance_json:"{}", format_count: 0 });
     const event = eventMap.get(eventKey);
     event.format_count += 1;
     const evidence = json(row.field_evidence_json, {});
     const provenance = jsonValue(row.field_provenance_json);
+    event.source_pages_json = JSON.stringify([...new Set([...json(event.source_pages_json,[]),...json(row.source_pages_json,[])])].sort());
+    for (const field of eventFields) addCandidate(eventKey,field,row[field],row,provenance);
     for (const [field,excerpt] of Object.entries(evidence)) claims.push({event_key:eventKey,format_key:row.format_key,
       scope:['access','parking','shuttle','services','bib_pickup','event_details','social_links','emergency_contact'].includes(field) ? 'event' : 'format',
       field,value:row[FIELD_COLUMNS[field]] ?? '',source_url:provenance[field]?.source_url || '',
@@ -156,6 +171,38 @@ export const buildExports = (rows) => {
       source_pages_json:row.source_pages_json,evidence:excerpt,confidence:row.llm_confidence || 'none',research_status:row.research_status});
     normalizeAidStations(row.aid_stations_json).forEach(station=>aidStations.push({format_key:row.format_key,event_name:row.event_name,format_name:row.format_name,...station}));
     if (row.gpx_url || row.gpx_distance_km) gpx.push({ format_key: row.format_key, event_name: row.event_name, format_name: row.format_name, gpx_url: row.gpx_url, gpx_status: row.gpx_status || "not_processed", gpx_distance_km: row.gpx_distance_km || "", gpx_elevation_gain_m: row.gpx_elevation_gain_m || "", gpx_elevation_loss_m: row.gpx_elevation_loss_m || "", gpx_altitude_min_m: row.gpx_altitude_min_m || "", gpx_altitude_max_m: row.gpx_altitude_max_m || "", gpx_error: row.gpx_error || "" });
+  }
+  for (const [eventKey,event] of eventMap) {
+    const conflicts = {}, selectedProvenance = {};
+    for (const field of eventFields) {
+      const candidates = eventCandidates.get(`${eventKey}\u0000${field}`) || [];
+      const groups = new Map();
+      for (const candidate of candidates) {
+        const normalized = normalizedComparable(candidate.value);
+        const group = groups.get(normalized) || [];
+        group.push(candidate); groups.set(normalized,group);
+      }
+      const ranked = [...groups.values()].map(group => ({
+        group,
+        score:Math.max(...group.map(candidate => (candidate.verified ? 100 : 0) + candidate.specificity * 10 + (field === "official_website" && candidate.identity_verified ? 200 : 0))) + Math.min(group.length,9),
+        value:[...group].sort((a,b)=>a.value.localeCompare(b.value,"fr"))[0].value,
+      })).sort((a,b)=>b.score-a.score || a.value.localeCompare(b.value,"fr"));
+      event[field] = ranked[0]?.value || "";
+      if (ranked[0]) selectedProvenance[field] = ranked[0].group.map(({format_key,source_url,method,specificity,verified})=>({format_key,source_url,method,specificity,verified}))
+        .sort((a,b)=>a.format_key.localeCompare(b.format_key) || a.source_url.localeCompare(b.source_url));
+      if (ranked.length > 1) conflicts[field] = ranked.map(candidate => ({value:candidate.value,score:candidate.score,sources:candidate.group
+        .map(item=>({format_key:item.format_key,source_url:item.source_url,verified:item.verified}))
+        .sort((a,b)=>a.format_key.localeCompare(b.format_key) || a.source_url.localeCompare(b.source_url))}));
+    }
+    const dateCandidates = eventCandidates.get(`${eventKey}\u0000candidate_event_date`) || [];
+    const verifiedStarts = dateCandidates.filter(candidate=>candidate.verified).map(candidate=>candidate.value).filter(value=>/^\d{4}-\d{2}-\d{2}$/.test(value));
+    const candidateStarts = dateCandidates.map(candidate=>candidate.value).filter(value=>/^\d{4}-\d{2}-\d{2}$/.test(value));
+    event.candidate_event_date = [...(verifiedStarts.length ? verifiedStarts : candidateStarts)].sort()[0] || "";
+    const explicitEnds = (eventCandidates.get(`${eventKey}\u0000event_end_date`) || []).filter(candidate=>candidate.verified).map(candidate=>candidate.value).filter(value=>/^\d{4}-\d{2}-\d{2}$/.test(value));
+    event.event_end_date = [...explicitEnds,...verifiedStarts].sort().at(-1) || event.candidate_event_date;
+    if (conflicts.format_location) event.format_location = "";
+    event.event_conflicts_json = JSON.stringify(conflicts);
+    event.event_field_provenance_json = JSON.stringify(selectedProvenance);
   }
   return { formatRows, formatHeaders, events: [...eventMap.values()], eventHeaders, claims, aidStations, gpx };
 };
@@ -270,9 +317,17 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
       catch (error) { if (error.code !== 'ENOENT') throw error; }
     }
     const excluded = [];
-    const queue = buildFormatQueue(parseCsvTable(inputText).rows,{asOf:args.asOf,minDaysBefore:args.minDaysBefore,dateFrom:args.dateFrom,dateTo:args.dateTo,onExcluded:row=>excluded.push(row)});
-    state ||= {schema_version:RESEARCH_SCHEMA_VERSION,pipeline_version:RESEARCH_PIPELINE_VERSION,input_sha256:inputHash,as_of:args.asOf,min_days_before:args.minDaysBefore,date_from:args.dateFrom,date_to:args.dateTo,
+    const inputRows = parseCsvTable(inputText).rows;
+    const queue = args.inputMode === "queue" ? inputRows.map(row=>({...row}))
+      : buildFormatQueue(inputRows,{asOf:args.asOf,minDaysBefore:args.minDaysBefore,dateFrom:args.dateFrom,dateTo:args.dateTo,onExcluded:row=>excluded.push(row)});
+    if (args.inputMode === "queue") {
+      if (!queue.length) throw new Error("Queue préconstruite vide.");
+      if (queue.some(row=>!row.format_key || !row.event_name || !row.race_url)) throw new Error("Queue préconstruite invalide : format_key, event_name et race_url sont obligatoires.");
+      if (new Set(queue.map(row=>row.format_key)).size !== queue.length) throw new Error("Queue préconstruite invalide : format_key dupliqué.");
+    }
+    state ||= {schema_version:RESEARCH_SCHEMA_VERSION,pipeline_version:RESEARCH_PIPELINE_VERSION,input_mode:args.inputMode,input_sha256:inputHash,as_of:args.asOf,min_days_before:args.minDaysBefore,date_from:args.dateFrom,date_to:args.dateTo,
       no_llm:args.noLlm,next_offset:args.offset,rows:[],queue_keys:queue.map(row=>row.format_key)};
+    if (state.input_mode && state.input_mode !== args.inputMode) throw new Error("Mode d’entrée différent de la campagne enregistrée.");
     if (JSON.stringify(state.queue_keys) !== JSON.stringify(queue.map(row=>row.format_key))) throw new Error('Ordre de sélection modifié : démarrer une nouvelle campagne.');
     await atomicWrite(`${args.outputDir}/excluded-prospects.csv`,serializeCsvTable(['prospect_uuid','event_name','race_url','reason'],excluded));
     const selected = queue.slice(state.next_offset,args.limit === null ? undefined : state.next_offset+args.limit);
@@ -292,7 +347,7 @@ export const run = async (argv = process.argv.slice(2), {enrichImpl = enrichQueu
       await checkpoint();
     }});
     const result = await writeExports(args.outputDir,state.rows);
-    await atomicWrite(`${args.outputDir}/run-summary.json`,JSON.stringify({schema_version:RESEARCH_SCHEMA_VERSION,pipeline_version:RESEARCH_PIPELINE_VERSION,input_sha256:inputHash,
+    await atomicWrite(`${args.outputDir}/run-summary.json`,JSON.stringify({schema_version:RESEARCH_SCHEMA_VERSION,pipeline_version:RESEARCH_PIPELINE_VERSION,input_mode:args.inputMode,input_sha256:inputHash,
       selected:selected.length,processed:state.rows.length,total_eligible:queue.length,excluded:excluded.length,
       ready:state.rows.filter(row=>row.ready_to_import==='TRUE').length,source_errors:state.rows.filter(row=>row.research_status==='source_error').length,
       next_offset:state.next_offset,complete:state.complete,as_of:args.asOf,date_from:args.dateFrom,date_to:args.dateTo},null,2));

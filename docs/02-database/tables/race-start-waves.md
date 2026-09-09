@@ -29,4 +29,4 @@ Existing `organizer_details.schedule.startTime` values are backfilled as `Dépar
 
 Public/preview read and mutation rules are identical to other RaceBook content: published RaceBook or authorized organizer for reads, and service-role API plus `racebook_content.manage` for writes.
 
-The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table. Accent-tinted positive information rows do not change SAS time authority or ordering.
+The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table. Published primary surfaces may style SAS cards and accent-tinted positive information rows may highlight the schedule, but neither changes time authority or ordering.
