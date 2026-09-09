@@ -19,6 +19,7 @@ related_files:
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/migrations/20260909192326_seed_verified_seo_races_2026_2027.sql
+  - supabase/migrations/20260909200153_enrich_verified_seo_races_batch_2.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/app/api/race-catalog/route.ts
@@ -96,6 +97,7 @@ related_tables:
 - Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API. The richer server-only detail read rechecks race/event/edition visibility before loading organizer JSON or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, includes the confirmed year for edition distinction, and uses the shared social image only when neither format nor event supplies one.
 - Public web grouping: `/courses` groups current formats by stable `races.event_id + races.edition_id`, with an `event_id` fallback only for historical rows without an edition; event names are presentation labels and never grouping keys.
 - Curated SEO seeds create or refresh a canonical visible edition per verified upcoming event, publish only source-backed formats, and may enrich existing event rows without duplicating their formats.
+- The second curated batch adds four verified event identities, refreshes the existing Foulée des Ducs edition, and enriches Nice UTMB and Terres de Saône event provenance while preserving existing format metrics.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
 - Website-import target: the admin-only organizer information import enriches only the selected `race_events` row and must never create a different event. It first confirms the number and identity of child formats, then reviews field-level source claims. Candidate existence is independent from completeness, distance alone never merges or binds formats, and OpenAI can only choose an already extracted applicable claim or abstain. Roadbooks remain temporary analysis sources and never become event-row data.
 - Two-pass import scope: `organizer_import_sessions.event_id` binds discovery, format confirmation, and field application to this exact event; the session trigger also requires its edition to belong here.
