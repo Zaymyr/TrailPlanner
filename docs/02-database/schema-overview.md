@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -104,7 +104,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Final roadbook synchronization: the Les Amaz’Eaunes 2026 data-only migration corrects the canonical edition/format dates and organizer JSON while preserving unconfirmed course metrics and omitting unspecified ravito rows.
 - Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.
-- Import draft: a confirmed `races` format may exist before distance or D+ is known; `data_status` and `missing_required_fields` keep those unknowns explicit and hidden.
+- Import draft: a confirmed `races` format may exist before the catalog minimum is known; `data_status` and `missing_required_fields` keep those required gaps explicit and hidden. D+ and GPX are nullable optional enrichments, including on a public source-backed course.
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.

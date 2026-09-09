@@ -9,6 +9,7 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { loadOrganizerEditionEntitlements } from "../../../../lib/organizer-entitlements";
 import { isAdminUser } from "../../../../lib/supabase";
+import { racebookBrandingRowSchema, toOrganizerBranding } from "../../../../lib/racebook-branding";
 
 const eventIdSchema = z.string().uuid();
 
@@ -72,6 +73,13 @@ const eventEditionSchema = z.object({
   end_date: z.string(),
   is_current: z.boolean(),
   is_visible: z.boolean().default(true),
+  race_edition_services: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
+  race_event_edition_sponsors: z.array(z.object({
+    id: z.string().uuid(),
+    is_active: z.boolean(),
+    click_count: z.number().int().nonnegative(),
+  })).nullable().optional(),
+  race_event_edition_branding: racebookBrandingRowSchema.nullable().optional(),
 });
 
 const eventDetailSchema = z.object({
@@ -94,18 +102,20 @@ const eventDetailSchema = z.object({
     location_text: z.string().nullable().optional(),
     race_date: z.string().nullable().optional(),
     distance_km: z.number(),
-    elevation_gain_m: z.number(),
+    elevation_gain_m: z.number().nullable(),
     elevation_loss_m: z.number().nullable().optional(),
     gpx_storage_path: z.string().nullable().optional(),
     thumbnail_url: z.string().nullable().optional(),
     is_live: z.boolean(),
     participation_mode: z.enum(["solo", "relay", "solo_and_relay"]).nullable().optional(),
     data_status: z.enum(["draft", "complete"]).optional().default("complete"),
-    missing_required_fields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])).optional().default([]),
+    missing_required_fields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])).optional().default([]),
     racebook_is_live: z.boolean().default(false),
     racebook_publication_approved_at: z.string().nullable().optional(),
     organizer_details: z.unknown().nullable().optional(),
     race_aid_stations: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
+    race_start_waves: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
+    race_awards: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
   })).nullable().optional(),
 });
 
@@ -116,14 +126,33 @@ const mapEventDetail = (
   ...event,
   editions: (event.race_event_editions ?? [])
     .sort((left, right) => right.edition_year - left.edition_year)
-    .map((edition) => ({ ...edition, entitlement: entitlements[edition.id] ?? null })),
+    .map((edition) => {
+      const {
+        race_edition_services: services,
+        race_event_edition_sponsors: sponsors,
+        race_event_edition_branding: brandingRows,
+        ...fields
+      } = edition;
+      const branding = toOrganizerBranding(brandingRows ?? null);
+      return {
+        ...fields,
+        serviceCount: services?.length ?? 0,
+        sponsorCount: sponsors?.filter((sponsor) => sponsor.is_active).length ?? 0,
+        sponsorClicks: sponsors?.reduce((total, sponsor) => total + sponsor.click_count, 0) ?? 0,
+        brandingConfigured: Boolean(branding.publishedAt),
+        brandingUnpublished: branding.hasUnpublishedChanges,
+        entitlement: entitlements[edition.id] ?? null,
+      };
+    }),
   organizerDetails: parseOrganizerEventDetails(event.organizer_details),
   races: (event.races ?? []).map((race) => {
-    const { race_aid_stations: raceAidStations, ...raceFields } = race;
+    const { race_aid_stations: raceAidStations, race_start_waves: startWaves, race_awards: awards, ...raceFields } = race;
     return {
       ...raceFields,
       organizerDetails: parseOrganizerRaceDetails(race.organizer_details),
       aidStationCount: raceAidStations?.length ?? 0,
+      startWaveCount: startWaves?.length ?? 0,
+      awardCount: awards?.length ?? 0,
     };
   }),
 });
@@ -189,7 +218,7 @@ export async function GET(request: NextRequest) {
   let event = null;
   if (selectedEventId) {
     const eventResponse = await fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${selectedEventId}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,race_event_editions(id,event_id,edition_year,start_date,end_date,is_current,is_visible),races(id,edition_id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,participation_mode,data_status,missing_required_fields,racebook_is_live,racebook_publication_approved_at,organizer_details,race_aid_stations(id))&limit=1`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${selectedEventId}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,race_event_editions(id,event_id,edition_year,start_date,end_date,is_current,is_visible,race_edition_services(id),race_event_edition_sponsors(id,is_active,click_count),race_event_edition_branding(*)),races(id,edition_id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,participation_mode,data_status,missing_required_fields,racebook_is_live,racebook_publication_approved_at,organizer_details,race_aid_stations(id),race_start_waves(id),race_awards(id))&limit=1`,
       { headers, cache: "no-store" }
     );
 

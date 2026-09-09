@@ -22,7 +22,7 @@ const catalogRaceSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   gpx_storage_path: z.string().nullable().optional(),
   gpx_sha256: z.string().nullable().optional(),
@@ -302,7 +302,7 @@ export async function POST(request: NextRequest) {
 
   const plannerValues = {
     raceDistanceKm: parsedGpx.stats.distanceKm || Number(catalogRace.distance_km),
-    elevationGain: parsedGpx.stats.gainM || Number(catalogRace.elevation_gain_m),
+    elevationGain: parsedGpx.stats.gainM || Number(catalogRace.elevation_gain_m ?? 0),
     aidStations: plannerAidStations,
     organizerAidStationProducts,
   };

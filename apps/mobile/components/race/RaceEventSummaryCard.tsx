@@ -7,7 +7,7 @@ export type RaceEventSummaryRace = {
   id: string;
   name: string;
   distance_km: number;
-  elevation_gain_m: number;
+  elevation_gain_m: number | null;
   thumbnail_url?: string | null;
 };
 
@@ -59,8 +59,8 @@ function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
-function formatElevation(elevationGainM: number) {
-  return Math.round(elevationGainM).toString();
+function formatElevation(elevationGainM: number | null) {
+  return elevationGainM === null ? 'D+ non renseigné' : `D+ ${Math.round(elevationGainM)} m`;
 }
 
 function getEventDistanceRange(races: RaceEventSummaryRace[]) {
@@ -159,7 +159,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
         {primaryRace && (event.races.length === 1 || showChooseFormatHint) ? (
           <Text style={styles.supportText} numberOfLines={2}>
             {event.races.length === 1
-              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • D+ ${formatElevation(primaryRace.elevation_gain_m)} m`
+              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • ${formatElevation(primaryRace.elevation_gain_m)}`
               : chooseFormatHint}
           </Text>
         ) : null}

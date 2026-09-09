@@ -76,13 +76,13 @@ export type RaceFormat = {
   location_text?: string | null;
   race_date?: string | null;
   distance_km: number;
-  elevation_gain_m: number;
+  elevation_gain_m: number | null;
   elevation_loss_m?: number | null;
   gpx_storage_path?: string | null;
   thumbnail_url?: string | null;
   is_live: boolean;
   data_status?: "draft" | "complete";
-  missing_required_fields?: Array<"race_date" | "distance_km" | "elevation_gain_m">;
+  missing_required_fields?: Array<"race_date" | "location" | "distance_km" | "source_url">;
   racebook_is_live?: boolean;
   racebook_publication_approved_at?: string | null;
   organizerDetails?: OrganizerRaceDetails;
@@ -111,6 +111,10 @@ export type RaceEventEdition = {
   is_visible?: boolean;
   entitlement?: OrganizerEditionEntitlement | null;
   serviceCount?: number;
+  sponsorCount?: number;
+  sponsorClicks?: number;
+  brandingConfigured?: boolean;
+  brandingUnpublished?: boolean;
 };
 
 export type GpxDetectedAidStation = {

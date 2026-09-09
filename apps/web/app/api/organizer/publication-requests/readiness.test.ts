@@ -30,8 +30,14 @@ const eventRow = (distanceKm: number) => ({
       id: "44444444-4444-4444-4444-444444444444",
       edition_id: "22222222-2222-2222-2222-222222222222",
       name: "Les 2 Savoies",
+      slug: "les-2-savoies",
+      race_date: "2026-05-17",
+      location_text: "Fort test",
+      source_url: "https://trail.example/les-2-savoies",
       distance_km: distanceKm,
-      elevation_gain_m: 2167,
+      elevation_gain_m: null,
+      data_status: "complete",
+      missing_required_fields: [],
     },
   ],
 });
@@ -43,8 +49,14 @@ const eventRowWithCurrentEditionRace = (distanceKm: number) => {
       id: "55555555-5555-5555-5555-555555555555",
       edition_id: "33333333-3333-3333-3333-333333333333",
       name: "Les 2 Savoies",
+      slug: "les-2-savoies-2027",
+      race_date: "2027-03-27",
+      location_text: "Fort test",
+      external_site_url: "https://trail.example/2027/les-2-savoies",
       distance_km: distanceKm,
-      elevation_gain_m: 2167,
+      elevation_gain_m: null,
+      data_status: "complete",
+      missing_required_fields: [],
     },
   ];
   return row;
@@ -69,6 +81,18 @@ describe("organizer publication readiness", () => {
       publishableRaceCount: 1,
       raceId: "44444444-4444-4444-4444-444444444444",
     });
+  });
+
+  it("publishes a source-backed format without elevation or GPX", async () => {
+    const row = eventRow(25);
+    row.races[0].elevation_gain_m = null;
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json([row])));
+
+    await expect(validateOrganizerEventPublication(
+      serviceConfig,
+      "11111111-1111-1111-1111-111111111111",
+      "44444444-4444-4444-4444-444444444444"
+    )).resolves.toMatchObject({ ok: true, publishableRaceCount: 1 });
   });
 
   it("rejects only when the requested format itself is incomplete", async () => {

@@ -163,6 +163,7 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 - it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
 - it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping, then confirms a successful addition with a brief localized toast and scrolls the list to the newly pinned first event;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
+- catalog formats accept a nullable published D+: cards and sheets render `D+ non renseigné` instead of coercing the absence to zero, and plan creation stays disabled until a real D+ is supplied;
 - its multi-format event cards omit the repeated “choose a format” helper sentence because the format-count pill and primary action already communicate the next step; onboarding may keep that guidance in the same shared component;
 - its guided RaceBook mode immediately lists only events containing an ordinarily accessible published RaceBook, lets the runner browse or search that list, and removes the competing plan action from the format sheet;
 - it preloads up to three recent manual organizer updates per live event, renders only the newest (or deep-link-targeted) announcement after every format row inside one light-green panel, and reveals the other messages plus fuller history only when the runner taps `View more`;

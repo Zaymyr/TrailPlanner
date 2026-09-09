@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-08
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -169,7 +169,7 @@ For an existing format, a successful replacement also copies the exact returned 
 
 The organizer information-import review distinguishes a genuinely importable GPX from provider-backed metrics that have no recoverable file. Distance/D+/D- and GPX availability become separate source claims. A GPX can corroborate or supply metrics only after its format identity is unambiguous; distance proximity by itself must not attach an anonymous trace to a named candidate across pages. Additional official URLs and automatically discovered same-origin text PDFs are classified as evidence sources rather than asserted GPX ownership, so a route or kilometer mention from registration, results, logistics, a regulation, or another incompatible role cannot establish GPX ownership. A confirmed format may remain an incomplete draft without any GPX.
 
-Uploading a GPX later through Organizer clears the imported draft's `distance_km` and `elevation_gain_m` missing markers because those metrics come from the parsed geometry. If no required marker remains, the course becomes complete and catalog-live; its Racebook remains hidden until the independent publication approval flow.
+Uploading a GPX later through Organizer can fill distance and elevation from parsed geometry. Only distance belongs to the catalog minimum; elevation and the GPX itself remain optional. If no catalog-required marker remains, the course becomes complete and catalog-live; its Racebook remains hidden until the independent publication approval flow.
 
 The preview hash includes the SHA-256 digest of each recoverable GPX payload, not only its URL or parsed metrics. Apply can therefore accept a GPX only through its selected claim/proposal in the reviewed snapshot. Existing GPX files remain untouched unless that exact field is selected.
 

@@ -23,8 +23,11 @@ const baseEvent: CompletionEvent = {
       edition_group_id: "series-42k",
       series_name: "42K",
       name: "42K",
+      slug: "42k",
+      location_text: "Annecy",
+      external_site_url: "https://trail.example/42k",
       distance_km: 42,
-      elevation_gain_m: 2400,
+      elevation_gain_m: null,
       race_date: "2026-09-12",
       gpx_storage_path: "race.gpx",
       is_live: true,
@@ -93,7 +96,7 @@ describe("organizer completion", () => {
     );
 
     const selectedModule = completion.formatModules.find((item) => item.id === "aidStations");
-    expect(selectedModule?.status).toBe("complete");
+    expect(selectedModule?.status).toBe("incomplete");
     expect(selectedModule?.countLabel).toContain("3 ravitos");
     expect(selectedModule?.countLabel).not.toContain("produit");
     expect(selectedModule?.missingLabels).not.toContain("Ravitos");
@@ -109,6 +112,32 @@ describe("organizer completion", () => {
     expect(selectedModule?.status).toBe("complete");
     expect(selectedModule?.countLabel).toContain("3 sponsors");
     expect(selectedModule?.countLabel).toContain("12 clics");
+  });
+
+  it("uses edition tile summaries before lazy editors are opened", () => {
+    const completion = buildOrganizerCompletion(
+      {
+        ...baseEvent,
+        editions: [{
+          id: "edition-1",
+          start_date: "2026-09-12",
+          end_date: "2026-09-13",
+          is_current: true,
+          serviceCount: 2,
+          sponsorCount: 1,
+          sponsorClicks: 4,
+          brandingConfigured: true,
+          brandingUnpublished: false,
+        }],
+      },
+      baseEvent.races[0]!,
+      [],
+      []
+    );
+
+    expect(completion.eventModules.find((module) => module.id === "services")).toMatchObject({ status: "complete", countLabel: "2 fiches" });
+    expect(completion.eventModules.find((module) => module.id === "sponsors")).toMatchObject({ status: "complete" });
+    expect(completion.eventModules.find((module) => module.id === "branding")).toMatchObject({ status: "complete" });
   });
 
   it("prioritizes an unpublished branding draft over the last published state", () => {
@@ -127,7 +156,8 @@ describe("organizer completion", () => {
       ...baseEvent.races[0]!,
       name: "",
       distance_km: 0,
-      elevation_gain_m: Number.NaN,
+      location_text: "",
+      external_site_url: "",
     };
     const completion = buildOrganizerCompletion(
       {
@@ -144,7 +174,7 @@ describe("organizer completion", () => {
     );
 
     expect(completion.eventModules.find((module) => module.id === "event")?.missingLabels).toEqual(["Nom", "Lieu", "Début édition", "Fin édition"]);
-    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual(["Nom", "Distance", "D+"]);
+    expect(completion.formatModules.find((module) => module.id === "formats")?.missingLabels).toEqual(["Nom", "Lieu", "Distance", "Source"]);
   });
 
   it("counts disabled access sections as satisfied", () => {
@@ -241,10 +271,10 @@ describe("organizer completion", () => {
     );
 
     expect(completion.raceProgress).toEqual([
-      { id: "race-1", editionGroupId: "series-42k", seriesName: "42K", name: "42K", score: 17 },
-      { id: "race-2", editionGroupId: "series-25k", seriesName: "25K", name: "25K", score: 17 },
+      { id: "race-1", editionGroupId: "series-42k", seriesName: "42K", name: "42K", score: 100 },
+      { id: "race-2", editionGroupId: "series-25k", seriesName: "25K", name: "25K", score: 100 },
     ]);
-    expect(completion.raceProgressScore).toBe(17);
+    expect(completion.raceProgressScore).toBe(100);
   });
 
   it("does not change completion percentages when publication toggles change", () => {
@@ -288,8 +318,8 @@ describe("organizer completion", () => {
 
     expect(firstSelected.raceProgress).toEqual(secondSelected.raceProgress);
     expect(firstSelected.raceProgressScore).toBe(secondSelected.raceProgressScore);
-    expect(firstSelected.raceProgress[0]?.score).toBe(33);
-    expect(firstSelected.raceProgress[1]?.score).toBe(17);
+    expect(firstSelected.raceProgress[0]?.score).toBe(100);
+    expect(firstSelected.raceProgress[1]?.score).toBe(100);
   });
 
   it("marks re-enabled empty access sections as incomplete", () => {
@@ -325,6 +355,81 @@ describe("organizer completion", () => {
 
     expect(filtered.eventModules.map((module) => module.id)).toEqual(["event"]);
     expect(filtered.formatModules.map((module) => module.id)).toEqual(["formats"]);
-    expect(filtered.score).toBeGreaterThan(full.score);
+    expect(filtered.score).toBe(full.score);
+  });
+
+  it("keeps optional equipment out of progress and requires one item for an explicit format override", () => {
+    const inheritedRace = {
+      ...baseEvent.races[0]!,
+      organizerDetails: {
+        ...defaultOrganizerRaceDetails,
+        mandatoryEquipment: { ...defaultOrganizerRaceDetails.mandatoryEquipment, overrideEnabled: false },
+      },
+    };
+    const emptyOverrideRace = {
+      ...inheritedRace,
+      organizerDetails: {
+        ...inheritedRace.organizerDetails,
+        mandatoryEquipment: {
+          ...inheritedRace.organizerDetails.mandatoryEquipment,
+          overrideEnabled: true,
+          items: [],
+          note: "Une note seule reste optionnelle",
+        },
+      },
+    };
+    const filledOverrideRace = {
+      ...emptyOverrideRace,
+      organizerDetails: {
+        ...emptyOverrideRace.organizerDetails,
+        mandatoryEquipment: {
+          ...emptyOverrideRace.organizerDetails.mandatoryEquipment,
+          items: [{ id: "equipment-1", label: "Gobelet", required: true, cold: false, heat: false, note: null }],
+        },
+      },
+    };
+
+    const inherited = buildOrganizerCompletion({ ...baseEvent, races: [inheritedRace] }, inheritedRace, [], []);
+    const emptyOverride = buildOrganizerCompletion({ ...baseEvent, races: [emptyOverrideRace] }, emptyOverrideRace, [], []);
+    const filledOverride = buildOrganizerCompletion({ ...baseEvent, races: [filledOverrideRace] }, filledOverrideRace, [], []);
+
+    expect(inherited.eventModules.find((module) => module.id === "equipment")?.level).toBe("optional");
+    expect(inherited.formatModules.find((module) => module.id === "equipment")?.level).toBe("optional");
+    expect(inherited.formatScore).toBe(100);
+    expect(emptyOverride.formatModules.find((module) => module.id === "equipment")).toMatchObject({
+      level: "required",
+      status: "incomplete",
+      missingLabels: ["Matériel"],
+    });
+    expect(emptyOverride.formatScore).toBe(50);
+    expect(filledOverride.formatModules.find((module) => module.id === "equipment")?.status).toBe("complete");
+    expect(filledOverride.formatScore).toBe(100);
+  });
+
+  it("does not mark bib, access or ravito tiles complete from optional or partial values", () => {
+    const race = {
+      ...baseEvent.races[0]!,
+      organizerDetails: {
+        ...defaultOrganizerRaceDetails,
+        schedule: { ...defaultOrganizerRaceDetails.schedule, startTime: "07:00" },
+      },
+    };
+    const completion = buildOrganizerCompletion({ ...baseEvent, races: [race] }, race, [], []);
+
+    expect(completion.eventModules.find((module) => module.id === "bibPickup")?.status).toBe("empty");
+    expect(completion.eventModules.find((module) => module.id === "access")?.status).toBe("empty");
+    expect(completion.formatModules.find((module) => module.id === "aidStations")?.status).toBe("incomplete");
+  });
+
+  it("requires the format date in the mandatory course completion", () => {
+    const undatedRace = { ...baseEvent.races[0]!, race_date: null };
+    const completion = buildOrganizerCompletion({ ...baseEvent, races: [undatedRace] }, undatedRace, [], []);
+
+    expect(completion.formatModules.find((module) => module.id === "formats")).toMatchObject({
+      status: "incomplete",
+      missingLabels: ["Date"],
+    });
+    expect(completion.formatScore).toBe(0);
+    expect(isEventReadyToPublish({ ...baseEvent, races: [undatedRace] })).toBe(false);
   });
 });

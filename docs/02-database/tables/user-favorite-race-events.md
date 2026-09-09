@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-09-03
+last_verified: 2026-09-09
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -27,6 +27,7 @@ related_tables:
 - Owner row: favorites are readable and mutable only by the owning user.
 - Catalog pinning: mobile uses these rows to pin favorite events above the normal catalog sort.
 - Catalog feedback: after the API confirms a new favorite, mobile shows a brief localized success toast and scrolls to the event's pinned position.
+- The shared event card preserves favorite behavior when a format has no published D+; it labels the metric as unavailable instead of rendering a false zero.
 - Notification audience: organizer update pushes target users who favorited the event.
 
 ## Columns

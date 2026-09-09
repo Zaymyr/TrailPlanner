@@ -45,7 +45,7 @@ const raceRowSchema = z.object({
   location_text: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   trace_provider: z.string().nullable().optional(),
   trace_id: z.number().nullable().optional(),
@@ -591,7 +591,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       name: race.name,
       event_id: race.event_id ?? "",
       location_text: race.location_text ?? "",
-      elevation_gain_m: Math.round(race.elevation_gain_m).toString(),
+      elevation_gain_m: race.elevation_gain_m === null ? "" : Math.round(race.elevation_gain_m).toString(),
       elevation_loss_m: race.elevation_loss_m != null ? Math.round(race.elevation_loss_m).toString() : "",
       trace_id: race.trace_id?.toString() ?? "",
       external_site_url: race.external_site_url ?? "",
@@ -1117,10 +1117,10 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
       <TableCell className="align-middle text-slate-700 dark:text-slate-200">
         <div className="space-y-1">
           <p>{race.distance_km.toFixed(1)} km</p>
-          <p className="text-xs text-slate-500 dark:text-slate-400">D+ {Math.round(race.elevation_gain_m)} m</p>
+          <p className="text-xs text-slate-500 dark:text-slate-400">D+ {race.elevation_gain_m === null ? "—" : `${Math.round(race.elevation_gain_m)} m`}</p>
         </div>
       </TableCell>
-      <TableCell className="hidden text-slate-700 dark:text-slate-200">{Math.round(race.elevation_gain_m)} m</TableCell>
+      <TableCell className="hidden text-slate-700 dark:text-slate-200">{race.elevation_gain_m === null ? "—" : `${Math.round(race.elevation_gain_m)} m`}</TableCell>
       <TableCell className="align-middle">
         {race.is_live ? (
           <span
@@ -1360,11 +1360,11 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   <TableCell className="align-middle text-slate-700 dark:text-slate-200">
                     <div className="space-y-1">
                       <p>{race.distance_km.toFixed(1)} km</p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">D+ {Math.round(race.elevation_gain_m)} m</p>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">D+ {race.elevation_gain_m === null ? "—" : `${Math.round(race.elevation_gain_m)} m`}</p>
                     </div>
                   </TableCell>
                   <TableCell className="hidden text-slate-700 dark:text-slate-200">
-                    {Math.round(race.elevation_gain_m)} m
+                    {race.elevation_gain_m === null ? "—" : `${Math.round(race.elevation_gain_m)} m`}
                   </TableCell>
                   <TableCell className="align-middle">
                     {race.is_live ? (

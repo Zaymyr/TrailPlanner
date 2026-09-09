@@ -113,6 +113,8 @@ Mobile additionally emits `race favorite updated` only after the server returns 
 
 ## Mobile PostHog
 
+Displaying a catalog format with an unavailable D+ does not emit a synthetic selection or plan-start event: the plan action is disabled until the metric is supplied.
+
 Mobile configuration lives in `apps/mobile/lib/posthog.ts`.
 
 Environment variables:

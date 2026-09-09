@@ -24,7 +24,7 @@ const updateRaceSchema = z.object({
   seriesName: z.string().trim().min(1).optional(),
   name: z.string().trim().min(1).optional(),
   distanceKm: z.coerce.number().positive().optional(),
-  elevationGainM: z.coerce.number().nonnegative().optional(),
+  elevationGainM: z.coerce.number().nonnegative().nullable().optional(),
   elevationLossM: z.coerce.number().nonnegative().nullable().optional(),
   externalSiteUrl: optionalPatchTextOrNull,
   locationText: optionalPatchTextOrNull,
@@ -45,7 +45,7 @@ const raceRowSchema = z.object({
   event_id: z.string().uuid().nullable().optional(),
   external_site_url: z.string().nullable().optional(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   location_text: z.string().nullable().optional(),
   race_date: z.string().nullable().optional(),
@@ -54,7 +54,7 @@ const raceRowSchema = z.object({
   is_live: z.boolean(),
   participation_mode: z.enum(["solo", "relay", "solo_and_relay"]).nullable().optional(),
   data_status: z.enum(["draft", "complete"]).optional().default("complete"),
-  missing_required_fields: z.array(z.enum(["race_date", "distance_km", "elevation_gain_m"])).optional().default([]),
+  missing_required_fields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])).optional().default([]),
   racebook_is_live: z.boolean().default(false),
   racebook_publication_approved_at: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
@@ -116,7 +116,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (parsedBody.data.seriesName !== undefined) updatePayload.series_name = parsedBody.data.seriesName;
   if (parsedBody.data.name !== undefined) updatePayload.name = parsedBody.data.name;
   if (parsedBody.data.distanceKm !== undefined) updatePayload.distance_km = Number(parsedBody.data.distanceKm.toFixed(2));
-  if (parsedBody.data.elevationGainM !== undefined) updatePayload.elevation_gain_m = Math.round(parsedBody.data.elevationGainM);
+  if (parsedBody.data.elevationGainM !== undefined) updatePayload.elevation_gain_m = parsedBody.data.elevationGainM === null ? null : Math.round(parsedBody.data.elevationGainM);
   if (parsedBody.data.elevationLossM !== undefined) {
     updatePayload.elevation_loss_m = parsedBody.data.elevationLossM === null ? null : Math.round(parsedBody.data.elevationLossM);
   }
@@ -153,7 +153,8 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   const requiredFieldChanged =
     parsedBody.data.raceDate !== undefined ||
     parsedBody.data.distanceKm !== undefined ||
-    parsedBody.data.elevationGainM !== undefined;
+    parsedBody.data.locationText !== undefined ||
+    parsedBody.data.externalSiteUrl !== undefined;
   const currentDataStatus = race.data_status ?? "complete";
   if (requiredFieldChanged || currentDataStatus === "draft") {
     const missingRequiredFields = new Set(race.missing_required_fields ?? []);
@@ -162,7 +163,14 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
       else missingRequiredFields.delete("race_date");
     }
     if (parsedBody.data.distanceKm !== undefined) missingRequiredFields.delete("distance_km");
-    if (parsedBody.data.elevationGainM !== undefined) missingRequiredFields.delete("elevation_gain_m");
+    if (parsedBody.data.locationText !== undefined) {
+      if (parsedBody.data.locationText === null) missingRequiredFields.add("location");
+      else missingRequiredFields.delete("location");
+    }
+    if (parsedBody.data.externalSiteUrl !== undefined) {
+      if (parsedBody.data.externalSiteUrl === null) missingRequiredFields.add("source_url");
+      else missingRequiredFields.delete("source_url");
+    }
     const nextDataStatus = missingRequiredFields.size === 0 ? "complete" : "draft";
     updatePayload.missing_required_fields = [...missingRequiredFields];
     updatePayload.data_status = nextDataStatus;

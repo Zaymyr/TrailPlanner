@@ -347,7 +347,7 @@ export const raceToForm = (race: RaceFormat): RaceFormValues => ({
   seriesName: race.series_name ?? "",
   name: race.name,
   distanceKm: race.distance_km,
-  elevationGainM: race.elevation_gain_m,
+  elevationGainM: race.elevation_gain_m ?? 0,
   elevationLossM: race.elevation_loss_m?.toString() ?? "",
   externalSiteUrl: race.external_site_url ?? "",
   locationText: race.location_text ?? "",

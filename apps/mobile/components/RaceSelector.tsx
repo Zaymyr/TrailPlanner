@@ -18,16 +18,18 @@ type RaceRow = {
   id: string;
   name: string;
   distance_km: number;
-  elevation_gain_m: number;
+  elevation_gain_m: number | null;
   location_text: string | null;
   is_public: boolean;
   created_by: string | null;
 };
 
+type SelectableRaceRow = RaceRow & { elevation_gain_m: number };
+
 type Props = {
   visible: boolean;
   onClose: () => void;
-  onSelect: (race: RaceRow) => void;
+  onSelect: (race: SelectableRaceRow) => void;
   userId?: string | null;
 };
 
@@ -116,18 +118,22 @@ export function RaceSelector({ visible, onClose, onSelect, userId }: Props) {
                   return <Text style={styles.sectionHeader}>{item.title}</Text>;
                 }
                 const race = item.race;
+                const canSelectRace = race.elevation_gain_m !== null;
                 return (
                   <TouchableOpacity
                     style={styles.raceCard}
+                    disabled={!canSelectRace}
+                    activeOpacity={canSelectRace ? 0.7 : 1}
                     onPress={() => {
-                      onSelect(race);
+                      if (!canSelectRace) return;
+                      onSelect(race as SelectableRaceRow);
                       onClose();
                     }}
                   >
                     <View style={styles.raceInfo}>
                       <Text style={styles.raceName}>{race.name}</Text>
                       <Text style={styles.raceMeta}>
-                        {race.distance_km} km · D+ {race.elevation_gain_m}m
+                        {race.distance_km} km · {race.elevation_gain_m === null ? 'D+ non renseigné' : `D+ ${race.elevation_gain_m}m`}
                         {race.location_text ? ` · ${race.location_text}` : ''}
                       </Text>
                     </View>

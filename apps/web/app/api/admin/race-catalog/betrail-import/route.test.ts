@@ -80,7 +80,8 @@ describe("BeTrail catalog draft import route", () => {
     expect(inserted.organizer_details.schedule.startTime).toBe("09:00");
     expect(inserted.organizer_details.catalogResearch.fields.aid_stations).toContain('"distanceKm":6');
     expect(inserted.organizer_details.catalogResearch.candidates.elevation_gain_m).toBe("477");
-    expect(inserted.missing_required_fields).toContain("elevation_gain_m");
+    expect(inserted.elevation_gain_m).toBeNull();
+    expect(inserted.missing_required_fields).not.toContain("elevation_gain_m");
     expect(inserted.data_status).toBe("draft"); expect(inserted.is_live).toBe(false);
     expect(spy.mock.calls.some(([url])=>String(url).includes("race_date=eq.2099-06-20"))).toBe(true);
   });
@@ -163,7 +164,8 @@ describe("BeTrail catalog draft import route", () => {
       expect(race.data_status).toBe("draft");
       expect(race.is_live).toBe(false);
     }
-    expect(json.createdRaces[1].missing_required_fields).toContain("elevation_gain_m");
+    expect(json.createdRaces[1].elevation_gain_m).toBeNull();
+    expect(json.createdRaces[1].missing_required_fields).not.toContain("elevation_gain_m");
     expect(fetchSpy).toHaveBeenCalled();
   });
 });

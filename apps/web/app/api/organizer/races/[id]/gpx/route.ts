@@ -199,7 +199,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const gpxSha = createHash("sha256").update(gpxContent).digest("hex");
   const missingRequiredFields = new Set(race.missing_required_fields ?? []);
   if (parsedGpx.stats.distanceKm > 0) missingRequiredFields.delete("distance_km");
-  missingRequiredFields.delete("elevation_gain_m");
   const completesImportedDraft = (race.data_status ?? "complete") === "draft" && missingRequiredFields.size === 0;
   const updateResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,

@@ -26,7 +26,7 @@ const raceRowSchema = z.object({
   location_text: z.string().nullable().optional(),
   location: z.string().nullable().optional(),
   distance_km: z.number(),
-  elevation_gain_m: z.number(),
+  elevation_gain_m: z.number().nullable(),
   elevation_loss_m: z.number().nullable().optional(),
   trace_provider: z.string().nullable().optional(),
   trace_id: z.number().nullable().optional(),
