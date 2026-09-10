@@ -231,7 +231,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
           ? {
               missing_required_fields: [...missingRequiredFields],
               data_status: completesImportedDraft ? "complete" : "draft",
-              is_live: completesImportedDraft,
+              is_live: false,
               racebook_is_live: false,
             }
           : {}),

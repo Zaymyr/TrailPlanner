@@ -86,6 +86,7 @@ Recalculation requires a valid paid path. Refunding/disputing a base purchase in
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
 - The dashboard keeps publication primary, groups rare actions in one menu, and starts detailed visibility collapsed. Expanding it is presentation-only; choosing a format state is a deliberate persisted action and must never grant an entitlement client-side.
 - Offer and visibility consequences use contextual hover/focus help beside short controls. Hiding that explanatory copy visually does not weaken server-side readiness or entitlement checks, and errors remain visible inline.
+- Completing, skipping, or replaying the dashboard guide never creates or upgrades an organizer entitlement. Its optional final action only opens the existing section chooser.
 
 ## Related Docs
 

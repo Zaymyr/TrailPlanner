@@ -73,6 +73,7 @@ Edition branding is also outside import reconciliation. The import model cannot 
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
+- Replaying or completing the Organizer dashboard guide does not start website discovery, upload documents, or invoke OpenAI reconciliation. Assisted import remains an explicit admin-only action.
 
 - The self-service complex import route remains admin-only. Pro organizers receive an assisted-import contact CTA; Pro does not authorize direct LLM import execution.
 

@@ -170,6 +170,15 @@ export const groupRacesBySeries = (races: RaceFormat[]): RaceSeriesGroup[] => {
     .sort((left, right) => left.seriesName.localeCompare(right.seriesName, "fr", { sensitivity: "base" }));
 };
 
+export const filterRaceSeriesGroupsForWorkspace = (
+  groups: RaceSeriesGroup[],
+  editions: RaceEventEdition[],
+  editionYear: string
+) => groups.filter((group) => group.races.some((race) =>
+  getRaceEditionYear(race, editions) === editionYear
+  && race.racebook_preview_is_visible !== false
+));
+
 export const getDefaultEditionRaceId = (races: RaceFormat[], editionGroupId: string) =>
   groupRacesBySeries(races).find((group) => group.id === editionGroupId)?.races[0]?.id ?? null;
 

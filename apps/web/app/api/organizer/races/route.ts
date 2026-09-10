@@ -221,7 +221,9 @@ export async function POST(request: NextRequest) {
     gpx_hash: null,
     gpx_storage_path: null,
     gpx_sha256: null,
-    is_live: true,
+    is_live: false,
+    racebook_preview_is_visible: true,
+    racebook_is_live: false,
     is_public: true,
     created_by: null,
   };
@@ -235,7 +237,9 @@ export async function POST(request: NextRequest) {
     insertPayload.thumbnail_url = sourceRace.thumbnail_url;
     insertPayload.organizer_details = sourceRace.organizer_details ?? null;
     insertPayload.participation_mode = sourceRace.participation_mode ?? parsed.data.participationMode;
-    insertPayload.is_live = true;
+    insertPayload.is_live = false;
+    insertPayload.racebook_preview_is_visible = true;
+    insertPayload.racebook_is_live = false;
     insertPayload.min_alt_m = sourceRace.min_alt_m ?? null;
     insertPayload.max_alt_m = sourceRace.max_alt_m ?? null;
     insertPayload.start_lat = sourceRace.start_lat ?? null;

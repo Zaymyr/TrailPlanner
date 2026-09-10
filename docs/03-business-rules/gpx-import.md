@@ -169,7 +169,7 @@ For an existing format, a successful replacement also copies the exact returned 
 
 The organizer information-import review distinguishes a genuinely importable GPX from provider-backed metrics that have no recoverable file. Distance/D+/D- and GPX availability become separate source claims. A GPX can corroborate or supply metrics only after its format identity is unambiguous; distance proximity by itself must not attach an anonymous trace to a named candidate across pages. Additional official URLs and automatically discovered same-origin text PDFs are classified as evidence sources rather than asserted GPX ownership, so a route or kilometer mention from registration, results, logistics, a regulation, or another incompatible role cannot establish GPX ownership. A confirmed format may remain an incomplete draft without any GPX.
 
-Uploading a GPX later through Organizer can fill distance and elevation from parsed geometry. Only distance belongs to the catalog minimum; elevation and the GPX itself remain optional. If no catalog-required marker remains, the course becomes complete and catalog-live; its Racebook remains hidden until the independent publication approval flow.
+Uploading a GPX later through Organizer can fill distance and elevation from parsed geometry. Only distance belongs to the catalog minimum; elevation and the GPX itself remain optional. If no catalog-required marker remains, the course becomes complete but stays private for the organizer until the explicit Public transition publishes both the course and RaceBook.
 
 The preview hash includes the SHA-256 digest of each recoverable GPX payload, not only its URL or parsed metrics. Apply can therefore accept a GPX only through its selected claim/proposal in the reviewed snapshot. Existing GPX files remain untouched unless that exact field is selected.
 
@@ -205,6 +205,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.
 - Drafting several section switches in the Organizer chooser does not parse, upload, or reload GPX data; only the single successful module-settings save changes whether GPX-adjacent module UI is shown.
+- The Organizer spotlight guide may highlight the active editor, but it is presentation-only and never parses, uploads, replaces, or reloads a GPX.
 - Separating edition-common and per-format switches in that chooser does not change GPX ownership: route geometry and its related controls remain attached to the targeted format.
 - Race-scoped autosave also includes format-specific bib-pickup, equipment, and access overrides; keep that metadata in the shared race-details save set when changing GPX or ravito navigation behavior.
 - Organizer tab navigation is immediate, so late GPX preview responses must verify that their requested race is still active before replacing the current preview or station interpolation context.

@@ -65,6 +65,7 @@ This table is retained publication-review history. New organizer publication use
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
 - The current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A trusted admin may grant RaceBook from that dialog without payment through `set_admin_organizer_edition_entitlement`; the grant is edition-scoped, records `source = admin`, and leaves this legacy table unchanged.
 - Detailed format visibility starts collapsed while the primary publication action remains visible. Expanding it does nothing by itself; explicitly choosing Masqué, Privé, or Public updates the authorized format state without creating a publication-request row.
+- The dashboard guide only explains those visibility states. Completing, skipping, or replaying it does not select a state or create a publication request.
 - Staged section switches affect publication and completion only after their single module-settings PATCH succeeds; their edition-common/per-format grouping never inserts a row in this legacy publication queue.
 - Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.

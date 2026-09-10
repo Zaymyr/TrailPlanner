@@ -29,6 +29,7 @@ related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -202,6 +203,8 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `organizer_edition_payments.purchaser_user_id -> auth.users(id) on delete set null`
 
 Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Claimed catalog race rows should not be reassigned through `races.created_by`.
+
+`dashboard_onboarding_completed_at` is metadata on that existing organizer/event relationship. It adds no foreign key or cascade and remains isolated per membership row, including when several organizers manage the same event.
 
 `20260618160000_add_organizer_dashboard_details.sql` adds nullable organizer detail JSONB columns to `race_events`, `races`, and `race_aid_stations`. It adds no foreign keys and does not change cascade behavior.
 

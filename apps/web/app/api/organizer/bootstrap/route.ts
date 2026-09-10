@@ -42,6 +42,7 @@ const membershipRowSchema = z.object({
   created_at: z.string(),
   event_id: z.string().uuid(),
   role: z.string(),
+  dashboard_onboarding_completed_at: z.string().nullable().default(null),
   race_events: raceEventSummarySchema.nullable().optional(),
 });
 
@@ -170,7 +171,7 @@ export async function GET(request: NextRequest) {
   const isAdmin = isAdminUser(auth.user);
   const [claimsResponse, membershipsResponse, editionRequestsResponse, publicationRequestsResponse, adminEventsResponse] = await Promise.all([
     fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_claims?user_id=eq.${auth.user.id}&select=id,created_at,event_id,organization_name,role_title,contact_email,official_site_url,message,status,reviewer_notes,reviewed_at,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`, { headers, cache: "no-store" }),
-    fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?user_id=eq.${auth.user.id}&revoked_at=is.null&select=id,created_at,event_id,role,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`, { headers, cache: "no-store" }),
+    fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_organizers?user_id=eq.${auth.user.id}&revoked_at=is.null&select=id,created_at,event_id,role,dashboard_onboarding_completed_at,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`, { headers, cache: "no-store" }),
     fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_requests?user_id=eq.${auth.user.id}&select=id,created_at,event_id,source_year,requested_start_date,status,reviewer_notes,race_events(id,name,location,race_date,thumbnail_url,is_live)&order=created_at.desc`, { headers, cache: "no-store" }),
     fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?user_id=eq.${auth.user.id}&select=id,created_at,event_id,race_id,status,reviewer_notes&order=created_at.desc`, { headers, cache: "no-store" }),
     isAdmin
@@ -204,6 +205,7 @@ export async function GET(request: NextRequest) {
         id: event.id,
         event_id: event.id,
         role: "admin",
+        dashboard_onboarding_completed_at: null,
         race_events: event,
       }))
     : memberships;

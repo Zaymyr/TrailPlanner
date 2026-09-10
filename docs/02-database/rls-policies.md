@@ -14,6 +14,8 @@ related_files:
   - supabase/migrations/20260826090000_allow_event_level_publication_requests.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
+  - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
+  - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -149,11 +151,12 @@ Re-sharing uses the same owner policy shape: the route verifies bearer-token ide
 
 Declared through old `race_catalog` policies and renamed/refined in `20260324000000_refactor_race_catalog_to_races.sql`.
 
-- Public/live races are readable.
+- Public-source races are readable by everyone only while `is_live = true`.
 - Private races are readable by their creator.
+- Non-live organizer formats are readable by active members of their parent event, which supports the mobile private preview without exposing them to other runners.
 - Admins can manage catalog races.
 - Owners can manage private races through `created_by`.
-- Approved organizers manage public claimed races through service routes and `race_event_organizers`, not through `races.created_by`.
+- Approved organizers mutate claimed races through service routes and `race_event_organizers`, not through `races.created_by`; the select policy separately permits their membership-bounded private reads.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
 - `races.edition_group_id` and `races.series_name` inherit the same `races` row policies; the organizer edition-grouping migration adds no new grants or RLS branches.
 - Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the membership-checked service route and atomic RPC, which requires the edition-level `racebook.publish` capability and records first-publication provenance.
@@ -221,6 +224,7 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 - Users can select their own memberships.
 - Admins can select, insert, update, and delete memberships through trusted `app_metadata`.
 - Active organizer access checks require `revoked_at is null`.
+- `dashboard_onboarding_completed_at` inherits this row boundary. Browser writes use the service route, which verifies bearer identity and the active user/event membership before an idempotent update.
 
 `race_aid_station_products`:
 
@@ -391,6 +395,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public share link re-shares update existing rows through the same service route, so update paths need the same parent-plan ownership verification as inserts.
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
 - Adding onboarding markers/statuses does not broaden profile visibility or mutation rights; do not add separate policies while the row remains owner-scoped.
+- The Organizer dashboard marker is membership-scoped rather than profile-scoped. Keep its mutation filtered by both authenticated user and active event membership; never let a synthetic admin selector row become persisted onboarding state.
 - Adding Racebook publication columns does not grant organizer table access. Keep approval RPCs service-role-only and organizer visibility changes behind active event-membership checks.
 - Edition visibility/deletion adds no client grant. Keep both operations on the membership-checked server route and keep the deletion RPC invoker-security/service-role-only.
 - Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.

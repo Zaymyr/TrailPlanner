@@ -122,7 +122,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
       race_date: "2027-09-12",
       distance_km: 42,
       elevation_gain_m: null,
-      is_live: true,
+      is_live: false,
       data_status: "complete",
       missing_required_fields: [],
     }]));
@@ -137,7 +137,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
       distance_km: 42,
       data_status: "complete",
       missing_required_fields: [],
-      is_live: true,
+      is_live: false,
       racebook_is_live: false,
     });
   });
@@ -176,6 +176,7 @@ describe("/api/organizer/races/[id] PATCH", () => {
           elevation_gain_m: 1800,
           is_live: true,
           racebook_is_live: true,
+          racebook_preview_is_visible: true,
           racebook_publication_approved_at: "2026-08-20T12:00:00.000Z",
         })
     );
@@ -207,26 +208,76 @@ describe("/api/organizer/races/[id] PATCH", () => {
         event_id: eventId,
         distance_km: 42,
         elevation_gain_m: 1800,
-        is_live: true,
+        is_live: false,
         racebook_is_live: false,
         racebook_preview_is_visible: false,
       }])
     );
 
-    const response = await PATCH(patchRequest({ racebookPreviewIsVisible: false }), { params: { id: raceId } });
+    const response = await PATCH(
+      patchRequest({ racebookPreviewIsVisible: false, racebookIsLive: false }),
+      { params: { id: raceId } }
+    );
     const payload = await response.json();
     const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
 
     expect(response.status).toBe(200);
     expect(payload.race.racebook_is_live).toBe(false);
     expect(payload.race.racebook_preview_is_visible).toBe(false);
+    expect(payload.race.is_live).toBe(false);
     expect(String(url)).toContain(`/rest/v1/races?id=eq.${raceId}`);
     expect(init?.method).toBe("PATCH");
     expect(JSON.parse(String(init?.body))).toEqual({
       racebook_preview_is_visible: false,
+      is_live: false,
       racebook_is_live: false,
     });
     expect(String(url)).not.toContain("/rpc/set_organizer_racebook_visibility");
+    expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps a private format out of the public catalog but available in organizer preview", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      race_date: "2027-09-12",
+      racebook_is_live: true,
+      racebook_preview_is_visible: true,
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(
+      buildJsonResponse([{
+        id: raceId,
+        edition_group_id: "33333333-3333-3333-3333-333333333333",
+        series_name: "Trail 42",
+        name: "Trail 42 2027",
+        event_id: eventId,
+        distance_km: 42,
+        elevation_gain_m: 1800,
+        is_live: false,
+        racebook_is_live: false,
+        racebook_preview_is_visible: true,
+      }])
+    );
+
+    const response = await PATCH(
+      patchRequest({ racebookPreviewIsVisible: true, racebookIsLive: false }),
+      { params: { id: raceId } }
+    );
+    const payload = await response.json();
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(payload.race).toMatchObject({
+      is_live: false,
+      racebook_preview_is_visible: true,
+      racebook_is_live: false,
+    });
+    expect(JSON.parse(String(init?.body))).toEqual({
+      racebook_preview_is_visible: true,
+      is_live: false,
+      racebook_is_live: false,
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
   });
 });
 

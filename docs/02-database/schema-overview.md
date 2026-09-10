@@ -20,6 +20,7 @@ related_files:
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
+  - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -37,6 +38,8 @@ related_files:
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
+  - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
+  - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - docs/_archive/db/schema.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/lib/organizer-aid-station-products.ts
@@ -102,13 +105,14 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Race aid station: catalog/private race aid station source, including water, solid, assistance service flags, and optional organizer detail JSON.
 - Race relay point: ordered handover metadata, optionally linked to a source aid station but independent from nutrition planning.
 - Organizer membership: event-scoped access through `race_event_organizers`.
+- Organizer dashboard onboarding: a nullable completion timestamp on each organizer/event membership, independent from runner onboarding and edition-wide module setup.
 - Event edition: canonical yearly date range in `race_event_editions`, shared by every format for that event year.
 - Edition sponsor: an ordered loading/banner placement shared by every format in one edition, with only an aggregate raw-click counter.
 - Race edition group: stable `races.edition_group_id` plus `races.series_name` pair used to group one format series across yearly editions.
 - Race slug redirect: a reserved former course slug targeting the stable race id so canonical renames do not break indexed URLs.
 - Event edition request: retired audit row from the former yearly-edition review workflow.
 - Event publication request: retained legacy audit row from the former admin-approval workflow; current paid publication does not enqueue a request.
-- RaceBook preview/publication: `races.racebook_preview_is_visible` selects a format for the organizer's private mobile demo independently of publication. `races.racebook_is_live` alone controls ordinary runner visibility, and can be enabled only for preview-selected formats by the explicit edition publication action under an active Essential, Complete or Signature entitlement. First publication stores durable provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`.
+- Organizer format visibility: masked stores course/preview/RaceBook false; private stores course false, preview true, and RaceBook false; public stores all three true. Mobile merges private rows only for active event organizers, and the service-only publication action restores public state atomically under an active Essential, Complete or Signature entitlement. First publication stores durable provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Normalized event geography: nullable city/department/region/country names and stable codes plus a paired anchor coordinate on `race_events`; all 96 current live events have a verified country, the 46 French events have full commune-level geography, and free-text format routes remain in `races.location_text`.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
@@ -145,7 +149,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_edition_requests` | Retired audit rows from the former yearly-edition review gate. |
 | `race_event_publication_requests` | Pending/approved/rejected per-format Racebook publication reviews, with nullable legacy event-level rows. |
-| `race_event_organizers` | Approved event-scoped organizer memberships. |
+| `race_event_organizers` | Approved event-scoped organizer memberships plus each member's dashboard-onboarding completion. |
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_event_update_reads` | Owner-scoped receipts recording which organizer announcements a runner has seen. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension and explicit normalized geography supports future catalog filters. |

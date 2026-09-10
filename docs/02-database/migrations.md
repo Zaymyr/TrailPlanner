@@ -45,6 +45,8 @@ related_files:
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
+  - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
+  - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -268,6 +270,10 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 `supabase/migrations/20260820135823_add_racebook_publication_control.sql` separates course catalog visibility from Racebook publication. It adds `races.racebook_is_live` plus durable admin approval provenance, replaces the publication-review function, and adds the service-role-only admin event switch function. As a safety migration it keeps organizer-managed courses live in the catalog but resets their Racebooks to hidden/unapproved for one fresh admin validation pass.
 
 `supabase/migrations/20260910170144_separate_racebook_preview_visibility.sql` separates private organizer demo selection from runner publication. It adds `races.racebook_preview_is_visible`, enforces that a runner-live RaceBook remains preview-selected, and adds a service-role-only atomic edition publication function that publishes only selected, complete, catalog-live formats under an active paid or complimentary entitlement.
+
+`supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql` aligns the per-format Organizer states across course and RaceBook visibility. The service-only invoker RPC locks the format and atomically writes public as true/true/true or private as false/true/false for course live, preview selection, and RaceBook live; the membership-checked route writes masked as false/false/false in one update. Existing organizer-managed formats without a public RaceBook are normalized to non-live. The migration also narrows `races_select` so non-live public-source rows are readable only by their creator, an active parent-event organizer, or a trusted `app_metadata` admin, and prevents re-showing an edition from implicitly publishing its complete formats.
+
+`supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql` adds the nullable `race_event_organizers.dashboard_onboarding_completed_at` marker. It is intentionally membership-scoped so each organizer sees the dashboard guide once per event. The column reuses the existing membership RLS and grants; completion writes remain behind a bearer-authenticated, active-membership-checked service route. `supabase/tests/organizer_dashboard_onboarding_checks.sql` verifies the nullable timestamp contract and the retained owner read policy.
 
 `supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql` replaces the legacy RaceBook/Pro tiers with Essential/Complete/Signature, adds service-only edition/format module settings, configuration completion, legacy-rights conversion, content-aware backfill, payment-path recalculation and module-aware public RLS policies. Its optional-content backfill gives the lateral `UNION` output an explicit `module_key` alias so every PostgreSQL version resolves the inserted column deterministically.
 

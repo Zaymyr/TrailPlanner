@@ -15,6 +15,7 @@ export type MembershipRow = {
   id: string;
   event_id: string;
   role: string;
+  dashboard_onboarding_completed_at: string | null;
   race_events?: {
     id: string;
     name: string;

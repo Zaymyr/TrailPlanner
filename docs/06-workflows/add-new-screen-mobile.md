@@ -101,6 +101,8 @@ The identity card displays the formatted course date beneath the race name in th
 
 ## Validation
 
+For Courses visibility work, verify all three format states: masked appears nowhere, private appears only after an active organizer membership query, and public appears through the ordinary live catalog. Keep the organizer merge bounded by membership event ids and deduplicate stable race ids.
+
 Run typecheck/test where available:
 
 ```bash

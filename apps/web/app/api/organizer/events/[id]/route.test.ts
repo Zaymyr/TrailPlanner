@@ -71,6 +71,8 @@ describe("/api/organizer/events/[id]", () => {
               gpx_storage_path: "race.gpx",
               thumbnail_url: null,
               is_live: true,
+              racebook_is_live: false,
+              racebook_preview_is_visible: false,
               organizer_details: { schedule: { startTime: "07:00" } },
               race_aid_stations: [
                 { id: "44444444-4444-4444-4444-444444444444" },
@@ -102,6 +104,7 @@ describe("/api/organizer/events/[id]", () => {
     expect(payload.event.races[0].edition_group_id).toBe("33333333-3333-3333-3333-333333333333");
     expect(payload.event.races[0].external_site_url).toBe("https://grand-trail.example/42k");
     expect(payload.event.races[0].series_name).toBe("42K");
+    expect(payload.event.races[0].racebook_preview_is_visible).toBe(false);
     expect(payload.event.races[0].organizerDetails.schedule.startTime).toBe("07:00");
     expect(payload.event.races[0].aidStationCount).toBe(2);
     expect(payload.event.races[0].startWaveCount).toBe(1);
@@ -109,6 +112,7 @@ describe("/api/organizer/events/[id]", () => {
     expect(payload.event.races[0].race_aid_stations).toBeUndefined();
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_aid_stations(id)");
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_start_waves(id)");
+    expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("racebook_preview_is_visible");
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_edition_services(id)");
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_event_edition_sponsors(id,is_active,click_count)");
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_event_edition_branding(*)");

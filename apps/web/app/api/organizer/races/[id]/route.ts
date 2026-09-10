@@ -152,9 +152,13 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     race.edition_id &&
     await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, race.id, "relay")
   ) updatePayload.participation_mode = parsedBody.data.participationMode;
-  if (parsedBody.data.racebookPreviewIsVisible !== undefined) {
+  if (
+    parsedBody.data.racebookPreviewIsVisible !== undefined &&
+    parsedBody.data.racebookIsLive !== true
+  ) {
     updatePayload.racebook_preview_is_visible = parsedBody.data.racebookPreviewIsVisible;
-    if (!parsedBody.data.racebookPreviewIsVisible) updatePayload.racebook_is_live = false;
+    updatePayload.is_live = false;
+    updatePayload.racebook_is_live = false;
   }
 
   const requiredFieldChanged =
@@ -185,7 +189,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
       updatePayload.is_live = false;
       updatePayload.racebook_is_live = false;
     } else if (currentDataStatus === "draft") {
-      updatePayload.is_live = true;
+      updatePayload.is_live = false;
       updatePayload.racebook_is_live = false;
     }
   }
@@ -194,25 +198,11 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   let publicationRequirement: Awaited<ReturnType<typeof loadOrganizerPublicationRequirement>> | null = null;
   if (parsedBody.data.racebookIsLive !== undefined) {
     if (!parsedBody.data.racebookIsLive) {
-      const visibilityResponse = await fetch(
-        `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
-        {
-          method: "PATCH",
-          headers: {
-            ...serviceHeaders(auth.serviceConfig),
-            Prefer: "return=representation",
-          },
-          body: JSON.stringify({ racebook_is_live: false }),
-          cache: "no-store",
-        }
-      );
-      if (!visibilityResponse.ok) {
-        console.error("Unable to hide organizer Racebook", await visibilityResponse.text());
-        return jsonError("Impossible de masquer ce Racebook.", 502);
+      updatePayload.is_live = false;
+      if (parsedBody.data.racebookPreviewIsVisible === undefined) {
+        updatePayload.racebook_preview_is_visible = true;
       }
-      const hiddenRaces = z.array(raceRowSchema).parse(await visibilityResponse.json());
-      visibilityUpdated = hiddenRaces[0] ?? null;
-      if (!visibilityUpdated) return jsonError("Impossible de masquer ce Racebook.", 502);
+      updatePayload.racebook_is_live = false;
     } else {
       if (race.edition_id) {
         publicationRequirement = await loadOrganizerPublicationRequirement(auth.serviceConfig, race.edition_id);

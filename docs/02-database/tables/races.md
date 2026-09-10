@@ -22,6 +22,7 @@ related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910170144_separate_racebook_preview_visibility.sql
+  - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -54,8 +55,8 @@ related_tables:
 
 - Format row: one distance/course under a parent `race_events` event.
 - Edition membership: `edition_id` identifies the yearly event edition; `edition_group_id` groups the same format across years.
-- Catalog visibility: `is_live` and `is_public` control course discovery.
-- RaceBook visibility has two independent steps: `racebook_preview_is_visible` selects the format for the organizer's private preview/demo, while `racebook_is_live` publishes it to runners and requires an active paid or complimentary edition offer.
+- Catalog visibility: `is_live` and `is_public` control public course discovery. Organizer-private formats deliberately keep `is_live = false` and are merged only for active event organizers.
+- Organizer visibility is a three-state contract: masked = course/preview/RaceBook false, private = course false/preview true/RaceBook false, and public = all three true. Public publication requires an active paid or complimentary edition offer.
 - Import completeness: `data_status` and `missing_required_fields` distinguish incomplete formats from real zero values.
 
 ## Columns
@@ -103,14 +104,15 @@ Existing `races` policies control the whole row, including import status. Organi
 - `data_status = complete` requires an empty `missing_required_fields` array.
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
 - A runner-live RaceBook must also be selected for organizer preview. Turning preview off atomically clears `racebook_is_live`; turning it back on never publishes by itself.
+- The service-only organizer publication function locks the format row and atomically restores `is_live`, `racebook_preview_is_visible`, and `racebook_is_live`; its false branch produces the private state, while the route writes the masked state directly in one update.
 - Complete catalog formats require a name, slug, exact date, location, positive distance and official source. D+ and GPX are optional enrichments and remain null when unknown.
 - Unknown imported distance uses zero only while `distance_km` is listed missing; an explicitly known flat D+ may be zero, while an unknown D+ is null.
 - A confirmed new import format inherits the edition start date, keeps absent GPX and D+ values null, and remains a hidden draft while any catalog-minimum value (date, location, positive distance, or source) is missing.
 - A grounded named format from an event/format/regulation source can be confirmed even when its other claims are missing. Additional registration, results/archive, other, or unusable URLs cannot create the row.
-- Completing an imported draft sets `is_live = true`, leaves `is_public` unchanged, and keeps `racebook_is_live = false`.
+- Completing an imported draft leaves `is_live = false`, leaves `is_public` unchanged, and keeps the organizer-preview flag true; completion makes the format eligible for an explicit Public transition.
 - The Organizer format PATCH route and GPX upload route recompute these markers too, so a draft completed outside the import review cannot remain stuck on sentinel values.
 - Racebook publication remains a separate reviewed action even when course data becomes complete.
-- A hidden parent edition forces both `is_live` and `racebook_is_live` false. Re-showing it restores `is_live` only for complete formats and never restores `racebook_is_live` automatically.
+- A hidden parent edition forces both `is_live` and `racebook_is_live` false. Re-showing it never republishes formats automatically; each complete format remains private until an explicit Public transition.
 - Deleting an edition deletes its format rows; saved plans survive through their separate `race_id on delete set null` relationship.
 - Relay legs are derived from start, ordered relay points, and finish; they are not separate race rows.
 - A slug change atomically reserves the old value in `race_slug_redirects`; inserts and updates cannot reuse a reserved former slug.
