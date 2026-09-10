@@ -7,7 +7,7 @@ import { getIndexableDistancePages } from "../../lib/race-discovery";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../seo";
 import { RaceCatalogFilter } from "./_components/RaceCatalogFilter";
 
-export const revalidate = 3600;
+export const revalidate = 900;
 
 export const metadata: Metadata = {
   title: "Calendrier trail : courses, distances et dénivelés",

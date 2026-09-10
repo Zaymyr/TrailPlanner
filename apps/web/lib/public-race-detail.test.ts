@@ -20,6 +20,7 @@ const baseRace: PublicRace = {
   eventThumbnailUrl: "https://images.example/event.png",
   thumbnailUrl: "https://images.example/race.png",
   externalSiteUrl: "https://format.example",
+  updatedAt: "2026-09-09T12:00:00.000Z",
 };
 
 const jsonResponse = (body: unknown, status = 200) =>

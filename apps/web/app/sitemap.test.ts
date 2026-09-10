@@ -63,4 +63,27 @@ describe('sitemap', () => {
       'https://pace-yourself.com/support',
     ]));
   });
+
+  it('includes accurate race and distance-page modification dates', async () => {
+    getAllPostMetadata.mockResolvedValue([]);
+    const races = [
+      { slug: 'trail-a', updatedAt: '2026-09-08T10:00:00.000Z' },
+      { slug: 'trail-b', updatedAt: '2026-09-09T12:00:00.000Z' },
+    ];
+    getPublicRaces.mockResolvedValue(races);
+    getIndexableDistancePages.mockReturnValue([{ page: { slug: 'trail-court' }, races }]);
+
+    const entries = await sitemap();
+
+    expect(entries).toEqual(expect.arrayContaining([
+      {
+        url: 'https://pace-yourself.com/courses/trail-a',
+        lastModified: '2026-09-08T10:00:00.000Z',
+      },
+      {
+        url: 'https://pace-yourself.com/courses/distances/trail-court',
+        lastModified: '2026-09-09T12:00:00.000Z',
+      },
+    ]));
+  });
 });

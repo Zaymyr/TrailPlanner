@@ -17,8 +17,9 @@ import { RaceHeroSummary } from "../_components/RaceHeroSummary";
 import { RaceMetricsDetails } from "../_components/RaceMetricsDetails";
 import { RaceRouteExplorer } from "../_components/RaceRouteExplorer";
 import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceDate } from "./race-metadata";
+import { buildRaceOverview, buildRaceStructuredData } from "./race-structured-data";
 
-export const revalidate = 3600;
+export const revalidate = 900;
 
 type PageProps = { params: { slug: string } };
 
@@ -169,23 +170,10 @@ export default async function RacePage({ params }: PageProps) {
   const canonicalUrl = new URL(`/courses/${race.slug}`, SITE_URL).toString();
   const otherFormats = getOtherEventFormats(race, races);
   const similarRaces = getSimilarRaces(race, races);
-  const heroImage = race.raceThumbnailUrl ?? race.eventThumbnailUrl;
   const officialUrls = Array.from(
     new Set([race.externalSiteUrl, race.officialWebsiteUrl].filter((value): value is string => Boolean(value))),
   );
-  const structuredData = {
-    "@context": "https://schema.org",
-    "@type": "SportsEvent",
-    name: race.name,
-    url: canonicalUrl,
-    startDate: race.date ?? undefined,
-    endDate: race.eventEndDate ?? undefined,
-    eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
-    image: heroImage ? [heroImage] : undefined,
-    location: race.location ? { "@type": "Place", name: race.location } : undefined,
-    description: buildDescription(race),
-    sameAs: [...officialUrls, race.instagramUrl, race.facebookUrl].filter(Boolean),
-  };
+  const structuredData = buildRaceStructuredData(race, canonicalUrl);
   const breadcrumbData = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
@@ -246,10 +234,15 @@ export default async function RacePage({ params }: PageProps) {
 
       <RaceMetricsDetails race={race} />
 
+      <section className="space-y-2" aria-labelledby="race-overview-heading">
+        <h2 id="race-overview-heading" className="text-2xl font-semibold text-foreground">Présentation de la course</h2>
+        <p className="max-w-4xl leading-7 text-muted-foreground">{buildRaceOverview(race, formattedDate)}</p>
+      </section>
+
       <nav aria-label="Navigation rapide" className="flex flex-wrap gap-4 text-sm font-semibold text-brand lg:hidden">
         <a className="scroll-mt-4 hover:underline" href="#route">Parcours</a>
-        <a className="scroll-mt-4 hover:underline" href="#ravitos">Ravitos</a>
-        <a className="scroll-mt-4 hover:underline" href="#infos-pratiques">Infos</a>
+        {race.aidStations.length ? <a className="scroll-mt-4 hover:underline" href="#ravitos">Ravitos</a> : null}
+        {hasPractical ? <a className="scroll-mt-4 hover:underline" href="#infos-pratiques">Infos</a> : null}
       </nav>
 
       <div className="grid gap-8 lg:grid-cols-3">

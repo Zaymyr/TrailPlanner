@@ -37,6 +37,7 @@ const canonicalRace = {
   eventThumbnailUrl: null,
   thumbnailUrl: null,
   externalSiteUrl: null,
+  updatedAt: "2026-09-09T12:00:00.000Z",
 };
 
 const detailedRace = {
