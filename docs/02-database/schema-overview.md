@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -15,6 +15,7 @@ related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -101,6 +102,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event publication request: retained legacy audit row from the former admin-approval workflow; current paid publication does not enqueue a request.
 - RaceBook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. An active Essential, Complete or Signature edition entitlement authorizes publication, and the first atomic publication stores durable unlock provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`. Effective module settings further control which optional content is exposed.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
+- Normalized event geography: nullable city/department/region/country names and stable codes plus a paired anchor coordinate on `race_events`; free-text format routes remain in `races.location_text`.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Final roadbook synchronization: the Les Amaz’Eaunes 2026 data-only migration corrects the canonical edition/format dates and organizer JSON while preserving unconfirmed course metrics and omitting unspecified ravito rows.
 - Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.
@@ -138,7 +140,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_event_organizers` | Approved event-scoped organizer memberships. |
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_event_update_reads` | Owner-scoped receipts recording which organizer announcements a runner has seen. |
-| `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension. |
+| `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension and explicit normalized geography supports future catalog filters. |
 | `race_event_editions` | Canonical yearly start/end date ranges and catalog visibility for organizer events, with one current edition per event. |
 | `race_event_edition_sponsors` | Ordered edition-scoped RaceBook loading/banner sponsors and aggregate redirect counts. |
 | `race_event_edition_branding` | Edition-scoped RaceBook identity with separate organizer draft and runner-visible published values. |
@@ -272,6 +274,7 @@ erDiagram
 - Two-pass Organizer imports are the exception to the normal all-fields-at-create assumption: confirmation persists an incomplete format as a hidden draft, then atomic field application makes the course live only when its required missing-field list is empty. Racebook visibility remains false.
 - Temporary import sessions are not provenance history. Cleanup must remove Storage objects before deleting expired rows, and client roles must never receive direct table or RPC access.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
+- Geographic catalog filters must use the explicit nullable `race_events` codes. A location-label-only organizer edit clears stale normalized geography; do not replace this safeguard with runtime parsing.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.

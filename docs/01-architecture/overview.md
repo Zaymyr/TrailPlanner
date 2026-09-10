@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-08-19
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - package.json
@@ -90,6 +90,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 - `buildCommand: "npm run build"`
 - `installCommand: "npm install --legacy-peer-deps"`
 - `outputDirectory: ".next"`
+- an ignored-build command that skips Vercel deployments when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged
 - redirects from `trailplanner.app` and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
 
 The mobile app is configured for EAS in `apps/mobile/eas.json`:
@@ -143,6 +144,7 @@ When docs and code disagree, use this order:
 - Several code paths reference `race_events` and newer race columns that are not fully backed by visible migrations in this repo. Those are documented with conflict markers in database docs.
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.
 - Android and iOS temporarily use different EAS Update runtimes: Android `1.1.1` for the API 36 native build and iOS `1.1.0` for the current App Store binary.
+- Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
 
 ## Related Docs
 

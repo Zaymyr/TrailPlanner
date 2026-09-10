@@ -21,6 +21,7 @@ related_files:
   - supabase/migrations/20260909192326_seed_verified_seo_races_2026_2027.sql
   - supabase/migrations/20260909200153_enrich_verified_seo_races_batch_2.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
+  - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/app/api/race-catalog/route.ts
@@ -101,6 +102,7 @@ related_tables:
 - The second curated batch adds four verified event identities, refreshes the existing Foulée des Ducs edition, and enriches Nice UTMB and Terres de Saône event provenance while preserving existing format metrics.
 - The official UTMB World Series import creates or refreshes 55 event identities from their tenant-specific official domains. It stores the UTMB tenant in `organizer_details.catalogSource`, rejects ambiguous legacy matches, and keeps each event linked to one canonical upcoming edition.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
+- Normalized catalog geography: explicit city, department, region and country names/codes plus an anchor-city coordinate pair now support reliable future geographic filters without parsing `location`. The first backfill covers the eight Search Console-priority events and refreshes eleven format location labels.
 - Website-import target: the admin-only organizer information import enriches only the selected `race_events` row and must never create a different event. It first confirms the number and identity of child formats, then reviews field-level source claims. Candidate existence is independent from completeness, distance alone never merges or binds formats, and OpenAI can only choose an already extracted applicable claim or abstain. Roadbooks remain temporary analysis sources and never become event-row data.
 - Two-pass import scope: `organizer_import_sessions.event_id` binds discovery, format confirmation, and field application to this exact event; the session trigger also requires its edition to belong here.
 - Missing provenance: table creation must be verified outside the visible migrations.
@@ -118,6 +120,11 @@ related_tables:
 | `thumbnail_url` | `text` | nullable, added by migration | Shared event thumbnail URL. |
 | `is_live` | `boolean` | nullable/boolean in API schemas | Visibility flag used by onboarding/profile routes. |
 | `organizer_details` | `jsonb` | nullable, added by `20260618160000_add_organizer_dashboard_details.sql` | Organizer-managed progressive common dashboard details. |
+| `location_city`, `location_city_code` | nullable `text` | city code is a stable locality identifier; French rows use INSEE | Normalized anchor city for exact city filters. |
+| `location_department`, `location_department_code` | nullable `text` | paired curated values | Normalized French department or equivalent second-level area. |
+| `location_region`, `location_region_code` | nullable `text` | paired curated values | Normalized French region or equivalent first-level area. |
+| `location_country`, `location_country_code` | nullable `text` | country code is checked as two uppercase letters | Normalized country identity. |
+| `location_latitude`, `location_longitude` | nullable `double precision` | valid ranges; both null or both present | Approximate event anchor used for nearby-city discovery. |
 
 <!-- TODO: verify with maintainer: confirm exact race_events column types, constraints, indexes, and RLS policies in the live Supabase project. -->
 
@@ -135,7 +142,7 @@ Event-scoped child tables added later include:
 
 ## Indexes
 
-No index creation for `race_events` was found in visible migrations. Admin and mobile code query by name/date, so the live schema may have indexes not represented here.
+The original event-table indexes remain unproven. `20260910074418_add_normalized_race_event_geography.sql` adds partial B-tree indexes for non-null region, department and city codes, plus a partial coordinate-pair index for bounded nearby-city queries.
 
 ## RLS Policies
 
@@ -148,6 +155,9 @@ Organizer portal writes also go through web service routes after checking `race_
 ## Business Invariants
 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
+- Geographic catalog filtering must use the explicit normalized columns. The plain `location` label remains display text and `organizer_details.eventLocation` remains runner-navigation metadata.
+- Latitude/longitude identify an event anchor city, not every point crossed by a route. Multi-city formats keep their sourced departure-arrival wording in `races.location_text`.
+- Changing `race_events.location` without updating the normalized geography in the same statement clears all normalized fields through `clear_stale_race_event_geography()`, preventing stale regional filters.
 - Public web pages must require `races.is_live = true` and `races.is_public = true`; related event enrichment must also require `race_events.is_live = true`.
 - Public web details deliberately exclude `organizer_details.emergencyContact`, `services.lastMinuteMessage`, and both raw organizer JSON objects even though the mobile Racebook contract may expose emergency calling.
 - Former course slugs use the same rule: `race_slug_redirects` is readable and the canonical race is returned only while the optional parent event remains live.
@@ -229,6 +239,18 @@ select id, name, event_id, race_events(id, name, location, race_date, thumbnail_
 from public.races;
 ```
 
+Future geographic catalog reads should select only the required safe fields and filter by stable codes:
+
+```sql
+select id, name, location, location_city, location_department,
+       location_region, location_country_code,
+       location_latitude, location_longitude
+from public.race_events
+where is_live = true
+  and location_country_code = 'FR'
+  and location_region_code = '84';
+```
+
 ## Gotchas
 
 - Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
@@ -259,6 +281,8 @@ from public.races;
 - Event deletion must also collect draft and published edition-branding logo paths before the cascade and remove each distinct unreferenced object afterward.
 - Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
+- Do not infer city, department or region from `location` at read time. Unnormalized rows stay outside exact geographic filters until a trusted source populates their explicit fields.
+- Do not treat an anchor-city coordinate as course geometry or exact road distance. Nearby-city discovery is approximate until a dedicated geospatial route model exists.
 - Do not edit the legacy event date fields as canonical organizer dates; update `race_event_editions` and let its trigger mirror the current range.
 - Keep image upload validation in the server route; the database stores only the resulting URL.
 - Keep admin organizer review tolerant of missing yearly-edition joins: a failed `race_event_edition_requests -> race_events` read should not prevent the base event-claim review data from loading.

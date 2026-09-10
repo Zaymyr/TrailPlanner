@@ -39,6 +39,7 @@ related_files:
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
+  - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -201,6 +202,8 @@ Independent mobile onboarding status migration:
 
 `supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql` alters `race_events`, but no create-table migration for `race_events` was found.
 
+`supabase/migrations/20260910074418_add_normalized_race_event_geography.sql` adds nullable normalized city, department, region and country names/codes plus paired anchor-city coordinates to `race_events`. Partial indexes support exact administrative filters and bounded coordinate queries. A trigger clears this curated geography when `location` changes without a matching structured update. The same migration backfills eight Search Console-priority events from official organizer pages and `geo.api.gouv.fr`, and refreshes eleven multi-city-aware format labels. It reuses existing event/race RLS and grants and adds no client mutation path.
+
 <!-- TODO: verify with maintainer: identify the migration or dashboard history that creates race_events and columns used by current code. -->
 
 ### Organizer Portal
@@ -348,6 +351,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.
 - Adding columns to an existing exposed table can reuse the table's RLS policies, but route code must still map legacy missing values safely.
+- Normalized geography remains nullable. Exact catalog filters must exclude uncurated rows, and display-location edits must not leave old city/region codes attached.
 - `races.edition_group_id` groups a format series across years; `races.edition_id` identifies the canonical event-year row. Do not substitute one for the other.
 - `race_event_editions` is service-role-only. Organizer writes must remain behind active membership checks in server routes.
 - Name lateral/union-derived backfill columns explicitly when an outer query references them; PostgreSQL does not derive a stable business-facing alias from a cast literal.

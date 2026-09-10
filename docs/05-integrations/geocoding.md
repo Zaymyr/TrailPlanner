@@ -1,9 +1,10 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
+  - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
   - apps/mobile/lib/racebook.ts
   - apps/web/app/api/location-search/route.ts
@@ -12,7 +13,8 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/organizer/_components/dashboard/detail-editors.tsx
   - apps/web/lib/organizer-dashboard-details.ts
-related_tables: []
+related_tables:
+  - race_events
 ---
 
 # Geocoding
@@ -31,6 +33,7 @@ The structured-editor SAS summary contains only the format id, wave count, and e
 - Geocoded metadata: additive `lat/lng` and Google Maps URL stored next to the existing plain text fields.
 - Canonical text field: the existing event/race/bib/access string that still drives publication checks and normal display.
 - Runner-facing GPS affordance: coordinates and map links shown on published runner surfaces when geocoding data exists.
+- Catalog geography: explicit normalized event columns used for exact city/department/region/country filtering and approximate nearby-city preselection.
 
 ## Current Flow
 
@@ -92,6 +95,14 @@ Each object stores:
 - `googleMapsUrl`
 - `source` = `manual | autocomplete`
 
+## Normalized Catalog Geography
+
+`race_events.location_city`, `location_department`, `location_region`, and `location_country` have stable companion codes. French events use INSEE commune, department and region codes, while `location_country_code` uses ISO alpha-2. `location_latitude` and `location_longitude` store the commune-centre anchor used for approximate nearby-city discovery.
+
+These columns are separate from `organizer_details.eventLocation`: the normalized columns drive catalog filtering, while the JSON object drives labels and external Maps actions. A trusted enrichment may populate both from the same evidence. If the canonical `location` label changes without a matching normalized update, the database trigger clears the normalized fields rather than leave stale filter data.
+
+The initial 2026-09-10 enrichment uses `geo.api.gouv.fr` administrative data and commune-centre coordinates for eight events identified through Search Console. Official organizer pages remain authoritative for event identity and multi-city departure-arrival labels.
+
 ## Gotchas
 
 - RaceBook branding may recolor Maps buttons and location icons, but it must not alter stored coordinates, generated Google Maps URLs, deduplication, or location inheritance.
@@ -99,6 +110,8 @@ Each object stores:
 - Do not copy `eventLocation` into a new format merely to show inheritance; keep the race fields empty until the organizer explicitly enables a different location.
 - Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
+- Do not use free-text parsing as a fallback for exact catalog geography. A missing normalized field means “not curated yet,” not permission to guess.
+- Commune-centre coordinates are approximate discovery anchors, not exact start lines, course geometry or routing distances.
 - Do not assume every historical organizer row has geocoded metadata or a `bibPickup.locations[]` array; old single-location rows should parse through the legacy fallback without losing their free-text schedule.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.
 - The current quality improvement is still heuristic on top of Nominatim. It helps French race addresses significantly, but it is not a full postal-address provider with rooftop accuracy guarantees.
