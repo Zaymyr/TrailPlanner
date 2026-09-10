@@ -13,6 +13,7 @@ related_files:
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/organizer/publication-checkout/route.test.ts
   - apps/web/lib/organizer-publication-tier.ts
+  - apps/web/lib/organizer-publication-tier.test.ts
   - apps/web/lib/entitlements.ts
 related_tables:
   - subscriptions
@@ -126,6 +127,7 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 
 ## Gotchas
 
+- Organizer publication checkout scans persisted Supabase content before creating a Stripe Session. The branding probe must select its `edition_id` primary key; selecting a nonexistent generic `id` produces a Data API 400 and Stripe is never reached.
 - Do not confuse app trial (`user_profiles`) with Stripe trialing subscription status.
 - Do not expose Stripe secret keys client-side.
 - Webhook handling should remain idempotent; Stripe can retry events.

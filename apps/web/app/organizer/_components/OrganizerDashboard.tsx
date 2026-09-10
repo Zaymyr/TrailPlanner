@@ -2201,6 +2201,11 @@ export function OrganizerDashboard({
     if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId) return;
 
+    if (visibility === "public" && activeTier === "visibility") {
+      openPricingDialog("publication");
+      return;
+    }
+
     setStatus("saving");
     setError(null);
     try {

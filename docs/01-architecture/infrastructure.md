@@ -15,6 +15,7 @@ related_files:
   - apps/web/lib/stripe.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/lib/organizer-publication-tier.ts
+  - apps/web/lib/organizer-publication-tier.test.ts
   - supabase/functions/push-register/index.ts
   - supabase/functions/push-reminders/index.ts
 related_tables:
@@ -50,7 +51,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
-  "installCommand": "npm install --legacy-peer-deps",
+  "installCommand": "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund",
   "outputDirectory": ".next",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json"
 }
@@ -61,7 +62,7 @@ It also redirects:
 - `trailplanner.app/*` to `https://pace-yourself.com/*`
 - `trail-planner.vercel.app/*` to `https://pace-yourself.com/*`
 
-Because the Vercel project root is `apps/web`, the build command maps to the web workspace's `build` script and runs `next build`.
+Because the Vercel project root is `apps/web`, the build command maps to the web workspace's `build` script and runs `next build`. npm still discovers the workspace root from that directory, so the install command explicitly selects `@trailplanner/web` while avoiding the unrelated Expo/mobile dependency graph. `npm install` is intentional here: unlike `npm ci`, it preserves a `node_modules` tree restored by Vercel's build cache; `--prefer-offline` prioritizes cached package data, while audit and funding requests are disabled during deployment.
 
 The ignored-build command compares the current commit with its parent and skips the web deployment when none of these inputs changed:
 
@@ -185,9 +186,11 @@ Document variable names, not secret values. Important names visible in code incl
 - Never commit actual environment values into docs.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
+- Keep the Vercel dependency install scoped to `@trailplanner/web`. Removing the workspace filter makes npm install every workspace, including the mobile Expo graph, even though Vercel builds only the web app. Do not replace it with `npm ci` without re-evaluating build timings because `npm ci` deletes the dependency tree restored from Vercel's cache.
 - The app only sends analytics through the public Web and Expo PostHog keys. The admin dashboard does not query PostHog and uses Supabase metrics only.
 - The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.
 - Organizer checkout recomputes the persisted module requirement before creating Stripe state and stores the recommendation as metadata; the requested lower paid tier remains valid and public filtering keeps uncovered drafts private.
+- Publication presence probes must select a real column from each Supabase table. Edition branding is keyed by `edition_id`, not a generic `id`; a bad projection fails before Stripe Checkout is created.
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
