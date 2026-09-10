@@ -1,11 +1,12 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-09-03
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-race-detail.ts
@@ -94,9 +95,11 @@ A page is generated and indexable only while at least five public races have a n
 
 ## Geographic Landing-Page Guardrail
 
-The current public race contract exposes only free-text `location` and `location_text`. Repository migrations do not define normalized race country, region or department columns. Therefore no indexable regional or departmental landing page may be generated from the current data.
+`race_events` now has explicit normalized city, department, region and country names/codes plus an anchor-city coordinate pair. The initial trusted backfill covers eight Search Console-priority events. Unpopulated events remain valid catalog entries but must stay outside exact geographic selections until curated.
 
-Before regional pages are enabled, the schema and publication workflow must provide explicit normalized geographic fields. Each geographic landing page must then apply the same minimum-content threshold and include only races whose normalized value exactly matches the page key. Text parsing, postal-code guesses and city-to-region lookup at render time are not acceptable sources of truth.
+Regional and departmental landing pages are not enabled yet. When introduced, they must use stable normalized codes from the parent event, apply the same five-race minimum-content threshold, and include only public formats under live events. Free-text `location`/`location_text`, postal-code guesses and runtime city-to-region lookup remain unacceptable sources of truth.
+
+Nearby-city discovery may use the stored event anchor coordinates as an approximate straight-line prefilter. It must be labelled accordingly and must not imply route distance or that a multi-city trail lies wholly inside the anchor municipality.
 
 ## Slug Stability
 
@@ -115,7 +118,8 @@ Existing race slugs remain canonical until a rename is explicitly approved. The 
 - Do not serialize raw organizer JSON, emergency phone data, `lastMinuteMessage`, GPX Storage paths, or full GPX content into public client components.
 - Similarity is a navigation aid, not a statement that courses have comparable terrain or difficulty.
 - Do not expose a thin landing page merely because its URL pattern exists; the five-race threshold is part of the indexation contract.
-- Do not derive regions or departments from display-location strings.
+- Do not derive regions or departments from display-location strings; exclude null normalized values from exact geographic filters.
+- Do not publish thin region/city SEO pages merely because a normalized field exists. Geographic indexation still requires the five-race threshold and useful unique content.
 - Keep all public queries restricted to explicit columns and published rows.
 - Never reuse a former slug for another race. It remains reserved in `race_slug_redirects` while the target race exists.
 - Do not run a slug migration from the dry-run script; it deliberately has no write path.

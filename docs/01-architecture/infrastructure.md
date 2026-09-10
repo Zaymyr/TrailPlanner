@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-09-02
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - vercel.json
@@ -46,10 +46,12 @@ This document records the infrastructure visible from the repository: Vercel, EA
 
 ```json
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
   "buildCommand": "npm run build",
   "installCommand": "npm install --legacy-peer-deps",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json"
 }
 ```
 
@@ -58,7 +60,16 @@ It also redirects:
 - `trailplanner.app/*` to `https://pace-yourself.com/*`
 - `trail-planner.vercel.app/*` to `https://pace-yourself.com/*`
 
-The root build command maps to `package.json` script `build`, which runs Turbo.
+Because the Vercel project root is `apps/web`, the build command maps to the web workspace's `build` script and runs `next build`.
+
+The ignored-build command compares the current commit with its parent and skips the web deployment when none of these inputs changed:
+
+- `apps/web`
+- shared packages under `packages`
+- root workspace manifests and lockfile
+- Turbo and Vercel configuration
+
+If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds with the build.
 
 ## EAS
 
@@ -166,6 +177,7 @@ Document variable names, not secret values. Important names visible in code incl
 ## Gotchas
 
 - Never commit actual environment values into docs.
+- Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
 - The app only sends analytics through the public Web and Expo PostHog keys. The admin dashboard does not query PostHog and uses Supabase metrics only.
 - The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.
 - The service role key must stay server-side or inside Supabase functions.
