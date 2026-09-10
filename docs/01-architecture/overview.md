@@ -48,6 +48,7 @@ The web app is a Next.js 14 app:
 - Supabase dependencies: `@supabase/supabase-js ^2.45.4`, `@supabase/ssr ^0.5.0`
 - Analytics dependencies: `posthog-js`, `posthog-node`, `@vercel/analytics`, `@vercel/speed-insights`
 - Resumable browser uploads: `tus-js-client ^4.3.1` for large temporary Organizer import documents sent directly to Supabase Storage.
+- Browser journey testing: `@playwright/test` is a development-only web dependency; the organizer payment journey is opt-in and guarded to Stripe test sessions.
 - Route headers: `apps/web/next.config.mjs` emits `Content-Language: en` for the server-rendered `/en/*` subtree without making the root layout request-dynamic.
 
 The mobile app is an Expo Router app:

@@ -18,7 +18,7 @@ import {
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
 import { loadOrganizerEditionEntitlements } from "../../../../../lib/organizer-entitlements";
-import { isOrganizerEditionModuleEnabled } from "../../../../../lib/organizer-module-settings";
+import { isOrganizerEditionModuleSelected } from "../../../../../lib/organizer-module-settings";
 import { racebookBrandingRowSchema, toOrganizerBranding } from "../../../../../lib/racebook-branding";
 
 const updateEventSchema = z.object({
@@ -264,10 +264,10 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     if (!moduleEditionId) updatePayload.organizer_details = currentDetails;
     else {
       const [equipment, bibPickup, access, services] = await Promise.all([
-        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "equipment"),
-        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "bib_pickup"),
-        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "access"),
-        isOrganizerEditionModuleEnabled(auth.serviceConfig, moduleEditionId, "services"),
+        isOrganizerEditionModuleSelected(auth.serviceConfig, moduleEditionId, "equipment"),
+        isOrganizerEditionModuleSelected(auth.serviceConfig, moduleEditionId, "bib_pickup"),
+        isOrganizerEditionModuleSelected(auth.serviceConfig, moduleEditionId, "access"),
+        isOrganizerEditionModuleSelected(auth.serviceConfig, moduleEditionId, "services"),
       ]);
       updatePayload.organizer_details = {
         ...incoming,

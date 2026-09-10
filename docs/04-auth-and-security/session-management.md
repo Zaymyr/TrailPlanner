@@ -1,7 +1,7 @@
 ---
 title: Session Management
 scope: auth
-last_verified: 2026-08-25
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - apps/web/app/hooks/useVerifiedSession.tsx
@@ -51,6 +51,8 @@ Persisting a session dispatches:
 - browser storage changes;
 - `trailplanner:session-updated`;
 - periodic interval around 30 minutes.
+
+When `trailplanner:session-updated` arrives during an older verification request, the provider waits for that request and starts a fresh verification from the newly stored tokens. An older 401 or successful response is not allowed to clear or replace a newer stored access token. This prevents a successful sign-in from leaving the next organizer page in its signed-out state until a manual reload.
 
 After successful verification, the context calls `POST /api/resend/contact` for identified, non-anonymous users that have not already been marked in localStorage with `trailplanner.resendContactSynced:<userId>:<email>`.
 

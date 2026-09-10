@@ -14,6 +14,7 @@ related_files:
   - apps/web/app/api/cron/organizer-import-cleanup/route.ts
   - apps/web/lib/stripe.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
+  - apps/web/lib/organizer-publication-tier.ts
   - supabase/functions/push-register/index.ts
   - supabase/functions/push-reminders/index.ts
 related_tables:
@@ -186,6 +187,7 @@ Document variable names, not secret values. Important names visible in code incl
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
 - The app only sends analytics through the public Web and Expo PostHog keys. The admin dashboard does not query PostHog and uses Supabase metrics only.
 - The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.
+- Organizer checkout recomputes the persisted module requirement before creating Stripe state and stores the recommendation as metadata; the requested lower paid tier remains valid and public filtering keeps uncovered drafts private.
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.

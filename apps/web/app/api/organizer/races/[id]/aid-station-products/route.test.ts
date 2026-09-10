@@ -165,7 +165,7 @@ vi.mock("../../../../../../lib/organizer-entitlements", () => ({
 }));
 
 vi.mock("../../../../../../lib/organizer-module-settings", () => ({
-  isOrganizerRaceModuleEnabled: () => Promise.resolve(true),
+  isOrganizerRaceModuleSelected: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../../lib/organizer", async () => ({

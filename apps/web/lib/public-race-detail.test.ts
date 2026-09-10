@@ -54,6 +54,7 @@ describe("public race detail", () => {
           max_alt_m: 1700,
           gpx_storage_path: "catalog/race.gpx",
           participation_mode: "solo",
+          racebook_is_live: true,
           organizer_details: { schedule: { startTime: "06:00", finishCutoffTime: "18:00" } },
         }]);
       }
@@ -75,6 +76,20 @@ describe("public race detail", () => {
           event_id: baseRace.eventId,
           end_date: "2026-09-13",
           is_visible: true,
+        }]);
+      }
+      if (url.includes("/rest/v1/organizer_racebook_module_settings?")) {
+        return jsonResponse([
+          { id: "55555555-5555-4555-8555-555555555551", edition_id: baseRace.editionId, race_id: null, module_key: "services", is_enabled: true },
+        ]);
+      }
+      if (url.includes("/rest/v1/organizer_edition_entitlements?")) {
+        return jsonResponse([{
+          id: "55555555-5555-4555-8555-555555555552",
+          edition_id: baseRace.editionId,
+          tier: "complete",
+          source: "stripe",
+          status: "active",
         }]);
       }
       if (url.includes("/rest/v1/race_aid_stations?")) {
@@ -126,6 +141,51 @@ describe("public race detail", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
+  it("masks a populated module above the active edition tier", async () => {
+    const fetchMock = vi.fn().mockImplementation((url: string) => {
+      if (url.includes("/rest/v1/races?")) return jsonResponse([{
+        id: baseRace.id,
+        event_id: baseRace.eventId,
+        edition_id: baseRace.editionId,
+        racebook_is_live: true,
+        organizer_details: {},
+      }]);
+      if (url.includes("/rest/v1/race_events?")) return jsonResponse([{
+        id: baseRace.eventId,
+        is_live: true,
+        organizer_details: { services: { supporters: "Contenu Complet privé" } },
+      }]);
+      if (url.includes("/rest/v1/race_event_editions?")) return jsonResponse([{
+        id: baseRace.editionId,
+        event_id: baseRace.eventId,
+        end_date: "2026-09-13",
+        is_visible: true,
+      }]);
+      if (url.includes("/rest/v1/organizer_racebook_module_settings?")) return jsonResponse([{
+        id: "55555555-5555-4555-8555-555555555553",
+        edition_id: baseRace.editionId,
+        race_id: null,
+        module_key: "services",
+        is_enabled: true,
+      }]);
+      if (url.includes("/rest/v1/organizer_edition_entitlements?")) return jsonResponse([{
+        id: "55555555-5555-4555-8555-555555555554",
+        edition_id: baseRace.editionId,
+        tier: "essential",
+        source: "stripe",
+        status: "active",
+      }]);
+      if (url.includes("/rest/v1/race_aid_stations?")) return jsonResponse([]);
+      return jsonResponse([], 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const detail = await getPublicRaceDetail(baseRace);
+
+    expect(detail?.practical.services.supporters).toBeNull();
+    expect(JSON.stringify(detail)).not.toContain("Contenu Complet privé");
+  });
+
   it("downsamples long GPX files while preserving the first and last points", () => {
     const points = Array.from({ length: 1_201 }, (_, index) =>
       `<trkpt lat="45.${String(index).padStart(4, "0")}" lon="6"><ele>${500 + index}</ele></trkpt>`,
@@ -147,6 +207,7 @@ describe("public race detail", () => {
           event_id: null,
           edition_id: null,
           gpx_storage_path: "catalog/invalid.gpx",
+          racebook_is_live: true,
           organizer_details: {},
         }]);
       }
@@ -171,6 +232,7 @@ describe("public race detail", () => {
           event_id: null,
           edition_id: null,
           gpx_storage_path: null,
+          racebook_is_live: true,
           organizer_details: {},
         }]);
       }

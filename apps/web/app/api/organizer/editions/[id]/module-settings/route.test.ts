@@ -13,11 +13,16 @@ describe("PATCH /api/organizer/editions/[id]/module-settings", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("refuses activation outside the current offer", async () => {
+  it("allows activation outside the current offer as a private draft", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(new Response(null, { status: 201 }));
     const response = await PATCH(new NextRequest("http://localhost", {
       method: "PATCH", body: JSON.stringify({ updates: [{ scope: "edition", moduleKey: "services", enabled: true }] }),
     }), { params: { id: editionId } });
-    expect(response.status).toBe(403);
+    expect(response.status).toBe(200);
+    const mutation = vi.mocked(fetch).mock.calls.find(([, init]) => init?.method === "POST");
+    expect(JSON.parse(String(mutation?.[1]?.body))).toMatchObject({ module_key: "services", is_enabled: true });
   });
 
   it("allows disabling an unavailable module without deleting content", async () => {
@@ -45,7 +50,6 @@ vi.mock("../../../../../../lib/organizer-entitlements", () => ({
   loadOrganizerEditionEntitlement: () => Promise.resolve({ tier: "essential", status: "active" }),
 }));
 vi.mock("../../../../../../lib/organizer-module-settings", () => ({
-  canEnableOrganizerModule: (_entitlement: unknown, key: string) => ["equipment", "bib_pickup", "access", "aid_stations"].includes(key),
   loadOrganizerModuleSettings: () => Promise.resolve({
     edition: { equipment: true, bib_pickup: true, access: true, services: false, branding: false, sponsors: false }, races: {},
   }),

@@ -89,6 +89,15 @@ export async function isOrganizerEditionModuleEnabled(
   return canEnableOrganizerModule(entitlement, moduleKey) && isOrganizerModuleAvailable(tier, moduleKey) && settings.edition[moduleKey];
 }
 
+export async function isOrganizerEditionModuleSelected(
+  config: SupabaseServiceConfig,
+  editionId: string,
+  moduleKey: OrganizerEditionModuleKey,
+) {
+  const settings = await loadOrganizerModuleSettings(config, editionId, []);
+  return settings.edition[moduleKey];
+}
+
 export async function isOrganizerRaceModuleEnabled(
   config: SupabaseServiceConfig,
   editionId: string,
@@ -101,4 +110,14 @@ export async function isOrganizerRaceModuleEnabled(
   ]);
   const tier = entitlement?.status === "active" ? entitlement.tier : "visibility";
   return canEnableOrganizerModule(entitlement, moduleKey) && isOrganizerModuleAvailable(tier, moduleKey) && settings.races[raceId]![moduleKey];
+}
+
+export async function isOrganizerRaceModuleSelected(
+  config: SupabaseServiceConfig,
+  editionId: string,
+  raceId: string,
+  moduleKey: OrganizerRaceModuleKey,
+) {
+  const settings = await loadOrganizerModuleSettings(config, editionId, [raceId]);
+  return settings.races[raceId]![moduleKey];
 }

@@ -78,7 +78,8 @@ This table is retained publication-review history. New organizer publication use
 - Sending or deleting a manual organizer announcement does not create, approve, reject, or reopen a Racebook publication request.
 - Format-specific manual notifications are available only for already-live formats in the selected edition. Draft formats must pass the publication workflow before they can be selected as runner notification context.
 - Removing the organizer-side runner preview and format quick actions does not alter readiness: publication still validates persisted event, edition, and format rows.
-- An inherited format location remains empty on `races`; publication continues to require the event location, while an explicitly different format location is additive runner-facing data.
+- A normally created or saved format persists its effective inherited event location on `races`; an explicitly different format location replaces that snapshot. Both paths satisfy the same server-side publication check.
+- The dashboard checks name, date, effective location, positive distance, and official source before opening pricing. The checkout route remains authoritative and revalidates persisted rows before creating a payment attempt.
 - The Organizer's single format-name control persists the same non-empty value to `races.name` and `races.series_name`; publication readiness continues to validate the canonical `name` field.
 - Publishing an edition's visual identity is a separate Pro-only draft-to-published operation. It does not publish a format, change `racebook_is_live`, or insert/update this legacy review table.
 

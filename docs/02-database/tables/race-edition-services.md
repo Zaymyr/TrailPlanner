@@ -37,7 +37,7 @@ The shared web editor file also reports SAS count and earliest time to the forma
 
 The Organizer section chooser lists this setting under edition-common sections, making explicit that one switch applies to every format attached to the selected canonical edition.
 
-Services require Complete or Signature plus an active edition `services` module. Disabling masks published rows and blocks organizer writes without deleting them.
+Service draft writes require membership plus a selected edition `services` module. Complete or Signature is required only for public/mobile visibility. Disabling or downgrading masks rows without deleting them.
 
 Public reads follow the visible, published RaceBook edition. Authorized event organizers can preview rows. Clients cannot mutate the table directly; the service-role Organizer API checks membership and `racebook_content.manage`.
 

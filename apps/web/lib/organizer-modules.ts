@@ -22,7 +22,8 @@ export const organizerModuleKeySchema = z.union([organizerEditionModuleKeySchema
 export type OrganizerEditionModuleKey = z.infer<typeof organizerEditionModuleKeySchema>;
 export type OrganizerRaceModuleKey = z.infer<typeof organizerRaceModuleKeySchema>;
 export type OrganizerModuleKey = z.infer<typeof organizerModuleKeySchema>;
-export type OrganizerModuleState = "active" | "inactive" | "locked";
+export type OrganizerModuleState = "active" | "inactive" | "draftOnly";
+export type OrganizerAdvancedGroupKey = "format_equipment" | "format_bib_pickup" | "format_access";
 
 export type OrganizerModuleDefinition = {
   key: OrganizerModuleKey;
@@ -68,13 +69,35 @@ export const ORGANIZER_MODULES: readonly OrganizerModuleDefinition[] = [
   { key: "official_products", label: "Produits officiels", description: "Produits proposés à chaque ravitaillement.", scope: "race", minimumTier: "signature", capability: "aid_station_products.manage", defaultEnabled: false },
 ] as const;
 
+export const ORGANIZER_ADVANCED_GROUP_MINIMUM_TIER: Record<OrganizerAdvancedGroupKey, Exclude<OrganizerTier, "visibility">> = {
+  format_equipment: "complete",
+  format_bib_pickup: "complete",
+  format_access: "complete",
+};
+
 const byKey = new Map(ORGANIZER_MODULES.map((module) => [module.key, module]));
 
 export const getOrganizerModule = (key: OrganizerModuleKey) => byKey.get(key)!;
 export const isOrganizerModuleAvailable = (tier: OrganizerTier, key: OrganizerModuleKey) =>
   ORGANIZER_TIER_RANK[tier] >= ORGANIZER_TIER_RANK[getOrganizerModule(key).minimumTier];
 export const getOrganizerModuleState = (tier: OrganizerTier, key: OrganizerModuleKey, enabled: boolean): OrganizerModuleState =>
-  !isOrganizerModuleAvailable(tier, key) ? "locked" : enabled ? "active" : "inactive";
+  !enabled ? "inactive" : isOrganizerModuleAvailable(tier, key) ? "active" : "draftOnly";
+
+export const getMinimumOrganizerPublicationTier = (
+  usedModules: Iterable<OrganizerModuleKey>,
+  usedAdvancedGroups: Iterable<OrganizerAdvancedGroupKey> = [],
+): Exclude<OrganizerTier, "visibility"> => {
+  let minimumTier: Exclude<OrganizerTier, "visibility"> = "essential";
+  for (const key of usedModules) {
+    const candidate = getOrganizerModule(key).minimumTier;
+    if (ORGANIZER_TIER_RANK[candidate] > ORGANIZER_TIER_RANK[minimumTier]) minimumTier = candidate;
+  }
+  for (const key of usedAdvancedGroups) {
+    const candidate = ORGANIZER_ADVANCED_GROUP_MINIMUM_TIER[key];
+    if (ORGANIZER_TIER_RANK[candidate] > ORGANIZER_TIER_RANK[minimumTier]) minimumTier = candidate;
+  }
+  return minimumTier;
+};
 
 export const defaultEditionModuleSettings = Object.fromEntries(
   ORGANIZER_MODULES.filter((module) => module.scope === "edition").map((module) => [module.key, module.defaultEnabled]),

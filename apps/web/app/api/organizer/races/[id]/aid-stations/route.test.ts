@@ -232,7 +232,7 @@ vi.mock("../../../../../../lib/http", () => ({
 }));
 
 vi.mock("../../../../../../lib/organizer-module-settings", () => ({
-  isOrganizerRaceModuleEnabled: () => Promise.resolve(true),
+  isOrganizerRaceModuleSelected: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../../lib/organizer", () => ({

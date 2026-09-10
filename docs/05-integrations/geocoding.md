@@ -58,7 +58,7 @@ Manual free text is still allowed. In that case the helper stores the label plus
 
 The add-format editor can queue a GPX before the format exists, but that upload remains separate from geocoding. Address autocomplete still owns only the canonical location string plus structured metadata. Edition start/end dates come from `race_event_editions`; switching year changes the selected edition and attached `races` rows without changing location ownership or duplicating the event location into format addresses.
 
-Format location now follows the same opt-in pattern as its date. `Lieu différent de l'événement` is unchecked by default, so a new format keeps `location_text` empty and inherits the event location at display time. Enabling it reveals `AddressAutocompleteField`; disabling it clears both the format text and the normalized `raceLocation` object.
+Format location follows the same opt-in pattern as its date. `Lieu différent de l'événement` is unchecked by default; when the format is saved, the current event label and structured location are persisted as its publication-ready location snapshot. Enabling it reveals `AddressAutocompleteField`; disabling it restores that event location snapshot.
 
 The format-level `Accès - <format>` context and `Accès différents pour ce format` toggle live in the main module header. The address fields render directly in the module content only when that override is enabled; enabling it starts from the event access value and preserves the same `AddressAutocompleteField` instances, canonical strings, structured start/finish locations, and proximity bias.
 
@@ -114,7 +114,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 
 - RaceBook branding may recolor Maps buttons and location icons, but it must not alter stored coordinates, generated Google Maps URLs, deduplication, or location inheritance.
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
-- Do not copy `eventLocation` into a new format merely to show inheritance; keep the race fields empty until the organizer explicitly enables a different location.
+- Do not use a copied event location to make the UI look like a custom override. Equality with the current event location must still render as inherited, even though the save payload persists the effective location required by catalog publication.
 - Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
 - Do not use free-text parsing as a fallback for exact catalog geography. A missing normalized field means “not curated yet,” not permission to guess.

@@ -144,6 +144,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('htmlFor="organizer-workspace-select"');
     expect(shellSource).toContain('tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label');
     expect(shellSource).toContain('aria-label={tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : undefined}');
+    expect(shellSource).toContain("Créer un autre événement");
     expect(shellSource).toContain("Modifications non enregistrées");
     expect(shellSource).toContain("Une autre section contient des modifications non enregistrées.");
     expect(shellSource).toContain("fixed inset-x-4 top-20");
@@ -151,6 +152,19 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("hasAnyDirtyChanges={hasAnyDirtyChanges}");
     expect(shellSource).toContain("Supprimer l’édition");
     expect(shellSource).toContain("Supprimer la course");
+  });
+
+  it("keeps format publication prerequisites visible and persisted", () => {
+    const editorSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx"), "utf8");
+    const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
+
+    expect(editorSource).toContain('label="Site officiel / source du format"');
+    expect(editorSource).toContain("locationText: inheritedLocationText");
+    expect(dashboardSource).toContain("externalSiteUrl: newRaceForm.externalSiteUrl");
+    expect(dashboardSource).toContain("externalSiteUrl: nextForm.externalSiteUrl?.trim() || undefined");
+    expect(dashboardSource).toContain("locationText: newRaceForm.locationText || eventForm.location");
+    expect(dashboardSource).toContain("locationText: nextForm.locationText || eventForm.location");
+    expect(dashboardSource).toContain("site officiel/source");
   });
 
   it("stages RaceBook section changes in a wide responsive dialog before one explicit save", () => {
@@ -287,7 +301,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain('window.addEventListener("beforeunload"');
     expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");
     expect(editorSource).toContain("theme.accentSurfaceColor");
-    expect(dashboardSource).toContain('activeModule === "branding" && isEventTab && activeTier !== "signature"');
-    expect(dashboardSource).toContain("Découvrir Signature");
+    expect(dashboardSource).toContain("Cette section restera privée jusqu’au passage à");
+    expect(dashboardSource).toContain("Forfait nécessaire pour tout publier");
   });
 });

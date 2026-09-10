@@ -24,7 +24,9 @@ import {
   ORGANIZER_TIER_LABEL,
   ORGANIZER_TIER_PRICE_EUR,
   ORGANIZER_TIER_RANK,
+  getMinimumOrganizerPublicationTier,
   getOrganizerModuleState,
+  type OrganizerAdvancedGroupKey,
   type OrganizerEditionModuleKey,
   type OrganizerModuleKey,
   type OrganizerRaceModuleKey,
@@ -397,7 +399,7 @@ export function OrganizerDashboard({
     const eventModules = new Set<OrganizerModuleId>(["event"]);
     const races: Record<string, Set<OrganizerModuleId>> = {};
     const editionEnabled = (key: OrganizerEditionModuleKey) =>
-      moduleSettings ? getOrganizerModuleState(activeTier, key, moduleSettings.edition[key]) === "active" : true;
+      moduleSettings ? moduleSettings.edition[key] : true;
     if (editionEnabled("equipment")) eventModules.add("equipment");
     if (editionEnabled("bib_pickup")) eventModules.add("bibPickup");
     if (editionEnabled("access")) eventModules.add("access");
@@ -411,13 +413,13 @@ export function OrganizerDashboard({
       if (editionEnabled("access")) enabled.add("access");
       const raceSettings = moduleSettings?.races[race.id];
       const raceEnabled = (key: OrganizerRaceModuleKey) =>
-        moduleSettings ? getOrganizerModuleState(activeTier, key, raceSettings?.[key] ?? false) === "active" : true;
+        moduleSettings ? raceSettings?.[key] ?? false : true;
       if (raceEnabled("aid_stations")) enabled.add("aidStations");
       if (raceEnabled("awards")) enabled.add("awards");
       races[race.id] = enabled;
     }
     return { event: eventModules, races };
-  }, [activeTier, eventDetail?.races, moduleSettings]);
+  }, [eventDetail?.races, moduleSettings]);
 
   useEffect(() => {
     const ownerId = session?.id ?? null;
@@ -966,17 +968,23 @@ export function OrganizerDashboard({
           const aidData = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
           let relayPoints: RelayPointDraft[] = [];
           let products: StationProduct[] = [];
-          if (activeTier === "signature") {
-            const [relayResponse, productsResponse] = await Promise.all([
-              fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" }),
-              fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" }),
-            ]);
-            if (!relayResponse.ok || !productsResponse.ok) return null;
-            const [relayData, productsData] = (await Promise.all([relayResponse.json(), productsResponse.json()])) as [
-              { relayPoints?: RelayPointDraft[] },
-              { products?: StationProduct[] },
-            ];
+          const raceModules = moduleSettings?.races[raceId];
+          const [relayResponse, productsResponse] = await Promise.all([
+            raceModules?.relay
+              ? fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" })
+              : Promise.resolve(null),
+            raceModules?.official_products
+              ? fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" })
+              : Promise.resolve(null),
+          ]);
+          if (relayResponse) {
+            if (!relayResponse.ok) return null;
+            const relayData = (await relayResponse.json()) as { relayPoints?: RelayPointDraft[] };
             relayPoints = relayData.relayPoints ?? [];
+          }
+          if (productsResponse) {
+            if (!productsResponse.ok) return null;
+            const productsData = (await productsResponse.json()) as { products?: StationProduct[] };
             products = productsData.products ?? [];
           }
           const sidecars: OrganizerRaceSidecars = {
@@ -995,7 +1003,7 @@ export function OrganizerDashboard({
     }
     const sidecars = await request;
     if (sidecars) applyRaceSidecars(raceId, sidecars, previewOverride);
-  }, [accessToken, activeTier, applyRaceSidecars, authHeaders]);
+  }, [accessToken, applyRaceSidecars, authHeaders, moduleSettings]);
 
   const loadCatalogProducts = useCallback(async () => {
     if (!accessToken) return;
@@ -1104,13 +1112,13 @@ export function OrganizerDashboard({
     if (needsSidecar && sidecarLoadedRaceId !== activeRace.id) {
       void loadRaceSidecar(activeRace.id);
     }
-    if (needsSidecar && activeTier === "signature") void loadCatalogProducts();
+    if (needsSidecar && activeRace && moduleSettings?.races[activeRace.id]?.official_products) void loadCatalogProducts();
 
     const needsGpx = activeModule === "formats" || activeModule === "aidStations";
     if (needsGpx && activeRace.gpx_storage_path && gpxLoadedRaceKey !== `${activeRace.id}:${activeRace.gpx_storage_path}`) {
       void loadRaceGpxPreview(activeRace.id, activeRace.gpx_storage_path);
     }
-  }, [activeModule, activeRace, activeTier, gpxLoadedRaceKey, loadCatalogProducts, loadRaceGpxPreview, loadRaceSidecar, sidecarLoadedRaceId]);
+  }, [activeModule, activeRace, gpxLoadedRaceKey, loadCatalogProducts, loadRaceGpxPreview, loadRaceSidecar, moduleSettings, sidecarLoadedRaceId]);
 
   useEffect(() => {
     const shiftOneYear = (value?: string | null) => {
@@ -1204,7 +1212,8 @@ export function OrganizerDashboard({
           distanceKm: nextForm.distanceKm,
           elevationGainM: nextForm.elevationGainM,
           elevationLossM: toNumberOrNull(nextForm.elevationLossM),
-          locationText: nextForm.locationText,
+          externalSiteUrl: nextForm.externalSiteUrl?.trim() || undefined,
+          locationText: nextForm.locationText || eventForm.location,
           raceDate: nextForm.raceDate,
           thumbnailUrl: nextForm.thumbnailUrl,
           participationMode: nextForm.participationMode || undefined,
@@ -1271,7 +1280,8 @@ export function OrganizerDashboard({
           distanceKm: newRaceForm.distanceKm,
           elevationGainM: newRaceForm.elevationGainM,
           elevationLossM: toNumberOrNull(newRaceForm.elevationLossM),
-          locationText: newRaceForm.locationText,
+          externalSiteUrl: newRaceForm.externalSiteUrl,
+          locationText: newRaceForm.locationText || eventForm.location,
           raceDate: newRaceForm.raceDate,
           thumbnailUrl: newRaceForm.thumbnailUrl,
           participationMode: newRaceForm.participationMode || "solo",
@@ -1643,7 +1653,7 @@ export function OrganizerDashboard({
         return false;
       }
       let savedRelayPoints: RelayPointDraft[] = [];
-      if (activeTier === "signature") {
+      if (moduleSettings?.races[activeRace.id]?.relay) {
         const relayResponse = await fetch(`/api/organizer/races/${activeRace.id}/relay-points`, {
           method: "PUT",
           headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -1988,8 +1998,28 @@ export function OrganizerDashboard({
   };
 
   const requestPublication = () => {
-    if (activeTier !== "visibility") {
-      showToast("success", `L’offre ${ORGANIZER_TIER_LABEL[activeTier]} est active pour cette édition.`);
+    const hasPublishableFormat = (eventDetail?.races ?? []).some((race) => {
+      if (getRaceEditionYear(race, eventDetail?.editions) !== selectedEditionYear) return false;
+      const isActiveRace = race.id === activeRace?.id;
+      const name = isActiveRace ? raceForm.name : race.name;
+      const raceDate = isActiveRace ? raceForm.raceDate : race.race_date;
+      const distanceKm = isActiveRace ? raceForm.distanceKm : race.distance_km;
+      const location = isActiveRace ? raceForm.locationText || eventForm.location : race.location_text || eventForm.location;
+      const sourceReady = isActiveRace
+        ? Boolean(raceForm.externalSiteUrl?.trim()) || !race.missing_required_fields?.includes("source_url")
+        : Boolean(race.external_site_url?.trim()) || !race.missing_required_fields?.includes("source_url");
+      return Boolean(name.trim() && raceDate?.trim() && location.trim() && sourceReady && distanceKm > 0);
+    });
+    if (!hasPublishableFormat) {
+      showToast("error", "Complète au moins un format : nom, date, lieu, distance et site officiel/source.");
+      if (activeRace) {
+        setActiveTab(activeRace.edition_group_id);
+        setActiveModule("formats");
+      }
+      return;
+    }
+    if (activeTier !== "visibility" && privateDraftCount === 0) {
+      showToast("success", `Tout le contenu renseigné peut être publié avec l’offre ${ORGANIZER_TIER_LABEL[activeTier]}.`);
       return;
     }
     openPricingDialog("publication");
@@ -2551,6 +2581,58 @@ export function OrganizerDashboard({
       && racePersistedValues.some((value) => !value);
     return { ...module, enabled, persistedEnabled, mixed, state: getOrganizerModuleState(activeTier, module.key, enabled) };
   });
+  const moduleIdByKey: Partial<Record<OrganizerModuleKey, OrganizerModuleId>> = {
+    equipment: "equipment",
+    bib_pickup: "bibPickup",
+    access: "access",
+    services: "services",
+    branding: "branding",
+    sponsors: "sponsors",
+    aid_stations: "aidStations",
+    awards: "awards",
+    official_products: "products",
+  };
+  const usedModuleKeys = visibleModuleChoices.flatMap((module) => {
+    if (!module.enabled) return [];
+    if (module.key === "start_waves") return currentStartWaveCount > 0 ? [module.key] : [];
+    if (module.key === "relay") return relayPoints.length > 0 ? [module.key] : [];
+    if (module.key === "official_products") return stationProducts.length > 0 ? [module.key] : [];
+    const moduleId = moduleIdByKey[module.key];
+    const summaries = module.scope === "edition" ? completion?.eventModules : completion?.formatModules;
+    return moduleId && summaries?.some((summary) => summary.id === moduleId && summary.status !== "empty")
+      ? [module.key]
+      : [];
+  });
+  const usedAdvancedGroups: OrganizerAdvancedGroupKey[] = activeRace ? [
+    ...(raceForm.organizerDetails.mandatoryEquipment.overrideEnabled ? ["format_equipment" as const] : []),
+    ...(raceForm.organizerDetails.bibPickup.overrideEnabled ? ["format_bib_pickup" as const] : []),
+    ...(raceForm.organizerDetails.access.overrideEnabled ? ["format_access" as const] : []),
+  ] : [];
+  const requiredPublicationTier = getMinimumOrganizerPublicationTier(usedModuleKeys, usedAdvancedGroups);
+  const privateDraftModules = visibleModuleChoices.filter(
+    (module) => usedModuleKeys.includes(module.key)
+      && ORGANIZER_TIER_RANK[module.minimumTier] > ORGANIZER_TIER_RANK[activeTier],
+  );
+  const privateDraftAdvancedCount = ORGANIZER_TIER_RANK[activeTier] < ORGANIZER_TIER_RANK.complete
+    ? usedAdvancedGroups.length
+    : 0;
+  const privateDraftCount = privateDraftModules.length + privateDraftAdvancedCount;
+  const activeModuleKey: OrganizerModuleKey | null =
+    activeModule === "bibPickup" ? "bib_pickup"
+      : activeModule === "aidStations" ? "aid_stations"
+        : activeModule === "products" ? "official_products"
+          : ORGANIZER_MODULES.some((module) => module.key === activeModule)
+            ? activeModule as OrganizerModuleKey
+            : null;
+  const activeModuleChoice = activeModule === "aidStations"
+    ? visibleModuleChoices
+        .filter((module) => ["aid_stations", "start_waves", "relay"].includes(module.key) && module.state === "draftOnly")
+        .sort((left, right) => ORGANIZER_TIER_RANK[right.minimumTier] - ORGANIZER_TIER_RANK[left.minimumTier])[0]
+      ?? visibleModuleChoices.find((module) => module.key === "aid_stations")
+      ?? null
+    : activeModuleKey
+      ? visibleModuleChoices.find((module) => module.key === activeModuleKey) ?? null
+      : null;
   const moduleSettingsChangesCount = Object.keys(moduleSettingsDraft).length;
 
   const applyWebsiteImport = async () => {
@@ -2688,6 +2770,13 @@ export function OrganizerDashboard({
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
+        <span className="font-medium text-foreground">Brouillon privé</span>
+        <span className="text-muted-foreground">
+          Forfait nécessaire pour tout publier : <strong className="font-semibold text-foreground">{ORGANIZER_TIER_LABEL[requiredPublicationTier]}</strong>
+        </span>
+      </div>
+
       {completion ? (
         <div className="space-y-3">
           <div className="flex justify-end">
@@ -2746,39 +2835,36 @@ export function OrganizerDashboard({
                     <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
                     <p className="text-xs text-muted-foreground">{group.description}</p>
                   </div>
-                  {(["active", "inactive", "locked"] as const).map((state) => {
+                  {(["active", "inactive", "draftOnly"] as const).map((state) => {
                     const choices = groupChoices.filter((module) => module.state === state);
                     if (choices.length === 0) return null;
                     return (
                       <div key={state} className="space-y-2">
                         <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                          {state === "active" ? "Actives" : state === "inactive" ? "Disponibles" : "Avec une offre supérieure"}
+                          {state === "active" ? "Incluses avec votre offre" : state === "inactive" ? "Masquées" : "Brouillon privé"}
                         </h4>
                         <div className="grid gap-2 sm:grid-cols-2 min-[900px]:grid-cols-3">
                           {choices.map((module) => (
                             <div key={module.key} className="flex min-h-20 items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
-                              <div>
-                                <p className="text-sm font-medium text-foreground">{module.label}</p>
+                              <div className="min-w-0">
+                                <div className="flex items-baseline justify-between gap-3">
+                                  <p className="text-sm font-medium text-foreground">{module.label}</p>
+                                  {state === "draftOnly" ? <span className="shrink-0 text-[11px] text-muted-foreground">{ORGANIZER_TIER_LABEL[module.minimumTier]}</span> : null}
+                                </div>
                                 <p className="text-xs text-muted-foreground">{module.description}</p>
                                 {module.mixed ? <p className="mt-1 text-[11px] font-medium text-amber-700">Réglages différents selon les formats</p> : null}
                               </div>
-                              {state === "locked" ? (
-                                <Button type="button" variant="outline" className="min-h-11 px-3 text-xs" onClick={() => openPricingDialog()}>
-                                  Voir l’offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
-                                </Button>
-                              ) : (
-                                <button
-                                  type="button"
-                                  role="switch"
-                                  aria-checked={module.enabled}
-                                  aria-label={`${module.enabled ? "Masquer" : "Activer"} ${module.label}`}
-                                  disabled={moduleSettingsSaving || (module.scope === "race" && websiteImportExistingRaces.length === 0)}
-                                  onClick={() => stageModuleSetting(module.key, !module.enabled, module.persistedEnabled)}
-                                  className={`relative h-6 w-11 shrink-0 rounded-full transition ${module.enabled ? "bg-brand" : "bg-muted"} disabled:cursor-wait disabled:opacity-50`}
-                                >
-                                  <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${module.enabled ? "left-[22px]" : "left-0.5"}`} />
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                role="switch"
+                                aria-checked={module.enabled}
+                                aria-label={`${module.enabled ? "Masquer" : "Activer"} ${module.label}`}
+                                disabled={moduleSettingsSaving || (module.scope === "race" && websiteImportExistingRaces.length === 0)}
+                                onClick={() => stageModuleSetting(module.key, !module.enabled, module.persistedEnabled)}
+                                className={`relative h-6 w-11 shrink-0 rounded-full transition ${module.enabled ? "bg-brand" : "bg-muted"} disabled:cursor-wait disabled:opacity-50`}
+                              >
+                                <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${module.enabled ? "left-[22px]" : "left-0.5"}`} />
+                              </button>
                             </div>
                           ))}
                         </div>
@@ -2847,6 +2933,11 @@ export function OrganizerDashboard({
                     : getModuleDescription(activeModule)}
               </CardDescription>
             ) : null}
+            {activeModuleChoice?.state === "draftOnly" ? (
+              <p className="mt-2 text-sm text-muted-foreground">
+                Cette section restera privée jusqu’au passage à {ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}.
+              </p>
+            ) : null}
           </div>
           {activeModule === "formats" && activeRace ? (
             <Button
@@ -2859,11 +2950,13 @@ export function OrganizerDashboard({
               Supprimer ce format
             </Button>
           ) : activeModule === "bibPickup" && activeRace ? (
-            <ToggleChip
-              checked={raceForm.organizerDetails.bibPickup.overrideEnabled}
-              label="Retrait différent pour ce format"
-              onChange={(overrideEnabled) =>
-                updateRaceForm(
+            <div className="space-y-1 text-right">
+              <p className="text-[11px] text-muted-foreground">Options avancées · Complet</p>
+              <ToggleChip
+                checked={raceForm.organizerDetails.bibPickup.overrideEnabled}
+                label="Retrait différent pour ce format"
+                onChange={(overrideEnabled) =>
+                  updateRaceForm(
                   {
                     organizerDetails: {
                       ...raceForm.organizerDetails,
@@ -2871,11 +2964,14 @@ export function OrganizerDashboard({
                     },
                   },
                   "bibPickup"
-                )
-              }
-            />
+                  )
+                }
+              />
+            </div>
           ) : activeModule === "equipment" && activeRace ? (
-            <ToggleChip
+            <div className="space-y-1 text-right">
+              <p className="text-[11px] text-muted-foreground">Options avancées · Complet</p>
+              <ToggleChip
               checked={raceForm.organizerDetails.mandatoryEquipment.overrideEnabled === true}
               label="Matériel différent pour ce format"
               onChange={(overrideEnabled) =>
@@ -2897,9 +2993,12 @@ export function OrganizerDashboard({
                   "equipment"
                 )
               }
-            />
+              />
+            </div>
           ) : activeModule === "access" && activeRace ? (
-            <ToggleChip
+            <div className="space-y-1 text-right">
+              <p className="text-[11px] text-muted-foreground">Options avancées · Complet</p>
+              <ToggleChip
               checked={hasRaceAccessOverride(raceForm.organizerDetails.access)}
               label="Accès différents pour ce format"
               onChange={(overrideEnabled) =>
@@ -2921,7 +3020,8 @@ export function OrganizerDashboard({
                   "access"
                 )
               }
-            />
+              />
+            </div>
           ) : null}
         </CardHeader>
         <CardContent>
@@ -2971,7 +3071,7 @@ export function OrganizerDashboard({
               activeRace={activeRace}
               aidStations={aidStations}
               participationMode={raceForm.participationMode}
-              relayPoints={activeTier === "signature" ? relayPoints : []}
+              relayPoints={relayPoints}
               startTime={currentStartTime}
               startWaveCount={currentStartWaveCount}
               finishCutoffTime={raceForm.organizerDetails.schedule.finishCutoffTime ?? ""}
@@ -2981,7 +3081,7 @@ export function OrganizerDashboard({
                 <StartWavesEditor
                   raceId={activeRace?.id ?? null}
                   headers={authHeaders}
-                  enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete}
+                  enabled={Boolean(activeRace && moduleSettings?.races[activeRace.id]?.start_waves)}
                   onSummaryChange={handleStartWaveSummaryChange}
                 />
               )}
@@ -3018,10 +3118,6 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onAddRelayPoint={() => {
-                if (activeTier !== "signature") {
-                  openPricingDialog();
-                  return;
-                }
                 const finishDistance = Math.max(0.2, raceForm.distanceKm);
                 const lastDistance = Math.max(0, ...relayPoints.map((point) => point.distanceKm));
                 const suggestedDistance = lastDistance > 0
@@ -3050,10 +3146,6 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onToggleStationRelayPoint={(station, checked) => {
-                if (activeTier !== "signature") {
-                  openPricingDialog();
-                  return;
-                }
                 if (!station.id) return;
                 setRelayPoints((current) => checked
                   ? [
@@ -3103,15 +3195,11 @@ export function OrganizerDashboard({
                 setAidStations((current) => current.filter((_, stationIndex) => stationIndex !== index));
                 markDirty("aidStations");
               }}
-              stationProducts={activeTier === "signature" ? stationProducts : []}
+              stationProducts={stationProducts}
               productsById={productsById}
               productForm={productForm}
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
-                if (activeTier !== "signature") {
-                  openPricingDialog();
-                  return;
-                }
                 setProductSearch("");
                 setProductPickerStationId(stationId);
               }}
@@ -3153,14 +3241,6 @@ export function OrganizerDashboard({
               onEventChange={(details) => updateEventDetails(details, "access")}
               onRaceChange={(details) => updateRaceForm({ organizerDetails: details }, "access")}
             />
-          ) : activeModule === "products" && activeTier !== "signature" ? (
-            <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
-              <p className="font-semibold text-foreground">Produits officiels aux ravitaillements — Signature</p>
-              <p className="mt-2 text-sm text-muted-foreground">Passe à Signature pour gérer les produits disponibles et les intégrer au plan nutritionnel des coureurs.</p>
-              <Button type="button" className="mt-4" onClick={() => openPricingDialog()}>
-                Découvrir Signature
-              </Button>
-            </div>
           ) : activeModule === "products" ? (
             <ProductsEditor
               aidStations={aidStations}
@@ -3183,19 +3263,9 @@ export function OrganizerDashboard({
               status={status}
             />
           ) : activeModule === "services" ? (
-            <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} />
+            <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={Boolean(moduleSettings?.edition.services)} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} />
           ) : activeModule === "awards" ? (
-            <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={ORGANIZER_TIER_RANK[activeTier] >= ORGANIZER_TIER_RANK.complete} />
-          ) : activeModule === "branding" && isEventTab && activeTier !== "signature" ? (
-            <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
-              <p className="font-semibold text-foreground">Identité visuelle personnalisée — Signature</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Passe à Pro pour adapter le logo et les couleurs du RaceBook à la direction artistique de ton événement.
-              </p>
-              <Button type="button" className="mt-4" onClick={() => openPricingDialog()}>
-                Découvrir Signature
-              </Button>
-            </div>
+            <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={Boolean(activeRace && moduleSettings?.races[activeRace.id]?.awards)} />
           ) : activeModule === "branding" && isEventTab && activeEdition?.id ? (
             <BrandingEditor
               key={activeEdition.id}
@@ -3205,16 +3275,6 @@ export function OrganizerDashboard({
               onSummaryChange={handleBrandingSummaryChange}
               onToast={showToast}
             />
-          ) : activeModule === "sponsors" && isEventTab && activeTier !== "signature" ? (
-            <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
-              <p className="font-semibold text-foreground">Gestion des sponsors — Signature</p>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Passe à Pro pour ajouter les logos de tes sponsors, choisir leurs emplacements et suivre leurs clics.
-              </p>
-              <Button type="button" className="mt-4" onClick={() => openPricingDialog()}>
-                Découvrir Signature
-              </Button>
-            </div>
           ) : activeModule === "sponsors" && isEventTab && activeEdition?.id ? (
             <SponsorsEditor
               key={activeEdition.id}
@@ -3272,7 +3332,9 @@ export function OrganizerDashboard({
                 <DialogDescription className="leading-5">
                   {pricingIntent === "notification"
                     ? "Les notifications sont disponibles avec les offres Complet et Signature. L’achat couvre cette édition et tous ses formats présents ou futurs."
-                    : "Un achat unique pour cette édition et tous ses formats présents ou futurs. Prix HT, TVA calculée par Stripe."}
+                    : pricingIntent === "publication"
+                      ? `Votre brouillon utilise des contenus jusqu’à ${ORGANIZER_TIER_LABEL[requiredPublicationTier]}. Vous pouvez choisir une offre inférieure : les sections non incluses resteront privées, sans être supprimées.`
+                      : "Un achat unique pour cette édition et tous ses formats présents ou futurs. Prix HT, TVA calculée par Stripe."}
                 </DialogDescription>
               </DialogHeader>
               {pricingContext ? (
@@ -3289,6 +3351,14 @@ export function OrganizerDashboard({
                 {checkoutError}
               </p>
             ) : null}
+            {pricingIntent === "publication" && privateDraftCount > 0 ? (
+              <div className="rounded-lg border border-border bg-muted/30 px-4 py-3 text-sm">
+                <p className="font-medium text-foreground">Sections qui dépassent l’offre actuelle</p>
+                <p className="mt-1 text-muted-foreground">
+                  {[...privateDraftModules.map((module) => module.label), ...(privateDraftAdvancedCount > 0 ? ["Options propres au format"] : [])].join(" · ")}
+                </p>
+              </div>
+            ) : null}
             <div className="grid items-stretch gap-4 md:grid-cols-3">
               {paidOrganizerTiers
                 .filter((tier) =>
@@ -3300,8 +3370,12 @@ export function OrganizerDashboard({
                     ? 0
                     : ORGANIZER_TIER_PRICE_EUR[pricingContext.tier];
                   const amount = ORGANIZER_TIER_PRICE_EUR[tier] - currentPrice;
+                  const excludedCount = visibleModuleChoices.filter(
+                    (module) => usedModuleKeys.includes(module.key) && ORGANIZER_TIER_RANK[module.minimumTier] > ORGANIZER_TIER_RANK[tier],
+                  ).length + (ORGANIZER_TIER_RANK[tier] < ORGANIZER_TIER_RANK.complete ? usedAdvancedGroups.length : 0);
+                  const publishesEverything = excludedCount === 0;
                   return (
-                    <Card key={tier} className={`flex h-full flex-col ${tier === "complete" ? "border-brand shadow-sm" : ""}`}>
+                    <Card key={tier} className={`flex h-full flex-col ${tier === requiredPublicationTier ? "border-brand shadow-sm" : ""}`}>
                       <CardHeader className="pb-3">
                         <CardTitle className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                           <span>{ORGANIZER_TIER_LABEL[tier]}</span>
@@ -3313,14 +3387,34 @@ export function OrganizerDashboard({
                         <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
                           {ORGANIZER_OFFER_DETAILS[tier].features.map((feature) => <li key={feature}>{feature}</li>)}
                         </ul>
-                        <Button type="button" variant={tier === "complete" ? "default" : "outline"} className="mt-auto w-full" onClick={() => void startCheckout(tier)} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
-                          {checkoutTarget === tier ? "Ouverture de Stripe…" : `Choisir ${ORGANIZER_TIER_LABEL[tier]} · ${amount} € HT`}
+                        {pricingIntent === "publication" && excludedCount > 0 ? (
+                          <p className="text-xs text-muted-foreground">{excludedCount} section{excludedCount > 1 ? "s" : ""} restera{excludedCount > 1 ? "ont" : ""} en brouillon.</p>
+                        ) : null}
+                        <Button type="button" variant={tier === requiredPublicationTier ? "default" : "outline"} className="mt-auto w-full" onClick={() => void startCheckout(tier)} disabled={checkoutTarget !== null || complimentaryGrantTarget !== null}>
+                          {checkoutTarget === tier
+                            ? "Ouverture de Stripe…"
+                            : pricingIntent === "publication" && publishesEverything
+                              ? `Publier tout avec ${ORGANIZER_TIER_LABEL[tier]} · +${amount} € HT`
+                              : `Choisir ${ORGANIZER_TIER_LABEL[tier]} · ${amount} € HT`}
                         </Button>
                       </CardContent>
                     </Card>
                   );
                 })}
             </div>
+            {pricingIntent === "publication" && activeTier !== "visibility" && privateDraftCount > 0 && activeRace ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => {
+                  setPricingDialogOpen(false);
+                  void setRacebookVisibility(activeRace.id, true);
+                }}
+              >
+                Rester en {ORGANIZER_TIER_LABEL[activeTier]} et conserver {privateDraftCount} section{privateDraftCount > 1 ? "s" : ""} en brouillon
+              </Button>
+            ) : null}
             {isAdmin && pricingContext ? (
               <section className="space-y-4 rounded-xl border border-emerald-400 bg-emerald-50/50 p-4 sm:p-5 dark:bg-emerald-950/20">
                 <div className="space-y-1">

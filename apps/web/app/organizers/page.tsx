@@ -185,8 +185,8 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
                 </div>
 
                 <div className="rounded-md border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
-                  L&apos;événement et les formats ajoutés resteront en brouillon. La règle de paiement avant publication sera
-                  ajoutée dans un second temps.
+                  L&apos;événement et ses formats restent modifiables dans le dashboard. Une offre est choisie et payée avant
+                  la première publication du RaceBook.
                 </div>
 
                 {error ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}

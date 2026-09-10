@@ -127,6 +127,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - For French or other non-ASCII Broadcast copy, upload with UTF-8-safe tooling such as Node `JSON.stringify`; avoid Windows PowerShell `ConvertTo-Json` for long email bodies.
 - Email images should be public HTTPS PNG/JPG assets or Resend CID attachments for API sends. Avoid local file paths, SVGs, and large base64 data URIs in Broadcast HTML.
 - Web and mobile keep a local "already synced" marker, but Resend upsert behavior must remain idempotent because sessions can refresh or clients can retry.
+- A login-time session update may deliberately perform a second verification after an older request. Resend contact sync remains fire-and-forget and protected by the same per-user/e-mail marker.
 - Keep web contact sync fire-and-forget after session verification; neither contact sync nor the independent entitlement refresh should delay verified-session readiness.
 - Do not tie Resend contact sync to onboarding tab-bar visibility; sync still depends on an identified, non-anonymous session.
 - Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.

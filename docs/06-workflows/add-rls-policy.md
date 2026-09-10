@@ -1,13 +1,14 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-08-29
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
+  - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -79,6 +80,7 @@ Use `supabase/tests/organizer_edition_entitlements_checks.sql` with organizer of
 - Do not add separate policies for columns such as organizer detail JSONB when row-level access on the existing table is still the intended boundary.
 - Do not add a separate policy for owner-only profile markers such as `onboarding_completed_at`; preserve the existing profile row ownership boundary.
 - Do not weaken catalog or Racebook policies to expose demo rows; seed only rows that deliberately satisfy the existing public/live/approval gates.
+- Do not add or weaken policies for a data-only catalog integration such as Trail Ton Château; publish catalog rows through the existing live gates and keep Racebook/branding publication independently closed.
 - Do not treat a redirect/mapping row as independent public authority. A hidden target or hidden parent must make the mapping unreadable, and application code must revalidate the target before responding.
 - Do not expose payment or grant rows just to evaluate a public capability. Prefer a fixed-output, fixed-search-path helper and keep the sensitive tables service-only.
 

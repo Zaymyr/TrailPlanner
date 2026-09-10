@@ -95,12 +95,14 @@ export const createEmptyRaceForm = (): RaceFormValues => ({
 export const createRaceFormFromEventDefaults = (eventForm: EventFormValues): RaceFormValues => ({
   ...createEmptyRaceForm(),
   seriesName: "",
+  externalSiteUrl: eventForm.organizerDetails.officialWebsiteUrl ?? "",
   raceDate: eventForm.editionStartDate,
   thumbnailUrl: eventForm.thumbnailUrl,
   organizerDetails: {
     ...cloneJson(defaultOrganizerRaceDetails),
     mandatoryEquipment: cloneJson(defaultOrganizerRaceDetails.mandatoryEquipment),
     access: cloneJson(eventForm.organizerDetails.access),
+    raceLocation: cloneJson(eventForm.organizerDetails.eventLocation),
   },
 });
 
