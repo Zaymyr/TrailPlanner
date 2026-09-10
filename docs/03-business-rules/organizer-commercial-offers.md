@@ -69,7 +69,7 @@ Completion percentages count required modules only. Recommended and optional til
 
 The server chooses one of six explicit one-time EUR Price IDs and validates active status, exact amount, non-recurring mode and exclusive tax behavior. Checkout enables automatic tax, billing address, tax-ID collection and invoice creation. A success redirect is not authorization; the webhook settles the payment and recalculates rights.
 
-The dashboard recommends the highest tier used by selected, populated sections. Its publication dialog states which content will publish and which will remain private for a lower choice. Checkout and RaceBook publication independently recompute the persisted requirement; choosing a lower valid paid offer never deletes excluded drafts. Format switches are entitlement-free private-demo selectors: they update `racebook_preview_is_visible`, and disabling one also clears its runner-live flag. Only the separate publication action may set `racebook_is_live`; it publishes the selected complete formats atomically, and a publication checkout carries that intent through the webhook-confirmed return. The opt-in Playwright payment journey uses Stripe test mode only, waits for webhook-confirmed Essential access, and deletes its uniquely named `TEST` event in a `finally` cleanup.
+The dashboard recommends the highest tier used by selected, populated sections. Its publication dialog states which content will publish and which will remain private for a lower choice. Checkout and RaceBook publication independently recompute the persisted requirement; choosing a lower valid paid offer never deletes excluded drafts. Each format now has one three-state selector backed by the existing booleans: `Masqué` clears preview and live, `Privé` enables preview and clears live, and `Public` enables both only after the server verifies readiness and the edition entitlement. The primary publication CTA still publishes every selected complete format atomically, and a publication checkout carries that intent through the webhook-confirmed return. The opt-in Playwright payment journey uses Stripe test mode only, waits for webhook-confirmed Essential access, and deletes its uniquely named `TEST` event in a `finally` cleanup.
 
 Recalculation requires a valid paid path. Refunding/disputing a base purchase invalidates dependent upgrades; invalidating only an upgrade returns to the valid lower tier. Legacy `racebook` payments map to Complete and legacy `pro_direct` or `racebook + pro_upgrade` paths map to Signature. Existing RaceBook/Pro entitlements are upgraded to Complete/Signature. Admin grants remain authoritative.
 
@@ -82,7 +82,8 @@ Recalculation requires a valid paid path. Refunding/disputing a base purchase in
 - Missing module configuration during rolling deployment uses the historical mobile behavior.
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
-- The dashboard's compact edition/format summary starts collapsed, but its offer and publication action stay visible; expanding or collapsing it is presentation-only and must not disable modules or alter the selected edition entitlement.
+- The dashboard keeps publication primary, groups rare actions in one menu, and starts detailed visibility collapsed. Expanding it is presentation-only; choosing a format state is a deliberate persisted action and must never grant an entitlement client-side.
+- Offer and visibility consequences use contextual hover/focus help beside short controls. Hiding that explanatory copy visually does not weaken server-side readiness or entitlement checks, and errors remain visible inline.
 
 ## Related Docs
 

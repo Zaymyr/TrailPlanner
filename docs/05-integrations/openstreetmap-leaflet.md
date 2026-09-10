@@ -56,6 +56,7 @@ The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeaflet
 - Preserve OpenStreetMap attribution when changing the tile layer.
 - Avoid passing extremely dense GPX point sets without considering render cost; reuse the existing dashboard GPX preview payload when possible.
 - Keep the route preview and visible distance/D+/D- fields on the same normalized GPX response so the map/profile cannot describe a different import than the form.
+- The Organizer may move map-layout guidance behind hover/focus contextual help, but GPX availability, parse failures, and the rendered route state remain visible without hover.
 - If a future screen needs editing or advanced basemap controls, extend the shared component instead of creating another map stack.
 - Never interpolate an unvalidated organizer color into the mobile WebView HTML.
 - Keep upload transport dependencies out of the map chunk; Organizer module code-splitting should not make TUS part of a route-preview load.

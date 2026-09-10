@@ -11,7 +11,7 @@ import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { ADD_FORMAT_TAB_ID } from "./constants";
 import { formatKm } from "./helpers";
 import type { EventFormValues, GpxPreview, RaceFormat, RaceFormValues, RaceParticipationMode } from "./types";
-import { NumberField, TextField } from "./controls";
+import { ContextualHelp, NumberField, TextField } from "./controls";
 
 export function EventInfoEditor({
   eventForm,
@@ -113,9 +113,10 @@ export function EventInfoEditor({
         onChange={(value) => onChange({ editionEndDate: value })}
         invalid={missingEndDate || invalidDateRange}
       />
-      <p className="text-xs text-muted-foreground lg:col-span-5">
-        Ces dates appartiennent à l&apos;édition sélectionnée. Les formats les utilisent par défaut.
-      </p>
+      <div className="flex items-center gap-2 lg:col-span-5">
+        <span className="text-xs font-medium text-muted-foreground">Dates de l’édition</span>
+        <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
+      </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5 lg:max-w-2xl">
         <TextField
           label="Contact d'urgence"
@@ -150,7 +151,10 @@ export function EventInfoEditor({
         />
       </div>
       <div className="space-y-2 lg:col-span-4">
-        <Label htmlFor={imageInputId}>Image evenement (PNG)</Label>
+        <div className="flex items-center gap-2">
+          <Label htmlFor={imageInputId}>Image événement</Label>
+          <ContextualHelp text="Format PNG uniquement, 5 Mo maximum." />
+        </div>
         {eventForm.thumbnailUrl ? (
           <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
             <Image src={eventForm.thumbnailUrl} alt="" width={224} height={112} sizes="224px" unoptimized className="h-full w-full object-cover" />
@@ -161,7 +165,6 @@ export function EventInfoEditor({
           </div>
         )}
         <Input id={imageInputId} type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
-        <p className="text-xs text-muted-foreground">PNG uniquement, 5 Mo maximum.</p>
       </div>
     </div>
   );
@@ -320,16 +323,16 @@ function RaceForm({
 
   return (
     <form className="space-y-4" onSubmit={onSubmit}>
-      <div className="space-y-1">
+      <div className="flex items-center gap-2">
         <p className="font-semibold text-foreground">{title}</p>
-        <p className="text-sm text-muted-foreground">1. Ajoute les fichiers. 2. Renseigne les infos du format. 3. Verifie le parcours et le profil.</p>
+        <ContextualHelp text="Ajoutez d’abord les fichiers, renseignez les informations du format, puis vérifiez le parcours et le profil." />
       </div>
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] xl:items-start">
         <div className="space-y-4">
           <div className="space-y-4 rounded-lg border border-border/70 bg-background px-4 py-4">
-            <div className="space-y-1">
+            <div className="flex items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Informations du format</p>
-              <p className="text-sm text-muted-foreground">Nom, metriques, date et lieu du parcours.</p>
+              <ContextualHelp text="Nom, métriques, date et lieu propres à ce parcours." />
             </div>
             <div className="grid gap-3 lg:grid-cols-12">
               <div className="lg:col-span-6">
@@ -352,7 +355,10 @@ function RaceForm({
                 <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
               <div className="space-y-1 lg:col-span-12 lg:max-w-sm">
-                <Label htmlFor={participationModeId}>Type de participation</Label>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={participationModeId}>Type de participation</Label>
+                  <ContextualHelp text="Pour un relais, les points de passage se configurent ensuite dans Ravitos et points de course." />
+                </div>
                 <select
                   id={participationModeId}
                   value={values.participationMode}
@@ -365,7 +371,6 @@ function RaceForm({
                   <option value="relay">Relais</option>
                   <option value="solo_and_relay">Solo et relais</option>
                 </select>
-                <p className="text-xs text-muted-foreground">Les points de passage du relais se renseignent ensuite dans Ravitos &amp; points de course.</p>
               </div>
               <div className="space-y-2 lg:col-span-4">
                 {editionStartDate ? (
@@ -453,10 +458,8 @@ function RaceForm({
                   required
                   invalid={missingSource}
                   disabled={disabled}
+                  hint="Cette source est requise pour vérifier les informations du format avant sa publication."
                 />
-                <p className="mt-1 text-xs text-muted-foreground">
-                  Requis pour vérifier les informations du format avant sa publication.
-                </p>
               </div>
             </div>
           </div>
@@ -488,9 +491,9 @@ function RaceForm({
       {onGpxChange ? (
         <div className="space-y-3 rounded-lg border border-border/70 bg-muted/20 px-4 py-4">
           <div className="flex flex-wrap items-end justify-between gap-2">
-            <div>
+            <div className="flex items-center gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Parcours</p>
-              <p className="text-sm text-muted-foreground">La carte prend toute la largeur pour verifier le trace plus confortablement.</p>
+              <ContextualHelp text="La carte utilise toute la largeur pour faciliter la vérification du tracé." />
             </div>
           </div>
           <MiniGpxMap preview={gpxPreview} activeRace={previewRace} hasGpx={hasGpx} />
@@ -546,10 +549,12 @@ function OrganizerGpxPanel({
       <div className="space-y-4">
         <div className="space-y-1.5">
           <div className="flex items-center justify-between gap-3">
-            <p className="font-semibold text-foreground">{title}</p>
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-foreground">{title}</p>
+              <ContextualHelp text="Ajoutez le GPX en premier, puis une image si nécessaire." />
+            </div>
             {statusText ? <span className="text-xs font-medium text-muted-foreground">{statusText}</span> : null}
           </div>
-          <p className="text-xs text-muted-foreground">Commence par les fichiers: GPX d&apos;abord, image ensuite si besoin.</p>
         </div>
         <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 1</p>
@@ -562,7 +567,10 @@ function OrganizerGpxPanel({
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
               <span className="text-xs text-muted-foreground">Optionnel</span>
             </div>
-            <Label htmlFor={imageInputId}>Image format</Label>
+            <div className="flex items-center gap-2">
+              <Label htmlFor={imageInputId}>Image format</Label>
+              <ContextualHelp text={`JPEG, PNG, WebP ou AVIF, 5 Mo maximum.${pendingImageName && !thumbnailUrl ? " L’image sera envoyée après la création du format." : ""}`} />
+            </div>
             {thumbnailUrl ? (
               <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-muted">
                 <Image src={thumbnailUrl} alt="" width={320} height={240} sizes="(min-width: 1280px) 308px, 100vw" unoptimized className="h-full w-full object-cover" />
@@ -573,10 +581,6 @@ function OrganizerGpxPanel({
               </div>
             )}
             <Input id={imageInputId} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={onImageChange} disabled={disabled} />
-            <p className="text-xs text-muted-foreground">
-              JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
-              {pendingImageName && !thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}
-            </p>
           </div>
         </div>
       </div>

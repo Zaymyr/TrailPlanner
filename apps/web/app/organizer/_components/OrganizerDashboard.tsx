@@ -40,7 +40,7 @@ import {
 } from "../../../lib/product-analytics";
 import { buildOrganizerCompletion, type OrganizerCompletionSummary, type OrganizerModuleId } from "./completion";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
-import { OrganizerToast, ToggleChip } from "./dashboard/controls";
+import { ContextualHelp, OrganizerToast, ToggleChip, type RacebookVisibilityState } from "./dashboard/controls";
 import {
   clearOrganizerDataCache,
   invalidateOrganizerGpxPreviewCache,
@@ -2197,7 +2197,7 @@ export function OrganizerDashboard({
     }
   };
 
-  const setRacebookPreviewVisibility = async (raceId: string, isVisible: boolean) => {
+  const setRacebookVisibility = async (raceId: string, visibility: RacebookVisibilityState) => {
     if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId) return;
 
@@ -2207,11 +2207,18 @@ export function OrganizerDashboard({
       const response = await fetch(`/api/organizer/races/${raceId}`, {
         method: "PATCH",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ racebookPreviewIsVisible: isVisible }),
+        body: JSON.stringify({
+          racebookPreviewIsVisible: visibility !== "hidden",
+          racebookIsLive: visibility === "public",
+        }),
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        showToast("error", data?.message ?? "Impossible de modifier la visibilité de ce format dans la démo.");
+        if (visibility === "public" && response.status === 403) {
+          openPricingDialog("publication");
+          return;
+        }
+        showToast("error", data?.message ?? "Impossible de modifier la visibilité de ce format.");
         return;
       }
 
@@ -2222,14 +2229,24 @@ export function OrganizerDashboard({
               races: current.races.map((race) => race.id === raceId
                 ? {
                     ...race,
-                    racebook_preview_is_visible: isVisible,
-                    racebook_is_live: isVisible ? race.racebook_is_live : false,
+                    racebook_preview_is_visible: visibility !== "hidden",
+                    racebook_is_live: visibility === "public",
                   }
                 : race),
             }
           : current
       );
-      showToast("success", isVisible ? "Format visible dans ta démo." : "Format masqué de ta démo et des coureurs.");
+      showToast(
+        "success",
+        visibility === "public"
+          ? "RaceBook publié pour les coureurs."
+          : visibility === "private"
+            ? "RaceBook visible uniquement dans ta démo."
+            : "RaceBook masqué partout."
+      );
+    } catch (caught) {
+      console.error("Unable to update organizer Racebook visibility", caught);
+      showToast("error", "Impossible de modifier la visibilité de ce format.");
     } finally {
       setStatus("idle");
     }
@@ -2835,8 +2852,8 @@ export function OrganizerDashboard({
         onRequestPublication={() => {
           requestPublication();
         }}
-        onRacebookPreviewVisibilityChange={(raceId, isVisible) => {
-          void setRacebookPreviewVisibility(raceId, isVisible);
+        onRacebookVisibilityChange={(raceId, visibility) => {
+          void setRacebookVisibility(raceId, visibility);
         }}
         onEditionVisibilityChange={setEditionVisibility}
         onDeleteEdition={deleteSelectedEdition}
@@ -2845,18 +2862,15 @@ export function OrganizerDashboard({
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
-      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2 text-sm">
-        <span className="font-medium text-foreground">Brouillon privé</span>
-        <span className="text-muted-foreground">
-          Forfait nécessaire pour tout publier : <strong className="font-semibold text-foreground">{ORGANIZER_TIER_LABEL[requiredPublicationTier]}</strong>
-        </span>
-      </div>
-
       {completion ? (
         <div className="space-y-3">
-          <div className="flex justify-end">
-            <Button type="button" variant="outline" onClick={openModuleSettingsDialog} disabled={!moduleSettings}>
-              Ajouter ou masquer une section
+          <div className="flex flex-wrap items-center justify-between gap-3 px-1">
+            <div className="flex items-center gap-2">
+              <p className="font-semibold text-foreground">Contenu du RaceBook</p>
+              <ContextualHelp text={`Offre requise pour publier toutes les sections utilisées : ${ORGANIZER_TIER_LABEL[requiredPublicationTier]}.`} />
+            </div>
+            <Button type="button" variant="ghost" onClick={openModuleSettingsDialog} disabled={!moduleSettings} title="Choisir les sections affichées dans le RaceBook sans supprimer leur contenu.">
+              Gérer les sections
             </Button>
           </div>
           <CompletionTabsPanel
@@ -2882,10 +2896,10 @@ export function OrganizerDashboard({
       }}>
         <DialogContent className="!my-0 !flex max-h-[calc(100dvh-2rem)] !max-w-6xl flex-col gap-4 overflow-hidden p-4 sm:p-6">
           <DialogHeader>
-            <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre RaceBook" : "Sections du RaceBook"}</DialogTitle>
-            <DialogDescription>
-              Activez uniquement les sections utiles. Les informations restent conservées lorsqu’une section est masquée. La portée de chaque réglage est indiquée ci-dessous.
-            </DialogDescription>
+            <div className="flex items-center gap-2">
+              <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre RaceBook" : "Sections du RaceBook"}</DialogTitle>
+              <ContextualHelp text="Activez uniquement les sections utiles. Masquer une section conserve ses informations." />
+            </div>
           </DialogHeader>
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto pr-1">
             {([
@@ -2906,9 +2920,9 @@ export function OrganizerDashboard({
               if (groupChoices.length === 0) return null;
               return (
                 <section key={group.scope} className="space-y-3 rounded-xl border border-border bg-muted/20 p-3 sm:p-4">
-                  <div>
+                  <div className="flex items-center gap-2">
                     <h3 className="text-sm font-semibold text-foreground">{group.title}</h3>
-                    <p className="text-xs text-muted-foreground">{group.description}</p>
+                    <ContextualHelp text={group.description} />
                   </div>
                   {(["active", "inactive", "draftOnly"] as const).map((state) => {
                     const choices = groupChoices.filter((module) => module.state === state);
@@ -2923,10 +2937,12 @@ export function OrganizerDashboard({
                             <div key={module.key} className="flex min-h-20 items-center justify-between gap-3 rounded-lg border border-border bg-background p-3">
                               <div className="min-w-0">
                                 <div className="flex items-baseline justify-between gap-3">
-                                  <p className="text-sm font-medium text-foreground">{module.label}</p>
+                                  <div className="flex items-center gap-1.5">
+                                    <p className="text-sm font-medium text-foreground">{module.label}</p>
+                                    <ContextualHelp text={module.description} />
+                                  </div>
                                   {state === "draftOnly" ? <span className="shrink-0 text-[11px] text-muted-foreground">{ORGANIZER_TIER_LABEL[module.minimumTier]}</span> : null}
                                 </div>
-                                <p className="text-xs text-muted-foreground">{module.description}</p>
                                 {module.mixed ? <p className="mt-1 text-[11px] font-medium text-amber-700">Réglages différents selon les formats</p> : null}
                               </div>
                               <button
@@ -2988,7 +3004,8 @@ export function OrganizerDashboard({
           }
         >
           <div>
-            <CardTitle>
+            <div className="flex items-center gap-2">
+              <CardTitle>
               {activeRace && activeModule === "bibPickup"
                 ? `Retrait dossard - ${activeRace.name}`
                 : activeRace && activeModule === "equipment"
@@ -2996,23 +3013,22 @@ export function OrganizerDashboard({
                 : activeRace && activeModule === "access"
                   ? `Accès - ${activeRace.name}`
                   : getModuleTitle(activeModule)}
-            </CardTitle>
-            {activeModule !== "formats" ? (
-              <CardDescription>
-                {activeRace && activeModule === "bibPickup"
+              </CardTitle>
+              {activeModule !== "formats" ? (
+                <ContextualHelp text={activeRace && activeModule === "bibPickup"
                   ? "Par défaut, ce format utilise le retrait commun de l'événement."
                   : activeRace && activeModule === "equipment"
                     ? "Par défaut, ce format utilise le matériel commun de l'événement."
                   : activeRace && activeModule === "access"
                     ? "Par défaut, ce format utilise les accès communs de l'événement."
-                    : getModuleDescription(activeModule)}
-              </CardDescription>
-            ) : null}
-            {activeModuleChoice?.state === "draftOnly" ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Cette section restera privée jusqu’au passage à {ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}.
-              </p>
-            ) : null}
+                    : getModuleDescription(activeModule)} />
+              ) : null}
+              {activeModuleChoice?.state === "draftOnly" ? (
+                <span className="rounded-full bg-muted px-2 py-1 text-[11px] font-semibold text-muted-foreground" title={`Cette section restera privée jusqu’au passage à ${ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}.`}>
+                  Privé · {ORGANIZER_TIER_LABEL[activeModuleChoice.minimumTier]}
+                </span>
+              ) : null}
+            </div>
           </div>
           {activeModule === "formats" && activeRace ? (
             <Button

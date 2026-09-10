@@ -88,7 +88,7 @@ where edition_id = :edition_id;
 
 ## Gotchas
 
-- The Organizer preview uses optimized image rendering and explicit form labels; these presentation details do not broaden the service-only draft access contract.
+- The Organizer preview uses optimized image rendering and explicit form labels. Logo constraints are available through keyboard- and pointer-accessible contextual help instead of a permanent helper paragraph; these presentation details do not broaden the service-only draft access contract.
 
 - Never return draft columns from a runner-facing route.
 - Do not grant direct mobile/browser access to this table; the existing server route is the compatibility and authorization boundary.

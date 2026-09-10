@@ -12,7 +12,7 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
-import { TextAreaField, TextField, ToggleChip } from "./controls";
+import { ContextualHelp, TextAreaField, TextField, ToggleChip } from "./controls";
 import type { RaceFormat } from "./types";
 
 export function EquipmentEditor({
@@ -91,9 +91,9 @@ function EquipmentFields({
   return (
     <section className={cn("space-y-4 rounded-lg border bg-background p-4", missingEquipment ? "border-amber-300" : "border-border")}>
       {showHeader ? (
-        <div>
+        <div className="flex items-center gap-2">
           <p className="font-semibold text-foreground">{title}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <ContextualHelp text={description} />
         </div>
       ) : null}
       {weatherPlanEditable ? (
@@ -336,15 +336,15 @@ function BibPickupFields({
   return (
     <section className={cn("space-y-4", framed && "rounded-lg border border-border bg-background p-4")}>
       {showHeader ? (
-        <div>
+        <div className="flex items-center gap-2">
           <p className="font-semibold text-foreground">{title}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <ContextualHelp text={description} />
         </div>
       ) : null}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="flex items-center gap-2">
           <p className="text-sm font-semibold text-foreground">Lieux et créneaux</p>
-          <p className="text-xs text-muted-foreground">Ajoute autant de lieux, de jours et de plages horaires que nécessaire.</p>
+          <ContextualHelp text="Ajoute autant de lieux, de jours et de plages horaires que nécessaire." />
         </div>
         <Button type="button" variant="outline" onClick={addLocation}>
           Ajouter un lieu
@@ -544,16 +544,16 @@ function AccessFields({
   return (
     <section className="space-y-4">
       {showHeader ? (
-        <div>
+        <div className="flex items-center gap-2">
           <p className="font-semibold text-foreground">{title}</p>
-          <p className="text-sm text-muted-foreground">{description}</p>
+          <ContextualHelp text={description} />
         </div>
       ) : null}
       <div className="space-y-4 rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="flex items-center gap-2">
             <p className="font-semibold text-foreground">1. Lieux et itinéraire</p>
-            <p className="text-sm text-muted-foreground">Sélectionne une suggestion pour générer automatiquement l’action Maps.</p>
+            <ContextualHelp text="Sélectionne une suggestion pour générer automatiquement l’action Maps. Si le départ et l’arrivée sont identiques, l’app ne l’affichera qu’une fois." />
           </div>
           {formatMode ? (
             <ToggleChip checked={access.enabledSections.mapUrl} label="Carte générale" onChange={(checked) => updateSection("mapUrl", checked)} />
@@ -578,7 +578,6 @@ function AccessFields({
             onLocationChange={(finishLocation) => update({ finishLocation })}
           />
         </div>
-        <p className="text-xs text-muted-foreground">Si le départ et l’arrivée sont au même endroit, saisis la même adresse : l’app ne l’affichera qu’une seule fois.</p>
         {(!formatMode || access.enabledSections.mapUrl) ? (
           <TextField label="Lien vers une carte générale (optionnel)" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
         ) : null}
@@ -586,16 +585,15 @@ function AccessFields({
 
       <div className="space-y-4 rounded-xl border border-amber-300 bg-amber-50/60 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="flex items-center gap-2">
             <p className="font-semibold text-foreground">2. À retenir</p>
-            <p className="text-sm text-muted-foreground">Ces informations sont mises en avant en premier dans l’app.</p>
+            <ContextualHelp text="Ces informations sont mises en avant en premier dans l’app." />
           </div>
           {formatMode ? (
             <ToggleChip checked={access.enabledSections.roadRestrictions} label="Restrictions route" onChange={(checked) => updateSection("roadRestrictions", checked)} />
           ) : null}
         </div>
-        <TextAreaField label="Information prioritaire" value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
-        <p className="text-xs text-muted-foreground">À réserver aux consignes qui changent réellement l’arrivée sur place : dernière navette, accès fermé, horaire critique…</p>
+        <TextAreaField label="Information prioritaire" hint="À réserver aux consignes critiques : dernière navette, accès fermé ou horaire important." value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
         {(!formatMode || access.enabledSections.roadRestrictions) ? (
           <TextAreaField label="Routes fermées / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
         ) : null}
@@ -603,9 +601,9 @@ function AccessFields({
 
       <div className="space-y-4 rounded-xl border border-border bg-card p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
+          <div className="flex items-center gap-2">
             <p className="font-semibold text-foreground">3. Venir sur place</p>
-            <p className="text-sm text-muted-foreground">Parkings et navettes seront regroupés dans des blocs courts et dépliables.</p>
+            <ContextualHelp text="Parkings et navettes seront regroupés dans des blocs courts et dépliables dans l’app." />
           </div>
           {formatMode ? (
             <div className="flex flex-wrap gap-2">
@@ -630,9 +628,9 @@ function AccessFields({
 
       {formatMode && showRunnerInfoToggle ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background p-4">
-          <div>
+          <div className="flex items-center gap-2">
             <p className="font-semibold text-foreground">Informations propres au format</p>
-            <p className="text-sm text-muted-foreground">Briefing, zone de départ ou règle qui ne concerne que cette course.</p>
+            <ContextualHelp text="Briefing, zone de départ ou règle qui ne concerne que cette course." />
           </div>
           <ToggleChip checked={access.enabledSections.runnerInfo} label="Activer" onChange={(checked) => updateSection("runnerInfo", checked)} />
         </div>
@@ -651,9 +649,9 @@ function RunnerInfoFields({
   const update = (next: Partial<OrganizerRaceDetails["runnerInfo"]>) => onRunnerInfoChange({ ...runnerInfo, ...next });
   return (
     <div className="space-y-3 border-t border-border pt-4">
-      <div>
+      <div className="flex items-center gap-2">
         <p className="font-semibold text-foreground">Informations coureur spécifiques</p>
-        <p className="text-sm text-muted-foreground">Briefing, zone de départ ou consigne propre au format actif.</p>
+        <ContextualHelp text="Briefing, zone de départ ou consigne propre au format actif." />
       </div>
       <TextField label="Zone de départ" value={runnerInfo.startArea ?? ""} onChange={(value) => update({ startArea: value || null })} />
       <TextAreaField label="Briefing" value={runnerInfo.briefing ?? ""} onChange={(value) => update({ briefing: value || null })} />

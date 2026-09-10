@@ -11,6 +11,7 @@ import { useCallback, useEffect, useId, useMemo, useState, type ChangeEvent } fr
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { Label } from "../../../../components/ui/label";
+import { ContextualHelp } from "./controls";
 import type { OrganizerBranding, OrganizerBrandingState } from "./types";
 
 const emptyState = (): OrganizerBrandingState => ({
@@ -208,8 +209,10 @@ export function BrandingEditor({
 
         {RACEBOOK_EDITION_LOGO_ENABLED ? (
           <div className="space-y-2">
-            <Label htmlFor={`${formId}-logo`}>Logo officiel de l’édition</Label>
-            <p className="text-xs text-muted-foreground">PNG, JPEG, WebP ou AVIF · 5 Mo maximum. Un fond transparent est recommandé.</p>
+            <div className="flex items-center gap-2">
+              <Label htmlFor={`${formId}-logo`}>Logo officiel de l’édition</Label>
+              <ContextualHelp text="PNG, JPEG, WebP ou AVIF, 5 Mo maximum. Un fond transparent est recommandé." />
+            </div>
             <div className="flex flex-wrap items-center gap-3">
               <Input id={`${formId}-logo`} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void uploadLogo(event)} disabled={busy !== null} className="max-w-sm" />
               {draft.logoUrl ? <Button type="button" variant="outline" onClick={() => void removeLogo()} disabled={busy !== null}>Retirer le logo</Button> : null}
