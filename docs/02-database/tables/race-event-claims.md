@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -103,7 +103,7 @@ Summary:
 - After that membership check, the follower total is returned only as an exact aggregate count; the organizer route does not expose or transfer the individual favorite-owner ids.
 - The two-pass website-import review is reserved for trusted admins, independently from normal organizer membership. Its `additionalUrls` are classified official evidence sources, not claimed formats; even a grounded source classification cannot bypass admin authorization. Confirming discovered formats may atomically create hidden drafts for the selected edition; field claims, evidence, GPX status, and LLM recommendations remain review-only until the admin selects claim ids from an unexpired event/edition/session-bound signed snapshot. Neither existence confidence, completeness, signature, nor LLM confidence replaces authorization.
 - Roadbook selection is preview-only. Each document may be 25 MB because it is uploaded directly to a private, owner-folder-scoped Storage location, analyzed server-side, then deleted; it does not alter this membership boundary.
-- Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; the active tab should stay larger and more contrasty than inactive tabs, desktop event tiles should fit on one row before wrapping, and the compact edition/format summary may collapse without changing claim or membership state.
+- Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent; desktop keeps the larger, contrasty tabs, mobile uses a labelled event/format select, and the compact edition/format summary starts collapsed without changing claim or membership state. Admins with more than eight selector entries may filter them by name while the selected event remains available.
 - The responsive section chooser may stage several module switches before one save, but the eventual PATCH still requires the same active membership; pending browser drafts never grant claim or module authorization.
 - Grouping that chooser into edition-common and format-specific sections is presentation-only. It does not broaden a claim, and the server still authorizes the edition plus every targeted race id.
 - Inside a relay-capable format's `Ravito / relais` editor, the local `Ravitos` / `Relais` views remain presentation-only, including the title-aligned contextual add action, compact derived-leg row, and reduced handover fields. They do not change the membership boundary or grant a separate mutation path; the existing organizer routes continue to authorize every save.
@@ -139,6 +139,8 @@ order by created_at asc;
 ```
 
 ## Gotchas
+
+- Dashboard code-splitting, accessible form controls and abortable event loads do not alter claim authorization or lifecycle; a late event response must never retarget the currently selected claim/event.
 
 - Client-side GPX metric synchronization is presentation state only; organizer authorization must continue to come from active `race_event_organizers` membership on the server route.
 - Do not treat `status = 'approved'` as the only authorization check. Organizer write access should check an active `race_event_organizers` row.

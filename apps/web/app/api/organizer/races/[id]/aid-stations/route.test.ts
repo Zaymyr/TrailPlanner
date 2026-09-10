@@ -34,11 +34,7 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
 
   it("persists water, solid, and assistance service flags", async () => {
     const mockFetch = vi.mocked(fetch);
-    mockFetch
-      .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(
+    mockFetch.mockResolvedValueOnce(
         buildJsonResponse([
           {
             id: existingStationId,
@@ -121,40 +117,53 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
     expect(payload.aidStations[1].assistance_allowed).toBe(false);
     expect(payload.aidStations[0].organizerDetails.cutoffTime).toBe("12:30");
 
-    const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
-    expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
-      water_available: true,
-      solid_available: false,
-      assistance_allowed: true,
-      organizer_details: {
-        stationType: "solid",
-        cutoffTime: "12:30",
-        dropBagAvailable: true,
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toContain("/rest/v1/rpc/replace_race_aid_stations");
+    const rpcBody = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    expect(rpcBody).toMatchObject({ p_race_id: raceId });
+    expect(rpcBody.p_items).toMatchObject([
+      {
+        id: existingStationId,
+        water_available: true,
+        solid_available: false,
+        assistance_allowed: true,
+        organizer_details: {
+          stationType: "solid",
+          cutoffTime: "12:30",
+          dropBagAvailable: true,
+        },
       },
-    });
+      {
+        id: null,
+        water_available: false,
+        solid_available: true,
+        assistance_allowed: false,
+        organizer_details: {
+          stationType: "assistance",
+          altitudeM: 1800,
+        },
+      },
+    ]);
+  });
 
-    const insertCall = mockFetch.mock.calls.find(
-      ([url, init]) => String(url).endsWith("/rest/v1/race_aid_stations") && init?.method === "POST"
+  it("returns an error without issuing partial follow-up writes when replacement fails", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(buildJsonResponse({ message: "constraint failed" }, { status: 409 }));
+
+    const response = await PUT(
+      putRequest({
+        aidStations: [{ name: "Ravito", distanceKm: 12, waterRefill: true }],
+      }),
+      { params: { id: raceId } }
     );
-    const insertBody = JSON.parse(insertCall?.[1]?.body as string);
-    expect(insertBody[0]).toMatchObject({
-      water_available: false,
-      solid_available: true,
-      assistance_allowed: false,
-      organizer_details: {
-        stationType: "assistance",
-        altitudeM: 1800,
-      },
-    });
+
+    expect(response.status).toBe(502);
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(1);
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("/rest/v1/rpc/replace_race_aid_stations");
   });
 
   it("sorts aid stations by distance before assigning order indexes", async () => {
     const mockFetch = vi.mocked(fetch);
-    mockFetch
-      .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(buildJsonResponse([]))
-      .mockResolvedValueOnce(buildJsonResponse([]));
+    mockFetch.mockResolvedValueOnce(buildJsonResponse([]));
 
     const response = await PUT(
       putRequest({
@@ -209,20 +218,11 @@ describe("/api/organizer/races/[id]/aid-stations", () => {
 
     expect(response.status).toBe(200);
 
-    const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
-    expect(JSON.parse(patchCall?.[1]?.body as string)).toMatchObject({
-      name: "Ravito 32",
-      km: 32,
-      order_index: 2,
-    });
-
-    const insertCall = mockFetch.mock.calls.find(
-      ([url, init]) => String(url).endsWith("/rest/v1/race_aid_stations") && init?.method === "POST"
-    );
-    const insertBody = JSON.parse(insertCall?.[1]?.body as string);
-    expect(insertBody).toMatchObject([
+    const rpcBody = JSON.parse(mockFetch.mock.calls[0]?.[1]?.body as string);
+    expect(rpcBody.p_items).toMatchObject([
       { name: "Ravito 12", km: 12, order_index: 0 },
       { name: "Ravito 23", km: 23, order_index: 1 },
+      { name: "Ravito 32", km: 32, order_index: 2 },
     ]);
   });
 });

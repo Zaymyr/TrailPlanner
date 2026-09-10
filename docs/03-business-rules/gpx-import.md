@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -150,7 +150,7 @@ Route geometry remains usable when elevation tags are absent, but the elevation 
 2. Accepts multipart GPX upload.
 3. Parses and validates GPX with the shared parser.
 4. Uploads/replaces the source object in `race-gpx`.
-5. Updates the source `races` row with GPX path/hash and parsed course stats.
+5. Updates the source `races` row with GPX path/hash and parsed course stats. A successful parse clears the `distance_km` missing marker and also clears the legacy `elevation_gain_m` marker when the trace contains elevation points; new drafts still use the narrower current catalog minimum.
 6. Returns parsed stats, detected waypoint ravitos, and a dashboard-only elevation profile.
 7. The organizer elevation profile payload now also carries cumulative D+ and D- totals at each sampled profile point so the ravito editor can auto-fill per-station cumulative values from the GPX trace without manual re-entry.
 7. Creates source `race_aid_stations` from normalized waypoints only when the format has no existing stations; service flags default to enabled.
@@ -189,6 +189,8 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 <!-- CONFLICT: this component references race_aid_stations.needs_review, race_aid_stations.last_gpx_import_at, and plan_aid_stations.race_aid_station_id, but visible migrations in this repo do not create those columns. -->
 
 ## Gotchas
+
+- A legacy `elevation_gain_m` missing marker is cleared when the parsed trace contains elevation samples, even if the computed gain is zero; do not use a positive-gain test as a proxy for elevation availability.
 
 - Organizer official-product overlays are capability-gated separately from GPX/ravito import. Non-Pro formats keep their route and stations but expose no official-product overlay.
 - A dated event format must have a canonical `edition_id`. The database assignment trigger creates or reuses the matching event/year edition for service-side catalog/import inserts; GPX parsing itself must not infer the commercial checkout target.

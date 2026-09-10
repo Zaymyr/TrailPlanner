@@ -22,6 +22,8 @@ related_files:
   - supabase/migrations/20260909200153_enrich_verified_seo_races_batch_2.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
+  - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/app/api/race-catalog/route.ts
@@ -102,7 +104,7 @@ related_tables:
 - The second curated batch adds four verified event identities, refreshes the existing Foulée des Ducs edition, and enriches Nice UTMB and Terres de Saône event provenance while preserving existing format metrics.
 - The official UTMB World Series import creates or refreshes 55 event identities from their tenant-specific official domains. It stores the UTMB tenant in `organizer_details.catalogSource`, rejects ambiguous legacy matches, and keeps each event linked to one canonical upcoming edition.
 - Geocoded event metadata: organizer-managed `organizer_details.eventLocation` can now mirror the plain `location` text with optional coordinates and Google Maps URL for preview/share surfaces, without changing the main event column contract.
-- Normalized catalog geography: explicit city, department, region and country names/codes plus an anchor-city coordinate pair now support reliable future geographic filters without parsing `location`. The first backfill covers the eight Search Console-priority events and refreshes eleven format location labels.
+- Normalized catalog geography: explicit city, department, region and country names/codes plus an anchor-city coordinate pair now support reliable future geographic filters without parsing `location`. The first backfill covers eight Search Console-priority events and refreshes eleven format location labels; the catalog-wide backfill adds 36 complete French anchors and country-level coverage for the other 50 current events.
 - Website-import target: the admin-only organizer information import enriches only the selected `race_events` row and must never create a different event. It first confirms the number and identity of child formats, then reviews field-level source claims. Candidate existence is independent from completeness, distance alone never merges or binds formats, and OpenAI can only choose an already extracted applicable claim or abstain. Roadbooks remain temporary analysis sources and never become event-row data.
 - Two-pass import scope: `organizer_import_sessions.event_id` binds discovery, format confirmation, and field application to this exact event; the session trigger also requires its edition to belong here.
 - Missing provenance: table creation must be verified outside the visible migrations.
@@ -282,6 +284,8 @@ where is_live = true
 - Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Do not infer city, department or region from `location` at read time. Unnormalized rows stay outside exact geographic filters until a trusted source populates their explicit fields.
+- A country-only international row is intentional partial enrichment, not a failed commune lookup. Do not expose it in city/region/nearby filters until its anchor and stable locality identifiers are verified.
+- Use territory-specific ISO country keys where they exist; TransLantau is catalogued under Hong Kong (`HK`), not mainland China (`CN`).
 - Do not treat an anchor-city coordinate as course geometry or exact road distance. Nearby-city discovery is approximate until a dedicated geospatial route model exists.
 - Do not edit the legacy event date fields as canonical organizer dates; update `race_event_editions` and let its trigger mirror the current range.
 - Keep image upload validation in the server route; the database stores only the resulting URL.

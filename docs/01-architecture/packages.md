@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - package.json
@@ -25,6 +25,7 @@ This document describes the local packages and shared modules in the monorepo. U
 ## Key Concepts
 
 - Workspace package: a package included by the root npm workspace list.
+- Package manager pin: the root `packageManager` field fixes npm 10.9.2 so Turbo can resolve workspaces in local and CI commands.
 - Shared logic: code intended to be used across app surfaces.
 - Design system: tokens, fonts, and icons exported by `@pace-yourself/design-system`.
 - Local shim: repository-owned package that satisfies an import path without external package behavior.
@@ -107,6 +108,7 @@ Keep logic inside an app when:
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.
 - `apps/web/next.config.mjs` transpiles `@trailplanner/shared` and `@pace-yourself/design-system`. If a new package exports TS/TSX directly, the web config may need a matching transpile entry.
 - The local `@tanstack/react-query` package can mask assumptions about the upstream package. Inspect it before changing data-fetching code.
+- Keep the root `packageManager` field present when upgrading npm/Turbo; current Turbo versions refuse to resolve this workspace graph without it.
 
 ## Related Docs
 

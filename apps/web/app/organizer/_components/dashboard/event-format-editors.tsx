@@ -1,4 +1,5 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
+import Image from "next/image";
+import { useEffect, useId, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { GpxRouteMap } from "../../../../components/gpx/GpxRouteMap";
 import { Button } from "../../../../components/ui/button";
@@ -23,6 +24,7 @@ export function EventInfoEditor({
   onUploadImage: (event: ChangeEvent<HTMLInputElement>) => void;
   status: "idle" | "loading" | "saving" | "uploading";
 }) {
+  const imageInputId = useId();
   const missingName = !eventForm.name.trim();
   const missingLocation = !eventForm.location.trim();
   const missingStartDate = !eventForm.editionStartDate.trim();
@@ -112,7 +114,7 @@ export function EventInfoEditor({
         invalid={missingEndDate || invalidDateRange}
       />
       <p className="text-xs text-muted-foreground lg:col-span-5">
-        Ces dates appartiennent à l'édition sélectionnée. Les formats les utilisent par défaut.
+        Ces dates appartiennent à l&apos;édition sélectionnée. Les formats les utilisent par défaut.
       </p>
       <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5 lg:max-w-2xl">
         <TextField
@@ -148,17 +150,17 @@ export function EventInfoEditor({
         />
       </div>
       <div className="space-y-2 lg:col-span-4">
-        <Label>Image evenement (PNG)</Label>
+        <Label htmlFor={imageInputId}>Image evenement (PNG)</Label>
         {eventForm.thumbnailUrl ? (
           <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
-            <img src={eventForm.thumbnailUrl} alt="" className="h-full w-full object-cover" />
+            <Image src={eventForm.thumbnailUrl} alt="" width={224} height={112} sizes="224px" unoptimized className="h-full w-full object-cover" />
           </div>
         ) : (
           <div className="flex h-20 w-full items-center rounded-md border border-dashed border-border bg-muted px-3 text-sm text-muted-foreground sm:w-56">
             Aucune image
           </div>
         )}
-        <Input type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
+        <Input id={imageInputId} type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
         <p className="text-xs text-muted-foreground">PNG uniquement, 5 Mo maximum.</p>
       </div>
     </div>
@@ -296,6 +298,7 @@ function RaceForm({
   editionStartDate: string;
   inheritedLocationText: string;
 }) {
+  const participationModeId = useId();
   const missingName = !values.name.trim();
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
   const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
@@ -348,8 +351,9 @@ function RaceForm({
                 <TextField label="D-" type="number" step="0.1" value={values.elevationLossM} onChange={(value) => onChange({ ...values, elevationLossM: value })} disabled={disabled} />
               </div>
               <div className="space-y-1 lg:col-span-12 lg:max-w-sm">
-                <Label>Type de participation</Label>
+                <Label htmlFor={participationModeId}>Type de participation</Label>
                 <select
+                  id={participationModeId}
                   value={values.participationMode}
                   onChange={(event) => onChange({ ...values, participationMode: event.target.value as RaceParticipationMode })}
                   disabled={disabled}
@@ -374,7 +378,7 @@ function RaceForm({
                       }}
                       disabled={disabled}
                     />
-                    Date différente de l'édition
+                    Date différente de l&apos;édition
                   </label>
                 ) : null}
                 {usesCustomRaceDate || !editionStartDate ? (
@@ -517,6 +521,8 @@ function OrganizerGpxPanel({
   thumbnailUrl?: string | null;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
 }) {
+  const gpxInputId = useId();
+  const imageInputId = useId();
   return (
     <aside className="rounded-lg border border-border/70 bg-muted/30 px-4 py-4 xl:sticky xl:top-4">
       <div className="space-y-4">
@@ -529,8 +535,8 @@ function OrganizerGpxPanel({
         </div>
         <div className="space-y-2 rounded-md border border-border/70 bg-background px-3 py-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 1</p>
-          <p className="text-sm font-medium text-foreground">{fileLabel}</p>
-          <Input type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} />
+          <Label htmlFor={gpxInputId} className="text-sm font-medium text-foreground">{fileLabel}</Label>
+          <Input id={gpxInputId} type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} />
         </div>
         <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
           <div className="space-y-2">
@@ -538,17 +544,17 @@ function OrganizerGpxPanel({
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
               <span className="text-xs text-muted-foreground">Optionnel</span>
             </div>
-            <Label>Image format</Label>
+            <Label htmlFor={imageInputId}>Image format</Label>
             {thumbnailUrl ? (
               <div className="aspect-[4/3] w-full overflow-hidden rounded-md border border-border bg-muted">
-                <img src={thumbnailUrl} alt="" className="h-full w-full object-cover" />
+                <Image src={thumbnailUrl} alt="" width={320} height={240} sizes="(min-width: 1280px) 308px, 100vw" unoptimized className="h-full w-full object-cover" />
               </div>
             ) : (
               <div className="flex aspect-[4/3] w-full items-center justify-center rounded-md border border-dashed border-border bg-muted/60 px-3 text-sm text-muted-foreground">
                 {pendingImageName ? pendingImageName : "Aucune image"}
               </div>
             )}
-            <Input type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={onImageChange} disabled={disabled} />
+            <Input id={imageInputId} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={onImageChange} disabled={disabled} />
             <p className="text-xs text-muted-foreground">
               JPEG, PNG, WebP ou AVIF, 5 Mo maximum.
               {pendingImageName && !thumbnailUrl ? " L'image sera envoyee apres la creation du format." : ""}

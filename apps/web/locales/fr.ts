@@ -293,6 +293,9 @@ export const fr: Translations = {
     },
     signIn: {
       title: "Connexion",
+      continueWithGoogle: "Continuer avec Google",
+      continueWithApple: "Continuer avec Apple",
+      continueWithEmail: "Ou continuer avec un email",
       description: "Accède à ton compte Pace Yourself.",
       forgotPassword: "Mot de passe oublié ?",
       submit: "Se connecter",

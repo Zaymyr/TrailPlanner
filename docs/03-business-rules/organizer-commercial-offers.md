@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -70,12 +70,14 @@ Recalculation requires a valid paid path. Refunding/disputing a base purchase in
 
 ## Gotchas
 
+- Code-splitting locked/optional Organizer editors is only a bundle optimization. Capability checks remain server-side and a dynamically loaded component never grants an edition module.
+
 - Never delete module content on disable or downgrade.
 - Never expose `organizer_racebook_module_settings` directly to clients; mobile receives only an effective boolean map.
 - Missing module configuration during rolling deployment uses the historical mobile behavior.
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
-- Collapsing the dashboard's compact edition/format summary is presentation-only and must not disable modules or alter the selected edition entitlement.
+- The dashboard's compact edition/format summary starts collapsed, but its offer and publication action stay visible; expanding or collapsing it is presentation-only and must not disable modules or alter the selected edition entitlement.
 
 ## Related Docs
 

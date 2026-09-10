@@ -1,7 +1,7 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -10,6 +10,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/start-waves/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/structured-content-editors.test.ts
   - apps/mobile/lib/racebook.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
 related_tables:
@@ -30,3 +31,5 @@ Existing `organizer_details.schedule.startTime` values are backfilled as `Dépar
 Public/preview read and mutation rules are identical to other RaceBook content: published RaceBook or authorized organizer for reads, and service-role API plus `racebook_content.manage` for writes.
 
 The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table. Published primary surfaces may style SAS cards and accent-tinted positive information rows may highlight the schedule, but neither changes time authority or ordering.
+
+The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local SAS edits and instead queues the latest revision.

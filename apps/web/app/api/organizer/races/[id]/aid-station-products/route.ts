@@ -45,6 +45,11 @@ const aidStationProductRowSchema = z.object({
   products: supabaseProductSchema.nullable().optional(),
 });
 
+const createdProductResultSchema = z.object({
+  product: supabaseProductSchema,
+  stationProduct: aidStationProductRowSchema.omit({ products: true }),
+});
+
 const aidStationRaceRowSchema = z.object({
   id: z.string().uuid(),
   race_id: z.string().uuid(),
@@ -187,47 +192,30 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const station = await requireStationForRace(auth, parsedParams.data.id, parsedBody.data.aidStationId);
   if ("error" in station) return station.error;
 
-  const deleteResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_station_products?race_aid_station_id=eq.${parsedBody.data.aidStationId}`,
+  const replaceResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/replace_race_aid_station_products`,
     {
-      method: "DELETE",
-      headers: serviceHeaders(auth.serviceConfig, ""),
+      method: "POST",
+      headers: serviceHeaders(auth.serviceConfig),
+      body: JSON.stringify({
+        p_race_id: parsedParams.data.id,
+        p_aid_station_id: parsedBody.data.aidStationId,
+        p_items: parsedBody.data.products.map((product, orderIndex) => ({
+          product_id: product.productId,
+          notes: product.notes,
+          order_index: orderIndex,
+        })),
+      }),
       cache: "no-store",
     }
   );
 
-  if (!deleteResponse.ok) {
-    console.error("Unable to clear organizer station products", await deleteResponse.text());
+  if (!replaceResponse.ok) {
+    console.error("Unable to replace organizer station products", await replaceResponse.text());
     return jsonError("Unable to update aid station products.", 502);
   }
 
-  if (parsedBody.data.products.length === 0) {
-    return withSecurityHeaders(NextResponse.json({ products: [] }));
-  }
-
-  const insertResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_station_products`, {
-    method: "POST",
-    headers: {
-      ...serviceHeaders(auth.serviceConfig),
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify(
-      parsedBody.data.products.map((product, index) => ({
-        race_aid_station_id: parsedBody.data.aidStationId,
-        product_id: product.productId,
-        notes: product.notes,
-        order_index: index,
-      }))
-    ),
-    cache: "no-store",
-  });
-
-  if (!insertResponse.ok) {
-    console.error("Unable to insert organizer station products", await insertResponse.text());
-    return jsonError("Unable to update aid station products.", 502);
-  }
-
-  const rows = z.array(aidStationProductRowSchema.omit({ products: true })).parse(await insertResponse.json());
+  const rows = z.array(aidStationProductRowSchema.omit({ products: true })).parse(await replaceResponse.json());
   return withSecurityHeaders(
     NextResponse.json({
       products: rows.map((row) => ({
@@ -263,30 +251,30 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   if ("error" in station) return station.error;
 
   const productId = randomUUID();
-  const createResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/products`, {
+  const createResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/create_organizer_aid_station_product`,
+    {
     method: "POST",
-    headers: {
-      ...serviceHeaders(auth.serviceConfig),
-      Prefer: "return=representation",
-    },
+    headers: serviceHeaders(auth.serviceConfig),
     body: JSON.stringify({
-      id: productId,
-      slug: buildSlug(parsedBody.data.product.name, "organizer-product"),
-      sku: parsedBody.data.product.sku ?? `ORG-${randomUUID().slice(0, 8).toUpperCase()}`,
-      name: parsedBody.data.product.name,
-      brand: parsedBody.data.product.brand,
-      fuel_type: parsedBody.data.product.fuelType,
-      product_url: parsedBody.data.product.productUrl,
-      calories_kcal: parsedBody.data.product.caloriesKcal,
-      carbs_g: parsedBody.data.product.carbsGrams,
-      sodium_mg: parsedBody.data.product.sodiumMg,
-      protein_g: parsedBody.data.product.proteinGrams,
-      fat_g: parsedBody.data.product.fatGrams,
-      is_live: false,
-      is_archived: false,
-      is_official: false,
-      official_name: null,
-      created_by: auth.user.id,
+      p_race_id: parsedParams.data.id,
+      p_aid_station_id: parsedBody.data.aidStationId,
+      p_product: {
+        id: productId,
+        slug: buildSlug(parsedBody.data.product.name, "organizer-product"),
+        sku: parsedBody.data.product.sku ?? `ORG-${randomUUID().slice(0, 8).toUpperCase()}`,
+        name: parsedBody.data.product.name,
+        brand: parsedBody.data.product.brand,
+        fuel_type: parsedBody.data.product.fuelType,
+        product_url: parsedBody.data.product.productUrl,
+        calories_kcal: parsedBody.data.product.caloriesKcal,
+        carbs_g: parsedBody.data.product.carbsGrams,
+        sodium_mg: parsedBody.data.product.sodiumMg,
+        protein_g: parsedBody.data.product.proteinGrams,
+        fat_g: parsedBody.data.product.fatGrams,
+        created_by: auth.user.id,
+      },
+      p_notes: parsedBody.data.notes,
     }),
     cache: "no-store",
   });
@@ -296,43 +284,18 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     return jsonError("Unable to create product.", 502);
   }
 
-  const product = z.array(supabaseProductSchema).parse(await createResponse.json())[0] ?? null;
-  if (!product) return jsonError("Unable to create product.", 502);
-
-  const attachResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_station_products`, {
-    method: "POST",
-    headers: {
-      ...serviceHeaders(auth.serviceConfig),
-      Prefer: "return=representation",
-    },
-    body: JSON.stringify({
-      race_aid_station_id: parsedBody.data.aidStationId,
-      product_id: product.id,
-      notes: parsedBody.data.notes,
-      order_index: 999,
-    }),
-    cache: "no-store",
-  });
-
-  if (!attachResponse.ok) {
-    console.error("Unable to attach organizer scoped product", await attachResponse.text());
-    return jsonError("Product created, but unable to attach it to the aid station.", 502);
-  }
-
-  const link = z.array(aidStationProductRowSchema.omit({ products: true })).parse(await attachResponse.json())[0] ?? null;
+  const created = createdProductResultSchema.parse(await createResponse.json());
   return withSecurityHeaders(
     NextResponse.json(
       {
-        product: toProduct(product),
-        stationProduct: link
-          ? {
-              id: link.id,
-              aidStationId: link.race_aid_station_id,
-              productId: link.product_id,
-              notes: link.notes ?? null,
-              orderIndex: link.order_index,
-            }
-          : null,
+        product: toProduct(created.product),
+        stationProduct: {
+          id: created.stationProduct.id,
+          aidStationId: created.stationProduct.race_aid_station_id,
+          productId: created.stationProduct.product_id,
+          notes: created.stationProduct.notes ?? null,
+          orderIndex: created.stationProduct.order_index,
+        },
       },
       { status: 201 }
     )

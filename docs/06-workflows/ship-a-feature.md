@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-06-10
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - package.json
@@ -47,6 +47,10 @@ npm run lint
 8. For mobile native changes, use the EAS/dev-client path.
 9. For Supabase changes, verify RLS and service-role behavior separately.
 10. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
+
+The web CI workflow runs lint, typecheck, the complete web Vitest suite, then the production build. Keep targeted local tests for fast feedback, but do not remove the full test gate from CI.
+
+The root `packageManager` pin is required by Turbo workspace discovery. Update it deliberately alongside npm upgrades instead of removing it.
 
 ## Do Not
 

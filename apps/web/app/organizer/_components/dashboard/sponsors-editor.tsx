@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useId, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
@@ -34,6 +35,7 @@ export function SponsorsEditor({
   const [newShowOnLoading, setNewShowOnLoading] = useState(false);
   const [newShowInBanner, setNewShowInBanner] = useState(true);
   const [dirtySponsorIds, setDirtySponsorIds] = useState<Set<string>>(() => new Set());
+  const formId = useId();
 
   const updateSummary = useCallback((items: OrganizerSponsor[]) => {
     onSummaryChange({
@@ -213,8 +215,31 @@ export function SponsorsEditor({
     next[index] = second;
     next[otherIndex] = first;
     setSponsors(next);
-    const [firstSaved, secondSaved] = await Promise.all([persistSponsor(first), persistSponsor(second)]);
-    if (firstSaved && secondSaved) onToast("success", "Ordre des sponsors mis à jour.");
+    setBusyId("order");
+    try {
+      const response = await fetch(`/api/organizer/editions/${editionId}/sponsors`, {
+        method: "PATCH",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sponsors: next.map((sponsor) => ({ id: sponsor.id, position: sponsor.position })),
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as { sponsors?: OrganizerSponsor[]; message?: string } | null;
+      if (!response.ok || !data?.sponsors) {
+        throw new Error(data?.message ?? "Impossible d'enregistrer l'ordre des sponsors.");
+      }
+      const savedSponsors = [...data.sponsors].sort((a, b) => a.position - b.position);
+      setSponsors(savedSponsors);
+      updateSummary(savedSponsors);
+      onToast("success", "Ordre des sponsors mis à jour.");
+    } catch (error) {
+      const response = await fetch(`/api/organizer/editions/${editionId}/sponsors`, { headers: authHeaders, cache: "no-store" }).catch(() => null);
+      const data = response?.ok ? await response.json().catch(() => null) as { sponsors?: OrganizerSponsor[] } | null : null;
+      if (data?.sponsors) setSponsors(data.sponsors);
+      onToast("error", error instanceof Error ? error.message : "Impossible d'enregistrer l'ordre des sponsors.");
+    } finally {
+      setBusyId(null);
+    }
   };
 
   if (loading) return <p className="text-sm text-muted-foreground">Chargement des sponsors...</p>;
@@ -222,7 +247,7 @@ export function SponsorsEditor({
   return (
     <div className="space-y-5">
       <div className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
-        Jusqu'à 10 sponsors par édition, dont 2 maximum sur l'écran de chargement. Les changements de placement sont enregistrés immédiatement.
+        Jusqu&apos;à 10 sponsors par édition, dont 2 maximum sur l&apos;écran de chargement. Les changements de placement sont enregistrés immédiatement.
       </div>
       {sponsors.map((sponsor, index) => {
         const loadingDisabled = !sponsor.showOnLoading && loadingSponsorCount >= 2;
@@ -231,13 +256,13 @@ export function SponsorsEditor({
           <div key={sponsor.id} className="grid gap-4 rounded-lg border border-border p-4 lg:grid-cols-[88px_1fr_auto]">
             <div className="space-y-2">
               <div className="flex h-20 w-20 items-center justify-center rounded-md border border-border bg-white p-2">
-                <img src={sponsor.logoUrl} alt={`Logo ${sponsor.name}`} className="max-h-full max-w-full object-contain" />
+                <Image src={sponsor.logoUrl} alt={`Logo ${sponsor.name}`} width={80} height={80} sizes="80px" unoptimized className="max-h-full max-w-full object-contain" />
               </div>
-              <Label className="block cursor-pointer text-xs text-brand">Remplacer<Input className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void replaceLogo(sponsor, event)} /></Label>
+              <Label htmlFor={`${formId}-${sponsor.id}-logo`} className="block cursor-pointer text-xs text-brand">Remplacer</Label><Input id={`${formId}-${sponsor.id}-logo`} aria-label={`Remplacer le logo de ${sponsor.name}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void replaceLogo(sponsor, event)} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1"><Label>Nom</Label><Input value={sponsor.name} maxLength={80} onChange={(event) => changeSponsor(sponsor.id, { name: event.target.value })} onBlur={() => sponsor.name.trim() && void persistSponsor(sponsor)} /></div>
-              <div className="space-y-1"><Label>Site web</Label><Input type="url" value={sponsor.websiteUrl ?? ""} onChange={(event) => changeSponsor(sponsor.id, { websiteUrl: event.target.value || null })} onBlur={() => void persistSponsor(sponsor)} placeholder="https://..." /></div>
+              <div className="space-y-1"><Label htmlFor={`${formId}-${sponsor.id}-name`}>Nom</Label><Input id={`${formId}-${sponsor.id}-name`} value={sponsor.name} maxLength={80} onChange={(event) => changeSponsor(sponsor.id, { name: event.target.value })} onBlur={() => sponsor.name.trim() && void persistSponsor(sponsor)} /></div>
+              <div className="space-y-1"><Label htmlFor={`${formId}-${sponsor.id}-website`}>Site web</Label><Input id={`${formId}-${sponsor.id}-website`} type="url" value={sponsor.websiteUrl ?? ""} onChange={(event) => changeSponsor(sponsor.id, { websiteUrl: event.target.value || null })} onBlur={() => void persistSponsor(sponsor)} placeholder="https://..." /></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.isActive} disabled={activationDisabled} onChange={(event) => void toggleSponsor(sponsor, { isActive: event.target.checked })} /> Actif</label>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.showOnLoading} disabled={loadingDisabled} onChange={(event) => void toggleSponsor(sponsor, { showOnLoading: event.target.checked })} /> Écran de chargement</label>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.showInBanner} onChange={(event) => void toggleSponsor(sponsor, { showInBanner: event.target.checked })} /> Bandeau RaceBook</label>
@@ -245,7 +270,7 @@ export function SponsorsEditor({
             </div>
             <div className="flex flex-row gap-2 lg:flex-col">
               <Button type="button" variant="outline" onClick={() => void persistSponsor(sponsor, "Sponsor enregistré.")} disabled={busyId === sponsor.id}>Enregistrer</Button>
-              <div className="flex gap-2"><Button type="button" variant="ghost" aria-label="Monter le sponsor" onClick={() => void moveSponsor(index, -1)} disabled={index === 0}>↑</Button><Button type="button" variant="ghost" aria-label="Descendre le sponsor" onClick={() => void moveSponsor(index, 1)} disabled={index === sponsors.length - 1}>↓</Button></div>
+              <div className="flex gap-2"><Button type="button" variant="ghost" aria-label="Monter le sponsor" onClick={() => void moveSponsor(index, -1)} disabled={index === 0 || busyId !== null}>↑</Button><Button type="button" variant="ghost" aria-label="Descendre le sponsor" onClick={() => void moveSponsor(index, 1)} disabled={index === sponsors.length - 1 || busyId !== null}>↓</Button></div>
               <Button type="button" variant="outline" className="border-red-300 text-red-700" onClick={() => void removeSponsor(sponsor)} disabled={busyId === sponsor.id}>Supprimer</Button>
             </div>
           </div>
@@ -255,9 +280,9 @@ export function SponsorsEditor({
         <form className="space-y-4 rounded-lg border border-dashed border-border p-4" onSubmit={createSponsor}>
           <h3 className="font-semibold text-foreground">Ajouter un sponsor</h3>
           <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-1"><Label>Nom</Label><Input required maxLength={80} value={newName} onChange={(event) => setNewName(event.target.value)} /></div>
-            <div className="space-y-1"><Label>Site web optionnel</Label><Input type="url" value={newWebsiteUrl} onChange={(event) => setNewWebsiteUrl(event.target.value)} /></div>
-            <div className="space-y-1"><Label>Logo</Label><Input required type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setNewImage(event.target.files?.[0] ?? null)} /></div>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-name`}>Nom</Label><Input id={`${formId}-new-name`} required maxLength={80} value={newName} onChange={(event) => setNewName(event.target.value)} /></div>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-website`}>Site web optionnel</Label><Input id={`${formId}-new-website`} type="url" value={newWebsiteUrl} onChange={(event) => setNewWebsiteUrl(event.target.value)} /></div>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-logo`}>Logo</Label><Input id={`${formId}-new-logo`} required type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setNewImage(event.target.files?.[0] ?? null)} /></div>
             <div className="flex flex-wrap items-end gap-4 pb-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onChange={(event) => setNewShowOnLoading(event.target.checked)} /> Chargement</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowInBanner} onChange={(event) => setNewShowInBanner(event.target.checked)} /> Bandeau</label></div>
           </div>
           <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>

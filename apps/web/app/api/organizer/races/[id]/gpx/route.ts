@@ -197,8 +197,11 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const gpxSha = createHash("sha256").update(gpxContent).digest("hex");
-  const missingRequiredFields = new Set(race.missing_required_fields ?? []);
+  // Accept and clear legacy elevation markers even though new drafts only require
+  // the current catalog-minimum fields represented by the narrower race type.
+  const missingRequiredFields = new Set<string>(race.missing_required_fields ?? []);
   if (parsedGpx.stats.distanceKm > 0) missingRequiredFields.delete("distance_km");
+  if (parsedGpx.points.some((point) => point.ele != null)) missingRequiredFields.delete("elevation_gain_m");
   const completesImportedDraft = (race.data_status ?? "complete") === "draft" && missingRequiredFields.size === 0;
   const updateResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,

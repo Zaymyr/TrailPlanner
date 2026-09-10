@@ -20,6 +20,12 @@ begin
   if not has_table_privilege('service_role', 'public.race_event_edition_sponsors', 'select,insert,update,delete') then
     raise exception 'service_role must manage sponsor rows.';
   end if;
+
+  if has_function_privilege('anon', 'public.reorder_racebook_sponsors(uuid,jsonb)', 'execute')
+    or has_function_privilege('authenticated', 'public.reorder_racebook_sponsors(uuid,jsonb)', 'execute')
+    or not has_function_privilege('service_role', 'public.reorder_racebook_sponsors(uuid,jsonb)', 'execute') then
+    raise exception 'Sponsor reorder execution must be service-role-only.';
+  end if;
 end $$;
 
 create temp table _racebook_sponsor_fixture (edition_id uuid not null, race_id uuid not null) on commit drop;
@@ -126,6 +132,62 @@ insert into public.race_event_edition_sponsors (
   true,
   0
 );
+
+insert into public.race_event_edition_sponsors (
+  id, edition_id, name, logo_url, is_active, show_on_loading, show_in_banner, position
+) values (
+  '7a110000-5999-4000-8000-000000000998',
+  (select edition_id from _racebook_sponsor_fixture),
+  'Atomic reorder sponsor',
+  'https://example.com/reorder.png',
+  false,
+  false,
+  false,
+  1
+);
+
+select public.reorder_racebook_sponsors(
+  (select edition_id from _racebook_sponsor_fixture),
+  '[{"id":"7a110000-5999-4000-8000-000000000999","position":1},{"id":"7a110000-5999-4000-8000-000000000998","position":0}]'::jsonb
+);
+
+do $$
+begin
+  begin
+    perform public.reorder_racebook_sponsors(
+      (select edition_id from _racebook_sponsor_fixture),
+      '[{"id":"7a110000-5999-4000-8000-000000000999","position":0}]'::jsonb
+    );
+    raise exception 'Expected an incomplete sponsor reorder to fail.';
+  exception when check_violation then
+    null;
+  end;
+
+  begin
+    perform public.reorder_racebook_sponsors(
+      (select edition_id from _racebook_sponsor_fixture),
+      '[{"id":"7a110000-5999-4000-8000-000000000999","position":0},{"id":"7a110000-5999-4000-8000-000000000998","position":0}]'::jsonb
+    );
+    raise exception 'Expected duplicate sponsor positions to fail.';
+  exception when check_violation then
+    null;
+  end;
+
+  begin
+    perform public.reorder_racebook_sponsors(
+      (select edition_id from _racebook_sponsor_fixture),
+      '[{"id":"7a110000-5999-4000-8000-000000000999","position":0},{"id":"00000000-0000-4000-8000-000000000001","position":1}]'::jsonb
+    );
+    raise exception 'Expected cross-edition sponsor reorder to fail.';
+  exception when foreign_key_violation then
+    null;
+  end;
+
+  if (select position from public.race_event_edition_sponsors where id = '7a110000-5999-4000-8000-000000000999') <> 1 then
+    raise exception 'Failed sponsor reorder must roll back every position update.';
+  end if;
+end;
+$$;
 
 select public.increment_racebook_sponsor_click(
   '7a110000-5999-4000-8000-000000000999',

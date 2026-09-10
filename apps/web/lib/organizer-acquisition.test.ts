@@ -34,7 +34,12 @@ describe("organizer acquisition attribution", () => {
 });
 
 describe("organizer auth return path", () => {
-  it("accepts only the organizer creation route and supported UTM parameters", () => {
+  it("accepts the organizer dashboard without query parameters", () => {
+    expect(normalizeInternalReturnPath("/organizer")).toBe("/organizer");
+    expect(normalizeInternalReturnPath("/organizer?eventId=discarded")).toBe("/organizer");
+  });
+
+  it("accepts the organizer creation route and retains only supported UTM parameters", () => {
     expect(
       normalizeInternalReturnPath(
         "/organizers?utm_source=outreach&utm_campaign=tst&unknown=discarded",
@@ -47,6 +52,7 @@ describe("organizer auth return path", () => {
     "//malicious.example/organizers",
     "/\\malicious.example/organizers",
     "/settings",
+    "/organizer/other",
     "%2Forganizers",
   ])("rejects unsafe or unsupported return path %s", (candidate) => {
     expect(normalizeInternalReturnPath(candidate)).toBe("/race-planner");
@@ -63,6 +69,9 @@ describe("organizer auth return path", () => {
     );
     expect(buildAuthCallbackPath(next)).toBe(
       "/auth/callback?next=%2Forganizers%3Futm_source%3Demail",
+    );
+    expect(buildAuthCallbackPath("/organizer")).toBe(
+      "/auth/callback?next=%2Forganizer",
     );
   });
 });

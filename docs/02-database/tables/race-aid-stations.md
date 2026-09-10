@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-09-07
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -18,6 +18,8 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/components/GpxAidStationImporter.tsx
@@ -127,6 +129,8 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 ```
 
 ## Gotchas
+
+- Organizer collection replacement locks the parent race and preserves submitted station ids. Validation or write failure rolls the full replacement back, protecting product links from partial updates.
 
 - Public reads require the effective `aid_stations` module; organizer writes are refused while the module is inactive or locked.
 

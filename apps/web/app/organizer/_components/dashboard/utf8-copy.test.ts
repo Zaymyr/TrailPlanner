@@ -119,13 +119,38 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("min-h-0 flex-1 space-y-5 overflow-y-auto overscroll-contain");
   });
 
-  it("keeps the edition and format summary compact and collapsible", () => {
-    const shellSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"), "utf8");
+  it("explains the notification entitlement without presenting it as publication", () => {
+    const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
 
+    expect(dashboardSource).toContain('openPricingDialog("notification")');
+    expect(dashboardSource).toContain("Débloquer les notifications coureurs");
+    expect(dashboardSource).toContain("Les notifications sont disponibles avec les offres Complet et Signature");
+    expect(dashboardSource).toContain('pricingIntent !== "notification" || ORGANIZER_TIER_RANK[tier] >= ORGANIZER_TIER_RANK.complete');
+  });
+
+  it("keeps the organizer shell compact, responsive, and accessible", () => {
+    const shellSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"), "utf8");
+    const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
+
+    expect(shellSource).toContain("React.useState(false)");
     expect(shellSource).toContain("open={isSummaryExpanded}");
     expect(shellSource).toContain("onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}");
-    expect(shellSource).toContain('isSummaryExpanded ? "Réduire" : "Afficher"');
+    expect(shellSource).toContain('isSummaryExpanded ? "Masquer les détails" : "Voir les détails"');
     expect(shellSource).toContain('cn("h-5 overflow-hidden rounded-full"');
+    expect(shellSource).toContain('htmlFor="organizer-event-select"');
+    expect(shellSource).toContain('href="/sign-in?next=%2Forganizer"');
+    expect(shellSource).toContain("memberships.length > 8");
+    expect(shellSource).toContain("Aucun autre événement trouvé.");
+    expect(shellSource).toContain('htmlFor="organizer-workspace-select"');
+    expect(shellSource).toContain('tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label');
+    expect(shellSource).toContain('aria-label={tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : undefined}');
+    expect(shellSource).toContain("Modifications non enregistrées");
+    expect(shellSource).toContain("Une autre section contient des modifications non enregistrées.");
+    expect(shellSource).toContain("fixed inset-x-4 top-20");
+    expect(shellSource).toContain("sm:bottom-4");
+    expect(dashboardSource).toContain("hasAnyDirtyChanges={hasAnyDirtyChanges}");
+    expect(shellSource).toContain("Supprimer l’édition");
+    expect(shellSource).toContain("Supprimer la course");
   });
 
   it("stages RaceBook section changes in a wide responsive dialog before one explicit save", () => {

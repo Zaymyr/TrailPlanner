@@ -7,6 +7,8 @@ related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
+  - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-race-detail.ts
@@ -95,11 +97,13 @@ A page is generated and indexable only while at least five public races have a n
 
 ## Geographic Landing-Page Guardrail
 
-`race_events` now has explicit normalized city, department, region and country names/codes plus an anchor-city coordinate pair. The initial trusted backfill covers eight Search Console-priority events. Unpopulated events remain valid catalog entries but must stay outside exact geographic selections until curated.
+`race_events` now has explicit normalized city, department, region and country names/codes plus an anchor-city coordinate pair. All current live events have a verified country; the 44 French events have complete commune, department, region and coordinate enrichment. The 50 remaining official UTMB international events intentionally stay country-only until one unambiguous locality is verified.
 
 Regional and departmental landing pages are not enabled yet. When introduced, they must use stable normalized codes from the parent event, apply the same five-race minimum-content threshold, and include only public formats under live events. Free-text `location`/`location_text`, postal-code guesses and runtime city-to-region lookup remain unacceptable sources of truth.
 
 Nearby-city discovery may use the stored event anchor coordinates as an approximate straight-line prefilter. It must be labelled accordingly and must not imply route distance or that a multi-city trail lies wholly inside the anchor municipality.
+
+Country filters may include country-only rows. City, department, region and nearby-city filters must require their corresponding normalized code or coordinate fields and must never fall back to the display label.
 
 ## Slug Stability
 

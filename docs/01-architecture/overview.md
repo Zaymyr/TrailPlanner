@@ -31,7 +31,7 @@ This document gives the high-level map of the Pace Yourself monorepo. Use it to 
 
 ## Stack Summary
 
-Pace Yourself uses npm workspaces declared in `package.json`. The workspace roots are:
+Pace Yourself uses npm workspaces declared in `package.json` and pins npm 10.9.2 through `packageManager` so Turbo can resolve the workspace graph consistently in CI. The workspace roots are:
 
 - `apps/web`
 - `apps/mobile`
@@ -47,6 +47,7 @@ The web app is a Next.js 14 app:
 - React dependency: `react ^18.3.1`
 - Supabase dependencies: `@supabase/supabase-js ^2.45.4`, `@supabase/ssr ^0.5.0`
 - Analytics dependencies: `posthog-js`, `posthog-node`, `@vercel/analytics`, `@vercel/speed-insights`
+- Resumable browser uploads: `tus-js-client ^4.3.1` for large temporary Organizer import documents sent directly to Supabase Storage.
 
 The mobile app is an Expo Router app:
 
@@ -145,6 +146,7 @@ When docs and code disagree, use this order:
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.
 - Android and iOS temporarily use different EAS Update runtimes: Android `1.1.1` for the API 36 native build and iOS `1.1.0` for the current App Store binary.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
+- Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
 
 ## Related Docs
 

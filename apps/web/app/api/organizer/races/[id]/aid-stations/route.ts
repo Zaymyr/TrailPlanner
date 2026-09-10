@@ -100,43 +100,15 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   if (!parsedBody.success) return jsonError("Invalid aid stations.", 400);
 
   const sortedAidStations = sortAidStationsByDistance(parsedBody.data.aidStations);
-
-  const submittedIds = sortedAidStations
-    .map((station) => station.id)
-    .filter((id): id is string => Boolean(id));
-  const deleteFilter =
-    submittedIds.length > 0
-      ? `race_id=eq.${parsedParams.data.id}&id=not.in.(${submittedIds.join(",")})`
-      : `race_id=eq.${parsedParams.data.id}`;
-  const deleteResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?${deleteFilter}`,
+  const replaceResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/replace_race_aid_stations`,
     {
-      method: "DELETE",
-      headers: serviceHeaders(auth.serviceConfig, ""),
-      cache: "no-store",
-    }
-  );
-
-  if (!deleteResponse.ok) {
-    console.error("Unable to delete organizer aid stations", await deleteResponse.text());
-    return jsonError("Unable to update aid stations.", 502);
-  }
-
-  if (sortedAidStations.length === 0) {
-    return withSecurityHeaders(NextResponse.json({ aidStations: [] }));
-  }
-
-  const existingStationUpdates = sortedAidStations.filter((station) => station.id);
-  const newStations = sortedAidStations.filter((station) => !station.id);
-
-  for (const station of existingStationUpdates) {
-    const index = sortedAidStations.indexOf(station);
-    const updateResponse = await fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?id=eq.${station.id}&race_id=eq.${parsedParams.data.id}`,
-      {
-        method: "PATCH",
-        headers: serviceHeaders(auth.serviceConfig),
-        body: JSON.stringify({
+      method: "POST",
+      headers: serviceHeaders(auth.serviceConfig),
+      body: JSON.stringify({
+        p_race_id: parsedParams.data.id,
+        p_items: sortedAidStations.map((station, orderIndex) => ({
+          id: station.id ?? null,
           name: station.name,
           km: Number(station.distanceKm.toFixed(2)),
           water_available: station.waterRefill,
@@ -144,61 +116,19 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
           assistance_allowed: station.assistanceAllowed,
           notes: station.notes,
           organizer_details: station.organizerDetails ?? null,
-          order_index: index,
-        }),
-        cache: "no-store",
-      }
-    );
-
-    if (!updateResponse.ok) {
-      console.error("Unable to update organizer aid station", await updateResponse.text());
-      return jsonError("Unable to update aid stations.", 502);
-    }
-  }
-
-  if (newStations.length > 0) {
-    const insertResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations`, {
-      method: "POST",
-      headers: serviceHeaders(auth.serviceConfig),
-      body: JSON.stringify(
-        newStations.map((station) => {
-          const index = sortedAidStations.indexOf(station);
-          return {
-            race_id: parsedParams.data.id,
-            name: station.name,
-            km: Number(station.distanceKm.toFixed(2)),
-            water_available: station.waterRefill,
-            solid_available: station.solidRefill,
-            assistance_allowed: station.assistanceAllowed,
-            notes: station.notes,
-            organizer_details: station.organizerDetails ?? null,
-            order_index: index,
-          };
-        })
-      ),
-      cache: "no-store",
-    });
-
-    if (!insertResponse.ok) {
-      console.error("Unable to insert organizer aid stations", await insertResponse.text());
-      return jsonError("Unable to update aid stations.", 502);
-    }
-  }
-
-  const reloadResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${parsedParams.data.id}&select=id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details&order=order_index.asc`,
-    {
-      headers: serviceHeaders(auth.serviceConfig, ""),
+          order_index: orderIndex,
+        })),
+      }),
       cache: "no-store",
     }
   );
 
-  if (!reloadResponse.ok) {
-    console.error("Unable to reload organizer aid stations", await reloadResponse.text());
-    return jsonError("Aid stations were updated, but could not be reloaded.", 502);
+  if (!replaceResponse.ok) {
+    console.error("Unable to replace organizer aid stations", await replaceResponse.text());
+    return jsonError("Unable to update aid stations.", 502);
   }
 
-  const aidStations = z.array(aidStationRowSchema).parse(await reloadResponse.json());
+  const aidStations = z.array(aidStationRowSchema).parse(await replaceResponse.json());
   return withSecurityHeaders(
     NextResponse.json({
       aidStations: aidStations.map((station) => ({

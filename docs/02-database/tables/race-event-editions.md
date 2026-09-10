@@ -26,6 +26,7 @@ related_files:
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - apps/web/app/api/organizer/editions/[id]/sponsors/[sponsorId]/route.ts
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
@@ -62,6 +63,7 @@ related_tables:
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 - One permanent commercial entitlement covers every current and future format attached to the edition.
 - One optional ordered sponsor list also covers every current and future format attached to the edition, independently from the commercial tier.
+- Reordering that sponsor list is an edition-locked atomic operation over the complete list; partial or duplicate positions are invalid.
 - One optional draft/published visual identity also covers every current and future format attached to the edition; only Pro organizers may change it.
 
 ## Columns

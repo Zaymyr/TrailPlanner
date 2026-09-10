@@ -38,6 +38,9 @@ export type SignUpTranslations = {
 export type SignInTranslations = {
   title: string;
   description: string;
+  continueWithGoogle: string;
+  continueWithApple: string;
+  continueWithEmail: string;
   forgotPassword: string;
   submit: string;
   submitting: string;

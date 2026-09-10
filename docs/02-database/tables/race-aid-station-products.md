@@ -1,11 +1,14 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-09-03
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
+  - apps/web/app/api/organizer/races/[id]/aid-station-products/route.test.ts
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
@@ -98,6 +101,8 @@ order by order_index asc;
 ```
 
 ## Gotchas
+
+- Organizer replacement and organizer-product creation use service-only atomic functions. Do not restore delete-then-insert route loops or split product creation from station attachment.
 
 - Official-product writes require Signature and an active `official_products` format module; public RLS masks links without deleting them otherwise.
 

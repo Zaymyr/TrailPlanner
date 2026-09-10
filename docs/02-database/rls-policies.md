@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -19,6 +19,8 @@ related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -202,6 +204,7 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 
 - RLS is enabled with no client policy, and table privileges are revoked from `PUBLIC`, `anon`, and `authenticated`.
 - Only `service_role` can select or mutate sponsor rows. Organizer routes first require active membership on the edition's parent event; the public mobile route applies the RaceBook live gate or organizer-preview exception.
+- `reorder_racebook_sponsors` is invoker-security and service-role-only; it locks the edition and requires the complete validated ordering before changing positions.
 
 `race_event_edition_branding` follows the same service-only table pattern but exposes no direct client policy at all. Its invoker-security publish function is executable only by `service_role`; the organizer route checks membership plus `branding.manage`, and the runner route maps only published columns after the existing RaceBook access gate.
 - `increment_racebook_sponsor_click(uuid, uuid)` is `SECURITY INVOKER`, executable only by `service_role`, and increments only when the sponsor is active, has a target, and shares the requested race's edition.
@@ -224,6 +227,7 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 - Public/live station product links are selectable only for Pro editions; organizers/admins keep preview reads.
 - Race owners, active event organizers, and admins can select links for races they can manage.
 - Direct authenticated insert/update/delete is revoked. Pro-checked service routes perform organizer mutations with service role.
+- Collection replacement and organizer product creation/attachment use invoker-security RPCs executable only by `service_role`; the route still checks membership and the Signature capability first.
 
 Manual checks live in `supabase/tests/organizer_rls_checks.sql`.
 
@@ -393,6 +397,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - The cleanup cron must call the protected web route so Storage objects are removed before session rows. Never grant a database cleanup function direct delete access to `storage.objects`.
 - Public slug resolution needs both a table `SELECT` grant and the parent-gated RLS policy. Never grant client mutation or RPC execution, and never rely on a redirect row alone to expose a hidden course.
 - RaceBook sponsor presentation and redirects must remain server-mediated. Do not grant public table reads merely because logos and names eventually appear on a live RaceBook.
+- Parent-locked Organizer RPCs preserve atomicity, not authorization. Keep every route-level membership and capability check before invoking them and never grant their execution to browser roles.
 
 ## Related Docs
 
