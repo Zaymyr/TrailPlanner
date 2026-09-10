@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -22,6 +22,7 @@ related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/migrations/20260908160018_preserve_global_start_time_without_waves.sql
+  - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/organizer_rls_checks.sql
@@ -140,6 +141,7 @@ Use:
 - Data-only official product image backfills can reuse existing product RLS policies when they only update `products.image_url` and keep ownership, grants, and visibility unchanged.
 - Data-only roadbook corrections can reuse the existing event/edition/race policies when they change only trusted catalog rows and organizer JSON. The Les Amaz’Eaunes 2026 migration changes no grants, policies, ownership, or publication state.
 - Curated catalog data migrations may insert or enrich trusted public event, edition, and race rows under the existing policies. The September 2026 SEO batches add no grants, policies, functions, or client-write paths.
+- The official UTMB World Series migration is data-only. It reuses the existing event, edition, and race policies and adds no grants, policies, functions, ownership semantics, or client-write path.
 - Event-scoped organizer policies need both claim/member RLS and route-level service-role authorization checks. Service-role route success alone does not prove direct RLS behavior.
 - New service flags on `race_aid_stations` reuse the existing station row policies; do not add separate grants for them.
 - New organizer JSONB columns on existing source tables reuse their table row policies; do not add separate grants or bypass active `race_event_organizers` checks for them.

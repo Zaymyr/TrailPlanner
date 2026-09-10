@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -38,6 +38,7 @@ related_files:
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
+  - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -294,6 +295,8 @@ The migration adds no table or client-facing policy. App routes must authenticat
 `supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql` is an idempotent data-only synchronization for the final Les Amaz’Eaunes 2026 roadbook. It moves the canonical edition and all five format dates to 13 September 2026, preserves existing distances and elevation values that the roadbook does not refine, and updates confirmed start times, warm-ups, bib pickup, access, parking, road restrictions, equipment, safety, and service details. It does not invent course geometry or ravito locations, and changes no table, grant, function, trigger, or RLS policy.
 
 `supabase/migrations/20260907111600_integrate_la_tourun_2026.sql` is an idempotent data-only integration for the existing La Tou’Run event and its canonical 2026 edition. It adds the three timed trail formats and two solidarity walks from the KMS event page and official regulation, plus sourced event logistics, start times, registration links, bib pickup, access, safety, and service details. Four formats are complete and course-visible. The 6 km walk remains a hidden draft with `elevation_gain_m` explicitly missing because neither source publishes its elevation gain. No GPX geometry or precisely positioned ravito is invented, every Racebook remains unpublished, and the migration changes no schema, grant, function, trigger, or RLS policy.
+
+`supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql` is an idempotent data-only import generated from the official UTMB World Series event payload and race API snapshot on 10 September 2026. It creates or refreshes 55 event identities, their canonical upcoming editions, and 268 complete public formats dated from 11 September 2026 through 27 August 2027. Stable official tenant/race ids, unique legacy matching, transactional ambiguity checks, and a final count assertion prevent duplicate or collapsed formats. Existing matched GPX-derived metrics are preserved; new formats use official distance/D+ and keep GPX null. It changes no schema, grant, function, trigger, or RLS policy.
 
 ### Public Course Slug Redirects
 
