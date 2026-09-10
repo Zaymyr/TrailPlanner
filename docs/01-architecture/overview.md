@@ -98,8 +98,11 @@ The mobile app is configured for EAS in `apps/mobile/eas.json`:
 
 - `development`: internal distribution with `developmentClient: true`
 - `preview`: internal distribution, Android APK, iOS Release build
+- `e2e-test`: Android APK and iOS Simulator binaries for the authenticated Maestro UX audit
 - `production`: Android app bundle, iOS Release build, remote app version source
 - Android production submission: completed release to the Google Play `production` track
+
+`apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform quality-gate target. It builds the `e2e-test` binaries and runs the same Maestro journey against Android and iOS, with recordings and screenshot artifacts for human visual review. Its hosted Maestro jobs require a compatible paid Expo plan; the current project plan supports keeping and reviewing the configuration but rejects execution of those jobs.
 
 Supabase provides:
 
@@ -144,6 +147,7 @@ When docs and code disagree, use this order:
 - `docs/_archive/db/schema.sql` is not the current schema source of truth. It still uses old `race_catalog` names.
 - Several code paths reference `race_events` and newer race columns that are not fully backed by visible migrations in this repo. Those are documented with conflict markers in database docs.
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.
+- Maestro is external test tooling and is not bundled into the application. Local runs require its CLI on `PATH`; the EAS workflow provides the cloud runner.
 - Android and iOS temporarily use different EAS Update runtimes: Android `1.1.1` for the API 36 native build and iOS `1.1.0` for the current App Store binary.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.

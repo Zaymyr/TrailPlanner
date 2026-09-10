@@ -18,6 +18,7 @@ related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -108,7 +109,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event publication request: retained legacy audit row from the former admin-approval workflow; current paid publication does not enqueue a request.
 - RaceBook publication: `races.racebook_is_live` controls ordinary runner visibility, while active `race_event_organizers` membership grants the corresponding account a read-only mobile preview without changing publication state. An active Essential, Complete or Signature edition entitlement authorizes publication, and the first atomic publication stores durable unlock provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`. Effective module settings further control which optional content is exposed.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
-- Normalized event geography: nullable city/department/region/country names and stable codes plus a paired anchor coordinate on `race_events`; all current live events have a verified country, French events have full commune-level geography, and free-text format routes remain in `races.location_text`.
+- Normalized event geography: nullable city/department/region/country names and stable codes plus a paired anchor coordinate on `race_events`; all 96 current live events have a verified country, the 46 French events have full commune-level geography, and free-text format routes remain in `races.location_text`.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Final roadbook synchronization: the Les Amaz’Eaunes 2026 data-only migration corrects the canonical edition/format dates and organizer JSON while preserving unconfirmed course metrics and omitting unspecified ravito rows.
 - Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.
@@ -282,7 +283,7 @@ erDiagram
 - Temporary import sessions are not provenance history. Cleanup must remove Storage objects before deleting expired rows, and client roles must never receive direct table or RPC access.
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
 - Geographic catalog filters must use the explicit nullable `race_events` codes. A location-label-only organizer edit clears stale normalized geography; do not replace this safeguard with runtime parsing.
-- Country completeness does not imply city completeness: current international official UTMB events may intentionally have only `location_country` / `location_country_code` until one unambiguous anchor locality is verified.
+- Country completeness does not imply city completeness: 50 current international official UTMB events intentionally have only `location_country` / `location_country_code` until one unambiguous anchor locality is verified. The public text search may match that verified country, but exact city/region discovery must continue to exclude them.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.

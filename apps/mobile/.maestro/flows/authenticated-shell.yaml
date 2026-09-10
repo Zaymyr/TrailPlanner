@@ -1,0 +1,61 @@
+appId: com.paceyourself.app
+name: Audit UX - navigation authentifiée
+tags:
+  - smoke
+  - ux-audit
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: deny
+- openLink: paceyourself://login
+- extendedWaitUntil:
+    visible:
+      id: auth-login-email
+    timeout: 30000
+- takeScreenshot: 01-login
+- tapOn:
+    id: auth-login-email
+- inputText: ${MAESTRO_E2E_EMAIL}
+- tapOn:
+    id: auth-login-password
+- inputText: ${MAESTRO_E2E_PASSWORD}
+- hideKeyboard
+- tapOn:
+    id: auth-login-submit
+- extendedWaitUntil:
+    visible:
+      id: nav-tab-catalog
+    timeout: 60000
+- tapOn:
+    id: nav-tab-catalog
+- waitForAnimationToEnd
+- takeScreenshot: 02-courses-top
+- swipe:
+    direction: UP
+    duration: 500
+- takeScreenshot: 03-courses-scroll
+- tapOn:
+    id: nav-tab-plans
+- waitForAnimationToEnd
+- takeScreenshot: 04-plans-top
+- swipe:
+    direction: UP
+    duration: 500
+- takeScreenshot: 05-plans-scroll
+- tapOn:
+    id: nav-tab-nutrition
+- waitForAnimationToEnd
+- takeScreenshot: 06-nutrition-top
+- swipe:
+    direction: UP
+    duration: 500
+- takeScreenshot: 07-nutrition-scroll
+- tapOn:
+    id: nav-tab-profile
+- waitForAnimationToEnd
+- takeScreenshot: 08-profile-top
+- swipe:
+    direction: UP
+    duration: 500
+- takeScreenshot: 09-profile-scroll

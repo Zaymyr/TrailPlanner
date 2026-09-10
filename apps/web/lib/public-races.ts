@@ -24,6 +24,10 @@ const eventSchema = z.object({
   id: z.string().uuid(),
   name: z.string().min(1),
   location: z.string().nullable(),
+  location_city: z.string().nullable().optional(),
+  location_department: z.string().nullable().optional(),
+  location_region: z.string().nullable().optional(),
+  location_country: z.string().nullable().optional(),
   race_date: z.string().nullable(),
   thumbnail_url: z.string().nullable(),
   updated_at: z.string().nullable().optional(),
@@ -42,6 +46,7 @@ export type PublicRace = {
   eventName: string | null;
   date: string | null;
   location: string | null;
+  searchTerms: string[];
   distanceKm: number | null;
   elevationGainM: number | null;
   raceThumbnailUrl: string | null;
@@ -74,7 +79,18 @@ const raceSelect = [
   "updated_at",
 ].join(",");
 
-const eventSelect = ["id", "name", "location", "race_date", "thumbnail_url", "updated_at"].join(",");
+const eventSelect = [
+  "id",
+  "name",
+  "location",
+  "location_city",
+  "location_department",
+  "location_region",
+  "location_country",
+  "race_date",
+  "thumbnail_url",
+  "updated_at",
+].join(",");
 
 const fetchPublicRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T[]> => {
   const config = getSupabaseAnonConfig();
@@ -119,6 +135,19 @@ const toPublicRace = (
   eventName: event?.name ?? null,
   date: race.race_date ?? event?.race_date ?? null,
   location: race.location_text ?? race.location ?? event?.location ?? null,
+  searchTerms: Array.from(
+    new Set(
+      [
+        race.location_text,
+        race.location,
+        event?.location,
+        event?.location_city,
+        event?.location_department,
+        event?.location_region,
+        event?.location_country,
+      ].filter((value): value is string => Boolean(value)),
+    ),
+  ),
   distanceKm: race.distance_km,
   elevationGainM: race.elevation_gain_m,
   raceThumbnailUrl: race.thumbnail_url,

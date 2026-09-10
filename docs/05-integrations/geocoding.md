@@ -6,6 +6,7 @@ ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
   - apps/mobile/lib/racebook.ts
@@ -105,7 +106,9 @@ Each object stores:
 
 These columns are separate from `organizer_details.eventLocation`: the normalized columns drive catalog filtering, while the JSON object drives labels and external Maps actions. A trusted enrichment may populate both from the same evidence. If the canonical `location` label changes without a matching normalized update, the database trigger clears the normalized fields rather than leave stale filter data.
 
-The initial 2026-09-10 enrichment uses `geo.api.gouv.fr` administrative data and commune-centre coordinates for eight events identified through Search Console. A second catalog-wide pass resolves another 36 French event anchors by exact INSEE code, bringing full commune-level coverage to 44 French events. It also normalizes the country of 50 official UTMB international events from their stored official catalog evidence, but leaves ambiguous city/admin/coordinate fields null. Official organizer pages remain authoritative for event identity and multi-city departure-arrival labels.
+The initial 2026-09-10 enrichment uses `geo.api.gouv.fr` administrative data and commune-centre coordinates for eight events identified through Search Console. A second catalog-wide pass resolves another 36 French event anchors by exact INSEE code. The organizer-source batch through May 2027 adds Rouffach and Cahors and corrects the existing Volvic anchor, bringing full commune-level coverage to 46 French events. It also normalizes the country of 50 official UTMB international events from their stored official catalog evidence, but leaves ambiguous city/admin/coordinate fields null. Official organizer pages remain authoritative for event identity and multi-city departure-arrival labels.
+
+The public `/courses` search reads only the normalized locality names alongside public format/event location strings. It does not expose or search coordinates, organizer JSON, or stable codes, and it does not turn text matching into a claim of exact geographic containment.
 
 ## Gotchas
 

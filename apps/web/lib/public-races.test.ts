@@ -43,6 +43,10 @@ describe("public race slug resolution", () => {
             id: visibleEventId,
             name: "Événement public",
             location: "Annecy",
+            location_city: "Annecy",
+            location_department: "Haute-Savoie",
+            location_region: "Auvergne-Rhône-Alpes",
+            location_country: "France",
             race_date: "2026-09-12",
             thumbnail_url: "https://images.example/event.png",
           },
@@ -65,6 +69,7 @@ describe("public race slug resolution", () => {
         raceThumbnailUrl: null,
         eventThumbnailUrl: "https://images.example/event.png",
         thumbnailUrl: "https://images.example/event.png",
+        searchTerms: ["Annecy", "Haute-Savoie", "Auvergne-Rhône-Alpes", "France"],
       }),
     ]);
   });

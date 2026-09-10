@@ -112,6 +112,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Add New Table](06-workflows/add-new-table.md)
 - [Add RLS Policy](06-workflows/add-rls-policy.md)
 - [Add New Mobile Screen](06-workflows/add-new-screen-mobile.md)
+- [Mobile UX Audit](06-workflows/mobile-ux-audit.md)
 - [Ship a Feature](06-workflows/ship-a-feature.md)
 - [Debug Supabase Auth](06-workflows/debug-supabase-auth.md)
 

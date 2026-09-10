@@ -110,15 +110,23 @@ export function getRaceTemporalStatus(race: PublicRace, todayIso: string): RaceT
 }
 
 const normalizeCatalogSearch = (value: string) =>
-  value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLocaleLowerCase("fr");
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ");
 
 export function filterPublicRaces(
   races: PublicRace[],
   filters: { search: string; distance: RaceDistanceFilter; period: RacePeriodFilter; todayIso: string },
 ) {
-  const query = normalizeCatalogSearch(filters.search.trim());
+  const queryTokens = normalizeCatalogSearch(filters.search).split(" ").filter(Boolean);
   return races.filter((race) => {
-    const searchable = normalizeCatalogSearch([race.name, race.eventName, race.location].filter(Boolean).join(" "));
+    const searchable = normalizeCatalogSearch(
+      [race.name, race.eventName, race.location, ...race.searchTerms].filter(Boolean).join(" "),
+    );
     const km = race.distanceKm;
     const matchesDistance =
       filters.distance === "all" ||
@@ -131,7 +139,7 @@ export function filterPublicRaces(
       (filters.period === "past"
         ? temporalStatus === "past"
         : temporalStatus === "upcoming" || temporalStatus === "undated");
-    return (!query || searchable.includes(query)) && matchesDistance && matchesPeriod;
+    return queryTokens.every((token) => searchable.includes(token)) && matchesDistance && matchesPeriod;
   });
 }
 

@@ -20,6 +20,7 @@ const makeRace = (overrides: Partial<PublicRace> & Pick<PublicRace, "id" | "slug
     eventName: null,
     date: null,
     location: null,
+    searchTerms: [],
     distanceKm: null,
     elevationGainM: null,
     raceThumbnailUrl: null,
@@ -150,6 +151,30 @@ describe("race discovery", () => {
 
     expect(filterPublicRaces(races, { search: "cretes annecy", distance: "trail", period: "upcoming", todayIso: "2026-09-02" }).map((race) => race.id)).toEqual(["annecy"]);
     expect(filterPublicRaces(races, { search: "annecy", distance: "ultra", period: "past", todayIso: "2026-09-02" }).map((race) => race.id)).toEqual(["past"]);
+  });
+
+  it("searches every format and parent-event locality regardless of word order", () => {
+    const races = [
+      makeRace({
+        id: "volvic",
+        slug: "volvic",
+        name: "Grande traversée",
+        eventName: "Volvic Volcanic Experience",
+        location: "Le Lioran → Volvic, France",
+        searchTerms: ["Volvic, Puy-de-Dôme, France", "Puy-de-Dôme", "Auvergne-Rhône-Alpes", "France"],
+        date: "2027-05-05",
+      }),
+      makeRace({ id: "other", slug: "other", name: "Trail urbain", location: "Lyon", date: "2027-05-05" }),
+    ];
+
+    expect(
+      filterPublicRaces(races, {
+        search: "rhone auvergne dome",
+        distance: "all",
+        period: "upcoming",
+        todayIso: "2026-09-10",
+      }).map((race) => race.id),
+    ).toEqual(["volvic"]);
   });
 
   it("deduplicates repeated race rows without mutating the input", () => {
