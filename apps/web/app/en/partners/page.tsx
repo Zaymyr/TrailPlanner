@@ -17,8 +17,9 @@ export const metadata: Metadata = {
   alternates: {
     canonical: canonicalPath,
     languages: {
-      fr: "/partenaires",
-      en: canonicalPath,
+      "fr-FR": "/partenaires",
+      "en-US": canonicalPath,
+      "x-default": "/partenaires",
     },
   },
   openGraph: {

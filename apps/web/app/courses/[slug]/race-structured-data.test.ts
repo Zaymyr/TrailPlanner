@@ -42,6 +42,7 @@ describe("race SEO content", () => {
   it("builds a physical-event address without extending a format to the whole event weekend", () => {
     const data = buildRaceStructuredData(race, "https://pace-yourself.com/courses/trail-glazig-5-km-2027");
 
+    expect(data).not.toBeNull();
     expect(data.location).toEqual({
       "@type": "Place",
       name: race.location,
@@ -49,6 +50,12 @@ describe("race SEO content", () => {
     });
     expect(data).not.toHaveProperty("endDate");
     expect(data.sameAs).toEqual([race.externalSiteUrl, race.officialWebsiteUrl]);
+  });
+
+  it("omits SportsEvent when its required start date is missing or invalid", () => {
+    expect(buildRaceStructuredData({ ...race, date: null }, "https://pace-yourself.com/courses/sans-date")).toBeNull();
+    expect(buildRaceStructuredData({ ...race, date: "2027-99-99" }, "https://pace-yourself.com/courses/date-invalide")).toBeNull();
+    expect(buildRaceStructuredData({ ...race, date: "2027-02-29" }, "https://pace-yourself.com/courses/date-impossible")).toBeNull();
   });
 
   it("creates a factual, race-specific overview from verified fields", () => {

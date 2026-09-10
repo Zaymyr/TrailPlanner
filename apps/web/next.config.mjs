@@ -34,6 +34,14 @@ const createConfig = async () => {
     },
     transpilePackages: ['@trailplanner/shared', '@pace-yourself/design-system'],
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
+    async headers() {
+      return [
+        {
+          source: '/en/:path*',
+          headers: [{ key: 'Content-Language', value: 'en' }],
+        },
+      ];
+    },
     webpack(config) {
       const fileLoaderRule = config.module.rules.find((rule) => rule.test?.test?.('.svg'));
 

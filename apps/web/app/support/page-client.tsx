@@ -2,19 +2,17 @@
 
 import Link from "next/link";
 
-import { useI18n } from "../i18n-provider";
 import { supportCopy, supportEmail } from "./copy";
 
 const linkClass =
   "rounded-md border border-border px-4 py-3 text-sm font-semibold text-foreground transition hover:border-brand hover:text-brand";
 
-export function SupportClientPage() {
-  const { locale } = useI18n();
+export function SupportClientPage({ locale }: { locale: "fr" | "en" }) {
   const copy = supportCopy[locale];
   const mailtoHref = `mailto:${supportEmail}?subject=${encodeURIComponent(copy.email.subject)}`;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-10 py-4">
+    <div lang={locale} className="mx-auto max-w-4xl space-y-10 py-4">
       <header className="max-w-2xl space-y-4">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand">{copy.eyebrow}</p>
         <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">{copy.title}</h1>

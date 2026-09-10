@@ -3,20 +3,34 @@ import Link from "next/link";
 
 import { getRelatedPosts } from "../../content/blog/index-helpers";
 import { buildBlogCanonicalPath } from "../../lib/blog/redirects";
+import type { Locale } from "../../locales/types";
 
-const LEVEL_LABELS: Record<string, string> = {
-  beginner: "Beginner",
-  intermediate: "Intermediate",
-  advanced: "Advanced",
+const LEVEL_LABELS: Record<Locale, Record<string, string>> = {
+  fr: {
+    beginner: "Débutant",
+    intermediate: "Intermédiaire",
+    advanced: "Avancé",
+  },
+  en: {
+    beginner: "Beginner",
+    intermediate: "Intermediate",
+    advanced: "Advanced",
+  },
+};
+
+const RELATED_POSTS_TITLES: Record<Locale, string> = {
+  fr: "À lire aussi",
+  en: "Related reading",
 };
 
 type RelatedPostsProps = {
   slug: string;
+  locale: Locale;
   limit?: number;
   title?: string;
 };
 
-export const RelatedPosts = ({ slug, limit = 4, title = "À lire aussi" }: RelatedPostsProps) => {
+export const RelatedPosts = ({ slug, locale, limit = 4, title }: RelatedPostsProps) => {
   const relatedPosts = getRelatedPosts(slug, limit);
 
   if (relatedPosts.length === 0) {
@@ -25,7 +39,7 @@ export const RelatedPosts = ({ slug, limit = 4, title = "À lire aussi" }: Relat
 
   return (
     <section className="space-y-4">
-      <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+      <h2 className="text-xl font-semibold text-foreground">{title ?? RELATED_POSTS_TITLES[locale]}</h2>
       <div className="grid gap-4 md:grid-cols-2">
         {relatedPosts.map((post) => (
           <Link
@@ -49,7 +63,7 @@ export const RelatedPosts = ({ slug, limit = 4, title = "À lire aussi" }: Relat
               </div>
             </div>
             <span className="mt-4 inline-flex w-fit rounded-full bg-[hsl(var(--brand)/0.12)] px-2.5 py-1 text-xs font-semibold text-[hsl(var(--brand))]">
-              {LEVEL_LABELS[post.level] ?? post.level}
+              {LEVEL_LABELS[locale][post.level] ?? post.level}
             </span>
           </Link>
         ))}

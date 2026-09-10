@@ -317,7 +317,7 @@ export function PartnersPage({ copy, locale }: PartnersPageProps) {
   ];
 
   return (
-    <div className="mx-auto max-w-6xl space-y-12 pb-16">
+    <div lang={locale} className="mx-auto max-w-6xl space-y-12 pb-16">
       <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/90 to-muted p-6 shadow-[0_24px_70px_rgba(45,80,22,0.10)] sm:p-10 lg:p-12">
         <div className="absolute inset-x-8 top-8 h-40 rounded-full bg-brand-surface/80 blur-3xl dark:bg-emerald-500/10" aria-hidden />
         <div className="relative max-w-4xl space-y-6">

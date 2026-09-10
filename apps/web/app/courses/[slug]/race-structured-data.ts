@@ -1,8 +1,12 @@
 import type { PublicRaceDetail } from "../../../lib/public-race-detail";
 
-import { buildRaceMetadataDescription } from "./race-metadata";
+import { buildRaceMetadataDescription, formatPublicRaceDate } from "./race-metadata";
 
 export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: string) => {
+  // Google requires a valid startDate for Event rich results. Omitting the
+  // complete SportsEvent is safer than publishing an ineligible partial item.
+  if (!race.date || !formatPublicRaceDate(race.date)) return null;
+
   const heroImage = race.raceThumbnailUrl ?? race.eventThumbnailUrl;
   const sameAs = Array.from(
     new Set(
@@ -18,7 +22,7 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
     name: race.name,
     url: canonicalUrl,
     mainEntityOfPage: canonicalUrl,
-    startDate: race.date ?? undefined,
+    startDate: race.date,
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     sport: "Course à pied",
     image: heroImage ? [heroImage] : undefined,

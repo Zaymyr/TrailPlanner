@@ -166,6 +166,44 @@ describe("public race legacy slug page", () => {
     expect(buildRaceMetadataDescription(longRace).length).toBeLessThanOrEqual(160);
   });
 
+  it("keeps long sibling format titles distinct after truncation", () => {
+    const shared = {
+      ...canonicalRace,
+      eventName: "Ultra-Trail du Mont-Blanc avec un nom d’événement volontairement très long",
+      date: "2027-08-29",
+      distanceKm: 57,
+    };
+    const occ = buildRaceMetadataTitle({
+      ...shared,
+      name: `${shared.eventName} — format montagne OCC`,
+    });
+    const relay = buildRaceMetadataTitle({
+      ...shared,
+      name: `${shared.eventName} — format montagne RELAIS`,
+    });
+
+    expect(occ).not.toBe(relay);
+    expect(occ).toContain("OCC");
+    expect(relay).toContain("RELAIS");
+    expect(occ).toContain("57 km · 2027");
+    expect(occ.length).toBeLessThanOrEqual(60);
+    expect(relay.length).toBeLessThanOrEqual(60);
+  });
+
+  it("uses distance to distinguish otherwise identical long race names", () => {
+    const shared = {
+      ...canonicalRace,
+      name: "Trail international avec un nom de course volontairement très long",
+      date: "2027-05-01",
+    };
+    const shortFormat = buildRaceMetadataTitle({ ...shared, distanceKm: 42 });
+    const ultraFormat = buildRaceMetadataTitle({ ...shared, distanceKm: 100 });
+
+    expect(shortFormat).not.toBe(ultraFormat);
+    expect(shortFormat).toContain("42 km · 2027");
+    expect(ultraFormat).toContain("100 km · 2027");
+  });
+
   it("keeps unknown slugs out of the index", async () => {
     resolvePublicRaceSlug.mockResolvedValue(null);
 

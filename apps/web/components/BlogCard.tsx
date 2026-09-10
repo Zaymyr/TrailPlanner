@@ -4,6 +4,7 @@ import type { LinkProps } from "next/link";
 
 import { formatBlogDate } from "../lib/blog/format";
 import type { ReadingTime } from "../lib/blog/posts";
+import type { Locale } from "../locales/types";
 import { TagBadge } from "./TagBadge";
 import { cn } from "./utils";
 
@@ -17,6 +18,12 @@ type BlogCardProps = {
   className?: string;
   imageSrc?: string;
   imageAlt?: string;
+  locale?: Locale;
+};
+
+const readingTimeCopy: Record<Locale, { read: string; words: string }> = {
+  fr: { read: "min de lecture", words: "mots" },
+  en: { read: "min read", words: "words" },
 };
 
 const buildDescription = (value?: string): string =>
@@ -32,8 +39,10 @@ export const BlogCard = ({
   className,
   imageSrc,
   imageAlt,
+  locale = "fr",
 }: BlogCardProps) => {
   const hasTags = tags.length > 0;
+  const reading = readingTimeCopy[locale];
 
   return (
     <Link
@@ -73,11 +82,11 @@ export const BlogCard = ({
           <div className="flex items-center gap-2">
             {readingTime ? (
               <>
-                <span>{readingTime.minutes} min read</span>
+                <span>{readingTime.minutes} {reading.read}</span>
                 {readingTime.words ? (
                   <>
                     <span aria-hidden="true">•</span>
-                    <span>{readingTime.words} words</span>
+                    <span>{readingTime.words} {reading.words}</span>
                   </>
                 ) : null}
               </>

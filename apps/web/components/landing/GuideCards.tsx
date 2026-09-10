@@ -36,9 +36,6 @@ export function GuideCards({ cardsHeading, cardCta, guides }: GuideCardsProps) {
             className="group relative flex h-full flex-col justify-between gap-4 rounded-2xl border border-border bg-card/85 p-5 transition hover:-translate-y-0.5 hover:border-brand-border hover:bg-card"
           >
             <div className="space-y-2">
-              <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground dark:text-emerald-200">
-                {guide.slug.replace(/-/g, " ")}
-              </p>
               <p className="text-lg font-semibold text-foreground">{guide.title}</p>
               <p className="text-sm leading-relaxed text-muted-foreground">{guide.excerpt}</p>
             </div>
