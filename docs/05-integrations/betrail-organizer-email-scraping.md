@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -39,6 +39,8 @@ related_files:
   - scripts/catalog-research-benchmark.test.mjs
   - scripts/catalog-research-http.mjs
   - scripts/catalog-research-reliability.test.mjs
+  - scripts/scrape-utmb-world-series-catalog.mjs
+  - scripts/scrape-utmb-world-series-catalog.test.mjs
   - apps/web/app/api/admin/race-catalog/betrail-import/research-contract.ts
 related_tables:
   - race_events
@@ -220,6 +222,17 @@ Validation commands:
 ```bash
 node --test --test-isolation=none scripts/build-format-import-queue.test.mjs scripts/enrich-format-import-queue.test.mjs scripts/catalog-research-reliability.test.mjs scripts/catalog-research-benchmark.test.mjs scripts/catalog-research-claim-ledger.test.mjs scripts/catalog-research-crawl-identity.test.mjs scripts/catalog-research-document-blocks.test.mjs scripts/catalog-research-event-merge.test.mjs scripts/catalog-research-format-parser.test.mjs scripts/catalog-research-queue-input.test.mjs
 node node_modules/vitest/vitest.mjs run apps/web/app/api/admin/race-catalog/betrail-import/route.test.ts --pool=threads --poolOptions.threads.singleThread
+```
+
+### Official UTMB World Series catalog
+
+`scrape-utmb-world-series-catalog.mjs` is a dedicated official-source adapter for the public UTMB World Series calendar. It reads the event payload published on `utmb.world`, paginates the official race search API with the `worldseries` tenant, validates the exact date, location, positive distance, non-negative D+, and official URL for every format, then deduplicates stable UTMB race identities. An unusable `/races/undefined` or generic home-page format URL falls back only to that event's official `/races` page; an undefined format location falls back only to the official event location.
+
+The script writes a reviewable JSON snapshot by default. `--sql-output` additionally creates an idempotent, transactional data migration that binds existing events conservatively, preserves existing GPX-derived metrics, records UTMB tenant/race ids in `organizer_details.catalogSource`, creates canonical editions, and publishes only rows that satisfy the catalog minimum. Shared source URLs or near-identical distances can bind a legacy row only when unique within both the official event snapshot and the existing edition; already assigned UTMB ids are never reused.
+
+```bash
+node scripts/scrape-utmb-world-series-catalog.mjs --date-from 2026-09-10 --date-to 2027-12-31 --output tmp/utmb-world-series-catalog-2026-09-10.json --sql-output supabase/migrations/<timestamp>_import_utmb_world_series_catalog_2026_2027.sql
+node --test scripts/scrape-utmb-world-series-catalog.test.mjs
 ```
 
 ## Data Handling

@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -31,6 +31,7 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
+  - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
 related_tables:
   - race_event_editions
@@ -111,6 +112,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - Changing the current edition or its range mirrors `start_date` to `race_events.race_date` and `end_date` to `race_events.organizer_details.dateRange.endDate` for legacy catalog/mobile consumers.
 - Data corrections that move every attached format outside the old range must first widen the edition, update the format dates, then narrow the canonical range. The Les Amaz’Eaunes 2026 roadbook migration uses this guarded sequence to move the edition from 11–13 September to the confirmed single race day on 13 September.
 - The La Tou’Run data integration asserts the pre-existing event and 2026 edition ids before attaching five formats to the confirmed single-day range on 18 October 2026; it does not create a parallel edition.
+- The official UTMB import clears the previous current marker before promoting the official upcoming edition. Existing edition ranges are temporarily widened while legacy format dates are refreshed, then reduced to the official range plus any unmatched retained format dates so edition validation remains transactional.
 - Format-specific publication readiness and first approval follow `race_event_publication_requests.race_id -> races.edition_id`, even when that edition is not current.
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
 - Editions start visible by default. Setting `is_visible = false` forces `is_live = false` and `racebook_is_live = false` on every attached format, including later writes. Setting it true restores catalog visibility only for complete formats and deliberately leaves Racebooks hidden for explicit republication.

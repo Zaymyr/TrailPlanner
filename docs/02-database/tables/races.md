@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -18,6 +18,7 @@ related_files:
   - supabase/migrations/20260909192254_make_catalog_elevation_and_gpx_optional.sql
   - supabase/migrations/20260909192326_seed_verified_seo_races_2026_2027.sql
   - supabase/migrations/20260909200153_enrich_verified_seo_races_batch_2.sql
+  - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -112,6 +113,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - Source-backed event integrations may mix complete and incomplete formats. Legacy rows retain their current publication state until a targeted catalog-field update or backfill; new writes use date, location, positive distance, and source as the publication minimum. D+ and GPX remain optional enrichment, and unsituated ravitailments remain descriptive text rather than invented station rows.
 - The September 2026 curated SEO seed publishes 20 upcoming formats backed by organiser pages and enriches the 5 existing Grand Raid formats without replacing their more precise GPX-derived metrics. Candidate formats without a verified exact date, distance, location and source stay out of the public catalog.
 - The second September 2026 curated batch publishes 12 additional November-to-February formats from official organiser pages, corrects the Foulée des Ducs 45 km as a relay, and adds official provenance to 6 existing Nice UTMB and Terres de Saône formats without replacing their GPX-derived metrics.
+- The official UTMB World Series import publishes 268 upcoming formats across 55 official events. Stable UTMB race ids prevent shared race-page URLs from collapsing sibling formats; existing matched rows retain their GPX-derived distance/elevation values, while new formats use the official API metrics and may legitimately have no GPX.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
 - Public SEO detail reads revalidate `is_live = true` and `is_public = true` with service credentials before reading `organizer_details`, ravitos, or private `gpx_storage_path`. An attached event and edition must also remain visible. Only an explicit sanitized DTO crosses into rendering; emergency/last-minute organizer fields and raw JSON do not.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
