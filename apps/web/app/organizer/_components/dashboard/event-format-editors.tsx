@@ -36,136 +36,158 @@ export function EventInfoEditor({
   const emergencyContact = eventForm.organizerDetails.emergencyContact;
 
   return (
-    <div className="grid gap-3 lg:grid-cols-[1fr_1fr_220px_170px_170px]">
-      <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
-      <AddressAutocompleteField
-        label="Lieu"
-        value={eventForm.location}
-        location={eventForm.organizerDetails.eventLocation}
-        biasLocation={eventForm.organizerDetails.eventLocation}
-        onChange={(value) => onChange({ location: value })}
-        onLocationChange={(eventLocation) =>
-          onChange(
-            {
-              organizerDetails: {
-                ...eventForm.organizerDetails,
-                eventLocation,
-              },
-            },
-            "event"
-          )
-        }
-        invalid={missingLocation}
-      />
-      <TextField
-        label="Site officiel"
-        type="url"
-        value={officialWebsiteUrl}
-        onChange={(value) =>
-          onChange(
-            {
-              organizerDetails: {
-                ...eventForm.organizerDetails,
-                officialWebsiteUrl: value || null,
-              },
-            },
-            "event"
-          )
-        }
-      />
-      <TextField
-        label="Instagram"
-        type="url"
-        value={instagramUrl}
-        onChange={(value) =>
-          onChange(
-            {
-              organizerDetails: {
-                ...eventForm.organizerDetails,
-                instagramUrl: value || null,
-              },
-            },
-            "event"
-          )
-        }
-      />
-      <TextField
-        label="Facebook"
-        type="url"
-        value={facebookUrl}
-        onChange={(value) =>
-          onChange(
-            {
-              organizerDetails: {
-                ...eventForm.organizerDetails,
-                facebookUrl: value || null,
-              },
-            },
-            "event"
-          )
-        }
-      />
-      <TextField label="Début de l'édition" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} />
-      <TextField
-        label="Fin de l'édition"
-        type="date"
-        value={eventForm.editionEndDate}
-        onChange={(value) => onChange({ editionEndDate: value })}
-        invalid={missingEndDate || invalidDateRange}
-      />
-      <div className="flex items-center gap-2 lg:col-span-5">
-        <span className="text-xs font-medium text-muted-foreground">Dates de l’édition</span>
-        <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 lg:col-span-5 lg:max-w-2xl">
-        <TextField
-          label="Contact d'urgence"
-          value={emergencyContact.name ?? ""}
-          onChange={(value) =>
-            onChange(
-              {
-                organizerDetails: {
-                  ...eventForm.organizerDetails,
-                  emergencyContact: { ...emergencyContact, name: value || null },
+    <div className="divide-y divide-border">
+      <section className="pb-6">
+        <h3 className="mb-4 text-sm font-bold text-foreground">Informations principales</h3>
+        <div className="grid gap-4 lg:grid-cols-2">
+          <TextField label="Nom" value={eventForm.name} onChange={(value) => onChange({ name: value })} required invalid={missingName} />
+          <AddressAutocompleteField
+            label="Lieu"
+            value={eventForm.location}
+            location={eventForm.organizerDetails.eventLocation}
+            biasLocation={eventForm.organizerDetails.eventLocation}
+            onChange={(value) => onChange({ location: value })}
+            onLocationChange={(eventLocation) =>
+              onChange(
+                {
+                  organizerDetails: {
+                    ...eventForm.organizerDetails,
+                    eventLocation,
+                  },
                 },
-              },
-              "event"
-            )
-          }
-        />
-        <TextField
-          label="Numéro d'urgence"
-          type="tel"
-          value={emergencyContact.phone ?? ""}
-          onChange={(value) =>
-            onChange(
-              {
-                organizerDetails: {
-                  ...eventForm.organizerDetails,
-                  emergencyContact: { ...emergencyContact, phone: value || null },
+                "event"
+              )
+            }
+            invalid={missingLocation}
+          />
+        </div>
+      </section>
+
+      <section className="py-6">
+        <h3 className="mb-4 text-sm font-bold text-foreground">Présence en ligne</h3>
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[minmax(16rem,1.5fr)_minmax(12rem,1fr)_minmax(12rem,1fr)]">
+          <TextField
+            label="Site officiel"
+            type="url"
+            value={officialWebsiteUrl}
+            onChange={(value) =>
+              onChange(
+                {
+                  organizerDetails: {
+                    ...eventForm.organizerDetails,
+                    officialWebsiteUrl: value || null,
+                  },
                 },
-              },
-              "event"
-            )
-          }
-        />
-      </div>
-      <div className="space-y-2 lg:col-span-4">
-        <div className="flex items-center gap-2">
-          <Label htmlFor={imageInputId}>Image événement</Label>
+                "event"
+              )
+            }
+          />
+          <TextField
+            label="Instagram"
+            type="url"
+            value={instagramUrl}
+            onChange={(value) =>
+              onChange(
+                {
+                  organizerDetails: {
+                    ...eventForm.organizerDetails,
+                    instagramUrl: value || null,
+                  },
+                },
+                "event"
+              )
+            }
+          />
+          <TextField
+            label="Facebook"
+            type="url"
+            value={facebookUrl}
+            onChange={(value) =>
+              onChange(
+                {
+                  organizerDetails: {
+                    ...eventForm.organizerDetails,
+                    facebookUrl: value || null,
+                  },
+                },
+                "event"
+              )
+            }
+          />
+        </div>
+      </section>
+
+      <section className="py-6">
+        <div className="mb-4 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-foreground">Dates de l’édition</h3>
+          <ContextualHelp text="Les formats utilisent ces dates par défaut, sauf lorsqu’une date spécifique est renseignée." />
+        </div>
+        <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+          <TextField label="Début" type="date" value={eventForm.editionStartDate} onChange={(value) => onChange({ editionStartDate: value })} invalid={missingStartDate || invalidDateRange} />
+          <TextField label="Fin" type="date" value={eventForm.editionEndDate} onChange={(value) => onChange({ editionEndDate: value })} invalid={missingEndDate || invalidDateRange} />
+        </div>
+      </section>
+
+      <section className="py-6">
+        <div className="rounded-xl border border-amber-200 bg-amber-50/50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+          <h3 className="mb-4 text-sm font-bold text-foreground">Contact d’urgence</h3>
+          <div className="grid max-w-2xl gap-4 sm:grid-cols-2">
+            <TextField
+              label="Nom du contact"
+              value={emergencyContact.name ?? ""}
+              onChange={(value) =>
+                onChange(
+                  {
+                    organizerDetails: {
+                      ...eventForm.organizerDetails,
+                      emergencyContact: { ...emergencyContact, name: value || null },
+                    },
+                  },
+                  "event"
+                )
+              }
+            />
+            <TextField
+              label="Téléphone"
+              type="tel"
+              value={emergencyContact.phone ?? ""}
+              onChange={(value) =>
+                onChange(
+                  {
+                    organizerDetails: {
+                      ...eventForm.organizerDetails,
+                      emergencyContact: { ...emergencyContact, phone: value || null },
+                    },
+                  },
+                  "event"
+                )
+              }
+            />
+          </div>
+        </div>
+      </section>
+
+      <section className="pt-6">
+        <div className="mb-4 flex items-center gap-2">
+          <h3 className="text-sm font-bold text-foreground">Image de couverture</h3>
           <ContextualHelp text="Format PNG uniquement, 5 Mo maximum." />
         </div>
-        {eventForm.thumbnailUrl ? (
-          <div className="h-28 w-full overflow-hidden rounded-md border border-border bg-muted sm:w-56">
-            <Image src={eventForm.thumbnailUrl} alt="" width={224} height={112} sizes="224px" unoptimized className="h-full w-full object-cover" />
+        <div className="flex max-w-2xl flex-col gap-4 sm:flex-row sm:items-center">
+          {eventForm.thumbnailUrl ? (
+            <div className="h-28 w-full shrink-0 overflow-hidden rounded-lg border border-border bg-muted sm:w-56">
+              <Image src={eventForm.thumbnailUrl} alt="" width={224} height={112} sizes="224px" unoptimized className="h-full w-full object-cover" />
+            </div>
+          ) : (
+            <div className="flex h-28 w-full shrink-0 items-center justify-center rounded-lg border border-dashed border-border bg-muted px-3 text-sm text-muted-foreground sm:w-56">
+              Aucune image
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <Label htmlFor={imageInputId} className="sr-only">Choisir l’image de couverture</Label>
+            <Input id={imageInputId} type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} />
           </div>
-        ) : (
-          <div className="flex h-20 w-full items-center rounded-md border border-dashed border-border bg-muted px-3 text-sm text-muted-foreground sm:w-56">
-            Aucune image
-          </div>
-        )}
-        <Input id={imageInputId} type="file" accept="image/png" onChange={onUploadImage} disabled={status === "uploading"} className="max-w-sm" />
-      </div>
+        </div>
+      </section>
     </div>
   );
 }

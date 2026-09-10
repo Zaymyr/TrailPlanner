@@ -215,15 +215,21 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("en attente d’enregistrement.");
   });
 
-  it("keeps the emergency contact labels readable in event information", () => {
+  it("keeps event information grouped into a clear hierarchy", () => {
     const source = readFileSync(
       resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx"),
       "utf8"
     );
 
-    expect(source).toContain('label="Contact d\'urgence"');
-    expect(source).toContain('label="Numéro d\'urgence"');
+    expect(source).toContain("Informations principales");
+    expect(source).toContain("Présence en ligne");
+    expect(source).toContain("Dates de l’édition");
+    expect(source).toContain("Contact d’urgence");
+    expect(source).toContain("Image de couverture");
+    expect(source).toContain('label="Nom du contact"');
+    expect(source).toContain('label="Téléphone"');
     expect(source).toContain('type="tel"');
+    expect(source).toContain("border-amber-200 bg-amber-50/50");
   });
 
   it("separates aid stations and relay points into local views", () => {
