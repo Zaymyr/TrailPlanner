@@ -60,7 +60,7 @@ This table is retained publication-review history. New organizer publication use
 
 ## Business Invariants
 
-- Organizer event/race routes never accept direct catalog `is_live` changes. The race route accepts `racebookIsLive` only through the membership-checked entitlement RPC.
+- Organizer event/race routes never accept direct catalog `is_live` changes. Publishing with `racebookIsLive = true` uses the membership- and entitlement-checked RPC. Hiding with `racebookIsLive = false` is a targeted service update performed only after the shared route has authorized event membership or trusted admin access; it clears one format and cannot publish content.
 - A directly delegated organizer receives the same event membership and therefore the edition capability purchased or granted for that event.
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
 - The current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A trusted admin may grant RaceBook from that dialog without payment through `set_admin_organizer_edition_entitlement`; the grant is edition-scoped, records `source = admin`, and leaves this legacy table unchanged.
@@ -73,7 +73,7 @@ This table is retained publication-review history. New organizer publication use
 - Starting checkout always saves any dirty foreground scope before the server readiness check runs.
 - The checkout popup captures and displays the selected event and canonical edition when it opens. It never substitutes a transient year string for the billed `edition_id`.
 - Rejecting a legacy request leaves hidden Racebook rows unchanged.
-- Once the edition has RaceBook or Pro, an organizer may publish or hide each complete format individually. This does not create a request and does not alter course catalog visibility.
+- Every authorized organizer may select or mask each format in the private demo without an offer. Masking also unpublishes that format. Once the edition has a paid or complimentary offer, the distinct edition publication action publishes all selected complete formats; neither operation creates a request or alters course catalog visibility.
 - Publication does not send runner notifications automatically.
 - Sending or deleting a manual organizer announcement does not create, approve, reject, or reopen a Racebook publication request.
 - Format-specific manual notifications are available only for already-live formats in the selected edition. Draft formats must pass the publication workflow before they can be selected as runner notification context.

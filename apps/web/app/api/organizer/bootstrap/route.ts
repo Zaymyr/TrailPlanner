@@ -111,6 +111,7 @@ const eventDetailSchema = z.object({
     data_status: z.enum(["draft", "complete"]).optional().default("complete"),
     missing_required_fields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])).optional().default([]),
     racebook_is_live: z.boolean().default(false),
+    racebook_preview_is_visible: z.boolean().default(true),
     racebook_publication_approved_at: z.string().nullable().optional(),
     organizer_details: z.unknown().nullable().optional(),
     race_aid_stations: z.array(z.object({ id: z.string().uuid() })).nullable().optional(),
@@ -218,7 +219,7 @@ export async function GET(request: NextRequest) {
   let event = null;
   if (selectedEventId) {
     const eventResponse = await fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${selectedEventId}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,race_event_editions(id,event_id,edition_year,start_date,end_date,is_current,is_visible,race_edition_services(id),race_event_edition_sponsors(id,is_active,click_count),race_event_edition_branding(*)),races(id,edition_id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,participation_mode,data_status,missing_required_fields,racebook_is_live,racebook_publication_approved_at,organizer_details,race_aid_stations(id),race_start_waves(id),race_awards(id))&limit=1`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?id=eq.${selectedEventId}&select=id,name,location,race_date,thumbnail_url,is_live,organizer_details,race_event_editions(id,event_id,edition_year,start_date,end_date,is_current,is_visible,race_edition_services(id),race_event_edition_sponsors(id,is_active,click_count),race_event_edition_branding(*)),races(id,edition_id,edition_group_id,series_name,name,slug,external_site_url,location_text,race_date,distance_km,elevation_gain_m,elevation_loss_m,gpx_storage_path,thumbnail_url,is_live,participation_mode,data_status,missing_required_fields,racebook_is_live,racebook_preview_is_visible,racebook_publication_approved_at,organizer_details,race_aid_stations(id),race_start_waves(id),race_awards(id))&limit=1`,
       { headers, cache: "no-store" }
     );
 

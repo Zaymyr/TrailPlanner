@@ -58,7 +58,7 @@ An active row needs at least one placement. A transaction-serialized trigger enf
 
 RLS is enabled and `anon` / `authenticated` receive no table privileges or policies. Organizer and mobile clients use Next.js routes, then the routes use `service_role`. Organizer draft reads and mutations require active parent-event membership plus a selected sponsor module; Signature remains required for runner-visible placements and partner behavior.
 
-The public presentation route returns only active rows after the normal public RaceBook gate, with an active organizer preview exception. It exposes a server redirect URL instead of `website_url`. The redirect route validates the sponsor/race edition pair, rate-limits counting by sponsor plus a hashed network identifier, invokes `increment_racebook_sponsor_click` atomically, and redirects even when counting fails.
+The public presentation route returns only active rows after the normal public RaceBook gate, with an active organizer preview exception. A format explicitly masked through `racebook_preview_is_visible = false` receives no payload even for an organizer. The route exposes a server redirect URL instead of `website_url`. The redirect route validates the sponsor/race edition pair, rate-limits counting by sponsor plus a hashed network identifier, invokes `increment_racebook_sponsor_click` atomically, and redirects even when counting fails.
 
 No impression, runner id, network identifier, or individual click history is stored. `click_count` represents raw openings, not unique visitors.
 

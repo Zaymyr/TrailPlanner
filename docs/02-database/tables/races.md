@@ -21,6 +21,7 @@ related_files:
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
+  - supabase/migrations/20260910170144_separate_racebook_preview_visibility.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -54,7 +55,7 @@ related_tables:
 - Format row: one distance/course under a parent `race_events` event.
 - Edition membership: `edition_id` identifies the yearly event edition; `edition_group_id` groups the same format across years.
 - Catalog visibility: `is_live` and `is_public` control course discovery.
-- Racebook visibility: `racebook_is_live` is independent and requires an active edition-level RaceBook or Pro entitlement; first publication atomically stores the durable unlock timestamp and organizer actor.
+- RaceBook visibility has two independent steps: `racebook_preview_is_visible` selects the format for the organizer's private preview/demo, while `racebook_is_live` publishes it to runners and requires an active paid or complimentary edition offer.
 - Import completeness: `data_status` and `missing_required_fields` distinguish incomplete formats from real zero values.
 
 ## Columns
@@ -72,6 +73,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 | altitude/start/bounds columns | nullable numeric | GPX-derived geographic summary. |
 | `organizer_details` | nullable `jsonb` | Progressive format schedule, logistics, equipment override, and notes. |
 | `is_live`, `is_public` | boolean | Course catalog state. |
+| `racebook_preview_is_visible` | boolean | Private organizer preview/demo selection; false also excludes the format from edition publication. |
 | `racebook_is_live`, approval columns | boolean/timestamps/FK | Runner Racebook state and trusted approval provenance. |
 | `participation_mode` | nullable text | `solo`, `relay`, or `solo_and_relay`; null means an unconfirmed historical format. |
 | `data_status` | `text` | `draft` or `complete`; existing rows default to `complete`. |
@@ -100,6 +102,7 @@ Existing `races` policies control the whole row, including import status. Organi
 
 - `data_status = complete` requires an empty `missing_required_fields` array.
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
+- A runner-live RaceBook must also be selected for organizer preview. Turning preview off atomically clears `racebook_is_live`; turning it back on never publishes by itself.
 - Complete catalog formats require a name, slug, exact date, location, positive distance and official source. D+ and GPX are optional enrichments and remain null when unknown.
 - Unknown imported distance uses zero only while `distance_km` is listed missing; an explicitly known flat D+ may be zero, while an unknown D+ is null.
 - A confirmed new import format inherits the edition start date, keeps absent GPX and D+ values null, and remains a hidden draft while any catalog-minimum value (date, location, positive distance, or source) is missing.

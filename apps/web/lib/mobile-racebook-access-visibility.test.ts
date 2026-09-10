@@ -10,6 +10,18 @@ const accessFields = [
 ] as const;
 
 describe("mobile Racebook access visibility", () => {
+  it("hides a format from its organizer preview independently of publication", () => {
+    expect(canShowRacebook({
+      raceIsLive: true,
+      racebookIsLive: false,
+      racebookPreviewIsVisible: false,
+      hasOrganizerAccess: true,
+      hasAidStations: true,
+      eventOrganizerDetails: {},
+      raceOrganizerDetails: {},
+    })).toBe(false);
+  });
+
   it.each(accessFields)("hides saved %s content when its format flag is disabled", (field, value) => {
     expect(
       canShowRacebook({

@@ -401,6 +401,8 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 
 ## Related Docs
 
+`races.racebook_preview_is_visible` reuses existing row policies. Bulk runner publication uses only the `SECURITY INVOKER`, service-role-only `publish_organizer_edition_racebooks` function behind the authorized web route.
+
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)
 - [Schema Overview](schema-overview.md)

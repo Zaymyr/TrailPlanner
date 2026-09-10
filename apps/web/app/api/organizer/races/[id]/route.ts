@@ -34,6 +34,7 @@ const updateRaceSchema = z.object({
   organizerDetails: organizerRaceDetailsSchema.optional(),
   participationMode: z.enum(["solo", "relay", "solo_and_relay"]).optional(),
   racebookIsLive: z.boolean().optional(),
+  racebookPreviewIsVisible: z.boolean().optional(),
 });
 
 const raceRowSchema = z.object({
@@ -57,6 +58,7 @@ const raceRowSchema = z.object({
   data_status: z.enum(["draft", "complete"]).optional().default("complete"),
   missing_required_fields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])).optional().default([]),
   racebook_is_live: z.boolean().default(false),
+  racebook_preview_is_visible: z.boolean().default(true),
   racebook_publication_approved_at: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
 });
@@ -150,6 +152,10 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     race.edition_id &&
     await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, race.id, "relay")
   ) updatePayload.participation_mode = parsedBody.data.participationMode;
+  if (parsedBody.data.racebookPreviewIsVisible !== undefined) {
+    updatePayload.racebook_preview_is_visible = parsedBody.data.racebookPreviewIsVisible;
+    if (!parsedBody.data.racebookPreviewIsVisible) updatePayload.racebook_is_live = false;
+  }
 
   const requiredFieldChanged =
     parsedBody.data.raceDate !== undefined ||
@@ -187,32 +193,49 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   let visibilityUpdated: z.infer<typeof raceRowSchema> | null = null;
   let publicationRequirement: Awaited<ReturnType<typeof loadOrganizerPublicationRequirement>> | null = null;
   if (parsedBody.data.racebookIsLive !== undefined) {
-    if (parsedBody.data.racebookIsLive && race.edition_id) {
-      publicationRequirement = await loadOrganizerPublicationRequirement(auth.serviceConfig, race.edition_id);
-    }
-    const visibilityResponse = await fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_organizer_racebook_visibility`,
-      {
-        method: "POST",
-        headers: serviceHeaders(auth.serviceConfig),
-        body: JSON.stringify({
-          p_user_id: auth.user.id,
-          p_race_id: parsedParams.data.id,
-          p_is_live: parsedBody.data.racebookIsLive,
-        }),
-        cache: "no-store",
-      }
-    );
-    if (!visibilityResponse.ok) {
-      console.error("Unable to update organizer Racebook visibility", await visibilityResponse.text());
-      return jsonError(
-        parsedBody.data.racebookIsLive
-          ? "Une offre RaceBook active est requise pour publier ce format."
-          : "Impossible de masquer ce Racebook.",
-        403
+    if (!parsedBody.data.racebookIsLive) {
+      const visibilityResponse = await fetch(
+        `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
+        {
+          method: "PATCH",
+          headers: {
+            ...serviceHeaders(auth.serviceConfig),
+            Prefer: "return=representation",
+          },
+          body: JSON.stringify({ racebook_is_live: false }),
+          cache: "no-store",
+        }
       );
+      if (!visibilityResponse.ok) {
+        console.error("Unable to hide organizer Racebook", await visibilityResponse.text());
+        return jsonError("Impossible de masquer ce Racebook.", 502);
+      }
+      const hiddenRaces = z.array(raceRowSchema).parse(await visibilityResponse.json());
+      visibilityUpdated = hiddenRaces[0] ?? null;
+      if (!visibilityUpdated) return jsonError("Impossible de masquer ce Racebook.", 502);
+    } else {
+      if (race.edition_id) {
+        publicationRequirement = await loadOrganizerPublicationRequirement(auth.serviceConfig, race.edition_id);
+      }
+      const visibilityResponse = await fetch(
+        `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_organizer_racebook_visibility`,
+        {
+          method: "POST",
+          headers: serviceHeaders(auth.serviceConfig),
+          body: JSON.stringify({
+            p_user_id: auth.user.id,
+            p_race_id: parsedParams.data.id,
+            p_is_live: true,
+          }),
+          cache: "no-store",
+        }
+      );
+      if (!visibilityResponse.ok) {
+        console.error("Unable to publish organizer Racebook", await visibilityResponse.text());
+        return jsonError("Une offre RaceBook active est requise pour publier ce format.", 403);
+      }
+      visibilityUpdated = raceRowSchema.parse(await visibilityResponse.json());
     }
-    visibilityUpdated = raceRowSchema.parse(await visibilityResponse.json());
   }
 
   if (Object.keys(updatePayload).length === 0) {

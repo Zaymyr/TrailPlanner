@@ -204,6 +204,8 @@ Document variable names, not secret values. Important names visible in code incl
 
 ## Related Docs
 
+Deploy `20260910170144_separate_racebook_preview_visibility.sql` before clients that select `racebook_preview_is_visible`; publication remains server-mediated.
+
 - [Overview](overview.md)
 - [Supabase Edge Functions](../05-integrations/supabase-edge-functions.md)
 - [Resend](../05-integrations/resend.md)

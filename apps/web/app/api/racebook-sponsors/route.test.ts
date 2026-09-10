@@ -36,12 +36,13 @@ const raceId = "11111111-1111-4111-8111-111111111111";
 const eventId = "22222222-2222-4222-8222-222222222222";
 const editionId = "33333333-3333-4333-8333-333333333333";
 
-const racePayload = (live: boolean) => [{
+const racePayload = (live: boolean, previewIsVisible = true) => [{
   id: raceId,
   event_id: eventId,
   edition_id: editionId,
   is_live: live,
   racebook_is_live: live,
+  racebook_preview_is_visible: previewIsVisible,
   participation_mode: "relay",
   organizer_details: {},
   race_events: { is_live: live, organizer_details: {} },
@@ -75,6 +76,18 @@ const branding = [{
 afterEach(() => vi.restoreAllMocks());
 
 describe("GET /api/racebook-sponsors", () => {
+  it("does not expose a format hidden from the organizer demo", async () => {
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(false, false)), { status: 200 }));
+
+    const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`, {
+      headers: { Authorization: "Bearer token" },
+    }));
+
+    expect(response.status).toBe(404);
+    expect(mocks.isOrganizerForEvent).not.toHaveBeenCalled();
+  });
+
   it("returns only the requested placements for a public RaceBook", async () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(true)), { status: 200 }))

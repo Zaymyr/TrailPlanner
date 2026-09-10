@@ -164,7 +164,7 @@ Current code treats `race_events` as a parent/grouping table for `races`:
 - `race_event_publication_requests.race_id -> races.id on delete cascade` targets the exact Racebook under review; null remains valid only for legacy event-level rows.
 - organizer memberships reference `race_events(id)` and grant access to all `races` under the event.
 - yearly date ranges reference `race_events(id)`, and formats reference their canonical yearly edition.
-- `races.racebook_publication_approved_by -> auth.users(id) on delete set null` records the trusted admin who granted durable Racebook publication approval; `racebook_is_live` itself introduces no new relationship.
+- `races.racebook_publication_approved_by -> auth.users(id) on delete set null` records the actor captured on first Racebook publication. `racebook_preview_is_visible` and `racebook_is_live` introduce no new relationship; a check constraint prevents a runner-live format from being absent from the organizer preview selection.
 
 <!-- TODO: verify with maintainer: visible migrations only show supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql altering race_events.thumbnail_url; no create-table migration for race_events was found in this repo. -->
 

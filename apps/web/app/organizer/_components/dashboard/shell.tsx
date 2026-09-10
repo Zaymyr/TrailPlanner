@@ -122,7 +122,7 @@ export function OrganizerSummaryHeader({
   onSaveAll,
   onNotifyFollowers,
   onRequestPublication,
-  onRacebookVisibilityChange,
+  onRacebookPreviewVisibilityChange,
   onEditionVisibilityChange,
   onDeleteEdition,
   onDeleteEvent,
@@ -151,7 +151,7 @@ export function OrganizerSummaryHeader({
   onSaveAll: () => void;
   onNotifyFollowers: (raceId?: string) => void;
   onRequestPublication: () => void;
-  onRacebookVisibilityChange: (raceId: string, isLive: boolean) => void;
+  onRacebookPreviewVisibilityChange: (raceId: string, isVisible: boolean) => void;
   onEditionVisibilityChange: (isVisible: boolean) => Promise<boolean>;
   onDeleteEdition: () => Promise<boolean>;
   onDeleteEvent: () => Promise<boolean>;
@@ -188,7 +188,6 @@ export function OrganizerSummaryHeader({
   const canPublishRacebook = editionTier !== "visibility";
   const entitlementSource = selectedEdition?.entitlement?.source;
   const isComplimentaryOffer = entitlementSource === "admin" || entitlementSource === "legacy_admin";
-  const activeOfferName = ORGANIZER_TIER_LABEL[editionTier];
   const offerStatusLabel = entitlementSource === "stripe"
     ? "Paiement confirmé"
     : isComplimentaryOffer && editionTier !== "visibility"
@@ -291,11 +290,7 @@ export function OrganizerSummaryHeader({
               disabled={!editionIsVisible || status !== "idle"}
               className="!h-11"
             >
-              {canPublishRacebook
-                ? isComplimentaryOffer
-                  ? `Offre ${activeOfferName} offerte`
-                  : `Offre ${activeOfferName} active`
-                : "Publier le RaceBook"}
+              {canPublishRacebook ? "Publier les RaceBooks" : "Publier le RaceBook"}
             </Button>
           </div>
         ) : null}
@@ -400,7 +395,7 @@ export function OrganizerSummaryHeader({
         </div>
         {raceRows.length > 0 ? (
           raceRows.map((race) => {
-            const isApproved = canPublishRacebook;
+            const previewIsVisible = race.activeEdition!.racebook_preview_is_visible !== false;
             return (
             <div
               key={race.id}
@@ -411,17 +406,18 @@ export function OrganizerSummaryHeader({
                 {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
               </span>
               <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
-              {isApproved ? (
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                {race.activeEdition!.racebook_is_live === true ? (
+                  <span className="text-xs font-medium text-emerald-700">Publié aux coureurs</span>
+                ) : null}
                 <LiveToggle
-                  checked={race.activeEdition!.racebook_is_live === true}
-                  disabled={!editionIsVisible || status !== "idle"}
-                  onChange={(checked) => onRacebookVisibilityChange(race.activeEdition!.id, checked)}
-                  liveLabel="Racebook publié"
-                  draftLabel="Racebook masqué"
+                  checked={previewIsVisible}
+                  disabled={status !== "idle"}
+                  onChange={(checked) => onRacebookPreviewVisibilityChange(race.activeEdition!.id, checked)}
+                  liveLabel="Format visible dans ma démo"
+                  draftLabel="Format masqué de ma démo"
                 />
-              ) : (
-                <LiveToggle checked={false} disabled onChange={() => {}} draftLabel="Racebook non publié" />
-              )}
+              </div>
             </div>
             );
           })

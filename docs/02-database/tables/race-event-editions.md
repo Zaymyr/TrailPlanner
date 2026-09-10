@@ -152,7 +152,7 @@ where ree.event_id = :event_id
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.
 - Do not require a source edition lookup when the organizer explicitly disables duplication; source formats are needed only for the cloning branch.
-- A cloned/new edition may be course-visible while every attached Racebook is hidden. Do not derive Racebook visibility from edition currentness or `races.is_live`.
+- A cloned/new edition may be course-visible while every attached Racebook is unpublished. Private-demo selection remains per format and independent from entitlement; the explicit edition publication action includes only selected complete formats. Do not derive either state from edition currentness or `races.is_live`.
 - Do not detach formats when deleting an edition. The cascade is intentional so no yearless organizer course survives a confirmed edition deletion.
 - Do not republish Racebooks when an edition becomes visible again; hiding is destructive to their live flag, not to their durable approval timestamp.
 - Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.

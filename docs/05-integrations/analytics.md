@@ -230,6 +230,8 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 
 ## Related Docs
 
+Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.
+
 - [Mobile App](../01-architecture/mobile-app.md)
 - [Web App](../01-architecture/web-app.md)
 - [Infrastructure](../01-architecture/infrastructure.md)

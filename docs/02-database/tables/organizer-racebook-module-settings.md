@@ -17,6 +17,8 @@ related_tables:
 
 # `organizer_racebook_module_settings`
 
+Format-level private-demo visibility is deliberately not another module setting. It lives on `races.racebook_preview_is_visible`, can be changed without an entitlement, and excludes the entire format from both organizer preview and the next edition publication without deleting any module content.
+
 ## Purpose
 
 Stores the organizer's durable enable/disable choice for optional RaceBook modules without storing or deleting module content.

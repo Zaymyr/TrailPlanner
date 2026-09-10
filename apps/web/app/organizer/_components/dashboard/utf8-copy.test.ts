@@ -108,7 +108,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("grantComplimentaryOffer(tier)");
     expect(dashboardSource).toContain("ORGANIZER_TIER_PRICE_EUR[tier]");
     expect(shellSource).toContain("ORGANIZER_TIER_PRICE_EUR[editionTier]");
-    expect(shellSource).toContain("Offre ${activeOfferName} offerte");
+    expect(shellSource).toContain("Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte");
+    expect(shellSource).toContain("Format visible dans ma démo");
+    expect(shellSource).toContain("Format masqué de ma démo");
+    expect(shellSource).toContain("Publier les RaceBooks");
   });
 
   it("keeps the pricing dialog wide and viewport-bounded", () => {

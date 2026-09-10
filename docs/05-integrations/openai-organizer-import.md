@@ -90,6 +90,8 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 ## Related Docs
 
+Confirmed imported formats default to private-preview selected while remaining runner-unpublished; masking them later preserves all imported evidence.
+
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Web App](../01-architecture/web-app.md)
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
