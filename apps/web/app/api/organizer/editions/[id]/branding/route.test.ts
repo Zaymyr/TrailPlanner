@@ -15,6 +15,7 @@ vi.mock("../../../../../../lib/organizer-entitlements", () => ({
 
 vi.mock("../../../../../../lib/organizer-module-settings", () => ({
   isOrganizerEditionModuleEnabled: () => Promise.resolve(true),
+  isOrganizerEditionModuleSelected: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../../lib/organizer", () => ({
@@ -54,12 +55,14 @@ afterEach(() => {
 });
 
 describe("organizer RaceBook branding route", () => {
-  it("requires the Pro branding capability", async () => {
+  it("allows loading the branding draft without the paid capability", async () => {
     mocks.requireOrganizerEditionCapability.mockResolvedValue(false);
-    vi.spyOn(global, "fetch").mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }));
+    vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }));
     const response = await GET(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/branding`), { params: { id: editionId } });
-    expect(response.status).toBe(403);
-    expect(mocks.requireOrganizerEditionCapability).toHaveBeenCalledWith(expect.anything(), editionId, "branding.manage");
+    expect(response.status).toBe(200);
+    expect(mocks.requireOrganizerEditionCapability).not.toHaveBeenCalled();
   });
 
   it("returns defaults when no branding row exists", async () => {

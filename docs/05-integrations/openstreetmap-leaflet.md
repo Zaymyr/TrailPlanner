@@ -41,6 +41,7 @@ It:
 - is used by the organizer format editor GPX panel for the selected canonical edition; replacing the GPX preserves its `edition_id`/year and synchronizes adjacent course metrics without changing edition dates.
 - remains visible in the always-expanded `Course` editor even though the separate organizer-side runner preview has been removed.
 - is independent from the format-location override; inheriting the event address does not change the uploaded GPX route or map bounds.
+- remains independent when the effective inherited event address is persisted on format save for publication readiness.
 - is also independent from the consolidated `Nom du format` input; synchronizing `name` and `series_name` changes only format identity text, not GPX geometry.
 - is independent from event-level website, Instagram, and Facebook fields rendered by the same Organizer information component.
 - on the public `/courses/[slug]` page, `apps/web/app/courses/_components/RaceRouteExplorer.tsx` wraps `GpxRouteMap` and forces `interactive={false}` until the runner taps "Explorer la carte", so pan/zoom gestures never capture mobile scroll.

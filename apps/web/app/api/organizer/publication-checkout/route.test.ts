@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { POST } from "./route";
 
+vi.mock("../../../../lib/organizer-publication-tier", () => ({
+  loadOrganizerPublicationRequirement: () => Promise.resolve({ tier: "essential", usedModules: ["aid_stations"] }),
+}));
+
 const eventId = "11111111-1111-1111-1111-111111111111";
 const editionId = "22222222-2222-2222-2222-222222222222";
 const paymentId = "33333333-3333-3333-3333-333333333333";

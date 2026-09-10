@@ -11,7 +11,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { requireOrganizerEditionCapability } from "../../../../../../lib/organizer-entitlements";
-import { isOrganizerEditionModuleEnabled } from "../../../../../../lib/organizer-module-settings";
+import { isOrganizerEditionModuleEnabled, isOrganizerEditionModuleSelected } from "../../../../../../lib/organizer-module-settings";
 import {
   MAX_RACEBOOK_BRANDING_LOGO_SIZE_BYTES,
   RACEBOOK_BRANDING_LOGO_TYPES,
@@ -38,10 +38,7 @@ async function authorize(request: NextRequest, editionId: string) {
   if (!edition) return { error: jsonError("Edition not found.", 404) };
   const organizer = await requireEventOrganizer(auth.serviceConfig, auth.user, edition.event_id);
   if (organizer !== true) return organizer;
-  if (!(await requireOrganizerEditionCapability(auth.serviceConfig, edition.id, "branding.manage"))) {
-    return { error: jsonError("L’offre Signature est requise pour gérer l’identité visuelle.", 403) };
-  }
-  if (!(await isOrganizerEditionModuleEnabled(auth.serviceConfig, edition.id, "branding"))) return { error: jsonError("La section Identité visuelle est inactive.", 403) };
+  if (!(await isOrganizerEditionModuleSelected(auth.serviceConfig, edition.id, "branding"))) return { error: jsonError("Activez la section Identité visuelle pour modifier son brouillon.", 403) };
   return { ...auth, edition };
 }
 
@@ -208,6 +205,12 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   if ("error" in auth) return auth.error;
   const action = z.object({ action: z.literal("publish") }).safeParse(await request.json().catch(() => null));
   if (!action.success) return jsonError("Invalid RaceBook branding action.", 400);
+  if (!(await requireOrganizerEditionCapability(auth.serviceConfig, auth.edition.id, "branding.manage"))) {
+    return jsonError("L’offre Signature est requise pour publier l’identité visuelle.", 403);
+  }
+  if (!(await isOrganizerEditionModuleEnabled(auth.serviceConfig, auth.edition.id, "branding"))) {
+    return jsonError("La section Identité visuelle doit être incluse dans la publication.", 403);
+  }
 
   try {
     let previous = await loadBranding(auth.serviceConfig, auth.edition.id);

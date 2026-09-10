@@ -3,7 +3,7 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../../../lib/http";
 import { loadOrganizerEditionEntitlement } from "../../../../../../lib/organizer-entitlements";
-import { canEnableOrganizerModule, loadOrganizerModuleSettings } from "../../../../../../lib/organizer-module-settings";
+import { loadOrganizerModuleSettings } from "../../../../../../lib/organizer-module-settings";
 import { organizerModuleSettingsPatchSchema } from "../../../../../../lib/organizer-modules";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders, uuidParamSchema } from "../../../../../../lib/organizer";
 
@@ -67,10 +67,6 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (body.data.updates.some((update) => update.scope === "race" && !raceIds.has(update.raceId))) {
     return jsonError("A format does not belong to this edition.", 409);
   }
-  const entitlement = await loadOrganizerEditionEntitlement(auth.serviceConfig, auth.edition.id);
-  const forbidden = body.data.updates.find((update) => update.enabled && !canEnableOrganizerModule(entitlement, update.moduleKey));
-  if (forbidden) return jsonError("Cette section nécessite une offre supérieure.", 403);
-
   const existingResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_racebook_module_settings?edition_id=eq.${auth.edition.id}&select=id,race_id,module_key`,
     { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },

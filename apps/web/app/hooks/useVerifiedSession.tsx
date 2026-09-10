@@ -46,6 +46,10 @@ type VerifiedSessionContextValue = {
   refreshEntitlements: (accessToken: string) => Promise<void>;
 };
 
+type RefreshOptions = {
+  afterCurrent?: boolean;
+};
+
 const VerifiedSessionContext = createContext<VerifiedSessionContextValue | null>(null);
 const RESEND_CONTACT_SYNCED_KEY_PREFIX = "trailplanner.resendContactSynced";
 
@@ -108,9 +112,13 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
     }
   }, []);
 
-  const refresh = useCallback(async (): Promise<boolean> => {
+  const refresh = useCallback(async (options: RefreshOptions = {}): Promise<boolean> => {
     if (refreshInFlight.current) {
-      return refreshInFlight.current;
+      const currentRefresh = refreshInFlight.current;
+      if (!options.afterCurrent) return currentRefresh;
+
+      await currentRefresh;
+      if (refreshInFlight.current) return refreshInFlight.current;
     }
 
     const task = (async () => {
@@ -136,7 +144,8 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
 
         if (!response.ok) {
           if (response.status === 401) {
-            clearSession();
+            const latestStored = readStoredSession();
+            if (latestStored?.accessToken === stored.accessToken) clearSession();
           } else {
             setIsLoading(false);
           }
@@ -147,6 +156,10 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
         const user = data?.user;
         const nextAccessToken = data?.access_token ?? stored.accessToken;
         const nextRefreshToken = data?.refresh_token ?? stored.refreshToken;
+        const latestStored = readStoredSession();
+        if (latestStored?.accessToken !== stored.accessToken) {
+          return false;
+        }
 
         if (
           (data?.access_token && data.access_token !== stored.accessToken) ||
@@ -205,7 +218,7 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
     };
 
     const handleSessionUpdated = () => {
-      void refresh();
+      void refresh({ afterCurrent: true });
     };
 
     const handleStorage = (event: StorageEvent) => {

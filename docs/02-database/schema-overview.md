@@ -19,6 +19,7 @@ related_files:
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
+  - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -284,6 +285,7 @@ erDiagram
 - Organizer dashboard details are nullable JSONB on existing source tables. They reuse existing table RLS and service-route membership checks; do not create broad public selects that include them by accident.
 - Geographic catalog filters must use the explicit nullable `race_events` codes. A location-label-only organizer edit clears stale normalized geography; do not replace this safeguard with runtime parsing.
 - Country completeness does not imply city completeness: 50 current international official UTMB events intentionally have only `location_country` / `location_country_code` until one unambiguous anchor locality is verified. The public text search may match that verified country, but exact city/region discovery must continue to exclude them.
+- The Trail Ton Château 2026 catalog seed reuses the existing event, edition, course, branding, and private `race-gpx` contracts: eight formats are public, four carry verified GPX metadata, and the visual identity remains a draft until separately published.
 - Organizer station products are source suggestions. Imported runner plans store them in planner JSON separately from auto-fill supplies, and plans linked to `race_id` can receive current suggestions as a read-time `/api/plans` response overlay.
 - Shared product catalog data migrations should preserve the `products` schema contract by setting official metadata (`is_official`, `official_name`) instead of changing visibility or ownership semantics.
 - Shared catalog product image backfills should update `products.image_url` only for curated catalog rows and keep ownership/visibility fields unchanged.

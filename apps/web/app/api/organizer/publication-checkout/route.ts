@@ -8,6 +8,7 @@ import { loadOrganizerEditionEntitlement, type OrganizerTier } from "../../../..
 import { ORGANIZER_TIER_RANK } from "../../../../lib/organizer-modules";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders } from "../../../../lib/organizer";
 import { validateOrganizerEditionPublication } from "../../../../lib/organizer-publication";
+import { loadOrganizerPublicationRequirement } from "../../../../lib/organizer-publication-tier";
 import { getStripeConfig, getStripeJson, postStripeForm } from "../../../../lib/stripe";
 import { isAnonymousUser } from "../../../../lib/supabase";
 
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest) {
     parsed.data.editionId
   );
   if (!readiness.ok) return jsonError(readiness.message, readiness.status);
+  const publicationRequirement = await loadOrganizerPublicationRequirement(auth.serviceConfig, parsed.data.editionId);
 
   const current = await loadOrganizerEditionEntitlement(auth.serviceConfig, parsed.data.editionId);
   const currentTier = current?.status === "active" ? current.tier : "visibility";
@@ -173,8 +175,10 @@ export async function POST(request: NextRequest) {
         "metadata[user_id]": auth.user.id,
         "metadata[from_tier]": offer.fromTier,
         "metadata[to_tier]": parsed.data.targetTier,
+        "metadata[required_publication_tier]": publicationRequirement.tier,
         "payment_intent_data[metadata][purchase_type]": "organizer_edition",
         "payment_intent_data[metadata][payment_id]": payment.id,
+        "payment_intent_data[metadata][required_publication_tier]": publicationRequirement.tier,
       },
       stripeConfig.secretKey,
       { idempotencyKey: `organizer-edition-${payment.id}` }

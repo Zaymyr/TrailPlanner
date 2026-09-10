@@ -34,7 +34,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 - The organizer portal edits the draft and previews it locally.
 - Publication atomically copies all draft values to the published fields.
 - Runner and mobile preview payloads expose only published color values. `RACEBOOK_EDITION_LOGO_ENABLED` currently forces the resolved logo to `null` without deleting stored draft or published URLs.
-- Editing and publication require the Signature `branding.manage` capability and an active `branding` module. A downgrade or module deactivation masks the published identity without deleting it.
+- Editing the draft requires active event membership and a selected `branding` module. Copying the draft to the published snapshot requires the Signature `branding.manage` capability and an effectively active module. A downgrade masks the published identity without deleting either snapshot.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, and semantic danger/warning/info colors.
 
 ## Columns
@@ -65,7 +65,7 @@ The primary key on `edition_id` is the only lookup required and enforces one bra
 
 ## RLS Policies
 
-RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated` have no table privileges or publish-function execution. Only `service_role` can read or mutate the row and execute the invoker-security publication function. Organizer routes separately verify the session, active parent-event membership, edition ownership, and Pro capability.
+RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated` have no table privileges or publish-function execution. Only `service_role` can read or mutate the row and execute the invoker-security publication function. Organizer routes verify session, membership, edition ownership, and module selection for drafts, then additionally verify Signature for publication.
 
 ## Business Invariants
 
@@ -96,7 +96,7 @@ where edition_id = :edition_id;
 - Sponsor logos and organizer-branding logos use separate Storage prefixes. Edition-logo controls and rendering are dormant behind `RACEBOOK_EDITION_LOGO_ENABLED`; do not delete stored URLs merely because the flag is off.
 - Invalid/missing branding and image load failures must fall back silently to the Pace Yourself theme.
 - Mobile waits for the edition bootstrap before revealing RaceBook content; do not reintroduce a short presentation timeout that permanently replaces a valid slow response with default colors.
-- Branding mutation requires an active Signature entitlement and active `branding` module. Inactive or locked branding remains stored but the runner bootstrap returns the Pace Yourself defaults.
+- Branding draft mutation does not require a paid entitlement. Publication does require active Signature; inactive or draft-only branding remains stored while runner bootstrap returns Pace Yourself defaults.
 
 ## Related Docs
 

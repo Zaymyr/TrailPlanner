@@ -1,7 +1,7 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-09-06
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -35,6 +35,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 1. Read [../04-auth-and-security/auth-flows.md](../04-auth-and-security/auth-flows.md).
 2. Check the web session context path in `apps/web/app/hooks/useVerifiedSession.tsx`.
 3. Check `/api/auth/session` response handling in `apps/web/app/api/auth/session/route.ts`.
+   If sign-in succeeds but the destination still looks signed out, verify that `trailplanner:session-updated` waits for any older in-flight refresh, that the older response cannot clear the new token, and that the provider then verifies the latest stored token.
 4. Distinguish verified-session readiness from the asynchronous entitlement state: `isLoading` can be false while `isEntitlementsLoading` is still true.
 5. Verify whether the user is anonymous with `isAnonymousUser`.
 6. Confirm `ensureTrialStatus` can read/write `user_profiles`.

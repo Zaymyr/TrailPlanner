@@ -13,6 +13,8 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/start-waves/route.ts
   - apps/web/app/api/organizer/races/[id]/awards/route.ts
   - apps/web/package.json
+  - apps/web/playwright.organizer.config.ts
+  - apps/web/e2e/organizer-payment.spec.ts
   - apps/web/tsconfig.json
   - apps/web/app/layout.tsx
   - apps/web/app/page.tsx
@@ -118,6 +120,7 @@ related_files:
   - apps/web/lib/organizer-acquisition.test.ts
   - apps/web/app/organizer/page.tsx
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
+  - apps/web/lib/organizer-publication-tier.ts
   - apps/web/app/organizer/_components/dashboard/types.ts
   - apps/web/app/organizer/_components/dashboard/constants.ts
   - apps/web/app/organizer/_components/dashboard/helpers.ts
@@ -236,7 +239,7 @@ related_tables:
 
 # Web App Architecture
 
-The organizer dashboard code-splits its heavy module editors and review panels, then loads module data only when needed. Structured collection autosaves are serialized and revision-aware, so an older server response cannot overwrite edits made during the request. Late dashboard responses are abortable and scoped to the active event/race. Aid-station, station-product, relay-point and sponsor-order mutations use service-only atomic database functions instead of write loops. The bootstrap embeds only lightweight status projections (counts for services, sponsors, SAS, podiums and ravitos plus branding published/draft state), so every tile is correct on first render without downloading the editable collections. Its shared module catalog combines the edition entitlement with organizer switches; inactive or locked tiles leave primary navigation and completion, while the service-only settings API retains data and supports later restoration.
+The organizer dashboard code-splits its heavy module editors and review panels, then loads module data only when needed. Structured collection autosaves are serialized and revision-aware, so an older server response cannot overwrite edits made during the request. Late dashboard responses are abortable and scoped to the active event/race. Aid-station, station-product, relay-point and sponsor-order mutations use service-only atomic database functions instead of write loops. The bootstrap embeds only lightweight status projections, so every tile is correct on first render without downloading editable collections. The shared module catalog separates selected authoring state from effective public state: inactive tiles leave navigation, while `draftOnly` tiles remain editable and are filtered from runner responses until the required offer becomes active.
 
 The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. Edition-logo upload infrastructure and stored values remain intact, but the shared kill switch currently hides its controls and prevents public resolution. Non-Pro organizers receive an upsell instead of draft data.
 
@@ -261,6 +264,7 @@ The web app owns the browser planner, onboarding/account flows, admin catalog to
 - `npm run start --workspace apps/web`
 - `npm run lint --workspace apps/web`
 - `npm run test --workspace apps/web`
+- `npm run test:e2e:organizer-payment --workspace apps/web` (explicit Stripe-test opt-in and credentials required)
 - `npm run typecheck --workspace apps/web`
 
 The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser map bindings added under `apps/web` must stay compatible with React 18 until the app is upgraded; for Leaflet route previews that means staying on the React 18-compatible `react-leaflet` line rather than the React 19-only v5 releases.
@@ -298,6 +302,7 @@ The client session entry point is `apps/web/app/hooks/useVerifiedSession.tsx`. I
 - fetches entitlements through `apps/web/lib/entitlements-client.ts` after verification without keeping the verified-session loading state active;
 - triggers the authenticated Resend contact sync for identified, non-anonymous sessions;
 - clears planner local storage on sign-out.
+- reruns verification from the latest stored token when a session-update event overlaps an older in-flight request.
 
 The session API route validates Supabase users through `apps/web/lib/supabase.ts`, calls `ensureTrialStatus`, and sets HTTP-only cookies through auth cookie helpers.
 
@@ -404,7 +409,7 @@ The v1 organizer portal is web-only:
 - `/api/race-favorites` is the authenticated runner bridge for favoriting `race_events`, and `/api/race-events/[id]/updates` is the runner/mobile read route for the latest published organizer announcements on live events.
 - `/api/admin/organizer-claims` keeps legacy access-claim review and membership revocation, and lets a trusted admin attach an existing Supabase Auth e-mail to an event as an `organizer`. Auth-user lookup and membership writes stay server-side; direct assignment grants edit access without changing catalog/Racebook state. `/api/admin/event-publication-requests` returns the pending queue plus every event's current-edition Racebook state. Approval invokes the service-role-only review function; the admin event switch invokes a separate service-role-only function to publish or hide Racebooks; and `setEditionTier` invokes the audited entitlement RPC used by both the admin tab and the `/organizer` partner-publication action.
 
-Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. The selected edition owns the canonical start/end range; format rows attach through `edition_id`. Organizer-managed course rows remain catalog-visible. RaceBook/Pro publication and Pro-only relay/product mutations stay behind active membership plus centralized edition capability checks.
+Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. Active membership authorizes private draft authoring, including modules above the current offer. Public publication and costly operations remain behind centralized edition capabilities; public serializers combine the publication flag, entitlement tier, and selected module before returning content.
 
 Inside the format-level `Départ, ravitos & relais` editor, the common start and finish schedule cards render above the local `SAS`, `Ravitos` and conditional `Relais` tabs. When at least one SAS exists, its earliest native time is displayed as the format start and the common start field is disabled; removing the last SAS restores manual editing without clearing the stored time. The contextual add action follows the active list tab. `Relais` shows compact derived legs in one horizontal row above the handover-point editor; handover cards expose only the point name, distance, cutoff, and a compact delete cross, while the persisted optional passage time and notes remain outside the current editor. Solo formats omit only the relay tab. This split is presentation-only and does not change the existing race-details, aid-station, or relay-point save order.
 
@@ -412,7 +417,9 @@ The same approved-only dashboard exposes a manual `Notifier les coureurs` modal.
 
 The organizer write surface remains edition-aware for selection and grouping, but no longer becomes read-only based on `race_date`. Active event membership is the mutation authorization boundary for past and future editions.
 
-For a brand-new organizer format, the add-format form may hold a pending image and GPX before submit. `OrganizerDashboard.tsx` parses GPX in-browser to prefill exact course metrics, defaults the race date from the selected edition, and reveals the date input only for an explicit override. The create route requires `editionId` and validates the date range before the existing image/GPX routes persist pending files. Existing-format GPX replacement keeps the same edition and refreshes returned metrics directly into the active form.
+For a brand-new organizer format, the add-format form may hold a pending image and GPX before submit. `OrganizerDashboard.tsx` parses GPX in-browser to prefill exact course metrics, defaults the race date from the selected edition, persists the effective inherited event location, and exposes the official source required by catalog publication. The create route requires `editionId` and validates the date range before the existing image/GPX routes persist pending files. Existing-format GPX replacement keeps the same edition and refreshes returned metrics directly into the active form. Pricing stays closed until a local prerequisite check finds at least one publishable format; the server still revalidates persisted data before checkout.
+
+`apps/web/e2e/organizer-payment.spec.ts` covers the public organizer hero, password sign-in, TEST event and format creation, Stripe test-card payment, webhook-confirmed entitlement, and UI deletion. Its fallback API cleanup runs even after a failed assertion.
 
 The completion shell intentionally omits a local "Avancement global" heading/helper line above the tabs. Its edition/format summary uses compact rows and starts collapsed while retaining the labelled event selector, offer, notification and publication actions. Dirty work displays a fixed save bar. Mobile uses a labelled event/format select with an explicit `Ajouter un format` option; desktop retains the larger, contrasty tabs and desktop event tiles should fit on one row before wrapping.
 
@@ -457,7 +464,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 
 ## Gotchas
 
-- Keep editable branding content out of the Organizer bootstrap payload. The bootstrap may expose only the derived published/draft status needed by the tile; the Pro-gated edition editor still loads only when its module opens.
+- Keep editable branding content out of the Organizer bootstrap payload. The bootstrap may expose only the derived published/draft status needed by the tile; the membership-gated draft editor still loads only when its module opens, and its publish action remains Signature-gated.
 - Do not proxy a branding logo through JSON/base64. If the dormant control is re-enabled, use the existing multipart upload, validate MIME plus binary signature and size server-side, then store the public URL in the service-only projection.
 - Do not return an empty blog collection when `content/blog` cannot be located. The sitemap depends on explicit failure to expose a deployment/file-tracing problem instead of silently dropping every article URL.
 - Do not infer article language from accents or tags. French copy without accented characters previously received English bylines and CTAs; use validated frontmatter locale with the French default.
@@ -521,7 +528,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Admin access to the complete Organizer event selector must continue to come from trusted `app_metadata` through `isAdminUser`; never broaden the catalog response for ordinary authenticated users.
 - Keep the Organizer bootstrap payload aligned with the existing claims and event-detail read contracts. Do not reintroduce a second authentication or membership lookup after the selected event has been derived from the already-authorized membership set.
 - Keep module-specific Organizer reads lazy. Opening the event overview must not download GPX, ravitos, relay points, product data, announcements, or follower totals; late responses must still be scoped to the active race before updating state.
-- Keep full sponsor reads in the lazy model and behind active Pro rights: switching editions must discard the prior edition list, and mobile/public clients must never receive direct `website_url` values or table access. The organizer bootstrap may carry only active-count and aggregate-click summaries for tile status.
+- Keep full sponsor draft reads in the membership-gated lazy model: switching editions must discard the prior edition list, and mobile/public clients must never receive direct `website_url` values or table access. Runner-facing placements remain Signature/effective-module gated; the organizer bootstrap may carry only active-count and aggregate-click summaries for tile status.
 - Prefer a freshly loaded sponsor/branding editor summary over the bootstrap projection after a mutation; until then, use the selected edition's bootstrap summary instead of displaying a false empty tile.
 - Treat route-local Organizer cache values as immutable snapshots. Invalidate race data after relevant mutations and clear the complete cache at a user-session boundary so organizer-scoped products or draft course data cannot cross accounts.
 - Keep the Organizer cache bounds when adding cached sidecars. TTL alone does not cap memory for many event/race selections in a long-lived dashboard session.

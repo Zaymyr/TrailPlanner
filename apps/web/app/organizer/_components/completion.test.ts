@@ -346,7 +346,7 @@ describe("organizer completion", () => {
     expect(completion.formatModules.find((module) => module.id === "access")?.missingLabels).toContain("Navettes");
   });
 
-  it("excludes inactive and locked modules from tiles, missing fields and scores", () => {
+  it("excludes only sections the organizer has chosen to hide", () => {
     const full = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], []);
     const filtered = buildOrganizerCompletion(baseEvent, baseEvent.races[0]!, [], [], undefined, {
       event: new Set(["event"]),

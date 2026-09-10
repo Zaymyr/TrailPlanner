@@ -303,6 +303,7 @@ function RaceForm({
   const missingDistance = !Number.isFinite(values.distanceKm) || values.distanceKm <= 0;
   const missingElevationGain = !Number.isFinite(values.elevationGainM) || values.elevationGainM < 0;
   const missingRaceDate = requireRaceDate && !values.raceDate.trim();
+  const missingSource = !values.externalSiteUrl?.trim();
   const previewRace = buildPreviewRace(values, hasGpx);
   const [usesCustomRaceDate, setUsesCustomRaceDate] = useState(Boolean(values.raceDate && editionStartDate && values.raceDate !== editionStartDate));
   const [usesCustomLocation, setUsesCustomLocation] = useState(
@@ -406,10 +407,12 @@ function RaceForm({
                         if (!event.target.checked) {
                           onChange({
                             ...values,
-                            locationText: "",
+                            locationText: inheritedLocationText,
                             organizerDetails: {
                               ...values.organizerDetails,
-                              raceLocation: { ...defaultOrganizerRaceDetails.raceLocation },
+                              raceLocation: biasLocation
+                                ? { ...biasLocation }
+                                : { ...defaultOrganizerRaceDetails.raceLocation },
                             },
                           });
                         }
@@ -439,6 +442,21 @@ function RaceForm({
                 ) : (
                   <p className="text-xs text-muted-foreground">Lieu hérité : {inheritedLocationText}</p>
                 )}
+              </div>
+              <div className="lg:col-span-12 lg:max-w-2xl">
+                <TextField
+                  label="Site officiel / source du format"
+                  type="url"
+                  value={values.externalSiteUrl ?? ""}
+                  onChange={(value) => onChange({ ...values, externalSiteUrl: value })}
+                  placeholder="https://www.exemple.fr/course"
+                  required
+                  invalid={missingSource}
+                  disabled={disabled}
+                />
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Requis pour vérifier les informations du format avant sa publication.
+                </p>
               </div>
             </div>
           </div>

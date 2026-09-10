@@ -159,7 +159,7 @@ Route geometry remains usable when elevation tags are absent, but the elevation 
 
 Existing saved plans are not rewritten after organizer GPX replacement. They keep their copied `plan-gpx` object, `elevation_profile`, `planner_values`, and `plan_aid_stations`.
 
-For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, while the format date inherits the selected canonical edition and the location inherits the event unless their explicit overrides are enabled. After the format is created with its `edition_id`, the pending file is uploaded through the existing GPX route so the same stats are persisted and eligible waypoint ravitos can be created.
+For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, while the format date inherits the selected canonical edition and the effective event location is persisted unless an explicit override is enabled. The visible official-source field is independent from GPX and is required by the catalog minimum. After the format is created with its `edition_id`, the pending file is uploaded through the existing GPX route so the same stats are persisted and eligible waypoint ravitos can be created.
 
 Creating an empty yearly edition from the organizer dialog does not create or copy a GPX. GPX cloning occurs only when the organizer keeps edition duplication enabled; a later format added to an empty edition follows the normal pending-file upload flow above.
 

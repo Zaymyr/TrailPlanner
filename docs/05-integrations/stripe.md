@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-09-07
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -12,6 +12,7 @@ related_files:
   - apps/web/app/api/stripe/webhook/route.test.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/organizer/publication-checkout/route.test.ts
+  - apps/web/lib/organizer-publication-tier.ts
   - apps/web/lib/entitlements.ts
 related_tables:
   - subscriptions
@@ -114,6 +115,8 @@ Subscription events upsert:
 `/api/organizer/publication-checkout` accepts an event, edition, and target tier only. It verifies the authenticated non-anonymous user, active event membership, edition ownership, publication readiness, current entitlement, and absence of an incompatible active purchase. The server chooses and verifies one of six configured one-time EUR Prices: direct Essential/Complete/Signature at 99/199/349 € HT, Essential-to-Complete at 100 € HT, Essential-to-Signature at 250 € HT, or Complete-to-Signature at 150 € HT.
 
 Checkout enables Stripe Tax, billing address and tax-id collection, and invoice creation. Metadata binds the payment row, edition, user, and transition. The webhook records subtotal, tax, total, currency, Customer, Session, and PaymentIntent before recalculating the effective edition entitlement. A browser success return never grants access by itself.
+
+Before creating the Checkout Session, the server recomputes the minimum publication tier from selected, populated persisted modules and records that recommendation in Checkout and PaymentIntent metadata. The requested target tier still determines the server-owned Price: choosing a lower paid tier is valid, with higher-tier draft sections retained but excluded from public responses.
 
 Any refund event, including partial, marks its organizer transaction refunded; a new dispute marks a paid transaction disputed. Both recalculate the edition and can hide modules or the complete RaceBook without hiding catalog formats. An upgrade is valid only while its paid base path remains valid. A dispute closed as won restores only a currently disputed transaction; a lost dispute remains invalid. Duplicate or out-of-order webhook delivery is safe because transitions are status-filtered and recalculation derives state from the complete valid ledger.
 

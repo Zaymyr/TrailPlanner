@@ -14,7 +14,7 @@ vi.mock("../../../../../../lib/organizer-entitlements", () => ({
 }));
 
 vi.mock("../../../../../../lib/organizer-module-settings", () => ({
-  isOrganizerEditionModuleEnabled: () => Promise.resolve(true),
+  isOrganizerEditionModuleSelected: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../../lib/organizer", () => ({
@@ -72,20 +72,20 @@ describe("organizer edition sponsor routes", () => {
     expect(response.status).toBe(403);
   });
 
-  it("requires an active Pro entitlement before loading sponsors", async () => {
+  it("allows loading sponsor drafts without a paid entitlement", async () => {
     mocks.requireOrganizerAuth.mockResolvedValue({
       user: { id: "user-1" },
       serviceConfig: { supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" },
     });
     mocks.requireEventOrganizer.mockResolvedValue(true);
     mocks.requireOrganizerEditionCapability.mockResolvedValue(false);
-    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 })
-    );
+    const fetchMock = vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }));
 
     const response = await GET(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/sponsors`), { params: { id: editionId } });
-    expect(response.status).toBe(403);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 
   it("rejects unsupported logo formats before uploading", async () => {

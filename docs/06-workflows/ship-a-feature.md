@@ -7,6 +7,8 @@ related_files:
   - package.json
   - turbo.json
   - apps/web/package.json
+  - apps/web/playwright.organizer.config.ts
+  - apps/web/e2e/organizer-payment.spec.ts
   - apps/mobile/package.json
 related_tables: []
 ---
@@ -50,6 +52,8 @@ npm run lint
 11. For mobile navigation, authentication, or visual changes, run the Maestro shell journey and review its screenshots against [Mobile UX Audit](mobile-ux-audit.md). Treat the automated pass as functional evidence, not as proof that the composition is harmonious.
 
 The web CI workflow runs lint, typecheck, the complete web Vitest suite, then the production build. Keep targeted local tests for fast feedback, but do not remove the full test gate from CI.
+
+The organizer payment journey is an explicit, destructive test-mode check: run `npm run test:e2e:organizer-payment -w @trailplanner/web` only with `RUN_ORGANIZER_PAYMENT_E2E=1`, `ORGANIZER_E2E_EMAIL`, `ORGANIZER_E2E_PASSWORD`, and an optional `ORGANIZER_E2E_BASE_URL`. It refuses non-`cs_test_` Stripe Checkout sessions and deletes its uniquely named `TEST` event both through the UI and a fallback API cleanup.
 
 The mobile UX gate is intentionally manual to control EAS usage. The immediately available path is `npm run test:e2e:ux -w @trailplanner/mobile` with a local Android device. The cross-platform target can be launched from `apps/mobile` with `eas workflow:run .eas/workflows/mobile-ux-audit.yml` only after the Expo account supports hosted Maestro jobs; its `preview` environment must contain secret `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` variables.
 

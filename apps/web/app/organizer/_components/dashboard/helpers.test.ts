@@ -109,13 +109,31 @@ describe("organizer dashboard helpers", () => {
     });
 
     expect(raceForm.locationText).toBe("");
+    expect(raceForm.externalSiteUrl).toBe("");
     expect(raceForm.organizerDetails.raceLocation).toEqual({
-      label: null,
-      lat: null,
-      lng: null,
-      googleMapsUrl: null,
-      source: null,
+      label: "Annecy",
+      lat: 45.8992,
+      lng: 6.1294,
+      googleMapsUrl: "https://maps.google.com/?q=Annecy",
+      source: "autocomplete",
     });
+  });
+
+  it("prefills a new format source from the event official website", () => {
+    const raceForm = createRaceFormFromEventDefaults({
+      name: "Trail test",
+      location: "Annecy",
+      editionStartDate: "2027-06-12",
+      editionEndDate: "2027-06-13",
+      thumbnailUrl: "",
+      isLive: false,
+      organizerDetails: {
+        ...defaultOrganizerEventDetails,
+        officialWebsiteUrl: "https://trail.example",
+      },
+    });
+
+    expect(raceForm.externalSiteUrl).toBe("https://trail.example");
   });
 
   it("keeps pending future edition years visible but disabled in the selector", () => {

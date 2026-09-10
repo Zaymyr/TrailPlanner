@@ -13,7 +13,8 @@ import {
   organizerRaceDetailsSchema,
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
-import { isOrganizerEditionModuleEnabled, isOrganizerRaceModuleEnabled } from "../../../../../lib/organizer-module-settings";
+import { isOrganizerEditionModuleSelected, isOrganizerRaceModuleSelected } from "../../../../../lib/organizer-module-settings";
+import { loadOrganizerPublicationRequirement } from "../../../../../lib/organizer-publication-tier";
 
 const optionalPatchTextOrNull = z
   .union([z.string().trim(), z.null()])
@@ -130,10 +131,10 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     if (!race.edition_id) updatePayload.organizer_details = current;
     else {
       const [equipment, bibPickup, access, aidStations] = await Promise.all([
-        isOrganizerEditionModuleEnabled(auth.serviceConfig, race.edition_id, "equipment"),
-        isOrganizerEditionModuleEnabled(auth.serviceConfig, race.edition_id, "bib_pickup"),
-        isOrganizerEditionModuleEnabled(auth.serviceConfig, race.edition_id, "access"),
-        isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, race.id, "aid_stations"),
+        isOrganizerEditionModuleSelected(auth.serviceConfig, race.edition_id, "equipment"),
+        isOrganizerEditionModuleSelected(auth.serviceConfig, race.edition_id, "bib_pickup"),
+        isOrganizerEditionModuleSelected(auth.serviceConfig, race.edition_id, "access"),
+        isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, race.id, "aid_stations"),
       ]);
       updatePayload.organizer_details = {
         ...incoming,
@@ -147,7 +148,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   if (
     parsedBody.data.participationMode !== undefined &&
     race.edition_id &&
-    await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, race.id, "relay")
+    await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, race.id, "relay")
   ) updatePayload.participation_mode = parsedBody.data.participationMode;
 
   const requiredFieldChanged =
@@ -184,7 +185,11 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   let visibilityUpdated: z.infer<typeof raceRowSchema> | null = null;
+  let publicationRequirement: Awaited<ReturnType<typeof loadOrganizerPublicationRequirement>> | null = null;
   if (parsedBody.data.racebookIsLive !== undefined) {
+    if (parsedBody.data.racebookIsLive && race.edition_id) {
+      publicationRequirement = await loadOrganizerPublicationRequirement(auth.serviceConfig, race.edition_id);
+    }
     const visibilityResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_organizer_racebook_visibility`,
       {
@@ -215,6 +220,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     return withSecurityHeaders(
       NextResponse.json({
         race: { ...visibilityUpdated, organizerDetails: parseOrganizerRaceDetails(visibilityUpdated.organizer_details) },
+        publicationRequirement,
       })
     );
   }
@@ -257,6 +263,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
             organizerDetails: parseOrganizerRaceDetails(updated.organizer_details),
           }
         : null,
+      publicationRequirement,
     })
   );
 }

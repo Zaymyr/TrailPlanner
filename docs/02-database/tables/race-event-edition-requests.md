@@ -42,6 +42,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Per-format publication switches also stay independent from this retired workflow and from other dirty format scopes: only the switched format may require a foreground save, and the selected edition's paid or admin-granted entitlement authorizes the switch without creating an edition-request row.
 - Removing the standalone `Dupliquer ce format` action does not affect edition duplication, but the compatibility route now requires the source edition's Pro capability when `duplicatePreviousEdition` is enabled. Creating an empty edition remains free.
 - The format location override is independent from edition selection and does not read or write this retired request table.
+- Persisting an inherited event location and an official format source for publication readiness does not read or write this retired request table.
 - Consolidating the Organizer format name input keeps `name` and `series_name` synchronized but does not change edition creation or the stable `edition_group_id` copied across years.
 - The runner-notification format selector reads live formats from the currently selected canonical edition; it does not create, reactivate, or consult legacy edition requests.
 - Deleting a previously sent organizer announcement is likewise event-membership scoped and does not read, restore, or mutate this retired table.

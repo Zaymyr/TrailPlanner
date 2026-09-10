@@ -15,8 +15,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import type { FuelProduct } from "../../../../../../lib/product-types";
-import { requireOrganizerRaceCapability } from "../../../../../../lib/organizer-entitlements";
-import { isOrganizerRaceModuleEnabled } from "../../../../../../lib/organizer-module-settings";
+import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
 
 const supabaseProductSchema = z.object({
   id: z.string().uuid(),
@@ -150,9 +149,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-  if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "aid_station_products.manage"))) {
-    return jsonError("L’offre Signature est requise pour gérer les produits aux ravitaillements.", 403);
-  }
+  if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, parsedParams.data.id, "official_products"))) return jsonError("Activez la section Produits officiels pour modifier son brouillon.", 403);
 
   const response = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/race_aid_station_products?select=id,race_aid_station_id,product_id,notes,order_index,products(id,slug,sku,name,brand,image_url,fuel_type,product_url,calories_kcal,carbs_g,sodium_mg,protein_g,fat_g,created_by,is_official),race_aid_stations!inner(race_id)&race_aid_stations.race_id=eq.${parsedParams.data.id}&order=order_index.asc`,
@@ -180,11 +177,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-  if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "aid_station_products.manage"))) {
-    return jsonError("L’offre Signature est requise pour gérer les produits aux ravitaillements.", 403);
-  }
-
-  if (!race.edition_id || !(await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, parsedParams.data.id, "official_products"))) return jsonError("La section Produits officiels est inactive.", 403);
+  if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, parsedParams.data.id, "official_products"))) return jsonError("Activez la section Produits officiels pour modifier son brouillon.", 403);
 
   const parsedBody = updateProductsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid aid station products.", 400);
@@ -238,11 +231,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-  if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "aid_station_products.manage"))) {
-    return jsonError("L’offre Signature est requise pour gérer les produits aux ravitaillements.", 403);
-  }
-
-  if (!race.edition_id || !(await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, parsedParams.data.id, "official_products"))) return jsonError("La section Produits officiels est inactive.", 403);
+  if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, parsedParams.data.id, "official_products"))) return jsonError("Activez la section Produits officiels pour modifier son brouillon.", 403);
 
   const parsedBody = createScopedProductSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid product payload.", 400);

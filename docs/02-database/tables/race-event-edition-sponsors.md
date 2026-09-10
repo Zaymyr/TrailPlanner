@@ -56,7 +56,7 @@ An active row needs at least one placement. A transaction-serialized trigger enf
 
 ## Security and Access
 
-RLS is enabled and `anon` / `authenticated` receive no table privileges or policies. Organizer and mobile clients use Next.js routes, then the routes use `service_role`. Organizer sponsor reads and mutations require both active parent-event membership and the edition-level Pro `sponsors.manage` capability.
+RLS is enabled and `anon` / `authenticated` receive no table privileges or policies. Organizer and mobile clients use Next.js routes, then the routes use `service_role`. Organizer draft reads and mutations require active parent-event membership plus a selected sponsor module; Signature remains required for runner-visible placements and partner behavior.
 
 The public presentation route returns only active rows after the normal public RaceBook gate, with an active organizer preview exception. It exposes a server redirect URL instead of `website_url`. The redirect route validates the sponsor/race edition pair, rate-limits counting by sponsor plus a hashed network identifier, invokes `increment_racebook_sponsor_click` atomically, and redirects even when counting fails.
 
@@ -88,7 +88,7 @@ RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, 
 
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.
-- Sponsor configuration and aggregate click totals require an active Signature entitlement and active `sponsors` module in every organizer route. The runner bootstrap returns no sponsor placements while that module is inactive or locked; stored rows and click totals remain intact for restoration.
+- Sponsor configuration is available as a private draft without Signature. The runner bootstrap returns no placements while the module is inactive or `draftOnly`; stored rows and aggregate click totals remain intact for restoration.
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
 - Keep the mobile loading panel and its two slots reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
 - Keep the sponsor handoff cache short-lived and scoped by authenticated user id plus race id. It may share one in-flight request across the catalog and destination, but must not reuse an organizer-only draft response after a session change.

@@ -263,7 +263,7 @@ export function OrganizerSummaryHeader({
             {completion?.informationComplete ? "Informations renseignées" : "À compléter"}
           </span>
           <Link href="/organizers">
-            <Button variant="outline" className="!h-11">Ajouter une course</Button>
+            <Button variant="outline" className="!h-11">Créer un autre événement</Button>
           </Link>
           {onImportWebsite ? (
             <Button type="button" variant="outline" onClick={onImportWebsite} className="!h-11">
@@ -716,7 +716,7 @@ export function CompletionTabsPanel({
                   : "text-muted-foreground hover:bg-background hover:text-foreground"
               )}
             >
-              {tab.label}
+              {tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label}
             </button>
           ))}
         </div>

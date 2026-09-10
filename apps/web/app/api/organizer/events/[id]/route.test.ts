@@ -242,7 +242,7 @@ vi.mock("../../../../../lib/http", () => ({
 }));
 
 vi.mock("../../../../../lib/organizer-module-settings", () => ({
-  isOrganizerEditionModuleEnabled: () => Promise.resolve(true),
+  isOrganizerEditionModuleSelected: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../lib/organizer", async () => {

@@ -60,6 +60,8 @@ The route:
 
 After a web session is verified, `useVerifiedSession` exposes the verified session immediately and refreshes premium entitlements in the background through their separate loading state. It also calls `POST /api/resend/contact` once per `userId + email` browser storage marker. That route re-validates the bearer token, skips anonymous users, and only syncs identified users into Resend Contacts.
 
+A session-update event raised while a previous verification is still running queues one verification from the latest stored tokens. The older response cannot clear or overwrite those newer tokens. Password sign-in can therefore navigate directly to `/organizers` without requiring a browser reload to expose the authenticated creation form.
+
 ## Web Password Sign-In Errors
 
 `apps/web/app/api/auth/signin/route.ts` converts Supabase password-sign-in failures into a small, stable error-code contract instead of forwarding provider messages. `apps/web/app/sign-in/page.tsx` maps `invalid_credentials` to the active locale and uses the localized generic sign-in error for every other failure. The invalid-credentials wording must stay generic about whether the email address exists.

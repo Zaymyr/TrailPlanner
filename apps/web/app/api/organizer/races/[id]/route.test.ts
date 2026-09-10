@@ -4,6 +4,10 @@ import { z } from "zod";
 
 import { DELETE, PATCH } from "./route";
 
+vi.mock("../../../../../lib/organizer-publication-tier", () => ({
+  loadOrganizerPublicationRequirement: () => Promise.resolve({ tier: "essential", usedModules: ["aid_stations"] }),
+}));
+
 const raceId = "11111111-1111-1111-1111-111111111111";
 const eventId = "22222222-2222-2222-2222-222222222222";
 

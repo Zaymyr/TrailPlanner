@@ -14,7 +14,7 @@ vi.mock("../../../../../../../lib/organizer-entitlements", () => ({
 }));
 
 vi.mock("../../../../../../../lib/organizer-module-settings", () => ({
-  isOrganizerEditionModuleEnabled: () => Promise.resolve(true),
+  isOrganizerEditionModuleSelected: () => Promise.resolve(true),
 }));
 
 vi.mock("../../../../../../../lib/organizer", () => ({
@@ -56,16 +56,17 @@ const prepareAuthorization = () => {
 };
 
 describe("organizer sponsor mutation route", () => {
-  it("requires an active Pro entitlement before loading the sponsor", async () => {
+  it("does not use the paid entitlement for draft mutations", async () => {
     prepareAuthorization();
     mocks.requireOrganizerEditionCapability.mockResolvedValue(false);
-    const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(
-      new Response(JSON.stringify([{ event_id: eventId }]), { status: 200 })
-    );
+    const fetchMock = vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ event_id: eventId }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }));
 
     const response = await DELETE(new NextRequest("http://localhost/sponsor"), { params: { id: editionId, sponsorId } });
-    expect(response.status).toBe(403);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(response.status).toBe(404);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mocks.requireOrganizerEditionCapability).not.toHaveBeenCalled();
   });
 
   it("rejects a sponsor from another edition", async () => {

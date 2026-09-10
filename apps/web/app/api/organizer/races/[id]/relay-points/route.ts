@@ -9,8 +9,7 @@ import {
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
-import { requireOrganizerRaceCapability } from "../../../../../../lib/organizer-entitlements";
-import { isOrganizerRaceModuleEnabled } from "../../../../../../lib/organizer-module-settings";
+import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
 
 const relayPointRowSchema = z.object({
   id: z.string().uuid(),
@@ -75,9 +74,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-  if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "relay.manage"))) {
-    return jsonError("L’offre Signature est requise pour gérer les relais.", 403);
-  }
+  if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, parsedParams.data.id, "relay"))) return jsonError("Activez la section Relais pour modifier son brouillon.", 403);
 
   const result = await loadRelayPoints(auth.serviceConfig, parsedParams.data.id);
   if (!("points" in result)) {
@@ -97,11 +94,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
 
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
   if ("error" in race) return race.error;
-  if (!(await requireOrganizerRaceCapability(auth.serviceConfig, parsedParams.data.id, "relay.manage"))) {
-    return jsonError("L’offre Signature est requise pour gérer les relais.", 403);
-  }
-
-  if (!race.edition_id || !(await isOrganizerRaceModuleEnabled(auth.serviceConfig, race.edition_id, parsedParams.data.id, "relay"))) return jsonError("La section Relais est inactive.", 403);
+  if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, parsedParams.data.id, "relay"))) return jsonError("Activez la section Relais pour modifier son brouillon.", 403);
 
   const parsedBody = updateRelayPointsSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid relay points.", 400);

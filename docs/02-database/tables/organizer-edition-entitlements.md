@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_entitlements
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -59,7 +59,7 @@ RLS is enabled with no client grants. Only service role can read or mutate rows.
 - Active admin and legacy-admin sources override Stripe recalculation.
 - Returning to Visibilité hides attached RaceBooks but does not change catalog visibility.
 - Legacy RaceBook and Pro editions are mapped to Complete and Signature without charge.
-- `branding.manage` is granted only by an active Signature entitlement. A downgrade blocks further draft reads and writes without erasing stored identity data.
+- `branding.manage` is granted only by an active Signature entitlement and controls publication of the branding snapshot. Membership still permits reading and editing the private draft; a downgrade masks the published identity and preserves both snapshots.
 
 ## Common Queries
 
@@ -73,7 +73,7 @@ where edition_id = :edition_id;
 
 - This table is a projection, not payment history.
 - Do not grant direct client select merely to render the dashboard; organizer APIs return the authorized edition projection.
-- Enforce branding access in the server route as well as the dashboard upsell; runner visibility of an already published identity is a separate contract.
+- Enforce branding publication in the server route; draft authoring uses event membership and the selected module, while runner visibility remains a separate effective-entitlement contract.
 
 ## Related Docs
 

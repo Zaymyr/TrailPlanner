@@ -1,7 +1,7 @@
 ---
 title: organizer_racebook_module_settings
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
@@ -31,9 +31,9 @@ Partial unique indexes enforce one edition setting per edition/key and one race 
 
 RLS is enabled and all `anon`/`authenticated` table privileges are revoked. Only service-role organizer routes read or mutate settings. Public structured-content RLS calls a narrow security-definer boolean helper that combines publication, active entitlement, minimum tier and enabled setting.
 
-The organizer UI stages switch changes locally and sends them together. After membership, edition ownership, format parentage, and tier checks, the route performs the independent row mutations concurrently and returns one refreshed effective payload; the dashboard does not adopt the draft before that response succeeds.
+The organizer UI stages switch changes locally and sends them together. After membership, edition ownership, and format parentage checks, the route performs the independent row mutations concurrently and returns one refreshed payload; no tier check blocks enabling a module as a private draft.
 
-The effective state is `is_enabled AND offer allows module`. A downgrade therefore masks content without deleting it. Mobile receives only the effective map from the RaceBook bootstrap API, never raw settings or entitlement rows.
+Authoring state is `is_enabled`; effective public state is `is_enabled AND offer allows module AND RaceBook is published`. A downgrade therefore masks content without deleting it. Mobile receives only the effective map from the RaceBook bootstrap API, never raw settings or entitlement rows.
 
 ## Initialization and Duplication
 
@@ -44,6 +44,7 @@ New editions enable equipment, bib and access; new formats enable aid stations. 
 - Equipment, bib and access overrides are not separate format modules.
 - Never grant direct client access to this table.
 - Never delete content when `is_enabled` becomes false.
+- Never create an entitlement merely because an organizer enables or fills a higher-tier draft module.
 - Keep batched mutation failures visible to the organizer and retain the browser draft for retry; a slow request must not look like an unresponsive switch.
 
 ## Related Docs
