@@ -6,6 +6,10 @@ import dynamic from "next/dynamic";
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "../../../components/ui/dialog";
+import {
+  OnboardingOverlay,
+  type OnboardingOverlayCopy,
+} from "../../../components/race-planner/OnboardingOverlay";
 import { buildCumulativeElevationTotals, GpxParseError, parseGpx } from "../../../lib/gpx/parseGpx";
 import { type FuelType } from "../../../lib/fuel-types";
 import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWaypoints";
@@ -68,6 +72,7 @@ import {
   createRaceFormFromEventDefaults,
   createRaceFormFromFormatDefaults,
   eventToForm,
+  filterRaceSeriesGroupsForWorkspace,
   getAvailableEditionYears,
   getEventEdition,
   getRaceEditionYear,
@@ -98,6 +103,7 @@ import {
   type OrganizerImportDocumentReference,
   type OrganizerImportUploadProgress,
 } from "./dashboard/organizer-import-documents";
+import { shouldOpenOrganizerOnboarding } from "./dashboard/onboarding";
 import {
   buildInitialWebsiteImportFieldSelections,
   buildInitialWebsiteImportFormatDecisions,
@@ -139,6 +145,47 @@ const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
   elevation_gain_m: "D+",
 };
 const EMPTY_DIRTY_MODULES = new Set<OrganizerModuleId>();
+const ORGANIZER_ONBOARDING_COPY: OnboardingOverlayCopy = {
+  closeLabel: "Passer le guide",
+  stepOf: "Étape {current} sur {total}",
+  next: "Suivant",
+  previous: "Précédent",
+  finish: "Configurer mes sections",
+  steps: [
+    {
+      title: "Votre espace course",
+      description: "Retrouvez ici la course active, son avancement et les actions principales.",
+    },
+    {
+      title: "Course et édition",
+      description: "Recherchez une course puis choisissez l’année que vous souhaitez mettre à jour.",
+    },
+    {
+      title: "Commun ou par format",
+      description: "Les informations communes valent pour toutes les courses. Chaque format possède ensuite ses propres contenus.",
+    },
+    {
+      title: "Vos sections",
+      description: "Cliquez sur une tuile pour l’ouvrir. Gris signifie vide, orange partiel et vert complet.",
+    },
+    {
+      title: "Renseignez le contenu",
+      description: "Modifiez la section sélectionnée. Le bouton Sauvegarder apparaît dès qu’un changement est en attente.",
+    },
+    {
+      title: "Visibilité et publication",
+      description: "Masqué retire le format, Privé le réserve à votre aperçu et Public le rend accessible aux coureurs.",
+    },
+  ],
+};
+const ORGANIZER_ONBOARDING_TARGETS = [
+  "organizer-onboarding-overview",
+  "organizer-onboarding-selectors",
+  "organizer-onboarding-scope-navigation",
+  "organizer-onboarding-module-tiles",
+  "organizer-onboarding-editor",
+  "organizer-onboarding-visibility",
+] as const;
 
 const editorLoading = () => <p className="text-sm text-muted-foreground">Chargement de l’éditeur…</p>;
 const AidStationsEditor = dynamic(
@@ -281,6 +328,8 @@ export function OrganizerDashboard({
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [pricingIntent, setPricingIntent] = useState<OrganizerPricingIntent>("upgrade");
   const [moduleSettingsOpen, setModuleSettingsOpen] = useState(false);
+  const [organizerOnboardingOpen, setOrganizerOnboardingOpen] = useState(false);
+  const [organizerOnboardingStep, setOrganizerOnboardingStep] = useState(0);
   const [moduleSettings, setModuleSettings] = useState<OrganizerModuleSettingsPayload | null>(null);
   const [moduleSettingsDraft, setModuleSettingsDraft] = useState<Partial<Record<OrganizerModuleKey, boolean>>>({});
   const [moduleSettingsSaving, setModuleSettingsSaving] = useState(false);
@@ -339,6 +388,10 @@ export function OrganizerDashboard({
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeEdition = getEventEdition(eventDetail, selectedEditionYear);
+  const workspaceRaceSeriesGroups = useMemo(
+    () => filterRaceSeriesGroupsForWorkspace(raceSeriesGroups, eventDetail?.editions ?? [], selectedEditionYear),
+    [eventDetail?.editions, raceSeriesGroups, selectedEditionYear]
+  );
   const activeTier = activeEdition?.entitlement?.status === "active" ? activeEdition.entitlement.tier : "visibility";
   const websiteImportExistingRaces = useMemo(
     () => (eventDetail?.races ?? []).filter((race) =>
@@ -354,12 +407,21 @@ export function OrganizerDashboard({
   const activeSeries =
     activeTab === EVENT_TAB_ID || activeTab === ADD_FORMAT_TAB_ID
       ? null
-      : raceSeriesGroups.find((group) => group.id === activeTab) ?? null;
+      : workspaceRaceSeriesGroups.find((group) => group.id === activeTab) ?? null;
   const activeRace =
-    activeSeries?.races.find((race) => race.edition_id === activeEdition?.id || getRaceEditionYearValue(race.race_date) === selectedEditionYear) ??
-    activeSeries?.races[0] ??
+    activeSeries?.races.find((race) =>
+      (race.edition_id === activeEdition?.id || getRaceEditionYearValue(race.race_date) === selectedEditionYear)
+      && race.racebook_preview_is_visible !== false
+    ) ??
     null;
   activeRaceIdRef.current = activeRace?.id ?? null;
+
+  useEffect(() => {
+    if (activeTab === EVENT_TAB_ID || activeTab === ADD_FORMAT_TAB_ID) return;
+    if (workspaceRaceSeriesGroups.some((group) => group.id === activeTab)) return;
+    setActiveTab(EVENT_TAB_ID);
+    setActiveModule("event");
+  }, [activeTab, workspaceRaceSeriesGroups]);
   const currentStartWaveSummary = startWaveSummary?.raceId === activeRace?.id ? startWaveSummary : null;
   const currentStartWaveCount = currentStartWaveSummary?.count ?? activeRace?.startWaveCount ?? 0;
   const currentStartTime = currentStartWaveCount > 0 && currentStartWaveSummary?.referenceStartTime
@@ -778,7 +840,6 @@ export function OrganizerDashboard({
       }
       setModuleSettings(data);
       setModuleSettingsDraft({});
-      if (data.setupCompletedAt === null && data.tier !== "visibility") setModuleSettingsOpen(true);
     };
     void loadModuleSettings().catch((caught: unknown) => {
       if (!controller.signal.aborted) {
@@ -861,10 +922,10 @@ export function OrganizerDashboard({
     await saveModuleSettings({ setupCompleted: true });
   };
 
-  const openModuleSettingsDialog = () => {
+  const openModuleSettingsDialog = useCallback(() => {
     setModuleSettingsDraft({});
     setModuleSettingsOpen(true);
-  };
+  }, []);
 
   const closeModuleSettingsDialog = () => {
     if (moduleSettingsSaving) return;
@@ -876,6 +937,86 @@ export function OrganizerDashboard({
     setModuleSettingsDraft({});
     setModuleSettingsOpen(false);
   };
+
+  const completeOrganizerOnboarding = useCallback(async () => {
+    const eventId = selectedEventIdRef.current;
+    if (!eventId) return;
+
+    const optimisticCompletedAt = new Date().toISOString();
+    setOrganizerOnboardingOpen(false);
+    setMemberships((current) => current.map((membership) =>
+      membership.event_id === eventId && membership.dashboard_onboarding_completed_at === null
+        ? { ...membership, dashboard_onboarding_completed_at: optimisticCompletedAt }
+        : membership
+    ));
+
+    if (isAdmin) return;
+
+    try {
+      const response = await fetch(`/api/organizer/events/${eventId}/onboarding`, {
+        method: "PATCH",
+        headers: authHeaders,
+      });
+      const data = (await response.json().catch(() => null)) as { completedAt?: string; message?: string } | null;
+      if (!response.ok || !data?.completedAt) {
+        throw new Error(data?.message ?? "Impossible de mémoriser la visite guidée.");
+      }
+      setMemberships((current) => current.map((membership) =>
+        membership.event_id === eventId
+          ? { ...membership, dashboard_onboarding_completed_at: data.completedAt ?? optimisticCompletedAt }
+          : membership
+      ));
+    } catch (caught) {
+      console.error("Unable to save organizer onboarding progress", caught);
+      showToast("error", "Guide fermé, mais sa progression n’a pas pu être mémorisée.");
+    }
+  }, [authHeaders, isAdmin, showToast]);
+
+  const replayOrganizerOnboarding = useCallback(() => {
+    setOrganizerOnboardingStep(0);
+    setOrganizerOnboardingOpen(true);
+  }, []);
+
+  const finishOrganizerOnboarding = useCallback((configureSections: boolean) => {
+    void completeOrganizerOnboarding();
+    if (!configureSections) return;
+    if (!moduleSettings) {
+      showToast("error", "Les sections sont encore en cours de chargement.");
+      return;
+    }
+    openModuleSettingsDialog();
+  }, [completeOrganizerOnboarding, moduleSettings, openModuleSettingsDialog, showToast]);
+
+  const nextOrganizerOnboardingStep = useCallback(() => {
+    if (organizerOnboardingStep < ORGANIZER_ONBOARDING_COPY.steps.length - 1) {
+      setOrganizerOnboardingStep((current) => current + 1);
+      return;
+    }
+    finishOrganizerOnboarding(true);
+  }, [finishOrganizerOnboarding, organizerOnboardingStep]);
+
+  const closeOrganizerOnboarding = useCallback(() => {
+    finishOrganizerOnboarding(false);
+  }, [finishOrganizerOnboarding]);
+
+  const previousOrganizerOnboardingStep = useCallback(() => {
+    setOrganizerOnboardingStep((current) => Math.max(0, current - 1));
+  }, []);
+
+  useEffect(() => {
+    if (organizerOnboardingOpen || !shouldOpenOrganizerOnboarding({
+      isAdmin,
+      status,
+      hasCompletion: Boolean(completion),
+      loadedEventId: eventDetail?.id ?? null,
+      selectedEventId,
+      membershipEventId: selectedMembership?.event_id ?? null,
+      completedAt: selectedMembership?.dashboard_onboarding_completed_at ?? null,
+    })) return;
+
+    setOrganizerOnboardingStep(0);
+    setOrganizerOnboardingOpen(true);
+  }, [completion, eventDetail, isAdmin, organizerOnboardingOpen, selectedEventId, selectedMembership, status]);
 
   useEffect(() => {
     if (!selectedEventId || !accessToken || typeof window === "undefined") return;
@@ -914,7 +1055,12 @@ export function OrganizerDashboard({
             refreshedEvent = {
               ...refreshedEvent,
               races: refreshedEvent.races.map((race) => publishedIds.has(race.id)
-                ? { ...race, racebook_is_live: true }
+                ? {
+                    ...race,
+                    is_live: true,
+                    racebook_preview_is_visible: true,
+                    racebook_is_live: true,
+                  }
                 : race),
             };
           }
@@ -1935,7 +2081,7 @@ export function OrganizerDashboard({
               race.edition_id === editionId
                 ? {
                     ...race,
-                    is_live: isVisible && race.data_status !== "draft",
+                    is_live: isVisible ? race.is_live : false,
                     racebook_is_live: isVisible ? race.racebook_is_live : false,
                   }
                 : race
@@ -2234,6 +2380,7 @@ export function OrganizerDashboard({
               races: current.races.map((race) => race.id === raceId
                 ? {
                     ...race,
+                    is_live: visibility === "public",
                     racebook_preview_is_visible: visibility !== "hidden",
                     racebook_is_live: visibility === "public",
                   }
@@ -2244,10 +2391,10 @@ export function OrganizerDashboard({
       showToast(
         "success",
         visibility === "public"
-          ? "RaceBook publié pour les coureurs."
+          ? "Course et RaceBook publiés pour tous."
           : visibility === "private"
-            ? "RaceBook visible uniquement dans ta démo."
-            : "RaceBook masqué partout."
+            ? "Course et RaceBook visibles uniquement par les organisateurs."
+            : "Format masqué du catalogue mobile."
       );
     } catch (caught) {
       console.error("Unable to update organizer Racebook visibility", caught);
@@ -2374,7 +2521,12 @@ export function OrganizerDashboard({
         ? {
             ...current,
             races: current.races.map((race) => publishedIds.has(race.id)
-              ? { ...race, racebook_is_live: true }
+              ? {
+                  ...race,
+                  is_live: true,
+                  racebook_preview_is_visible: true,
+                  racebook_is_live: true,
+                }
               : race),
           }
         : current);
@@ -2791,7 +2943,7 @@ export function OrganizerDashboard({
 
   const tabs = [
     { id: EVENT_TAB_ID, label: "Événement" },
-    ...raceSeriesGroups.map((group) => ({
+    ...workspaceRaceSeriesGroups.map((group) => ({
       id: group.id,
       label: `${group.seriesName}${group.races.some((race) => race.data_status === "draft") ? " · brouillon" : ""}`,
     })),
@@ -2863,6 +3015,7 @@ export function OrganizerDashboard({
         onEditionVisibilityChange={setEditionVisibility}
         onDeleteEdition={deleteSelectedEdition}
         onDeleteEvent={deleteSelectedEvent}
+        onReplayOnboarding={replayOrganizerOnboarding}
       />
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
@@ -3000,7 +3153,7 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Card className="rounded-lg">
+      <Card id="organizer-onboarding-editor" className="rounded-lg">
         <CardHeader
           className={
             (activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access") && activeRace
@@ -3548,6 +3701,20 @@ export function OrganizerDashboard({
           </div>
         </DialogContent>
       </Dialog>
+
+      <OnboardingOverlay
+        open={organizerOnboardingOpen}
+        step={organizerOnboardingStep}
+        copy={ORGANIZER_ONBOARDING_COPY}
+        targetId={ORGANIZER_ONBOARDING_TARGETS[organizerOnboardingStep] ?? null}
+        onClose={closeOrganizerOnboarding}
+        onNext={nextOrganizerOnboardingStep}
+        onPrevious={previousOrganizerOnboardingStep}
+        secondaryFinishAction={{
+          label: "Terminer",
+          onClick: closeOrganizerOnboarding,
+        }}
+      />
 
       <Dialog open={eventUpdatesDialogOpen} onOpenChange={setEventUpdatesDialogOpen}>
         <DialogContent>

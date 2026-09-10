@@ -4,6 +4,7 @@ import {
   getOrganizerDemoResults,
   getRacebookOnboardingResults,
   isRacebookOnboardingSearchReady,
+  mergeOrganizerCatalogEvents,
 } from "../../mobile/lib/racebookOnboarding";
 
 type TestRace = { id: string; published: boolean };
@@ -44,6 +45,25 @@ describe("mobile RaceBook onboarding search", () => {
 });
 
 describe("mobile organizer demo formats", () => {
+  it("merges organizer-only private formats into their public event without duplicates", () => {
+    expect(mergeOrganizerCatalogEvents(
+      [{ id: "event-a", races: [{ id: "race-public", published: true }] }],
+      [{
+        id: "event-a",
+        races: [
+          { id: "race-public", published: true },
+          { id: "race-private", published: false },
+        ],
+      }],
+    )).toEqual([{
+      id: "event-a",
+      races: [
+        { id: "race-public", published: true },
+        { id: "race-private", published: false },
+      ],
+    }]);
+  });
+
   it("removes a masked format and keeps unowned catalog events unchanged", () => {
     const demoEvents = [
       {

@@ -164,7 +164,7 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 
 `apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
 
-- its event relation uses an inner join filtered to `races.is_live = true`, so a hidden edition contributes no format and an event with no visible format is excluded; onboarding applies the same nested live-format filter;
+- its public event relation uses an inner join filtered to `races.is_live = true`, so masked/private formats do not reach ordinary runners; after resolving active organizer memberships, a second event-id-bounded relation loads only `racebook_preview_is_visible = true` formats and merges them into that organizer's catalog;
 - it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
 - it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping, then confirms a successful addition with a brief localized toast and scrolls the list to the newly pinned first event;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
@@ -258,7 +258,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - Keep guided RaceBook filtering presentation-only: the initial list and any search result may contain only formats accepted by `canShowRacebook`; the flow must not invent a publication exception, persist the search text, or change the normal Courses catalog when the onboarding parameter is absent.
-- Supabase embedded relations use left-join semantics by default. Keep the explicit `races!inner` plus `races.is_live = true` filters in catalog/onboarding so edition hiding cannot leak formats or leave empty event cards.
+- Supabase embedded relations use left-join semantics by default. Keep the explicit `races!inner` plus `races.is_live = true` filters on the public catalog read. The organizer-only companion read must remain bounded to ids from active memberships and to `racebook_preview_is_visible = true`; merging by stable event/race id must not duplicate public formats.
 - Hidden mobile detail headers should prefer one-line truncation over wrapping when the screen also shows custom left/right header actions; otherwise long French titles can overlap icons on compact iPhone widths.
 - Keep the tab navigator on history-based back behavior. Switching it back to `initialRoute` makes Android hardware back jump to `catalog` from hidden plan/race detail screens instead of popping to the real previous screen.
 - Keep the visible tab bar height and bottom padding derived from the bottom safe-area inset. A fixed height can place the tab actions underneath Android's three-button system navigation area.

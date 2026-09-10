@@ -8,6 +8,7 @@ import {
   buildOrganizerFormatSavePlan,
   createEmptyRaceForm,
   createRaceFormFromEventDefaults,
+  filterRaceSeriesGroupsForWorkspace,
   getGpxElevationTotalsAtDistance,
   getOrganizerDirtyScopeKey,
   getRaceEditionYear,
@@ -165,6 +166,32 @@ describe("organizer dashboard helpers", () => {
         [{ id: "edition-2026", event_id: "event-1", edition_year: 2026, start_date: "2026-12-31", end_date: "2027-01-01", is_current: true }]
       )
     ).toBe("2026");
+  });
+
+  it("removes hidden formats from the workspace tabs for the selected edition", () => {
+    const editions = [
+      { id: "edition-2026", event_id: "event-1", edition_year: 2026, start_date: "2026-06-20", end_date: "2026-06-21", is_current: true },
+      { id: "edition-2027", event_id: "event-1", edition_year: 2027, start_date: "2027-06-19", end_date: "2027-06-20", is_current: false },
+    ];
+    const groups = [
+      {
+        id: "visible-series",
+        seriesName: "Visible",
+        races: [{ id: "visible", edition_id: "edition-2026", edition_group_id: "visible-series", series_name: "Visible", name: "Visible", distance_km: 20, elevation_gain_m: 500, is_live: false, racebook_preview_is_visible: true }],
+      },
+      {
+        id: "hidden-series",
+        seriesName: "Masqué",
+        races: [{ id: "hidden", edition_id: "edition-2026", edition_group_id: "hidden-series", series_name: "Masqué", name: "Masqué", distance_km: 30, elevation_gain_m: 800, is_live: false, racebook_preview_is_visible: false }],
+      },
+      {
+        id: "other-year",
+        seriesName: "Autre édition",
+        races: [{ id: "other", edition_id: "edition-2027", edition_group_id: "other-year", series_name: "Autre édition", name: "Autre édition", distance_km: 40, elevation_gain_m: 1200, is_live: false, racebook_preview_is_visible: true }],
+      },
+    ];
+
+    expect(filterRaceSeriesGroupsForWorkspace(groups, editions, "2026").map((group) => group.id)).toEqual(["visible-series"]);
   });
 
   it("interpolates cumulative elevation totals from the GPX profile", () => {

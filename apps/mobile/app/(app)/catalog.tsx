@@ -30,6 +30,7 @@ import {
   getOrganizerDemoResults,
   getRacebookOnboardingResults,
   isRacebookOnboardingSearchReady,
+  mergeOrganizerCatalogEvents,
   normalizeRacebookOnboardingSearch,
 } from '../../lib/racebookOnboarding';
 import { prefetchRacebookSponsors } from '../../lib/racebookSponsors';
@@ -76,6 +77,38 @@ type RaceEventUpdate = {
 type RaceEventUpdateRef = Pick<RaceEventUpdate, 'id' | 'event_id'>;
 
 const ORGANIZER_UPDATES_PREVIEW_LIMIT = 3;
+
+const EVENT_CATALOG_SELECT = `
+  id,
+  name,
+  location,
+  race_date,
+  thumbnail_url,
+  is_live,
+  organizer_details,
+  race_event_updates (
+    id,
+    event_id,
+    race_id,
+    message,
+    created_at
+  ),
+  races!inner (
+    id,
+    name,
+    distance_km,
+    elevation_gain_m,
+    race_date,
+    is_live,
+    racebook_is_live,
+    racebook_preview_is_visible,
+    participation_mode,
+    has_aid_stations,
+    gpx_storage_path,
+    thumbnail_url,
+    organizer_details
+  )
+`;
 
 function formatEventDate(isoDate: string | null, locale: 'fr' | 'en'): string | null {
   if (!isoDate) return null;
@@ -525,6 +558,18 @@ export default function CatalogScreen() {
         const canUseFavorites = Boolean(sessionData?.session && !isAnonymousSession(sessionData.session));
         setCanFavoriteEvents(canUseFavorites);
 
+        const organizerMembershipsResult = userId
+          ? await supabase
+              .from('race_event_organizers')
+              .select('event_id')
+              .eq('user_id', userId)
+              .is('revoked_at', null)
+          : { data: [], error: null };
+        if (organizerMembershipsResult.error) throw organizerMembershipsResult.error;
+        const managedEventIds = (organizerMembershipsResult.data ?? []).map(
+          (membership: { event_id: string }) => String(membership.event_id),
+        );
+
         const [
           eventsResult,
           orphansResult,
@@ -532,41 +577,11 @@ export default function CatalogScreen() {
           favoriteIdsResult,
           readUpdateIdsResult,
           eventUpdateRefsResult,
-          organizerMembershipsResult,
+          organizerEventsResult,
         ] = await Promise.all([
           supabase
             .from('race_events')
-            .select(`
-              id,
-              name,
-              location,
-              race_date,
-              thumbnail_url,
-              is_live,
-              organizer_details,
-              race_event_updates (
-                id,
-                event_id,
-                race_id,
-                message,
-                created_at
-              ),
-              races!inner (
-                id,
-                name,
-                distance_km,
-                elevation_gain_m,
-                race_date,
-                is_live,
-                racebook_is_live,
-                racebook_preview_is_visible,
-                participation_mode,
-                has_aid_stations,
-                gpx_storage_path,
-                thumbnail_url,
-                organizer_details
-              )
-            `)
+            .select(EVENT_CATALOG_SELECT)
             .eq('is_live', true)
             .eq('races.is_live', true)
             .order('created_at', { referencedTable: 'race_event_updates', ascending: false })
@@ -587,12 +602,16 @@ export default function CatalogScreen() {
           canUseFavorites ? fetchRaceFavoriteEventIds() : Promise.resolve([] as string[]),
           canUseFavorites && userId ? fetchReadRaceEventUpdateIds(userId) : Promise.resolve([] as string[]),
           canUseFavorites ? fetchRaceEventUpdateRefs() : Promise.resolve([] as RaceEventUpdateRef[]),
-          userId
+          managedEventIds.length > 0
             ? supabase
-                .from('race_event_organizers')
-                .select('event_id')
-                .eq('user_id', userId)
-                .is('revoked_at', null)
+                .from('race_events')
+                .select(EVENT_CATALOG_SELECT)
+                .eq('is_live', true)
+                .in('id', managedEventIds)
+                .eq('races.racebook_preview_is_visible', true)
+                .order('created_at', { referencedTable: 'race_event_updates', ascending: false })
+                .limit(ORGANIZER_UPDATES_PREVIEW_LIMIT, { referencedTable: 'race_event_updates' })
+                .order('name')
             : Promise.resolve({ data: [], error: null }),
         ]);
 
@@ -600,10 +619,11 @@ export default function CatalogScreen() {
         if (eventsResult.error) throw eventsResult.error;
         if (orphansResult.error) throw orphansResult.error;
         if (personalResult.error) throw personalResult.error;
+        if (organizerEventsResult.error) throw organizerEventsResult.error;
 
         const favoriteIds = favoriteIdsResult ?? [];
-        const groups = sortEvents(
-          ((eventsResult.data ?? []) as Array<
+        const mapEventGroups = (rows: unknown[]) =>
+          (rows as Array<
             Omit<EventGroup, 'races' | 'updatesPreview'> & {
               races?: Race[] | null;
               race_event_updates?: RaceEventUpdate[] | null;
@@ -618,7 +638,12 @@ export default function CatalogScreen() {
             organizer_details: event.organizer_details,
             races: sortRaces((event.races ?? []) as Race[]),
             updatesPreview: sortRaceEventUpdates(event.race_event_updates),
-          })),
+          }));
+        const groups = sortEvents(
+          mergeOrganizerCatalogEvents(
+            mapEventGroups(eventsResult.data ?? []),
+            mapEventGroups(organizerEventsResult.data ?? []),
+          ),
           favoriteIds
         );
         const orphans = sortRaces((orphansResult.data ?? []) as Race[]);
@@ -641,13 +666,7 @@ export default function CatalogScreen() {
         setPersonalRaces(sortRaces((personalResult.data ?? []) as Race[]));
         setFavoriteEventIds(favoriteIds);
         setCurrentUserId(canUseFavorites ? userId : null);
-        setOrganizerEventIds(
-          new Set(
-            (organizerMembershipsResult.data ?? []).map((membership: { event_id: string }) =>
-              String(membership.event_id),
-            ),
-          ),
-        );
+        setOrganizerEventIds(new Set(managedEventIds));
         setReadUpdateIds(new Set(readUpdateIdsResult));
         setEventUpdateRefs(eventUpdateRefsResult);
         setError(null);

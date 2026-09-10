@@ -25,6 +25,7 @@ related_files:
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
@@ -35,6 +36,8 @@ related_files:
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
+  - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
+  - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
@@ -162,8 +165,10 @@ Use:
 - Re-sharing a plan can update an existing `plan_share_links` snapshot, so the service route must verify both bearer-token identity and parent-plan ownership before update as well as insert.
 - Public crew-state updates for `plan_share_links` are allowed only through a token-hash service route and should remain limited to `departure_time` and `crew_state`.
 - Mobile onboarding markers and per-tour statuses are column-only owner data. Existing profile select/insert/update policies remain the correct boundary; no new grant or policy is required.
+- Organizer dashboard onboarding is a column-only addition to the existing membership row. The browser completion endpoint must still verify the bearer user owns an active membership for the requested event before writing with service role.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 - Racebook publication remains behind service routes: organizer toggles require active event membership, a complete format, and an active edition-level `racebook.publish` capability. The atomic RPC writes durable unlock provenance on first publication; legacy publication requests remain service-only audit data.
+- Organizer-private mobile catalog reads first resolve the caller's own active event memberships, then request preview-selected formats only for those event ids. The `races_select` policy exposes public-source rows to everyone only when `is_live = true`, while creators, active parent-event organizers, and trusted `app_metadata` admins retain their scoped reads. Masked/private/public transitions remain server-mediated, and the publication RPC stays `SECURITY INVOKER` with execution restricted to `service_role`.
 - Superseding organizer-offer rule: paid publication uses a service-only edition entitlement and atomic RPC. Notification, relay, and station-product clients have no direct mutation grant; public Pro overlays use only the narrow private boolean helper.
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
 - `organizer_import_sessions` is service-only workflow state: no client policy is intentional. Both mutation RPCs must remain `SECURITY INVOKER`, revoke `PUBLIC` execution, and validate session expiry/scope plus every JSON key before writing.

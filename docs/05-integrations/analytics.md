@@ -207,6 +207,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 
 ## Gotchas
 
+- Merging organizer-only private formats into the mobile catalog is a visibility/read change, not a new analytics event. Existing course and RaceBook events keep stable event/race ids and must not record membership ids or private visibility state.
 - Never paste real PostHog keys into docs.
 - Do not include sensitive URL tokens in analytics paths.
 - Keep the PostHog internal/test-user exclusion enabled. The app marks the owner email and trusted Supabase admins; it does not delete their raw events.

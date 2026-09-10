@@ -74,6 +74,26 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain("Lieu différent de l&apos;événement");
   });
 
+  it("keeps the organizer onboarding concise and replayable", () => {
+    const dashboardSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"),
+      "utf8",
+    );
+    const shellSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"),
+      "utf8",
+    );
+
+    expect(dashboardSource).toContain("Étape {current} sur {total}");
+    expect(dashboardSource).toContain("Commun ou par format");
+    expect(dashboardSource).toContain("Configurer mes sections");
+    expect(dashboardSource).not.toContain('if (data.setupCompletedAt === null && data.tier !== "visibility")');
+    expect(shellSource).toContain("Revoir le guide");
+    forbiddenSequences.forEach((sequence) => {
+      expect(dashboardSource).not.toContain(sequence);
+    });
+  });
+
   it("keeps format and field evidence visible in the two-step review", () => {
     const absolutePath = resolve(process.cwd(), "app/organizer/_components/dashboard/website-import-review-details.tsx");
     const source = readFileSync(absolutePath, "utf8");
@@ -115,7 +135,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(controlsSource).toContain('{ value: "public", label: "Public"');
     expect(controlsSource).toContain("group-hover/visibility:block");
     expect(controlsSource).toContain("group-focus-within/visibility:block");
-    expect(controlsSource).toContain("Le RaceBook est visible uniquement dans votre démo organisateur");
+    expect(controlsSource).toContain("La course et son RaceBook sont visibles uniquement par les organisateurs actifs");
     expect(dashboardSource).toContain('racebookIsLive: visibility === "public"');
     expect(dashboardSource).toContain('visibility === "public" && activeTier === "visibility"');
     expect(dashboardSource).toContain('openPricingDialog("publication")');
@@ -184,6 +204,9 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('module.status === "incomplete" && "border-amber-300');
     expect(shellSource).toContain('module.status === "complete" && "border-emerald-300');
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
+    expect(shellSource).toContain('min-h-[82px] rounded-lg');
+    expect(shellSource).not.toContain('Manque : {module.missingLabels');
+    expect(dashboardSource).toContain("filterRaceSeriesGroupsForWorkspace");
   });
 
   it("keeps format publication prerequisites visible and persisted", () => {

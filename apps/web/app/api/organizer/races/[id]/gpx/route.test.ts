@@ -148,7 +148,7 @@ describe("/api/organizer/races/[id]/gpx", () => {
     expect(JSON.parse(String(mockFetch.mock.calls[1]?.[1]?.body))).toMatchObject({
       missing_required_fields: [],
       data_status: "complete",
-      is_live: true,
+      is_live: false,
       racebook_is_live: false,
     });
   });

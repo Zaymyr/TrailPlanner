@@ -8,6 +8,9 @@ related_files:
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260820135823_add_racebook_publication_control.sql
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
+  - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
+  - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
+  - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/api/admin/organizer-claims/route.ts
@@ -15,6 +18,12 @@ related_files:
   - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
+  - apps/web/app/api/organizer/events/[id]/onboarding/route.ts
+  - apps/web/app/api/organizer/events/[id]/onboarding/route.test.ts
+  - apps/web/app/api/organizer/bootstrap/route.ts
+  - apps/web/app/organizer/_components/dashboard/types.ts
+  - apps/web/app/organizer/_components/dashboard/onboarding.ts
+  - apps/web/app/organizer/_components/dashboard/onboarding.test.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
@@ -54,6 +63,7 @@ related_tables:
 - Membership provenance: `claim_id` links membership back to an approved legacy claim when available; direct creators use `claim_id = null`.
 - Admin assignment: an admin may attach a Supabase Auth account by exact e-mail match. If it is absent, an explicit UI confirmation lets the server create it through a Supabase invitation before assignment; new delegated memberships use `role = 'organizer'` and `claim_id = null`.
 - Public catalog preservation: claimed public races are not tied to `races.created_by`.
+- Dashboard onboarding: completion is personal to one organizer/event membership rather than shared by the event or edition.
 
 ## Columns
 
@@ -69,6 +79,7 @@ related_tables:
 | `revoked_at` | `timestamptz` | nullable | Revocation timestamp. |
 | `revoked_by` | `uuid` | nullable, references `auth.users(id)` on delete set null | Admin that revoked access. |
 | `revoke_reason` | `text` | nullable | Internal revocation reason. |
+| `dashboard_onboarding_completed_at` | `timestamptz` | nullable, default null | First completion or explicit skip of the Organizer dashboard guide for this membership. |
 
 ## Foreign Keys
 
@@ -106,15 +117,18 @@ Summary:
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
 - Active membership also authorizes edition visibility changes and confirmed edition deletion. The route scopes the edition back to its parent event before mutating it; unlike whole-event deletion, this action is not owner-only.
 - That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
-- New organizer-created formats default to catalog-visible (`is_live = true`) but their Racebook defaults to hidden and unapproved.
-- Admin-confirmed import formats are the exception: they may start as hidden incomplete drafts. The same membership-gated race and GPX routes may complete their required-field markers later, while keeping the Racebook hidden.
+- New organizer-created formats default to private (`is_live = false`, `racebook_preview_is_visible = true`, `racebook_is_live = false`) so active organizers can inspect the course and RaceBook before publication.
+- Admin-confirmed import formats may start as incomplete drafts. The same membership-gated race and GPX routes may complete their required-field markers later while keeping the format private until an explicit Public transition.
 - A membership authorizes organizer station-product edits, including catalog-product picker attachments and organizer-scoped product creation, only for stations under the managed event.
 - Claimed public races should keep `races.created_by = null` unless they were user-private races for another flow.
 - Revocation should set `revoked_at` instead of deleting the row.
 - Direct admin assignment grants edit access only. It does not change catalog or Racebook visibility, approval provenance, or publication-review history.
+- The dashboard guide auto-opens only while this membership's completion timestamp is null. Its idempotent service route checks the active membership before stamping the first completion; replay does not clear or replace that timestamp.
 - Active membership is the first branding-route gate, but the selected edition must also grant Pro `branding.manage`; trusted admins retain the existing membership bypass implemented by the shared server authorization helper.
 
 ## Common Queries
+
+Membership-gated bootstrap and event-detail reads return each managed format's persisted `is_live`, `racebook_preview_is_visible`, and `racebook_is_live` flags so the three-state Organizer control survives event reloads. Mobile uses the same active membership to merge preview-selected private formats into that organizer's catalog only.
 
 Check active membership for an event:
 
@@ -163,6 +177,7 @@ order by created_at asc;
 - Admin access review should remain usable even when organizer-identity enrichment fails; active memberships must still be visible with fallback ids or emails.
 - Supabase Auth e-mail lookup and invitation for direct assignment must remain in the admin-only server route with the service credential. Never expose the Auth Admin user list or service credential to the browser, and never invite an absent address before the admin confirms the not-found dialog.
 - A newly delegated `organizer` can edit the event and its formats but cannot use the owner-only permanent event deletion action.
+- Synthetic admin selector entries have no persisted onboarding timestamp and must never be inserted solely to remember a guide replay; trusted admins are excluded from automatic display.
 
 ## Related Docs
 

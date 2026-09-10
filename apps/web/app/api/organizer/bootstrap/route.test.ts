@@ -29,6 +29,7 @@ const membership = (eventId: string, name: string) => ({
   created_at: "2026-08-25T10:00:00.000Z",
   event_id: eventId,
   role: "owner",
+  dashboard_onboarding_completed_at: null,
   race_events: eventSummary(eventId, name),
 });
 
@@ -98,7 +99,11 @@ describe("/api/organizer/bootstrap", () => {
     expect(response.status).toBe(200);
     expect(payload).toMatchObject({
       claims: [],
-      memberships: [expect.objectContaining({ event_id: firstEventId, role: "owner" })],
+      memberships: [expect.objectContaining({
+        event_id: firstEventId,
+        role: "owner",
+        dashboard_onboarding_completed_at: null,
+      })],
       editionRequests: [],
       publicationRequests: [],
       event: expect.objectContaining({ id: firstEventId, organizerDetails: expect.any(Object) }),

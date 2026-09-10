@@ -1,20 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Button } from "../ui/button";
-import type { OnboardingTranslations } from "../../locales/types";
+
+export type OnboardingOverlayCopy = {
+  closeLabel: string;
+  stepOf: string;
+  next: string;
+  previous: string;
+  finish: string;
+  steps: ReadonlyArray<{
+    title: string;
+    description: string;
+  }>;
+};
 
 type SpotlightRect = { x: number; y: number; width: number; height: number };
 
 type Props = {
   open: boolean;
   step: number;
-  copy: OnboardingTranslations;
+  copy: OnboardingOverlayCopy;
   /** DOM element ID to highlight for this step, or null for no highlight */
   targetId: string | null;
   onClose: () => void;
   onNext: () => void;
   onPrevious: () => void;
+  secondaryFinishAction?: {
+    label: string;
+    onClick: () => void;
+  };
 };
 
 const PAD = 12;           // padding around the spotlight cutout
@@ -23,8 +38,53 @@ const MODAL_H = 290;      // approximate modal height for positioning
 const GAP = 18;           // gap between spotlight and modal card
 const SETTLE_MS = 430;    // time to wait for smooth-scroll to finish
 
-export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext, onPrevious }: Props) {
+export function OnboardingOverlay({
+  open,
+  step,
+  copy,
+  targetId,
+  onClose,
+  onNext,
+  onPrevious,
+  secondaryFinishAction,
+}: Props) {
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
+  const primaryActionRef = useRef<HTMLButtonElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+
+  useEffect(() => {
+    if (!open) return;
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        "button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex='-1'])",
+      ));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    const focusTimer = window.setTimeout(() => primaryActionRef.current?.focus(), 0);
+
+    return () => {
+      window.clearTimeout(focusTimer);
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [open, onClose]);
 
   useEffect(() => {
     if (!open) {
@@ -135,6 +195,7 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
           variant="ghost"
           className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-foreground dark:text-slate-200"
           aria-label={copy.closeLabel}
+          title={copy.closeLabel}
           onClick={onClose}
         >
           ×
@@ -142,8 +203,8 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
       </div>
 
       {/* Content */}
-      <h2 className="text-xl font-semibold text-foreground dark:text-slate-50">{currentStep.title}</h2>
-      <p className="mt-3 text-sm leading-relaxed text-muted-foreground">{currentStep.description}</p>
+      <h2 id={titleId} className="text-xl font-semibold text-foreground dark:text-slate-50">{currentStep.title}</h2>
+      <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">{currentStep.description}</p>
 
       {/* Progress dots */}
       <div className="mt-6 flex items-center justify-center gap-2">
@@ -158,7 +219,7 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
       </div>
 
       {/* Footer */}
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
         <div>
           {!isFirst && (
             <Button type="button" variant="ghost" onClick={onPrevious}>
@@ -166,15 +227,23 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
             </Button>
           )}
         </div>
-        <Button type="button" onClick={onNext}>
-          {isLast ? copy.finish : copy.next}
-        </Button>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          {isLast && secondaryFinishAction ? (
+            <Button type="button" variant="outline" onClick={secondaryFinishAction.onClick}>
+              {secondaryFinishAction.label}
+            </Button>
+          ) : null}
+          <Button ref={primaryActionRef} type="button" onClick={onNext}>
+            {isLast ? copy.finish : copy.next}
+          </Button>
+        </div>
       </div>
     </>
   );
 
   return (
     <>
+      <div className="fixed inset-0 z-50" aria-hidden="true" />
       {/* ── Backdrop with spotlight cutout ── */}
       <svg
         className="pointer-events-none fixed inset-0 z-50 h-full w-full"
@@ -225,12 +294,30 @@ export function OnboardingOverlay({ open, step, copy, targetId, onClose, onNext,
           className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
           style={{ top: modalTop ?? 0 }}
         >
-          <div className={cardClass}>{cardContent}</div>
+          <div
+            ref={dialogRef}
+            className={cardClass}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+          >
+            {cardContent}
+          </div>
         </div>
       ) : (
         // No spotlight → center on screen
         <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className={cardClass}>{cardContent}</div>
+          <div
+            ref={dialogRef}
+            className={cardClass}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby={titleId}
+            aria-describedby={descriptionId}
+          >
+            {cardContent}
+          </div>
         </div>
       )}
     </>

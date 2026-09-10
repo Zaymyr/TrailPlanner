@@ -127,6 +127,7 @@ export function OrganizerSummaryHeader({
   onEditionVisibilityChange,
   onDeleteEdition,
   onDeleteEvent,
+  onReplayOnboarding,
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
@@ -156,6 +157,7 @@ export function OrganizerSummaryHeader({
   onEditionVisibilityChange: (isVisible: boolean) => Promise<boolean>;
   onDeleteEdition: () => Promise<boolean>;
   onDeleteEvent: () => Promise<boolean>;
+  onReplayOnboarding: () => void;
 }) {
   const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
   const [duplicatePreviousEdition, setDuplicatePreviousEdition] = React.useState(true);
@@ -194,7 +196,7 @@ export function OrganizerSummaryHeader({
         : "Aucun paiement actif";
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+      <div id="organizer-onboarding-overview" className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Espace organisateur</p>
           <h1 className="mt-1 truncate text-xl font-semibold text-foreground">
@@ -241,6 +243,18 @@ export function OrganizerSummaryHeader({
               <Link href="/organizers" title="Créer un événement distinct de celui actuellement sélectionné." className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
                 <span className="flex h-10 items-center px-4 text-sm font-semibold text-foreground hover:bg-muted/40">Créer un autre événement</span>
               </Link>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  onReplayOnboarding();
+                }}
+                className="!justify-start"
+                title="Afficher à nouveau la visite guidée de cet espace."
+              >
+                Revoir le guide
+              </Button>
               <div className="my-1 border-t border-border" />
               <Button
                 type="button"
@@ -273,7 +287,7 @@ export function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div className="mt-5 grid max-w-2xl gap-3 border-t border-border pt-4 md:grid-cols-[minmax(16rem,28rem)_10rem]">
+      <div id="organizer-onboarding-selectors" className="mt-5 grid max-w-2xl gap-3 border-t border-border pt-4 md:grid-cols-[minmax(16rem,28rem)_10rem]">
         <OrganizerEventCombobox
           memberships={memberships}
           selectedEventId={selectedEventId}
@@ -294,7 +308,7 @@ export function OrganizerSummaryHeader({
       </div>
 
       <details open={isSummaryExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-2">
-        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
+        <summary id="organizer-onboarding-visibility" className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
           Gérer la visibilité
           <span className="font-normal text-muted-foreground">{raceRows.length} format{raceRows.length > 1 ? "s" : ""}</span>
           <span className="ml-auto text-xs text-muted-foreground">{isSummaryExpanded ? "Fermer" : "Ouvrir"}</span>
@@ -706,7 +720,7 @@ export function CompletionTabsPanel({
 
   return (
     <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
-      <div className="md:hidden">
+      <div id="organizer-onboarding-scope-navigation" className="md:hidden">
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
           Informations à modifier
         </label>
@@ -728,7 +742,7 @@ export function CompletionTabsPanel({
         </select>
       </div>
 
-      <div className="hidden gap-4 border-b border-border pb-4 md:grid lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,3fr)]">
+      <div id="organizer-onboarding-scope-navigation" className="hidden gap-4 border-b border-border pb-4 md:grid lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,3fr)]">
         <div className="rounded-xl bg-muted/40 p-2">
           <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Informations communes</p>
           {eventTab ? (
@@ -827,7 +841,7 @@ export function OrganizerModuleGrid({
   } as const;
 
   return (
-    <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+    <div id="organizer-onboarding-module-tiles" className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-7">
       {modules.map((module) => (
         <button
           key={module.id}
@@ -835,7 +849,7 @@ export function OrganizerModuleGrid({
           aria-label={`${module.title}. ${statusLabels[module.status]}. ${module.countLabel}. ${module.description}`}
           aria-current={activeModule === module.id ? "true" : undefined}
           className={cn(
-            "relative min-h-[112px] rounded-xl border-2 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
+            "relative min-h-[82px] rounded-lg border-2 p-3 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
             module.status === "empty" && "border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/30",
             module.status === "incomplete" && "border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/20",
             module.status === "complete" && "border-emerald-300 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-950/20",
@@ -844,14 +858,8 @@ export function OrganizerModuleGrid({
           )}
           onClick={() => onSelectModule(module.id)}
         >
-          <h2 className="pr-5 text-base font-bold leading-snug text-foreground">{module.title}</h2>
-          <p className="mt-2 text-sm font-medium text-muted-foreground">{module.countLabel}</p>
-          {module.missingLabels?.length ? (
-            <p className="mt-3 line-clamp-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
-              Manque : {module.missingLabels.slice(0, 3).join(", ")}
-              {module.missingLabels.length > 3 ? "..." : ""}
-            </p>
-          ) : null}
+          <h2 className="pr-5 text-sm font-bold leading-snug text-foreground">{module.title}</h2>
+          <p className="mt-1.5 text-xs font-medium leading-snug text-muted-foreground">{module.countLabel}</p>
           {isDirty(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
         </button>
       ))}

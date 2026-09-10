@@ -34,6 +34,7 @@ related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
+  - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
 related_tables:
   - race_event_editions
@@ -130,6 +131,8 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 
 ## Common Queries
 
+Organizer bootstrap and event-detail reads preserve each attached format's course and RaceBook visibility flags. Both masked and private formats keep `is_live = false`; preview false/true distinguishes complete hiding from organizer-only access, while publication atomically restores course, preview, and RaceBook live flags.
+
 ```sql
 select id, edition_year, start_date, end_date, is_current, is_visible
 from race_event_editions
@@ -152,9 +155,9 @@ where ree.event_id = :event_id
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.
 - Do not require a source edition lookup when the organizer explicitly disables duplication; source formats are needed only for the cloning branch.
-- A cloned/new edition may be course-visible while every attached Racebook is unpublished. Private-demo selection remains per format and independent from entitlement; the explicit edition publication action includes only selected complete formats. Do not derive either state from edition currentness or `races.is_live`.
+- A cloned/new edition may itself be visible while every attached format remains private. Preview selection remains per format and independent from entitlement; publication includes only selected complete formats. Do not derive format visibility from edition currentness.
 - Do not detach formats when deleting an edition. The cascade is intentional so no yearless organizer course survives a confirmed edition deletion.
-- Do not republish Racebooks when an edition becomes visible again; hiding is destructive to their live flag, not to their durable approval timestamp.
+- Do not republish courses or Racebooks when an edition becomes visible again; hiding clears their live flags, not the durable approval timestamp, and each format must return to Public explicitly.
 - Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.
 - Manual edition creation is free. Cloning a source edition requires Complete or Signature and copies edition and cloned-format module settings.
 - Branding belongs to the edition, not an individual format. Do not duplicate or resolve it from `races.id` once the canonical `edition_id` is known.

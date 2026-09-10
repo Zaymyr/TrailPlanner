@@ -259,6 +259,7 @@ where is_live = true
 
 ## Gotchas
 
+- Organizer bootstrap and event-detail reads must include all three nested format visibility flags. Masked/private formats use `is_live = false`; preview false/true distinguishes fully hidden from organizer-only catalog and RaceBook access.
 - Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
 
 - Keep event bib pickup as the default source. A format-level pickup is active only when `overrideEnabled` is explicitly true; absent/false values preserve the event fallback, and the format variant does not require geocoded metadata.
@@ -281,7 +282,7 @@ where is_live = true
 - Treat the emergency contact phone as published operational information: keep it inside the Racebook contract, normalize French values to `+33 X XX XX XX XX` on web parsing and mobile compatibility reads, and remove separators from the `tel:` action value.
 - Keep website and social fields as validated HTTP(S) URLs. The shared parser may add `https://` only when the entered value is already a valid domain link; it must not turn arbitrary text into a URL.
 - Organizer event/race mutation routes cannot set catalog live state. Organizer checkout requires event name/location, the selected edition range, and at least one complete format; an active edition RaceBook or Pro entitlement then permits publishing each complete Racebook without admin review.
-- Never hide a course merely because its Racebook is hidden. `race_events.is_live` / `races.is_live` are catalog state; `races.racebook_is_live` is the ordinary runner Racebook state. Organizer preview access comes only from active event membership and must not flip publication state.
+- Organizer format visibility is an explicit three-state exception to independent catalog/RaceBook flags: masked is false/false/false, private is false/true/false, and public is true/true/true for `is_live` / preview / RaceBook live. Other code must not infer one flag from another outside this transition contract.
 - Do not infer organizer write authorization from edition age; `/api/organizer/events/[id]` and child mutation routes rely on active event membership for past and future editions.
 - Event deletion must collect edition sponsor logo paths before the edition cascade, then remove those `race-images` objects after the database delete succeeds.
 - Event deletion must also collect draft and published edition-branding logo paths before the cascade and remove each distinct unreferenced object afterward.

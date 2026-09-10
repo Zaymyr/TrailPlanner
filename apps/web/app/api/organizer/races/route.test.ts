@@ -125,7 +125,9 @@ describe("/api/organizer/races POST", () => {
     expect(payload.race?.series_name).toBe("Trail 42");
     expect(fetch).toHaveBeenCalledTimes(3);
     expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
-      is_live: true,
+      is_live: false,
+      racebook_preview_is_visible: true,
+      racebook_is_live: false,
       is_public: true,
       elevation_gain_m: null,
       gpx_path: null,
