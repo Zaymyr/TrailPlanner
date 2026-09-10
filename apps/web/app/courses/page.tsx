@@ -1,15 +1,23 @@
 import type { Metadata } from "next";
 import type { Route } from "next";
 import Link from "next/link";
+import { notFound } from "next/navigation";
 
 import { getPublicRaces } from "../../lib/public-races";
 import { getIndexableDistancePages } from "../../lib/race-discovery";
 import { DEFAULT_SOCIAL_IMAGE, DEFAULT_SOCIAL_IMAGE_PATH, SITE_URL } from "../seo";
 import { RaceCatalogFilter } from "./_components/RaceCatalogFilter";
+import {
+  getCatalogHref,
+  getCatalogView,
+  isCanonicalPaginationQuery,
+  parseCatalogQuery,
+  type CatalogSearchParams,
+} from "./catalog-query";
 
 export const revalidate = 900;
 
-export const metadata: Metadata = {
+const baseMetadata: Metadata = {
   title: "Calendrier trail : courses, distances et dénivelés",
   description:
     "Découvrez les courses de trail du calendrier Pace Yourself : dates, distances, dénivelés et lieux pour préparer votre prochaine course.",
@@ -29,6 +37,19 @@ export const metadata: Metadata = {
   },
 };
 
+export function generateMetadata({ searchParams }: { searchParams?: CatalogSearchParams }): Metadata {
+  const query = parseCatalogQuery(searchParams);
+  const isIndexableQuery = isCanonicalPaginationQuery(searchParams, query);
+  const pageSuffix = query.page > 1 ? ` - page ${query.page}` : "";
+
+  return {
+    ...baseMetadata,
+    title: `${String(baseMetadata.title)}${pageSuffix}`,
+    alternates: { canonical: isIndexableQuery ? getCatalogHref(query, query.page) : "/courses" },
+    robots: isIndexableQuery ? undefined : { index: false, follow: true },
+  };
+}
+
 const getTodayInFrance = () => {
   const parts = new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Paris",
@@ -40,17 +61,21 @@ const getTodayInFrance = () => {
   return `${values.year}-${values.month}-${values.day}`;
 };
 
-export default async function CoursesPage() {
+export default async function CoursesPage({ searchParams }: { searchParams?: CatalogSearchParams }) {
   const races = await getPublicRaces();
   const distancePages = getIndexableDistancePages(races);
+  const query = parseCatalogQuery(searchParams);
+  const catalogView = getCatalogView(races, query, getTodayInFrance());
+  if (query.page > catalogView.totalPages) notFound();
+  const visibleRaces = catalogView.groups.flatMap((group) => group.races);
   const itemListData = {
     "@context": "https://schema.org",
     "@type": "ItemList",
     name: "Catalogue des courses de trail",
-    numberOfItems: races.length,
-    itemListElement: races.map((race, index) => ({
+    numberOfItems: catalogView.filteredRaceCount,
+    itemListElement: visibleRaces.map((race, index) => ({
       "@type": "ListItem",
-      position: index + 1,
+      position: catalogView.firstRacePosition + index,
       name: race.name,
       url: new URL(`/courses/${race.slug}`, SITE_URL).toString(),
     })),
@@ -114,7 +139,7 @@ export default async function CoursesPage() {
         </section>
       ) : null}
 
-      <RaceCatalogFilter races={races} todayIso={getTodayInFrance()} />
+      <RaceCatalogFilter view={catalogView} />
     </main>
   );
 }

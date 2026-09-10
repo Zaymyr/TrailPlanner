@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import { buildBlogPostingJsonLd, getBlogLayoutCopy } from "../../components/BlogLayout";
+import {
+  buildBlogPostingJsonLd,
+  getBlogLayoutCopy,
+  serializeBlogPostingJsonLd,
+} from "../../components/BlogLayout";
 import type { CompiledPost } from "../../lib/blog/posts";
 
 const post = {
@@ -38,4 +42,15 @@ describe("BlogPosting structured data", () => {
     expect(jsonLd.publisher.logo.url).toBe("https://pace-yourself.com/branding/logo-icon-v2.png");
     expect(jsonLd).not.toHaveProperty("articleBody");
   });
+
+  it("serializes JSON-LD safely for the server-rendered script element", () => {
+    const html = serializeBlogPostingJsonLd(
+      { ...post, meta: { ...post.meta, title: "Trail </script> test" } } as CompiledPost,
+      "https://pace-yourself.com/blog/article-test",
+    );
+
+    expect(html).toContain("\\u003c/script>");
+    expect(html).not.toContain("</script>");
+  });
+
 });

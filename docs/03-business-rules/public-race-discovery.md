@@ -16,6 +16,8 @@ related_files:
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/lib/race-discovery.ts
   - apps/web/app/courses/page.tsx
+  - apps/web/app/courses/catalog-query.ts
+  - apps/web/app/courses/catalog-query.test.ts
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
   - apps/web/app/courses/_components/PublicRaceLinks.tsx
@@ -67,7 +69,7 @@ The detail page applies the established event/format inheritance parser for sche
 
 When a private GPX object exists, the server downloads and parses it only after every visibility gate succeeds. The browser receives a bounded route/elevation preview of about 600 points, never the GPX file or Storage path. Invalid or absent GPX degrades to a detail page without map/profile, and the public page offers no GPX download action.
 
-The page exposes `SportsEvent` and `BreadcrumbList` structured data using only confirmed facts. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters and include the confirmed race year when it is not already present; descriptions are capped at 160 characters. It links to:
+The page always exposes `BreadcrumbList` structured data and exposes `SportsEvent` only when the format has a valid calendar `startDate` in strict `YYYY-MM-DD` form. Open Graph and Twitter use the format image first, the event image second, and the shared Pace Yourself social image last. SEO titles are capped at 60 characters, reserve a factual distance/year suffix, and truncate the middle of long names so both the event prefix and distinguishing format suffix survive; descriptions are capped at 160 characters. It links to:
 
 - other published formats sharing the same event edition, with the legacy event-only fallback when `edition_id` is absent;
 - up to three published races from other events with the nearest distance, using elevation only as a tie-breaker;
@@ -80,11 +82,11 @@ Sharing uses the native Web Share sheet when available, which lets installed mob
 
 The `/courses` catalog groups published formats by stable non-null `event_id + edition_id`. Historical rows with an event but no edition fall back to `event_id`; a display name is never an identity and two homonymous events remain separate. Each standalone race with no event id stays in its own card. Formats are ordered by numeric distance with unknown values last.
 
-The default temporal filter contains upcoming/current formats followed by undated formats. Past formats are available separately and sorted newest first; the `Toutes` view keeps upcoming, undated, then past. Search is accent- and punctuation-insensitive, matches every entered token regardless of order, and covers format/event names plus every allowlisted format and normalized parent-event locality. It combines with distance and temporal filters. Visible result counters and a reset action describe the active state.
+The default temporal filter contains upcoming/current formats followed by undated formats. Past formats are available separately and sorted newest first; the `Toutes` view keeps upcoming, undated, then past. Search is accent- and punctuation-insensitive, matches every entered token regardless of order, and covers format/event names plus every allowlisted format and normalized parent-event locality. It combines with distance and temporal filters through a server GET form. Visible result counters and a reset action describe the active state.
 
 Filtering happens before grouping, so an event-edition card disappears when none of its formats matches. Every visible format remains a normal HTML link to `/courses/[slug]`. Event-edition cards use the shared event image and year/date where available; standalone formats use their own image. A format image remains the first detail-page image choice. Missing images reserve no empty visual area. The responsive card layout stacks at narrow widths, keeps controls at least 44 px high and avoids horizontal tables.
 
-The catalog emits an `ItemList` for all published format URLs. Client filters do not create crawlable combinations and do not change canonical URLs.
+The catalog paginates on the server at 12 event-edition groups per response and emits an `ItemList` only for the visible page, with positions continuing across pages. The full public race collection is never serialized into a client component. Unfiltered numbered pages have self-canonicals and crawlable previous/next links; out-of-range pages return not found. Search, distance, and period query combinations are `noindex,follow` and canonicalize to `/courses`, preventing a filter-index explosion while preserving discovery links.
 
 ## Prefiltered Landing Pages
 

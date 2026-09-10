@@ -63,7 +63,7 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - Inserts and updates reject a slug already reserved in this table.
 - Transaction advisory locks serialize reservations for the old and new names; the existing unique race-slug constraint remains the canonical-name collision guard.
 - `rename_race_slug` normalizes trim/case, validates the allowed slug format, locks the race row, updates it, and lets the trigger record the redirect atomically.
-- The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract. Metadata for an old slug is already canonicalized to the current page and uses the same bounded, year-aware title and description helper.
+- The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract. Metadata for an old slug is already canonicalized to the current page and uses the same bounded helper, whose distance/year suffix and middle truncation retain the distinguishing end of long format names.
 - Canonical and redirected catalog reads share the same explicit parent-event projection. Adding searchable city, department, region, and country labels does not change redirect visibility or expose organizer JSON, codes, or coordinates.
 
 ## Common Queries

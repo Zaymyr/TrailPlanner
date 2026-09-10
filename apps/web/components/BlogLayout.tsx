@@ -1,6 +1,5 @@
 import Image from "next/image";
 import Link from "next/link";
-import Script from "next/script";
 
 import type { CompiledPost } from "../lib/blog/posts";
 import { formatBlogDate } from "../lib/blog/format";
@@ -87,9 +86,15 @@ export const getBlogLayoutCopy = (locale: "fr" | "en") => ({
   reading: readingCopy[locale],
 });
 
-const TagList = ({ tags }: { tags: string[] }) => {
+// Keep JSON-LD in the server-rendered document. Escaping `<` prevents content
+// from prematurely closing the script element when a title or description
+// contains HTML-like text.
+export const serializeBlogPostingJsonLd = (post: CompiledPost, canonicalUrl: string): string =>
+  JSON.stringify(buildBlogPostingJsonLd(post, canonicalUrl)).replace(/</g, "\\u003c");
+
+const TagList = ({ tags, locale }: { tags: string[]; locale: "fr" | "en" }) => {
   if (tags.length === 0) {
-    return <TagBadge label="Untagged" variant="muted" />;
+    return <TagBadge label={locale === "fr" ? "Sans catégorie" : "Untagged"} variant="muted" />;
   }
 
   return (
@@ -139,7 +144,7 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProp
           <span>{post.meta.readingTime.words} {reading.words}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <TagList tags={post.meta.tags} />
+          <TagList tags={post.meta.tags} locale={locale} />
           <Link
             href={catalogRaceId ? `${RACE_PLANNER_PATH}?catalogRaceId=${catalogRaceId}` : RACE_PLANNER_PATH}
             className="inline-flex items-center justify-center rounded-md border border-brand bg-brand px-4 py-2 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:border-emerald-400/70 dark:bg-emerald-500 dark:text-foreground dark:hover:bg-emerald-400 dark:focus-visible:outline-emerald-300"
@@ -192,15 +197,14 @@ export const BlogLayout = ({ post, canonicalUrl, catalogRaceId }: BlogLayoutProp
         )}
       </div>
 
-      <RelatedPosts slug={post.meta.slug} />
+      <RelatedPosts slug={post.meta.slug} locale={locale} />
 
       <BlogCatalogCta catalogRaceId={catalogRaceId} locale={locale} />
 
-      <Script
+      <script
         id={`blog-json-ld-${post.meta.slug}`}
         type="application/ld+json"
-        strategy="afterInteractive"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildBlogPostingJsonLd(post, canonicalUrl)) }}
+        dangerouslySetInnerHTML={{ __html: serializeBlogPostingJsonLd(post, canonicalUrl) }}
       />
     </div>
   );

@@ -18,10 +18,24 @@ const truncateSeoText = (value: string, maxLength: number) => {
   return `${candidate.slice(0, cutAt).trimEnd()}…`;
 };
 
+const truncateSeoIdentity = (value: string, maxLength: number) => {
+  if (value.length <= maxLength) return value;
+  if (maxLength <= 1) return "…";
+
+  // Race formats often share a long event prefix and differ only by the code
+  // or format name at the end. Preserve both ends so truncation does not erase
+  // the part that distinguishes two sibling course pages.
+  const availableLength = maxLength - 1;
+  const tailLength = Math.max(1, Math.floor(availableLength * 0.4));
+  const headLength = availableLength - tailLength;
+  return `${value.slice(0, headLength).trimEnd()}…${value.slice(-tailLength).trimStart()}`;
+};
+
 export const formatPublicRaceDate = (date: string | null) => {
-  if (!date) return null;
-  const parsed = new Date(`${date.slice(0, 10)}T12:00:00Z`);
-  return Number.isNaN(parsed.getTime()) ? null : dateFormatter.format(parsed);
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  const parsed = new Date(`${date}T12:00:00Z`);
+  if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) return null;
+  return dateFormatter.format(parsed);
 };
 
 const getEditionYear = (race: PublicRace) => {
@@ -31,9 +45,10 @@ const getEditionYear = (race: PublicRace) => {
 
 export const buildRaceMetadataTitle = (race: PublicRace) => {
   const year = getEditionYear(race);
-  const yearSuffix = year && !new RegExp(`(^|\\D)${year}(\\D|$)`).test(race.name) ? ` ${year}` : "";
-  const suffix = `${yearSuffix} : date, distance et D+`;
-  return `${truncateSeoText(race.name, MAX_TITLE_LENGTH - suffix.length)}${suffix}`;
+  const distance = race.distanceKm !== null ? `${race.distanceKm.toLocaleString("fr-FR")} km` : null;
+  const facts = [distance, year].filter((value): value is string => Boolean(value));
+  const suffix = facts.length ? ` | ${facts.join(" · ")}` : " | infos course";
+  return `${truncateSeoIdentity(race.name, MAX_TITLE_LENGTH - suffix.length)}${suffix}`;
 };
 
 export const buildRaceMetadataDescription = (race: PublicRace | null) => {

@@ -55,6 +55,8 @@ related_files:
   - apps/web/lib/public-race-detail.ts
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/app/courses/page.tsx
+  - apps/web/app/courses/catalog-query.ts
+  - apps/web/app/courses/catalog-query.test.ts
   - apps/web/app/courses/[slug]/page.tsx
   - apps/web/app/courses/[slug]/race-metadata.ts
   - apps/web/app/courses/_components/RaceCatalogFilter.tsx
@@ -99,7 +101,7 @@ related_tables:
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can concern the whole event or one child format and are pushed to event followers.
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details` and `races.racebook_is_live` explicitly for ordinary runner access, and reads the current account's active `race_event_organizers` membership for an unpublished organizer preview.
-- Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API. Its in-memory search projection includes public format/event locations plus normalized city, department, region, and country names, but excludes codes, coordinates, organizer JSON, and operational fields. The richer server-only detail read rechecks race/event/edition visibility before loading organizer JSON or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, includes the confirmed year for edition distinction, and uses the shared social image only when neither format nor event supplies one.
+- Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API. Its server search projection includes public format/event locations plus normalized city, department, region, and country names, but excludes codes, coordinates, organizer JSON, and operational fields; each response serializes at most 12 grouped event editions plus any formats inside those groups. The richer server-only detail read rechecks race/event/edition visibility before loading organizer JSON or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, reserves a distance/year suffix, preserves the distinguishing end of long format names, and uses the shared social image only when neither format nor event supplies one.
 - Public web grouping: `/courses` groups current formats by stable `races.event_id + races.edition_id`, with an `event_id` fallback only for historical rows without an edition; event names are presentation labels and never grouping keys.
 - Curated SEO seeds create or refresh a canonical visible edition per verified upcoming event, publish only source-backed formats, and may enrich existing event rows without duplicating their formats.
 - The second curated batch adds four verified event identities, refreshes the existing Foulée des Ducs edition, and enriches Nice UTMB and Terres de Saône event provenance while preserving existing format metrics.

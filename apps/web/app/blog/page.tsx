@@ -162,6 +162,7 @@ export default async function BlogIndex({ searchParams }: BlogPageProps) {
               tags={post.meta.tags}
               date={post.meta.date}
               readingTime={post.meta.readingTime}
+              locale={post.meta.locale}
               imageSrc={post.meta.image}
               imageAlt={post.meta.imageAlt}
             />

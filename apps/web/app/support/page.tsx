@@ -6,7 +6,7 @@ import { SupportClientPage } from "./page-client";
 
 const canonicalPath = "/support";
 const canonicalUrl = new URL(canonicalPath, SITE_URL).toString();
-const copy = supportCopy.en;
+const copy = supportCopy.fr;
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -15,8 +15,8 @@ export const metadata: Metadata = {
   alternates: {
     canonical: canonicalPath,
     languages: {
-      en: canonicalPath,
-      fr: canonicalPath,
+      "fr-FR": canonicalPath,
+      "x-default": canonicalPath,
     },
   },
   openGraph: {
@@ -24,8 +24,7 @@ export const metadata: Metadata = {
     description: copy.meta.description,
     url: canonicalUrl,
     siteName: "Pace Yourself",
-    locale: localeToOgLocale("en"),
-    alternateLocale: [localeToOgLocale("fr")],
+    locale: localeToOgLocale("fr"),
     type: "website",
   },
   twitter: {
@@ -36,5 +35,5 @@ export const metadata: Metadata = {
 };
 
 export default function SupportPage() {
-  return <SupportClientPage />;
+  return <SupportClientPage locale="fr" />;
 }
