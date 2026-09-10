@@ -64,7 +64,7 @@ This table is retained publication-review history. New organizer publication use
 - A directly delegated organizer receives the same event membership and therefore the edition capability purchased or granted for that event.
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
 - The current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A trusted admin may grant RaceBook from that dialog without payment through `set_admin_organizer_edition_entitlement`; the grant is edition-scoped, records `source = admin`, and leaves this legacy table unchanged.
-- The compact edition/format summary starts collapsed while the entitlement and primary publication action remain visible; expanding or collapsing its detail controls does not publish, hide, or create a publication-request row.
+- Detailed format visibility starts collapsed while the primary publication action remains visible. Expanding it does nothing by itself; explicitly choosing Masqué, Privé, or Public updates the authorized format state without creating a publication-request row.
 - Staged section switches affect publication and completion only after their single module-settings PATCH succeeds; their edition-common/per-format grouping never inserts a row in this legacy publication queue.
 - Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
@@ -73,7 +73,7 @@ This table is retained publication-review history. New organizer publication use
 - Starting checkout always saves any dirty foreground scope before the server readiness check runs.
 - The checkout popup captures and displays the selected event and canonical edition when it opens. It never substitutes a transient year string for the billed `edition_id`.
 - Rejecting a legacy request leaves hidden Racebook rows unchanged.
-- Every authorized organizer may select or mask each format in the private demo without an offer. Masking also unpublishes that format. Once the edition has a paid or complimentary offer, the distinct edition publication action publishes all selected complete formats; neither operation creates a request or alters course catalog visibility.
+- Every authorized organizer may move a format between Masqué and Privé without an offer. Masqué clears both preview and runner visibility; Privé preserves organizer preview while clearing runner visibility. With a paid or complimentary edition offer, Public uses the existing membership-, readiness-, and entitlement-checked format publication path. The primary edition CTA can still publish all private-selected complete formats atomically. None of these operations creates a legacy request or alters course catalog visibility.
 - Publication does not send runner notifications automatically.
 - Sending or deleting a manual organizer announcement does not create, approve, reject, or reopen a Racebook publication request.
 - Format-specific manual notifications are available only for already-live formats in the selected edition. Draft formats must pass the publication workflow before they can be selected as runner notification context.

@@ -126,6 +126,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 - Google Places is a valid future replacement for autocomplete quality, but it requires a Google Maps Platform key, billing, quota management, and a review of Google usage terms before swapping providers.
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
 - Preserve the combobox roles, active-option relationship and keyboard behavior when changing suggestion rendering; mouse-only autocomplete is not an acceptable fallback.
+- Contextual help may replace surrounding explanatory paragraphs in Organizer, but address labels, validation errors, inherited-location values, and the combobox keyboard contract must remain visible and accessible.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 - In the mobile Racebook access tab, generated start/finish links are exposed through explicit Maps buttons. Equal normalized start and finish address strings render as one location while retaining the first available generated link; the optional organizer-supplied general map remains a separate labeled action.
 - Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.

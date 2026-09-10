@@ -5,6 +5,30 @@ import { Label } from '../../../../components/ui/label';
 import { cn } from '../../../../components/utils';
 import type { OrganizerModuleLevel, OrganizerModuleStatus } from '../completion';
 
+export function ContextualHelp({ text, label = "Plus d’informations" }: { text: string; label?: string }) {
+  const tooltipId = useId();
+
+  return (
+    <span className="group/help relative inline-flex align-middle">
+      <button
+        type="button"
+        aria-label={label}
+        aria-describedby={tooltipId}
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-[11px] font-bold text-muted-foreground transition hover:border-brand-border hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+      >
+        ?
+      </button>
+      <span
+        id={tooltipId}
+        role="tooltip"
+        className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-max max-w-64 -translate-x-1/2 rounded-md bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-5 text-white shadow-xl group-hover/help:block group-focus-within/help:block"
+      >
+        {text}
+      </span>
+    </span>
+  );
+}
+
 export function OrganizerToast({ toast }: { toast: { id: number; type: "success" | "error"; message: string } | null }) {
   if (!toast) return null;
 
@@ -30,18 +54,21 @@ export function LiveToggle({
   onChange,
   liveLabel = "Publié",
   draftLabel = "Brouillon",
+  description,
 }: {
   checked: boolean;
   disabled?: boolean;
   onChange: (checked: boolean) => void;
   liveLabel?: string;
   draftLabel?: string;
+  description?: string;
 }) {
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
       disabled={disabled}
+      title={description}
       className="inline-flex h-9 items-center gap-2 rounded-full border border-border bg-background px-3 text-sm font-semibold text-foreground transition hover:border-brand-border disabled:cursor-not-allowed disabled:opacity-60"
       aria-pressed={checked}
     >
@@ -55,6 +82,80 @@ export function LiveToggle({
       </span>
       {checked ? liveLabel : draftLabel}
     </button>
+  );
+}
+
+export type RacebookVisibilityState = "hidden" | "private" | "public";
+
+const RACEBOOK_VISIBILITY_OPTIONS: Array<{
+  value: RacebookVisibilityState;
+  label: string;
+  description: string;
+}> = [
+  { value: "hidden", label: "Masqué", description: "Le RaceBook est invisible dans votre démo et pour les coureurs. Son contenu reste enregistré." },
+  { value: "private", label: "Privé", description: "Le RaceBook est visible uniquement dans votre démo organisateur, jamais par les coureurs." },
+  { value: "public", label: "Public", description: "Le RaceBook est publié et visible par les coureurs. L’édition doit elle aussi être visible." },
+];
+
+export function RacebookVisibilityControl({
+  value,
+  disabled,
+  publicDisabled,
+  onChange,
+  label,
+}: {
+  value: RacebookVisibilityState;
+  disabled?: boolean;
+  publicDisabled?: boolean;
+  onChange: (value: RacebookVisibilityState) => void;
+  label: string;
+}) {
+  const groupName = useId();
+
+  return (
+    <fieldset className="min-w-0" disabled={disabled}>
+      <legend className="sr-only">Visibilité de {label}</legend>
+      <div className="inline-grid grid-cols-3 rounded-lg border border-border bg-muted/40 p-1" role="radiogroup">
+        {RACEBOOK_VISIBILITY_OPTIONS.map((option) => {
+          const checked = value === option.value;
+          const optionDisabled = disabled || (option.value === "public" && publicDisabled);
+          const tooltipId = `${groupName}-${option.value}-description`;
+          return (
+            <label
+              key={option.value}
+              className={cn(
+                "group/visibility relative cursor-pointer rounded-md px-2.5 py-1.5 text-center text-xs font-semibold transition sm:px-3",
+                checked
+                  ? option.value === "public"
+                    ? "bg-brand text-white shadow-sm"
+                    : "bg-card text-foreground shadow-sm"
+                  : "text-muted-foreground hover:text-foreground",
+                optionDisabled && "cursor-not-allowed opacity-50"
+              )}
+            >
+              <input
+                type="radio"
+                name={groupName}
+                value={option.value}
+                checked={checked}
+                disabled={optionDisabled}
+                onChange={() => onChange(option.value)}
+                className="sr-only"
+                aria-describedby={tooltipId}
+              />
+              {option.label}
+              <span
+                id={tooltipId}
+                role="tooltip"
+                className="pointer-events-none absolute bottom-full left-1/2 z-50 mb-2 hidden w-max max-w-56 -translate-x-1/2 rounded-md bg-slate-950 px-3 py-2 text-left text-xs font-normal leading-5 text-white shadow-xl group-hover/visibility:block group-focus-within/visibility:block"
+              >
+                {option.description}
+              </span>
+            </label>
+          );
+        })}
+      </div>
+    </fieldset>
   );
 }
 
@@ -98,6 +199,7 @@ export function TextField({
   invalid,
   disabled,
   id,
+  hint,
 }: {
   label: string;
   value: string;
@@ -109,6 +211,7 @@ export function TextField({
   invalid?: boolean;
   disabled?: boolean;
   id?: string;
+  hint?: string;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -116,7 +219,10 @@ export function TextField({
 
   return (
     <div className="space-y-1">
-      <Label htmlFor={inputId}>{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={inputId}>{label}</Label>
+        {hint ? <ContextualHelp text={hint} /> : null}
+      </div>
       <Input
         id={inputId}
         type={type}
@@ -144,6 +250,7 @@ export function NumberField({
   readOnly,
   disabled,
   id,
+  hint,
 }: {
   label: string;
   value: number;
@@ -153,6 +260,7 @@ export function NumberField({
   readOnly?: boolean;
   disabled?: boolean;
   id?: string;
+  hint?: string;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -160,7 +268,10 @@ export function NumberField({
 
   return (
     <div className="space-y-1">
-      <Label htmlFor={inputId}>{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={inputId}>{label}</Label>
+        {hint ? <ContextualHelp text={hint} /> : null}
+      </div>
       <Input
         id={inputId}
         type="number"
@@ -188,6 +299,7 @@ export function TextAreaField({
   invalid,
   disabled,
   id,
+  hint,
 }: {
   label: string;
   value: string;
@@ -195,6 +307,7 @@ export function TextAreaField({
   invalid?: boolean;
   disabled?: boolean;
   id?: string;
+  hint?: string;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -202,7 +315,10 @@ export function TextAreaField({
 
   return (
     <div className="space-y-1">
-      <Label htmlFor={inputId}>{label}</Label>
+      <div className="flex items-center gap-1.5">
+        <Label htmlFor={inputId}>{label}</Label>
+        {hint ? <ContextualHelp text={hint} /> : null}
+      </div>
       <textarea
         id={inputId}
         className={cn(
@@ -225,14 +341,16 @@ export function ToggleChip({
   label,
   onChange,
   disabled,
+  description,
 }: {
   checked: boolean;
   label: string;
   onChange: (checked: boolean) => void;
   disabled?: boolean;
+  description?: string;
 }) {
   return (
-    <label className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
+    <label title={description} className="inline-flex min-h-9 items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-sm text-foreground">
       <input
         type="checkbox"
         checked={checked}

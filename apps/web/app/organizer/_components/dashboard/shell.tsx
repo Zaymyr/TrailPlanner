@@ -10,7 +10,8 @@ import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completio
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
 import { buildEditionYearOptions, formatEventDateRange, getEventEdition, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RaceFormat } from "./types";
-import { LevelBadge, LiveToggle, StatusBadge } from "./controls";
+import { ContextualHelp, LevelBadge, LiveToggle, RacebookVisibilityControl, StatusBadge } from "./controls";
+import type { RacebookVisibilityState } from "./controls";
 
 const getProgressTone = (score: number) => {
   if (score < 20) {
@@ -122,7 +123,7 @@ export function OrganizerSummaryHeader({
   onSaveAll,
   onNotifyFollowers,
   onRequestPublication,
-  onRacebookPreviewVisibilityChange,
+  onRacebookVisibilityChange,
   onEditionVisibilityChange,
   onDeleteEdition,
   onDeleteEvent,
@@ -151,7 +152,7 @@ export function OrganizerSummaryHeader({
   onSaveAll: () => void;
   onNotifyFollowers: (raceId?: string) => void;
   onRequestPublication: () => void;
-  onRacebookPreviewVisibilityChange: (raceId: string, isVisible: boolean) => void;
+  onRacebookVisibilityChange: (raceId: string, state: RacebookVisibilityState) => void;
   onEditionVisibilityChange: (isVisible: boolean) => Promise<boolean>;
   onDeleteEdition: () => Promise<boolean>;
   onDeleteEvent: () => Promise<boolean>;
@@ -180,7 +181,6 @@ export function OrganizerSummaryHeader({
       activeEdition,
     }];
   });
-  const isLive = event?.is_live !== false;
   const dateLabel = formatEventDateRange(event, selectedEditionYear);
   const selectedEdition = getEventEdition(event, selectedEditionYear);
   const editionIsVisible = selectedEdition?.is_visible !== false;
@@ -207,242 +207,161 @@ export function OrganizerSummaryHeader({
       ];
 
   return (
-    <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+    <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
-          <p className="text-sm font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Dashboard organisateur</p>
-          <p className="mt-1 text-sm text-muted-foreground dark:text-slate-300">
-            {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates à compléter"}
+          <p className="text-xs font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Espace organisateur</p>
+          <h1 className="mt-1 truncate text-xl font-semibold text-foreground">
+            {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {[event?.location, dateLabel].filter(Boolean).join(" · ") || "Lieu et dates à compléter"}
           </p>
         </div>
-        <div className="flex w-full flex-wrap items-end gap-2 lg:w-auto lg:justify-end">
-          {memberships.length > 8 ? (
-            <div className="w-full lg:w-52">
-              <label htmlFor="organizer-event-search" className="mb-1 block text-xs font-medium text-muted-foreground">
-                Rechercher un événement
-              </label>
-              <input
-                id="organizer-event-search"
-                type="search"
-                className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm"
-                value={eventSearch}
-                onChange={(searchEvent) => setEventSearch(searchEvent.target.value)}
-                placeholder="Nom de la course"
-              />
-              {normalizedEventSearch && matchingMemberships.length === 0 ? (
-                <p className="mt-1 text-xs text-muted-foreground">Aucun autre événement trouvé.</p>
-              ) : null}
-            </div>
-          ) : null}
-          <div className="min-w-0 flex-1 sm:min-w-64 lg:flex-none">
-            <label htmlFor="organizer-event-select" className="mb-1 block text-xs font-medium text-muted-foreground">
-              Événement
-            </label>
-            <select
-              id="organizer-event-select"
-              className="h-11 w-full min-w-0 rounded-md border border-border bg-card px-3 text-sm sm:w-auto sm:min-w-64"
-              value={selectedEventId ?? ""}
-              onChange={(selectEvent) => onSelectedEventChange(selectEvent.target.value)}
-            >
-              {visibleMemberships.map((membership) => (
-                <option key={membership.id} value={membership.event_id}>
-                  {membership.race_events?.name ?? membership.event_id}
-                </option>
-              ))}
-            </select>
-          </div>
-          <span
-            className={cn(
-              "inline-flex min-h-7 items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
-              completion?.informationComplete
-                ? "border-emerald-300 bg-emerald-50 text-emerald-700"
-                : "border-amber-300 bg-amber-50 text-amber-800"
-            )}
-          >
-            {completion?.informationComplete ? "Informations renseignées" : "À compléter"}
-          </span>
-          <Link href="/organizers">
-            <Button variant="outline" className="!h-11">Créer un autre événement</Button>
-          </Link>
-          {onImportWebsite ? (
-            <Button type="button" variant="outline" onClick={onImportWebsite} className="!h-11">
-              {importWebsiteLabel}
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {raceRows.length > 0 ? (
+            <Button type="button" onClick={onRequestPublication} disabled={!editionIsVisible || status !== "idle"} className="!h-11" title="Publier les formats complets sélectionnés pour cette édition.">
+              {canPublishRacebook ? "Publier" : "Choisir une offre"}
             </Button>
           ) : null}
+          <details className="group relative">
+            <summary title="Ouvrir les actions utilisées moins souvent." className="inline-flex h-11 cursor-pointer list-none items-center gap-2 rounded-md border border-border bg-card px-4 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
+              Actions
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="h-4 w-4 transition group-open:rotate-180">
+                <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </summary>
+            <div className="absolute right-0 z-30 mt-2 grid w-64 gap-1 rounded-lg border border-border bg-card p-2 shadow-xl">
+              <Button type="button" variant="ghost" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} disabled={!event} className="!justify-start" title="Envoyer une actualité aux coureurs qui suivent l’événement.">
+                Notifier les coureurs
+              </Button>
+              {onImportWebsite ? (
+                <Button type="button" variant="ghost" onClick={onImportWebsite} className="!justify-start" title="Préremplir le RaceBook depuis les sources officielles.">{importWebsiteLabel}</Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setDuplicatePreviousEdition(ORGANIZER_TIER_RANK[editionTier] >= ORGANIZER_TIER_RANK.complete);
+                  setNewEditionDialogOpen(true);
+                }}
+                disabled={status !== "idle"}
+                className="!justify-start"
+                title="Créer une nouvelle année, vide ou dupliquée depuis l’édition actuelle."
+              >
+                Créer une nouvelle édition
+              </Button>
+              <Link href="/organizers" title="Créer un événement distinct de celui actuellement sélectionné." className="rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-ring">
+                <span className="flex h-10 items-center px-4 text-sm font-semibold text-foreground hover:bg-muted/40">Créer un autre événement</span>
+              </Link>
+              <div className="my-1 border-t border-border" />
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setDeleteEditionConfirmation("");
+                  setDeleteEditionDialogOpen(true);
+                }}
+                disabled={!selectedEdition || status !== "idle"}
+                className="!justify-start !text-red-700"
+                title="Supprimer définitivement l’édition sélectionnée et ses formats."
+              >
+                Supprimer l’édition
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => {
+                  setDeleteEventConfirmation("");
+                  setDeleteEventDialogOpen(true);
+                }}
+                disabled={!selectedEventId || status !== "idle"}
+                className="!justify-start !text-red-700"
+                title="Supprimer définitivement l’événement et toutes ses éditions."
+              >
+                Supprimer l’événement
+              </Button>
+            </div>
+          </details>
         </div>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
-        <Button type="button" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} variant="outline" disabled={!event} className="!h-11">
-          Notifier les coureurs
-        </Button>
-        {raceRows.length > 0 ? (
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-            <div className="text-right">
-              <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold">
-                {ORGANIZER_TIER_LABEL[editionTier]}
-              </span>
-              <p className="mt-1 text-xs text-muted-foreground">{offerStatusLabel}</p>
+      <div className="mt-5 grid gap-3 border-t border-border pt-4 md:grid-cols-[minmax(0,1fr)_10rem]">
+        <div className="min-w-0">
+          {memberships.length > 8 ? (
+            <div className="mb-2">
+              <label htmlFor="organizer-event-search" className="sr-only">Rechercher un événement</label>
+              <input id="organizer-event-search" type="search" className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={eventSearch} onChange={(searchEvent) => setEventSearch(searchEvent.target.value)} placeholder="Rechercher un événement" />
+              {normalizedEventSearch && matchingMemberships.length === 0 ? <p className="mt-1 text-xs text-muted-foreground">Aucun autre événement trouvé.</p> : null}
             </div>
-            <Button
-              type="button"
-              onClick={onRequestPublication}
-              disabled={!editionIsVisible || status !== "idle"}
-              className="!h-11"
-            >
-              {canPublishRacebook ? "Publier les RaceBooks" : "Publier le RaceBook"}
-            </Button>
-          </div>
-        ) : null}
+          ) : null}
+          <label htmlFor="organizer-event-select" className="mb-1 block text-xs font-medium text-muted-foreground">Événement</label>
+          <select id="organizer-event-select" title="Changer l’événement à modifier." className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm" value={selectedEventId ?? ""} onChange={(selectEvent) => onSelectedEventChange(selectEvent.target.value)}>
+            {visibleMemberships.map((membership) => <option key={membership.id} value={membership.event_id}>{membership.race_events?.name ?? membership.event_id}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="organizer-event-edition-select" className="mb-1 block text-xs font-medium text-muted-foreground">Édition</label>
+          <select id="organizer-event-edition-select" title="Changer l’année à modifier sans changer d’événement." className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground" value={selectedEditionYear} onChange={(selectEvent) => onSelectedEditionYearChange(selectEvent.target.value)}>
+            {editionYearOptions.map((option) => <option key={option.value} value={option.value} disabled={option.disabled}>{option.label}</option>)}
+          </select>
+        </div>
       </div>
 
-      <details
-        open={isSummaryExpanded}
-        onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}
-        className="group mt-3"
-      >
-        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 rounded-md px-2 py-2 text-sm transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
-          <span className="inline-flex items-center gap-2 font-semibold text-foreground">
-            État de l’édition et des formats
-          </span>
-          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
-            <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} aria-hidden="true" />
-            {isLive ? "Événement visible" : "Événement masqué"}
-          </span>
-          <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
-          <span className="text-muted-foreground">{eventScore}% complété</span>
-          <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <span>{isSummaryExpanded ? "Masquer les détails" : "Voir les détails"}</span>
-            <svg
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              aria-hidden="true"
-              className="h-4 w-4 transition-transform group-open:rotate-180"
-            >
-              <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </span>
+      <div className="mt-4 flex flex-wrap items-center gap-3 rounded-lg bg-muted/30 px-3 py-2.5">
+        <span className="text-sm font-medium text-foreground">Préparation</span>
+        <InlineProgressBar score={eventScore} className="min-w-[12rem] flex-1" />
+        <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", completion?.informationComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{completion?.informationComplete ? "Prêt à publier" : "À compléter"}</span>
+      </div>
+
+      <details open={isSummaryExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-2">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
+          Gérer la visibilité
+          <span className="font-normal text-muted-foreground">{raceRows.length} format{raceRows.length > 1 ? "s" : ""}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{isSummaryExpanded ? "Fermer" : "Ouvrir"}</span>
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"><path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </summary>
 
-      <div className="mt-2 space-y-1.5">
-        {editionYearOptions.length > 0 ? (
-          <div className="rounded-md border border-border/60 bg-background/50 p-2">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex min-w-[12rem] max-w-[19rem] flex-1 items-center gap-2">
-                <label htmlFor="organizer-event-edition-select" className="shrink-0 text-sm font-medium text-foreground">
-                  Édition
-                </label>
-                <div className="flex min-w-0 flex-1 items-center gap-1">
-                  <select
-                    id="organizer-event-edition-select"
-                    className="h-11 min-w-0 flex-1 rounded-md border border-input bg-card px-2.5 text-sm text-foreground"
-                    value={selectedEditionYear}
-                    onChange={(event) => onSelectedEditionYearChange(event.target.value)}
-                  >
-                    {editionYearOptions.map((option) => (
-                      <option key={option.value} value={option.value} disabled={option.disabled}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setDuplicatePreviousEdition(ORGANIZER_TIER_RANK[editionTier] >= ORGANIZER_TIER_RANK.complete);
-                    setNewEditionDialogOpen(true);
-                  }}
-                  disabled={status !== "idle"}
-                  className="!h-11 flex-1 sm:flex-none"
-                >
-                  Créer une nouvelle édition
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setDeleteEditionConfirmation("");
-                    setDeleteEditionDialogOpen(true);
-                  }}
-                  disabled={!selectedEdition || status !== "idle"}
-                  className="!h-11 flex-1 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800 sm:flex-none"
-                >
-                  Supprimer l’édition
-                </Button>
-              </div>
+        <div className="mt-2 space-y-2 rounded-lg border border-border bg-background/50 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+            <div className="flex items-center gap-2">
+              <p className="text-sm font-medium text-foreground">Catalogue</p>
+              <ContextualHelp text="Masquer l’édition retire ses courses du catalogue et ses RaceBooks du public. Les données restent conservées." />
             </div>
+            <LiveToggle checked={editionIsVisible} disabled={!selectedEdition || status !== "idle"} onChange={(checked) => void onEditionVisibilityChange(checked)} liveLabel="Visible" draftLabel="Masquée" description="Afficher ou masquer toutes les courses de cette édition dans le catalogue." />
           </div>
-        ) : null}
-        <div className="grid gap-2 rounded-md border border-border/70 bg-background/80 p-2 md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center">
-          <span className="min-w-0 font-semibold text-foreground">
-            {selectedMembership?.race_events?.name ?? event?.name ?? "Événement"}
-          </span>
-          <InlineProgressBar score={eventScore} className="min-w-[140px] flex-1" />
-          <LiveToggle
-            checked={editionIsVisible}
-            disabled={!selectedEdition || status !== "idle"}
-            onChange={(checked) => {
-              void onEditionVisibilityChange(checked);
-            }}
-            liveLabel="Édition visible"
-            draftLabel="Édition masquée"
-          />
-        </div>
-        {raceRows.length > 0 ? (
-          raceRows.map((race) => {
-            const previewIsVisible = race.activeEdition!.racebook_preview_is_visible !== false;
+          {raceRows.length > 0 ? raceRows.map((race) => {
+            const visibilityState: RacebookVisibilityState = race.activeEdition!.racebook_is_live === true
+              ? "public"
+              : race.activeEdition!.racebook_preview_is_visible === false
+                ? "hidden"
+                : "private";
             return (
-            <div
-              key={race.id}
-              className="grid gap-2 rounded-md border border-border/60 bg-background/50 p-2 text-sm md:grid-cols-[minmax(0,14rem)_minmax(140px,1fr)_auto] md:items-center"
-            >
-              <span className="min-w-0 font-medium text-foreground">
-                {race.label || "Format sans nom"}
-                {race.activeEdition ? ` · ${getRaceEditionYearLabel(race.activeEdition.race_date)}` : ""}
-              </span>
-              <InlineProgressBar score={race.score} className="min-w-[140px] flex-1" />
-              <div className="flex flex-wrap items-center justify-end gap-2">
-                {race.activeEdition!.racebook_is_live === true ? (
-                  <span className="text-xs font-medium text-emerald-700">Publié aux coureurs</span>
-                ) : null}
-                <LiveToggle
-                  checked={previewIsVisible}
+              <div key={race.id} className="grid gap-3 rounded-lg border border-border/60 bg-card p-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-foreground">{race.label || "Format sans nom"}</p>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>{race.score}% complété</span>
+                    <span aria-hidden="true">·</span>
+                    <span>{getRaceEditionYearLabel(race.activeEdition!.race_date)}</span>
+                  </div>
+                </div>
+                <RacebookVisibilityControl
+                  label={race.label || "format sans nom"}
+                  value={visibilityState}
                   disabled={status !== "idle"}
-                  onChange={(checked) => onRacebookPreviewVisibilityChange(race.activeEdition!.id, checked)}
-                  liveLabel="Format visible dans ma démo"
-                  draftLabel="Format masqué de ma démo"
+                  publicDisabled={!editionIsVisible || race.activeEdition!.data_status === "draft"}
+                  onChange={(state) => onRacebookVisibilityChange(race.activeEdition!.id, state)}
                 />
               </div>
-            </div>
             );
-          })
-        ) : (
-          <p className="text-sm text-muted-foreground">Aucune course pour le moment.</p>
-        )}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
-        <p className="text-xs text-muted-foreground">
-          La suppression de la course efface toutes ses éditions et tous ses formats.
-        </p>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            setDeleteEventConfirmation("");
-            setDeleteEventDialogOpen(true);
-          }}
-          disabled={!selectedEventId || status !== "idle"}
-          className="!h-11 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
-        >
-          Supprimer la course
-        </Button>
-      </div>
+          }) : <p className="text-sm text-muted-foreground">Aucune course pour le moment.</p>}
+          <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
+            <strong className="font-semibold text-foreground">{ORGANIZER_TIER_LABEL[editionTier]}</strong>
+            <ContextualHelp text={offerStatusLabel} label="Détail de l’offre" />
+          </div>
+        </div>
       </details>
 
       {hasAnyDirtyChanges || status === "saving" ? (

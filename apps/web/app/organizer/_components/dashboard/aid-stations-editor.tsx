@@ -6,7 +6,7 @@ import { Button } from "../../../../components/ui/button";
 import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
-import { NumberField, TextAreaField, TextField } from "./controls";
+import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
 import { formatKm } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
 import type {
@@ -289,9 +289,9 @@ export function AidStationsEditor({
           </div>
 
           <section className="space-y-4 rounded-[1.5rem] border border-brand-border/70 bg-brand-surface/20 p-4">
-            <div>
+            <div className="flex items-center gap-2">
               <p className="font-semibold text-foreground">Points et tronçons du relais</p>
-              <p className="text-sm text-muted-foreground">Les tronçons sont construits automatiquement entre le départ, les points triés par kilomètre et l&apos;arrivée.</p>
+              <ContextualHelp text="Les tronçons sont construits automatiquement entre le départ, les points triés par kilomètre et l’arrivée." />
             </div>
 
             {relayPoints.length === 0 ? (
@@ -320,7 +320,12 @@ export function AidStationsEditor({
                           </svg>
                         </Button>
                       </div>
-                      {linkedStation ? <p className="mt-2 text-xs text-muted-foreground">Lié au ravito {linkedStation.name}. Le nom et le kilomètre suivent ce ravito.</p> : null}
+                      {linkedStation ? (
+                        <div className="mt-2 flex items-center gap-2 text-xs font-medium text-muted-foreground">
+                          Lié au ravito {linkedStation.name}
+                          <ContextualHelp text="Le nom et le kilomètre sont synchronisés avec ce ravito." />
+                        </div>
+                      ) : null}
                       <div className="mt-3"><TextAreaField label="Consignes relais" value={point.notes} onChange={(value) => onUpdateRelayPoint(index, { ...point, notes: value })} /></div>
                     </article>
                   );
@@ -352,9 +357,9 @@ function FixedCourseCard({
   return (
     <section className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-        <div>
+        <div className="flex items-center gap-2">
           <p className="text-lg font-semibold text-foreground">{title}</p>
-          <p className="text-sm text-muted-foreground">{subtitle}</p>
+          <ContextualHelp text={subtitle} />
         </div>
         <div className="w-full md:max-w-sm">
           <TextField label={label} value={value} onChange={onChange} disabled={disabled} />
@@ -373,8 +378,8 @@ function StationDetailsPanel({ station, onChange, productsSlot }: { station: Aid
           <TextField label="Nom du ravito" value={station.name} onChange={(value) => onChange({ ...station, name: value })} required />
         </div>
         <NumberField label="Distance km" value={station.distanceKm} step="0.1" onChange={(value) => onChange({ ...station, distanceKm: value })} />
-        <NumberField label="D+ cumulé" value={details.cumulativeElevationGainM ?? 0} step="1" readOnly onChange={() => undefined} />
-        <NumberField label="D- cumulé" value={details.cumulativeElevationLossM ?? 0} step="1" readOnly onChange={() => undefined} />
+        <NumberField label="D+ cumulé" hint="Calculé automatiquement à partir du tracé GPX de ce format." value={details.cumulativeElevationGainM ?? 0} step="1" readOnly onChange={() => undefined} />
+        <NumberField label="D- cumulé" hint="Calculé automatiquement à partir du tracé GPX de ce format." value={details.cumulativeElevationLossM ?? 0} step="1" readOnly onChange={() => undefined} />
         <div className="space-y-1">
           <label className="text-sm font-medium">Type de ravito</label>
           <select className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={details.stationType} onChange={(event) => onChange({ ...station, organizerDetails: { ...details, stationType: event.target.value as typeof details.stationType } })}>
@@ -386,8 +391,6 @@ function StationDetailsPanel({ station, onChange, productsSlot }: { station: Aid
           <TextField label="Barrière horaire" value={details.cutoffTime ?? ""} onChange={(value) => onChange({ ...station, organizerDetails: { ...details, cutoffTime: value || null } })} />
         </div>
       </div>
-
-      <p className="mt-2 text-xs text-muted-foreground">Les cumuls D+ / D- sont calculés automatiquement à partir du tracé GPX de ce format.</p>
 
       <div className="mt-4 rounded-[1.25rem] border border-border bg-background p-4">
         <TextAreaField label="Note organisateur" value={details.organizerNote ?? station.notes ?? ""} onChange={(value) => onChange({ ...station, notes: value, organizerDetails: { ...details, organizerNote: value || null } })} />

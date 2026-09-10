@@ -101,6 +101,7 @@ describe("organizer dashboard UTF-8 copy", () => {
   it("keeps both admin complimentary offers explicit", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
     const shellSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/shell.tsx"), "utf8");
+    const controlsSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/controls.tsx"), "utf8");
 
     expect(dashboardSource).toContain('action: "setEditionTier"');
     expect(dashboardSource).toContain("paidOrganizerTiers");
@@ -109,9 +110,13 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("ORGANIZER_TIER_PRICE_EUR[tier]");
     expect(shellSource).toContain("ORGANIZER_TIER_PRICE_EUR[editionTier]");
     expect(shellSource).toContain("Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte");
-    expect(shellSource).toContain("Format visible dans ma démo");
-    expect(shellSource).toContain("Format masqué de ma démo");
-    expect(shellSource).toContain("Publier les RaceBooks");
+    expect(controlsSource).toContain('{ value: "hidden", label: "Masqué"');
+    expect(controlsSource).toContain('{ value: "private", label: "Privé"');
+    expect(controlsSource).toContain('{ value: "public", label: "Public"');
+    expect(controlsSource).toContain("group-hover/visibility:block");
+    expect(controlsSource).toContain("group-focus-within/visibility:block");
+    expect(controlsSource).toContain("Le RaceBook est visible uniquement dans votre démo organisateur");
+    expect(dashboardSource).toContain('racebookIsLive: visibility === "public"');
   });
 
   it("keeps the pricing dialog wide and viewport-bounded", () => {
@@ -138,7 +143,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("React.useState(false)");
     expect(shellSource).toContain("open={isSummaryExpanded}");
     expect(shellSource).toContain("onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}");
-    expect(shellSource).toContain('isSummaryExpanded ? "Masquer les détails" : "Voir les détails"');
+    expect(shellSource).toContain('isSummaryExpanded ? "Fermer" : "Ouvrir"');
     expect(shellSource).toContain('cn("h-5 overflow-hidden rounded-full"');
     expect(shellSource).toContain('htmlFor="organizer-event-select"');
     expect(shellSource).toContain('href="/sign-in?next=%2Forganizer"');
@@ -148,13 +153,17 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label');
     expect(shellSource).toContain('aria-label={tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : undefined}');
     expect(shellSource).toContain("Créer un autre événement");
+    expect(shellSource).toContain("Gérer la visibilité");
+    expect(shellSource).toContain("Notifier les coureurs");
+    expect(shellSource).toContain("Actions");
     expect(shellSource).toContain("Modifications non enregistrées");
     expect(shellSource).toContain("Une autre section contient des modifications non enregistrées.");
     expect(shellSource).toContain("fixed inset-x-4 top-20");
     expect(shellSource).toContain("sm:bottom-4");
     expect(dashboardSource).toContain("hasAnyDirtyChanges={hasAnyDirtyChanges}");
     expect(shellSource).toContain("Supprimer l’édition");
-    expect(shellSource).toContain("Supprimer la course");
+    expect(shellSource).toContain("Supprimer l’événement");
+    expect(dashboardSource).toContain("<ContextualHelp");
   });
 
   it("keeps format publication prerequisites visible and persisted", () => {
@@ -279,8 +288,10 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain('liveLabel="Édition visible"');
-    expect(source).toContain('draftLabel="Édition masquée"');
+    expect(source).toContain('liveLabel="Visible"');
+    expect(source).toContain('draftLabel="Masquée"');
+    expect(source).toContain('description="Afficher ou masquer toutes les courses de cette édition dans le catalogue."');
+    expect(source).toContain("Masquer l’édition retire ses courses du catalogue");
     expect(source).toContain("deleteEditionConfirmation !== selectedEditionYear");
     expect(source).toContain("Tape « {selectedEditionYear} » pour confirmer");
   });
@@ -305,6 +316,6 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");
     expect(editorSource).toContain("theme.accentSurfaceColor");
     expect(dashboardSource).toContain("Cette section restera privée jusqu’au passage à");
-    expect(dashboardSource).toContain("Forfait nécessaire pour tout publier");
+    expect(dashboardSource).toContain("Offre requise pour publier toutes les sections");
   });
 });

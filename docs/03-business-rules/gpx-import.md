@@ -229,7 +229,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 
 ## Related Docs
 
-Masking a format from the organizer RaceBook demo changes neither its GPX object nor parsed metrics; restoring preview reuses the same trace.
+Moving a format between Masqué, Privé, and Public changes neither its GPX object nor parsed metrics; preview and runner publication reuse the same trace.
 
 - [race_aid_stations](../02-database/tables/race-aid-stations.md)
 - [plan_aid_stations](../02-database/tables/plan-aid-stations.md)
