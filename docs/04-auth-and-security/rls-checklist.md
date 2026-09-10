@@ -26,6 +26,7 @@ related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
   - supabase/tests/racebook_branding_checks.sql
@@ -150,6 +151,7 @@ Use:
 - The official UTMB World Series migration is data-only. It reuses the existing event, edition, and race policies and adds no grants, policies, functions, ownership semantics, or client-write path.
 - Normalized `race_events` geography is public catalog metadata on an existing RLS-protected table. Its migration adds no grants or policies; the stale-data trigger is invoker-security and direct execution is revoked from `PUBLIC`, `anon`, and `authenticated`.
 - The catalog-wide geography backfill is data-only. It reuses the existing `race_events` policies, preserves current publication and ownership fields, and introduces no function, grant, policy, or client-write path.
+- The March–May 2027 organizer-source batch is also data-only. It reuses existing event, edition, and race access controls, exposes only rows already marked live/public through existing policies, and adds no grant, function, policy, or client-write path.
 - Event-scoped organizer policies need both claim/member RLS and route-level service-role authorization checks. Service-role route success alone does not prove direct RLS behavior.
 - New service flags on `race_aid_stations` reuse the existing station row policies; do not add separate grants for them.
 - New organizer JSONB columns on existing source tables reuse their table row policies; do not add separate grants or bypass active `race_event_organizers` checks for them.

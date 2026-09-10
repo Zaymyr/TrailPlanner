@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -12,6 +12,10 @@ related_files:
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
+  - apps/mobile/.eas/workflows/mobile-ux-audit.yml
+  - apps/mobile/.maestro/config.yaml
+  - apps/mobile/.maestro/flows/authenticated-shell.yaml
+  - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/_layout.tsx
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
@@ -38,13 +42,9 @@ related_files:
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/lib/race-import.ts
-  - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
-  - apps/mobile/locales/types.ts
-  - apps/mobile/locales/fr.ts
-  - apps/mobile/locales/en.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/lib/webApi.ts
@@ -102,6 +102,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - `react-native-purchases ^9.15.1`
 - `posthog-react-native ^4.45.0`
 - `react-native-webview 13.15.0` for the interactive Racebook Leaflet map
+- `test:e2e:ux`, which invokes the local Maestro UX journey without storing credentials in source control
 
 The app config in `apps/mobile/app.config.ts` declares:
 
@@ -125,11 +126,14 @@ Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36
 
 - `development`: internal distribution and `developmentClient: true`.
 - `preview`: internal distribution, Android APK, iOS Release.
+- `e2e-test`: unsigned Android APK and iOS Simulator build used only by Maestro.
 - `production`: Android app bundle, iOS Release, auto-increment enabled.
 - `submit.production.android`: completed release on the Google Play `production` track.
 - `submit.production.ios.ascAppId`: App Store Connect app id `6772180071` for TestFlight submissions.
 
 Because the dependency set includes native modules such as `expo-dev-client`, `react-native-purchases`, notifications, secure store, Apple auth, and `expo-crypto`, use the development client profile for realistic local/device testing. Expo Go can only be assumed for flows that do not require these native modules.
+
+The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform target: it builds Android and iOS in parallel, runs the authenticated Maestro journey with one retry, records each platform, and retains its screenshots as test artifacts. Hosted Maestro jobs require a compatible paid Expo plan; the current project plan rejects those jobs, so local Android execution remains the immediately available path. The journey covers login plus the Courses, Plans, Nutrition, and Profile tabs. Stable React Native test ids are used instead of translated labels. `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` must be secret variables in the EAS `preview` environment; they are never committed or exposed as Expo public values.
 
 ## App Shell
 
@@ -151,6 +155,7 @@ The initial chooser is skippable and offers independent Plan and RaceBook tours.
 The Profile personal tab exposes both tours with their statuses. Its tab icon shows a notification dot until both are completed; skipped tours intentionally keep the dot visible. Replaying a completed tour does not downgrade its durable status.
 On cold start and after authentication, sessions that do not require onboarding open on the `catalog` Courses tab by default. The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of snapping to the default `catalog` tab when a hidden detail route was pushed.
 The visible bottom tab bar derives its bottom padding and total height from `react-native-safe-area-context`. This keeps the four tab actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS.
+The four visible tab actions expose stable `nav-tab-*` test ids for cross-locale Maestro navigation. These ids are test hooks only and do not alter labels, routing, or accessibility state.
 Organizer update pushes deep-link into the catalog with `eventId`, `updateId`, and an optional `raceId`. The catalog reopens the event sheet, loads an older targeted message when it is outside the preview, places that message first, and highlights the concerned format.
 French inactivity and unfinished-plan notifications come from `apps/mobile/locales/fr.ts`; their titles use typographic apostrophes and must stay aligned with the server-side reminder copy.
 Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTitle.tsx` with explicit title-container insets from `apps/mobile/app/(app)/_layout.tsx`. When a screen adds extra header actions, keep enough right inset for those icons so long French titles truncate cleanly instead of overlapping the header buttons on narrow iPhones.
@@ -244,6 +249,8 @@ Do not copy actual keys into docs. Use environment variable names only.
 ## Gotchas
 
 - Do not make optional structured RaceBook modules part of the whole-screen failure boundary. A PostgREST `404` before the corresponding migration/Data API exposure is deployed must degrade SAS, awards or structured services to an empty collection instead of hiding historical organizer content.
+- Do not put mobile test credentials in Maestro YAML, screenshots, source files, or Expo public environment variables. Local runs may map the ignored `apps/web/.env.local` login keys into process-only `MAESTRO_*` variables; EAS runs must use secret variables in the `preview` environment.
+- A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.
 
 - Keep the shared/iOS runtime at `1.1.0` until a new iOS native build is released. Android overrides it with `1.1.1`; Android production OTAs must be published from configuration that resolves that platform runtime.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.

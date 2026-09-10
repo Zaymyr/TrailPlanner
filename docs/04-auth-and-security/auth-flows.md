@@ -83,6 +83,7 @@ The authenticated onboarding catalog accepts source-backed formats whose D+ is s
 - syncs identified, non-anonymous users to Resend through the web API bridge.
 
 Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mobile/app/(auth)/signup.tsx`, and the guest onboarding account choice in `apps/mobile/app/(app)/onboarding.tsx`.
+The password-login inputs and submit action expose stable `auth-login-*` test ids and localized accessibility labels. The Maestro UX journey uses those hooks so translations can change without breaking authentication tests. Credentials enter the process through ignored local environment files or secret EAS `preview` variables; they are never embedded in the app bundle or flow YAML.
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 
 Non-auth onboarding steps, such as race/catalog selection UI, must not add separate session side effects; keep session, analytics identity, push registration, and Resend sync behavior in `_layout.tsx` or the existing dedicated helpers.
@@ -125,6 +126,7 @@ Do not use `user_metadata` for new authorization decisions.
 - Analytics classification may read admin roles only from trusted `app_metadata.role` / `app_metadata.roles`, never `user_metadata`.
 - For Apple ID-token auth, send Apple the hashed nonce challenge and Supabase the raw nonce. The Apple authorization code is not a provider access token for Supabase `signInWithIdToken`.
 - Anonymous Apple identity linking can return existing-account wording when the Apple ID was used in an earlier review attempt; keep that path recoverable through direct Apple ID-token sign-in plus the pending guest-merge flow.
+- A clean E2E install follows the real anonymous-session bootstrap before opening password login. Do not add a production auth bypass for tests; use a dedicated test account and keep test credentials out of `EXPO_PUBLIC_*` variables.
 
 ## Related Docs
 

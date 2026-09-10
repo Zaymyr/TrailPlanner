@@ -149,6 +149,8 @@ export default function LoginScreen() {
         ) : null}
 
         <TextInput
+          accessibilityLabel={t.auth.emailPlaceholder}
+          testID="auth-login-email"
           style={styles.input}
           placeholder={t.auth.emailPlaceholder}
           placeholderTextColor={Colors.textMuted}
@@ -160,6 +162,8 @@ export default function LoginScreen() {
         />
 
         <TextInput
+          accessibilityLabel={t.auth.passwordPlaceholder}
+          testID="auth-login-password"
           style={styles.input}
           placeholder={t.auth.passwordPlaceholder}
           placeholderTextColor={Colors.textMuted}
@@ -172,6 +176,8 @@ export default function LoginScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <TouchableOpacity
+          accessibilityRole="button"
+          testID="auth-login-submit"
           style={[styles.button, loading && styles.buttonDisabled]}
           onPress={handleLogin}
           disabled={loading}

@@ -42,6 +42,7 @@ related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -211,6 +212,8 @@ Independent mobile onboarding status migration:
 `supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql` inventories the remaining live event catalog, fully normalizes 36 additional French anchors through exact INSEE commune matches, and assigns a verified ISO country to the 50 remaining official UTMB international events. International city/admin fields deliberately stay null when the existing official label identifies only a venue, island, province, or ambiguous multi-city event.
 
 `supabase/migrations/20260910083131_correct_translantau_country_code.sql` keeps TransLantau under Hong Kong's distinct ISO `HK` catalog key instead of mainland China's `CN` key.
+
+`supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql` is an idempotent data-only organizer-source batch. It publishes 15 verified 2027 formats across Trail du Petit Ballon, Grand Trail des Cadourques, and Volvic Volcanic Experience; upserts their canonical visible editions; and stores exact French commune, department, region, country, and anchor coordinates. It reuses the existing Volvic event and preserves the historical 2026 XGTV metrics while correcting its route label. Missing 2027 Volvic D+ values remain null. The migration adds no table, function, trigger, grant, or policy.
 
 <!-- TODO: verify with maintainer: identify the migration or dashboard history that creates race_events and columns used by current code. -->
 

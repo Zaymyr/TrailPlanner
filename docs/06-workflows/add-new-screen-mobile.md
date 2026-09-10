@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -97,6 +97,7 @@ The identity card displays the formatted course date beneath the race name in th
     The app shell owns analytics identity and marks the configured owner email plus trusted Supabase admins as PostHog internal/test users; screens must not reimplement that classification.
 12. For a new root tab, add the help/feedback entry point through `RootScreenActionMenu`; add screen-specific actions there instead of occupying native header space.
 13. For a new hidden child screen under an existing stack, register the explicit child route in `apps/mobile/app/(app)/_layout.tsx` and give it a localized title in the stack layout for that feature area.
+14. When the screen belongs to a critical user journey, add stable, semantic `testID` hooks to the smallest actionable elements and extend `apps/mobile/.maestro/flows/authenticated-shell.yaml` or add a focused flow. Do not target translated copy when a stable id is available.
 
 ## Validation
 
@@ -108,6 +109,8 @@ npm run test
 ```
 
 For native behavior, build/run with the development client profile from `apps/mobile/eas.json`.
+
+For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobile-ux-audit.md). Run `npm run test:e2e:ux -w @trailplanner/mobile` locally when Maestro and an installed build are available, or launch the manual EAS workflow.
 
 For Android production OTA updates, resolve and verify the Android runtime before publishing; the API 36 binary expects runtime `1.1.1` while the current iOS binary remains on `1.1.0`.
 
@@ -133,6 +136,7 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 - Do not hide subscription legal links in a distant settings screen when the active surface is an in-app paywall; premium upgrade prompts should expose privacy and Terms/EULA directly.
 - Do not publish one undifferentiated OTA when platform runtimes differ. Publish and verify Android and iOS updates against their own resolved runtimes.
 - Do not apply organizer accent colors to semantic status UI or expose an unpublished branding draft through a mobile screen.
+- Do not store test credentials in a flow, snapshot, source file, or public Expo environment variable.
 
 ## Related Docs
 

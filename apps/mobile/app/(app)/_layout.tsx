@@ -149,6 +149,7 @@ export default function AppLayout() {
         options={{
           title: t.profile.title,
           tabBarLabel: t.profile.title,
+          tabBarButtonTestID: 'nav-tab-profile',
           tabBarIcon: ({ color, size }) => (
             <View style={styles.profileIconWrap}>
               <Ionicons name="person" size={size} color={color} />
@@ -166,6 +167,7 @@ export default function AppLayout() {
         options={{
           title: catalogLabel,
           tabBarLabel: catalogLabel,
+          tabBarButtonTestID: 'nav-tab-catalog',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trail-sign" size={size} color={color} />
           ),
@@ -187,6 +189,7 @@ export default function AppLayout() {
         options={{
           title: t.plans.title,
           tabBarLabel: plansTabLabel,
+          tabBarButtonTestID: 'nav-tab-plans',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map" size={size} color={color} />
           ),
@@ -199,6 +202,7 @@ export default function AppLayout() {
         options={{
           title: 'Nutrition',
           tabBarLabel: nutritionLabel,
+          tabBarButtonTestID: 'nav-tab-nutrition',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="nutrition" size={size} color={color} />
           ),

@@ -14,6 +14,7 @@ const baseRace: PublicRace = {
   eventName: "Festival public",
   date: "2026-09-12",
   location: "Annecy",
+  searchTerms: ["Annecy", "Haute-Savoie", "Auvergne-Rhône-Alpes", "France"],
   distanceKm: 42,
   elevationGainM: 2100,
   raceThumbnailUrl: "https://images.example/race.png",

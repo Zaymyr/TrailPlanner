@@ -20,6 +20,7 @@ related_files:
   - supabase/migrations/20260909200153_enrich_verified_seo_races_batch_2.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
+  - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -115,6 +116,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - The September 2026 curated SEO seed publishes 20 upcoming formats backed by organiser pages and enriches the 5 existing Grand Raid formats without replacing their more precise GPX-derived metrics. Candidate formats without a verified exact date, distance, location and source stay out of the public catalog.
 - The second September 2026 curated batch publishes 12 additional November-to-February formats from official organiser pages, corrects the Foulée des Ducs 45 km as a relay, and adds official provenance to 6 existing Nice UTMB and Terres de Saône formats without replacing their GPX-derived metrics.
 - The official UTMB World Series import publishes 268 upcoming formats across 55 official events. Stable UTMB race ids prevent shared race-page URLs from collapsing sibling formats; existing matched rows retain their GPX-derived distance/elevation values, while new formats use the official API metrics and may legitimately have no GPX.
+- The organizer-source March–May 2027 batch publishes 15 additional formats across Rouffach, Cahors, and Volvic. Exact dates, locations, distances, and source URLs come from organizer pages; D+ stays null for Volvic formats whose 2027 elevation is not yet published. The existing 2026 XGTV format retains its measured metrics and receives only its verified route label/source fallback.
 - The normalized-geography migration refreshes eleven Search Console-priority `location`/`location_text` labels with source-backed city, route endpoint and administrative-area wording. Exact region/department filters belong to the parent `race_events` normalized fields rather than parsed format text.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
 - Public SEO detail reads revalidate `is_live = true` and `is_public = true` with service credentials before reading `organizer_details`, ravitos, or private `gpx_storage_path`. An attached event and edition must also remain visible. Only an explicit sanitized DTO crosses into rendering; emergency/last-minute organizer fields and raw JSON do not.

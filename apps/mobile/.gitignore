@@ -8,6 +8,7 @@ expo-env.d.ts
 .expo/
 .env
 .env.local
+.maestro/artifacts/
 android/
 ios/
 google-services.json

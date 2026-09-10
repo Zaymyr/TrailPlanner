@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
+  - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-race-detail.ts
@@ -60,7 +61,7 @@ This document defines which public race pages Pace Yourself may expose to search
 
 Each current public slug resolves to `/courses/[slug]`. A known former slug reloads the target through the same current visibility checks, emits canonical metadata for the current URL, then returns a permanent redirect. Unknown mappings and targets that are no longer public remain not found and noindex.
 
-The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, location, distance, D+, slug and format official URL. The separate server-only `PublicRaceDetail` read rechecks `races.is_live`, `races.is_public`, the optional parent `race_events.is_live`, and the optional `race_event_editions.is_visible` before reading organizer details, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
+The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, display location, an allowlisted array of searchable location labels, distance, D+, slug and format official URL. Searchable labels come only from the format's two public location strings and the parent event's public location, city, department, region, and country; codes, coordinates, organizer JSON and operational fields stay outside the client DTO. The separate server-only `PublicRaceDetail` read rechecks `races.is_live`, `races.is_public`, the optional parent `race_events.is_live`, and the optional `race_event_editions.is_visible` before reading organizer details, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
 
 The detail page applies the established event/format inheritance parser for schedule, equipment, bib pickup, access, runner information and services. It exposes only available values, D+/D-, altitude bounds, participation mode, ravitos, format then event official websites, and event social profiles. It must not generate course difficulty, expected duration, weather, aid-station values, or other claims from absent source data.
 
@@ -79,7 +80,7 @@ Sharing uses the native Web Share sheet when available, which lets installed mob
 
 The `/courses` catalog groups published formats by stable non-null `event_id + edition_id`. Historical rows with an event but no edition fall back to `event_id`; a display name is never an identity and two homonymous events remain separate. Each standalone race with no event id stays in its own card. Formats are ordered by numeric distance with unknown values last.
 
-The default temporal filter contains upcoming/current formats followed by undated formats. Past formats are available separately and sorted newest first; the `Toutes` view keeps upcoming, undated, then past. Search is accent-insensitive and combines with distance and temporal filters. Visible result counters and a reset action describe the active state.
+The default temporal filter contains upcoming/current formats followed by undated formats. Past formats are available separately and sorted newest first; the `Toutes` view keeps upcoming, undated, then past. Search is accent- and punctuation-insensitive, matches every entered token regardless of order, and covers format/event names plus every allowlisted format and normalized parent-event locality. It combines with distance and temporal filters. Visible result counters and a reset action describe the active state.
 
 Filtering happens before grouping, so an event-edition card disappears when none of its formats matches. Every visible format remains a normal HTML link to `/courses/[slug]`. Event-edition cards use the shared event image and year/date where available; standalone formats use their own image. A format image remains the first detail-page image choice. Missing images reserve no empty visual area. The responsive card layout stacks at narrow widths, keeps controls at least 44 px high and avoids horizontal tables.
 
@@ -97,7 +98,9 @@ A page is generated and indexable only while at least five public races have a n
 
 ## Geographic Landing-Page Guardrail
 
-`race_events` now has explicit normalized city, department, region and country names/codes plus an anchor-city coordinate pair. All current live events have a verified country; the 44 French events have complete commune, department, region and coordinate enrichment. The 50 remaining official UTMB international events intentionally stay country-only until one unambiguous locality is verified.
+`race_events` now has explicit normalized city, department, region and country names/codes plus an anchor-city coordinate pair. All current live events have a verified country; after the March–May 2027 organizer-source batch, 46 French events have complete commune, department, region and coordinate enrichment. The 50 remaining official UTMB international events intentionally stay country-only until one unambiguous locality is verified.
+
+The 2027 extension publishes 15 organizer-verified formats across the Trail du Petit Ballon, Grand Trail des Cadourques, and Volvic Volcanic Experience. It reuses the existing Volvic event, corrects its parent anchor while preserving the 2026 XGTV route label, creates canonical visible 2027 editions, and keeps unpublished D+ values null.
 
 Regional and departmental landing pages are not enabled yet. When introduced, they must use stable normalized codes from the parent event, apply the same five-race minimum-content threshold, and include only public formats under live events. Free-text `location`/`location_text`, postal-code guesses and runtime city-to-region lookup remain unacceptable sources of truth.
 

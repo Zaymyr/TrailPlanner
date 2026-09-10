@@ -209,7 +209,7 @@ export function RaceCatalogFilter({ races, todayIso }: { races: PublicRace[]; to
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
-            placeholder="Annecy, Mont-Blanc, UTMB…"
+            placeholder="Ville, département, région, pays…"
             className="h-11 w-full rounded-md border border-border bg-background px-3 font-normal text-foreground outline-none transition focus:border-brand-border focus:ring-2 focus:ring-ring/30"
           />
         </label>
