@@ -244,6 +244,8 @@ The organizer dashboard code-splits its heavy module editors and review panels, 
 
 The dashboard uses progressive disclosure for secondary guidance: controls keep short labels, while reusable contextual help exposes longer explanations on pointer hover and keyboard/touch focus. Validation errors, missing-data warnings, save state, and actual event values remain visible because they require immediate attention and must not depend on hover.
 
+The event information editor uses five ordered visual sections instead of one flat grid: primary identity, online presence, edition dates, emergency contact, and cover image. The emergency block has a restrained warning surface, while the image preview and picker share one bounded row so neither creates unused page width.
+
 The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. Edition-logo upload infrastructure and stored values remain intact, but the shared kill switch currently hides its controls and prevents public resolution. Non-Pro organizers receive an upsell instead of draft data.
 
 ## Purpose
