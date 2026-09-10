@@ -91,7 +91,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 
 - `framework: "nextjs"`
 - `buildCommand: "npm run build"`
-- `installCommand: "npm install --legacy-peer-deps"`
+- `installCommand: "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund"`, which installs only the web workspace dependency graph, preserves Vercel's restored `node_modules` cache, and avoids unrelated Expo/mobile packages and install-time audit requests
 - `outputDirectory: ".next"`
 - an ignored-build command that skips Vercel deployments when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged
 - redirects from `trailplanner.app` and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
@@ -152,6 +152,7 @@ When docs and code disagree, use this order:
 - Maestro is external test tooling and is not bundled into the application. Local runs require its CLI on `PATH`; the EAS workflow provides the cloud runner.
 - Android and iOS temporarily use different EAS Update runtimes: Android `1.1.1` for the API 36 native build and iOS `1.1.0` for the current App Store binary.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
+- Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
 
 ## Related Docs

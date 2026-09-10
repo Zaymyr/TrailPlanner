@@ -117,6 +117,11 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(controlsSource).toContain("group-focus-within/visibility:block");
     expect(controlsSource).toContain("Le RaceBook est visible uniquement dans votre démo organisateur");
     expect(dashboardSource).toContain('racebookIsLive: visibility === "public"');
+    expect(dashboardSource).toContain('visibility === "public" && activeTier === "visibility"');
+    expect(dashboardSource).toContain('openPricingDialog("publication")');
+    expect(dashboardSource.indexOf('visibility === "public" && activeTier === "visibility"')).toBeLessThan(
+      dashboardSource.indexOf('setStatus("saving")', dashboardSource.indexOf("const setRacebookVisibility"))
+    );
   });
 
   it("keeps the pricing dialog wide and viewport-bounded", () => {
@@ -145,13 +150,21 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}");
     expect(shellSource).toContain('isSummaryExpanded ? "Fermer" : "Ouvrir"');
     expect(shellSource).toContain('cn("h-5 overflow-hidden rounded-full"');
-    expect(shellSource).toContain('htmlFor="organizer-event-select"');
+    expect(shellSource).toContain('htmlFor="organizer-event-combobox"');
+    expect(shellSource).toContain('role="combobox"');
+    expect(shellSource).toContain('aria-autocomplete="list"');
+    expect(shellSource).toContain('role="listbox"');
+    expect(shellSource).toContain('role="option"');
     expect(shellSource).toContain('href="/sign-in?next=%2Forganizer"');
-    expect(shellSource).toContain("memberships.length > 8");
-    expect(shellSource).toContain("Aucun autre événement trouvé.");
+    expect(shellSource).toContain("Rechercher ou choisir…");
+    expect(shellSource).toContain("Aucun événement trouvé.");
+    expect(shellSource).toContain("md:grid-cols-[minmax(16rem,28rem)_10rem]");
     expect(shellSource).toContain('htmlFor="organizer-workspace-select"');
-    expect(shellSource).toContain('tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label');
-    expect(shellSource).toContain('aria-label={tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : undefined}');
+    expect(shellSource).toContain('<optgroup label="Informations communes">');
+    expect(shellSource).toContain("Commun à toutes les courses");
+    expect(shellSource).toContain('<optgroup label="Formats de course">');
+    expect(shellSource).toContain("Format · {tab.label}");
+    expect(shellSource).toContain('aria-label="Ajouter un format"');
     expect(shellSource).toContain("Créer un autre événement");
     expect(shellSource).toContain("Gérer la visibilité");
     expect(shellSource).toContain("Notifier les coureurs");
@@ -164,6 +177,13 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Supprimer l’édition");
     expect(shellSource).toContain("Supprimer l’événement");
     expect(dashboardSource).toContain("<ContextualHelp");
+    expect(shellSource).not.toContain("<StatusBadge");
+    expect(shellSource).not.toContain("<LevelBadge");
+    expect(shellSource).not.toContain('isDirty(module.id) ? "À sauvegarder" : "Modifier"');
+    expect(shellSource).toContain('module.status === "empty" && "border-slate-200');
+    expect(shellSource).toContain('module.status === "incomplete" && "border-amber-300');
+    expect(shellSource).toContain('module.status === "complete" && "border-emerald-300');
+    expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
   });
 
   it("keeps format publication prerequisites visible and persisted", () => {

@@ -12,7 +12,7 @@ const headers = (config: SupabaseServiceConfig) => ({
 async function hasRows(config: SupabaseServiceConfig, path: string) {
   const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, { headers: headers(config), cache: "no-store" });
   if (!response.ok) throw new Error(`Unable to inspect organizer publication content (${response.status})`);
-  return z.array(z.object({ id: z.string().uuid() }).passthrough()).parse(await response.json()).length > 0;
+  return z.array(z.unknown()).parse(await response.json()).length > 0;
 }
 
 export async function loadOrganizerPublicationRequirement(config: SupabaseServiceConfig, editionId: string) {
@@ -60,7 +60,7 @@ export async function loadOrganizerPublicationRequirement(config: SupabaseServic
   const checks: Array<Promise<[OrganizerModuleKey, boolean]>> = [
     hasRows(config, `race_edition_services?edition_id=eq.${encodeURIComponent(editionId)}&select=id&limit=1`)
       .then((present) => ["services", Boolean(settings.edition.services && (present || hasLegacyServices))]),
-    hasRows(config, `race_event_edition_branding?edition_id=eq.${encodeURIComponent(editionId)}&select=id&limit=1`)
+    hasRows(config, `race_event_edition_branding?edition_id=eq.${encodeURIComponent(editionId)}&select=edition_id&limit=1`)
       .then((present) => ["branding", Boolean(settings.edition.branding && present)]),
     hasRows(config, `race_event_edition_sponsors?edition_id=eq.${encodeURIComponent(editionId)}&select=id&limit=1`)
       .then((present) => ["sponsors", Boolean(settings.edition.sponsors && present)]),

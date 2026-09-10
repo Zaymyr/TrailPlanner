@@ -8,6 +8,7 @@ related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/lib/organizer-publication-tier.ts
+  - apps/web/lib/organizer-publication-tier.test.ts
   - apps/web/app/api/stripe/webhook/route.ts
 related_tables:
   - organizer_edition_payments
@@ -60,6 +61,7 @@ RLS is enabled with service-role-only grants. Checkout and webhook routes are th
 
 - Server code selects the Price and expected amount; clients never supply a Price id or amount.
 - Checkout recomputes the populated-module publication requirement server-side and records it in Stripe metadata; it does not create extra entitlement rows for private draft access. When checkout started from `Publier`, its success URL also carries a non-authoritative publication intent: the dashboard waits for webhook-confirmed entitlement, then calls the protected edition publication route for preview-selected formats.
+- Existence probes used by that recomputation parse only the response array and select an actual table column; edition branding must project its `edition_id` primary key rather than a nonexistent `id`.
 - Any refund event, including partial, and any open/lost dispute invalidates the complete transaction. A dispute closed as won restores only a row currently marked `disputed`.
 - Recalculation uses valid paid transaction paths, so a refunded/disputed base invalidates its dependent upgrade, and preserves admin overrides.
 

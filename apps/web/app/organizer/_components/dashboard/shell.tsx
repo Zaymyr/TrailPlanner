@@ -10,7 +10,7 @@ import type { OrganizerCompletionSummary, OrganizerModuleId } from "../completio
 import { ADD_FORMAT_TAB_ID, EVENT_TAB_ID } from "./constants";
 import { buildEditionYearOptions, formatEventDateRange, getEventEdition, getRaceEditionYear, getRaceEditionYearLabel, groupRacesBySeries } from "./helpers";
 import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, PublicationRequestRow, RaceFormat } from "./types";
-import { ContextualHelp, LevelBadge, LiveToggle, RacebookVisibilityControl, StatusBadge } from "./controls";
+import { ContextualHelp, LiveToggle, RacebookVisibilityControl } from "./controls";
 import type { RacebookVisibilityState } from "./controls";
 
 const getProgressTone = (score: number) => {
@@ -164,7 +164,6 @@ export function OrganizerSummaryHeader({
   const [deleteEditionDialogOpen, setDeleteEditionDialogOpen] = React.useState(false);
   const [deleteEditionConfirmation, setDeleteEditionConfirmation] = React.useState("");
   const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
-  const [eventSearch, setEventSearch] = React.useState("");
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
@@ -193,19 +192,6 @@ export function OrganizerSummaryHeader({
     : isComplimentaryOffer && editionTier !== "visibility"
       ? `Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[editionTier]} € HT`
         : "Aucun paiement actif";
-  const normalizedEventSearch = memberships.length > 8 ? eventSearch.trim().toLocaleLowerCase("fr") : "";
-  const matchingMemberships = normalizedEventSearch
-    ? memberships.filter((membership) =>
-        (membership.race_events?.name ?? membership.event_id).toLocaleLowerCase("fr").includes(normalizedEventSearch)
-      )
-    : memberships;
-  const visibleMemberships = matchingMemberships.some((membership) => membership.event_id === selectedEventId)
-    ? matchingMemberships
-    : [
-        ...memberships.filter((membership) => membership.event_id === selectedEventId),
-        ...matchingMemberships,
-      ];
-
   return (
     <section className="rounded-xl border border-border bg-card p-4 shadow-sm sm:p-5">
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -287,20 +273,12 @@ export function OrganizerSummaryHeader({
         </div>
       </div>
 
-      <div className="mt-5 grid gap-3 border-t border-border pt-4 md:grid-cols-[minmax(0,1fr)_10rem]">
-        <div className="min-w-0">
-          {memberships.length > 8 ? (
-            <div className="mb-2">
-              <label htmlFor="organizer-event-search" className="sr-only">Rechercher un événement</label>
-              <input id="organizer-event-search" type="search" className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={eventSearch} onChange={(searchEvent) => setEventSearch(searchEvent.target.value)} placeholder="Rechercher un événement" />
-              {normalizedEventSearch && matchingMemberships.length === 0 ? <p className="mt-1 text-xs text-muted-foreground">Aucun autre événement trouvé.</p> : null}
-            </div>
-          ) : null}
-          <label htmlFor="organizer-event-select" className="mb-1 block text-xs font-medium text-muted-foreground">Événement</label>
-          <select id="organizer-event-select" title="Changer l’événement à modifier." className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm" value={selectedEventId ?? ""} onChange={(selectEvent) => onSelectedEventChange(selectEvent.target.value)}>
-            {visibleMemberships.map((membership) => <option key={membership.id} value={membership.event_id}>{membership.race_events?.name ?? membership.event_id}</option>)}
-          </select>
-        </div>
+      <div className="mt-5 grid max-w-2xl gap-3 border-t border-border pt-4 md:grid-cols-[minmax(16rem,28rem)_10rem]">
+        <OrganizerEventCombobox
+          memberships={memberships}
+          selectedEventId={selectedEventId}
+          onSelectedEventChange={onSelectedEventChange}
+        />
         <div>
           <label htmlFor="organizer-event-edition-select" className="mb-1 block text-xs font-medium text-muted-foreground">Édition</label>
           <select id="organizer-event-edition-select" title="Changer l’année à modifier sans changer d’événement." className="h-11 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground" value={selectedEditionYear} onChange={(selectEvent) => onSelectedEditionYearChange(selectEvent.target.value)}>
@@ -572,6 +550,134 @@ export function OrganizerSummaryHeader({
   );
 }
 
+function OrganizerEventCombobox({
+  memberships,
+  selectedEventId,
+  onSelectedEventChange,
+}: {
+  memberships: MembershipRow[];
+  selectedEventId: string | null;
+  onSelectedEventChange: (eventId: string) => void;
+}) {
+  const listboxId = React.useId();
+  const selectedLabel = memberships.find((membership) => membership.event_id === selectedEventId)?.race_events?.name ?? "";
+  const [query, setQuery] = React.useState(selectedLabel);
+  const [open, setOpen] = React.useState(false);
+  const [highlightedIndex, setHighlightedIndex] = React.useState(0);
+  const normalizedQuery = query.trim().toLocaleLowerCase("fr");
+  const filteredMemberships = normalizedQuery
+    ? memberships.filter((membership) =>
+        (membership.race_events?.name ?? membership.event_id).toLocaleLowerCase("fr").includes(normalizedQuery)
+      )
+    : memberships;
+
+  React.useEffect(() => {
+    if (!open) setQuery(selectedLabel);
+  }, [open, selectedLabel]);
+
+  const openList = () => {
+    if (open) return;
+    setQuery("");
+    setHighlightedIndex(0);
+    setOpen(true);
+  };
+  const closeList = () => {
+    setOpen(false);
+    setQuery(selectedLabel);
+  };
+  const selectMembership = (membership: MembershipRow) => {
+    setQuery(membership.race_events?.name ?? membership.event_id);
+    setOpen(false);
+    if (membership.event_id !== selectedEventId) onSelectedEventChange(membership.event_id);
+  };
+
+  return (
+    <div className="relative min-w-0">
+      <label htmlFor="organizer-event-combobox" className="mb-1 block text-xs font-medium text-muted-foreground">Événement</label>
+      <div className="relative">
+        <input
+          id="organizer-event-combobox"
+          type="text"
+          role="combobox"
+          autoComplete="off"
+          aria-autocomplete="list"
+          aria-expanded={open}
+          aria-controls={listboxId}
+          aria-activedescendant={open && filteredMemberships[highlightedIndex] ? `${listboxId}-${filteredMemberships[highlightedIndex].id}` : undefined}
+          value={query}
+          onFocus={openList}
+          onClick={openList}
+          onBlur={closeList}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            setHighlightedIndex(0);
+            setOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Escape") {
+              event.preventDefault();
+              closeList();
+              event.currentTarget.blur();
+              return;
+            }
+            if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+              event.preventDefault();
+              if (!open) {
+                openList();
+                return;
+              }
+              const direction = event.key === "ArrowDown" ? 1 : -1;
+              setHighlightedIndex((current) =>
+                filteredMemberships.length === 0
+                  ? 0
+                  : (current + direction + filteredMemberships.length) % filteredMemberships.length
+              );
+              return;
+            }
+            if (event.key === "Enter" && open && filteredMemberships[highlightedIndex]) {
+              event.preventDefault();
+              selectMembership(filteredMemberships[highlightedIndex]);
+            }
+          }}
+          placeholder="Rechercher ou choisir…"
+          className="h-11 w-full rounded-md border border-border bg-card px-3 pr-10 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        />
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className={cn("pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition", open && "rotate-180")}>
+          <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      {open ? (
+        <div id={listboxId} role="listbox" aria-label="Événements" className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-xl">
+          {filteredMemberships.length > 0 ? filteredMemberships.map((membership, index) => {
+            const label = membership.race_events?.name ?? membership.event_id;
+            return (
+              <button
+                key={membership.id}
+                id={`${listboxId}-${membership.id}`}
+                type="button"
+                role="option"
+                aria-selected={membership.event_id === selectedEventId}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setHighlightedIndex(index)}
+                onClick={() => selectMembership(membership)}
+                className={cn(
+                  "flex min-h-10 w-full items-center justify-between rounded px-3 py-2 text-left text-sm text-foreground",
+                  index === highlightedIndex ? "bg-brand-surface" : "hover:bg-muted/50"
+                )}
+              >
+                <span className="truncate">{label}</span>
+                {membership.event_id === selectedEventId ? <span className="ml-3 text-xs font-semibold text-brand">Sélectionné</span> : null}
+              </button>
+            );
+          }) : (
+            <p className="px-3 py-3 text-sm text-muted-foreground">Aucun événement trouvé.</p>
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function CompletionTabsPanel({
   tabs,
   activeTab,
@@ -594,12 +700,15 @@ export function CompletionTabsPanel({
   const isEventTab = activeTab === EVENT_TAB_ID;
   const isAddTab = activeTab === ADD_FORMAT_TAB_ID;
   const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
+  const eventTab = tabs.find((tab) => tab.id === EVENT_TAB_ID);
+  const formatTabs = tabs.filter((tab) => tab.id !== EVENT_TAB_ID && tab.id !== ADD_FORMAT_TAB_ID);
+  const addFormatTab = tabs.find((tab) => tab.id === ADD_FORMAT_TAB_ID);
 
   return (
     <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
       <div className="md:hidden">
         <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
-          Événement ou format à modifier
+          Informations à modifier
         </label>
         <select
           id="organizer-workspace-select"
@@ -607,33 +716,79 @@ export function CompletionTabsPanel({
           value={activeTab}
           onChange={(event) => onTabChange(event.target.value)}
         >
-          {tabs.map((tab) => (
-            <option key={tab.id} value={tab.id}>
-              {tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label}
-            </option>
-          ))}
+          {eventTab ? (
+            <optgroup label="Informations communes">
+              <option value={eventTab.id}>Commun à toutes les courses</option>
+            </optgroup>
+          ) : null}
+          <optgroup label="Formats de course">
+            {formatTabs.map((tab) => <option key={tab.id} value={tab.id}>Format · {tab.label}</option>)}
+            {addFormatTab ? <option value={addFormatTab.id}>+ Ajouter un format</option> : null}
+          </optgroup>
         </select>
       </div>
 
-      <div className="hidden overflow-x-auto pb-1 md:block">
-        <div className="flex min-w-max items-center gap-2 border-b border-border">
-          {tabs.map((tab) => (
+      <div className="hidden gap-4 border-b border-border pb-4 md:grid lg:grid-cols-[minmax(14rem,0.8fr)_minmax(0,3fr)]">
+        <div className="rounded-xl bg-muted/40 p-2">
+          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Informations communes</p>
+          {eventTab ? (
             <button
-              key={tab.id}
               type="button"
-              aria-label={tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : undefined}
-              aria-current={activeTab === tab.id ? "page" : undefined}
-              onClick={() => onTabChange(tab.id)}
+              aria-current={isEventTab ? "page" : undefined}
+              onClick={() => onTabChange(eventTab.id)}
               className={cn(
-                "min-h-11 rounded-t-lg border border-transparent px-5 py-3 text-base font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                activeTab === tab.id
-                  ? "border-brand border-b-card bg-brand-surface text-brand shadow-sm"
-                  : "text-muted-foreground hover:bg-background hover:text-foreground"
+                "flex min-h-14 w-full items-center justify-between rounded-lg border px-3 py-2 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                isEventTab
+                  ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
+                  : "border-transparent bg-card text-foreground hover:border-brand-border"
               )}
             >
-              {tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label}
+              <span>
+                <span className="block text-sm font-semibold">Commun à toutes les courses</span>
+                <span className="block text-xs font-normal text-muted-foreground">Événement</span>
+              </span>
+              {isEventTab ? <span className="h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand/15" aria-hidden="true" /> : null}
             </button>
-          ))}
+          ) : null}
+        </div>
+
+        <div className="min-w-0 rounded-xl bg-muted/20 p-2">
+          <p className="px-2 pb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Formats de course</p>
+          <div className="flex min-w-0 gap-2 overflow-x-auto pb-1">
+            {formatTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                aria-current={activeTab === tab.id ? "page" : undefined}
+                onClick={() => onTabChange(tab.id)}
+                className={cn(
+                  "inline-flex min-h-14 shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  activeTab === tab.id
+                    ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
+                    : "border-transparent bg-card text-foreground hover:border-brand-border"
+                )}
+              >
+                {tab.label}
+                {activeTab === tab.id ? <span className="h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand/15" aria-hidden="true" /> : null}
+              </button>
+            ))}
+            {addFormatTab ? (
+              <button
+                type="button"
+                aria-label="Ajouter un format"
+                aria-current={isAddTab ? "page" : undefined}
+                onClick={() => onTabChange(addFormatTab.id)}
+                className={cn(
+                  "min-h-14 shrink-0 rounded-lg border border-dashed px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  isAddTab
+                    ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
+                    : "border-border bg-card text-muted-foreground hover:border-brand-border hover:text-foreground"
+                )}
+              >
+                + Ajouter un format
+              </button>
+            ) : null}
+          </div>
         </div>
       </div>
 
@@ -665,6 +820,11 @@ export function OrganizerModuleGrid({
   onSelectModule: (moduleId: OrganizerModuleId) => void;
 }) {
   const isDirty = (moduleId: OrganizerModuleId) => dirtyModules.has(moduleId);
+  const statusLabels = {
+    empty: "Aucune information",
+    incomplete: "Partiellement complété",
+    complete: "Complet",
+  } as const;
 
   return (
     <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
@@ -672,30 +832,27 @@ export function OrganizerModuleGrid({
         <button
           key={module.id}
           type="button"
-          aria-label={`${module.title}. ${module.description}`}
+          aria-label={`${module.title}. ${statusLabels[module.status]}. ${module.countLabel}. ${module.description}`}
+          aria-current={activeModule === module.id ? "true" : undefined}
           className={cn(
-            "min-h-[112px] rounded-lg border bg-card p-3 text-left transition hover:border-brand-border hover:shadow-sm lg:min-w-0",
-            module.status === "complete" && activeModule !== module.id && "border-emerald-300",
-            activeModule === module.id && "border-brand bg-brand-surface/60 ring-2 ring-brand/30 shadow-sm",
-            isDirty(module.id) && module.status !== "complete" && "border-amber-300"
+            "relative min-h-[112px] rounded-xl border-2 p-4 text-left transition hover:-translate-y-0.5 hover:shadow-md lg:min-w-0",
+            module.status === "empty" && "border-slate-200 bg-slate-50/70 dark:border-slate-700 dark:bg-slate-900/30",
+            module.status === "incomplete" && "border-amber-300 bg-amber-50/60 dark:border-amber-700 dark:bg-amber-950/20",
+            module.status === "complete" && "border-emerald-300 bg-emerald-50/50 dark:border-emerald-700 dark:bg-emerald-950/20",
+            activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand ring-offset-2 ring-offset-card",
+            isDirty(module.id) && "after:absolute after:right-3 after:top-3 after:h-2.5 after:w-2.5 after:rounded-full after:bg-amber-500 after:content-[''] after:ring-4 after:ring-amber-500/15"
           )}
           onClick={() => onSelectModule(module.id)}
         >
-          <div className="flex items-start justify-between gap-2">
-            <StatusBadge status={module.status} />
-            <LevelBadge level={module.level} />
-          </div>
-          <h2 className="mt-2 text-sm font-semibold leading-snug text-foreground">{module.title}</h2>
+          <h2 className="pr-5 text-base font-bold leading-snug text-foreground">{module.title}</h2>
+          <p className="mt-2 text-sm font-medium text-muted-foreground">{module.countLabel}</p>
           {module.missingLabels?.length ? (
-            <p className="mt-2 line-clamp-2 text-[11px] font-medium text-amber-700">
+            <p className="mt-3 line-clamp-2 text-xs font-semibold text-amber-800 dark:text-amber-300">
               Manque : {module.missingLabels.slice(0, 3).join(", ")}
               {module.missingLabels.length > 3 ? "..." : ""}
             </p>
           ) : null}
-          <div className="mt-4 flex items-end justify-between gap-2">
-            <span className="text-xs font-medium text-foreground">{module.countLabel}</span>
-            <span className="text-xs font-semibold text-brand">{isDirty(module.id) ? "À sauvegarder" : "Modifier"}</span>
-          </div>
+          {isDirty(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
         </button>
       ))}
     </div>
