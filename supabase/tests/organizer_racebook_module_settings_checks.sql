@@ -1,10 +1,25 @@
 -- RaceBook module scope, uniqueness and service-only access checks.
--- Run after 20260908093008_add_organizer_offer_modules_v2.sql in a privileged SQL session.
+-- Run after 20260910170144_separate_racebook_preview_visibility.sql in a privileged SQL session.
 
 begin;
 
 do $$
 begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_schema = 'public'
+      and table_name = 'races'
+      and column_name = 'racebook_preview_is_visible'
+  ) then
+    raise exception 'RaceBook organizer preview visibility column is missing.';
+  end if;
+  if has_function_privilege('anon', 'public.publish_organizer_edition_racebooks(uuid, uuid)', 'execute')
+    or has_function_privilege('authenticated', 'public.publish_organizer_edition_racebooks(uuid, uuid)', 'execute') then
+    raise exception 'Edition RaceBook publication must not be executable by clients.';
+  end if;
+  if not has_function_privilege('service_role', 'public.publish_organizer_edition_racebooks(uuid, uuid)', 'execute') then
+    raise exception 'Service role must be able to publish selected edition RaceBooks.';
+  end if;
   if has_table_privilege('anon', 'public.organizer_racebook_module_settings', 'select')
     or has_table_privilege('authenticated', 'public.organizer_racebook_module_settings', 'select') then
     raise exception 'Module settings must not be readable directly by clients.';

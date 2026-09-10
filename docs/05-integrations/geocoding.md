@@ -133,6 +133,8 @@ The public `/courses` search reads only the normalized locality names alongside 
 
 ## Related Docs
 
+RaceBook demo masking is a whole-format presentation gate only. It preserves normalized coordinates and never triggers geocoding or clears location metadata.
+
 - [Web App](../01-architecture/web-app.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [race_events](../02-database/tables/race-events.md)

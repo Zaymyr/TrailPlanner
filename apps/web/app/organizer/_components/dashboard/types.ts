@@ -84,6 +84,7 @@ export type RaceFormat = {
   data_status?: "draft" | "complete";
   missing_required_fields?: Array<"race_date" | "location" | "distance_km" | "source_url">;
   racebook_is_live?: boolean;
+  racebook_preview_is_visible?: boolean;
   racebook_publication_approved_at?: string | null;
   organizerDetails?: OrganizerRaceDetails;
   participation_mode?: RaceParticipationMode | null;

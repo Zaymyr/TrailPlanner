@@ -120,6 +120,8 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Related Docs
 
+Private-demo selection changes only a format's RaceBook entry visibility; it does not publish, delete, or retarget organizer announcements.
+
 - [race_events](race-events.md)
 - [RLS Policies](../rls-policies.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

@@ -109,6 +109,8 @@ where event_id = '<event-id>';
 
 ## Related Docs
 
+Private-demo format selection does not affect event favorites or catalog membership; it gates only the RaceBook action for that format.
+
 - [race_events](race-events.md)
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)

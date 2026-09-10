@@ -84,6 +84,8 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 ## Related Docs
 
+Masking a format from the private RaceBook demo suppresses its complete mobile RaceBook entry point without deleting relay points.
+
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)
 - [Relationships](../relationships.md)

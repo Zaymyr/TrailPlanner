@@ -16,6 +16,7 @@ const raceSchema = z.object({
   edition_id: z.string().uuid().nullable(),
   is_live: z.boolean(),
   racebook_is_live: z.boolean(),
+  racebook_preview_is_visible: z.boolean().default(true),
   participation_mode: z.string().nullable().optional(),
   organizer_details: z.unknown().nullable().optional(),
   race_events: z.union([
@@ -43,11 +44,14 @@ export async function GET(request: NextRequest) {
   if (!serviceConfig) return withSecurityHeaders(NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 }));
 
   const raceResponse = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,is_live,racebook_is_live,participation_mode,organizer_details,race_events(is_live,organizer_details)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,is_live,racebook_is_live,racebook_preview_is_visible,participation_mode,organizer_details,race_events(is_live,organizer_details)&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
   );
   if (!raceResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load RaceBook." }, { status: 502 }));
   const race = z.array(raceSchema).parse(await raceResponse.json())[0] ?? null;
+  if (race?.racebook_preview_is_visible === false) {
+    return withSecurityHeaders(NextResponse.json({ message: "RaceBook not available." }, { status: 404 }));
+  }
   if (!race?.edition_id || !race.event_id) return withSecurityHeaders(NextResponse.json({
     loadingSponsors: [],
     bannerSponsors: [],

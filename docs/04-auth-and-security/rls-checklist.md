@@ -67,6 +67,8 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 
 `organizer_racebook_module_settings` is service-only: client roles have no table privileges or policies. Published structured collections use the narrow `private.racebook_module_is_enabled` security-definer helper to combine the active entitlement and stored module switch. The helper exposes only a boolean and keeps its explicit search path and execute grants bounded to the API roles.
 
+`publish_organizer_edition_racebooks` is likewise `SECURITY INVOKER` and executable only by `service_role`. The Next.js route verifies trusted organizer/admin access before calling it; the function independently rechecks edition visibility and entitlement, and publishes only complete formats selected through `racebook_preview_is_visible`.
+
 ## Key Concepts
 
 - RLS: row-level security enforced by Postgres.

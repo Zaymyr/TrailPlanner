@@ -189,6 +189,45 @@ describe("/api/organizer/races/[id] PATCH", () => {
       p_is_live: true,
     });
   });
+
+  it("lets an organizer hide an unpublished format from the private demo", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      race_date: "2027-09-12",
+      racebook_is_live: false,
+      racebook_preview_is_visible: true,
+    });
+    vi.mocked(fetch).mockResolvedValueOnce(
+      buildJsonResponse([{
+        id: raceId,
+        edition_group_id: "33333333-3333-3333-3333-333333333333",
+        series_name: "Trail 42",
+        name: "Trail 42 2027",
+        event_id: eventId,
+        distance_km: 42,
+        elevation_gain_m: 1800,
+        is_live: true,
+        racebook_is_live: false,
+        racebook_preview_is_visible: false,
+      }])
+    );
+
+    const response = await PATCH(patchRequest({ racebookPreviewIsVisible: false }), { params: { id: raceId } });
+    const payload = await response.json();
+    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+
+    expect(response.status).toBe(200);
+    expect(payload.race.racebook_is_live).toBe(false);
+    expect(payload.race.racebook_preview_is_visible).toBe(false);
+    expect(String(url)).toContain(`/rest/v1/races?id=eq.${raceId}`);
+    expect(init?.method).toBe("PATCH");
+    expect(JSON.parse(String(init?.body))).toEqual({
+      racebook_preview_is_visible: false,
+      racebook_is_live: false,
+    });
+    expect(String(url)).not.toContain("/rpc/set_organizer_racebook_visibility");
+  });
 });
 
 describe("/api/organizer/races/[id] DELETE", () => {

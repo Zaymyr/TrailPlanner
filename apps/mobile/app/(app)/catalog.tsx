@@ -27,6 +27,7 @@ import { isAnonymousSession } from '../../lib/appSession';
 import { captureAnalyticsEvent } from '../../lib/posthog';
 import { canShowRacebook } from '../../lib/racebook';
 import {
+  getOrganizerDemoResults,
   getRacebookOnboardingResults,
   isRacebookOnboardingSearchReady,
   normalizeRacebookOnboardingSearch,
@@ -44,6 +45,7 @@ type Race = {
   race_date?: string | null;
   is_live: boolean | null;
   racebook_is_live?: boolean | null;
+  racebook_preview_is_visible?: boolean | null;
   participation_mode?: 'solo' | 'relay' | 'solo_and_relay' | null;
   has_aid_stations: boolean | null;
   gpx_storage_path: string | null;
@@ -495,6 +497,7 @@ export default function CatalogScreen() {
       (count, event) => count + event.races.filter((race) => canShowRacebook({
         raceIsLive: race.is_live,
         racebookIsLive: race.racebook_is_live,
+        racebookPreviewIsVisible: race.racebook_preview_is_visible,
         hasOrganizerAccess: false,
         hasAidStations: race.has_aid_stations,
         hasRelayCourse: race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
@@ -556,6 +559,7 @@ export default function CatalogScreen() {
                 race_date,
                 is_live,
                 racebook_is_live,
+                racebook_preview_is_visible,
                 participation_mode,
                 has_aid_stations,
                 gpx_storage_path,
@@ -570,13 +574,13 @@ export default function CatalogScreen() {
             .order('name'),
           supabase
             .from('races')
-            .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
+            .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, racebook_preview_is_visible, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
             .eq('is_live', true)
             .is('event_id', null),
           userId
             ? supabase
                 .from('races')
-                .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
+                .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, racebook_preview_is_visible, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
                 .eq('is_public', false)
                 .eq('created_by', userId)
             : Promise.resolve({ data: [], error: null }),
@@ -737,6 +741,7 @@ export default function CatalogScreen() {
       (race, event) => canShowRacebook({
         raceIsLive: race.is_live,
         racebookIsLive: race.racebook_is_live,
+        racebookPreviewIsVisible: race.racebook_preview_is_visible,
         hasOrganizerAccess: false,
         hasAidStations: race.has_aid_stations,
         hasRelayCourse:
@@ -747,9 +752,17 @@ export default function CatalogScreen() {
     ),
     [filteredEventGroups, nameFilter],
   );
+  const organizerDemoEventGroups = useMemo(
+    () => getOrganizerDemoResults<Race, EventGroup>(
+      filteredEventGroups,
+      organizerEventIds,
+      (race) => race.racebook_preview_is_visible !== false,
+    ),
+    [filteredEventGroups, organizerEventIds],
+  );
   const visibleEventGroups = onboardingMode === 'racebook'
     ? racebookOnboardingEventGroups
-    : filteredEventGroups;
+    : organizerDemoEventGroups;
   const isRacebookSearchReady = isRacebookOnboardingSearchReady(nameFilter);
   const racebookOnboardingSelectionMethod = isRacebookSearchReady ? 'search' : 'browse';
 
@@ -795,9 +808,9 @@ export default function CatalogScreen() {
         paddingBottom: 120,
         paddingTop: Math.max(16, insets.top + 12),
       },
-      filteredEventGroups.length === 0 && filteredPersonalRaces.length === 0 && styles.listEmpty,
+      visibleEventGroups.length === 0 && filteredPersonalRaces.length === 0 && styles.listEmpty,
     ],
-    [filteredEventGroups.length, filteredPersonalRaces.length, insets.top],
+    [filteredPersonalRaces.length, insets.top, visibleEventGroups.length],
   );
   const loadingListStyle = useMemo(
     () => [
@@ -926,14 +939,14 @@ export default function CatalogScreen() {
       return;
     }
 
-    const matchingEvent = eventGroups.find((event) => event.id === selectedEventIdParam) ?? null;
+    const matchingEvent = organizerDemoEventGroups.find((event) => event.id === selectedEventIdParam) ?? null;
     if (!matchingEvent) {
       return;
     }
 
     openingEventFromParamRef.current = selectedEventIdParam;
     setSelectedEvent(matchingEvent);
-  }, [eventGroups, selectedEventIdParam]);
+  }, [organizerDemoEventGroups, selectedEventIdParam]);
 
   useEffect(() => {
     if (!selectedEvent || !selectedUpdateIdParam) return;
@@ -946,11 +959,13 @@ export default function CatalogScreen() {
   useEffect(() => {
     if (!selectedEvent) return;
 
-    const refreshedEvent = eventGroups.find((event) => event.id === selectedEvent.id) ?? null;
-    if (refreshedEvent && refreshedEvent !== selectedEvent) {
-      setSelectedEvent(refreshedEvent);
+    const refreshedEvent = organizerDemoEventGroups.find((event) => event.id === selectedEvent.id) ?? null;
+    if (!refreshedEvent) {
+      setSelectedEvent(null);
+      return;
     }
-  }, [eventGroups, selectedEvent]);
+    if (refreshedEvent !== selectedEvent) setSelectedEvent(refreshedEvent);
+  }, [organizerDemoEventGroups, selectedEvent]);
 
   const visibleSelectedEventUpdates = useMemo(() => {
     const visible = updatesExpanded
@@ -1336,6 +1351,7 @@ export default function CatalogScreen() {
                     canShowRacebook({
                       raceIsLive: race.is_live,
                       racebookIsLive: race.racebook_is_live,
+                      racebookPreviewIsVisible: race.racebook_preview_is_visible,
                       hasOrganizerAccess:
                         onboardingMode === 'racebook'
                           ? false

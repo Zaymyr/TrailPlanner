@@ -16,6 +16,7 @@ const requestSchema = z.object({
   eventId: z.string().uuid(),
   editionId: z.string().uuid(),
   targetTier: z.enum(["essential", "complete", "signature"]),
+  publishAfterPayment: z.boolean().optional().default(false),
 });
 
 const stripePriceSchema = z.object({
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
     const origin = new URL(request.url).origin;
     const successUrl =
       stripeConfig.organizerCheckoutSuccessUrl ??
-      `${origin}/organizer?eventId=${parsed.data.eventId}&editionId=${parsed.data.editionId}&organizerPayment=success&targetTier=${parsed.data.targetTier}&session_id={CHECKOUT_SESSION_ID}`;
+      `${origin}/organizer?eventId=${parsed.data.eventId}&editionId=${parsed.data.editionId}&organizerPayment=success&targetTier=${parsed.data.targetTier}${parsed.data.publishAfterPayment ? "&publishAfterPayment=1" : ""}&session_id={CHECKOUT_SESSION_ID}`;
     const cancelUrl =
       stripeConfig.organizerCheckoutCancelUrl ??
       `${origin}/organizer?eventId=${parsed.data.eventId}&editionId=${parsed.data.editionId}&organizerPayment=cancel`;

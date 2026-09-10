@@ -33,7 +33,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 
 - The organizer portal edits the draft and previews it locally.
 - Publication atomically copies all draft values to the published fields.
-- Runner and mobile preview payloads expose only published color values. `RACEBOOK_EDITION_LOGO_ENABLED` currently forces the resolved logo to `null` without deleting stored draft or published URLs.
+- Runner and mobile preview payloads expose only published color values, and return no RaceBook payload for a format explicitly masked from the organizer demo. `RACEBOOK_EDITION_LOGO_ENABLED` currently forces the resolved logo to `null` without deleting stored draft or published URLs.
 - Editing the draft requires active event membership and a selected `branding` module. Copying the draft to the published snapshot requires the Signature `branding.manage` capability and an effectively active module. A downgrade masks the published identity without deleting either snapshot.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, and semantic danger/warning/info colors.
 

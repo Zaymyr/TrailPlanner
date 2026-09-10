@@ -60,6 +60,8 @@ related_tables:
 
 ## Related Docs
 
+Private-demo format selection does not create or clear announcement read receipts.
+
 - [race_event_updates](race-event-updates.md)
 - [RLS Policies](../rls-policies.md)
 - [Mobile App](../../01-architecture/mobile-app.md)

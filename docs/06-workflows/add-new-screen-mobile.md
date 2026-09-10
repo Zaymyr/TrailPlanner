@@ -140,6 +140,8 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 
 ## Related Docs
 
+Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.
+
 - [Mobile App](../01-architecture/mobile-app.md)
 - [Premium Entitlement](../03-business-rules/premium-entitlement.md)
 - [Analytics](../05-integrations/analytics.md)

@@ -883,6 +883,7 @@ export function OrganizerDashboard({
     if (params.get("organizerPayment") !== "success") return;
     const returnedEditionId = params.get("editionId");
     const targetTier = params.get("targetTier");
+    const publishAfterPayment = params.get("publishAfterPayment") === "1";
     if (!returnedEditionId || (targetTier !== "essential" && targetTier !== "complete" && targetTier !== "signature")) return;
 
     const controller = new AbortController();
@@ -896,10 +897,38 @@ export function OrganizerDashboard({
       const returnedEdition = (data.event.editions ?? []).find((edition) => edition.id === returnedEditionId);
       if (returnedEdition?.entitlement?.status === "active" && returnedEdition.entitlement.tier === targetTier) {
         trackOrganizerPurchaseVerified({ targetTier, editionYear: selectedEditionYear });
-        applyLoadedEvent(data.event, activeTab, selectedEditionYear);
-        showToast("success", `L’offre ${ORGANIZER_TIER_LABEL[targetTier]} est maintenant active.`);
+        let refreshedEvent = data.event;
+        let publishedCount = 0;
+        if (publishAfterPayment) {
+          const publicationResponse = await fetch(`/api/organizer/editions/${returnedEditionId}/publication`, {
+            method: "POST",
+            headers: authHeaders,
+            signal: controller.signal,
+          });
+          const publicationData = (await publicationResponse.json().catch(() => null)) as {
+            publishedRaceIds?: string[];
+          } | null;
+          if (publicationResponse.ok && publicationData?.publishedRaceIds?.length) {
+            const publishedIds = new Set(publicationData.publishedRaceIds);
+            publishedCount = publishedIds.size;
+            refreshedEvent = {
+              ...refreshedEvent,
+              races: refreshedEvent.races.map((race) => publishedIds.has(race.id)
+                ? { ...race, racebook_is_live: true }
+                : race),
+            };
+          }
+        }
+        applyLoadedEvent(refreshedEvent, activeTab, selectedEditionYear);
+        showToast(
+          "success",
+          publishedCount > 0
+            ? `L’offre ${ORGANIZER_TIER_LABEL[targetTier]} est active et ${publishedCount} RaceBook${publishedCount > 1 ? "s sont publiés" : " est publié"}.`
+            : `L’offre ${ORGANIZER_TIER_LABEL[targetTier]} est maintenant active.`
+        );
         params.delete("organizerPayment");
         params.delete("targetTier");
+        params.delete("publishAfterPayment");
         params.delete("session_id");
         window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
         return;
@@ -2019,7 +2048,7 @@ export function OrganizerDashboard({
       return;
     }
     if (activeTier !== "visibility" && privateDraftCount === 0) {
-      showToast("success", `Tout le contenu renseigné peut être publié avec l’offre ${ORGANIZER_TIER_LABEL[activeTier]}.`);
+      void publishEditionRacebooks();
       return;
     }
     openPricingDialog("publication");
@@ -2085,6 +2114,7 @@ export function OrganizerDashboard({
           eventId: pricingContext.eventId,
           editionId: pricingContext.editionId,
           targetTier,
+          publishAfterPayment: pricingIntent === "publication",
         }),
       });
       const data = (await response.json().catch(() => null)) as { url?: string; message?: string } | null;
@@ -2167,7 +2197,7 @@ export function OrganizerDashboard({
     }
   };
 
-  const setRacebookVisibility = async (raceId: string, isLive: boolean) => {
+  const setRacebookPreviewVisibility = async (raceId: string, isVisible: boolean) => {
     if (shouldSaveActiveRaceBeforeRacebookChange(activeRace?.id, raceId) && !(await saveBeforeNavigation())) return;
     if (!accessToken || !selectedEventId) return;
 
@@ -2177,11 +2207,11 @@ export function OrganizerDashboard({
       const response = await fetch(`/api/organizer/races/${raceId}`, {
         method: "PATCH",
         headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ racebookIsLive: isLive }),
+        body: JSON.stringify({ racebookPreviewIsVisible: isVisible }),
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        showToast("error", data?.message ?? "Impossible de modifier la publication du Racebook.");
+        showToast("error", data?.message ?? "Impossible de modifier la visibilité de ce format dans la démo.");
         return;
       }
 
@@ -2189,13 +2219,17 @@ export function OrganizerDashboard({
         current?.id === selectedEventId
           ? {
               ...current,
-              races: current.races.map((race) =>
-                race.id === raceId ? { ...race, racebook_is_live: isLive } : race
-              ),
+              races: current.races.map((race) => race.id === raceId
+                ? {
+                    ...race,
+                    racebook_preview_is_visible: isVisible,
+                    racebook_is_live: isVisible ? race.racebook_is_live : false,
+                  }
+                : race),
             }
           : current
       );
-      showToast("success", isLive ? "Racebook publié dans l'application." : "Racebook masqué dans l'application.");
+      showToast("success", isVisible ? "Format visible dans ta démo." : "Format masqué de ta démo et des coureurs.");
     } finally {
       setStatus("idle");
     }
@@ -2291,6 +2325,47 @@ export function OrganizerDashboard({
     setWebsiteImportDocuments([]);
     setWebsiteImportUploadProgress(null);
     setWebsiteImportOpen(true);
+  };
+
+  const publishEditionRacebooks = async () => {
+    if (!accessToken || !activeEdition?.id || !selectedEventId || status !== "idle") return;
+    if (!(await saveBeforeNavigation())) return;
+
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/editions/${activeEdition.id}/publication`, {
+        method: "POST",
+        headers: authHeaders,
+      });
+      const data = (await response.json().catch(() => null)) as {
+        publishedRaceIds?: string[];
+        message?: string;
+      } | null;
+      if (!response.ok || !data?.publishedRaceIds?.length) {
+        showToast("error", data?.message ?? "Impossible de publier les RaceBooks de cette édition.");
+        return;
+      }
+
+      const publishedIds = new Set(data.publishedRaceIds);
+      setEventDetail((current) => current?.id === selectedEventId
+        ? {
+            ...current,
+            races: current.races.map((race) => publishedIds.has(race.id)
+              ? { ...race, racebook_is_live: true }
+              : race),
+          }
+        : current);
+      showToast(
+        "success",
+        `${publishedIds.size} RaceBook${publishedIds.size > 1 ? "s" : ""} publié${publishedIds.size > 1 ? "s" : ""} pour les coureurs.`
+      );
+    } catch (caught) {
+      console.error("Unable to publish organizer edition RaceBooks", caught);
+      showToast("error", "Impossible de publier les RaceBooks de cette édition.");
+    } finally {
+      setStatus("idle");
+    }
   };
 
   const discoverWebsiteImport = useCallback(async (urlOverride?: string) => {
@@ -2760,8 +2835,8 @@ export function OrganizerDashboard({
         onRequestPublication={() => {
           requestPublication();
         }}
-        onRacebookVisibilityChange={(raceId, isLive) => {
-          void setRacebookVisibility(raceId, isLive);
+        onRacebookPreviewVisibilityChange={(raceId, isVisible) => {
+          void setRacebookPreviewVisibility(raceId, isVisible);
         }}
         onEditionVisibilityChange={setEditionVisibility}
         onDeleteEdition={deleteSelectedEdition}
@@ -3409,7 +3484,7 @@ export function OrganizerDashboard({
                 className="w-full"
                 onClick={() => {
                   setPricingDialogOpen(false);
-                  void setRacebookVisibility(activeRace.id, true);
+                  void publishEditionRacebooks();
                 }}
               >
                 Rester en {ORGANIZER_TIER_LABEL[activeTier]} et conserver {privateDraftCount} section{privateDraftCount > 1 ? "s" : ""} en brouillon

@@ -216,6 +216,7 @@ export type RacebookScreenData = {
 export type RacebookSignals = {
   raceIsLive: boolean | null | undefined;
   racebookIsLive: boolean | null | undefined;
+  racebookPreviewIsVisible?: boolean | null;
   hasOrganizerAccess?: boolean;
   hasAidStations: boolean | null | undefined;
   hasRelayCourse?: boolean | null;
@@ -789,6 +790,7 @@ function normalizeProductLabel(productRecord: Record<string, unknown>): string |
 }
 
 export function canShowRacebook(signals: RacebookSignals): boolean {
+  if (signals.racebookPreviewIsVisible === false) return false;
   if (signals.hasOrganizerAccess !== true) {
     if (signals.raceIsLive !== true) return false;
     if (signals.racebookIsLive !== true) return false;
@@ -815,6 +817,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       race_date,
       is_live,
       racebook_is_live,
+      racebook_preview_is_visible,
       thumbnail_url,
       location_text,
       participation_mode,
@@ -948,6 +951,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
   const canOpen = canShowRacebook({
     raceIsLive: raceRow.is_live,
     racebookIsLive: raceRow.racebook_is_live,
+    racebookPreviewIsVisible: raceRow.racebook_preview_is_visible,
     hasOrganizerAccess: Boolean(organizerMembership),
     hasAidStations: aidStations.length > 0,
     hasRelayCourse:
