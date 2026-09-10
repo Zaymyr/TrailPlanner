@@ -26,6 +26,7 @@ const makeRace = (overrides: Partial<PublicRace> & Pick<PublicRace, "id" | "slug
     eventThumbnailUrl: null,
     thumbnailUrl: null,
     externalSiteUrl: null,
+    updatedAt: null,
     ...optionalOverrides,
     id,
     slug,

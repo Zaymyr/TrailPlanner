@@ -32,7 +32,7 @@ const getEditionYear = (race: PublicRace) => {
 export const buildRaceMetadataTitle = (race: PublicRace) => {
   const year = getEditionYear(race);
   const yearSuffix = year && !new RegExp(`(^|\\D)${year}(\\D|$)`).test(race.name) ? ` ${year}` : "";
-  const suffix = `${yearSuffix} : parcours et profil`;
+  const suffix = `${yearSuffix} : date, distance et D+`;
   return `${truncateSeoText(race.name, MAX_TITLE_LENGTH - suffix.length)}${suffix}`;
 };
 
@@ -46,7 +46,7 @@ export const buildRaceMetadataDescription = (race: PublicRace | null) => {
   ].filter(Boolean);
   const intro = details.length ? `${race.name} : ${details.join(", ")}.` : `${race.name} sur Pace Yourself.`;
   return truncateSeoText(
-    `${intro} Consultez le parcours, le profil altimétrique et les informations pratiques.`,
+    `${intro} Retrouvez les informations de course et la source officielle.`,
     MAX_DESCRIPTION_LENGTH,
   );
 };

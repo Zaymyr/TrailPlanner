@@ -17,6 +17,7 @@ const raceSchema = z.object({
   elevation_gain_m: z.number().nullable(),
   thumbnail_url: z.string().nullable(),
   external_site_url: z.string().nullable(),
+  updated_at: z.string().nullable().optional(),
 });
 
 const eventSchema = z.object({
@@ -25,6 +26,7 @@ const eventSchema = z.object({
   location: z.string().nullable(),
   race_date: z.string().nullable(),
   thumbnail_url: z.string().nullable(),
+  updated_at: z.string().nullable().optional(),
 });
 
 const raceSlugRedirectSchema = z.object({
@@ -46,7 +48,10 @@ export type PublicRace = {
   eventThumbnailUrl: string | null;
   thumbnailUrl: string | null;
   externalSiteUrl: string | null;
+  updatedAt: string | null;
 };
+
+export const PUBLIC_RACES_REVALIDATE_SECONDS = 900;
 
 export type PublicRaceSlugResolution = {
   race: PublicRace;
@@ -66,9 +71,10 @@ const raceSelect = [
   "elevation_gain_m",
   "thumbnail_url",
   "external_site_url",
+  "updated_at",
 ].join(",");
 
-const eventSelect = ["id", "name", "location", "race_date", "thumbnail_url"].join(",");
+const eventSelect = ["id", "name", "location", "race_date", "thumbnail_url", "updated_at"].join(",");
 
 const fetchPublicRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T[]> => {
   const config = getSupabaseAnonConfig();
@@ -80,7 +86,7 @@ const fetchPublicRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T
         apikey: config.supabaseAnonKey,
         Authorization: `Bearer ${config.supabaseAnonKey}`,
       },
-      next: { revalidate: 3600 },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
     });
 
     if (!response.ok) {
@@ -119,6 +125,10 @@ const toPublicRace = (
   eventThumbnailUrl: event?.thumbnail_url ?? null,
   thumbnailUrl: race.thumbnail_url ?? event?.thumbnail_url ?? null,
   externalSiteUrl: race.external_site_url,
+  updatedAt: [race.updated_at, event?.updated_at]
+    .filter((value): value is string => Boolean(value))
+    .sort()
+    .at(-1) ?? null,
 });
 
 export async function getPublicRaces(): Promise<PublicRace[]> {

@@ -7,7 +7,7 @@ import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "./seo";
 
 const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
 
-export const revalidate = 3600;
+export const revalidate = 900;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [posts, races] = await Promise.all([getAllPostMetadata(), getPublicRaces()]);
@@ -45,10 +45,20 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   const raceEntries: MetadataRoute.Sitemap = races.map((race) => ({
     url: toAbsoluteUrl(`/courses/${race.slug}`),
+    lastModified: race.updatedAt ?? undefined,
   }));
-  const distanceEntries: MetadataRoute.Sitemap = getIndexableDistancePages(races).map(({ page }) => ({
-    url: toAbsoluteUrl(`/courses/distances/${page.slug}`),
-  }));
+  const distanceEntries: MetadataRoute.Sitemap = getIndexableDistancePages(races).map(({ page, races: matchingRaces }) => {
+    const lastModified = matchingRaces
+      .map((race) => race.updatedAt)
+      .filter((value): value is string => Boolean(value))
+      .sort()
+      .at(-1);
+
+    return {
+      url: toAbsoluteUrl(`/courses/distances/${page.slug}`),
+      lastModified,
+    };
+  });
 
   return [...staticEntries, ...blogEntries, ...raceEntries, ...distanceEntries];
 }
