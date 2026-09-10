@@ -1,6 +1,7 @@
 "use client";
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import dynamic from "next/dynamic";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -36,7 +37,6 @@ import {
   trackOrganizerPurchaseVerified,
 } from "../../../lib/product-analytics";
 import { buildOrganizerCompletion, type OrganizerCompletionSummary, type OrganizerModuleId } from "./completion";
-import { AidStationsEditor } from "./dashboard/aid-stations-editor";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
 import { OrganizerToast, ToggleChip } from "./dashboard/controls";
 import {
@@ -53,7 +53,6 @@ import {
   type OrganizerRaceSidecars,
 } from "./dashboard/data-cache";
 import { AccessEditor, BibPickupEditor, EquipmentEditor, RaceBibPickupEditor } from "./dashboard/detail-editors";
-import { AwardsEditor, EditionServicesEditor, StartWavesEditor } from "./dashboard/structured-content-editors";
 import { EventInfoEditor, FormatsEditor } from "./dashboard/event-format-editors";
 import {
   aidStationRowsToDrafts,
@@ -89,14 +88,17 @@ import {
   toNumberOrNull,
   type OrganizerAidStationRow,
 } from "./dashboard/helpers";
-import { ProductPickerModal, ProductsEditor } from "./dashboard/products-editor";
-import { SponsorsEditor } from "./dashboard/sponsors-editor";
-import { BrandingEditor } from "./dashboard/branding-editor";
+import {
+  isOrganizerImportDocumentMimeType,
+  removeTemporaryOrganizerImportDocuments,
+  uploadTemporaryOrganizerImportDocuments,
+  WEBSITE_IMPORT_MAX_DOCUMENT_BYTES,
+  type OrganizerImportDocumentReference,
+  type OrganizerImportUploadProgress,
+} from "./dashboard/organizer-import-documents";
 import {
   buildInitialWebsiteImportFieldSelections,
   buildInitialWebsiteImportFormatDecisions,
-  WebsiteImportFieldReview,
-  WebsiteImportFormatDiscoveryReview,
 } from "./dashboard/website-import-review-details";
 import {
   CompletionTabsPanel,
@@ -128,8 +130,7 @@ import type {
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
-const WEBSITE_IMPORT_MAX_DOCUMENT_BYTES = 25 * 1024 * 1024;
-const WEBSITE_IMPORT_DOCUMENT_MIME_TYPES = ["application/pdf", "image/jpeg", "image/png", "image/webp"] as const;
+type OrganizerPricingIntent = "publication" | "notification" | "upgrade";
 const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
   race_date: "date",
   distance_km: "distance",
@@ -137,83 +138,46 @@ const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
 };
 const EMPTY_DIRTY_MODULES = new Set<OrganizerModuleId>();
 
-type OrganizerImportDocumentReference = {
-  path: string;
-  fileName: string;
-  mediaType: (typeof WEBSITE_IMPORT_DOCUMENT_MIME_TYPES)[number];
-  sizeBytes: number;
-};
-
-const isOrganizerImportDocumentMimeType = (
-  value: string
-): value is OrganizerImportDocumentReference["mediaType"] =>
-  WEBSITE_IMPORT_DOCUMENT_MIME_TYPES.some((mediaType) => mediaType === value);
-
-const getDocumentExtension = (document: File) => {
-  const extension = document.name.match(/\.([a-z0-9]+)$/i)?.[1]?.toLowerCase();
-  if (extension) return extension;
-  return document.type === "application/pdf" ? "pdf" : document.type.split("/")[1] ?? "bin";
-};
-
-const removeTemporaryOrganizerImportDocuments = async (
-  documents: OrganizerImportDocumentReference[],
-  accessToken: string
-) => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) return;
-
-  await Promise.all(
-    documents.map((document) =>
-      fetch(`${supabaseUrl}/storage/v1/object/organizer-imports/${document.path}`, {
-        method: "DELETE",
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }).catch(() => null)
-    )
-  );
-};
-
-const uploadTemporaryOrganizerImportDocuments = async ({
-  documents,
-  userId,
-  accessToken,
-}: {
-  documents: File[];
-  userId: string;
-  accessToken: string;
-}): Promise<OrganizerImportDocumentReference[]> => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!supabaseUrl || !supabaseAnonKey) throw new Error("Configuration Supabase manquante.");
-
-  const uploaded: OrganizerImportDocumentReference[] = [];
-  try {
-    for (const document of documents) {
-      if (!isOrganizerImportDocumentMimeType(document.type)) {
-        throw new Error(`Le format du document ${document.name} n’est pas pris en charge.`);
-      }
-      const path = `${userId}/${crypto.randomUUID()}.${getDocumentExtension(document)}`;
-      const response = await fetch(`${supabaseUrl}/storage/v1/object/organizer-imports/${path}`, {
-        method: "POST",
-        headers: {
-          apikey: supabaseAnonKey,
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": document.type,
-        },
-        body: document,
-      });
-      if (!response.ok) throw new Error(`Échec de l'envoi du document ${document.name}.`);
-      uploaded.push({ path, fileName: document.name, mediaType: document.type, sizeBytes: document.size });
-    }
-    return uploaded;
-  } catch (error) {
-    await removeTemporaryOrganizerImportDocuments(uploaded, accessToken);
-    throw error;
-  }
-};
+const editorLoading = () => <p className="text-sm text-muted-foreground">Chargement de l’éditeur…</p>;
+const AidStationsEditor = dynamic(
+  () => import("./dashboard/aid-stations-editor").then((module) => module.AidStationsEditor),
+  { loading: editorLoading }
+);
+const AwardsEditor = dynamic(
+  () => import("./dashboard/structured-content-editors").then((module) => module.AwardsEditor),
+  { loading: editorLoading }
+);
+const EditionServicesEditor = dynamic(
+  () => import("./dashboard/structured-content-editors").then((module) => module.EditionServicesEditor),
+  { loading: editorLoading }
+);
+const StartWavesEditor = dynamic(
+  () => import("./dashboard/structured-content-editors").then((module) => module.StartWavesEditor),
+  { loading: editorLoading }
+);
+const ProductPickerModal = dynamic(
+  () => import("./dashboard/products-editor").then((module) => module.ProductPickerModal)
+);
+const ProductsEditor = dynamic(
+  () => import("./dashboard/products-editor").then((module) => module.ProductsEditor),
+  { loading: editorLoading }
+);
+const SponsorsEditor = dynamic(
+  () => import("./dashboard/sponsors-editor").then((module) => module.SponsorsEditor),
+  { loading: editorLoading }
+);
+const BrandingEditor = dynamic(
+  () => import("./dashboard/branding-editor").then((module) => module.BrandingEditor),
+  { loading: editorLoading }
+);
+const WebsiteImportFieldReview = dynamic(
+  () => import("./dashboard/website-import-review-details").then((module) => module.WebsiteImportFieldReview),
+  { loading: editorLoading }
+);
+const WebsiteImportFormatDiscoveryReview = dynamic(
+  () => import("./dashboard/website-import-review-details").then((module) => module.WebsiteImportFormatDiscoveryReview),
+  { loading: editorLoading }
+);
 
 type OrganizerSaveOptions = {
   background?: boolean;
@@ -313,6 +277,7 @@ export function OrganizerDashboard({
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [pricingIntent, setPricingIntent] = useState<OrganizerPricingIntent>("upgrade");
   const [moduleSettingsOpen, setModuleSettingsOpen] = useState(false);
   const [moduleSettings, setModuleSettings] = useState<OrganizerModuleSettingsPayload | null>(null);
   const [moduleSettingsDraft, setModuleSettingsDraft] = useState<Partial<Record<OrganizerModuleKey, boolean>>>({});
@@ -336,6 +301,7 @@ export function OrganizerDashboard({
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
   const [websiteImportFormatUrls, setWebsiteImportFormatUrls] = useState<string[]>([""]);
   const [websiteImportDocuments, setWebsiteImportDocuments] = useState<File[]>([]);
+  const [websiteImportUploadProgress, setWebsiteImportUploadProgress] = useState<OrganizerImportUploadProgress | null>(null);
   const [websiteImportWorkflow, setWebsiteImportWorkflow] = useState<WebsiteImportWorkflow | null>(null);
   const [websiteImportFormatDecisions, setWebsiteImportFormatDecisions] = useState<WebsiteImportFormatDecision[]>([]);
   const [websiteImportFieldSelections, setWebsiteImportFieldSelections] = useState<Record<string, WebsiteImportFieldSelection>>({});
@@ -346,6 +312,12 @@ export function OrganizerDashboard({
   const handledWebsiteImport = useRef<string | null>(null);
   const selectedEventIdRef = useRef<string | null>(null);
   const activeRaceIdRef = useRef<string | null>(null);
+  const activeTabRef = useRef(activeTab);
+  const selectedEditionYearRef = useRef(selectedEditionYear);
+  const organizerLoadAbortRef = useRef<AbortController | null>(null);
+  const eventLoadAbortRef = useRef<AbortController | null>(null);
+  const eventUpdatesAbortRef = useRef<AbortController | null>(null);
+  const websiteImportAbortRef = useRef<AbortController | null>(null);
   const dirtyRevisionByScopeRef = useRef<Record<string, number>>({});
   const backgroundSaveQueuesRef = useRef<Record<string, Promise<boolean>>>({});
   const sidecarRequestsRef = useRef(new Map<string, Promise<OrganizerRaceSidecars | null>>());
@@ -360,6 +332,8 @@ export function OrganizerDashboard({
   const accessToken = session?.accessToken ?? null;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin") === true;
   selectedEventIdRef.current = selectedEventId;
+  activeTabRef.current = activeTab;
+  selectedEditionYearRef.current = selectedEditionYear;
   const selectedMembership = memberships.find((membership) => membership.event_id === selectedEventId) ?? memberships[0] ?? null;
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeEdition = getEventEdition(eventDetail, selectedEditionYear);
@@ -469,7 +443,6 @@ export function OrganizerDashboard({
       )
     : false;
   const dirtyModules = currentScopeIsSaving ? EMPTY_DIRTY_MODULES : currentScopeDirtyModules;
-  const activeRaceForCompletion = activeRace ? { ...activeRace, organizerDetails: raceForm.organizerDetails } : null;
   const productPickerStation = productPickerStationId ? aidStations.find((station) => station.id === productPickerStationId) ?? null : null;
   const hasDirtyChanges = dirtyModules.size > 0;
   const hasAnyDirtyChanges = Object.values(dirtyModulesByScope).some((modules) => modules.size > 0);
@@ -520,6 +493,7 @@ export function OrganizerDashboard({
 
   const completion: OrganizerCompletionSummary | null = useMemo(() => {
     if (!eventDraft) return null;
+    const activeRaceForCompletion = activeRace ? { ...activeRace, organizerDetails: raceForm.organizerDetails } : null;
     return buildOrganizerCompletion(eventDraft, activeRaceForCompletion, aidStations, stationProducts, {
       aidStations: sidecarLoadedRaceId === activeRace?.id ? aidStations.length : activeRace?.aidStationCount ?? 0,
       startWaves: activeRace?.startWaveCount ?? 0,
@@ -543,7 +517,7 @@ export function OrganizerDashboard({
           ? brandingSummary.unpublished
           : undefined,
     }, enabledCompletionModules);
-  }, [activeEdition?.id, activeEdition?.serviceCount, activeRace?.aidStationCount, activeRace?.awardCount, activeRace?.id, activeRace?.startWaveCount, activeRaceForCompletion, aidStations, brandingSummary, enabledCompletionModules, eventDraft, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
+  }, [activeEdition?.id, activeEdition?.serviceCount, activeRace, aidStations, brandingSummary, enabledCompletionModules, eventDraft, raceForm.organizerDetails, sidecarLoadedRaceId, sponsorSummary, stationProducts]);
 
   useEffect(() => {
     if (!completion) return;
@@ -610,6 +584,9 @@ export function OrganizerDashboard({
 
   useEffect(() => {
     if (websiteImportOpen) return;
+    websiteImportAbortRef.current?.abort();
+    websiteImportAbortRef.current = null;
+    setWebsiteImportUploadProgress(null);
     setWebsiteImportWorkflow(null);
     setWebsiteImportFormatDecisions([]);
     setWebsiteImportFieldSelections({});
@@ -617,10 +594,10 @@ export function OrganizerDashboard({
     setWebsiteImportBusyAction(null);
   }, [websiteImportOpen]);
 
-  const applyLoadedEvent = (
+  const applyLoadedEvent = useCallback((
     event: OrganizerEventDetail,
-    preferredTabId = activeTab,
-    preferredEditionYear = selectedEditionYear
+    preferredTabId = activeTabRef.current,
+    preferredEditionYear = selectedEditionYearRef.current
   ) => {
     const nextEvent = normalizeOrganizerEventDetail(event);
     setEventDetail(nextEvent);
@@ -641,19 +618,22 @@ export function OrganizerDashboard({
       const preferredGroupId = groupedRaces.find((group) => group.id === preferredTabId)?.id ?? groupedRaces[0]?.id ?? null;
       setActiveTab(preferredGroupId ?? EVENT_TAB_ID);
     }
-  };
+  }, []);
 
-  const loadOrganizerData = async () => {
+  const loadOrganizerData = useCallback(async () => {
     if (!accessToken) return;
+    organizerLoadAbortRef.current?.abort();
+    const controller = new AbortController();
+    organizerLoadAbortRef.current = controller;
     setStatus("loading");
     setError(null);
     try {
       const bootstrapEventId = requestedBootstrapEventIdRef.current;
       requestedBootstrapEventIdRef.current = null;
       const query = bootstrapEventId ? `?eventId=${encodeURIComponent(bootstrapEventId)}` : "";
-      let response = await fetch(`/api/organizer/bootstrap${query}`, { headers: authHeaders, cache: "no-store" });
+      let response = await fetch(`/api/organizer/bootstrap${query}`, { headers: authHeaders, cache: "no-store", signal: controller.signal });
       if (bootstrapEventId && response.status === 403) {
-        response = await fetch("/api/organizer/bootstrap", { headers: authHeaders, cache: "no-store" });
+        response = await fetch("/api/organizer/bootstrap", { headers: authHeaders, cache: "no-store", signal: controller.signal });
       }
       const data = (await response.json().catch(() => null)) as {
         claims?: ClaimRow[];
@@ -683,21 +663,29 @@ export function OrganizerDashboard({
         return current ?? nextMemberships[0]?.event_id ?? null;
       });
     } catch (caught) {
+      if (controller.signal.aborted) return;
       console.error("Unable to load organizer data", caught);
       setError("Impossible de charger le compte organisateur.");
     } finally {
-      setStatus("idle");
+      if (organizerLoadAbortRef.current === controller) {
+        organizerLoadAbortRef.current = null;
+        setStatus("idle");
+      }
     }
-  };
+  }, [accessToken, applyLoadedEvent, authHeaders]);
 
   useEffect(() => {
     void loadOrganizerData();
-  }, [accessToken]);
+    return () => organizerLoadAbortRef.current?.abort();
+  }, [loadOrganizerData]);
 
-  const loadEventUpdates = async (eventId: string, editionId: string) => {
+  const loadEventUpdates = useCallback(async (eventId: string, editionId: string) => {
     if (!accessToken) return;
+    eventUpdatesAbortRef.current?.abort();
+    const controller = new AbortController();
+    eventUpdatesAbortRef.current = controller;
     try {
-      const response = await fetch(`/api/organizer/events/${eventId}/updates?editionId=${encodeURIComponent(editionId)}`, { headers: authHeaders, cache: "no-store" });
+      const response = await fetch(`/api/organizer/events/${eventId}/updates?editionId=${encodeURIComponent(editionId)}`, { headers: authHeaders, cache: "no-store", signal: controller.signal });
       const data = (await response.json().catch(() => null)) as
         | {
             favoriteCount?: number;
@@ -716,23 +704,29 @@ export function OrganizerDashboard({
       setEventFavoriteCount(typeof data?.favoriteCount === "number" ? data.favoriteCount : 0);
       setEventUpdates(Array.isArray(data?.updates) ? data.updates : []);
     } catch (caught) {
+      if (controller.signal.aborted) return;
       console.error("Unable to load organizer event updates", caught);
       setEventFavoriteCount(null);
       setEventUpdates([]);
       showToast("error", "Impossible de charger les mises à jour coureurs.");
+    } finally {
+      if (eventUpdatesAbortRef.current === controller) eventUpdatesAbortRef.current = null;
     }
-  };
+  }, [accessToken, authHeaders, showToast]);
 
-  const loadEvent = async (
+  const loadEvent = useCallback(async (
     eventId: string,
-    preferredTabId = activeTab,
-    preferredEditionYear = selectedEditionYear
+    preferredTabId = activeTabRef.current,
+    preferredEditionYear = selectedEditionYearRef.current
   ) => {
     if (!accessToken) return;
+    eventLoadAbortRef.current?.abort();
+    const controller = new AbortController();
+    eventLoadAbortRef.current = controller;
     setStatus("loading");
     setError(null);
     try {
-      const response = await fetch(`/api/organizer/events/${eventId}`, { headers: authHeaders, cache: "no-store" });
+      const response = await fetch(`/api/organizer/events/${eventId}`, { headers: authHeaders, cache: "no-store", signal: controller.signal });
       const data = (await response.json().catch(() => null)) as { event?: OrganizerEventDetail; message?: string } | null;
       if (!response.ok || !data?.event) {
         setError(data?.message ?? "Impossible de charger l'événement.");
@@ -740,12 +734,16 @@ export function OrganizerDashboard({
       }
       applyLoadedEvent(data.event, preferredTabId, preferredEditionYear);
     } catch (caught) {
+      if (controller.signal.aborted) return;
       console.error("Unable to load organizer event", caught);
       setError("Impossible de charger l'événement.");
     } finally {
-      setStatus("idle");
+      if (eventLoadAbortRef.current === controller) {
+        eventLoadAbortRef.current = null;
+        setStatus("idle");
+      }
     }
-  };
+  }, [accessToken, applyLoadedEvent, authHeaders]);
 
   useEffect(() => {
     if (!selectedEventId) return;
@@ -754,7 +752,8 @@ export function OrganizerDashboard({
       return;
     }
     void loadEvent(selectedEventId);
-  }, [selectedEventId, accessToken]);
+    return () => eventLoadAbortRef.current?.abort();
+  }, [loadEvent, selectedEventId]);
 
   useEffect(() => {
     if (!activeEdition?.id || !accessToken) {
@@ -762,14 +761,15 @@ export function OrganizerDashboard({
       setModuleSettingsDraft({});
       return;
     }
-    let cancelled = false;
+    const controller = new AbortController();
     const loadModuleSettings = async () => {
       const response = await fetch(`/api/organizer/editions/${activeEdition.id}/module-settings`, {
         headers: authHeaders,
         cache: "no-store",
+        signal: controller.signal,
       });
       const data = (await response.json().catch(() => null)) as OrganizerModuleSettingsPayload | { message?: string } | null;
-      if (cancelled) return;
+      if (controller.signal.aborted) return;
       if (!response.ok || !data || !("edition" in data)) {
         showToast("error", (data && "message" in data ? data.message : null) ?? "Impossible de charger les sections du RaceBook.");
         return;
@@ -778,9 +778,14 @@ export function OrganizerDashboard({
       setModuleSettingsDraft({});
       if (data.setupCompletedAt === null && data.tier !== "visibility") setModuleSettingsOpen(true);
     };
-    void loadModuleSettings();
-    return () => { cancelled = true; };
-  }, [accessToken, activeEdition?.id, authHeaders]);
+    void loadModuleSettings().catch((caught: unknown) => {
+      if (!controller.signal.aborted) {
+        console.error("Unable to load organizer module settings", caught);
+        showToast("error", "Impossible de charger les sections du RaceBook.");
+      }
+    });
+    return () => controller.abort();
+  }, [accessToken, activeEdition?.id, authHeaders, showToast]);
 
   const stageModuleSetting = (moduleKey: OrganizerModuleKey, enabled: boolean, persistedEnabled: boolean) => {
     if (!moduleSettings) return;
@@ -878,13 +883,14 @@ export function OrganizerDashboard({
     const targetTier = params.get("targetTier");
     if (!returnedEditionId || (targetTier !== "essential" && targetTier !== "complete" && targetTier !== "signature")) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
     let attempts = 0;
+    let retryTimer: number | null = null;
     const refreshEntitlement = async () => {
       attempts += 1;
-      const response = await fetch(`/api/organizer/events/${selectedEventId}`, { headers: authHeaders, cache: "no-store" });
+      const response = await fetch(`/api/organizer/events/${selectedEventId}`, { headers: authHeaders, cache: "no-store", signal: controller.signal });
       const data = (await response.json().catch(() => null)) as { event?: OrganizerEventDetail } | null;
-      if (cancelled || !response.ok || !data?.event) return;
+      if (controller.signal.aborted || !response.ok || !data?.event) return;
       const returnedEdition = (data.event.editions ?? []).find((edition) => edition.id === returnedEditionId);
       if (returnedEdition?.entitlement?.status === "active" && returnedEdition.entitlement.tier === targetTier) {
         trackOrganizerPurchaseVerified({ targetTier, editionYear: selectedEditionYear });
@@ -896,14 +902,23 @@ export function OrganizerDashboard({
         window.history.replaceState({}, "", `${window.location.pathname}?${params.toString()}`);
         return;
       }
-      if (attempts < 10) window.setTimeout(() => void refreshEntitlement(), 1_500);
+      if (attempts < 10) {
+        retryTimer = window.setTimeout(() => {
+          void refreshEntitlement().catch((caught: unknown) => {
+            if (!controller.signal.aborted) console.error("Unable to refresh organizer entitlement", caught);
+          });
+        }, 1_500);
+      }
       else showToast("error", "Paiement reçu, activation encore en cours. Recharge la page dans quelques instants.");
     };
-    void refreshEntitlement();
+    void refreshEntitlement().catch((caught: unknown) => {
+      if (!controller.signal.aborted) console.error("Unable to refresh organizer entitlement", caught);
+    });
     return () => {
-      cancelled = true;
+      controller.abort();
+      if (retryTimer !== null) window.clearTimeout(retryTimer);
     };
-  }, [selectedEventId, accessToken]);
+  }, [accessToken, activeTab, applyLoadedEvent, authHeaders, selectedEditionYear, selectedEventId, showToast]);
 
   useEffect(() => {
     if (!eventDetail || !selectedEditionYear) return;
@@ -915,24 +930,25 @@ export function OrganizerDashboard({
       editionEndDate: edition.end_date,
     }));
     setNewRaceForm((current) => ({ ...current, raceDate: edition.start_date }));
-  }, [eventDetail?.id, selectedEditionYear]);
+  }, [eventDetail, selectedEditionYear]);
 
   useEffect(() => {
     if (!eventUpdatesDialogOpen || !selectedEventId || !activeEdition?.id || !accessToken) return;
     setEventFavoriteCount(null);
     setEventUpdates([]);
     void loadEventUpdates(selectedEventId, activeEdition.id);
-  }, [eventUpdatesDialogOpen, selectedEventId, activeEdition?.id, accessToken, authHeaders]);
+    return () => eventUpdatesAbortRef.current?.abort();
+  }, [eventUpdatesDialogOpen, selectedEventId, activeEdition?.id, accessToken, loadEventUpdates]);
 
-  const applyRaceSidecars = (raceId: string, sidecars: OrganizerRaceSidecars, previewOverride: GpxPreview | null) => {
+  const applyRaceSidecars = useCallback((raceId: string, sidecars: OrganizerRaceSidecars, previewOverride: GpxPreview | null) => {
     if (activeRaceIdRef.current !== raceId) return;
     setAidStations(syncAidStationsWithGpxPreview(sidecars.aidStations, previewOverride));
     setRelayPoints(sidecars.relayPoints);
     setStationProducts(sidecars.stationProducts);
     setSidecarLoadedRaceId(raceId);
-  };
+  }, []);
 
-  const loadRaceSidecar = async (raceId: string, previewOverride: GpxPreview | null = null) => {
+  const loadRaceSidecar = useCallback(async (raceId: string, previewOverride: GpxPreview | null = null) => {
     if (!accessToken) return;
     const cached = readOrganizerRaceSidecarsCache(raceId);
     if (cached) {
@@ -979,9 +995,9 @@ export function OrganizerDashboard({
     }
     const sidecars = await request;
     if (sidecars) applyRaceSidecars(raceId, sidecars, previewOverride);
-  };
+  }, [accessToken, activeTier, applyRaceSidecars, authHeaders]);
 
-  const loadCatalogProducts = async () => {
+  const loadCatalogProducts = useCallback(async () => {
     if (!accessToken) return;
     const cached = readOrganizerProductCatalogCache();
     if (cached) {
@@ -1007,9 +1023,9 @@ export function OrganizerDashboard({
     }
     const products = await catalogProductsRequestRef.current;
     if (products) setCatalogProducts(products);
-  };
+  }, [accessToken, authHeaders]);
 
-  const loadRaceGpxPreview = async (raceId: string, gpxStoragePath: string) => {
+  const loadRaceGpxPreview = useCallback(async (raceId: string, gpxStoragePath: string) => {
     if (!accessToken) return;
     const cached = readOrganizerGpxPreviewCache(raceId, gpxStoragePath);
     if (cached) {
@@ -1049,7 +1065,7 @@ export function OrganizerDashboard({
       console.error("Unable to load organizer GPX preview", caught);
       if (activeRaceIdRef.current === raceId) setGpxPreview(null);
     }
-  };
+  }, [accessToken, authHeaders]);
 
   useEffect(() => {
     if (!activeRace) {
@@ -1070,7 +1086,7 @@ export function OrganizerDashboard({
     setGpxLoadedRaceKey(null);
     setRaceForm(raceToForm(activeRace));
     setExpandedStationKey(null);
-  }, [activeRace?.id]);
+  }, [activeRace]);
 
   useEffect(() => {
     const previousTier = previousActiveTierRef.current;
@@ -1080,7 +1096,7 @@ export function OrganizerDashboard({
     invalidateOrganizerRaceSidecarsCache(activeRace.id);
     sidecarRequestsRef.current.delete(activeRace.id);
     setSidecarLoadedRaceId(null);
-  }, [activeRace?.id, activeTier]);
+  }, [activeRace, activeTier]);
 
   useEffect(() => {
     if (!activeRace) return;
@@ -1094,7 +1110,7 @@ export function OrganizerDashboard({
     if (needsGpx && activeRace.gpx_storage_path && gpxLoadedRaceKey !== `${activeRace.id}:${activeRace.gpx_storage_path}`) {
       void loadRaceGpxPreview(activeRace.id, activeRace.gpx_storage_path);
     }
-  }, [activeModule, activeRace?.id, activeRace?.gpx_storage_path, activeTier, sidecarLoadedRaceId, gpxLoadedRaceKey]);
+  }, [activeModule, activeRace, activeTier, gpxLoadedRaceKey, loadCatalogProducts, loadRaceGpxPreview, loadRaceSidecar, sidecarLoadedRaceId]);
 
   useEffect(() => {
     const shiftOneYear = (value?: string | null) => {
@@ -1976,10 +1992,10 @@ export function OrganizerDashboard({
       showToast("success", `L’offre ${ORGANIZER_TIER_LABEL[activeTier]} est active pour cette édition.`);
       return;
     }
-    openPricingDialog();
+    openPricingDialog("publication");
   };
 
-  const openPricingDialog = () => {
+  const openPricingDialog = (intent: OrganizerPricingIntent = "upgrade") => {
     const editionId =
       activeEdition?.id ??
       activeRace?.edition_id ??
@@ -1997,6 +2013,7 @@ export function OrganizerDashboard({
         }
       : null;
 
+    setPricingIntent(intent);
     setPricingContext(context);
     setCheckoutError(
       context
@@ -2233,6 +2250,8 @@ export function OrganizerDashboard({
   };
 
   const openWebsiteImportDialog = () => {
+    websiteImportAbortRef.current?.abort();
+    websiteImportAbortRef.current = null;
     setWebsiteImportError(null);
     setWebsiteImportWorkflow(null);
     setWebsiteImportFormatDecisions([]);
@@ -2240,6 +2259,7 @@ export function OrganizerDashboard({
     setWebsiteImportUrl(eventForm.organizerDetails.officialWebsiteUrl ?? "");
     setWebsiteImportFormatUrls([""]);
     setWebsiteImportDocuments([]);
+    setWebsiteImportUploadProgress(null);
     setWebsiteImportOpen(true);
   };
 
@@ -2259,6 +2279,10 @@ export function OrganizerDashboard({
     setWebsiteImportBusyAction("discover");
     setWebsiteImportError(null);
     setWebsiteImportUrl(url);
+    setWebsiteImportUploadProgress(null);
+    websiteImportAbortRef.current?.abort();
+    const controller = new AbortController();
+    websiteImportAbortRef.current = controller;
     let uploadedDocuments: OrganizerImportDocumentReference[] = [];
     let discoverySucceeded = false;
     try {
@@ -2268,11 +2292,14 @@ export function OrganizerDashboard({
           documents: websiteImportDocuments,
           userId: session.id,
           accessToken,
+          signal: controller.signal,
+          onProgress: setWebsiteImportUploadProgress,
         });
       }
       const response = await fetch(`/api/organizer/events/${selectedEventId}/website-import`, {
         method: "POST",
         headers: { ...authHeaders, "Content-Type": "application/json" },
+        signal: controller.signal,
         body: JSON.stringify({
           action: "discover-formats",
           url,
@@ -2304,6 +2331,10 @@ export function OrganizerDashboard({
       );
       setWebsiteImportFieldSelections({});
     } catch (caught) {
+      if (controller.signal.aborted) {
+        setWebsiteImportError("Envoi annulé.");
+        return;
+      }
       console.error("Unable to preview organizer website import", caught);
       setWebsiteImportWorkflow(null);
       setWebsiteImportFormatDecisions([]);
@@ -2311,7 +2342,11 @@ export function OrganizerDashboard({
       setWebsiteImportError("La connexion au serveur a été interrompue pendant l'analyse. Réessaie dans quelques instants.");
     } finally {
       if (!discoverySucceeded) await removeTemporaryOrganizerImportDocuments(uploadedDocuments, accessToken);
-      setWebsiteImportBusyAction(null);
+      if (websiteImportAbortRef.current === controller) {
+        websiteImportAbortRef.current = null;
+        setWebsiteImportBusyAction(null);
+        setWebsiteImportUploadProgress(null);
+      }
     }
   }, [accessToken, activeEdition?.id, authHeaders, selectedEventId, session?.id, websiteImportDocuments, websiteImportExistingRaces, websiteImportFormatUrls, websiteImportUrl]);
 
@@ -2474,6 +2509,11 @@ export function OrganizerDashboard({
   };
 
   const closeWebsiteImportDialog = async () => {
+    if (websiteImportBusyAction === "discover") {
+      websiteImportAbortRef.current?.abort();
+      setWebsiteImportOpen(false);
+      return;
+    }
     if (websiteImportBusyAction !== null) return;
     const sessionId = websiteImportWorkflow?.sessionId;
     setWebsiteImportOpen(false);
@@ -2620,6 +2660,7 @@ export function OrganizerDashboard({
         importWebsiteLabel={isAdmin ? "Importer les informations" : "Demander un import assisté"}
         completion={completion}
         hasDirtyChanges={hasDirtyChanges}
+        hasAnyDirtyChanges={hasAnyDirtyChanges}
         status={status}
         activeRaceId={activeRace?.id ?? null}
         onSaveAll={() => {
@@ -2627,7 +2668,7 @@ export function OrganizerDashboard({
         }}
         onNotifyFollowers={(raceId) => {
           if (ORGANIZER_TIER_RANK[activeTier] < ORGANIZER_TIER_RANK.complete) {
-            openPricingDialog();
+            openPricingDialog("notification");
             return;
           }
           setEventUpdateError(null);
@@ -2722,8 +2763,8 @@ export function OrganizerDashboard({
                                 {module.mixed ? <p className="mt-1 text-[11px] font-medium text-amber-700">Réglages différents selon les formats</p> : null}
                               </div>
                               {state === "locked" ? (
-                                <Button type="button" variant="outline" className="!h-8 px-2 text-xs" onClick={openPricingDialog}>
-                                  Offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
+                                <Button type="button" variant="outline" className="min-h-11 px-3 text-xs" onClick={() => openPricingDialog()}>
+                                  Voir l’offre {ORGANIZER_TIER_LABEL[module.minimumTier]}
                                 </Button>
                               ) : (
                                 <button
@@ -3116,7 +3157,7 @@ export function OrganizerDashboard({
             <div className="rounded-md border border-brand/40 bg-brand/5 p-5">
               <p className="font-semibold text-foreground">Produits officiels aux ravitaillements — Signature</p>
               <p className="mt-2 text-sm text-muted-foreground">Passe à Signature pour gérer les produits disponibles et les intégrer au plan nutritionnel des coureurs.</p>
-              <Button type="button" className="mt-4" onClick={openPricingDialog}>
+              <Button type="button" className="mt-4" onClick={() => openPricingDialog()}>
                 Découvrir Signature
               </Button>
             </div>
@@ -3151,7 +3192,7 @@ export function OrganizerDashboard({
               <p className="mt-2 text-sm text-muted-foreground">
                 Passe à Pro pour adapter le logo et les couleurs du RaceBook à la direction artistique de ton événement.
               </p>
-              <Button type="button" className="mt-4" onClick={openPricingDialog}>
+              <Button type="button" className="mt-4" onClick={() => openPricingDialog()}>
                 Découvrir Signature
               </Button>
             </div>
@@ -3170,7 +3211,7 @@ export function OrganizerDashboard({
               <p className="mt-2 text-sm text-muted-foreground">
                 Passe à Pro pour ajouter les logos de tes sponsors, choisir leurs emplacements et suivre leurs clics.
               </p>
-              <Button type="button" className="mt-4" onClick={openPricingDialog}>
+              <Button type="button" className="mt-4" onClick={() => openPricingDialog()}>
                 Découvrir Signature
               </Button>
             </div>
@@ -3213,6 +3254,7 @@ export function OrganizerDashboard({
           if (!open) {
             setCheckoutError(null);
             setPricingContext(null);
+            setPricingIntent("upgrade");
           }
         }}
       >
@@ -3221,10 +3263,16 @@ export function OrganizerDashboard({
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
               <DialogHeader className="space-y-2 sm:max-w-2xl">
                 <DialogTitle className="text-xl sm:text-2xl">
-                  {pricingContext?.tier === "visibility" ? "Publier cette édition" : "Faire évoluer cette édition"}
+                  {pricingIntent === "notification"
+                    ? "Débloquer les notifications coureurs"
+                    : pricingIntent === "publication" && pricingContext?.tier === "visibility"
+                      ? "Publier cette édition"
+                      : "Faire évoluer cette édition"}
                 </DialogTitle>
                 <DialogDescription className="leading-5">
-                  Un achat unique pour cette édition et tous ses formats présents ou futurs. Prix HT, TVA calculée par Stripe.
+                  {pricingIntent === "notification"
+                    ? "Les notifications sont disponibles avec les offres Complet et Signature. L’achat couvre cette édition et tous ses formats présents ou futurs."
+                    : "Un achat unique pour cette édition et tous ses formats présents ou futurs. Prix HT, TVA calculée par Stripe."}
                 </DialogDescription>
               </DialogHeader>
               {pricingContext ? (
@@ -3243,7 +3291,10 @@ export function OrganizerDashboard({
             ) : null}
             <div className="grid items-stretch gap-4 md:grid-cols-3">
               {paidOrganizerTiers
-                .filter((tier) => !pricingContext || ORGANIZER_TIER_RANK[tier] > ORGANIZER_TIER_RANK[pricingContext.tier])
+                .filter((tier) =>
+                  (!pricingContext || ORGANIZER_TIER_RANK[tier] > ORGANIZER_TIER_RANK[pricingContext.tier]) &&
+                  (pricingIntent !== "notification" || ORGANIZER_TIER_RANK[tier] >= ORGANIZER_TIER_RANK.complete)
+                )
                 .map((tier) => {
                   const currentPrice = pricingContext?.tier === "visibility" || !pricingContext
                     ? 0
@@ -3280,7 +3331,10 @@ export function OrganizerDashboard({
                 </div>
                 <div className="grid gap-3 md:grid-cols-3">
                   {paidOrganizerTiers
-                    .filter((tier) => ORGANIZER_TIER_RANK[tier] > ORGANIZER_TIER_RANK[pricingContext.tier])
+                    .filter((tier) =>
+                      ORGANIZER_TIER_RANK[tier] > ORGANIZER_TIER_RANK[pricingContext.tier] &&
+                      (pricingIntent !== "notification" || ORGANIZER_TIER_RANK[tier] >= ORGANIZER_TIER_RANK.complete)
+                    )
                     .map((tier) => (
                       <div key={tier} className="flex flex-col gap-3 rounded-lg border border-emerald-300 bg-background/80 p-4">
                         <div className="space-y-1">
@@ -3545,6 +3599,19 @@ export function OrganizerDashboard({
                         ))}
                       </ul>
                     ) : null}
+                    {websiteImportUploadProgress ? (
+                      <div className="space-y-1" aria-live="polite">
+                        <div className="flex items-center justify-between gap-3 text-xs text-muted-foreground">
+                          <span className="truncate">
+                            Envoi {websiteImportUploadProgress.fileIndex + 1}/{websiteImportUploadProgress.fileCount} · {websiteImportUploadProgress.fileName}
+                          </span>
+                          <span>{websiteImportUploadProgress.percentage}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={websiteImportUploadProgress.percentage}>
+                          <div className="h-full rounded-full bg-brand transition-[width]" style={{ width: `${websiteImportUploadProgress.percentage}%` }} />
+                        </div>
+                      </div>
+                    ) : null}
                   </div>
                 </>
               ) : null}
@@ -3650,13 +3717,17 @@ export function OrganizerDashboard({
               type="button"
               variant="outline"
               onClick={() => void closeWebsiteImportDialog()}
-              disabled={websiteImportBusyAction !== null}
+              disabled={websiteImportBusyAction !== null && websiteImportBusyAction !== "discover"}
             >
-              Annuler
+              {websiteImportBusyAction === "discover" ? "Annuler l’envoi" : "Annuler"}
             </Button>
             {!websiteImportWorkflow ? (
               <Button type="button" onClick={() => void discoverWebsiteImport()} disabled={websiteImportBusyAction !== null}>
-                {websiteImportBusyAction === "discover" ? "Exploration..." : "Découvrir les formats"}
+                {websiteImportBusyAction === "discover"
+                  ? websiteImportUploadProgress
+                    ? `Envoi ${websiteImportUploadProgress.percentage}%`
+                    : "Exploration..."
+                  : "Découvrir les formats"}
               </Button>
             ) : websiteImportWorkflow.step === "formats" ? (
               <Button

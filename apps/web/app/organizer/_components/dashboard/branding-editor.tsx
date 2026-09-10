@@ -5,7 +5,8 @@ import {
   isHexColor,
   resolveRacebookTheme,
 } from "@pace-yourself/design-system";
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
+import Image from "next/image";
+import { useCallback, useEffect, useId, useMemo, useState, type ChangeEvent } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
@@ -36,6 +37,7 @@ export function BrandingEditor({
   const [draft, setDraft] = useState<OrganizerBranding>(emptyState().draft);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<"save" | "logo" | "publish" | "reset" | null>(null);
+  const formId = useId();
 
   const updateState = useCallback((next: OrganizerBrandingState) => {
     setServerState(next);
@@ -195,10 +197,10 @@ export function BrandingEditor({
         <div className="grid gap-4 sm:grid-cols-2">
           {(["primaryColor", "accentColor"] as const).map((field) => (
             <div key={field} className="space-y-2">
-              <Label>{field === "primaryColor" ? "Couleur principale" : "Couleur d’accent"}</Label>
+              <Label htmlFor={`${formId}-${field}-text`}>{field === "primaryColor" ? "Couleur principale" : "Couleur d’accent"}</Label>
               <div className="flex gap-2">
-                <Input type="color" value={isHexColor(draft[field]) ? draft[field] : field === "primaryColor" ? DEFAULT_RACEBOOK_PRIMARY_COLOR : DEFAULT_RACEBOOK_ACCENT_COLOR} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="w-14 p-1" />
-                <Input value={draft[field]} maxLength={7} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} aria-invalid={!isHexColor(draft[field])} />
+                <Input id={`${formId}-${field}-picker`} aria-label={`Sélectionner ${field === "primaryColor" ? "la couleur principale" : "la couleur d’accent"}`} type="color" value={isHexColor(draft[field]) ? draft[field] : field === "primaryColor" ? DEFAULT_RACEBOOK_PRIMARY_COLOR : DEFAULT_RACEBOOK_ACCENT_COLOR} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} className="w-14 p-1" />
+                <Input id={`${formId}-${field}-text`} value={draft[field]} maxLength={7} onChange={(event) => setDraft((current) => ({ ...current, [field]: event.target.value.toUpperCase() }))} aria-invalid={!isHexColor(draft[field])} />
               </div>
             </div>
           ))}
@@ -206,10 +208,10 @@ export function BrandingEditor({
 
         {RACEBOOK_EDITION_LOGO_ENABLED ? (
           <div className="space-y-2">
-            <Label>Logo officiel de l’édition</Label>
+            <Label htmlFor={`${formId}-logo`}>Logo officiel de l’édition</Label>
             <p className="text-xs text-muted-foreground">PNG, JPEG, WebP ou AVIF · 5 Mo maximum. Un fond transparent est recommandé.</p>
             <div className="flex flex-wrap items-center gap-3">
-              <Input type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void uploadLogo(event)} disabled={busy !== null} className="max-w-sm" />
+              <Input id={`${formId}-logo`} type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void uploadLogo(event)} disabled={busy !== null} className="max-w-sm" />
               {draft.logoUrl ? <Button type="button" variant="outline" onClick={() => void removeLogo()} disabled={busy !== null}>Retirer le logo</Button> : null}
             </div>
           </div>
@@ -227,7 +229,7 @@ export function BrandingEditor({
         <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aperçu mobile</p>
         <div className="space-y-3 rounded-2xl bg-white p-4">
           <div className="flex items-start gap-3">
-            {RACEBOOK_EDITION_LOGO_ENABLED && theme.logoUrl ? <img src={theme.logoUrl} alt={`Logo ${eventName}`} className="h-14 w-14 rounded-xl border object-contain p-1" /> : null}
+            {RACEBOOK_EDITION_LOGO_ENABLED && theme.logoUrl ? <Image src={theme.logoUrl} alt={`Logo ${eventName}`} width={56} height={56} sizes="56px" unoptimized className="h-14 w-14 rounded-xl border object-contain p-1" /> : null}
             <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase" style={{ color: theme.primaryColor }}>{eventName}</p><p className="truncate text-lg font-bold">RaceBook</p><p className="text-xs text-muted-foreground">Édition sélectionnée</p></div>
           </div>
           <div className="flex gap-2"><span className="flex-1 rounded-xl px-2 py-2 text-center text-xs font-bold" style={{ backgroundColor: theme.primaryColor, color: theme.onPrimaryColor }}>Course</span><span className="flex-1 rounded-xl border px-2 py-2 text-center text-xs">Accès</span></div>

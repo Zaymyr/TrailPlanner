@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-09-08
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -24,6 +24,7 @@ This document records the lightweight mapping setup used for organizer GPX route
 
 - `leaflet` provides the interactive map runtime.
 - `react-leaflet` provides the React bindings and must stay on the React 18-compatible 4.x line while `apps/web` is still on React 18.
+- The current web dependency audit retains that 4.x map binding; the added `tus-js-client` dependency is isolated to Organizer document uploads and does not enter the GPX map runtime.
 - `leaflet/dist/leaflet.css` is loaded from `apps/web/app/layout.tsx`; the same static root layout also supplies default social metadata without introducing request-bound rendering.
 - Base tiles come from `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`.
 
@@ -56,6 +57,7 @@ The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeaflet
 - Keep the route preview and visible distance/D+/D- fields on the same normalized GPX response so the map/profile cannot describe a different import than the form.
 - If a future screen needs editing or advanced basemap controls, extend the shared component instead of creating another map stack.
 - Never interpolate an unvalidated organizer color into the mobile WebView HTML.
+- Keep upload transport dependencies out of the map chunk; Organizer module code-splitting should not make TUS part of a route-preview load.
 
 ## Related Docs
 

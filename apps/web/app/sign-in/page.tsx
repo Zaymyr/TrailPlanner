@@ -130,21 +130,21 @@ export default function SignInPage({ searchParams }: SignInPageProps) {
           className="justify-center border-border bg-background text-foreground hover:bg-muted dark:bg-slate-900/60 dark:text-slate-50 dark:hover:bg-slate-800"
           onClick={handleGoogleSignIn}
         >
-          Continue with Google
+          {t.auth.signIn.continueWithGoogle}
         </Button>
         <Button
           type="button"
           className="justify-center bg-foreground text-background hover:bg-foreground/90 dark:bg-slate-50 dark:text-slate-950 dark:hover:bg-slate-200"
           onClick={handleAppleSignIn}
         >
-          Continue with Apple
+          {t.auth.signIn.continueWithApple}
         </Button>
         {oauthError && <p className="text-sm text-amber-400">{oauthError}</p>}
       </div>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
         <div className="h-px flex-1 bg-border" />
-        <span>Or continue with email</span>
+        <span>{t.auth.signIn.continueWithEmail}</span>
         <div className="h-px flex-1 bg-border" />
       </div>
 

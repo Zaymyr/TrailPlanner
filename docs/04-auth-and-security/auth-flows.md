@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -66,7 +66,7 @@ After a web session is verified, `useVerifiedSession` exposes the verified sessi
 
 ## Web Return Destinations
 
-The organizer acquisition flow may send `next=/organizers` through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only that exact internal pathname, retains only the five supported UTM parameters, and falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation.
+The organizer acquisition flow may send `next=/organizers` (event creation) or `next=/organizer` (the authenticated dashboard) through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only these exact internal pathnames. It retains only the five supported UTM parameters for `/organizers` and strips query parameters from `/organizer`; it falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation.
 
 ## Mobile Auth
 
@@ -115,6 +115,7 @@ Do not use `user_metadata` for new authorization decisions.
 - Session readiness does not imply that premium entitlements have finished loading; consumers that require the resolved rights must also observe `isEntitlementsLoading`.
 - Do not render Supabase Auth `msg` values directly; provider messages are not localized and can expose technical details.
 - Never pass an unvalidated `next` value to `router.push`, `router.replace`, or an OAuth callback URL.
+- Only `/organizer` and `/organizers` are valid organizer return destinations; do not expand this allowlist without a dedicated redirect-security review.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Trial repair runs during session verification and must stay idempotent.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.

@@ -1,7 +1,9 @@
 import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
+import Image from 'next/image';
 
 import { Button } from '../../../../components/ui/button';
+import { Dialog, DialogContent, DialogTitle } from '../../../../components/ui/dialog';
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { cn } from '../../../../components/utils';
@@ -27,7 +29,7 @@ export function ProductsEditor(props: {
 }) {
   const savedStations = props.aidStations.filter((station): station is AidStationDraft & { id: string } => Boolean(station.id));
   if (savedStations.length === 0) {
-    return <p className="text-sm text-muted-foreground">Sauvegarde au moins un ravito avant d'y associer des produits.</p>;
+    return <p className="text-sm text-muted-foreground">Sauvegarde au moins un ravito avant d&apos;y associer des produits.</p>;
   }
   return (
     <div className="space-y-4">
@@ -80,6 +82,7 @@ export function StationProductsBlock({
   disabled?: boolean;
 }) {
   const linkedProducts = station.id ? stationProducts.filter((link) => link.aidStationId === station.id) : [];
+  const productTypeId = useId();
 
   return (
     <div className="mt-3 border-t border-border pt-3">
@@ -130,8 +133,8 @@ export function StationProductsBlock({
           </div>
           <TextField label="Marque" value={productForm.brand} onChange={(value) => onProductFormChange({ ...productForm, brand: value })} />
           <div className="space-y-1">
-            <Label>Type</Label>
-            <select className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={productForm.fuelType} onChange={(event) => onProductFormChange({ ...productForm, fuelType: event.target.value as FuelType })}>
+            <Label htmlFor={productTypeId}>Type</Label>
+            <select id={productTypeId} className="h-10 w-full rounded-md border border-border bg-card px-3 text-sm" value={productForm.fuelType} onChange={(event) => onProductFormChange({ ...productForm, fuelType: event.target.value as FuelType })}>
               {fuelTypeValues.map((fuelType) => (
                 <option key={fuelType} value={fuelType}>
                   {fuelTypeLabels[fuelType]}
@@ -181,15 +184,43 @@ export function ProductPickerModal({
 }) {
   const [activeFilter, setActiveFilter] = useState<(typeof productPickerQuickFilters)[number]["id"]>("all");
   const stationId = station?.id ?? null;
+  const searchId = useId();
+  const dialogBodyRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!station) return;
+    if (!stationId) return;
+    const previouslyFocused = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    searchRef.current?.focus();
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== "Tab" || !dialogBodyRef.current) return;
+      const focusable = Array.from(dialogBodyRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])'
+      )).filter((element) => !element.hidden);
+      const first = focusable[0];
+      const last = focusable.at(-1);
+      if (!first || !last) return;
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onClose, station]);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      previouslyFocused?.focus();
+    };
+  }, [stationId]);
 
   useEffect(() => {
     if (stationId) setActiveFilter("all");
@@ -210,22 +241,23 @@ export function ProductPickerModal({
   const groupedProducts = groupProductsByBrand(filteredProducts);
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm">
-      <button type="button" className="absolute inset-0" aria-label="Fermer" onClick={onClose} />
-      <div role="dialog" aria-modal="true" aria-labelledby="organizer-product-picker-title" className="relative z-10 flex max-h-[85vh] w-full max-w-4xl flex-col overflow-hidden rounded-lg border border-border-strong bg-card shadow-2xl dark:bg-slate-950">
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent role="dialog" aria-modal="true" aria-labelledby="organizer-product-picker-title" className="!flex max-h-[85vh] max-w-4xl !gap-0 overflow-hidden !p-0 dark:bg-slate-950">
+      <div ref={dialogBodyRef} className="flex min-h-0 flex-1 flex-col">
         <div className="flex items-start justify-between gap-4 border-b border-border p-5">
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-300">Catalogue</p>
-            <h2 id="organizer-product-picker-title" className="mt-1 text-xl font-semibold text-foreground">
+            <DialogTitle id="organizer-product-picker-title" className="mt-1 text-xl font-semibold text-foreground">
               Ajouter un produit à {station.name}
-            </h2>
+            </DialogTitle>
           </div>
           <Button type="button" variant="ghost" className="h-8 px-2" onClick={onClose} aria-label="Fermer">
             x
           </Button>
         </div>
         <div className="border-b border-border p-4">
-          <Input value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Rechercher un produit, une marque ou un type" autoFocus />
+          <Label htmlFor={searchId} className="sr-only">Rechercher dans le catalogue</Label>
+          <Input ref={searchRef} id={searchId} value={search} onChange={(event) => onSearchChange(event.target.value)} placeholder="Rechercher un produit, une marque ou un type" />
           <div className="mt-3 flex flex-wrap gap-2">
             {productPickerQuickFilters.map((filter) => {
               const isActive = filter.id === activeFilter;
@@ -238,6 +270,7 @@ export function ProductPickerModal({
                     isActive ? "border-brand bg-brand text-brand-foreground shadow-sm" : "border-border bg-background text-muted-foreground hover:border-brand-border hover:text-foreground"
                   )}
                   onClick={() => setActiveFilter(filter.id)}
+                  aria-pressed={isActive}
                 >
                   {filter.label}
                 </button>
@@ -262,7 +295,7 @@ export function ProductPickerModal({
                       return (
                         <div key={product.id} className="grid gap-3 rounded-lg border border-border bg-background p-3 sm:grid-cols-[72px_1fr_auto] sm:items-center">
                           <div className="flex h-16 w-16 items-center justify-center overflow-hidden rounded-md border border-border bg-card">
-                            {product.imageUrl ? <img src={product.imageUrl} alt="" className="h-full w-full object-contain p-1.5" /> : <span className="text-[11px] text-muted-foreground">Produit</span>}
+                            {product.imageUrl ? <Image src={product.imageUrl} alt="" width={64} height={64} sizes="64px" unoptimized className="h-full w-full object-contain p-1.5" /> : <span className="text-[11px] text-muted-foreground">Produit</span>}
                           </div>
                           <div className="min-w-0 space-y-2">
                             <div>
@@ -288,6 +321,7 @@ export function ProductPickerModal({
           )}
         </div>
       </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

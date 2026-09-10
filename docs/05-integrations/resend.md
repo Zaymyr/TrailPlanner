@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-09-06
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - package.json
@@ -44,6 +44,8 @@ The repo has one checked-in Broadcast template and two server-side Resend Contac
 - `emails/resend/production-launch.html` is a static HTML template for the Google Play production launch Broadcast. Its support ask mentions both a Google Play rating and the `@pace_your.self` Instagram account.
 - `emails/resend/production-launch.txt` is the matching plain-text copy.
 - `apps/web/lib/resend.ts` wraps the Resend Contacts REST API with `fetch`; no `resend` npm dependency is installed.
+- The web package now also contains `tus-js-client` for Organizer Storage uploads; it is unrelated to Resend, which remains a direct REST integration without the Resend SDK.
+- The root npm version is pinned for reliable Turbo/CI workspace discovery; this does not add a Resend SDK or change the REST contract.
 - `apps/web/app/api/resend/contact/route.ts` exposes `POST /api/resend/contact` for the current authenticated user.
 - `apps/web/app/api/resend/contact/route.test.ts` covers anonymous-user skipping, identified-user syncing, and Resend failure handling.
 - `apps/web/app/api/admin/resend/sync/route.ts` exposes `POST /api/admin/resend/sync`.
@@ -130,6 +132,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.
 - Resend can return `429` during large syncs. Keep the default request delay or run batches with `startPage`/`maxPages`.
 - Do not add a Resend dependency unless SDK-specific behavior is needed; current code uses REST through `fetch`.
+- Do not reuse the Organizer TUS upload client for email assets or contacts; Resend payloads continue through the bounded server-side REST helpers.
 - Supabase Auth email behavior is separate from Resend Contact syncing; this repo still has no app-managed Resend transactional email route.
 
 ## Related Docs

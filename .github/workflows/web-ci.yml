@@ -26,5 +26,8 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
+      - name: Test
+        run: npm run test --workspace apps/web -- --run
+
       - name: Build
         run: npm run build

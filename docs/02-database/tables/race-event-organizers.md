@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -137,6 +137,8 @@ order by created_at asc;
 ```
 
 ## Gotchas
+
+- Atomic Organizer RPCs are executable only by `service_role`; the calling route must still complete the normal active-membership/admin and entitlement checks before invoking them.
 
 - Membership is event-scoped, but commercial rights are edition-scoped. Every active member shares the selected edition's entitlement; membership alone does not unlock paid capabilities.
 - Module mutation also requires the edition/format setting to be effective. Full legacy JSON saves preserve subtrees whose module is inactive or locked.

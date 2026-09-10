@@ -1,7 +1,7 @@
 ---
 title: race_edition_services Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -9,6 +9,7 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/services/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/structured-content-editors.test.ts
   - apps/mobile/lib/racebook.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
 related_tables:
@@ -43,3 +44,5 @@ Public reads follow the visible, published RaceBook edition. Authorized event or
 Legacy `organizer_details.services` text remains untouched. Mobile prefers structured rows per matching category and falls back to that category's legacy text only when no structured row exists. Edition accent surfaces remain decorative and do not alter service categories or content.
 
 The structured collection is additive on mobile. A temporary Data API/table-unavailable error falls back to the preserved legacy services instead of making the complete RaceBook unavailable. Public and organizer-preview policies find the parent edition through `races`, avoiding a direct client-policy dependency on service-role-only `race_event_editions`.
+
+The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local service edits and instead queues the latest revision.

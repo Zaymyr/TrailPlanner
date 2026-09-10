@@ -40,10 +40,14 @@ related_files:
   - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
+  - supabase/tests/organizer_atomic_course_collections_checks.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -204,6 +208,10 @@ Independent mobile onboarding status migration:
 
 `supabase/migrations/20260910074418_add_normalized_race_event_geography.sql` adds nullable normalized city, department, region and country names/codes plus paired anchor-city coordinates to `race_events`. Partial indexes support exact administrative filters and bounded coordinate queries. A trigger clears this curated geography when `location` changes without a matching structured update. The same migration backfills eight Search Console-priority events from official organizer pages and `geo.api.gouv.fr`, and refreshes eleven multi-city-aware format labels. It reuses existing event/race RLS and grants and adds no client mutation path.
 
+`supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql` inventories the remaining live event catalog, fully normalizes 36 additional French anchors through exact INSEE commune matches, and assigns a verified ISO country to the 50 remaining official UTMB international events. International city/admin fields deliberately stay null when the existing official label identifies only a venue, island, province, or ambiguous multi-city event.
+
+`supabase/migrations/20260910083131_correct_translantau_country_code.sql` keeps TransLantau under Hong Kong's distinct ISO `HK` catalog key instead of mainland China's `CN` key.
+
 <!-- TODO: verify with maintainer: identify the migration or dashboard history that creates race_events and columns used by current code. -->
 
 ### Organizer Portal
@@ -276,6 +284,8 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 `supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql` repairs events/formats created after the original edition backfill: it creates missing event-year editions, attaches every dated event format, selects a current edition when absent, and installs an invoker trigger that atomically upserts future missing memberships under a per-event transaction advisory lock. It changes no client table grants or RLS policy.
 
 `supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql` adds service-only `race_event_edition_sponsors`, ordered loading/banner placements, aggregate click counts, and an atomic race/edition-validated redirect increment RPC. RLS and explicit privilege revokes keep clients behind server routes. A transaction advisory lock plus trigger enforces ten sponsors per edition and two active loading sponsors even under concurrent writes. `supabase/tests/racebook_sponsors_checks.sql` verifies RLS, privileges, both limits, and the atomic increment inside a rollback transaction.
+
+`supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql` replaces multi-request Organizer mutations with parent-locked invoker RPCs for ravitos, station-product links, relay points, organizer product creation plus attachment, and complete sponsor ordering. All functions use an empty search path, revoke execution from client roles, grant only `service_role`, validate parent ownership before writes, and roll back the full operation on failure. `supabase/tests/organizer_atomic_course_collections_checks.sql` and the sponsor SQL checks exercise privileges, ownership rejection and rollback behavior.
 
 `supabase/migrations/20260907171043_add_racebook_edition_branding.sql` adds the service-only edition branding draft/published projection, strict hex and publication-state constraints, and an invoker-security atomic publish function. Explicit client revokes and service-role grants keep both states behind server routes. `supabase/tests/racebook_branding_checks.sql` verifies RLS, privileges, one-row edition scope, cascade, malformed-color rejection, and atomic publication.
 
@@ -370,6 +380,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Do not replace the Organizer cleanup HTTP job with a direct SQL row purge: deleting the manifest first can orphan temporary Storage objects.
 - Keep the `Trail TST` seed ids and Storage paths stable. Re-running the migration updates the showcase rows in place; changing ids or paths would create duplicate catalog entries or broken map/profile assets.
 - Keep sponsor schema and showcase seed migrations separate: the first establishes security/invariants, while the idempotent TST data migration assumes the fixed demo edition already exists.
+- Organizer collection RPCs must remain `SECURITY INVOKER`, service-role-only and parent-locked. Moving validation back into route-side write loops would reintroduce partial saves and N+1 mutations.
 - Never deploy course-slug edits before the redirect migration. Review the GET-only slug audit first, then use the service-only RPC for approved rows so the old URL and canonical target change in one transaction.
 
 ## Related Docs

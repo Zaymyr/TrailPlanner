@@ -1,12 +1,13 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/tests/racebook_sponsors_checks.sql
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - apps/web/lib/racebook-sponsors.ts
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/editions/[id]/sponsors/route.ts
@@ -78,6 +79,8 @@ Banner placements use an automatic horizontal carousel whenever at least two act
 RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, and foreground active duration. Sponsor impressions, identities, placements, and redirect presses remain excluded from that person-level stream; only the existing aggregate redirect boundary counts sponsor clicks.
 
 ## Gotchas
+
+- Sponsor ordering sends the complete edition list to `reorder_racebook_sponsors`. The function locks the edition and rejects partial lists, foreign ids, duplicate ids or duplicate positions before updating any row.
 
 - The destination waits for the lightweight sponsor/module/branding response before revealing RaceBook content. Do not restore a short UI timeout that commits defaults while the valid edition response is still in flight.
 - The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.

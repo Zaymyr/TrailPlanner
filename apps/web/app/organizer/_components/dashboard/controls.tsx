@@ -1,3 +1,5 @@
+import { useId } from 'react';
+
 import { Input } from '../../../../components/ui/input';
 import { Label } from '../../../../components/ui/label';
 import { cn } from '../../../../components/utils';
@@ -95,6 +97,7 @@ export function TextField({
   placeholder,
   invalid,
   disabled,
+  id,
 }: {
   label: string;
   value: string;
@@ -105,11 +108,17 @@ export function TextField({
   placeholder?: string;
   invalid?: boolean;
   disabled?: boolean;
+  id?: string;
 }) {
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
+  const errorId = `${inputId}-error`;
+
   return (
     <div className="space-y-1">
-      <Label>{label}</Label>
+      <Label htmlFor={inputId}>{label}</Label>
       <Input
+        id={inputId}
         type={type}
         step={step}
         value={value}
@@ -117,9 +126,11 @@ export function TextField({
         required={required}
         placeholder={placeholder}
         disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? errorId : undefined}
         className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
       />
-      {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>
   );
 }
@@ -132,6 +143,7 @@ export function NumberField({
   invalid,
   readOnly,
   disabled,
+  id,
 }: {
   label: string;
   value: number;
@@ -140,23 +152,31 @@ export function NumberField({
   invalid?: boolean;
   readOnly?: boolean;
   disabled?: boolean;
+  id?: string;
 }) {
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
+  const errorId = `${inputId}-error`;
+
   return (
     <div className="space-y-1">
-      <Label>{label}</Label>
+      <Label htmlFor={inputId}>{label}</Label>
       <Input
+        id={inputId}
         type="number"
         step={step}
         value={value}
         onChange={(event) => onChange(Number(event.target.value))}
         readOnly={readOnly}
         disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? errorId : undefined}
         className={cn(
           invalid && "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500",
           readOnly && "bg-muted/40 text-muted-foreground"
         )}
       />
-      {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>
   );
 }
@@ -167,17 +187,24 @@ export function TextAreaField({
   onChange,
   invalid,
   disabled,
+  id,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   invalid?: boolean;
   disabled?: boolean;
+  id?: string;
 }) {
+  const generatedId = useId();
+  const inputId = id ?? generatedId;
+  const errorId = `${inputId}-error`;
+
   return (
     <div className="space-y-1">
-      <Label>{label}</Label>
+      <Label htmlFor={inputId}>{label}</Label>
       <textarea
+        id={inputId}
         className={cn(
           "min-h-24 w-full rounded-md border bg-card px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           invalid ? "border-amber-400 bg-amber-50/50 focus-visible:ring-amber-500" : "border-border"
@@ -185,8 +212,10 @@ export function TextAreaField({
         value={value}
         onChange={(event) => onChange(event.target.value)}
         disabled={disabled}
+        aria-invalid={invalid || undefined}
+        aria-describedby={invalid ? errorId : undefined}
       />
-      {invalid ? <p className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
     </div>
   );
 }

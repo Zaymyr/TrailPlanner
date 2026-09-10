@@ -24,12 +24,16 @@ related_files:
   - supabase/migrations/20260908160018_preserve_global_start_time_without_waves.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
+  - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
@@ -119,6 +123,7 @@ Use:
 - `supabase/tests/organizer_import_sessions_checks.sql` for service-only session grants, invoker RPC privileges, strict JSON payloads, and draft constraints;
 - `supabase/tests/race_slug_redirects_checks.sql` for public parent-gated redirect reads, service-only mutations/RPC execution, invoker security, and reserved-slug behavior;
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click increments;
+- `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
@@ -144,6 +149,7 @@ Use:
 - Curated catalog data migrations may insert or enrich trusted public event, edition, and race rows under the existing policies. The September 2026 SEO batches add no grants, policies, functions, or client-write paths.
 - The official UTMB World Series migration is data-only. It reuses the existing event, edition, and race policies and adds no grants, policies, functions, ownership semantics, or client-write path.
 - Normalized `race_events` geography is public catalog metadata on an existing RLS-protected table. Its migration adds no grants or policies; the stale-data trigger is invoker-security and direct execution is revoked from `PUBLIC`, `anon`, and `authenticated`.
+- The catalog-wide geography backfill is data-only. It reuses the existing `race_events` policies, preserves current publication and ownership fields, and introduces no function, grant, policy, or client-write path.
 - Event-scoped organizer policies need both claim/member RLS and route-level service-role authorization checks. Service-role route success alone does not prove direct RLS behavior.
 - New service flags on `race_aid_stations` reuse the existing station row policies; do not add separate grants for them.
 - New organizer JSONB columns on existing source tables reuse their table row policies; do not add separate grants or bypass active `race_event_organizers` checks for them.
@@ -158,6 +164,7 @@ Use:
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
 - `organizer_import_sessions` is service-only workflow state: no client policy is intentional. Both mutation RPCs must remain `SECURITY INVOKER`, revoke `PUBLIC` execution, and validate session expiry/scope plus every JSON key before writing.
 - `race_event_edition_sponsors` is also intentionally service-only. Public presentation must pass through the RaceBook gate and expose counted redirect URLs rather than direct destination fields.
+- Atomic Organizer course and sponsor-order functions remain invoker-security, empty-search-path and `service_role`-only. Their database validation complements rather than replaces route membership and entitlement checks.
 - `race_event_edition_branding` is intentionally service-only. Its organizer route requires active parent-event membership plus Pro; public/mobile presentation must expose only the published snapshot and keep downgrade behavior read-only rather than destructive.
 
 ## Related Docs

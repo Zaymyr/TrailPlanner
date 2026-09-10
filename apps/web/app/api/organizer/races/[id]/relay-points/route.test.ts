@@ -32,9 +32,6 @@ describe("/api/organizer/races/[id]/relay-points", () => {
       .mockResolvedValueOnce(jsonResponse([{ distance_km: 80, participation_mode: "relay" }]))
       .mockResolvedValueOnce(jsonResponse([{ id: stationId }]))
       .mockResolvedValueOnce(jsonResponse([{ id: relayPointId }]))
-      .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse([]))
       .mockResolvedValueOnce(jsonResponse([
         {
           id: relayPointId,
@@ -71,22 +68,43 @@ describe("/api/organizer/races/[id]/relay-points", () => {
     );
 
     expect(response.status).toBe(200);
-    const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
-    expect(JSON.parse(String(patchCall?.[1]?.body))).toMatchObject({
-      race_aid_station_id: stationId,
-      name: "Passage du col",
-      km: 20,
-      order_index: 0,
+    expect(mockFetch).toHaveBeenCalledTimes(4);
+    expect(String(mockFetch.mock.calls[3]?.[0])).toContain("/rest/v1/rpc/replace_race_relay_points");
+    expect(JSON.parse(String(mockFetch.mock.calls[3]?.[1]?.body))).toMatchObject({
+      p_race_id: raceId,
+      p_items: [
+        {
+          id: relayPointId,
+          race_aid_station_id: stationId,
+          name: "Passage du col",
+          km: 20,
+          order_index: 0,
+        },
+        {
+          id: null,
+          race_aid_station_id: null,
+          name: "Village",
+          km: 45,
+          order_index: 1,
+        },
+      ],
     });
-    const insertCall = mockFetch.mock.calls.find(
-      ([url, init]) => String(url).endsWith("/rest/v1/race_relay_points") && init?.method === "POST",
+  });
+
+  it("returns an error without issuing partial follow-up writes when replacement fails", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(jsonResponse([{ distance_km: 80, participation_mode: "relay" }]))
+      .mockResolvedValueOnce(jsonResponse([{ id: stationId }]))
+      .mockResolvedValueOnce(jsonResponse({ message: "constraint failed" }, 409));
+
+    const response = await PUT(
+      putRequest([{ name: "Village", distanceKm: 45 }]),
+      { params: { id: raceId } },
     );
-    expect(JSON.parse(String(insertCall?.[1]?.body))).toMatchObject({
-      race_aid_station_id: null,
-      name: "Village",
-      km: 45,
-      order_index: 1,
-    });
+
+    expect(response.status).toBe(502);
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(3);
+    expect(String(vi.mocked(fetch).mock.calls[2]?.[0])).toContain("/rest/v1/rpc/replace_race_relay_points");
   });
 
   it("rejects a relay point linked to another race's aid station", async () => {

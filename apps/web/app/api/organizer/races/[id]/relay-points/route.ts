@@ -157,41 +157,32 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
       return jsonError("Un point de relais n'appartient pas à ce format.", 409);
     }
   }
-  const deleteFilter = submittedIds.length > 0
-    ? `race_id=eq.${parsedParams.data.id}&id=not.in.(${submittedIds.join(",")})`
-    : `race_id=eq.${parsedParams.data.id}`;
-  const deleteResponse = await fetch(
-    `${auth.serviceConfig.supabaseUrl}/rest/v1/race_relay_points?${deleteFilter}`,
-    { method: "DELETE", headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
+  const replaceResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/replace_race_relay_points`,
+    {
+      method: "POST",
+      headers: serviceHeaders(auth.serviceConfig),
+      body: JSON.stringify({
+        p_race_id: parsedParams.data.id,
+        p_items: sortedRelayPoints.map((point, orderIndex) => ({
+          id: point.id ?? null,
+          race_aid_station_id: point.raceAidStationId ?? null,
+          name: point.name,
+          km: Number(point.distanceKm.toFixed(2)),
+          handover_time: point.handoverTime,
+          cutoff_time: point.cutoffTime,
+          notes: point.notes,
+          order_index: orderIndex,
+        })),
+      }),
+      cache: "no-store",
+    },
   );
-  if (!deleteResponse.ok) return jsonError("Unable to update relay points.", 502);
-
-  for (const [index, point] of sortedRelayPoints.entries()) {
-    const payload = {
-      race_id: parsedParams.data.id,
-      race_aid_station_id: point.raceAidStationId ?? null,
-      name: point.name,
-      km: Number(point.distanceKm.toFixed(2)),
-      handover_time: point.handoverTime,
-      cutoff_time: point.cutoffTime,
-      notes: point.notes,
-      order_index: index,
-    };
-    const response = await fetch(
-      point.id
-        ? `${auth.serviceConfig.supabaseUrl}/rest/v1/race_relay_points?id=eq.${point.id}&race_id=eq.${parsedParams.data.id}`
-        : `${auth.serviceConfig.supabaseUrl}/rest/v1/race_relay_points`,
-      {
-        method: point.id ? "PATCH" : "POST",
-        headers: serviceHeaders(auth.serviceConfig),
-        body: JSON.stringify(payload),
-        cache: "no-store",
-      },
-    );
-    if (!response.ok) return jsonError("Unable to update relay points.", 502);
+  if (!replaceResponse.ok) {
+    console.error("Unable to replace organizer relay points", await replaceResponse.text());
+    return jsonError("Unable to update relay points.", 502);
   }
 
-  const result = await loadRelayPoints(auth.serviceConfig, parsedParams.data.id);
-  if (!("points" in result)) return jsonError("Relay points saved, but unable to reload them.", 502);
-  return withSecurityHeaders(NextResponse.json({ relayPoints: result.points.map(mapRelayPoint) }));
+  const points = z.array(relayPointRowSchema).parse(await replaceResponse.json());
+  return withSecurityHeaders(NextResponse.json({ relayPoints: points.map(mapRelayPoint) }));
 }

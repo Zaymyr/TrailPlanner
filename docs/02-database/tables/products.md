@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -17,6 +17,8 @@ related_files:
   - apps/web/app/api/products/route.ts
   - apps/web/app/api/products/[productId]/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
+  - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/lib/official-product-names.ts
   - apps/web/lib/nutrition-planner.ts
 related_tables:
@@ -96,6 +98,7 @@ Summary:
 - Anon can read live, non-archived products.
 - Users can read their own products.
 - Organizer-created products are readable by their creator through the own-product policy, but remain out of global catalog reads while `is_live = false`.
+- Organizer creation from a ravito inserts the non-live product and its `race_aid_station_products` link in one service-only database transaction; a failed link cannot leave an orphan row.
 
 Mobile product edits and deletes go through `apps/web/app/api/products/[productId]/route.ts`, which verifies the Supabase bearer token, authorizes either the product owner (`created_by`) or an admin from `app_metadata`, then performs the mutation with the server-side service role.
 

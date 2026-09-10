@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET, POST } from "./route";
+import { GET, PATCH, POST } from "./route";
 
 const mocks = vi.hoisted(() => ({
   requireEventOrganizer: vi.fn(),
@@ -142,5 +142,45 @@ describe("organizer edition sponsor routes", () => {
     }), { params: { id: editionId } });
     expect(response.status).toBe(409);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reorders sponsors through one atomic batch RPC", async () => {
+    mocks.requireOrganizerAuth.mockResolvedValue({
+      user: { id: "user-1" },
+      serviceConfig: { supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" },
+    });
+    mocks.requireEventOrganizer.mockResolvedValue(true);
+    const first = sponsorRow(1);
+    const second = sponsorRow(2);
+    const fetchMock = vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([
+        { ...second, position: 0 },
+        { ...first, position: 1 },
+      ]), { status: 200 }));
+    const response = await PATCH(
+      new NextRequest(`http://localhost/api/organizer/editions/${editionId}/sponsors`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          sponsors: [
+            { id: first.id, position: 1 },
+            { id: second.id, position: 0 },
+          ],
+        }),
+      }),
+      { params: { id: editionId } },
+    );
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(String(fetchMock.mock.calls[1]?.[0])).toContain("/rest/v1/rpc/reorder_racebook_sponsors");
+    expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({
+      p_edition_id: editionId,
+      p_items: [
+        { id: first.id, position: 1 },
+        { id: second.id, position: 0 },
+      ],
+    });
   });
 });

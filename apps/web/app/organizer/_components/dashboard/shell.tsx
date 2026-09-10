@@ -43,7 +43,7 @@ export function OrganizerSignedOutCard() {
           <CardDescription>Connecte-toi pour accéder à ton espace organisateur.</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-3">
-          <Link href="/sign-in">
+          <Link href="/sign-in?next=%2Forganizer">
             <Button>Se connecter</Button>
           </Link>
           <Link href="/organizers">
@@ -116,6 +116,7 @@ export function OrganizerSummaryHeader({
   importWebsiteLabel = "Importer les informations",
   completion,
   hasDirtyChanges,
+  hasAnyDirtyChanges,
   status,
   activeRaceId,
   onSaveAll,
@@ -144,6 +145,7 @@ export function OrganizerSummaryHeader({
   importWebsiteLabel?: string;
   completion: OrganizerCompletionSummary | null;
   hasDirtyChanges: boolean;
+  hasAnyDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
   activeRaceId?: string | null;
   onSaveAll: () => void;
@@ -160,7 +162,8 @@ export function OrganizerSummaryHeader({
   const [deleteEventConfirmation, setDeleteEventConfirmation] = React.useState("");
   const [deleteEditionDialogOpen, setDeleteEditionDialogOpen] = React.useState(false);
   const [deleteEditionConfirmation, setDeleteEditionConfirmation] = React.useState("");
-  const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(true);
+  const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
+  const [eventSearch, setEventSearch] = React.useState("");
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
@@ -191,9 +194,21 @@ export function OrganizerSummaryHeader({
     : isComplimentaryOffer && editionTier !== "visibility"
       ? `Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[editionTier]} € HT`
         : "Aucun paiement actif";
+  const normalizedEventSearch = memberships.length > 8 ? eventSearch.trim().toLocaleLowerCase("fr") : "";
+  const matchingMemberships = normalizedEventSearch
+    ? memberships.filter((membership) =>
+        (membership.race_events?.name ?? membership.event_id).toLocaleLowerCase("fr").includes(normalizedEventSearch)
+      )
+    : memberships;
+  const visibleMemberships = matchingMemberships.some((membership) => membership.event_id === selectedEventId)
+    ? matchingMemberships
+    : [
+        ...memberships.filter((membership) => membership.event_id === selectedEventId),
+        ...matchingMemberships,
+      ];
 
   return (
-    <section className="rounded-lg border border-border bg-card p-3 shadow-sm">
+    <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div className="min-w-0">
           <p className="text-sm font-semibold uppercase tracking-wide text-brand dark:text-emerald-300">Dashboard organisateur</p>
@@ -201,35 +216,45 @@ export function OrganizerSummaryHeader({
             {[event?.location, dateLabel].filter(Boolean).join(" - ") || "Lieu et dates à compléter"}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            aria-label="Supprimer la course sélectionnée"
-            title="Supprimer la course sélectionnée"
-            onClick={() => {
-              setDeleteEventConfirmation("");
-              setDeleteEventDialogOpen(true);
-            }}
-            disabled={!selectedEventId || status !== "idle"}
-            className="w-10 shrink-0 border-red-300 px-0 text-xl leading-none text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
-          >
-            ×
-          </Button>
-          <select
-            className="h-10 rounded-md border border-border bg-card px-3 text-sm"
-            value={selectedEventId ?? ""}
-            onChange={(selectEvent) => onSelectedEventChange(selectEvent.target.value)}
-          >
-            {memberships.map((membership) => (
-              <option key={membership.id} value={membership.event_id}>
-                {membership.race_events?.name ?? membership.event_id}
-              </option>
-            ))}
-          </select>
+        <div className="flex w-full flex-wrap items-end gap-2 lg:w-auto lg:justify-end">
+          {memberships.length > 8 ? (
+            <div className="w-full lg:w-52">
+              <label htmlFor="organizer-event-search" className="mb-1 block text-xs font-medium text-muted-foreground">
+                Rechercher un événement
+              </label>
+              <input
+                id="organizer-event-search"
+                type="search"
+                className="h-11 w-full rounded-md border border-border bg-card px-3 text-sm"
+                value={eventSearch}
+                onChange={(searchEvent) => setEventSearch(searchEvent.target.value)}
+                placeholder="Nom de la course"
+              />
+              {normalizedEventSearch && matchingMemberships.length === 0 ? (
+                <p className="mt-1 text-xs text-muted-foreground">Aucun autre événement trouvé.</p>
+              ) : null}
+            </div>
+          ) : null}
+          <div className="min-w-0 flex-1 sm:min-w-64 lg:flex-none">
+            <label htmlFor="organizer-event-select" className="mb-1 block text-xs font-medium text-muted-foreground">
+              Événement
+            </label>
+            <select
+              id="organizer-event-select"
+              className="h-11 w-full min-w-0 rounded-md border border-border bg-card px-3 text-sm sm:w-auto sm:min-w-64"
+              value={selectedEventId ?? ""}
+              onChange={(selectEvent) => onSelectedEventChange(selectEvent.target.value)}
+            >
+              {visibleMemberships.map((membership) => (
+                <option key={membership.id} value={membership.event_id}>
+                  {membership.race_events?.name ?? membership.event_id}
+                </option>
+              ))}
+            </select>
+          </div>
           <span
             className={cn(
-              "inline-flex h-7 items-center rounded-full border px-2.5 text-xs font-semibold",
+              "inline-flex min-h-7 items-center rounded-full border px-2.5 py-1 text-xs font-semibold",
               completion?.informationComplete
                 ? "border-emerald-300 bg-emerald-50 text-emerald-700"
                 : "border-amber-300 bg-amber-50 text-amber-800"
@@ -238,14 +263,42 @@ export function OrganizerSummaryHeader({
             {completion?.informationComplete ? "Informations renseignées" : "À compléter"}
           </span>
           <Link href="/organizers">
-            <Button variant="outline">Ajouter une course</Button>
+            <Button variant="outline" className="!h-11">Ajouter une course</Button>
           </Link>
           {onImportWebsite ? (
-            <Button type="button" variant="outline" onClick={onImportWebsite}>
+            <Button type="button" variant="outline" onClick={onImportWebsite} className="!h-11">
               {importWebsiteLabel}
             </Button>
           ) : null}
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-border pt-3">
+        <Button type="button" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} variant="outline" disabled={!event} className="!h-11">
+          Notifier les coureurs
+        </Button>
+        {raceRows.length > 0 ? (
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
+            <div className="text-right">
+              <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold">
+                {ORGANIZER_TIER_LABEL[editionTier]}
+              </span>
+              <p className="mt-1 text-xs text-muted-foreground">{offerStatusLabel}</p>
+            </div>
+            <Button
+              type="button"
+              onClick={onRequestPublication}
+              disabled={!editionIsVisible || status !== "idle"}
+              className="!h-11"
+            >
+              {canPublishRacebook
+                ? isComplimentaryOffer
+                  ? `Offre ${activeOfferName} offerte`
+                  : `Offre ${activeOfferName} active`
+                : "Publier le RaceBook"}
+            </Button>
+          </div>
+        ) : null}
       </div>
 
       <details
@@ -253,14 +306,18 @@ export function OrganizerSummaryHeader({
         onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}
         className="group mt-3"
       >
-        <summary className="flex cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 rounded-md px-1 py-1 text-sm transition hover:bg-muted/40 marker:content-none">
+        <summary className="flex min-h-11 cursor-pointer list-none flex-wrap items-center gap-x-4 gap-y-2 rounded-md px-2 py-2 text-sm transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
           <span className="inline-flex items-center gap-2 font-semibold text-foreground">
-            <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} />
+            État de l’édition et des formats
+          </span>
+          <span className="inline-flex items-center gap-1.5 text-muted-foreground">
+            <span className={cn("h-2.5 w-2.5 rounded-full", isLive ? "bg-emerald-500" : "bg-muted-foreground")} aria-hidden="true" />
             {isLive ? "Événement visible" : "Événement masqué"}
           </span>
           <span className="text-muted-foreground">{event?.races.length ?? 0} formats</span>
+          <span className="text-muted-foreground">{eventScore}% complété</span>
           <span className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-            <span>{isSummaryExpanded ? "Réduire" : "Afficher"}</span>
+            <span>{isSummaryExpanded ? "Masquer les détails" : "Voir les détails"}</span>
             <svg
               viewBox="0 0 20 20"
               fill="none"
@@ -285,7 +342,7 @@ export function OrganizerSummaryHeader({
                 <div className="flex min-w-0 flex-1 items-center gap-1">
                   <select
                     id="organizer-event-edition-select"
-                    className="h-8 min-w-0 flex-1 rounded-md border border-input bg-card px-2.5 text-sm text-foreground"
+                    className="h-11 min-w-0 flex-1 rounded-md border border-input bg-card px-2.5 text-sm text-foreground"
                     value={selectedEditionYear}
                     onChange={(event) => onSelectedEditionYearChange(event.target.value)}
                   >
@@ -295,34 +352,34 @@ export function OrganizerSummaryHeader({
                       </option>
                     ))}
                   </select>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    aria-label={`Supprimer l’édition ${selectedEditionYear}`}
-                    title={`Supprimer l’édition ${selectedEditionYear}`}
-                    onClick={() => {
-                      setDeleteEditionConfirmation("");
-                      setDeleteEditionDialogOpen(true);
-                    }}
-                    disabled={!selectedEdition || status !== "idle"}
-                    className="!h-8 !w-8 shrink-0 px-0 text-lg leading-none text-red-700 hover:bg-red-50 hover:text-red-800"
-                  >
-                    ×
-                  </Button>
                 </div>
               </div>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => {
-                  setDuplicatePreviousEdition(ORGANIZER_TIER_RANK[editionTier] >= ORGANIZER_TIER_RANK.complete);
-                  setNewEditionDialogOpen(true);
-                }}
-                disabled={status !== "idle"}
-                className="!h-8"
-              >
-                Créer une nouvelle édition
-              </Button>
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDuplicatePreviousEdition(ORGANIZER_TIER_RANK[editionTier] >= ORGANIZER_TIER_RANK.complete);
+                    setNewEditionDialogOpen(true);
+                  }}
+                  disabled={status !== "idle"}
+                  className="!h-11 flex-1 sm:flex-none"
+                >
+                  Créer une nouvelle édition
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setDeleteEditionConfirmation("");
+                    setDeleteEditionDialogOpen(true);
+                  }}
+                  disabled={!selectedEdition || status !== "idle"}
+                  className="!h-11 flex-1 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800 sm:flex-none"
+                >
+                  Supprimer l’édition
+                </Button>
+              </div>
             </div>
           </div>
         ) : null}
@@ -373,36 +430,45 @@ export function OrganizerSummaryHeader({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <Button type="button" onClick={() => onNotifyFollowers(activeRaceId ?? undefined)} variant="outline" disabled={!event}>
-          Notifier les coureurs
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
+        <p className="text-xs text-muted-foreground">
+          La suppression de la course efface toutes ses éditions et tous ses formats.
+        </p>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            setDeleteEventConfirmation("");
+            setDeleteEventDialogOpen(true);
+          }}
+          disabled={!selectedEventId || status !== "idle"}
+          className="!h-11 border-red-300 text-red-700 hover:border-red-400 hover:bg-red-50 hover:text-red-800"
+        >
+          Supprimer la course
         </Button>
-        <Button type="button" onClick={onSaveAll} disabled={!hasDirtyChanges || status === "saving"}>
-          {status === "saving" ? "Sauvegarde..." : "Sauvegarder"}
-        </Button>
-        {raceRows.length > 0 ? (
-          <div className="ml-auto flex flex-wrap items-center justify-end gap-3">
-            <div className="text-right">
-              <span className="inline-flex items-center rounded-full border border-border bg-background px-2.5 py-1 text-xs font-semibold">
-                {ORGANIZER_TIER_LABEL[editionTier]}
-              </span>
-              <p className="mt-1 text-xs text-muted-foreground">{offerStatusLabel}</p>
-            </div>
-            <Button
-              type="button"
-              onClick={onRequestPublication}
-              disabled={!editionIsVisible || status !== "idle"}
-            >
-              {canPublishRacebook
-                ? isComplimentaryOffer
-                  ? `Offre ${activeOfferName} offerte`
-                  : `Offre ${activeOfferName} active`
-                : "Publier le RaceBook"}
-            </Button>
-          </div>
-        ) : null}
       </div>
       </details>
+
+      {hasAnyDirtyChanges || status === "saving" ? (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-x-4 top-20 z-40 mx-auto flex max-w-xl items-center justify-between gap-3 rounded-lg border border-amber-300 bg-card p-3 shadow-lg sm:bottom-4 sm:left-auto sm:right-6 sm:top-auto sm:mx-0 sm:min-w-96"
+        >
+          <p className="min-w-0 text-sm font-medium text-foreground">
+            {status === "saving"
+              ? "Sauvegarde en cours…"
+              : hasDirtyChanges
+                ? "Modifications non enregistrées"
+                : "Une autre section contient des modifications non enregistrées."}
+          </p>
+          {hasDirtyChanges || status === "saving" ? (
+            <Button type="button" onClick={onSaveAll} disabled={status === "saving"} className="!h-11 shrink-0">
+              {status === "saving" ? "Sauvegarde…" : "Sauvegarder"}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
 
       <Dialog open={newEditionDialogOpen} onOpenChange={setNewEditionDialogOpen}>
         <DialogContent>
@@ -615,16 +681,36 @@ export function CompletionTabsPanel({
   const modules = isEventTab ? completion.eventModules : activeRace ? completion.formatModules : [];
 
   return (
-    <section className="rounded-lg border border-border bg-card p-4 shadow-sm">
-      <div className="overflow-x-auto pb-1">
+    <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
+      <div className="md:hidden">
+        <label htmlFor="organizer-workspace-select" className="mb-1.5 block text-sm font-medium text-foreground">
+          Événement ou format à modifier
+        </label>
+        <select
+          id="organizer-workspace-select"
+          className="h-11 w-full min-w-0 rounded-md border border-input bg-card px-3 text-sm text-foreground"
+          value={activeTab}
+          onChange={(event) => onTabChange(event.target.value)}
+        >
+          {tabs.map((tab) => (
+            <option key={tab.id} value={tab.id}>
+              {tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : tab.label}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="hidden overflow-x-auto pb-1 md:block">
         <div className="flex min-w-max items-center gap-2 border-b border-border">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
+              aria-label={tab.id === ADD_FORMAT_TAB_ID ? "Ajouter un format" : undefined}
+              aria-current={activeTab === tab.id ? "page" : undefined}
               onClick={() => onTabChange(tab.id)}
               className={cn(
-                "rounded-t-lg border border-transparent px-5 py-3 text-base font-semibold transition-colors focus:outline-none",
+                "min-h-11 rounded-t-lg border border-transparent px-5 py-3 text-base font-semibold transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
                 activeTab === tab.id
                   ? "border-brand border-b-card bg-brand-surface text-brand shadow-sm"
                   : "text-muted-foreground hover:bg-background hover:text-foreground"
@@ -644,7 +730,7 @@ export function CompletionTabsPanel({
           onSelectModule={onSelectModule}
         />
       ) : (
-        <div className="mt-3 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
+        <div className="mt-4 rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">
           Renseigne le nouveau format dans le formulaire ci-dessous. Ses tuiles apparaîtront après création.
         </div>
       )}

@@ -284,6 +284,9 @@ export const en: Translations = {
     signIn: {
       title: "Sign in",
       description: "Access your Pace Yourself account.",
+      continueWithGoogle: "Continue with Google",
+      continueWithApple: "Continue with Apple",
+      continueWithEmail: "Or continue with email",
       forgotPassword: "Forgot your password?",
       submit: "Sign in",
       submitting: "Signing in...",

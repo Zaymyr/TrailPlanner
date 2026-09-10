@@ -23,6 +23,9 @@ import {
 } from "../../../../../../lib/racebook-sponsors";
 
 const editionSchema = z.object({ id: z.string().uuid(), event_id: z.string().uuid() });
+const reorderSponsorsSchema = z.object({
+  sponsors: z.array(z.object({ id: z.string().uuid(), position: z.number().int().min(0).max(9) })).min(1).max(10),
+});
 
 async function loadAuthorizedEdition(
   request: NextRequest,
@@ -171,4 +174,40 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const sponsor = z.array(racebookSponsorRowSchema).parse(await insertResponse.json())[0];
   return withSecurityHeaders(NextResponse.json({ sponsor: sponsor ? toOrganizerSponsor(sponsor) : null }, { status: 201 }));
+}
+
+export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
+  const parsedParams = uuidParamSchema.safeParse(context.params);
+  if (!parsedParams.success) return jsonError("Invalid edition id.", 400);
+  const auth = await loadAuthorizedEdition(request, parsedParams.data.id);
+  if ("error" in auth) return auth.error;
+
+  const body = reorderSponsorsSchema.safeParse(await request.json().catch(() => null));
+  if (!body.success) return jsonError(body.error.issues[0]?.message ?? "Invalid sponsor order.", 400);
+  if (new Set(body.data.sponsors.map((sponsor) => sponsor.id)).size !== body.data.sponsors.length) {
+    return jsonError("A sponsor can only be reordered once per request.", 400);
+  }
+  if (new Set(body.data.sponsors.map((sponsor) => sponsor.position)).size !== body.data.sponsors.length) {
+    return jsonError("Sponsor positions must be unique.", 400);
+  }
+
+  const response = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/reorder_racebook_sponsors`,
+    {
+      method: "POST",
+      headers: serviceHeaders(auth.serviceConfig),
+      body: JSON.stringify({
+        p_edition_id: auth.edition.id,
+        p_items: body.data.sponsors,
+      }),
+      cache: "no-store",
+    },
+  );
+  if (!response.ok) {
+    console.error("Unable to reorder edition sponsors", await response.text());
+    return jsonError("Unable to update sponsor order.", 502);
+  }
+
+  const sponsors = z.array(racebookSponsorRowSchema).parse(await response.json());
+  return withSecurityHeaders(NextResponse.json({ sponsors: sponsors.map(toOrganizerSponsor) }));
 }

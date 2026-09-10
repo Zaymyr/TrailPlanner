@@ -8,7 +8,10 @@ import {
   invalidateOrganizerRaceDataCache,
   invalidateOrganizerRaceSidecarsCache,
   ORGANIZER_GPX_PREVIEW_STALE_TIME_MS,
+  ORGANIZER_GPX_PREVIEW_PATH_CACHE_CAPACITY,
+  ORGANIZER_GPX_PREVIEW_RACE_CACHE_CAPACITY,
   ORGANIZER_PRODUCT_CATALOG_STALE_TIME_MS,
+  ORGANIZER_RACE_SIDECARS_CACHE_CAPACITY,
   ORGANIZER_RACE_SIDECARS_STALE_TIME_MS,
   readOrganizerGpxPreviewCache,
   readOrganizerProductCatalogCache,
@@ -94,6 +97,18 @@ describe("organizer dashboard data cache", () => {
     expect(readOrganizerRaceSidecarsCache("race-2", 1_001)).not.toBeNull();
   });
 
+  it("bounds sidecars with least-recently-used eviction", () => {
+    for (let index = 0; index < ORGANIZER_RACE_SIDECARS_CACHE_CAPACITY; index += 1) {
+      writeOrganizerRaceSidecarsCache(`race-${index}`, buildSidecars(`race-${index}`), 1_000 + index);
+    }
+    expect(readOrganizerRaceSidecarsCache("race-0", 2_000)).not.toBeNull();
+
+    writeOrganizerRaceSidecarsCache("race-overflow", buildSidecars("race-overflow"), 2_001);
+
+    expect(readOrganizerRaceSidecarsCache("race-0", 2_002)).not.toBeNull();
+    expect(readOrganizerRaceSidecarsCache("race-1", 2_002)).toBeNull();
+  });
+
   it("keys GPX previews by race and storage path so replacement misses naturally", () => {
     const oldPreview = buildPreview(42);
     const otherRacePreview = buildPreview(80);
@@ -114,6 +129,30 @@ describe("organizer dashboard data cache", () => {
     ).toBeNull();
     invalidateOrganizerGpxPreviewCache("race-2");
     expect(readOrganizerGpxPreviewCache("race-2", "race-2.gpx", 1_001)).toBeNull();
+  });
+
+  it("bounds GPX paths per race with least-recently-used eviction", () => {
+    for (let index = 0; index < ORGANIZER_GPX_PREVIEW_PATH_CACHE_CAPACITY; index += 1) {
+      writeOrganizerGpxPreviewCache("race-1", `path-${index}.gpx`, buildPreview(index), 1_000 + index);
+    }
+    expect(readOrganizerGpxPreviewCache("race-1", "path-0.gpx", 2_000)).not.toBeNull();
+
+    writeOrganizerGpxPreviewCache("race-1", "path-overflow.gpx", buildPreview(99), 2_001);
+
+    expect(readOrganizerGpxPreviewCache("race-1", "path-0.gpx", 2_002)).not.toBeNull();
+    expect(readOrganizerGpxPreviewCache("race-1", "path-1.gpx", 2_002)).toBeNull();
+  });
+
+  it("bounds GPX races with least-recently-used eviction", () => {
+    for (let index = 0; index < ORGANIZER_GPX_PREVIEW_RACE_CACHE_CAPACITY; index += 1) {
+      writeOrganizerGpxPreviewCache(`race-${index}`, "route.gpx", buildPreview(index), 1_000 + index);
+    }
+    expect(readOrganizerGpxPreviewCache("race-0", "route.gpx", 2_000)).not.toBeNull();
+
+    writeOrganizerGpxPreviewCache("race-overflow", "route.gpx", buildPreview(99), 2_001);
+
+    expect(readOrganizerGpxPreviewCache("race-0", "route.gpx", 2_002)).not.toBeNull();
+    expect(readOrganizerGpxPreviewCache("race-1", "route.gpx", 2_002)).toBeNull();
   });
 
   it("invalidates all race-specific data and supports a complete clear", () => {

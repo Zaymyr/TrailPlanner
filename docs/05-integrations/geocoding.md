@@ -5,6 +5,8 @@ last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
+  - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
+  - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
   - apps/mobile/lib/racebook.ts
   - apps/web/app/api/location-search/route.ts
@@ -48,6 +50,8 @@ The current organizer flow is:
 7. Published runner surfaces read that structured object to display GPS coordinates and an "Ouvrir dans Google Maps" link for live formats only. The organizer dashboard no longer exposes an internal runner-preview dialog.
 8. Bib pickup can repeat this flow for every entry in `bibPickup.locations[]`; each location keeps its own geocoded object and independent dated time slots.
 9. The mobile Racebook can reuse every stored Google Maps URL for bib pickup plus start/finish rows.
+
+The web field exposes the suggestion popup as an ARIA combobox/listbox, supports arrow-key navigation, Enter selection and Escape dismissal, and connects its visible label to the input. Bias coordinates participate in the debounced request dependencies so moving to another event or format cannot reuse a query with stale proximity context.
 
 Manual free text is still allowed. In that case the helper stores the label plus a Google Maps search URL, but no coordinates.
 
@@ -101,7 +105,7 @@ Each object stores:
 
 These columns are separate from `organizer_details.eventLocation`: the normalized columns drive catalog filtering, while the JSON object drives labels and external Maps actions. A trusted enrichment may populate both from the same evidence. If the canonical `location` label changes without a matching normalized update, the database trigger clears the normalized fields rather than leave stale filter data.
 
-The initial 2026-09-10 enrichment uses `geo.api.gouv.fr` administrative data and commune-centre coordinates for eight events identified through Search Console. Official organizer pages remain authoritative for event identity and multi-city departure-arrival labels.
+The initial 2026-09-10 enrichment uses `geo.api.gouv.fr` administrative data and commune-centre coordinates for eight events identified through Search Console. A second catalog-wide pass resolves another 36 French event anchors by exact INSEE code, bringing full commune-level coverage to 44 French events. It also normalizes the country of 50 official UTMB international events from their stored official catalog evidence, but leaves ambiguous city/admin/coordinate fields null. Official organizer pages remain authoritative for event identity and multi-city departure-arrival labels.
 
 ## Gotchas
 
@@ -111,12 +115,14 @@ The initial 2026-09-10 enrichment uses `geo.api.gouv.fr` administrative data and
 - Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
 - Do not use free-text parsing as a fallback for exact catalog geography. A missing normalized field means “not curated yet,” not permission to guess.
+- Do not promote country-level international evidence into a city anchor. Venues, islands, provinces and multi-city races require separate locality verification before nearby-city discovery is enabled.
 - Commune-centre coordinates are approximate discovery anchors, not exact start lines, course geometry or routing distances.
 - Do not assume every historical organizer row has geocoded metadata or a `bibPickup.locations[]` array; old single-location rows should parse through the legacy fallback without losing their free-text schedule.
 - The current Nominatim-backed route is intentionally lightweight. If usage grows, move to a dedicated paid or self-hosted geocoding service before increasing request volume.
 - The current quality improvement is still heuristic on top of Nominatim. It helps French race addresses significantly, but it is not a full postal-address provider with rooftop accuracy guarantees.
 - Google Places is a valid future replacement for autocomplete quality, but it requires a Google Maps Platform key, billing, quota management, and a review of Google usage terms before swapping providers.
 - Keep the provider call server-side so browser clients do not depend directly on third-party geocoding availability or headers.
+- Preserve the combobox roles, active-option relationship and keyboard behavior when changing suggestion rendering; mouse-only autocomplete is not an acceptable fallback.
 - Google Maps links are generated locally from the selected label/coordinates; the app does not currently call a Google geocoding API.
 - In the mobile Racebook access tab, generated start/finish links are exposed through explicit Maps buttons. Equal normalized start and finish address strings render as one location while retaining the first available generated link; the optional organizer-supplied general map remains a separate labeled action.
 - Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.

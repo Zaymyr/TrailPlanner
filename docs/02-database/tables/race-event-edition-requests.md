@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -34,7 +34,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - `authenticated` insert/update grants and the organizer insert policy are removed.
 - `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now creates a canonical `race_event_editions` range. Its `duplicatePreviousEdition` input defaults to `true` for backward compatibility; when false, the route creates the edition without cloning source-year formats. It does not insert this table.
 - Newly created canonical editions use the database's visible-by-default state. Later visibility changes or confirmed year-typed deletion use `/api/organizer/editions/[id]`, not this retired request table.
-- Collapsing the compact edition/format summary is local presentation state; it neither creates nor consults this retired request table.
+- The compact edition/format summary starts collapsed; expanding it or selecting a format through the mobile selector is local presentation state and neither action creates nor consults this retired request table.
 - Batching section-switch drafts into one explicit module-settings save likewise does not create or consult this retired request table. The chooser's edition-common and per-format groups only expose the existing settings scopes.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
 - `/api/organizer/claims` continues to return only the current user's legacy edition-request rows even when its event selector is expanded to the full catalog for an admin; selector access does not revive or broaden this retired workflow.
@@ -53,6 +53,8 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `requested_start_date`, review status, reviewer identity, review timestamp, and reviewer notes. Foreign keys continue to preserve historical user/event relationships according to the original migration.
 
 ## Gotchas
+
+- The dashboard now aborts stale event loads and dynamically loads heavy editors; neither behavior changes the canonical edition request payload or its server-side validation.
 
 - Do not restore organizer inserts or add new review UI for this table.
 - Do not interpret old `approved` rows as current publication approval; publication uses `race_event_publication_requests`.

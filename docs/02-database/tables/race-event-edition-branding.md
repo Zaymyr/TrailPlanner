@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -87,6 +87,8 @@ where edition_id = :edition_id;
 ```
 
 ## Gotchas
+
+- The Organizer preview uses optimized image rendering and explicit form labels; these presentation details do not broaden the service-only draft access contract.
 
 - Never return draft columns from a runner-facing route.
 - Do not grant direct mobile/browser access to this table; the existing server route is the compatibility and authorization boundary.

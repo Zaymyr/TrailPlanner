@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-10
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -64,7 +64,7 @@ This table is retained publication-review history. New organizer publication use
 - A directly delegated organizer receives the same event membership and therefore the edition capability purchased or granted for that event.
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
 - The current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A trusted admin may grant RaceBook from that dialog without payment through `set_admin_organizer_edition_entitlement`; the grant is edition-scoped, records `source = admin`, and leaves this legacy table unchanged.
-- Collapsing the compact edition/format summary hides only its controls visually; it does not publish, hide, or create a publication-request row.
+- The compact edition/format summary starts collapsed while the entitlement and primary publication action remain visible; expanding or collapsing its detail controls does not publish, hide, or create a publication-request row.
 - Staged section switches affect publication and completion only after their single module-settings PATCH succeeds; their edition-common/per-format grouping never inserts a row in this legacy publication queue.
 - Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
@@ -83,6 +83,8 @@ This table is retained publication-review history. New organizer publication use
 - Publishing an edition's visual identity is a separate Pro-only draft-to-published operation. It does not publish a format, change `racebook_is_live`, or insert/update this legacy review table.
 
 ## Gotchas
+
+- Abortable dashboard reloads prevent stale UI state but do not cancel or weaken a publication request already accepted by the server; entitlement and readiness remain server-authoritative.
 
 - This is a publication review, not an ownership claim. Legacy claims may still protect access to pre-existing catalog events.
 - Keep assignment and publication review independent in the admin Organizer area: publication controls belong to `Publier le RaceBook`, while membership assignment and active access belong to `Accès organisateurs`.

@@ -13,7 +13,7 @@ type SearchParamValue = string | string[] | undefined;
 type SearchParamInput = URLSearchParams | Record<string, SearchParamValue> | null | undefined;
 
 const DEFAULT_RETURN_PATH = "/race-planner";
-const ALLOWED_RETURN_PATHS = new Set(["/organizers"]);
+const ALLOWED_RETURN_PATHS = new Set(["/organizer", "/organizers"]);
 
 const readSearchParam = (input: SearchParamInput, key: OrganizerUtmKey): string | null => {
   if (!input) return null;
@@ -55,6 +55,10 @@ export function normalizeInternalReturnPath(value: string | string[] | null | un
     const parsed = new URL(candidate, "https://pace-yourself.internal");
     if (parsed.origin !== "https://pace-yourself.internal" || !ALLOWED_RETURN_PATHS.has(parsed.pathname)) {
       return DEFAULT_RETURN_PATH;
+    }
+
+    if (parsed.pathname === "/organizer") {
+      return "/organizer";
     }
 
     const attribution = extractOrganizerAttribution(parsed.searchParams);
