@@ -593,7 +593,7 @@ export default function CatalogScreen() {
             .from('race_events')
             .select(EVENT_CATALOG_SELECT)
             .eq('is_live', true)
-            .eq('races.is_live', true)
+            .eq('races.racebook_preview_is_visible', true)
             .order('created_at', { referencedTable: 'race_event_updates', ascending: false })
             .limit(ORGANIZER_UPDATES_PREVIEW_LIMIT, { referencedTable: 'race_event_updates' })
             .order('name'),

@@ -31,6 +31,7 @@ related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
 related_tables:
   - race_plans
   - plan_share_links

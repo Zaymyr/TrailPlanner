@@ -23,6 +23,7 @@ related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -152,9 +153,9 @@ Re-sharing uses the same owner policy shape: the route verifies bearer-token ide
 
 Declared through old `race_catalog` policies and renamed/refined in `20260324000000_refactor_race_catalog_to_races.sql`.
 
-- Public-source races are readable by everyone only while `is_live = true`.
+- Public-source races are readable by everyone while `is_live = true`; a preview-selected private format is also readable when its parent event and optional edition are visible, so runners can discover the event and create a plan without receiving a RaceBook.
 - Private races are readable by their creator.
-- Non-live organizer formats are readable by active members of their parent event, which supports the mobile private preview without exposing them to other runners.
+- Non-live organizer formats with `racebook_preview_is_visible = true` are readable by runners only under a visible parent event/edition. Masked rows remain limited to their creator, an active parent-event organizer, or a trusted admin.
 - Admins can manage catalog races.
 - Owners can manage private races through `created_by`.
 - Approved organizers mutate claimed races through service routes and `race_event_organizers`, not through `races.created_by`; the select policy separately permits their membership-bounded private reads.
@@ -407,7 +408,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 
 ## Related Docs
 
-`races.racebook_preview_is_visible` reuses existing row policies. Bulk runner publication uses only the `SECURITY INVOKER`, service-role-only `publish_organizer_edition_racebooks` function behind the authorized web route.
+`races.racebook_preview_is_visible` is also the mobile course-catalog inclusion flag for non-live formats. `private.race_is_in_visible_catalog` exposes only a parent-visibility boolean, uses an empty search path, revokes `PUBLIC`, and grants execution only to `anon` and `authenticated`; it avoids granting direct client reads on `race_event_editions`. Bulk runner publication still uses only the `SECURITY INVOKER`, service-role-only `publish_organizer_edition_racebooks` function behind the authorized web route.
 
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)

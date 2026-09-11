@@ -88,6 +88,7 @@ This table is retained publication-review history. New organizer publication use
 ## Gotchas
 
 - Current admin pack changes, Visibilité downgrades, and direct-virement recording do not create or reopen legacy publication-request rows.
+- Canonical direct-virement pricing and same-day payment-date normalization occur in the protected payment route without touching this legacy request table.
 
 - The current admin publication manager writes the edition entitlement origin, not a legacy publication-request row. Admin and Offert are distinct, while Stripe/virement require matching paid history.
 

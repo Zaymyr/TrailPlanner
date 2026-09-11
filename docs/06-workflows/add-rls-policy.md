@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -36,6 +37,7 @@ The same rule applies to data-only showcase seeds and final-roadbook corrections
 - Service role: server-only bypass for trusted operations.
 - Secret-link access: public viewers resolve unguessable tokens through server code; table rows still use owner RLS.
 - Public child mapping: a directly readable row whose policy repeats every public visibility gate of its parent resource.
+- Boolean visibility helper: a private fixed-search-path security-definer function may check an otherwise service-only parent without exposing parent rows; revoke `PUBLIC`, grant only the evaluating API roles, and return no sensitive data.
 
 ## Steps
 

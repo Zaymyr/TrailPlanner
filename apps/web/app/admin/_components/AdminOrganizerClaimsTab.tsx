@@ -15,6 +15,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { TabsList } from "../../../components/ui/tabs";
+import { ORGANIZER_TIER_PRICE_EUR } from "../../../lib/organizer-modules";
 
 type OrganizerUserSummary = {
   id: string;
@@ -154,6 +155,17 @@ const organizerTierLabel: Record<NonNullable<RacebookPublicationEvent["entitleme
 };
 
 type PublicationOrigin = "admin" | "stripe" | "manual_payment" | "complimentary";
+type PaidPublicationTier = Exclude<NonNullable<RacebookPublicationEvent["entitlement"]>["tier"], "visibility">;
+
+const ORGANIZER_VAT_RATE = 0.2;
+const getOrganizerPaymentAmounts = (tier: NonNullable<RacebookPublicationEvent["entitlement"]>["tier"]) => {
+  if (tier === "visibility") return { subtotal: "", tax: "" };
+  const subtotal = ORGANIZER_TIER_PRICE_EUR[tier as PaidPublicationTier];
+  return {
+    subtotal: subtotal.toFixed(2).replace(".", ","),
+    tax: (subtotal * ORGANIZER_VAT_RATE).toFixed(2).replace(".", ","),
+  };
+};
 
 const publicationOriginLabel: Record<NonNullable<RacebookPublicationEvent["entitlement"]>["source"], string> = {
   system: "Aucune activation",
@@ -381,8 +393,6 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         formData.set("editionId", purchaseEvent.editionId);
         formData.set("tier", purchaseTier);
         formData.set("paidDate", purchaseDate);
-        formData.set("amountSubtotal", purchaseSubtotal);
-        formData.set("amountTax", purchaseTax);
         if (purchaseInvoice) formData.set("invoice", purchaseInvoice);
         response = await fetch("/api/admin/organizer-payments", {
           method: "POST",
@@ -455,8 +465,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         : "admin"
     );
     setPurchaseDate(currentParisDate());
-    setPurchaseSubtotal("");
-    setPurchaseTax("");
+    const amounts = getOrganizerPaymentAmounts(currentTier);
+    setPurchaseSubtotal(amounts.subtotal);
+    setPurchaseTax(amounts.tax);
     setPurchaseInvoice(null);
     setPurchaseEvent(event);
   };
@@ -807,10 +818,18 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       name="organizer-purchase-tier"
                       value={tier}
                       checked={purchaseTier === tier}
-                      onChange={() => setPurchaseTier(tier)}
+                      onChange={() => {
+                        const amounts = getOrganizerPaymentAmounts(tier);
+                        setPurchaseTier(tier);
+                        setPurchaseSubtotal(amounts.subtotal);
+                        setPurchaseTax(amounts.tax);
+                      }}
                       className="h-4 w-4 shrink-0"
                     />
                     <span>{organizerTierLabel[tier]}</span>
+                    <span className="ml-auto text-xs font-medium">
+                      {tier === "visibility" ? "Gratuit" : `${ORGANIZER_TIER_PRICE_EUR[tier]} € HT`}
+                    </span>
                   </label>
                 ))}
               </div>
@@ -845,11 +864,11 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="organizer-purchase-subtotal">Montant HT (€)</Label>
-              <Input id="organizer-purchase-subtotal" inputMode="decimal" placeholder="99,00" value={purchaseSubtotal} onChange={(event) => setPurchaseSubtotal(event.target.value)} />
+              <Input id="organizer-purchase-subtotal" inputMode="decimal" value={purchaseSubtotal} readOnly />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="organizer-purchase-tax">TVA (€)</Label>
-              <Input id="organizer-purchase-tax" inputMode="decimal" placeholder="19,80" value={purchaseTax} onChange={(event) => setPurchaseTax(event.target.value)} />
+              <Label htmlFor="organizer-purchase-tax">TVA 20 % (€)</Label>
+              <Input id="organizer-purchase-tax" inputMode="decimal" value={purchaseTax} readOnly />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="organizer-purchase-invoice">Facture PDF facultative</Label>

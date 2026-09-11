@@ -30,6 +30,7 @@ related_files:
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
@@ -181,7 +182,7 @@ Use:
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 - Racebook publication remains behind service routes: organizer toggles require active event membership or a trusted app-metadata admin, a complete format, and an active edition-level `racebook.publish` capability. The atomic RPC writes durable unlock provenance on first publication; legacy publication requests remain service-only audit data.
 - Keep the bulk publication SQL test asserting both sides of the private-to-public transition: the update sets `is_live = true`, and its predicate never requires `race_row.is_live = true`.
-- Organizer-private mobile catalog reads first resolve the caller's own active event memberships, then request preview-selected formats only for those event ids. The `races_select` policy exposes public-source rows to everyone only when `is_live = true`, while creators, active parent-event organizers, and trusted `app_metadata` admins retain their scoped reads. Masked/private/public transitions remain server-mediated, and the publication RPC stays `SECURITY INVOKER` with execution restricted to `service_role`.
+- The `races_select` policy exposes preview-selected private formats to runners only when the parent event and optional edition are visible. Its `private.race_is_in_visible_catalog` security-definer helper has an empty search path, returns only a boolean, revokes `PUBLIC`, and grants execution only to `anon`/`authenticated`, avoiding a direct edition-table grant. Masked rows remain creator/member/admin scoped. Transitions remain server-mediated, and the publication RPC stays `SECURITY INVOKER` with execution restricted to `service_role`.
 - Superseding organizer-offer rule: paid publication uses a service-only edition entitlement and atomic RPC. Notification, relay, and station-product clients have no direct mutation grant; public Pro overlays use only the narrow private boolean helper.
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
 - `organizer_import_sessions` is service-only workflow state: no client policy is intentional. Both mutation RPCs must remain `SECURITY INVOKER`, revoke `PUBLIC` execution, and validate session expiry/scope plus every JSON key before writing.

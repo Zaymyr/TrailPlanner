@@ -12,6 +12,10 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("Offert");
     expect(source).toContain('action: "setEditionGrant"');
     expect(source).toContain("Montant HT");
+    expect(source).toContain("TVA 20 %");
+    expect(source).toContain("ORGANIZER_TIER_PRICE_EUR");
+    expect(source).toContain("€ HT");
+    expect(source).toContain("readOnly");
     expect(source).toContain("Total TTC");
     expect(source).toContain("Facture PDF facultative");
     expect(source).toContain("Pack actuellement actif");
