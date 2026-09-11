@@ -31,6 +31,7 @@ related_files:
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
@@ -82,7 +83,7 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 
 `set_admin_organizer_edition_grant` is invoker-security and service-role-only. It permits direct Admin/Offert grants, but restores Stripe or virement only from a matching valid payment path, so the presentation origin cannot manufacture financial history.
 
-`set_organizer_racebook_visibility` remains invoker-security and service-role-only. It repeats the server route's caller model by accepting an active event membership or a trusted admin resolved only from `auth.users.raw_app_meta_data`; it never consults user-editable metadata.
+`set_organizer_racebook_visibility` remains invoker-security and service-role-only. It repeats the server route's caller model by accepting an active event membership or a trusted admin resolved only from `auth.users.raw_app_meta_data`; it never consults user-editable metadata. Since `service_role` cannot select `auth.users` directly, only the trusted-admin boolean lookup is delegated to `private.user_has_trusted_admin_role`, a fixed-search-path security-definer helper whose execution is revoked from client roles.
 
 ## Key Concepts
 
@@ -181,6 +182,7 @@ Use:
 - Organizer dashboard onboarding is a column-only addition to the existing membership row. The browser completion endpoint must still verify the bearer user owns an active membership for the requested event before writing with service role.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 - Racebook publication remains behind service routes: organizer toggles require active event membership or a trusted app-metadata admin, a complete format, and an active edition-level `racebook.publish` capability. The atomic RPC writes durable unlock provenance on first publication; legacy publication requests remain service-only audit data.
+- Do not select `auth.users` directly inside a service-role `SECURITY INVOKER` RPC. Keep the single-format publication mutation invoker-secured and isolate only the trusted admin predicate in the private, boolean-only, service-role-executable helper.
 - Keep the bulk publication SQL test asserting both sides of the private-to-public transition: the update sets `is_live = true`, and its predicate never requires `race_row.is_live = true`.
 - The `races_select` policy exposes preview-selected private formats to runners only when the parent event and optional edition are visible. Its `private.race_is_in_visible_catalog` security-definer helper has an empty search path, returns only a boolean, revokes `PUBLIC`, and grants execution only to `anon`/`authenticated`, avoiding a direct edition-table grant. Masked rows remain creator/member/admin scoped. Transitions remain server-mediated, and the publication RPC stays `SECURITY INVOKER` with execution restricted to `service_role`.
 - Superseding organizer-offer rule: paid publication uses a service-only edition entitlement and atomic RPC. Notification, relay, and station-product clients have no direct mutation grant; public Pro overlays use only the narrow private boolean helper.

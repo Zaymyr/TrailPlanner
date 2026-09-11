@@ -7,6 +7,7 @@ related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - apps/web/lib/organizer-modules.ts
   - apps/web/lib/organizer-module-settings.ts
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
@@ -38,7 +39,7 @@ The organizer UI stages switch changes locally and sends them together. After me
 
 Authoring state is `is_enabled`; effective public state is `is_enabled AND offer allows module AND RaceBook is published`. A downgrade therefore masks content without deleting it. Mobile receives only the effective map from the RaceBook bootstrap API, never raw settings or entitlement rows.
 
-The adjacent SQL checks protect both publication boundaries: selected private formats must become catalog/RaceBook live without requiring prior catalog liveness, and format-scoped publication must recognize trusted app-metadata admins without consulting user metadata. This does not change module scope or expose raw settings.
+The adjacent SQL checks protect both publication boundaries: selected private formats must become catalog/RaceBook live without requiring prior catalog liveness, and format-scoped publication must recognize trusted app-metadata admins without consulting user metadata or selecting `auth.users` directly from the service-role invoker RPC. The private admin helper is boolean-only and not executable by client roles. This does not change module scope or expose raw settings.
 
 ## Initialization and Duplication
 

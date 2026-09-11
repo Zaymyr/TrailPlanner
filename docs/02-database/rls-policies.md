@@ -24,6 +24,7 @@ related_files:
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -161,7 +162,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Approved organizers mutate claimed races through service routes and `race_event_organizers`, not through `races.created_by`; the select policy separately permits their membership-bounded private reads.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
 - `races.edition_group_id` and `races.series_name` inherit the same `races` row policies; the organizer edition-grouping migration adds no new grants or RLS branches.
-- Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the service route and atomic RPC, which repeat active parent-event membership or trusted app-metadata admin authorization, require the edition-level `racebook.publish` capability, and record first-publication provenance.
+- Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the service route and atomic RPC, which repeat active parent-event membership or trusted app-metadata admin authorization, require the edition-level `racebook.publish` capability, and record first-publication provenance. Because `service_role` cannot select `auth.users`, the admin branch uses a private boolean-only security-definer helper with fixed search path and service-only execution instead of granting Auth-table access.
 
 Some policy branches include legacy admin metadata checks. Do not copy them into new migrations.
 

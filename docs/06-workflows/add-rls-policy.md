@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
@@ -72,7 +73,7 @@ Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example fo
 Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended design is a service-only table with RLS enabled, no client policy, revoked client grants, and narrowly granted invoker RPCs.
 Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping needs explicit anon/authenticated select grants, parent-visibility RLS, and service-only mutation functions.
 Use `supabase/tests/organizer_edition_entitlements_checks.sql` with organizer offer route tests when a public child read depends on a service-only commercial entitlement.
-Use `supabase/tests/organizer_racebook_module_settings_checks.sql` to keep service-only publication functions restricted while verifying that trusted admins are resolved from app metadata, never user metadata.
+Use `supabase/tests/organizer_racebook_module_settings_checks.sql` to keep service-only publication functions restricted while verifying that trusted admins are resolved from app metadata, never user metadata, and that a service-role invoker RPC does not query `auth.users` directly.
 
 ## Do Not
 

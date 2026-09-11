@@ -32,6 +32,8 @@ Data-only catalog/showcase/roadbook migrations are outside this new-table workfl
 
 A policy-only migration is outside this workflow too. For example, the visible-course-catalog helper added by `20260911114106_expose_private_formats_in_visible_catalog.sql` changes `races` read eligibility without introducing a table; follow the RLS workflow and update the existing table documentation instead.
 
+A function-only authorization repair, such as `20260911120508_fix_single_format_publication_admin_check.sql`, also belongs to the RLS workflow rather than this table workflow.
+
 ## Key Concepts
 
 - Migration: timestamped SQL file in `supabase/migrations`.

@@ -26,6 +26,7 @@ related_files:
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -107,7 +108,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - `data_status = complete` requires an empty `missing_required_fields` array.
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
 - A runner-live RaceBook must also be selected for organizer preview. Turning preview off atomically clears `racebook_is_live`; turning it back on never publishes by itself.
-- The service-only format publication function locks one row, authorizes either an active parent-event organizer or a trusted Auth `raw_app_meta_data` admin, and atomically restores `is_live`, `racebook_preview_is_visible`, and `racebook_is_live`; its false branch produces the private state, while the route writes the masked state directly in one update. The edition publication function performs the same public transition for every selected complete public-source format and must not require `is_live` before that update.
+- The service-only format publication function locks one row, authorizes either an active parent-event organizer or a trusted Auth `raw_app_meta_data` admin, and atomically restores `is_live`, `racebook_preview_is_visible`, and `racebook_is_live`; the admin lookup is isolated behind a private boolean-only helper because `service_role` cannot select `auth.users` directly. Its false branch produces the private state, while the route writes the masked state directly in one update. The edition publication function performs the same public transition for every selected complete public-source format and must not require `is_live` before that update.
 - Complete catalog formats require a name, slug, exact date, location, positive distance and official source. D+ and GPX are optional enrichments and remain null when unknown.
 - Unknown imported distance uses zero only while `distance_km` is listed missing; an explicitly known flat D+ may be zero, while an unknown D+ is null.
 - A confirmed new import format inherits the edition start date, keeps absent GPX and D+ values null, and remains a hidden draft while any catalog-minimum value (date, location, positive distance, or source) is missing.
