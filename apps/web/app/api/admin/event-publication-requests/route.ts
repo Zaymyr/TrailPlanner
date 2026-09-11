@@ -47,15 +47,23 @@ const publicationEventSchema = z.object({
 const entitlementSchema = z.object({
   edition_id: z.string().uuid(),
   tier: z.enum(["visibility", "essential", "complete", "signature"]),
-  source: z.enum(["system", "stripe", "admin", "legacy_admin"]),
+  source: z.enum(["system", "stripe", "manual_payment", "admin", "legacy_admin"]),
   status: z.enum(["active", "revoked"]),
 });
 
 const paymentSchema = z.object({
+  id: z.string().uuid(),
   edition_id: z.string().uuid(),
+  to_tier: z.string(),
   status: z.enum(["pending", "paid", "failed", "expired", "refunded", "disputed"]),
+  payment_channel: z.enum(["stripe", "bank_transfer"]).default("stripe"),
+  amount_subtotal: z.number().nullable().optional(),
+  amount_tax: z.number().nullable().optional(),
   amount_total: z.number().nullable().optional(),
-  currency: z.string(),
+  currency: z.string().nullable().optional(),
+  paid_at: z.string().nullable().optional(),
+  invoice_storage_path: z.string().nullable().optional(),
+  invoice_original_name: z.string().nullable().optional(),
   created_at: z.string(),
 });
 
@@ -63,12 +71,6 @@ const reviewSchema = z.object({
   requestId: z.string().uuid(),
   status: z.enum(["approved", "rejected"]),
   reviewerNotes: z.string().trim().max(2000).optional().default(""),
-});
-
-const visibilitySchema = z.object({
-  action: z.literal("setRacebookVisibility"),
-  eventId: z.string().uuid(),
-  isLive: z.boolean(),
 });
 
 const tierSchema = z.object({
@@ -95,7 +97,7 @@ export async function GET(request: NextRequest) {
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?select=edition_id,status,amount_total,currency,created_at&order=created_at.desc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?select=id,edition_id,to_tier,status,payment_channel,amount_subtotal,amount_tax,amount_total,currency,paid_at,invoice_storage_path,invoice_original_name,created_at&order=paid_at.desc.nullslast,created_at.desc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
   ]);
@@ -115,7 +117,7 @@ export async function GET(request: NextRequest) {
       race_date: event.race_date ?? null,
       editionId: currentEditionId,
       entitlement: entitlements.find((item) => item.edition_id === currentEditionId) ?? null,
-      payment: payments.find((item) => item.edition_id === currentEditionId) ?? null,
+      payments: payments.filter((item) => item.edition_id === currentEditionId),
       races: (event.races ?? [])
         .filter((race) => !currentEditionId || race.edition_id === currentEditionId)
         .sort((left, right) => left.name.localeCompare(right.name, "fr")),
@@ -136,32 +138,9 @@ export async function PATCH(request: NextRequest) {
       body: JSON.stringify({ p_edition_id: tier.data.editionId, p_admin_id: auth.user.id, p_tier: tier.data.tier }),
       cache: "no-store",
     });
-    if (!response.ok) {
-      console.error("Unable to update organizer edition tier", await response.text());
-      return jsonError("Unable to update organizer edition tier.", 502);
-    }
+    if (!response.ok) return jsonError("Unable to update organizer edition tier.", 502);
     return withSecurityHeaders(NextResponse.json({ entitlement: await response.json() }));
   }
-  const visibility = visibilitySchema.safeParse(body);
-  if (visibility.success) {
-    const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_race_event_racebook_visibility`, {
-      method: "POST",
-      headers: serviceHeaders(auth.serviceConfig),
-      body: JSON.stringify({
-        p_event_id: visibility.data.eventId,
-        p_reviewer_id: auth.user.id,
-        p_is_live: visibility.data.isLive,
-      }),
-      cache: "no-store",
-    });
-    if (!response.ok) {
-      console.error("Unable to update admin Racebook visibility", await response.text());
-      return jsonError("Unable to update Racebook visibility.", 502);
-    }
-
-    return withSecurityHeaders(NextResponse.json({ changedCount: await response.json() }));
-  }
-
   const parsed = reviewSchema.safeParse(body);
   if (!parsed.success) return jsonError("Invalid publication review.", 400);
 

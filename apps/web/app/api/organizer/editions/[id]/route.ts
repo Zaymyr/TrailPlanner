@@ -153,6 +153,13 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   if (!brandingResponse.ok) return jsonError("Unable to load edition branding before delete.", 502);
   const branding = z.array(editionBrandingSchema).parse(await brandingResponse.json())[0] ?? null;
 
+  const invoicesResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?edition_id=eq.${parsedParams.data.id}&invoice_storage_path=not.is.null&select=invoice_storage_path`,
+    { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+  );
+  if (!invoicesResponse.ok) return jsonError("Unable to load edition invoices before delete.", 502);
+  const invoicePaths = z.array(z.object({ invoice_storage_path: z.string() })).parse(await invoicesResponse.json()).map((row) => row.invoice_storage_path);
+
   const deleteResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/delete_race_event_edition`,
     {
@@ -193,6 +200,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     const brandingImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, brandingUrl);
     if (brandingImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", brandingImagePath));
   }
+  for (const invoicePath of invoicePaths) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "organizer-invoices", invoicePath));
   await Promise.all(storageDeletes);
 
   return withSecurityHeaders(NextResponse.json({

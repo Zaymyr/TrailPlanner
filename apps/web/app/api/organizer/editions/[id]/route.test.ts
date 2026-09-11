@@ -53,6 +53,7 @@ describe("/api/organizer/editions/[id]", () => {
       }]))
       .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json([{ invoice_storage_path: "edition/payment/invoice.pdf" }]))
       .mockResolvedValueOnce(Response.json([{
         deleted_edition_id: editionId,
         next_edition_id: nextEditionId,
@@ -60,6 +61,7 @@ describe("/api/organizer/editions/[id]", () => {
       }]))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(new Response(null, { status: 204 }))
       .mockResolvedValueOnce(new Response(null, { status: 204 }));
 
     const response = await DELETE(createRequest("DELETE"), { params: { id: editionId } });
@@ -67,16 +69,18 @@ describe("/api/organizer/editions/[id]", () => {
 
     expect(response!.status).toBe(200);
     expect(payload).toMatchObject({ deletedEditionId: editionId, selectedEditionYear: 2026 });
-    expect(String(vi.mocked(fetch).mock.calls[4]?.[0])).toContain("/rpc/delete_race_event_edition");
-    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[4]?.[1]?.body))).toEqual({ p_edition_id: editionId });
-    expect(String(vi.mocked(fetch).mock.calls[5]?.[0])).toContain("/race-gpx/");
-    expect(String(vi.mocked(fetch).mock.calls[6]?.[0])).toContain("thumbnail_url=eq.");
-    expect(String(vi.mocked(fetch).mock.calls[7]?.[0])).toContain("/race-images/");
+    expect(String(vi.mocked(fetch).mock.calls[5]?.[0])).toContain("/rpc/delete_race_event_edition");
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[5]?.[1]?.body))).toEqual({ p_edition_id: editionId });
+    expect(String(vi.mocked(fetch).mock.calls[6]?.[0])).toContain("/race-gpx/");
+    expect(String(vi.mocked(fetch).mock.calls[7]?.[0])).toContain("thumbnail_url=eq.");
+    expect(String(vi.mocked(fetch).mock.calls[8]?.[0])).toContain("/race-images/");
+    expect(String(vi.mocked(fetch).mock.calls[9]?.[0])).toContain("/organizer-invoices/edition/payment/invoice.pdf");
   });
 
   it("refuses to delete the event's only edition", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(Response.json([{ id: editionId, event_id: eventId, edition_year: 2025 }]))
+      .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([]))
@@ -99,6 +103,7 @@ describe("/api/organizer/editions/[id]", () => {
       }]))
       .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([]))
+      .mockResolvedValueOnce(Response.json([]))
       .mockResolvedValueOnce(Response.json([{
         deleted_edition_id: editionId,
         next_edition_id: nextEditionId,
@@ -109,8 +114,8 @@ describe("/api/organizer/editions/[id]", () => {
     const response = await DELETE(createRequest("DELETE"), { params: { id: editionId } });
 
     expect(response!.status).toBe(200);
-    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(6);
-    expect(String(vi.mocked(fetch).mock.calls[5]?.[0])).toContain(encodeURIComponent(sharedImageUrl));
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(7);
+    expect(String(vi.mocked(fetch).mock.calls[6]?.[0])).toContain(encodeURIComponent(sharedImageUrl));
   });
 });
 

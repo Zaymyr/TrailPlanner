@@ -15,7 +15,6 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { TabsList } from "../../../components/ui/tabs";
-import { LiveToggle } from "../../organizer/_components/dashboard/controls";
 
 type OrganizerUserSummary = {
   id: string;
@@ -96,6 +95,13 @@ type OrganizerPublicationRequest = {
   } | null;
 };
 
+const currentParisDate = () => new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+}).format(new Date());
+
 type RaceEventOption = {
   id: string;
   name: string;
@@ -108,15 +114,23 @@ type RacebookPublicationEvent = RaceEventOption & {
   entitlement: {
     edition_id: string;
     tier: "visibility" | "essential" | "complete" | "signature";
-    source: "system" | "stripe" | "admin" | "legacy_admin";
+    source: "system" | "stripe" | "manual_payment" | "admin" | "legacy_admin";
     status: "active" | "revoked";
   } | null;
-  payment: {
+  payments: Array<{
+    id: string;
+    to_tier: string;
     status: "pending" | "paid" | "failed" | "expired" | "refunded" | "disputed";
+    payment_channel: "stripe" | "bank_transfer";
+    amount_subtotal?: number | null;
+    amount_tax?: number | null;
     amount_total?: number | null;
-    currency: string;
+    currency?: string | null;
+    paid_at?: string | null;
+    invoice_storage_path?: string | null;
+    invoice_original_name?: string | null;
     created_at: string;
-  } | null;
+  }>;
   races: Array<{
     id: string;
     name: string;
@@ -141,6 +155,13 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [events, setEvents] = useState<RaceEventOption[]>([]);
   const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
   const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "essential" | "complete" | "signature">("all");
+  const [purchaseEvent, setPurchaseEvent] = useState<RacebookPublicationEvent | null>(null);
+  const [purchaseTier, setPurchaseTier] = useState<"essential" | "complete" | "signature">("essential");
+  const [purchaseDate, setPurchaseDate] = useState(currentParisDate);
+  const [purchaseSubtotal, setPurchaseSubtotal] = useState("");
+  const [purchaseTax, setPurchaseTax] = useState("");
+  const [purchaseInvoice, setPurchaseInvoice] = useState<File | null>(null);
+  const [invoiceFiles, setInvoiceFiles] = useState<Record<string, File | null>>({});
   const [assignmentEmail, setAssignmentEmail] = useState("");
   const [assignmentEventId, setAssignmentEventId] = useState("");
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
@@ -325,47 +346,79 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
-  const setRacebookVisibility = async (eventId: string, isLive: boolean) => {
-    if (!accessToken) return;
+  const recordPurchase = async () => {
+    if (!accessToken || !purchaseEvent?.editionId) return;
     setStatus("saving");
     setError(null);
+    const formData = new FormData();
+    formData.set("editionId", purchaseEvent.editionId);
+    formData.set("tier", purchaseTier);
+    formData.set("paidDate", purchaseDate);
+    formData.set("amountSubtotal", purchaseSubtotal);
+    formData.set("amountTax", purchaseTax);
+    if (purchaseInvoice) formData.set("invoice", purchaseInvoice);
     try {
-      const response = await fetch("/api/admin/event-publication-requests", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ action: "setRacebookVisibility", eventId, isLive }),
+      const response = await fetch("/api/admin/organizer-payments", {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        setError(data?.message ?? "Impossible de modifier la visibilité des Racebooks.");
+        setError(data?.message ?? "Impossible d’enregistrer cet achat.");
         return;
       }
+      setPurchaseEvent(null);
+      setPurchaseInvoice(null);
+      setPurchaseSubtotal("");
+      setPurchaseTax("");
       await load();
     } finally {
       setStatus("idle");
     }
   };
 
-  const setEditionTier = async (editionId: string, tier: "visibility" | "essential" | "complete" | "signature") => {
-    if (!accessToken) return;
+  const attachInvoice = async (paymentId: string) => {
+    const invoice = invoiceFiles[paymentId];
+    if (!accessToken || !invoice) return;
     setStatus("saving");
     setError(null);
+    const formData = new FormData();
+    formData.set("invoice", invoice);
     try {
-      const response = await fetch("/api/admin/event-publication-requests", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
-        body: JSON.stringify({ action: "setEditionTier", editionId, tier }),
+      const response = await fetch(`/api/admin/organizer-payments/${paymentId}/invoice`, {
+        method: "PUT",
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        setError(data?.message ?? "Impossible de modifier l’offre de l’édition.");
+        setError(data?.message ?? "Impossible d’ajouter cette facture.");
         return;
       }
+      setInvoiceFiles((current) => ({ ...current, [paymentId]: null }));
       await load();
     } finally {
       setStatus("idle");
     }
   };
+
+  const openPurchaseDialog = (event: RacebookPublicationEvent) => {
+    const currentTier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
+    setPurchaseTier(currentTier === "essential" ? "complete" : currentTier === "complete" || currentTier === "signature" ? "signature" : "essential");
+    setPurchaseDate(currentParisDate());
+    setPurchaseSubtotal("");
+    setPurchaseTax("");
+    setPurchaseInvoice(null);
+    setPurchaseEvent(event);
+  };
+
+  const purchaseTotal = [purchaseSubtotal, purchaseTax].reduce<number | null>((total, value) => {
+    if (total === null) return null;
+    const normalized = value.trim().replace(",", ".");
+    if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
+    return total + Number(normalized);
+  }, 0);
 
   return (
     <div className="space-y-5">
@@ -569,9 +622,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
 
       {organizerAdminTab === "publication" ? <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>Publication des Racebooks</CardTitle>
+          <CardTitle>Achats organisateurs</CardTitle>
           <CardDescription>
-            Les courses restent visibles dans le catalogue. Les changements d’offre manuels sont audités et prioritaires sur Stripe.
+            Enregistrez uniquement les packs réellement payés par virement. La publication reste pilotée par l’organisateur.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -600,8 +653,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               const publishedCount = event.races.filter((race) => race.racebook_is_live).length;
               const approvedCount = event.races.filter((race) => race.racebook_publication_approved_at).length;
               const completeCount = event.races.filter((race) => race.data_status !== "draft").length;
-              const isLive = event.races.length > 0 && publishedCount === event.races.length;
               const tier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
+              const latestPayment = event.payments[0] ?? null;
 
               return (
                 <div key={event.id} className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 md:flex-row md:items-center md:justify-between">
@@ -628,35 +681,36 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       {event.location ? ` · ${event.location}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Paiement : {event.payment?.status ?? "aucun"}
+                      Paiement : {latestPayment ? `${latestPayment.payment_channel === "bank_transfer" ? "virement" : "Stripe"} · ${latestPayment.status}` : "aucun"}
                       {event.entitlement?.source ? ` · source ${event.entitlement.source}` : ""}
                     </p>
                     {event.races.length > 0 ? (
                       <p className="truncate text-xs text-muted-foreground">{event.races.map((race) => race.name).join(" · ")}</p>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap items-center gap-3">
-                    <select
-                      aria-label={`Offre de ${event.name}`}
-                      className="h-9 rounded-md border border-border bg-card px-3 text-sm"
-                      value={tier}
-                      disabled={status === "saving" || !event.editionId}
-                      onChange={(changeEvent) => {
-                        if (event.editionId) void setEditionTier(event.editionId, changeEvent.target.value as typeof tier);
-                      }}
-                    >
-                      <option value="visibility">Visibilité</option>
-                      <option value="essential">Essentiel</option>
-                      <option value="complete">Complet</option>
-                      <option value="signature">Signature</option>
-                    </select>
-                    <LiveToggle
-                      checked={isLive}
-                      disabled={status === "saving" || event.races.length === 0 || tier === "visibility"}
-                      onChange={(checked) => void setRacebookVisibility(event.id, checked)}
-                      liveLabel="Racebooks affichés"
-                      draftLabel="Racebooks masqués"
-                    />
+                  <div className="min-w-[18rem] space-y-3">
+                    <Button type="button" disabled={status === "saving" || !event.editionId} onClick={() => openPurchaseDialog(event)}>
+                      Enregistrer un achat
+                    </Button>
+                    {event.payments.filter((payment) => payment.payment_channel === "bank_transfer" && payment.status === "paid").map((payment) => (
+                      <div key={payment.id} className="rounded-md border border-border p-2 text-xs">
+                        <p className="font-medium text-foreground">
+                          {payment.to_tier} · {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString("fr-FR") : "date inconnue"}
+                        </p>
+                        <p className="text-muted-foreground">{payment.invoice_original_name ?? "Facture en attente"}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <Input
+                            type="file"
+                            accept="application/pdf,.pdf"
+                            aria-label={`Facture de ${event.name}`}
+                            onChange={(changeEvent) => setInvoiceFiles((current) => ({ ...current, [payment.id]: changeEvent.target.files?.[0] ?? null }))}
+                          />
+                          <Button type="button" variant="outline" disabled={!invoiceFiles[payment.id] || status === "saving"} onClick={() => void attachInvoice(payment.id)}>
+                            {payment.invoice_storage_path ? "Remplacer" : "Ajouter"}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               );
@@ -664,6 +718,53 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           )}
         </CardContent>
       </Card> : null}
+
+      <Dialog open={Boolean(purchaseEvent)} onOpenChange={(open) => { if (!open) setPurchaseEvent(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enregistrer un achat</DialogTitle>
+            <DialogDescription>
+              Paiement reçu par virement pour {purchaseEvent?.name ?? "cet événement"}. Cette action accorde immédiatement le niveau acheté.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-purchase-tier">Pack acheté</Label>
+              <select id="organizer-purchase-tier" className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm" value={purchaseTier} onChange={(event) => setPurchaseTier(event.target.value as typeof purchaseTier)}>
+                <option value="essential">Essentiel</option>
+                <option value="complete">Complet</option>
+                <option value="signature">Signature</option>
+              </select>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-purchase-date">Date du paiement</Label>
+              <Input id="organizer-purchase-date" type="date" max={currentParisDate()} value={purchaseDate} onChange={(event) => setPurchaseDate(event.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-purchase-subtotal">Montant HT (€)</Label>
+              <Input id="organizer-purchase-subtotal" inputMode="decimal" placeholder="99,00" value={purchaseSubtotal} onChange={(event) => setPurchaseSubtotal(event.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-purchase-tax">TVA (€)</Label>
+              <Input id="organizer-purchase-tax" inputMode="decimal" placeholder="19,80" value={purchaseTax} onChange={(event) => setPurchaseTax(event.target.value)} />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="organizer-purchase-invoice">Facture PDF facultative</Label>
+              <Input id="organizer-purchase-invoice" type="file" accept="application/pdf,.pdf" onChange={(event) => setPurchaseInvoice(event.target.files?.[0] ?? null)} />
+              <p className="text-xs text-muted-foreground">10 Mo maximum. La facture pourra être ajoutée ou remplacée plus tard.</p>
+            </div>
+            <p className="sm:col-span-2 text-sm font-medium">
+              Total TTC : {purchaseTotal === null ? "—" : purchaseTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
+            </p>
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => setPurchaseEvent(null)}>Annuler</Button>
+            <Button type="button" disabled={status === "saving" || !purchaseDate || !purchaseSubtotal || !purchaseTax} onClick={() => void recordPurchase()}>
+              {status === "saving" ? "Enregistrement…" : "Confirmer le paiement"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {organizerAdminTab === "access" ? <Card className="rounded-lg">
         <CardHeader>

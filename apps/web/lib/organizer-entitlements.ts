@@ -50,7 +50,7 @@ export type OrganizerEditionEntitlement = {
   id: string;
   editionId: string;
   tier: OrganizerTier;
-  source: "system" | "stripe" | "admin" | "legacy_admin";
+  source: "system" | "stripe" | "manual_payment" | "admin" | "legacy_admin";
   status: "active" | "revoked";
   activatedAt: string | null;
   revokedAt: string | null;
@@ -60,7 +60,7 @@ const entitlementRowSchema = z.object({
   id: z.string().uuid(),
   edition_id: z.string().uuid(),
   tier: organizerTierSchema,
-  source: z.enum(["system", "stripe", "admin", "legacy_admin"]),
+  source: z.enum(["system", "stripe", "manual_payment", "admin", "legacy_admin"]),
   status: z.enum(["active", "revoked"]),
   activated_at: z.string().nullable().optional(),
   revoked_at: z.string().nullable().optional(),

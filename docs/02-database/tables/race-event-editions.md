@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -93,7 +93,7 @@ related_tables:
 - `organizer_racebook_module_settings.edition_id -> race_event_editions(id) on delete cascade`
 
 Deleting an event removes its editions. Deleting an edition removes its formats and their cascading source children; saved plans keep their snapshots because `race_plans.race_id` becomes null. The service-only deletion RPC rejects deletion of the event's only edition and promotes the newest remaining edition when the deleted row was current.
-Sponsor and branding rows follow the edition cascade. The organizer deletion routes read their public `race-images` paths before deletion and remove those Storage objects after the database transaction succeeds.
+Sponsor and branding rows follow the edition cascade. Organizer payments also cascade with the edition. The deletion routes read sponsor/branding image paths and private manual-invoice paths before deletion, then remove those Storage objects after the database transaction succeeds.
 
 ## Indexes
 

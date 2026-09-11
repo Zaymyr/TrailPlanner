@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -12,6 +12,12 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
+  - apps/web/app/api/admin/organizer-payments/route.ts
+  - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.ts
+  - apps/web/app/api/organizer/invoices/route.ts
+  - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
+  - apps/web/lib/organizer-payments.ts
+  - apps/web/lib/organizer-invoices.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/dashboard/shell.tsx
@@ -22,6 +28,7 @@ related_files:
   - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.test.ts
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
+  - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
 related_tables:
@@ -68,11 +75,15 @@ Completion percentages count required modules only. Recommended and optional til
 
 ## Stripe and Rights Lifecycle
 
-The server chooses one of six explicit one-time EUR Price IDs and validates active status, exact amount, non-recurring mode and exclusive tax behavior. Checkout enables automatic tax, billing address, tax-ID collection and invoice creation. A success redirect is not authorization; the webhook settles the payment and recalculates rights.
+The server chooses one of six explicit one-time EUR Price IDs and validates active status, exact amount, non-recurring mode and exclusive tax behavior. Checkout enables automatic tax, billing address, tax-ID collection and invoice creation. A success redirect is not authorization; the webhook settles the payment, retains the Stripe Invoice id, and recalculates rights.
+
+A trusted admin can instead record an already-paid bank transfer for Essentiel, Complet, or Signature. Date, actual EUR HT and TVA are required, TTC is calculated server-side, and the service-only transaction function rejects future dates, duplicates, and downgrades. An existing same-tier complimentary `admin`/`legacy_admin` grant can be converted explicitly into this real purchase. The optional PDF may be attached immediately or replaced later without replacing the ledger row.
+
+The organizer bootstrap exposes the effective pack, payment channel, date, amounts, and invoice availability. `Actions > Factures` lists paid/refunded/disputed history for every edition of the selected event. Every active event member may request a download; manual PDFs use a short private Storage URL, while old Stripe rows resolve their Invoice from Checkout on first download. DTOs never expose provider ids or private object paths.
 
 The dashboard recommends the highest tier used by selected, populated sections. Its publication dialog states which content will publish and which will remain private for a lower choice. Checkout and RaceBook publication independently recompute the persisted requirement; choosing a lower valid paid offer never deletes excluded drafts. Each format now has one three-state selector backed by the existing booleans: `Masqué` clears preview and live, `Privé` enables preview and clears live, and `Public` enables both only after the server verifies readiness and the edition entitlement. Selecting `Public` while the edition still has the free Visibility tier opens the publication-offer dialog immediately instead of attempting a known-to-fail write; a server `403` still opens the same dialog when the displayed entitlement is stale. The primary publication CTA still publishes every selected complete format atomically, and a publication checkout carries that intent through the webhook-confirmed return. The opt-in Playwright payment journey uses Stripe test mode only, waits for webhook-confirmed Essential access, and deletes its uniquely named `TEST` event in a `finally` cleanup.
 
-Recalculation requires a valid paid path. Refunding/disputing a base purchase invalidates dependent upgrades; invalidating only an upgrade returns to the valid lower tier. Legacy `racebook` payments map to Complete and legacy `pro_direct` or `racebook + pro_upgrade` paths map to Signature. Existing RaceBook/Pro entitlements are upgraded to Complete/Signature. Admin grants remain authoritative.
+Recalculation requires a valid paid path and assigns `stripe` or `manual_payment` from the transaction that supplies the effective tier. Refunding/disputing a base purchase invalidates dependent upgrades; invalidating only an upgrade returns to the valid lower tier. Legacy `racebook` payments map to Complete and legacy `pro_direct` or `racebook + pro_upgrade` paths map to Signature. Existing RaceBook/Pro entitlements are upgraded to Complete/Signature. Complimentary admin grants remain authoritative until explicitly converted.
 
 ## Gotchas
 
@@ -85,6 +96,7 @@ Recalculation requires a valid paid path. Refunding/disputing a base purchase in
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
 - The dashboard keeps publication primary, groups rare actions in one menu, and starts detailed visibility collapsed. Expanding it is presentation-only; choosing a format state is a deliberate persisted action and must never grant an entitlement client-side.
+- The workspace status labels are presentation-only: masked formats stay grey and explicitly public-hidden, private formats show `RaceBook privé`, and public formats show their public state. Keeping a masked format editable for authorized organizers/admins does not grant an offer or expose it to runners.
 - Offer and visibility consequences use contextual hover/focus help beside short controls. Hiding that explanatory copy visually does not weaken server-side readiness or entitlement checks, and errors remain visible inline.
 - Completing, skipping, or replaying the dashboard guide never creates or upgrades an organizer entitlement. Its optional final action only opens the existing section chooser.
 

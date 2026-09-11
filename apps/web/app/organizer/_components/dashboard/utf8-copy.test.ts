@@ -10,6 +10,7 @@ const organizerFiles = [
   "app/organizer/_components/dashboard/shell.tsx",
   "app/organizer/_components/dashboard/website-import-review-details.tsx",
   "app/organizer/_components/dashboard/branding-editor.tsx",
+  "app/organizer/_components/dashboard/invoices-dialog.tsx",
 ];
 
 const forbiddenSequences = [
@@ -183,12 +184,15 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('<optgroup label="Informations communes">');
     expect(shellSource).toContain("Commun à toutes les courses");
     expect(shellSource).toContain('<optgroup label="Formats de course">');
-    expect(shellSource).toContain("Format · {tab.label}");
+    expect(shellSource).toContain("Course masquée pour le public");
+    expect(shellSource).toContain("RaceBook privé");
+    expect(shellSource).toContain("Course et RaceBook publics");
     expect(shellSource).toContain('aria-label="Ajouter un format"');
     expect(shellSource).toContain("Créer un autre événement");
     expect(shellSource).toContain("Gérer la visibilité");
     expect(shellSource).toContain("Notifier les coureurs");
     expect(shellSource).toContain("Actions");
+    expect(shellSource).toContain("Factures");
     expect(shellSource).toContain("Modifications non enregistrées");
     expect(shellSource).toContain("Une autre section contient des modifications non enregistrées.");
     expect(shellSource).toContain("fixed inset-x-4 top-20");
@@ -206,7 +210,19 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
     expect(shellSource).toContain('min-h-[82px] rounded-lg');
     expect(shellSource).not.toContain('Manque : {module.missingLabels');
-    expect(dashboardSource).toContain("filterRaceSeriesGroupsForWorkspace");
+    expect(dashboardSource).toContain("raceSeriesGroups.filter");
+    expect(dashboardSource).not.toContain("race.racebook_preview_is_visible !== false");
+  });
+
+  it("keeps invoice empty, pending, and downloadable states explicit", () => {
+    const source = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/dashboard/invoices-dialog.tsx"),
+      "utf8"
+    );
+    expect(source).toContain("Aucun achat facturé.");
+    expect(source).toContain("Facture en attente");
+    expect(source).toContain("Télécharger");
+    expect(source).toContain('paymentChannel === "bank_transfer" ? "Virement bancaire" : "Stripe"');
   });
 
   it("keeps format publication prerequisites visible and persisted", () => {

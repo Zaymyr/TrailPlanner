@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -21,6 +21,7 @@ related_files:
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
+  - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
   - supabase/migrations/20260908160018_preserve_global_start_time_without_waves.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -38,6 +39,7 @@ related_files:
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/tests/organizer_dashboard_onboarding_checks.sql
+  - supabase/tests/organizer_edition_entitlements_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
@@ -71,6 +73,8 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 `organizer_racebook_module_settings` is service-only: client roles have no table privileges or policies. Published structured collections use the narrow `private.racebook_module_is_enabled` security-definer helper to combine the active entitlement and stored module switch. The helper exposes only a boolean and keeps its explicit search path and execute grants bounded to the API roles.
 
 `publish_organizer_edition_racebooks` is likewise `SECURITY INVOKER` and executable only by `service_role`. The Next.js route verifies trusted organizer/admin access before calling it; the function independently rechecks edition visibility and entitlement, and publishes only complete formats selected through `racebook_preview_is_visible`.
+
+`record_admin_organizer_bank_transfer` is also invoker-security and service-role-only. The admin route verifies `app_metadata`, validates date/money/PDF input, and cleans an uploaded object if the atomic database write fails. `organizer-invoices` has no direct client policy; the download route rechecks active parent-event membership before signing a manual object for 60 seconds.
 
 ## Key Concepts
 
@@ -131,6 +135,7 @@ Use:
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click increments;
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
+- `supabase/tests/organizer_edition_entitlements_checks.sql` for Stripe/manual recalculation, complimentary-override conversion, duplicate/downgrade rejection, invoice-bucket privacy configuration, and bank-transfer RPC privileges;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 

@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -160,6 +160,13 @@ related_files:
   - apps/web/app/api/organizer/claims/route.test.ts
   - apps/web/app/api/organizer/bootstrap/route.ts
   - apps/web/app/api/organizer/bootstrap/route.test.ts
+  - apps/web/app/api/admin/organizer-payments/route.ts
+  - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.ts
+  - apps/web/app/api/organizer/invoices/route.ts
+  - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
+  - apps/web/app/organizer/_components/dashboard/invoices-dialog.tsx
+  - apps/web/lib/organizer-payments.ts
+  - apps/web/lib/organizer-invoices.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
@@ -408,7 +415,7 @@ The v1 organizer portal is web-only:
 - The route-local Organizer data cache keeps the product catalog for 5 minutes, complete ravito/relay/station-product sidecars per race for 2 minutes, and GPX previews for 10 minutes. Its LRU bounds retain at most 20 sidecar races, 20 GPX races and three GPX paths per race. GPX entries are keyed by both race id and `gpx_storage_path`, so a replaced source path cannot reuse the previous preview. Organizer mutations invalidate the affected race entry, and a session boundary clears the complete cache.
 
 - `/organizers` creates a new catalog-visible event through `POST /api/organizer/events` and immediately creates its active owner membership; its new formats remain private until explicit publication. It does not claim existing catalog events, expose the admin-only URL importer, or send `officialSiteUrl` during creation. After success it redirects to `/organizer` with only the new event selected. The `/organizer` server page still normalizes legacy/admin `eventId` and `importUrl` values from its `searchParams` prop before passing them to the client dashboard, which keeps the route compatible with static generation without a client-side search-param bailout.
-- `/organizer` lets active event members maintain catalog-visible events, canonical `race_event_editions` ranges, and attached formats. Its header is task-first: one compact searchable event combobox, the edition selector, one completion bar, one publication CTA, then a secondary action menu. The same event field opens the authorized list and filters it while the user types; its listbox remains keyboard navigable. The visibility panel is closed by default and maps each format's persisted booleans to `Masqué`, `Privé`, or `Public`; moving from Public to Privé explicitly clears `racebook_is_live` without hiding the private demo. The compatibility `/api/organizer/edition-requests` URL creates the edition either empty or with cloned formats and no longer writes the retired review table. Essential, Complete or Signature remains required for Public, and admin/legacy-admin grants remain auditable complimentary access.
+- `/organizer` lets active event members maintain catalog-visible events, canonical `race_event_editions` ranges, and attached formats. Its header is task-first: one compact searchable event combobox, the edition selector, one completion bar, one publication CTA, then a secondary action menu. The same event field opens the authorized list and filters it while the user types; its listbox remains keyboard navigable. The visibility panel is closed by default and maps each format's persisted booleans to `Masqué`, `Privé`, or `Public`; moving from Public to Privé explicitly clears `racebook_is_live` without hiding the private demo. The format workspace keeps every selected-edition format visible to authorized organizers/admins: masked choices are grey with `Course masquée pour le public`, private choices show `RaceBook privé`, and public choices show `Course et RaceBook publics`, including in the responsive native selector. The compatibility `/api/organizer/edition-requests` URL creates the edition either empty or with cloned formats and no longer writes the retired review table. Essential, Complete or Signature remains required for Public, and admin/legacy-admin grants remain auditable complimentary access.
 - In a selected format tab, the required module card is named `Course`. The `Formats & GPX` editor stays permanently expanded, has no internal runner-preview or single-format duplication action, and aligns the destructive format-delete action at the far right of its title row. Its former helper description is intentionally omitted. Format dates and locations inherit respectively from the selected edition and event until the organizer enables their explicit `Date différente` or `Lieu différent` controls.
 - The format information grid exposes one `Nom du format` input. Its client state and save payload keep `races.name` and `races.series_name` identical, while `edition_group_id` remains the stable cross-year grouping key.
 - The organizer dashboard now uses a route-local address autocomplete field for event location, format location, bib pickup, and start/finish access addresses. Bib pickup accepts several event-level locations, each with several structured date/start/end slots; the legacy single location and free-text schedule remain readable as compatibility fallbacks. The editor calls `/api/location-search`, keeps the first bib location mirrored into the legacy text/location fields, and stores the complete location and slot list in `organizer_details` so published runner surfaces can expose every address, GPS link, day, and time range.
@@ -456,7 +463,7 @@ Stripe routes live under `apps/web/app/api/stripe`:
 - `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`.
 - `organizer/publication-checkout/route.ts`: creates one-time 99/199/349 € HT edition checkouts, plus 100/250/150 € HT upgrades, selected entirely by the server.
 
-The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, and disputes, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears.
+The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, disputes, and the generated Invoice reference, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears. The same ledger stores admin-recorded EUR bank transfers. Organizer event/bootstrap DTOs expose only a sanitized purchase summary; the Factures action loads event-wide edition history and obtains manual private-Storage or Stripe PDF URLs from membership-checked server routes.
 
 RevenueCat routes live under `apps/web/app/api/revenuecat`. They synchronize mobile purchases into the same `subscriptions` table with provider `google` or `apple`.
 
@@ -514,6 +521,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep the active weather plan on the event-level equipment JSON. Formats may retag items for `cold` / `heat`, but they must not choose a different active plan than the event.
 - Keep format access toggles and ravito timing cards aligned with completion/autosave logic; changing one without the others creates broken navigation or misleading scores.
 - Keep three-state visibility saves scoped to the switched format. Do not foreground-save an unrelated active draft before moving another format between Masqué, Privé, and Public; the server remains authoritative for entitlement and readiness.
+- Do not filter masked formats out of the authorized Organizer workspace. Grey styling and the explicit `Course masquée pour le public` label communicate runner visibility while preserving organizer/admin editing access.
 - Keep the organizer request body, server readiness query, stored publication request, and admin queue aligned on the same `race_id`; event-level inference reintroduces cross-edition publication bugs.
 - `/courses/[slug]` renders a single `<main>` from `root-chrome.tsx`; the page root must stay a `<div>`, not another `<main>`.
 - `GpxRouteMapClient` defaults to non-interactive on the course detail page via `RaceRouteExplorer`; do not remove the "Explorer la carte" activation step, it prevents the map from capturing mobile scroll gestures.

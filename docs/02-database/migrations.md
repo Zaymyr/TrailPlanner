@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -276,6 +276,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 `supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql` adds the nullable `race_event_organizers.dashboard_onboarding_completed_at` marker. It is intentionally membership-scoped so each organizer sees the dashboard guide once per event. The column reuses the existing membership RLS and grants; completion writes remain behind a bearer-authenticated, active-membership-checked service route. `supabase/tests/organizer_dashboard_onboarding_checks.sql` verifies the nullable timestamp contract and the retained owner read policy.
 
 `supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql` replaces the legacy RaceBook/Pro tiers with Essential/Complete/Signature, adds service-only edition/format module settings, configuration completion, legacy-rights conversion, content-aware backfill, payment-path recalculation and module-aware public RLS policies. Its optional-content backfill gives the lateral `UNION` output an explicit `module_key` alias so every PostgreSQL version resolves the inserted column deterministically.
+
+`supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql` adds Stripe/virement payment channels, admin and invoice audit fields, the `manual_payment` entitlement source, and the private 10 MB PDF-only `organizer-invoices` bucket. Its service-role-only invoker RPC records a paid EUR bank transfer and recalculates the entitlement atomically while rejecting future dates, duplicates, and downgrades; the entitlement SQL checks cover complimentary-override conversion and function privileges.
 
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
 

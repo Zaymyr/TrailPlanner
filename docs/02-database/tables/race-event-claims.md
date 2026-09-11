@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -105,6 +105,7 @@ Summary:
 - The two-pass website-import review is reserved for trusted admins, independently from normal organizer membership. Its `additionalUrls` are classified official evidence sources, not claimed formats; even a grounded source classification cannot bypass admin authorization. Confirming discovered formats may atomically create hidden drafts for the selected edition; field claims, evidence, GPX status, and LLM recommendations remain review-only until the admin selects claim ids from an unexpired event/edition/session-bound signed snapshot. Neither existence confidence, completeness, signature, nor LLM confidence replaces authorization.
 - Roadbook selection is preview-only. Each document may be 25 MB because it is uploaded directly to a private, owner-folder-scoped Storage location, analyzed server-side, then deleted; it does not alter this membership boundary.
 - Inside that approved-only dashboard shell, the local "Avancement global" heading/helper line above the tabs is intentionally absent. The task-first header keeps a compact combined search/select event combobox, edition selector, completion, and publication visible; it groups rare/destructive operations under `Actions` and starts three-state format visibility collapsed without changing claim or membership state. Its content navigation visually separates edition-wide information from individual format tabs, and tile status is carried by grey/amber/green card treatments plus an independent active-selection ring; this hierarchy remains presentation-only. The combobox filters only the already-authorized selector entries and never broadens membership or admin access.
+- Authorized format navigation keeps masked formats visible but greyed, with an explicit `Course masquée pour le public` label; private and public formats receive equally compact state labels. These organizer/admin cues do not expose a masked format to runners or broaden claim authorization.
 - Secondary dashboard explanations are exposed through hover/focus contextual help instead of permanent helper paragraphs. This presentation-only disclosure does not change membership checks; errors, required-field warnings, and saved values remain visible.
 - The dashboard distinguishes `Créer un autre événement` from `Ajouter un format`; both still require the same authenticated membership boundaries and neither creates a legacy claim.
 - The responsive section chooser may stage several module switches before one save, but the eventual PATCH still requires the same active membership; pending browser drafts never grant claim or module authorization.

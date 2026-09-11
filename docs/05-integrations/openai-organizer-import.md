@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -74,6 +74,7 @@ Edition branding is also outside import reconciliation. The import model cannot 
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
 - Replaying or completing the Organizer dashboard guide does not start website discovery, upload documents, or invoke OpenAI reconciliation. Assisted import remains an explicit admin-only action.
+- Grey masked-format choices and the compact private/public labels in Organizer navigation reflect persisted visibility only. They neither invoke reconciliation nor alter imported claims, and a masked imported draft remains editable by an authorized organizer/admin.
 
 - The self-service complex import route remains admin-only. Pro organizers receive an assisted-import contact CTA; Pro does not authorize direct LLM import execution.
 

@@ -18,6 +18,7 @@ import {
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
 import { loadOrganizerEditionEntitlements } from "../../../../../lib/organizer-entitlements";
+import { loadOrganizerEditionPayments, selectEffectiveOrganizerPurchase } from "../../../../../lib/organizer-payments";
 import { isOrganizerEditionModuleSelected } from "../../../../../lib/organizer-module-settings";
 import { racebookBrandingRowSchema, toOrganizerBranding } from "../../../../../lib/racebook-branding";
 
@@ -132,7 +133,8 @@ const deleteStorageObject = async (
 
 const mapEventDetail = (
   event: z.infer<typeof eventDetailSchema>,
-  entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {}
+  entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {},
+  payments: Awaited<ReturnType<typeof loadOrganizerEditionPayments>> = {}
 ) => ({
   ...event,
   editions: (event.race_event_editions ?? [])
@@ -145,6 +147,7 @@ const mapEventDetail = (
         ...fields
       } = edition;
       const branding = toOrganizerBranding(brandingRows ?? null);
+      const entitlement = entitlements[edition.id] ?? null;
       return {
         ...fields,
         serviceCount: services?.length ?? 0,
@@ -152,7 +155,8 @@ const mapEventDetail = (
         sponsorClicks: sponsors?.reduce((total, sponsor) => total + sponsor.click_count, 0) ?? 0,
         brandingConfigured: Boolean(branding.publishedAt),
         brandingUnpublished: branding.hasUnpublishedChanges,
-        entitlement: entitlements[edition.id] ?? null,
+        entitlement,
+        purchase: selectEffectiveOrganizerPurchase(payments[edition.id], entitlement?.tier),
       };
     }),
   organizerDetails: parseOrganizerEventDetails(event.organizer_details),
@@ -194,12 +198,13 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   const event = z.array(eventDetailSchema).parse(await response.json())[0] ?? null;
   if (!event) return jsonError("Event not found.", 404);
 
-  const entitlements = await loadOrganizerEditionEntitlements(
-    auth.serviceConfig,
-    (event.race_event_editions ?? []).map((edition) => edition.id)
-  );
+  const editionIds = (event.race_event_editions ?? []).map((edition) => edition.id);
+  const [entitlements, payments] = await Promise.all([
+    loadOrganizerEditionEntitlements(auth.serviceConfig, editionIds),
+    loadOrganizerEditionPayments(auth.serviceConfig, editionIds),
+  ]);
 
-  return withSecurityHeaders(NextResponse.json({ event: mapEventDetail(event, entitlements) }));
+  return withSecurityHeaders(NextResponse.json({ event: mapEventDetail(event, entitlements, payments) }));
 }
 
 export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {
@@ -372,6 +377,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   const editionIds = (eventRow.race_event_editions ?? []).map((edition) => edition.id);
   let sponsorLogos: string[] = [];
   let brandingLogos: string[] = [];
+  let invoicePaths: string[] = [];
   if (editionIds.length > 0) {
     const sponsorsResponse = await fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_edition_sponsors?edition_id=in.(${editionIds.join(",")})&select=logo_url`,
@@ -388,6 +394,12 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
       draft_logo_url: z.string().url().nullable(),
       published_logo_url: z.string().url().nullable(),
     })).parse(await brandingResponse.json()).flatMap((row) => [row.draft_logo_url, row.published_logo_url].filter((url): url is string => Boolean(url)));
+    const invoicesResponse = await fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?edition_id=in.(${editionIds.join(",")})&invoice_storage_path=not.is.null&select=invoice_storage_path`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    );
+    if (!invoicesResponse.ok) return jsonError("Unable to load event invoices before delete.", 502);
+    invoicePaths = z.array(z.object({ invoice_storage_path: z.string() })).parse(await invoicesResponse.json()).map((row) => row.invoice_storage_path);
   }
 
   if ((eventRow.races?.length ?? 0) > 0) {
@@ -424,6 +436,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     const brandingImagePath = getPublicRaceImageStoragePath(auth.serviceConfig.supabaseUrl, brandingLogo);
     if (brandingImagePath) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "race-images", brandingImagePath));
   }
+  for (const invoicePath of invoicePaths) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "organizer-invoices", invoicePath));
   await Promise.all(storageDeletes);
 
   return withSecurityHeaders(NextResponse.json({ deleted: true, eventId: parsedParams.data.id }));

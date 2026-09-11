@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -89,6 +89,7 @@ RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, 
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.
 - Sponsor configuration is available as a private draft without Signature. The runner bootstrap returns no placements while the module is inactive or `draftOnly`; stored rows and aggregate click totals remain intact for restoration.
+- Sponsor eligibility depends on the effective Signature tier, not whether its entitlement source is Stripe, a manual payment, or a complimentary admin grant.
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
 - Keep the mobile loading panel and its two slots reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
 - Keep the sponsor handoff cache short-lived and scoped by authenticated user id plus race id. It may share one in-flight request across the catalog and destination, but must not reuse an organizer-only draft response after a session change.
