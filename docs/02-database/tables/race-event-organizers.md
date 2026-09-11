@@ -155,6 +155,8 @@ order by created_at asc;
 
 ## Gotchas
 
+- Organizer membership and publication origin are independent. The admin may change an edition between Admin, Offert, Stripe, and virement without adding or revoking a membership; paid origins remain ledger-backed.
+
 - Atomic Organizer RPCs are executable only by `service_role`; the calling route must still complete the normal active-membership/admin and entitlement checks before invoking them.
 
 - Membership is event-scoped, but commercial rights are edition-scoped. Every active member shares the selected edition's entitlement; membership alone does not unlock paid capabilities.

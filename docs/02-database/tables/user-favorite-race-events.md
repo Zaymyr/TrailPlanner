@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -89,7 +89,7 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
-- Private organizer formats merged into Courses do not make their parent event favoriteable by a new audience and do not change follower membership; favorites remain runner-owned and event-scoped.
+- Managed masked/private formats merged into the organizer's Courses view do not make their parent event favoriteable by a new audience and do not change follower membership; favorites remain runner-owned and event-scoped.
 - Guided onboarding reuses the catalog without changing event-favorite ownership, pinning, or notification audience semantics.
 - Guided RaceBook results require a search and hide the favorite/create-plan detours, but this presentation rule never creates or removes an event favorite.
 

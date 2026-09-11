@@ -28,6 +28,7 @@ related_files:
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
+  - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
@@ -76,6 +77,8 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 `publish_organizer_edition_racebooks` is likewise `SECURITY INVOKER` and executable only by `service_role`. The Next.js route verifies trusted organizer/admin access before calling it; the function independently rechecks edition visibility and entitlement, and atomically restores course/preview/RaceBook visibility for complete public-source formats selected through `racebook_preview_is_visible`. It deliberately does not require prior `is_live`, because organizer-private rows are the normal input.
 
 `record_admin_organizer_bank_transfer` is also invoker-security and service-role-only. The admin route verifies `app_metadata`, validates date/money/PDF input, and cleans an uploaded object if the atomic database write fails. `organizer-invoices` has no direct client policy; the download route rechecks active parent-event membership before signing a manual object for 60 seconds.
+
+`set_admin_organizer_edition_grant` is invoker-security and service-role-only. It permits direct Admin/Offert grants, but restores Stripe or virement only from a matching valid payment path, so the presentation origin cannot manufacture financial history.
 
 ## Key Concepts
 

@@ -17,6 +17,7 @@ related_files:
   - apps/web/lib/organizer-payments.ts
   - apps/web/lib/organizer-invoices.ts
   - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
+  - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
 related_tables:
   - organizer_edition_payments
   - organizer_edition_entitlements
@@ -76,7 +77,8 @@ RLS is enabled with service-role-only grants. Checkout, webhook, and authenticat
 - Any refund event, including partial, and any open/lost dispute invalidates the complete transaction. A dispute closed as won restores only a row currently marked `disputed`.
 - Recalculation uses valid paid transaction paths, so a refunded/disputed base invalidates its dependent upgrade, and preserves admin overrides.
 - `record_admin_organizer_bank_transfer` accepts only Essentiel, Complet, or Signature, a non-future payment date, and non-negative EUR HT/TVA amounts. It calculates TTC, inserts a paid ledger row, and recalculates the entitlement atomically.
-- A bank transfer cannot duplicate or downgrade a paid tier. The same tier is accepted only to convert an existing `admin`/`legacy_admin` complimentary override into a real purchase.
+- A bank transfer cannot duplicate or downgrade a paid tier. The same tier is accepted only to convert an existing `admin`, `complimentary`, or `legacy_admin` override into a real purchase.
+- Choosing Stripe or virement as the admin-visible publication origin never creates synthetic payment history; the requested tier and channel must already resolve from valid paid ledger rows.
 - Replacing a manual invoice changes only its file metadata. The transaction remains historical; the old object is removed after the new ledger reference is stored.
 
 ## Common Queries

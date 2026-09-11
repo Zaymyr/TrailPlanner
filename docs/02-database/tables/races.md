@@ -152,6 +152,8 @@ where is_live = true
 
 ## Gotchas
 
+- A format's public state consumes the edition entitlement regardless of whether its origin is Admin, Offert, Stripe, or virement; changing origin does not directly rewrite format visibility.
+
 - Do not replace an unknown D+ or absent GPX with a fabricated zero or placeholder.
 - New rows without a GPX keep `gpx_path`, `gpx_hash`, and `gpx_storage_path` null. Historical placeholders are cleared by the catalog-contract migration when no stored object exists.
 - A declarative complete-row check is intentionally deferred until legacy catalog rows have been backfilled. The column-scoped completeness trigger protects new and catalog-relevant writes without blocking unrelated updates to legacy rows.

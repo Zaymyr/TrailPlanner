@@ -63,7 +63,7 @@ This table is retained publication-review history. New organizer publication use
 - Organizer event/race routes never accept direct catalog `is_live` changes. Publishing with `racebookIsLive = true` uses the membership- and entitlement-checked RPC. Hiding with `racebookIsLive = false` is a targeted service update performed only after the shared route has authorized event membership or trusted admin access; it clears one format and cannot publish content.
 - A directly delegated organizer receives the same event membership and therefore the edition capability purchased or granted for that event.
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
-- From Visibilité, the current dashboard publication action opens the edition offer dialog and never creates a publication-request row. With Essential, Complete, or Signature already active, it publishes directly and filters higher-tier sections from runner output. A trusted admin may grant RaceBook from the offer dialog without payment through `set_admin_organizer_edition_entitlement`; the grant is edition-scoped, records `source = admin`, and leaves this legacy table unchanged.
+- From Visibilité, the current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A format-route `403` may reopen that dialog only while the displayed tier is also Visibilité. With Essential, Complete, or Signature already active, single-format and bulk publication never upsell; operational failures stay visible and higher-tier sections remain filtered from runner output. A trusted admin may grant RaceBook from the offer dialog without payment through the current edition-grant RPC; the grant is edition-scoped and leaves this legacy table unchanged.
 - Detailed format visibility starts collapsed while the primary publication action remains visible. Expanding it does nothing by itself; explicitly choosing Masqué, Privé, or Public updates the authorized format state without creating a publication-request row.
 - The authorized format navigation mirrors that state without writing it: masked formats remain editable but appear grey with `Course masquée pour le public`, while private/public formats show compact status text. These labels neither publish a RaceBook nor create a publication-request row.
 - The dashboard guide only explains those visibility states. Completing, skipping, or replaying it does not select a state or create a publication request.
@@ -86,6 +86,8 @@ This table is retained publication-review history. New organizer publication use
 - Publishing an edition's visual identity is a separate Pro-only draft-to-published operation. It does not publish a format, change `racebook_is_live`, or insert/update this legacy review table.
 
 ## Gotchas
+
+- The current admin publication manager writes the edition entitlement origin, not a legacy publication-request row. Admin and Offert are distinct, while Stripe/virement require matching paid history.
 
 - Abortable dashboard reloads prevent stale UI state but do not cancel or weaken a publication request already accepted by the server; entitlement and readiness remain server-authoritative.
 

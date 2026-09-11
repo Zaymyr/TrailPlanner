@@ -1,5 +1,5 @@
 -- Organizer commercial entitlement transition checks.
--- Run after 20260911073318_add_organizer_manual_payments_and_invoices.sql in a privileged SQL session.
+-- Run after 20260911093649_add_organizer_publication_grant_origin.sql in a privileged SQL session.
 
 begin;
 
@@ -202,6 +202,34 @@ begin
   end if;
 end $$;
 
+select public.set_admin_organizer_edition_grant(
+  (select edition_id from _organizer_offer_fixture),
+  null,
+  'signature',
+  'complimentary'
+);
+select public.recalculate_organizer_edition_entitlement((select edition_id from _organizer_offer_fixture));
+
+do $$
+begin
+  if not exists (
+    select 1
+    from public.organizer_edition_entitlements
+    where edition_id = (select edition_id from _organizer_offer_fixture)
+      and tier = 'signature'
+      and source = 'complimentary'
+      and status = 'active'
+  ) then
+    raise exception 'Expected an offered publication grant to remain authoritative.';
+  end if;
+  if has_function_privilege('authenticated', 'public.set_admin_organizer_edition_grant(uuid,uuid,text,text)', 'execute') then
+    raise exception 'Authenticated clients must not execute the publication-grant RPC.';
+  end if;
+  if not has_function_privilege('service_role', 'public.set_admin_organizer_edition_grant(uuid,uuid,text,text)', 'execute') then
+    raise exception 'The service role must execute the publication-grant RPC.';
+  end if;
+end $$;
+
 insert into auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
   raw_app_meta_data, raw_user_meta_data, created_at, updated_at
@@ -244,7 +272,7 @@ begin
       and source = 'manual_payment'
       and status = 'active'
   ) then
-    raise exception 'Expected an admin override to be converted to a real manual payment.';
+    raise exception 'Expected an offered override to be converted to a real manual payment.';
   end if;
 
   if not exists (

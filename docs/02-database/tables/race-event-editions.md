@@ -150,6 +150,8 @@ where ree.event_id = :event_id
 
 ## Gotchas
 
+- The edition entitlement origin distinguishes Admin, Offert, Stripe, and virement. Only Stripe and virement are restored from valid payment-ledger paths.
+
 - Do not use `race_events.race_date` as the canonical organizer edition date; it is a compatibility mirror.
 - Application writes should persist `races.edition_id`. The database uses the format year only as a service-side compatibility repair when a dated event format arrives without one.
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.

@@ -114,7 +114,7 @@ type RacebookPublicationEvent = RaceEventOption & {
   entitlement: {
     edition_id: string;
     tier: "visibility" | "essential" | "complete" | "signature";
-    source: "system" | "stripe" | "manual_payment" | "admin" | "legacy_admin";
+    source: "system" | "stripe" | "manual_payment" | "admin" | "complimentary" | "legacy_admin";
     status: "active" | "revoked";
   } | null;
   payments: Array<{
@@ -153,6 +153,17 @@ const organizerTierLabel: Record<NonNullable<RacebookPublicationEvent["entitleme
   signature: "Signature",
 };
 
+type PublicationOrigin = "admin" | "stripe" | "manual_payment" | "complimentary";
+
+const publicationOriginLabel: Record<NonNullable<RacebookPublicationEvent["entitlement"]>["source"], string> = {
+  system: "Aucune activation",
+  admin: "Admin",
+  stripe: "Paiement Stripe",
+  manual_payment: "Paiement par virement",
+  complimentary: "Offert",
+  legacy_admin: "Admin (historique)",
+};
+
 export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [organizerAdminTab, setOrganizerAdminTab] = useState<"publication" | "access">("publication");
   const [claims, setClaims] = useState<OrganizerClaim[]>([]);
@@ -164,6 +175,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "essential" | "complete" | "signature">("all");
   const [purchaseEvent, setPurchaseEvent] = useState<RacebookPublicationEvent | null>(null);
   const [purchaseTier, setPurchaseTier] = useState<"essential" | "complete" | "signature">("essential");
+  const [purchaseOrigin, setPurchaseOrigin] = useState<PublicationOrigin>("admin");
   const [purchaseDate, setPurchaseDate] = useState(currentParisDate);
   const [purchaseSubtotal, setPurchaseSubtotal] = useState("");
   const [purchaseTax, setPurchaseTax] = useState("");
@@ -357,22 +369,41 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     if (!accessToken || !purchaseEvent?.editionId) return;
     setStatus("saving");
     setError(null);
-    const formData = new FormData();
-    formData.set("editionId", purchaseEvent.editionId);
-    formData.set("tier", purchaseTier);
-    formData.set("paidDate", purchaseDate);
-    formData.set("amountSubtotal", purchaseSubtotal);
-    formData.set("amountTax", purchaseTax);
-    if (purchaseInvoice) formData.set("invoice", purchaseInvoice);
     try {
-      const response = await fetch("/api/admin/organizer-payments", {
-        method: "POST",
-        headers: { Authorization: `Bearer ${accessToken}` },
-        body: formData,
-      });
+      const hasMatchingBankTransfer = purchaseEvent.payments.some((payment) => (
+        payment.status === "paid"
+        && payment.payment_channel === "bank_transfer"
+        && payment.to_tier === purchaseTier
+      ));
+      let response: Response;
+      if (purchaseOrigin === "manual_payment" && !hasMatchingBankTransfer) {
+        const formData = new FormData();
+        formData.set("editionId", purchaseEvent.editionId);
+        formData.set("tier", purchaseTier);
+        formData.set("paidDate", purchaseDate);
+        formData.set("amountSubtotal", purchaseSubtotal);
+        formData.set("amountTax", purchaseTax);
+        if (purchaseInvoice) formData.set("invoice", purchaseInvoice);
+        response = await fetch("/api/admin/organizer-payments", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          body: formData,
+        });
+      } else {
+        response = await fetch("/api/admin/event-publication-requests", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({
+            action: "setEditionGrant",
+            editionId: purchaseEvent.editionId,
+            tier: purchaseTier,
+            origin: purchaseOrigin,
+          }),
+        });
+      }
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        setError(data?.message ?? "Impossible d’enregistrer cet achat.");
+        setError(data?.message ?? "Impossible de modifier le droit de publication.");
         return;
       }
       setPurchaseEvent(null);
@@ -412,8 +443,14 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
 
   const openPurchaseDialog = (event: RacebookPublicationEvent) => {
     const currentTier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
+    const currentSource = event.entitlement?.source;
     setError(null);
-    setPurchaseTier(currentTier === "essential" ? "complete" : currentTier === "complete" || currentTier === "signature" ? "signature" : "essential");
+    setPurchaseTier(currentTier === "visibility" ? "essential" : currentTier);
+    setPurchaseOrigin(
+      currentSource === "stripe" || currentSource === "manual_payment" || currentSource === "complimentary"
+        ? currentSource
+        : "admin"
+    );
     setPurchaseDate(currentParisDate());
     setPurchaseSubtotal("");
     setPurchaseTax("");
@@ -427,6 +464,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
     return total + Number(normalized);
   }, 0);
+  const hasSelectedBankTransfer = purchaseEvent?.payments.some((payment) => (
+    payment.status === "paid"
+    && payment.payment_channel === "bank_transfer"
+    && payment.to_tier === purchaseTier
+  )) ?? false;
+  const needsBankTransferDetails = purchaseOrigin === "manual_payment" && !hasSelectedBankTransfer;
 
   return (
     <div className="space-y-5">
@@ -630,9 +673,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
 
       {organizerAdminTab === "publication" ? <Card className="rounded-lg">
         <CardHeader>
-          <CardTitle>Achats organisateurs</CardTitle>
+          <CardTitle>Droits de publication organisateurs</CardTitle>
           <CardDescription>
-            Enregistrez uniquement les packs réellement payés par virement. La publication reste pilotée par l’organisateur.
+            Choisissez le pack et son origine. Les origines Stripe et virement restent liées à un paiement réellement enregistré.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -689,8 +732,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       {event.location ? ` · ${event.location}` : ""}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      Paiement : {latestPayment ? `${latestPayment.payment_channel === "bank_transfer" ? "virement" : "Stripe"} · ${latestPayment.status}` : "aucun"}
-                      {event.entitlement?.source ? ` · source ${event.entitlement.source}` : ""}
+                      Origine : {event.entitlement?.source ? publicationOriginLabel[event.entitlement.source] : "Aucune activation"}
+                      {latestPayment ? ` · dernier paiement ${latestPayment.payment_channel === "bank_transfer" ? "virement" : "Stripe"} (${latestPayment.status})` : ""}
                     </p>
                     {event.races.length > 0 ? (
                       <p className="truncate text-xs text-muted-foreground">{event.races.map((race) => race.name).join(" · ")}</p>
@@ -698,7 +741,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                   </div>
                   <div className="min-w-[18rem] space-y-3">
                     <Button type="button" disabled={status === "saving" || !event.editionId} onClick={() => openPurchaseDialog(event)}>
-                      Enregistrer un achat
+                      Gérer le droit de publication
                     </Button>
                     {event.payments.filter((payment) => payment.payment_channel === "bank_transfer" && payment.status === "paid").map((payment) => (
                       <div key={payment.id} className="rounded-md border border-border p-2 text-xs">
@@ -730,11 +773,11 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       <Dialog open={Boolean(purchaseEvent)} onOpenChange={(open) => { if (!open) setPurchaseEvent(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Enregistrer un achat</DialogTitle>
+            <DialogTitle>Gérer le droit de publication</DialogTitle>
             <DialogDescription>
-              Paiement reçu par virement pour {purchaseEvent?.name ?? "cet événement"}. Cette action accorde immédiatement le niveau acheté.
+              Modifiez le pack et son origine pour {purchaseEvent?.name ?? "cet événement"}.
               {purchaseEvent?.entitlement?.status === "active"
-                ? ` Pack actuellement actif : ${organizerTierLabel[purchaseEvent.entitlement.tier]}${purchaseEvent.entitlement.source === "admin" || purchaseEvent.entitlement.source === "legacy_admin" ? " (activation offerte)" : ""}.`
+                ? ` Pack actuellement actif : ${organizerTierLabel[purchaseEvent.entitlement.tier]} — ${publicationOriginLabel[purchaseEvent.entitlement.source]}.`
                 : ""}
             </DialogDescription>
           </DialogHeader>
@@ -745,13 +788,33 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           ) : null}
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label htmlFor="organizer-purchase-tier">Pack acheté</Label>
+              <Label htmlFor="organizer-purchase-tier">Pack accordé</Label>
               <select id="organizer-purchase-tier" className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm" value={purchaseTier} onChange={(event) => setPurchaseTier(event.target.value as typeof purchaseTier)}>
                 <option value="essential">Essentiel</option>
                 <option value="complete">Complet</option>
                 <option value="signature">Signature</option>
               </select>
             </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-publication-origin">Origine de la publication</Label>
+              <select id="organizer-publication-origin" className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm" value={purchaseOrigin} onChange={(event) => setPurchaseOrigin(event.target.value as PublicationOrigin)}>
+                <option value="admin">Admin</option>
+                <option value="stripe">Paiement Stripe</option>
+                <option value="manual_payment">Paiement par virement</option>
+                <option value="complimentary">Offert</option>
+              </select>
+            </div>
+            {purchaseOrigin === "stripe" ? (
+              <p className="sm:col-span-2 text-xs text-muted-foreground">
+                Un paiement Stripe valide correspondant à ce pack doit déjà exister dans l’historique.
+              </p>
+            ) : null}
+            {purchaseOrigin === "manual_payment" && hasSelectedBankTransfer ? (
+              <p className="sm:col-span-2 text-xs text-muted-foreground">
+                Le virement déjà enregistré pour ce pack sera utilisé.
+              </p>
+            ) : null}
+            {needsBankTransferDetails ? <>
             <div className="space-y-1.5">
               <Label htmlFor="organizer-purchase-date">Date du paiement</Label>
               <Input id="organizer-purchase-date" type="date" max={currentParisDate()} value={purchaseDate} onChange={(event) => setPurchaseDate(event.target.value)} />
@@ -772,11 +835,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             <p className="sm:col-span-2 text-sm font-medium">
               Total TTC : {purchaseTotal === null ? "—" : purchaseTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
             </p>
+            </> : null}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setPurchaseEvent(null)}>Annuler</Button>
-            <Button type="button" disabled={status === "saving" || !purchaseDate || !purchaseSubtotal || !purchaseTax} onClick={() => void recordPurchase()}>
-              {status === "saving" ? "Enregistrement…" : "Confirmer le paiement"}
+            <Button type="button" disabled={status === "saving" || (needsBankTransferDetails && (!purchaseDate || !purchaseSubtotal || !purchaseTax))} onClick={() => void recordPurchase()}>
+              {status === "saving" ? "Enregistrement…" : "Enregistrer"}
             </Button>
           </DialogFooter>
         </DialogContent>

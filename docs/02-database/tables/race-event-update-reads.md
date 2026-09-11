@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -42,7 +42,7 @@ related_tables:
 
 ## Gotchas
 
-- Organizer-only private format merging changes only which managed formats appear in Courses; read receipts remain owner-scoped and must not be broadened by organizer membership.
+- Organizer-only merging keeps every managed format in Courses, including dimmed masked/private states; read receipts remain owner-scoped and must not be broadened by organizer membership.
 - Guided catalog use does not mark announcements read differently and does not change the owner-scoped receipt contract.
 - Requiring a search before guided RaceBook results appear does not create receipts; the existing event-sheet display remains the only read trigger.
 

@@ -308,7 +308,9 @@ function SkeletonEventCard() {
 function RaceRow({
   title,
   subtitle,
+  isDimmed = false,
   secondaryActionLabel,
+  secondaryActionDimmed = false,
   onSecondaryPressIn,
   onSecondaryPress,
   primaryActionLabel,
@@ -316,14 +318,16 @@ function RaceRow({
 }: {
   title: string;
   subtitle: string;
+  isDimmed?: boolean;
   secondaryActionLabel?: string;
+  secondaryActionDimmed?: boolean;
   onSecondaryPressIn?: () => void;
   onSecondaryPress?: () => void;
   primaryActionLabel?: string;
   onPrimaryPress?: () => void;
 }) {
   return (
-    <View style={styles.formatRow}>
+    <View style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
       <View style={styles.formatRowContent}>
         <Text style={styles.formatTitle}>{title}</Text>
         <Text style={styles.formatSubtitle}>{subtitle}</Text>
@@ -331,11 +335,17 @@ function RaceRow({
       <View style={styles.formatActions}>
         {secondaryActionLabel && onSecondaryPress ? (
           <TouchableOpacity
-            style={styles.formatSecondaryActionButton}
+            style={[
+              styles.formatSecondaryActionButton,
+              secondaryActionDimmed && styles.formatSecondaryActionButtonDimmed,
+            ]}
             onPressIn={onSecondaryPressIn}
             onPress={onSecondaryPress}
           >
-            <Text style={styles.formatSecondaryActionButtonText}>{secondaryActionLabel}</Text>
+            <Text style={[
+              styles.formatSecondaryActionButtonText,
+              secondaryActionDimmed && styles.formatSecondaryActionButtonTextDimmed,
+            ]}>{secondaryActionLabel}</Text>
           </TouchableOpacity>
         ) : null}
         {primaryActionLabel && onPrimaryPress ? (
@@ -606,9 +616,7 @@ export default function CatalogScreen() {
             ? supabase
                 .from('race_events')
                 .select(EVENT_CATALOG_SELECT)
-                .eq('is_live', true)
                 .in('id', managedEventIds)
-                .eq('races.racebook_preview_is_visible', true)
                 .order('created_at', { referencedTable: 'race_event_updates', ascending: false })
                 .limit(ORGANIZER_UPDATES_PREVIEW_LIMIT, { referencedTable: 'race_event_updates' })
                 .order('name')
@@ -774,10 +782,8 @@ export default function CatalogScreen() {
   const organizerDemoEventGroups = useMemo(
     () => getOrganizerDemoResults<Race, EventGroup>(
       filteredEventGroups,
-      organizerEventIds,
-      (race) => race.racebook_preview_is_visible !== false,
     ),
-    [filteredEventGroups, organizerEventIds],
+    [filteredEventGroups],
   );
   const visibleEventGroups = onboardingMode === 'racebook'
     ? racebookOnboardingEventGroups
@@ -1366,6 +1372,15 @@ export default function CatalogScreen() {
                 <RaceRow
                   key={race.id}
                   title={getRaceShortLabel(race.name, selectedEvent.name)}
+                  isDimmed={
+                    organizerEventIds.has(selectedEvent.id) &&
+                    race.racebook_preview_is_visible === false
+                  }
+                  secondaryActionDimmed={
+                    organizerEventIds.has(selectedEvent.id) &&
+                    race.racebook_preview_is_visible !== false &&
+                    race.racebook_is_live !== true
+                  }
                   secondaryActionLabel={
                     canShowRacebook({
                       raceIsLive: race.is_live,
@@ -1743,6 +1758,9 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
   },
+  formatRowDimmed: {
+    opacity: 0.58,
+  },
   formatRowContent: {
     flex: 1,
     gap: 4,
@@ -2067,6 +2085,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 12,
     fontWeight: '700',
+  },
+  formatSecondaryActionButtonDimmed: {
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  formatSecondaryActionButtonTextDimmed: {
+    color: Colors.textMuted,
   },
   newBadge: {
     backgroundColor: Colors.brandPrimary,

@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -164,7 +164,8 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 
 `apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
 
-- its public event relation uses an inner join filtered to `races.is_live = true`, so masked/private formats do not reach ordinary runners; after resolving active organizer memberships, a second event-id-bounded relation loads only `racebook_preview_is_visible = true` formats and merges them into that organizer's catalog;
+- its public event relation uses an inner join filtered to `races.is_live = true`, so masked/private formats do not reach ordinary runners; after resolving active organizer memberships, a second event-id-bounded relation ignores runner-facing event/format visibility, loads every managed format, and merges those rows into that organizer's catalog;
+- organizer-owned masked formats remain in the event sheet with a lightly dimmed row and no RaceBook action; private formats remain listed with a lightly dimmed but functional RaceBook preview action; public formats use the normal runner presentation;
 - it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
 - it pins favorite events above the normal date/name ordering while keeping the existing catalog grouping, then confirms a successful addition with a brief localized toast and scrolls the list to the newly pinned first event;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
@@ -258,7 +259,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - Keep guided RaceBook filtering presentation-only: the initial list and any search result may contain only formats accepted by `canShowRacebook`; the flow must not invent a publication exception, persist the search text, or change the normal Courses catalog when the onboarding parameter is absent.
-- Supabase embedded relations use left-join semantics by default. Keep the explicit `races!inner` plus `races.is_live = true` filters on the public catalog read. The organizer-only companion read must remain bounded to ids from active memberships and to `racebook_preview_is_visible = true`; merging by stable event/race id must not duplicate public formats.
+- Supabase embedded relations use left-join semantics by default. Keep the explicit `races!inner` plus `races.is_live = true` filters on the public catalog read. The organizer-only companion read must remain bounded to ids from active memberships but must not apply runner-facing event, format, or RaceBook visibility filters; merging by stable event/race id must not duplicate public formats.
 - Hidden mobile detail headers should prefer one-line truncation over wrapping when the screen also shows custom left/right header actions; otherwise long French titles can overlap icons on compact iPhone widths.
 - Keep the tab navigator on history-based back behavior. Switching it back to `initialRoute` makes Android hardware back jump to `catalog` from hidden plan/race detail screens instead of popping to the real previous screen.
 - Keep the visible tab bar height and bottom padding derived from the bottom safe-area inset. A fixed height can place the tab actions underneath Android's three-button system navigation area.
@@ -291,7 +292,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep analytics admin detection on trusted `app_metadata`; never derive `$internal_or_test_user` from editable `user_metadata`.
 - Keep the Racebook website, Instagram, Facebook, and emergency actions conditional on parsed event JSON. Accept only HTTP(S) link values and never construct a link from unvalidated free text. Keep icon-only social actions accessible with labels. Normalize French emergency numbers to the canonical `+33 X XX XX XX XX` display when organizer JSON is parsed, and strip display separators when opening the `tel:` URL.
 
-- For an organizer-owned event, the normal mobile Courses demo removes every format whose `racebook_preview_is_visible` is false before computing event counts or opening the format selector. The web management dashboard deliberately keeps those rows so the organizer can restore them. Other public catalog events keep their existing course-discovery behavior.
+- For an organizer-owned event, the normal mobile Courses view keeps every format before computing event counts or opening the format selector. A false `racebook_preview_is_visible` value dims the format and removes its RaceBook action; a private non-live format keeps an enabled dimmed preview action. Other public catalog events keep their existing runner discovery behavior.
 
 ## Racebook Identity Presentation
 

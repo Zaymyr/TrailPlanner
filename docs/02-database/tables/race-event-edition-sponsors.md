@@ -80,6 +80,8 @@ RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, 
 
 ## Gotchas
 
+- Sponsor eligibility depends on the effective Signature tier, not whether its origin is Admin, Offert, Stripe, or virement.
+
 - Sponsor ordering sends the complete edition list to `reorder_racebook_sponsors`. The function locks the edition and rejects partial lists, foreign ids, duplicate ids or duplicate positions before updating any row.
 
 - The destination waits for the lightweight sponsor/module/branding response before revealing RaceBook content. Do not restore a short UI timeout that commits defaults while the valid edition response is still in flight.
