@@ -20,14 +20,14 @@ describe("POST /api/admin/organizer-payments", () => {
   beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
   afterEach(() => vi.restoreAllMocks());
 
-  it("records EUR minor amounts through the atomic service RPC", async () => {
+  it("derives the canonical pack price and 20% VAT through the atomic service RPC", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "22222222-2222-2222-2222-222222222222" }));
     const response = await POST(requestWith({
       editionId,
       tier: "complete",
       paidDate: "2026-09-10",
-      amountSubtotal: "99,50",
-      amountTax: "19.90",
+      amountSubtotal: "0",
+      amountTax: "0",
     }));
 
     expect(response.status).toBe(201);
@@ -36,9 +36,33 @@ describe("POST /api/admin/organizer-payments", () => {
     expect(JSON.parse(String(init?.body))).toMatchObject({
       p_edition_id: editionId,
       p_tier: "complete",
-      p_amount_subtotal: 9950,
-      p_amount_tax: 1990,
+      p_amount_subtotal: 19900,
+      p_amount_tax: 3980,
+      p_paid_at: "2026-09-10T00:00:00.000Z",
     });
+  });
+
+  it("records today's date at midnight so it is never rejected as a future transfer", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-09-11T08:00:00.000Z"));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "22222222-2222-2222-2222-222222222222" }));
+    try {
+      const response = await POST(requestWith({
+        editionId,
+        tier: "essential",
+        paidDate: "2026-09-11",
+      }));
+
+      expect(response.status).toBe(201);
+      const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+      expect(JSON.parse(String(init?.body))).toMatchObject({
+        p_amount_subtotal: 9900,
+        p_amount_tax: 1980,
+        p_paid_at: "2026-09-11T00:00:00.000Z",
+      });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("rejects future dates before writing", async () => {
@@ -53,23 +77,13 @@ describe("POST /api/admin/organizer-payments", () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it("rejects impossible dates and totals outside PostgreSQL integer range", async () => {
+  it("rejects impossible dates", async () => {
     const invalidDate = await POST(requestWith({
       editionId,
       tier: "essential",
       paidDate: "2026-02-31",
-      amountSubtotal: "99",
-      amountTax: "0",
-    }));
-    const oversized = await POST(requestWith({
-      editionId,
-      tier: "essential",
-      paidDate: "2026-09-10",
-      amountSubtotal: "21474836.47",
-      amountTax: "0.01",
     }));
     expect(invalidDate.status).toBe(400);
-    expect(oversized.status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
   });
 
@@ -79,8 +93,6 @@ describe("POST /api/admin/organizer-payments", () => {
       editionId,
       tier: "complete",
       paidDate: "2026-09-10",
-      amountSubtotal: "100",
-      amountTax: "20",
       invoice: new File(["%PDF-1.7"], "facture.pdf", { type: "application/pdf" }),
     }));
     expect(response.status).toBe(409);

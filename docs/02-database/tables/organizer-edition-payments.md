@@ -77,8 +77,9 @@ RLS is enabled with service-role-only grants. Checkout, webhook, and authenticat
 - Existence probes used by that recomputation parse only the response array and select an actual table column; edition branding must project its `edition_id` primary key rather than a nonexistent `id`.
 - Any refund event, including partial, and any open/lost dispute invalidates the complete transaction. A dispute closed as won restores only a row currently marked `disputed`.
 - Recalculation uses valid paid transaction paths, so a refunded/disputed base invalidates its dependent upgrade, and preserves admin overrides.
-- `record_admin_organizer_bank_transfer` accepts only Essentiel, Complet, or Signature, a non-future payment date, and non-negative EUR HT/TVA amounts. It calculates TTC, inserts a paid ledger row, and recalculates the entitlement atomically.
+- The protected admin route accepts only Essentiel, Complet, or Signature plus a non-future calendar date. It derives 99/199/349 € HT and 20% VAT from the selected direct pack, uses midnight UTC for the settlement date, and calls `record_admin_organizer_bank_transfer`; the function validates the minor-unit amounts, calculates TTC, inserts a paid ledger row, and recalculates the entitlement atomically.
 - A bank transfer cannot duplicate or downgrade a ledger-backed paid tier. An `admin`, `complimentary`, or `legacy_admin` override is not payment history: a newly received transfer may replace it with the selected paid tier, even when that paid tier is lower than the temporary grant.
+- Never trust browser-supplied settlement amounts for a direct pack. The admin route is the canonical pricing boundary and recomputes HT/TVA before invoking the service-role-only function.
 - Choosing Stripe or virement as the admin-visible publication origin never creates synthetic payment history; the requested tier and channel must already resolve from valid paid ledger rows.
 - Replacing a manual invoice changes only its file metadata. The transaction remains historical; the old object is removed after the new ledger reference is stored.
 

@@ -25,6 +25,7 @@ related_files:
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -57,7 +58,7 @@ related_tables:
 
 - Format row: one distance/course under a parent `race_events` event.
 - Edition membership: `edition_id` identifies the yearly event edition; `edition_group_id` groups the same format across years.
-- Catalog visibility: `is_live` and `is_public` control public course discovery. Organizer-private formats deliberately keep `is_live = false` and are merged only for active event organizers.
+- Catalog visibility: `is_live` and `is_public` retain the published course/RaceBook state. Organizer-private formats deliberately keep `is_live = false`, but a preview-selected row under a visible event/edition remains discoverable by runners for plan creation.
 - Organizer visibility is a three-state contract: masked = course/preview/RaceBook false, private = course false/preview true/RaceBook false, and public = all three true. Public publication requires an active paid or complimentary edition offer.
 - Import completeness: `data_status` and `missing_required_fields` distinguish incomplete formats from real zero values.
 
@@ -76,7 +77,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 | altitude/start/bounds columns | nullable numeric | GPX-derived geographic summary. |
 | `organizer_details` | nullable `jsonb` | Progressive format schedule, logistics, equipment override, and notes. |
 | `is_live`, `is_public` | boolean | Course catalog state. |
-| `racebook_preview_is_visible` | boolean | Private organizer preview/demo selection; false also excludes the format from edition publication. |
+| `racebook_preview_is_visible` | boolean | Mobile course-catalog inclusion for a non-live organizer format and organizer RaceBook preview selection; false masks it and excludes it from edition publication. |
 | `racebook_is_live`, approval columns | boolean/timestamps/FK | Runner Racebook state and trusted approval provenance. |
 | `participation_mode` | nullable text | `solo`, `relay`, or `solo_and_relay`; null means an unconfirmed historical format. |
 | `data_status` | `text` | `draft` or `complete`; existing rows default to `complete`. |

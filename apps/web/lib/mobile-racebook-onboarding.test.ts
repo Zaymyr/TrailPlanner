@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -95,5 +96,14 @@ describe("mobile organizer demo formats", () => {
       [{ id: "event-a", races: [{ id: "race-masked", previewVisible: false }] }],
       (race) => race.previewVisible,
     )).toEqual([]);
+  });
+});
+
+describe("mobile runner catalog visibility", () => {
+  it("loads preview-visible private formats without loading masked formats", () => {
+    const source = readFileSync(new URL("../../mobile/app/(app)/catalog.tsx", import.meta.url), "utf8");
+
+    expect(source).toContain(".eq('races.racebook_preview_is_visible', true)");
+    expect(source).not.toContain(".eq('races.is_live', true)");
   });
 });

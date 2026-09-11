@@ -9,6 +9,7 @@ import {
   validateOrganizerInvoice,
 } from "../../../../lib/organizer-invoices";
 import { jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
+import { ORGANIZER_TIER_PRICE_EUR } from "../../../../lib/organizer-modules";
 
 const paidTierSchema = z.enum(["essential", "complete", "signature"]);
 const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
@@ -16,16 +17,7 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   const date = new Date(Date.UTC(year, month - 1, day));
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 });
-const POSTGRES_INTEGER_MAX = 2_147_483_647;
-
-const parseMinorAmount = (value: FormDataEntryValue | null) => {
-  if (typeof value !== "string") return null;
-  const normalized = value.trim().replace(",", ".");
-  if (!/^\d+(?:\.\d{1,2})?$/.test(normalized)) return null;
-  const [units, decimals = ""] = normalized.split(".");
-  const amount = Number(units) * 100 + Number(decimals.padEnd(2, "0"));
-  return Number.isSafeInteger(amount) && amount <= POSTGRES_INTEGER_MAX ? amount : null;
-};
+const ORGANIZER_VAT_RATE = 0.2;
 
 const currentParisDate = () => new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Paris",
@@ -43,17 +35,14 @@ export async function POST(request: NextRequest) {
   const editionId = z.string().uuid().safeParse(formData.get("editionId"));
   const tier = paidTierSchema.safeParse(formData.get("tier"));
   const paidDate = dateSchema.safeParse(formData.get("paidDate"));
-  const amountSubtotal = parseMinorAmount(formData.get("amountSubtotal"));
-  const amountTax = parseMinorAmount(formData.get("amountTax"));
   const invoiceValue = formData.get("invoice");
   const invoice = invoiceValue instanceof File && invoiceValue.size > 0 ? invoiceValue : null;
-  if (
-    !editionId.success || !tier.success || !paidDate.success || amountSubtotal === null || amountTax === null
-    || amountSubtotal + amountTax > POSTGRES_INTEGER_MAX
-  ) {
-    return jsonError("Renseignez un pack, une date, un montant HT et une TVA valides.", 400);
+  if (!editionId.success || !tier.success || !paidDate.success) {
+    return jsonError("Renseignez un pack et une date de paiement valides.", 400);
   }
   if (paidDate.data > currentParisDate()) return jsonError("La date de paiement ne peut pas être future.", 400);
+  const amountSubtotal = ORGANIZER_TIER_PRICE_EUR[tier.data] * 100;
+  const amountTax = Math.round(amountSubtotal * ORGANIZER_VAT_RATE);
 
   let invoicePath: string | null = null;
   try {
@@ -69,7 +58,7 @@ export async function POST(request: NextRequest) {
         p_edition_id: editionId.data,
         p_admin_id: auth.user.id,
         p_tier: tier.data,
-        p_paid_at: `${paidDate.data}T12:00:00.000Z`,
+        p_paid_at: `${paidDate.data}T00:00:00.000Z`,
         p_amount_subtotal: amountSubtotal,
         p_amount_tax: amountTax,
         p_invoice_storage_path: invoicePath,
