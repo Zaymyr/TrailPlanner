@@ -22,6 +22,7 @@ related_files:
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -159,7 +160,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Approved organizers mutate claimed races through service routes and `race_event_organizers`, not through `races.created_by`; the select policy separately permits their membership-bounded private reads.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
 - `races.edition_group_id` and `races.series_name` inherit the same `races` row policies; the organizer edition-grouping migration adds no new grants or RLS branches.
-- Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the membership-checked service route and atomic RPC, which requires the edition-level `racebook.publish` capability and records first-publication provenance.
+- Racebook publication columns inherit the existing `races` row policies. Organizer toggles remain behind the service route and atomic RPC, which repeat active parent-event membership or trusted app-metadata admin authorization, require the edition-level `racebook.publish` capability, and record first-publication provenance.
 
 Some policy branches include legacy admin metadata checks. Do not copy them into new migrations.
 
@@ -396,7 +397,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public crew-state mutations are intentionally secret-link mutations, not authenticated owner mutations. Keep their writable columns narrow and do not grant direct `anon` access to `plan_share_links`.
 - Adding onboarding markers/statuses does not broaden profile visibility or mutation rights; do not add separate policies while the row remains owner-scoped.
 - The Organizer dashboard marker is membership-scoped rather than profile-scoped. Keep its mutation filtered by both authenticated user and active event membership; never let a synthetic admin selector row become persisted onboarding state.
-- Adding Racebook publication columns does not grant organizer table access. Keep approval RPCs service-role-only and organizer visibility changes behind active event-membership checks.
+- Adding Racebook publication columns does not grant organizer table access. Keep approval RPCs service-role-only and organizer visibility changes behind active event-membership or trusted app-metadata admin checks.
 - Edition visibility/deletion adds no client grant. Keep both operations on the membership-checked server route and keep the deletion RPC invoker-security/service-role-only.
 - Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.
 - The cleanup cron must call the protected web route so Storage objects are removed before session rows. Never grant a database cleanup function direct delete access to `storage.objects`.

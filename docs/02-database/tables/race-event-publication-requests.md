@@ -87,6 +87,8 @@ This table is retained publication-review history. New organizer publication use
 
 ## Gotchas
 
+- Current admin pack changes, Visibilité downgrades, and direct-virement recording do not create or reopen legacy publication-request rows.
+
 - The current admin publication manager writes the edition entitlement origin, not a legacy publication-request row. Admin and Offert are distinct, while Stripe/virement require matching paid history.
 
 - Abortable dashboard reloads prevent stale UI state but do not cancel or weaken a publication request already accepted by the server; entitlement and readiness remain server-authoritative.

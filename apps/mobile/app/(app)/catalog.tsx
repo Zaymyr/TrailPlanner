@@ -782,6 +782,7 @@ export default function CatalogScreen() {
   const organizerDemoEventGroups = useMemo(
     () => getOrganizerDemoResults<Race, EventGroup>(
       filteredEventGroups,
+      (race) => race.racebook_preview_is_visible !== false,
     ),
     [filteredEventGroups],
   );
@@ -1372,13 +1373,8 @@ export default function CatalogScreen() {
                 <RaceRow
                   key={race.id}
                   title={getRaceShortLabel(race.name, selectedEvent.name)}
-                  isDimmed={
-                    organizerEventIds.has(selectedEvent.id) &&
-                    race.racebook_preview_is_visible === false
-                  }
                   secondaryActionDimmed={
                     organizerEventIds.has(selectedEvent.id) &&
-                    race.racebook_preview_is_visible !== false &&
                     race.racebook_is_live !== true
                   }
                   secondaryActionLabel={

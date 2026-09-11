@@ -221,8 +221,21 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
         }
       );
       if (!visibilityResponse.ok) {
-        console.error("Unable to publish organizer Racebook", await visibilityResponse.text());
-        return jsonError("Une offre RaceBook active est requise pour publier ce format.", 403);
+        const detail = await visibilityResponse.text();
+        console.error("Unable to publish organizer Racebook", detail);
+        if (/organizer access required/i.test(detail)) {
+          return jsonError("Votre compte n’est pas autorisé à publier ce format.", 403);
+        }
+        if (/race format is incomplete/i.test(detail)) {
+          return jsonError("Complète les informations minimales du format avant de le publier.", 409);
+        }
+        if (/race edition is hidden/i.test(detail)) {
+          return jsonError("Rends d’abord cette édition visible avant de publier ce format.", 409);
+        }
+        if (/racebook entitlement required/i.test(detail)) {
+          return jsonError("Une offre RaceBook active est requise pour publier ce format.", 403);
+        }
+        return jsonError("Impossible de publier ce format pour le moment.", 502);
       }
       visibilityUpdated = raceRowSchema.parse(await visibilityResponse.json());
     }

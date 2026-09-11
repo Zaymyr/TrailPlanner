@@ -248,6 +248,36 @@ values (
   now()
 );
 
+-- A direct payment is financial truth even when it replaces a higher
+-- operational/complimentary grant. The selected paid pack becomes effective.
+update public.organizer_edition_payments
+set status = 'refunded', invalidated_at = now()
+where edition_id = (select edition_id from _organizer_offer_fixture)
+  and status = 'paid';
+
+select public.record_admin_organizer_bank_transfer(
+  (select edition_id from _organizer_offer_fixture),
+  '10000000-0000-0000-0000-000000000098',
+  'essential',
+  now() - interval '1 day',
+  9900,
+  1980
+);
+
+do $$
+begin
+  if not exists (
+    select 1
+    from public.organizer_edition_entitlements
+    where edition_id = (select edition_id from _organizer_offer_fixture)
+      and tier = 'essential'
+      and source = 'manual_payment'
+      and status = 'active'
+  ) then
+    raise exception 'Expected a lower paid bank-transfer pack to replace the complimentary grant.';
+  end if;
+end $$;
+
 select public.record_admin_organizer_bank_transfer(
   (select edition_id from _organizer_offer_fixture),
   '10000000-0000-0000-0000-000000000098',

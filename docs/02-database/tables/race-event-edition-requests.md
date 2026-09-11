@@ -58,6 +58,8 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 
 ## Gotchas
 
+- The current admin rights dialog may return the selected current edition to Visibilité, but this does not revive or mutate the retired edition-request workflow.
+
 - Admin publication-origin changes are edition-entitlement updates, not edition requests. They never revive this retired workflow.
 
 - The dashboard now aborts stale event loads and dynamically loads heavy editors; neither behavior changes the canonical edition request payload or its server-side validation.

@@ -42,7 +42,7 @@ related_tables:
 
 ## Gotchas
 
-- Organizer-only merging keeps every managed format in Courses, including dimmed masked/private states; read receipts remain owner-scoped and must not be broadened by organizer membership.
+- Organizer-only merging keeps private managed formats in Courses but removes masked formats before presentation; read receipts remain event/update-owned and owner-scoped, so this format filter must not clear or broaden them.
 - Guided catalog use does not mark announcements read differently and does not change the owner-scoped receipt contract.
 - Requiring a search before guided RaceBook results appear does not create receipts; the existing event-sheet display remains the only read trigger.
 

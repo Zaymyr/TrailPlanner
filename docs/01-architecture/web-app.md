@@ -212,6 +212,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/relay-points/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/app/api/location-search/route.ts
   - apps/web/lib/organizer-website-import.ts
@@ -389,7 +390,7 @@ The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib
 
 ### Organizer Portal
 
-The admin Organizer area separates publication and membership work into `Publier le RaceBook` and `Accès organisateurs`. Direct e-mail assignment performs the Auth lookup only in the protected server route. A missing account returns a bounded not-found response that opens a cancel/create dialog; confirmation calls the route again, creates the Supabase account through the server-side invitation endpoint, sends the invite, and then inserts the event membership. The browser never receives the service credential or an Auth user list.
+The admin Organizer area separates publication and membership work into `Publier le RaceBook` and `Accès organisateurs`. Its rights dialog uses large radio rows for Visibilité, Essentiel, Complet, and Signature; choosing Visibilité keeps the catalog edition visible while removing its RaceBooks from public access. Choosing a new virement gathers its own settlement data and creates the payment plus effective right in one action. Direct e-mail assignment performs the Auth lookup only in the protected server route. A missing account returns a bounded not-found response that opens a cancel/create dialog; confirmation calls the route again, creates the Supabase account through the server-side invitation endpoint, sends the invite, and then inserts the event membership. The browser never receives the service credential or an Auth user list.
 
 For trusted admins, the organizer header also exposes `Importer les informations`. That flow posts to `/api/organizer/events/[id]/website-import`, reuses the existing UTMB / Trace de Trail import adapters when possible, and falls back to generic HTML/JSON-LD extraction. It is review-first in two passes: source discovery writes no race data; confirming the final format list atomically binds existing rows or creates hidden drafts; applying reviewed fields later enriches only that event and those confirmed formats. It must never create another event row or publish a Racebook automatically. Historical drafts are importable even after the normal edition edit window has elapsed.
 
@@ -485,6 +486,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 ## Gotchas
 
 - Admin publication management distinguishes operational Admin, payment Stripe, payment by bank transfer, and Offert. Stripe and bank-transfer origins remain derived from valid payment history; the organizer header renders Admin and Offert separately.
+- Format-scoped publication authorizes the same two caller classes as the server route: an active event member or a trusted `app_metadata` admin. Database errors remain differentiated as access, readiness, hidden-edition, entitlement, or operational failures.
 
 - Keep `racebook_preview_is_visible` in both Organizer bootstrap and event-detail format projections. Omitting it makes a durably masked format render as private after an event reload. Masked and private states both persist `is_live = false`; preview selection distinguishes organizer-private access, while the publication RPC atomically restores all public flags.
 - Publication-tier existence checks must project a column that exists on the inspected table. `race_event_edition_branding` uses `edition_id` as its primary key; selecting `id` returns a Supabase Data API 400 before Stripe is called.

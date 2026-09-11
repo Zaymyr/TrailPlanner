@@ -9,6 +9,7 @@ related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
   - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
+  - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
@@ -62,6 +63,7 @@ RLS is enabled with no client grants. Only service role can read or mutate rows.
 - Recalculation marks the effective paid tier `stripe` or `manual_payment` from the decisive paid transaction's channel.
 - `set_admin_organizer_edition_grant` can change Admin/Offert grants directly, but accepts Stripe or virement only when the requested tier and channel are backed by the valid payment ledger.
 - Returning to Visibilité hides attached RaceBooks but does not change catalog visibility.
+- A direct bank transfer may replace a higher operational Admin/Offert grant with the lower tier actually purchased; paid-ledger rights still reject downgrade purchases.
 - Legacy RaceBook and Pro editions are mapped to Complete and Signature without charge.
 - `branding.manage` is granted only by an active Signature entitlement and controls publication of the branding snapshot. Membership still permits reading and editing the private draft; a downgrade masks the published identity and preserves both snapshots.
 

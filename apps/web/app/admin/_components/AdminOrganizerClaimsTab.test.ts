@@ -15,6 +15,10 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("Total TTC");
     expect(source).toContain("Facture PDF facultative");
     expect(source).toContain("Pack actuellement actif");
+    expect(source).toContain('["visibility", "essential", "complete", "signature"]');
+    expect(source).toContain("Repasser à Visibilité");
+    expect(source).toContain("Enregistrer le virement et accorder le droit");
+    expect(source).toContain("min-h-12 cursor-pointer");
     expect(source).toContain('role="alert"');
     expect(source).not.toContain("<LiveToggle");
     expect(source).not.toContain('action: "setRacebookVisibility"');
