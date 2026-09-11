@@ -35,6 +35,7 @@ related_files:
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
+  - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
 related_tables:
   - race_event_editions
@@ -151,6 +152,7 @@ where ree.event_id = :event_id
 ## Gotchas
 
 - The edition entitlement origin distinguishes Admin, Offert, Stripe, and virement. Only Stripe and virement are restored from valid payment-ledger paths.
+- Admins can explicitly return an edition entitlement to Visibilité; this hides attached RaceBooks while retaining catalog visibility and all stored content.
 
 - Do not use `race_events.race_date` as the canonical organizer edition date; it is a compatibility mirror.
 - Application writes should persist `races.edition_id`. The database uses the format year only as a service-side compatibility repair when a dated event format arrives without one.

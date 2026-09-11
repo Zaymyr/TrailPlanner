@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-09-08
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -30,6 +30,7 @@ related_files:
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
+  - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -202,7 +203,7 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `organizer_edition_payments.edition_id -> race_event_editions(id) on delete cascade`
 - `organizer_edition_payments.purchaser_user_id -> auth.users(id) on delete set null`
 
-Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Claimed catalog race rows should not be reassigned through `races.created_by`.
+Organizer access should be checked through an active `race_event_organizers` row, then the parent event relationship. Trusted admins use the separate Auth `raw_app_meta_data` role boundary and do not require artificial membership rows. Claimed catalog race rows should not be reassigned through `races.created_by`.
 
 `dashboard_onboarding_completed_at` is metadata on that existing organizer/event relationship. It adds no foreign key or cascade and remains isolated per membership row, including when several organizers manage the same event.
 

@@ -64,7 +64,7 @@ describe("mobile organizer demo formats", () => {
     }]);
   });
 
-  it("keeps masked formats for organizers and leaves unowned catalog events unchanged", () => {
+  it("removes masked formats from the mobile catalog", () => {
     const demoEvents = [
       {
         id: "event-a",
@@ -81,26 +81,19 @@ describe("mobile organizer demo formats", () => {
 
     expect(getOrganizerDemoResults(
       demoEvents,
+      (race) => race.previewVisible,
     )).toEqual([
       {
         id: "event-a",
-        races: [
-          { id: "race-visible", previewVisible: true },
-          { id: "race-masked", previewVisible: false },
-        ],
-      },
-      {
-        id: "event-b",
-        races: [{ id: "race-public", previewVisible: false }],
+        races: [{ id: "race-visible", previewVisible: true }],
       },
     ]);
   });
 
-  it("keeps an organizer event when all of its formats are masked", () => {
+  it("removes an event when all of its formats are masked", () => {
     expect(getOrganizerDemoResults(
       [{ id: "event-a", races: [{ id: "race-masked", previewVisible: false }] }],
-    )).toEqual([
-      { id: "event-a", races: [{ id: "race-masked", previewVisible: false }] },
-    ]);
+      (race) => race.previewVisible,
+    )).toEqual([]);
   });
 });

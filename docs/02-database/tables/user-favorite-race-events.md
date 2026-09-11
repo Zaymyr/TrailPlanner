@@ -89,7 +89,7 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
-- Managed masked/private formats merged into the organizer's Courses view do not make their parent event favoriteable by a new audience and do not change follower membership; favorites remain runner-owned and event-scoped.
+- Managed private formats merged into the organizer's Courses view, and masked formats removed before presentation, do not make their parent event favoriteable by a new audience and do not change follower membership; favorites remain runner-owned and event-scoped.
 - Guided onboarding reuses the catalog without changing event-favorite ownership, pinning, or notification audience semantics.
 - Guided RaceBook results require a search and hide the favorite/create-plan detours, but this presentation rule never creates or removes an event favorite.
 

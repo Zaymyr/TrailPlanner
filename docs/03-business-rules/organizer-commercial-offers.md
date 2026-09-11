@@ -31,6 +31,7 @@ related_files:
   - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
+  - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
 related_tables:
@@ -79,7 +80,7 @@ Completion percentages count required modules only. Recommended and optional til
 
 The server chooses one of six explicit one-time EUR Price IDs and validates active status, exact amount, non-recurring mode and exclusive tax behavior. Checkout enables automatic tax, billing address, tax-ID collection and invoice creation. A success redirect is not authorization; the webhook settles the payment, retains the Stripe Invoice id, and recalculates rights.
 
-A trusted admin can choose the effective publication origin shown for an edition: operational `admin`, `complimentary` (Offert), ledger-backed `stripe`, or ledger-backed `manual_payment` (virement). Admin and Offert grants may be created or changed directly. Stripe and virement can only be selected when a matching valid payment path exists; selecting a new virement records its date, actual EUR HT and TVA, calculates TTC server-side, and optionally stores its PDF invoice. Future dates, duplicates, downgrades, and invented paid origins are rejected. An existing same-tier `admin`, `complimentary`, or `legacy_admin` grant can be converted explicitly into a real bank-transfer purchase.
+A trusted admin can choose the effective publication origin shown for an edition: operational `admin`, `complimentary` (Offert), ledger-backed `stripe`, or ledger-backed `manual_payment` (virement). Admin and Offert grants may be created or changed directly. Stripe can only be selected when a matching valid payment path exists. Selecting a new virement is itself the payment-ledger write: it records the date, actual EUR HT and TVA, calculates TTC server-side, optionally stores its PDF invoice, then grants the purchased tier atomically. Future dates, duplicate paid tiers, paid-ledger downgrades, and invented paid origins are rejected. An existing `admin`, `complimentary`, or `legacy_admin` grant can be replaced by a real bank-transfer purchase, including a lower paid tier chosen deliberately by the admin.
 
 The organizer bootstrap exposes the effective pack, payment channel, date, amounts, and invoice availability. `Actions > Factures` lists paid/refunded/disputed history for every edition of the selected event. Every active event member may request a download; manual PDFs use a short private Storage URL, while old Stripe rows resolve their Invoice from Checkout on first download. DTOs never expose provider ids or private object paths.
 
@@ -98,7 +99,7 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
 - The dashboard keeps publication primary, groups rare actions in one menu, and starts detailed visibility collapsed. Expanding it is presentation-only; choosing a format state is a deliberate persisted action and must never grant an entitlement client-side.
-- The admin publication dialog identifies the active pack and origin and lets a trusted admin switch between Admin, Paiement Stripe, Paiement par virement, and Offert. Paid choices are never free-form metadata: they require the corresponding ledger entry. Bank-transfer failures remain visible inside the dialog; a same-tier admin/offered grant may be converted to a real paid purchase, while an already paid same-tier purchase remains a duplicate.
+- The admin publication dialog identifies the active pack and origin, exposes Visibilité as an explicit downgrade, and uses full-row radio targets for pack selection. It lets a trusted admin switch paid packs between Admin, Paiement Stripe, Paiement par virement, and Offert. Stripe remains ledger-backed; a new bank transfer creates its own ledger row and right in one action. Bank-transfer failures remain visible inside the dialog, while an already paid same-tier purchase remains a duplicate.
 - The workspace status labels are presentation-only: masked formats stay grey and explicitly public-hidden, private formats show `RaceBook privé`, and public formats show their public state. Keeping a masked format editable for authorized organizers/admins does not grant an offer or expose it to runners.
 - Offer and visibility consequences use contextual hover/focus help beside short controls. Hiding that explanatory copy visually does not weaken server-side readiness or entitlement checks, and errors remain visible inline.
 - Completing, skipping, or replaying the dashboard guide never creates or upgrades an organizer entitlement. Its optional final action only opens the existing section chooser.

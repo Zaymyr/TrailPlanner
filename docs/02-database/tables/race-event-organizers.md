@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
+  - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - apps/web/lib/organizer.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -157,7 +158,7 @@ order by created_at asc;
 
 - Organizer membership and publication origin are independent. The admin may change an edition between Admin, Offert, Stripe, and virement without adding or revoking a membership; paid origins remain ledger-backed.
 
-- Atomic Organizer RPCs are executable only by `service_role`; the calling route must still complete the normal active-membership/admin and entitlement checks before invoking them.
+- Atomic Organizer RPCs are executable only by `service_role`; the calling route must still complete the normal active-membership/admin and entitlement checks before invoking them. The format-publication RPC repeats active membership or trusted Auth `raw_app_meta_data` admin authorization so an admin does not need an artificial membership row.
 
 - Membership is event-scoped, but commercial rights are edition-scoped. Every active member shares the selected edition's entitlement; membership alone does not unlock paid capabilities.
 - Module mutation also requires the edition/format setting to be effective. Full legacy JSON saves preserve subtrees whose module is inactive or locked.

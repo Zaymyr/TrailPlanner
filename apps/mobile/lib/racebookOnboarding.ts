@@ -25,8 +25,14 @@ export function getOrganizerDemoResults<
   TEvent extends { races: TRace[] },
 >(
   events: TEvent[],
+  isVisibleInCatalog: (race: TRace, event: TEvent) => boolean,
 ) {
-  return events.filter((event) => event.races.length > 0);
+  return events
+    .map((event) => ({
+      ...event,
+      races: event.races.filter((race) => isVisibleInCatalog(race, event)),
+    }))
+    .filter((event) => event.races.length > 0);
 }
 
 export function mergeOrganizerCatalogEvents<

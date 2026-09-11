@@ -174,7 +174,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
   const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "essential" | "complete" | "signature">("all");
   const [purchaseEvent, setPurchaseEvent] = useState<RacebookPublicationEvent | null>(null);
-  const [purchaseTier, setPurchaseTier] = useState<"essential" | "complete" | "signature">("essential");
+  const [purchaseTier, setPurchaseTier] = useState<"visibility" | "essential" | "complete" | "signature">("essential");
   const [purchaseOrigin, setPurchaseOrigin] = useState<PublicationOrigin>("admin");
   const [purchaseDate, setPurchaseDate] = useState(currentParisDate);
   const [purchaseSubtotal, setPurchaseSubtotal] = useState("");
@@ -376,7 +376,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         && payment.to_tier === purchaseTier
       ));
       let response: Response;
-      if (purchaseOrigin === "manual_payment" && !hasMatchingBankTransfer) {
+      if (purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && !hasMatchingBankTransfer) {
         const formData = new FormData();
         formData.set("editionId", purchaseEvent.editionId);
         formData.set("tier", purchaseTier);
@@ -397,7 +397,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             action: "setEditionGrant",
             editionId: purchaseEvent.editionId,
             tier: purchaseTier,
-            origin: purchaseOrigin,
+            origin: purchaseTier === "visibility" ? "admin" : purchaseOrigin,
           }),
         });
       }
@@ -411,6 +411,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       setPurchaseSubtotal("");
       setPurchaseTax("");
       await load();
+    } catch (caught) {
+      console.error("Unable to update organizer publication right", caught);
+      setError("Impossible de modifier le droit de publication. Vérifiez votre connexion puis réessayez.");
     } finally {
       setStatus("idle");
     }
@@ -445,7 +448,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     const currentTier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
     const currentSource = event.entitlement?.source;
     setError(null);
-    setPurchaseTier(currentTier === "visibility" ? "essential" : currentTier);
+    setPurchaseTier(currentTier);
     setPurchaseOrigin(
       currentSource === "stripe" || currentSource === "manual_payment" || currentSource === "complimentary"
         ? currentSource
@@ -469,7 +472,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     && payment.payment_channel === "bank_transfer"
     && payment.to_tier === purchaseTier
   )) ?? false;
-  const needsBankTransferDetails = purchaseOrigin === "manual_payment" && !hasSelectedBankTransfer;
+  const needsBankTransferDetails = purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && !hasSelectedBankTransfer;
 
   return (
     <div className="space-y-5">
@@ -787,29 +790,50 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             </p>
           ) : null}
           <div className="grid gap-4 py-2 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label htmlFor="organizer-purchase-tier">Pack accordé</Label>
-              <select id="organizer-purchase-tier" className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm" value={purchaseTier} onChange={(event) => setPurchaseTier(event.target.value as typeof purchaseTier)}>
-                <option value="essential">Essentiel</option>
-                <option value="complete">Complet</option>
-                <option value="signature">Signature</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
+            <fieldset className="space-y-2 sm:col-span-2">
+              <legend className="text-sm font-medium leading-none">Pack accordé</legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {(["visibility", "essential", "complete", "signature"] as const).map((tier) => (
+                  <label
+                    key={tier}
+                    className={`flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border px-4 py-3 text-sm font-semibold transition ${
+                      purchaseTier === tier
+                        ? "border-brand bg-brand/10 text-foreground ring-1 ring-brand"
+                        : "border-border bg-card text-muted-foreground hover:border-brand/60 hover:text-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="organizer-purchase-tier"
+                      value={tier}
+                      checked={purchaseTier === tier}
+                      onChange={() => setPurchaseTier(tier)}
+                      className="h-4 w-4 shrink-0"
+                    />
+                    <span>{organizerTierLabel[tier]}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+            {purchaseTier === "visibility" ? (
+              <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground sm:col-span-2">
+                L’événement restera visible dans le catalogue, mais tous les RaceBooks de cette édition seront retirés du public. Les contenus restent enregistrés.
+              </p>
+            ) : <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="organizer-publication-origin">Origine de la publication</Label>
-              <select id="organizer-publication-origin" className="h-10 w-full rounded-md border border-input bg-card px-3 text-sm" value={purchaseOrigin} onChange={(event) => setPurchaseOrigin(event.target.value as PublicationOrigin)}>
+              <select id="organizer-publication-origin" className="min-h-11 w-full cursor-pointer rounded-md border border-input bg-card px-3 text-sm" value={purchaseOrigin} onChange={(event) => setPurchaseOrigin(event.target.value as PublicationOrigin)}>
                 <option value="admin">Admin</option>
                 <option value="stripe">Paiement Stripe</option>
                 <option value="manual_payment">Paiement par virement</option>
                 <option value="complimentary">Offert</option>
               </select>
-            </div>
-            {purchaseOrigin === "stripe" ? (
+            </div>}
+            {purchaseTier !== "visibility" && purchaseOrigin === "stripe" ? (
               <p className="sm:col-span-2 text-xs text-muted-foreground">
                 Un paiement Stripe valide correspondant à ce pack doit déjà exister dans l’historique.
               </p>
             ) : null}
-            {purchaseOrigin === "manual_payment" && hasSelectedBankTransfer ? (
+            {purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && hasSelectedBankTransfer ? (
               <p className="sm:col-span-2 text-xs text-muted-foreground">
                 Le virement déjà enregistré pour ce pack sera utilisé.
               </p>
@@ -840,7 +864,13 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setPurchaseEvent(null)}>Annuler</Button>
             <Button type="button" disabled={status === "saving" || (needsBankTransferDetails && (!purchaseDate || !purchaseSubtotal || !purchaseTax))} onClick={() => void recordPurchase()}>
-              {status === "saving" ? "Enregistrement…" : "Enregistrer"}
+              {status === "saving"
+                ? "Enregistrement…"
+                : purchaseTier === "visibility"
+                  ? "Repasser à Visibilité"
+                  : needsBankTransferDetails
+                    ? "Enregistrer le virement et accorder le droit"
+                    : "Enregistrer"}
             </Button>
           </DialogFooter>
         </DialogContent>

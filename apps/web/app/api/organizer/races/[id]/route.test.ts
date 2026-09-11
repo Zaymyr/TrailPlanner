@@ -105,6 +105,23 @@ describe("/api/organizer/races/[id] PATCH", () => {
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("keeps organizer authorization failures distinct from entitlement failures", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      race_date: "2027-09-12",
+      racebook_publication_approved_at: null,
+    });
+
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("Organizer access required.", { status: 400 }));
+    const response = await PATCH(patchRequest({ racebookIsLive: true }), { params: { id: raceId } });
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Votre compte n’est pas autorisé à publier ce format.",
+    });
+  });
+
   it("keeps an incomplete imported format hidden until its required fields are completed", async () => {
     organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
       id: raceId,
