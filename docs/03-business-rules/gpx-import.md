@@ -232,7 +232,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 
 ## Related Docs
 
-Moving a format between Masqué, Privé, and Public changes neither its GPX object nor parsed metrics; preview and runner publication reuse the same trace.
+Moving a format between Masqué, Privé, and Public changes neither its GPX object nor parsed metrics; preview and runner publication reuse the same trace. A failed Public transition under an already-active organizer offer remains an operational error rather than reopening checkout.
 
 - [race_aid_stations](../02-database/tables/race-aid-stations.md)
 - [plan_aid_stations](../02-database/tables/plan-aid-stations.md)

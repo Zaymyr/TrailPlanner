@@ -47,7 +47,7 @@ const publicationEventSchema = z.object({
 const entitlementSchema = z.object({
   edition_id: z.string().uuid(),
   tier: z.enum(["visibility", "essential", "complete", "signature"]),
-  source: z.enum(["system", "stripe", "manual_payment", "admin", "legacy_admin"]),
+  source: z.enum(["system", "stripe", "manual_payment", "admin", "complimentary", "legacy_admin"]),
   status: z.enum(["active", "revoked"]),
 });
 
@@ -77,6 +77,13 @@ const tierSchema = z.object({
   action: z.literal("setEditionTier"),
   editionId: z.string().uuid(),
   tier: z.enum(["visibility", "essential", "complete", "signature"]),
+});
+
+const grantSchema = z.object({
+  action: z.literal("setEditionGrant"),
+  editionId: z.string().uuid(),
+  tier: z.enum(["visibility", "essential", "complete", "signature"]),
+  origin: z.enum(["admin", "complimentary", "stripe", "manual_payment"]),
 });
 
 export async function GET(request: NextRequest) {
@@ -130,12 +137,40 @@ export async function PATCH(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const body = await request.json().catch(() => null);
-  const tier = tierSchema.safeParse(body);
-  if (tier.success) {
-    const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_entitlement`, {
+  const grant = grantSchema.safeParse(body);
+  if (grant.success) {
+    const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_grant`, {
       method: "POST",
       headers: serviceHeaders(auth.serviceConfig),
-      body: JSON.stringify({ p_edition_id: tier.data.editionId, p_admin_id: auth.user.id, p_tier: tier.data.tier }),
+      body: JSON.stringify({
+        p_edition_id: grant.data.editionId,
+        p_admin_id: auth.user.id,
+        p_tier: grant.data.tier,
+        p_origin: grant.data.origin,
+      }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      const detail = await response.text();
+      console.error("Unable to update organizer edition grant", detail);
+      if (/No matching paid organizer transaction/i.test(detail)) {
+        return jsonError("Aucun paiement valide ne correspond à ce pack et à cette origine.", 409);
+      }
+      return jsonError("Impossible de modifier l’origine de publication.", 502);
+    }
+    return withSecurityHeaders(NextResponse.json({ entitlement: await response.json() }));
+  }
+  const tier = tierSchema.safeParse(body);
+  if (tier.success) {
+    const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_grant`, {
+      method: "POST",
+      headers: serviceHeaders(auth.serviceConfig),
+      body: JSON.stringify({
+        p_edition_id: tier.data.editionId,
+        p_admin_id: auth.user.id,
+        p_tier: tier.data.tier,
+        p_origin: "complimentary",
+      }),
       cache: "no-store",
     });
     if (!response.ok) return jsonError("Unable to update organizer edition tier.", 502);

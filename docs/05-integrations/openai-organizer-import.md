@@ -75,7 +75,7 @@ Edition branding is also outside import reconciliation. The import model cannot 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
 - Replaying or completing the Organizer dashboard guide does not start website discovery, upload documents, or invoke OpenAI reconciliation. Assisted import remains an explicit admin-only action.
 - Grey masked-format choices and the compact private/public labels in Organizer navigation reflect persisted visibility only. They neither invoke reconciliation nor alter imported claims, and a masked imported draft remains editable by an authorized organizer/admin.
-- Publishing with an already-active organizer tier does not reopen checkout because imported drafts use higher-tier sections; those sections remain private unless their entitlement becomes effective, without changing any import claim.
+- Bulk or single-format publication with an already-active organizer tier does not reopen checkout because imported drafts use higher-tier sections; operational failures stay visible, and those sections remain private unless their entitlement becomes effective, without changing any import claim.
 
 - The self-service complex import route remains admin-only. Pro organizers receive an assisted-import contact CTA; Pro does not authorize direct LLM import execution.
 

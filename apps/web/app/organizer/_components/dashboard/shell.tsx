@@ -197,11 +197,13 @@ export function OrganizerSummaryHeader({
   const canPublishRacebook = editionTier !== "visibility";
   const entitlementSource = selectedEdition?.entitlement?.source;
   const purchase = selectedEdition?.purchase;
-  const isComplimentaryOffer = entitlementSource === "admin" || entitlementSource === "legacy_admin";
+  const isComplimentaryOffer = entitlementSource === "complimentary" || entitlementSource === "legacy_admin";
   const offerStatusLabel = purchase
     ? `Payé par ${purchase.paymentChannel === "bank_transfer" ? "virement" : "Stripe"}${purchase.paidAt ? ` le ${new Date(purchase.paidAt).toLocaleDateString("fr-FR")}` : ""}`
     : entitlementSource === "stripe" || entitlementSource === "manual_payment"
     ? "Paiement confirmé"
+    : entitlementSource === "admin" && editionTier !== "visibility"
+      ? `Activation administrateur · ${ORGANIZER_TIER_LABEL[editionTier]}`
     : isComplimentaryOffer && editionTier !== "visibility"
       ? `Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[editionTier]} € HT`
         : "Aucun paiement actif";

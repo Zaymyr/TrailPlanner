@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-09-09
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -99,7 +99,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Gotchas
 
-- The organizer-private catalog merge may reuse the same bounded event update preview, but it must deduplicate the event and its formats; it does not change announcement audience or visibility policies.
+- The organizer-only catalog merge may reuse the same bounded event update preview and keeps all managed formats regardless of runner visibility, but it must deduplicate the event and its formats; it does not change announcement audience or visibility policies.
 - The catalog onboarding parameter is presentation/navigation state only; organizer-update loading, targeting, visibility, and read behavior stay unchanged.
 - Guided RaceBook search filters already-loaded event/format rows in memory; it neither changes update visibility nor records the entered query in `race_event_updates`.
 

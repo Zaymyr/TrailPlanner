@@ -2368,7 +2368,11 @@ export function OrganizerDashboard({
       });
       const data = (await response.json().catch(() => null)) as { message?: string } | null;
       if (!response.ok) {
-        if (visibility === "public" && response.status === 403) {
+        if (
+          visibility === "public" &&
+          response.status === 403 &&
+          shouldOpenPublicationOffer(activeTier)
+        ) {
           openPricingDialog("publication");
           return;
         }

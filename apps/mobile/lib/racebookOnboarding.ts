@@ -22,17 +22,11 @@ export function getRacebookOnboardingResults<TRace, TEvent extends { races: TRac
 
 export function getOrganizerDemoResults<
   TRace,
-  TEvent extends { id: string; races: TRace[] },
+  TEvent extends { races: TRace[] },
 >(
   events: TEvent[],
-  organizerEventIds: ReadonlySet<string>,
-  isVisibleInDemo: (race: TRace) => boolean,
 ) {
-  return events
-    .map((event) => organizerEventIds.has(event.id)
-      ? { ...event, races: event.races.filter(isVisibleInDemo) }
-      : event)
-    .filter((event) => event.races.length > 0);
+  return events.filter((event) => event.races.length > 0);
 }
 
 export function mergeOrganizerCatalogEvents<

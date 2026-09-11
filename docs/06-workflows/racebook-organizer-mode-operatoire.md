@@ -48,9 +48,12 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Vérifier que chaque capture comporte les repères `1`, `2`, `3` et `4`, sans masquer le libellé de l’action ciblée.
 - Comparer les boutons et libellés du guide aux composants listés dans `related_files`.
 - Confirmer que les trois états restent `Masqué`, `Privé` et `Public`.
-- Avec Essentiel déjà actif, confirmer que `Publier` publie directement et que les sections Complet/Signature restent privées sans ouvrir la fenêtre d'achat.
+- Avec Essentiel déjà actif, confirmer que `Publier` et le passage d'un format à `Public` publient directement, que les sections Complet/Signature restent privées et qu'aucune erreur opérationnelle ne rouvre la fenêtre d'achat.
+- Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton RaceBook, qu'un format `Privé` garde un bouton RaceBook grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
 
 ## Do Not
+
+- Ne pas présenter les origines Admin et Offert comme équivalentes dans une future capture de l’administration ; Stripe et virement doivent rester adossés à un paiement réel.
 
 - Ne pas capturer un compte ou un événement réel.
 - Ne pas inclure de jeton, e-mail personnel ou URL privée dans les captures.

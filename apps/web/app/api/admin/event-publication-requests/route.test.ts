@@ -48,7 +48,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
   });
 
   it("grants a complimentary Essential tier through the audited admin function", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "essential", source: "admin" }]));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "essential", source: "complimentary" }]));
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
       method: "PATCH",
       headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
@@ -62,16 +62,17 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     const response = await PATCH(request);
     expect(response.status).toBe(200);
     const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-    expect(String(url)).toContain("/rpc/set_admin_organizer_edition_entitlement");
+    expect(String(url)).toContain("/rpc/set_admin_organizer_edition_grant");
     expect(JSON.parse(init?.body as string)).toMatchObject({
       p_edition_id: "33333333-3333-3333-3333-333333333333",
       p_admin_id: "00000000-0000-0000-0000-000000000099",
       p_tier: "essential",
+      p_origin: "complimentary",
     });
   });
 
   it("grants a complimentary Signature tier through the same audited admin function", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "signature", source: "admin" }]));
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "signature", source: "complimentary" }]));
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
       method: "PATCH",
       headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
@@ -89,6 +90,52 @@ describe("/api/admin/event-publication-requests PATCH", () => {
       p_edition_id: "33333333-3333-3333-3333-333333333333",
       p_admin_id: "00000000-0000-0000-0000-000000000099",
       p_tier: "signature",
+      p_origin: "complimentary",
+    });
+  });
+
+  it("records an offered publication origin through the guarded grant function", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ tier: "essential", source: "complimentary" }]));
+    const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
+      method: "PATCH",
+      headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "setEditionGrant",
+        editionId: "33333333-3333-3333-3333-333333333333",
+        tier: "essential",
+        origin: "complimentary",
+      }),
+    });
+
+    const response = await PATCH(request);
+    expect(response.status).toBe(200);
+    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(String(url)).toContain("/rpc/set_admin_organizer_edition_grant");
+    expect(JSON.parse(init?.body as string)).toMatchObject({
+      p_edition_id: "33333333-3333-3333-3333-333333333333",
+      p_admin_id: "00000000-0000-0000-0000-000000000099",
+      p_tier: "essential",
+      p_origin: "complimentary",
+    });
+  });
+
+  it("returns a clear conflict when no matching paid transaction exists", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(new Response("No matching paid organizer transaction exists", { status: 400 }));
+    const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
+      method: "PATCH",
+      headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "setEditionGrant",
+        editionId: "33333333-3333-3333-3333-333333333333",
+        tier: "essential",
+        origin: "stripe",
+      }),
+    });
+
+    const response = await PATCH(request);
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toMatchObject({
+      message: "Aucun paiement valide ne correspond à ce pack et à cette origine.",
     });
   });
 
