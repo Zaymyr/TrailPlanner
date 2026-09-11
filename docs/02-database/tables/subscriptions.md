@@ -1,7 +1,7 @@
 ---
 title: subscriptions Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
@@ -69,6 +69,7 @@ Summary:
 - Entitlement checks treat `active` and `trialing` as active when the period is missing or future, depending on code path.
 - Mobile RevenueCat sync clears Stripe ids by writing nulls for RevenueCat providers.
 - One-time organizer edition purchases are deliberately excluded; they use `organizer_edition_payments` and `organizer_edition_entitlements`.
+- Organizer Checkout Invoice ids and downloadable invoice history also remain on the organizer payment ledger; the shared webhook must not copy them into this subscription snapshot.
 
 ## Common Queries
 

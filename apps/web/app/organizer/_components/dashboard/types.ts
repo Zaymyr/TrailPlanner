@@ -10,6 +10,7 @@ import type {
   OrganizerImportClaimValue,
 } from '../../../../lib/organizer-import-engine';
 import type { OrganizerEditionEntitlement } from '../../../../lib/organizer-entitlements';
+import type { OrganizerPurchaseSummary } from '../../../../lib/organizer-payments';
 
 export type MembershipRow = {
   id: string;
@@ -112,6 +113,7 @@ export type RaceEventEdition = {
   is_current: boolean;
   is_visible?: boolean;
   entitlement?: OrganizerEditionEntitlement | null;
+  purchase?: OrganizerPurchaseSummary | null;
   serviceCount?: number;
   sponsorCount?: number;
   sponsorClicks?: number;

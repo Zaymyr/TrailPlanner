@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -247,7 +247,7 @@ Manual permission, constraint, draft-transition, and RPC checks live in `supabas
 
 ### Organizer Commercial Rights
 
-`organizer_edition_entitlements` and `organizer_edition_payments` are RLS-enabled service-only tables with explicit client revokes. A fixed-search-path private function returns only whether an edition is Pro so public relay/product child policies can enforce the commercial gate without exposing payment or grant rows.
+`organizer_edition_entitlements` and `organizer_edition_payments` are RLS-enabled service-only tables with explicit client revokes. The bank-transfer RPC is `SECURITY INVOKER`, executable only by `service_role`, and is reached only after trusted admin authorization. The `organizer-invoices` bucket is private and has no client Storage policy; organizers receive only short signed URLs after active event-membership verification. A fixed-search-path private function returns only whether an edition is Pro so public relay/product child policies can enforce the commercial gate without exposing payment or grant rows.
 
 ### Event Favorites and Organizer Updates
 

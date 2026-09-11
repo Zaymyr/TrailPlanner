@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -209,6 +209,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - Separating edition-common and per-format switches in that chooser does not change GPX ownership: route geometry and its related controls remain attached to the targeted format.
 - Race-scoped autosave also includes format-specific bib-pickup, equipment, and access overrides; keep that metadata in the shared race-details save set when changing GPX or ravito navigation behavior.
 - Organizer tab navigation is immediate, so late GPX preview responses must verify that their requested race is still active before replacing the current preview or station interpolation context.
+- A masked format remains selectable in the authorized Organizer workspace so its GPX can still be maintained. Its grey `Course masquée pour le public` cue changes no GPX object, metric, Storage permission, or runner visibility.
 - Route points can be used when track points are absent.
 - Waypoint-only files produce a `waypoint` point source and limited route geometry.
 - Do not delete source race aid stations without checking plan linkage once the linkage schema is verified.

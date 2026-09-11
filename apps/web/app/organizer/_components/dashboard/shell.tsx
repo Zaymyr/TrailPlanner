@@ -13,6 +13,12 @@ import type { ClaimRow, EditionRequestRow, MembershipRow, OrganizerEventDetail, 
 import { ContextualHelp, LiveToggle, RacebookVisibilityControl } from "./controls";
 import type { RacebookVisibilityState } from "./controls";
 
+const FORMAT_VISIBILITY_LABEL: Record<RacebookVisibilityState, string> = {
+  hidden: "Course masquée pour le public",
+  private: "RaceBook privé",
+  public: "Course et RaceBook publics",
+};
+
 const getProgressTone = (score: number) => {
   if (score < 20) {
     return {
@@ -128,6 +134,7 @@ export function OrganizerSummaryHeader({
   onDeleteEdition,
   onDeleteEvent,
   onReplayOnboarding,
+  onOpenInvoices,
 }: {
   selectedMembership: MembershipRow | null;
   event: OrganizerEventDetail | null;
@@ -158,6 +165,7 @@ export function OrganizerSummaryHeader({
   onDeleteEdition: () => Promise<boolean>;
   onDeleteEvent: () => Promise<boolean>;
   onReplayOnboarding: () => void;
+  onOpenInvoices: () => void;
 }) {
   const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
   const [duplicatePreviousEdition, setDuplicatePreviousEdition] = React.useState(true);
@@ -188,8 +196,11 @@ export function OrganizerSummaryHeader({
   const editionTier = selectedEdition?.entitlement?.status === "active" ? selectedEdition.entitlement.tier : "visibility";
   const canPublishRacebook = editionTier !== "visibility";
   const entitlementSource = selectedEdition?.entitlement?.source;
+  const purchase = selectedEdition?.purchase;
   const isComplimentaryOffer = entitlementSource === "admin" || entitlementSource === "legacy_admin";
-  const offerStatusLabel = entitlementSource === "stripe"
+  const offerStatusLabel = purchase
+    ? `Payé par ${purchase.paymentChannel === "bank_transfer" ? "virement" : "Stripe"}${purchase.paidAt ? ` le ${new Date(purchase.paidAt).toLocaleDateString("fr-FR")}` : ""}`
+    : entitlementSource === "stripe" || entitlementSource === "manual_payment"
     ? "Paiement confirmé"
     : isComplimentaryOffer && editionTier !== "visibility"
       ? `Offre ${ORGANIZER_TIER_LABEL[editionTier]} offerte — valeur : ${ORGANIZER_TIER_PRICE_EUR[editionTier]} € HT`
@@ -254,6 +265,18 @@ export function OrganizerSummaryHeader({
                 title="Afficher à nouveau la visite guidée de cet espace."
               >
                 Revoir le guide
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={(event) => {
+                  event.currentTarget.closest("details")?.removeAttribute("open");
+                  onOpenInvoices();
+                }}
+                className="!justify-start"
+                title="Consulter et télécharger les factures Stripe et virement."
+              >
+                Factures
               </Button>
               <div className="my-1 border-t border-border" />
               <Button
@@ -350,7 +373,8 @@ export function OrganizerSummaryHeader({
             );
           }) : <p className="text-sm text-muted-foreground">Aucune course pour le moment.</p>}
           <div className="flex items-center gap-2 pt-1 text-xs text-muted-foreground">
-            <strong className="font-semibold text-foreground">{ORGANIZER_TIER_LABEL[editionTier]}</strong>
+            <strong className="font-semibold text-foreground">Pack {ORGANIZER_TIER_LABEL[editionTier]}</strong>
+            {purchase ? <span>· {purchase.paymentChannel === "bank_transfer" ? "Virement" : "Stripe"}{purchase.paidAt ? ` · ${new Date(purchase.paidAt).toLocaleDateString("fr-FR")}` : ""}</span> : null}
             <ContextualHelp text={offerStatusLabel} label="Détail de l’offre" />
           </div>
         </div>
@@ -702,7 +726,7 @@ export function CompletionTabsPanel({
   onSelectModule,
   activeModule,
 }: {
-  tabs: Array<{ id: string; label: string }>;
+  tabs: Array<{ id: string; label: string; visibility?: RacebookVisibilityState }>;
   activeTab: string;
   activeRace: RaceFormat | null;
   completion: OrganizerCompletionSummary;
@@ -717,6 +741,9 @@ export function CompletionTabsPanel({
   const eventTab = tabs.find((tab) => tab.id === EVENT_TAB_ID);
   const formatTabs = tabs.filter((tab) => tab.id !== EVENT_TAB_ID && tab.id !== ADD_FORMAT_TAB_ID);
   const addFormatTab = tabs.find((tab) => tab.id === ADD_FORMAT_TAB_ID);
+
+  const getFormatOptionLabel = (tab: { label: string; visibility?: RacebookVisibilityState }) =>
+    `Format · ${tab.label}${tab.visibility ? ` — ${FORMAT_VISIBILITY_LABEL[tab.visibility]}` : ""}`;
 
   return (
     <section className="rounded-lg border border-border bg-card p-3 shadow-sm sm:p-4">
@@ -736,7 +763,11 @@ export function CompletionTabsPanel({
             </optgroup>
           ) : null}
           <optgroup label="Formats de course">
-            {formatTabs.map((tab) => <option key={tab.id} value={tab.id}>Format · {tab.label}</option>)}
+            {formatTabs.map((tab) => (
+              <option key={tab.id} value={tab.id} className={tab.visibility === "hidden" ? "text-muted-foreground" : undefined}>
+                {getFormatOptionLabel(tab)}
+              </option>
+            ))}
             {addFormatTab ? <option value={addFormatTab.id}>+ Ajouter un format</option> : null}
           </optgroup>
         </select>
@@ -776,14 +807,33 @@ export function CompletionTabsPanel({
                 aria-current={activeTab === tab.id ? "page" : undefined}
                 onClick={() => onTabChange(tab.id)}
                 className={cn(
-                  "inline-flex min-h-14 shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
-                  activeTab === tab.id
-                    ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
-                    : "border-transparent bg-card text-foreground hover:border-brand-border"
+                  "inline-flex min-h-14 shrink-0 items-center gap-2 rounded-lg border px-4 py-2 text-left text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+                  tab.visibility === "hidden"
+                    ? activeTab === tab.id
+                      ? "border-slate-400 bg-muted text-muted-foreground shadow-sm ring-2 ring-slate-300/40"
+                      : "border-border/60 bg-muted/60 text-muted-foreground hover:border-slate-400"
+                    : activeTab === tab.id
+                      ? "border-brand bg-brand-surface text-brand shadow-sm ring-2 ring-brand/25"
+                      : "border-transparent bg-card text-foreground hover:border-brand-border"
                 )}
               >
-                {tab.label}
-                {activeTab === tab.id ? <span className="h-2.5 w-2.5 rounded-full bg-brand ring-4 ring-brand/15" aria-hidden="true" /> : null}
+                <span>
+                  <span className="block">{tab.label}</span>
+                  {tab.visibility ? (
+                    <span className={cn(
+                      "mt-0.5 block text-[11px] font-medium",
+                      tab.visibility === "hidden" ? "text-slate-500" : "text-muted-foreground"
+                    )}>
+                      {FORMAT_VISIBILITY_LABEL[tab.visibility]}
+                    </span>
+                  ) : null}
+                </span>
+                {activeTab === tab.id ? (
+                  <span className={cn(
+                    "h-2.5 w-2.5 rounded-full ring-4",
+                    tab.visibility === "hidden" ? "bg-slate-400 ring-slate-300/30" : "bg-brand ring-brand/15"
+                  )} aria-hidden="true" />
+                ) : null}
               </button>
             ))}
             {addFormatTab ? (

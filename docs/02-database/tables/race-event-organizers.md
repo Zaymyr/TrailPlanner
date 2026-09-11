@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -21,6 +21,8 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/onboarding/route.ts
   - apps/web/app/api/organizer/events/[id]/onboarding/route.test.ts
   - apps/web/app/api/organizer/bootstrap/route.ts
+  - apps/web/app/api/organizer/invoices/route.ts
+  - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/app/organizer/_components/dashboard/types.ts
   - apps/web/app/organizer/_components/dashboard/onboarding.ts
   - apps/web/app/organizer/_components/dashboard/onboarding.test.ts
@@ -116,6 +118,7 @@ Summary:
 - That same membership also authorizes organizer edition-grouping flows on `races`: creating a brand-new format series, renaming `series_name`, duplicating a format into a new `edition_group_id`, or cloning a new yearly edition inside an existing `edition_group_id`.
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
 - Active membership also authorizes edition visibility changes and confirmed edition deletion. The route scopes the edition back to its parent event before mutating it; unlike whole-event deletion, this action is not owner-only.
+- Active membership authorizes the sanitized invoice history and invoice downloads for every edition of the parent event. It does not expose Stripe identifiers or private Storage paths, and revocation blocks both list and download routes immediately.
 - That same membership-gated GPX preview now drives organizer ravito cumulative D+ / D- autofill in the approved dashboard; changing a station km does not widen authorization, it only recomputes station details from the already-authorized format trace.
 - New organizer-created formats default to private (`is_live = false`, `racebook_preview_is_visible = true`, `racebook_is_live = false`) so active organizers can inspect the course and RaceBook before publication.
 - Admin-confirmed import formats may start as incomplete drafts. The same membership-gated race and GPX routes may complete their required-field markers later while keeping the format private until an explicit Public transition.

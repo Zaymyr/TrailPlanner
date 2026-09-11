@@ -72,7 +72,6 @@ import {
   createRaceFormFromEventDefaults,
   createRaceFormFromFormatDefaults,
   eventToForm,
-  filterRaceSeriesGroupsForWorkspace,
   getAvailableEditionYears,
   getEventEdition,
   getRaceEditionYear,
@@ -104,6 +103,7 @@ import {
   type OrganizerImportUploadProgress,
 } from "./dashboard/organizer-import-documents";
 import { shouldOpenOrganizerOnboarding } from "./dashboard/onboarding";
+import { OrganizerInvoicesDialog } from "./dashboard/invoices-dialog";
 import {
   buildInitialWebsiteImportFieldSelections,
   buildInitialWebsiteImportFormatDecisions,
@@ -325,6 +325,7 @@ export function OrganizerDashboard({
   const [toast, setToast] = useState<{ id: number; type: "success" | "error"; message: string } | null>(null);
   const [gpxPreview, setGpxPreview] = useState<GpxPreview | null>(null);
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
+  const [invoicesDialogOpen, setInvoicesDialogOpen] = useState(false);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
   const [pricingIntent, setPricingIntent] = useState<OrganizerPricingIntent>("upgrade");
   const [moduleSettingsOpen, setModuleSettingsOpen] = useState(false);
@@ -389,7 +390,9 @@ export function OrganizerDashboard({
   const raceSeriesGroups = useMemo(() => groupRacesBySeries(eventDetail?.races ?? []), [eventDetail?.races]);
   const activeEdition = getEventEdition(eventDetail, selectedEditionYear);
   const workspaceRaceSeriesGroups = useMemo(
-    () => filterRaceSeriesGroupsForWorkspace(raceSeriesGroups, eventDetail?.editions ?? [], selectedEditionYear),
+    () => raceSeriesGroups.filter((group) => group.races.some((race) =>
+      getRaceEditionYear(race, eventDetail?.editions ?? []) === selectedEditionYear
+    )),
     [eventDetail?.editions, raceSeriesGroups, selectedEditionYear]
   );
   const activeTier = activeEdition?.entitlement?.status === "active" ? activeEdition.entitlement.tier : "visibility";
@@ -410,8 +413,7 @@ export function OrganizerDashboard({
       : workspaceRaceSeriesGroups.find((group) => group.id === activeTab) ?? null;
   const activeRace =
     activeSeries?.races.find((race) =>
-      (race.edition_id === activeEdition?.id || getRaceEditionYearValue(race.race_date) === selectedEditionYear)
-      && race.racebook_preview_is_visible !== false
+      race.edition_id === activeEdition?.id || getRaceEditionYearValue(race.race_date) === selectedEditionYear
     ) ??
     null;
   activeRaceIdRef.current = activeRace?.id ?? null;
@@ -2946,6 +2948,14 @@ export function OrganizerDashboard({
     ...workspaceRaceSeriesGroups.map((group) => ({
       id: group.id,
       label: `${group.seriesName}${group.races.some((race) => race.data_status === "draft") ? " · brouillon" : ""}`,
+      visibility: ((): RacebookVisibilityState => {
+        const race = group.races.find((candidate) =>
+          candidate.edition_id === activeEdition?.id || getRaceEditionYearValue(candidate.race_date) === selectedEditionYear
+        );
+        if (race?.racebook_is_live === true) return "public";
+        if (race?.racebook_preview_is_visible === false) return "hidden";
+        return "private";
+      })(),
     })),
     { id: ADD_FORMAT_TAB_ID, label: "+" },
   ];
@@ -2954,6 +2964,12 @@ export function OrganizerDashboard({
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6">
       <OrganizerToast toast={toast} />
+      <OrganizerInvoicesDialog
+        open={invoicesDialogOpen}
+        onOpenChange={setInvoicesDialogOpen}
+        eventId={selectedEventId}
+        accessToken={accessToken}
+      />
       <OrganizerSummaryHeader
         selectedMembership={selectedMembership}
         event={eventDraft}
@@ -3016,6 +3032,7 @@ export function OrganizerDashboard({
         onDeleteEdition={deleteSelectedEdition}
         onDeleteEvent={deleteSelectedEvent}
         onReplayOnboarding={replayOrganizerOnboarding}
+        onOpenInvoices={() => setInvoicesDialogOpen(true)}
       />
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}

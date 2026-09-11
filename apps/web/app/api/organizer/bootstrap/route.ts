@@ -8,6 +8,7 @@ import {
   parseOrganizerRaceDetails,
 } from "../../../../lib/organizer-dashboard-details";
 import { loadOrganizerEditionEntitlements } from "../../../../lib/organizer-entitlements";
+import { loadOrganizerEditionPayments, selectEffectiveOrganizerPurchase } from "../../../../lib/organizer-payments";
 import { isAdminUser } from "../../../../lib/supabase";
 import { racebookBrandingRowSchema, toOrganizerBranding } from "../../../../lib/racebook-branding";
 
@@ -123,7 +124,8 @@ const eventDetailSchema = z.object({
 
 const mapEventDetail = (
   event: z.infer<typeof eventDetailSchema>,
-  entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {}
+  entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {},
+  payments: Awaited<ReturnType<typeof loadOrganizerEditionPayments>> = {}
 ) => ({
   ...event,
   editions: (event.race_event_editions ?? [])
@@ -136,6 +138,7 @@ const mapEventDetail = (
         ...fields
       } = edition;
       const branding = toOrganizerBranding(brandingRows ?? null);
+      const entitlement = entitlements[edition.id] ?? null;
       return {
         ...fields,
         serviceCount: services?.length ?? 0,
@@ -143,7 +146,8 @@ const mapEventDetail = (
         sponsorClicks: sponsors?.reduce((total, sponsor) => total + sponsor.click_count, 0) ?? 0,
         brandingConfigured: Boolean(branding.publishedAt),
         brandingUnpublished: branding.hasUnpublishedChanges,
-        entitlement: entitlements[edition.id] ?? null,
+        entitlement,
+        purchase: selectEffectiveOrganizerPurchase(payments[edition.id], entitlement?.tier),
       };
     }),
   organizerDetails: parseOrganizerEventDetails(event.organizer_details),
@@ -232,11 +236,12 @@ export async function GET(request: NextRequest) {
 
     const eventRow = z.array(eventDetailSchema).parse(await eventResponse.json())[0] ?? null;
     if (!eventRow) return jsonError("Event not found.", 404);
-    const entitlements = await loadOrganizerEditionEntitlements(
-      auth.serviceConfig,
-      (eventRow.race_event_editions ?? []).map((edition) => edition.id)
-    );
-    event = mapEventDetail(eventRow, entitlements);
+    const editionIds = (eventRow.race_event_editions ?? []).map((edition) => edition.id);
+    const [entitlements, payments] = await Promise.all([
+      loadOrganizerEditionEntitlements(auth.serviceConfig, editionIds),
+      loadOrganizerEditionPayments(auth.serviceConfig, editionIds),
+    ]);
+    event = mapEventDetail(eventRow, entitlements, payments);
   }
 
   return withSecurityHeaders(

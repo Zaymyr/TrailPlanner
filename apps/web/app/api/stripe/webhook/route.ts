@@ -13,6 +13,7 @@ type StripeCheckoutSessionEventData = {
   id?: string;
   customer?: string;
   payment_intent?: string;
+  invoice?: string;
   subscription?: string;
   subscription_status?: string;
   status?: string;
@@ -111,6 +112,7 @@ const handleOrganizerCheckout = async (
       status,
       stripe_checkout_session_id: payload.id,
       stripe_payment_intent_id: payload.payment_intent,
+      stripe_invoice_id: typeof payload.invoice === "string" ? payload.invoice : undefined,
       stripe_customer_id: payload.customer,
       amount_subtotal: payload.amount_subtotal,
       amount_tax: payload.total_details?.amount_tax,

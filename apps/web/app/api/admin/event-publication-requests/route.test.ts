@@ -31,8 +31,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     });
   });
 
-  it("publishes or hides Racebooks through the admin visibility function", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json(2));
+  it("rejects the retired admin Racebook visibility action", async () => {
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
       method: "PATCH",
       headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
@@ -44,13 +43,8 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     });
 
     const response = await PATCH(request);
-    expect(response.status).toBe(200);
-    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-    expect(String(url)).toContain("/rpc/set_race_event_racebook_visibility");
-    expect(JSON.parse(init?.body as string)).toMatchObject({
-      p_event_id: "22222222-2222-2222-2222-222222222222",
-      p_is_live: true,
-    });
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
   });
 
   it("grants a complimentary Essential tier through the audited admin function", async () => {
@@ -141,10 +135,14 @@ describe("/api/admin/event-publication-requests PATCH", () => {
         status: "active",
       }]))
       .mockResolvedValueOnce(Response.json([{
+        id: "99999999-9999-4999-8999-999999999999",
         edition_id: "33333333-3333-3333-3333-333333333333",
+        to_tier: "complete",
         status: "paid",
+        payment_channel: "stripe",
         amount_total: 11880,
         currency: "eur",
+        paid_at: "2026-08-20T12:00:00Z",
         created_at: "2026-08-20T12:00:00Z",
       }]));
 
@@ -157,6 +155,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     expect(payload.events[0].races).toHaveLength(1);
     expect(payload.events[0].races[0].name).toBe("42 km");
     expect(payload.events[0].entitlement.tier).toBe("complete");
+    expect(payload.events[0].payments[0].payment_channel).toBe("stripe");
     expect(payload.publicationRequests[0].requested_race.name).toBe("42 km");
     expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("requested_race:races");
   });

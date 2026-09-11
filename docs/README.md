@@ -114,6 +114,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Add New Mobile Screen](06-workflows/add-new-screen-mobile.md)
 - [Mobile UX Audit](06-workflows/mobile-ux-audit.md)
 - [Ship a Feature](06-workflows/ship-a-feature.md)
+- [Mode opératoire RaceBook organisateur](06-workflows/racebook-organizer-mode-operatoire.md)
 - [Debug Supabase Auth](06-workflows/debug-supabase-auth.md)
 
 ### 07 Design System

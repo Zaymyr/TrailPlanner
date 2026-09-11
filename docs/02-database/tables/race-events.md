@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -180,6 +180,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass. After every format row, one light-green panel shows only the newest or targeted announcement while collapsed; tapping `View more` reveals the other messages and loads the longer history from the dedicated updates route when needed.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and selected-module checks, not paid-tier checks. This permits private drafts for services and other higher-tier sections; public/mobile serializers still apply the effective entitlement. The JSON includes structured geocoded location metadata, official/social links, emergency contact, and the progressive module subtrees.
 - The organizer bootstrap/event detail reads embed only child ids or narrow status columns needed to derive completion summaries: per-format ravito/SAS/podium counts and per-edition service/sponsor/branding state. Raw nested rows are removed from the API response, so opening a lazy editor is not required to refresh a tile and editable collection payloads remain module-scoped.
+- Those authorized reads also attach one sanitized effective-purchase summary per edition. Whole-event deletion gathers manual invoice paths before the database cascade and removes their private Storage objects only after the event deletion succeeds.
 - Generic discovery may use a newer regulation to reject old-edition candidates and may consolidate detections only from compatible normalized identity evidence. Explicit format headings on the main page are eligible candidates, including KMS-style event-prefixed labels; repeated registration links do not demote a page that exposes several named distances. Up to two same-origin PDF links explicitly identified as PDFs may join the evidence set after bounded text extraction, without becoming database writes by themselves. Additional official URLs are classified by role and remain evidence sources rather than asserted formats; ambiguous event JSON-LD cannot collapse named page-specific identities. Anonymous same-distance detections stay separate for admin confirmation. Missing values such as D+ remain explicit and do not invalidate confirmed format existence.
 - Import field provenance and confidence are represented as transient source claims. Current values and previous-edition context are claims too, but historical claims remain reference-only. Only explicitly selected applicable claim ids, including an optional `officialWebsiteUrl`, may enter the row.
 - During website-import review, an organizer may replace the detected edition start date with another valid ISO date. The server validates it after membership/hash checks, upserts the corresponding `race_event_editions` row, and attaches imported formats to it. Matching rows in another year are not overwritten, while a missing format series reuses its `edition_group_id` when possible.

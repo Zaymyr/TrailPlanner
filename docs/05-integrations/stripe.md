@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -10,6 +10,8 @@ related_files:
   - apps/web/app/api/stripe/price/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
   - apps/web/app/api/stripe/webhook/route.test.ts
+  - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
+  - apps/web/app/api/organizer/invoices/[paymentId]/download/route.test.ts
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/organizer/publication-checkout/route.test.ts
   - apps/web/lib/organizer-publication-tier.ts
@@ -115,7 +117,9 @@ Subscription events upsert:
 
 `/api/organizer/publication-checkout` accepts an event, edition, target tier, and optional publication intent. It verifies the authenticated non-anonymous user, active event membership, edition ownership, publication readiness, current entitlement, and absence of an incompatible active purchase. The server chooses and verifies one of six configured one-time EUR Prices: direct Essential/Complete/Signature at 99/199/349 € HT, Essential-to-Complete at 100 € HT, Essential-to-Signature at 250 € HT, or Complete-to-Signature at 150 € HT.
 
-Checkout enables Stripe Tax, billing address and tax-id collection, and invoice creation. Metadata binds the payment row, edition, user, and transition. The webhook records subtotal, tax, total, currency, Customer, Session, and PaymentIntent before recalculating the effective edition entitlement. A browser success return never grants access by itself. When the checkout was opened from the publication action, the return marker only asks the dashboard to wait for that trusted entitlement and then call the normal protected edition publication route; URL parameters cannot publish directly.
+Checkout enables Stripe Tax, billing address and tax-id collection, and invoice creation. Metadata binds the payment row, edition, user, and transition. The webhook records subtotal, tax, total, currency, Customer, Session, PaymentIntent, and the Checkout Session Invoice before recalculating the effective edition entitlement. A browser success return never grants access by itself. When the checkout was opened from the publication action, the return marker only asks the dashboard to wait for that trusted entitlement and then call the normal protected edition publication route; URL parameters cannot publish directly.
+
+The authenticated organizer invoice download route retrieves `invoice_pdf` from the stored Invoice id. For historical rows without that id, it retrieves the bound Checkout Session once, persists its Invoice reference, then resolves the PDF. A missing Invoice or `invoice_pdf` is returned as “still being prepared”; Stripe identifiers are never returned in the organizer list DTO.
 
 Before creating the Checkout Session, the server recomputes the minimum publication tier from selected, populated persisted modules and records that recommendation in Checkout and PaymentIntent metadata. The requested target tier still determines the server-owned Price: choosing a lower paid tier is valid, with higher-tier draft sections retained but excluded from public responses.
 

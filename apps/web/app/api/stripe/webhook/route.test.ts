@@ -26,6 +26,7 @@ describe("organizer Stripe webhooks", () => {
       id: "cs_paid",
       payment_status: "paid",
       payment_intent: "pi_paid",
+      invoice: "in_paid",
       amount_subtotal: 9_900,
       amount_total: 11_880,
       total_details: { amount_tax: 1_980 },
@@ -39,6 +40,7 @@ describe("organizer Stripe webhooks", () => {
       amount_subtotal: 9_900,
       amount_tax: 1_980,
       amount_total: 11_880,
+      stripe_invoice_id: "in_paid",
     });
     expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain("/rpc/recalculate_organizer_edition_entitlement");
   });

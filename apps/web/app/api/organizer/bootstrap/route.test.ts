@@ -246,3 +246,8 @@ vi.mock("../../../../lib/supabase", () => ({
 vi.mock("../../../../lib/organizer-entitlements", () => ({
   loadOrganizerEditionEntitlements: () => Promise.resolve({}),
 }));
+
+vi.mock("../../../../lib/organizer-payments", () => ({
+  loadOrganizerEditionPayments: () => Promise.resolve({}),
+  selectEffectiveOrganizerPurchase: () => null,
+}));

@@ -1,5 +1,5 @@
 -- Organizer commercial entitlement transition checks.
--- Run after 20260908093008_add_organizer_offer_modules_v2.sql in a privileged SQL session.
+-- Run after 20260911073318_add_organizer_manual_payments_and_invoices.sql in a privileged SQL session.
 
 begin;
 
@@ -199,6 +199,134 @@ begin
       and status = 'active'
   ) then
     raise exception 'Expected an active admin override to remain higher priority than refunded Stripe payments.';
+  end if;
+end $$;
+
+insert into auth.users (
+  id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
+  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+)
+values (
+  '10000000-0000-0000-0000-000000000098',
+  '00000000-0000-0000-0000-000000000000',
+  'authenticated',
+  'authenticated',
+  'organizer-manual-payment-admin@example.test',
+  '',
+  now(),
+  '{"role":"admin"}'::jsonb,
+  '{}'::jsonb,
+  now(),
+  now()
+);
+
+select public.record_admin_organizer_bank_transfer(
+  (select edition_id from _organizer_offer_fixture),
+  '10000000-0000-0000-0000-000000000098',
+  'signature',
+  now() - interval '1 day',
+  25000,
+  5000
+);
+
+do $$
+declare
+  duplicate_rejected boolean := false;
+  downgrade_rejected boolean := false;
+  visibility_rejected boolean := false;
+  future_date_rejected boolean := false;
+begin
+  if not exists (
+    select 1
+    from public.organizer_edition_entitlements
+    where edition_id = (select edition_id from _organizer_offer_fixture)
+      and tier = 'signature'
+      and source = 'manual_payment'
+      and status = 'active'
+  ) then
+    raise exception 'Expected an admin override to be converted to a real manual payment.';
+  end if;
+
+  if not exists (
+    select 1
+    from public.organizer_edition_payments
+    where edition_id = (select edition_id from _organizer_offer_fixture)
+      and payment_channel = 'bank_transfer'
+      and amount_subtotal = 25000
+      and amount_tax = 5000
+      and amount_total = 30000
+      and currency = 'eur'
+      and status = 'paid'
+  ) then
+    raise exception 'Expected a paid EUR bank-transfer ledger row with a calculated total.';
+  end if;
+
+  begin
+    perform public.record_admin_organizer_bank_transfer(
+      (select edition_id from _organizer_offer_fixture),
+      '10000000-0000-0000-0000-000000000098',
+      'signature', now() - interval '1 day', 25000, 5000
+    );
+  exception when others then
+    duplicate_rejected := true;
+  end;
+  if not duplicate_rejected then
+    raise exception 'Expected a duplicate paid tier to be rejected.';
+  end if;
+
+  begin
+    perform public.record_admin_organizer_bank_transfer(
+      (select edition_id from _organizer_offer_fixture),
+      '10000000-0000-0000-0000-000000000098',
+      'complete', now() - interval '1 day', 10000, 2000
+    );
+  exception when others then
+    downgrade_rejected := true;
+  end;
+  if not downgrade_rejected then
+    raise exception 'Expected a manual-payment downgrade to be rejected.';
+  end if;
+
+  begin
+    perform public.record_admin_organizer_bank_transfer(
+      (select edition_id from _organizer_offer_fixture),
+      '10000000-0000-0000-0000-000000000098',
+      'visibility', now() - interval '1 day', 0, 0
+    );
+  exception when others then
+    visibility_rejected := true;
+  end;
+  if not visibility_rejected then
+    raise exception 'Expected Visibility to be rejected as a paid bank-transfer tier.';
+  end if;
+
+  begin
+    perform public.record_admin_organizer_bank_transfer(
+      (select edition_id from _organizer_offer_fixture),
+      '10000000-0000-0000-0000-000000000098',
+      'signature', now() + interval '1 day', 25000, 5000
+    );
+  exception when others then
+    future_date_rejected := true;
+  end;
+  if not future_date_rejected then
+    raise exception 'Expected a future bank-transfer date to be rejected.';
+  end if;
+
+  if has_function_privilege('authenticated', 'public.record_admin_organizer_bank_transfer(uuid,uuid,text,timestamptz,integer,integer,text,text)', 'execute') then
+    raise exception 'Authenticated clients must not execute the bank-transfer RPC.';
+  end if;
+  if not has_function_privilege('service_role', 'public.record_admin_organizer_bank_transfer(uuid,uuid,text,timestamptz,integer,integer,text,text)', 'execute') then
+    raise exception 'The service role must execute the bank-transfer RPC.';
+  end if;
+  if not exists (
+    select 1 from storage.buckets
+    where id = 'organizer-invoices'
+      and public = false
+      and file_size_limit = 10485760
+      and allowed_mime_types = array['application/pdf']
+  ) then
+    raise exception 'Expected a private 10 MB PDF-only organizer invoice bucket.';
   end if;
 end $$;
 

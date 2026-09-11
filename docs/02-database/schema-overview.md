@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -143,7 +143,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
 | `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
 | `organizer_edition_entitlements` | Current commercial tier for one organizer event edition. |
-| `organizer_edition_payments` | Stripe attempt/history ledger used to derive organizer edition rights. |
+| `organizer_edition_payments` | Stripe and paid-bank-transfer history, invoice references, and ledger used to derive organizer edition rights. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_relay_points` | Ordered relay handover points, optionally linked to source aid stations. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
