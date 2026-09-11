@@ -9,6 +9,7 @@ import {
   type OrganizerAidStationDetails,
 } from "../../../../lib/organizer-dashboard-details";
 import type { FuelProduct } from "../../../../lib/product-types";
+import type { OrganizerTier } from "../../../../lib/organizer-entitlements";
 import type { OrganizerModuleId } from "../completion";
 import { ADD_FORMAT_TAB_ID, EVENT_MODULE_IDS, EVENT_TAB_ID, FORMAT_MODULE_IDS } from "./constants";
 import type {
@@ -66,6 +67,8 @@ export const shouldSaveActiveRaceBeforeRacebookChange = (
   activeRaceId: string | null | undefined,
   requestedRaceId: string
 ) => activeRaceId === requestedRaceId;
+
+export const shouldOpenPublicationOffer = (tier: OrganizerTier) => tier === "visibility";
 
 export const createEmptyEventForm = (): EventFormValues => ({
   name: "",

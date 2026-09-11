@@ -27,6 +27,7 @@ related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
+  - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
@@ -72,7 +73,7 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 
 `organizer_racebook_module_settings` is service-only: client roles have no table privileges or policies. Published structured collections use the narrow `private.racebook_module_is_enabled` security-definer helper to combine the active entitlement and stored module switch. The helper exposes only a boolean and keeps its explicit search path and execute grants bounded to the API roles.
 
-`publish_organizer_edition_racebooks` is likewise `SECURITY INVOKER` and executable only by `service_role`. The Next.js route verifies trusted organizer/admin access before calling it; the function independently rechecks edition visibility and entitlement, and publishes only complete formats selected through `racebook_preview_is_visible`.
+`publish_organizer_edition_racebooks` is likewise `SECURITY INVOKER` and executable only by `service_role`. The Next.js route verifies trusted organizer/admin access before calling it; the function independently rechecks edition visibility and entitlement, and atomically restores course/preview/RaceBook visibility for complete public-source formats selected through `racebook_preview_is_visible`. It deliberately does not require prior `is_live`, because organizer-private rows are the normal input.
 
 `record_admin_organizer_bank_transfer` is also invoker-security and service-role-only. The admin route verifies `app_metadata`, validates date/money/PDF input, and cleans an uploaded object if the atomic database write fails. `organizer-invoices` has no direct client policy; the download route rechecks active parent-event membership before signing a manual object for 60 seconds.
 
@@ -173,6 +174,7 @@ Use:
 - Organizer dashboard onboarding is a column-only addition to the existing membership row. The browser completion endpoint must still verify the bearer user owns an active membership for the requested event before writing with service role.
 - Read receipts require both owner equality and a live parent event; ownership alone must not allow receipts for hidden draft announcements.
 - Racebook publication remains behind service routes: organizer toggles require active event membership, a complete format, and an active edition-level `racebook.publish` capability. The atomic RPC writes durable unlock provenance on first publication; legacy publication requests remain service-only audit data.
+- Keep the bulk publication SQL test asserting both sides of the private-to-public transition: the update sets `is_live = true`, and its predicate never requires `race_row.is_live = true`.
 - Organizer-private mobile catalog reads first resolve the caller's own active event memberships, then request preview-selected formats only for those event ids. The `races_select` policy exposes public-source rows to everyone only when `is_live = true`, while creators, active parent-event organizers, and trusted `app_metadata` admins retain their scoped reads. Masked/private/public transitions remain server-mediated, and the publication RPC stays `SECURITY INVOKER` with execution restricted to `service_role`.
 - Superseding organizer-offer rule: paid publication uses a service-only edition entitlement and atomic RPC. Notification, relay, and station-product clients have no direct mutation grant; public Pro overlays use only the narrow private boolean helper.
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.

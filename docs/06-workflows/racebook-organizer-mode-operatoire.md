@@ -48,6 +48,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Vérifier que chaque capture comporte les repères `1`, `2`, `3` et `4`, sans masquer le libellé de l’action ciblée.
 - Comparer les boutons et libellés du guide aux composants listés dans `related_files`.
 - Confirmer que les trois états restent `Masqué`, `Privé` et `Public`.
+- Avec Essentiel déjà actif, confirmer que `Publier` publie directement et que les sections Complet/Signature restent privées sans ouvrir la fenêtre d'achat.
 
 ## Do Not
 

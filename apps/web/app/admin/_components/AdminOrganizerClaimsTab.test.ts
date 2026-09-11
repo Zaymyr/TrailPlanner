@@ -10,6 +10,8 @@ describe("Admin Organizer purchases", () => {
     expect(source).toContain("Montant HT");
     expect(source).toContain("Total TTC");
     expect(source).toContain("Facture PDF facultative");
+    expect(source).toContain("Pack actuellement actif");
+    expect(source).toContain('role="alert"');
     expect(source).not.toContain("<LiveToggle");
     expect(source).not.toContain('action: "setRacebookVisibility"');
   });

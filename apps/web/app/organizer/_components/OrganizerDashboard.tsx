@@ -84,6 +84,7 @@ import {
   getOrganizerDirtyScopeKey,
   isOrganizerScopeSavePending,
   shouldSaveActiveRaceBeforeRacebookChange,
+  shouldOpenPublicationOffer,
   normalizeGpxPreview,
   normalizeOrganizerEventDetail,
   raceToForm,
@@ -2195,7 +2196,7 @@ export function OrganizerDashboard({
       }
       return;
     }
-    if (activeTier !== "visibility" && privateDraftCount === 0) {
+    if (!shouldOpenPublicationOffer(activeTier)) {
       void publishEditionRacebooks();
       return;
     }

@@ -20,6 +20,14 @@ begin
   if not has_function_privilege('service_role', 'public.publish_organizer_edition_racebooks(uuid, uuid)', 'execute') then
     raise exception 'Service role must be able to publish selected edition RaceBooks.';
   end if;
+  if lower(pg_get_functiondef('public.publish_organizer_edition_racebooks(uuid, uuid)'::regprocedure))
+      not like '%set is_live = true,%' then
+    raise exception 'Edition publication must restore catalog visibility for selected private formats.';
+  end if;
+  if lower(pg_get_functiondef('public.publish_organizer_edition_racebooks(uuid, uuid)'::regprocedure))
+      like '%race_row.is_live = true%' then
+    raise exception 'Edition publication must not require the private format to be live already.';
+  end if;
   if has_table_privilege('anon', 'public.organizer_racebook_module_settings', 'select')
     or has_table_privilege('authenticated', 'public.organizer_racebook_module_settings', 'select') then
     raise exception 'Module settings must not be readable directly by clients.';

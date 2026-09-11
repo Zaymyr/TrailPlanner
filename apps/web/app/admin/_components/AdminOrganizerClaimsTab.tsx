@@ -146,6 +146,13 @@ type Props = {
   accessToken: string | null;
 };
 
+const organizerTierLabel: Record<NonNullable<RacebookPublicationEvent["entitlement"]>["tier"], string> = {
+  visibility: "Visibilité",
+  essential: "Essentiel",
+  complete: "Complet",
+  signature: "Signature",
+};
+
 export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [organizerAdminTab, setOrganizerAdminTab] = useState<"publication" | "access">("publication");
   const [claims, setClaims] = useState<OrganizerClaim[]>([]);
@@ -405,6 +412,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
 
   const openPurchaseDialog = (event: RacebookPublicationEvent) => {
     const currentTier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
+    setError(null);
     setPurchaseTier(currentTier === "essential" ? "complete" : currentTier === "complete" || currentTier === "signature" ? "signature" : "essential");
     setPurchaseDate(currentParisDate());
     setPurchaseSubtotal("");
@@ -725,8 +733,16 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             <DialogTitle>Enregistrer un achat</DialogTitle>
             <DialogDescription>
               Paiement reçu par virement pour {purchaseEvent?.name ?? "cet événement"}. Cette action accorde immédiatement le niveau acheté.
+              {purchaseEvent?.entitlement?.status === "active"
+                ? ` Pack actuellement actif : ${organizerTierLabel[purchaseEvent.entitlement.tier]}${purchaseEvent.entitlement.source === "admin" || purchaseEvent.entitlement.source === "legacy_admin" ? " (activation offerte)" : ""}.`
+                : ""}
             </DialogDescription>
           </DialogHeader>
+          {error ? (
+            <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </p>
+          ) : null}
           <div className="grid gap-4 py-2 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label htmlFor="organizer-purchase-tier">Pack acheté</Label>
