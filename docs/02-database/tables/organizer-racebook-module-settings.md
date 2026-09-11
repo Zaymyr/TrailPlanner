@@ -1,7 +1,7 @@
 ---
 title: organizer_racebook_module_settings
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-11
 ai_priority: high
 related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
@@ -36,6 +36,8 @@ RLS is enabled and all `anon`/`authenticated` table privileges are revoked. Only
 The organizer UI stages switch changes locally and sends them together. After membership, edition ownership, and format parentage checks, the route performs the independent row mutations concurrently and returns one refreshed payload; no tier check blocks enabling a module as a private draft.
 
 Authoring state is `is_enabled`; effective public state is `is_enabled AND offer allows module AND RaceBook is published`. A downgrade therefore masks content without deleting it. Mobile receives only the effective map from the RaceBook bootstrap API, never raw settings or entitlement rows.
+
+The adjacent SQL checks also protect the bulk publication boundary: selected private formats must become catalog/RaceBook live without requiring prior catalog liveness. This does not change module scope or expose raw settings.
 
 ## Initialization and Duplication
 

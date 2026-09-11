@@ -13,6 +13,7 @@ import {
   getOrganizerDirtyScopeKey,
   getRaceEditionYear,
   isOrganizerScopeSavePending,
+  shouldOpenPublicationOffer,
   shouldSaveActiveRaceBeforeRacebookChange,
   syncAidStationsWithGpxPreview,
 } from "./helpers";
@@ -71,6 +72,13 @@ describe("organizer dashboard helpers", () => {
     expect(shouldSaveActiveRaceBeforeRacebookChange("incomplete-race", "publishable-race")).toBe(false);
     expect(shouldSaveActiveRaceBeforeRacebookChange("publishable-race", "publishable-race")).toBe(true);
     expect(shouldSaveActiveRaceBeforeRacebookChange(null, "publishable-race")).toBe(false);
+  });
+
+  it("publishes directly with every active paid offer", () => {
+    expect(shouldOpenPublicationOffer("visibility")).toBe(true);
+    expect(shouldOpenPublicationOffer("essential")).toBe(false);
+    expect(shouldOpenPublicationOffer("complete")).toBe(false);
+    expect(shouldOpenPublicationOffer("signature")).toBe(false);
   });
 
   it("copies the exact parsed GPX metrics into the race form", () => {

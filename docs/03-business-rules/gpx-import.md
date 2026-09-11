@@ -224,6 +224,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - Imported or manually added source aid stations do not count as published organizer mobile content by themselves; the mobile Racebook gate still needs explicit organizer details.
 - The organizer notification selector may target a live format after its GPX or metadata work is complete, but notification scope does not parse, copy, or mutate GPX data.
 - An incomplete GPX or unsaved GPX-related draft on one format must not block the publication switch of another complete format; foreground persistence is required only for the switched format.
+- Once an edition already has Essential or above, higher-tier GPX-adjacent drafts must not reopen checkout during bulk publication; they remain stored and are filtered from runner output by the active tier.
 - Removing a sent organizer announcement from public history also leaves GPX files, parsed metrics, and ravito interpolation state unchanged.
 - Editing the event-level website, Instagram, or Facebook URL in the same Organizer information component does not change GPX parsing, storage, or format metrics.
 - Public course visualization must remain a server-parsed preview. Do not expose a signed/private GPX URL, raw file contents, or a download action from the SEO page.
