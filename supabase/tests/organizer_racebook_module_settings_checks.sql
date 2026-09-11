@@ -1,5 +1,5 @@
 -- RaceBook module scope, uniqueness and service-only access checks.
--- Run after 20260910170144_separate_racebook_preview_visibility.sql in a privileged SQL session.
+-- Run after 20260911120508_fix_single_format_publication_admin_check.sql in a privileged SQL session.
 
 begin;
 
@@ -21,12 +21,26 @@ begin
     raise exception 'Service role must be able to publish selected edition RaceBooks.';
   end if;
   if lower(pg_get_functiondef('public.set_organizer_racebook_visibility(uuid, uuid, boolean)'::regprocedure))
-      not like '%raw_app_meta_data%' then
-    raise exception 'Format publication must recognize trusted app-metadata admins.';
+      not like '%private.user_has_trusted_admin_role%' then
+    raise exception 'Format publication must use the private trusted-admin helper.';
   end if;
   if lower(pg_get_functiondef('public.set_organizer_racebook_visibility(uuid, uuid, boolean)'::regprocedure))
+      like '%auth.users%' then
+    raise exception 'The service-role publication RPC must not select auth.users directly.';
+  end if;
+  if not has_function_privilege('service_role', 'private.user_has_trusted_admin_role(uuid)', 'execute')
+    or has_function_privilege('anon', 'private.user_has_trusted_admin_role(uuid)', 'execute')
+    or has_function_privilege('authenticated', 'private.user_has_trusted_admin_role(uuid)', 'execute') then
+    raise exception 'The trusted-admin helper must be executable only by service_role.';
+  end if;
+  if not (select prosecdef from pg_proc where oid = 'private.user_has_trusted_admin_role(uuid)'::regprocedure) then
+    raise exception 'The private trusted-admin helper must own the privileged Auth lookup.';
+  end if;
+  if lower(pg_get_functiondef('private.user_has_trusted_admin_role(uuid)'::regprocedure))
+      not like '%raw_app_meta_data%'
+    or lower(pg_get_functiondef('private.user_has_trusted_admin_role(uuid)'::regprocedure))
       like '%raw_user_meta_data%' then
-    raise exception 'Format publication must not authorize from user metadata.';
+    raise exception 'The trusted-admin helper must use only app metadata.';
   end if;
   if lower(pg_get_functiondef('public.publish_organizer_edition_racebooks(uuid, uuid)'::regprocedure))
       not like '%set is_live = true,%' then

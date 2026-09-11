@@ -43,6 +43,7 @@ related_files:
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
@@ -288,6 +289,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 `supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql` separates operational Admin grants from explicit Offert grants with the `complimentary` source. Its service-role-only invoker RPC lets the admin change pack/origin, while accepting Stripe or virement only when the valid payment ledger resolves to the requested tier and channel.
 
 `supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql` aligns single-format publication with the server route by accepting active event organizers or trusted Auth app-metadata admins, while retaining service-role-only execution, readiness, edition, and entitlement checks. It also lets a real direct bank transfer replace a higher Admin/Offert grant with the paid tier actually selected; ledger-backed duplicate and downgrade protections remain unchanged.
+
+`supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql` repairs the service-only single-format publication RPC. The service role cannot read `auth.users` directly, so a private fixed-output security-definer helper now performs only the trusted `raw_app_meta_data` admin lookup; the mutating RPC remains security-invoker and service-role-only. Active organizers and trusted admins can publish one complete format under a visible, entitled edition without broadening Auth-table grants.
 
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
 
