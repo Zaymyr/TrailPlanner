@@ -7,6 +7,7 @@ import {
   getSupabaseServiceConfig,
 } from "../../../../lib/supabase";
 import { withSecurityHeaders } from "../../../../lib/http";
+import { setPrivateRacebookCacheHeaders, setPublicRacebookCacheHeaders } from "../../../../lib/racebook-cache";
 import { getUtmbRaceData } from "../../../../lib/utmb-race-import";
 import { getTraceDeTrailRaceData } from "../../../../lib/tracedetrail-race-import";
 
@@ -42,7 +43,7 @@ export async function GET(request: NextRequest) {
   const currentUser = token ? await fetchSupabaseUser(token, supabaseAnon) : null;
 
   const raceRes = await fetch(
-    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=gpx_storage_path,trace_provider,trace_id,source_url,external_site_url,is_live,is_public,created_by,race_events(is_live)&limit=1`,
+    `${supabaseService.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=event_id,edition_id,gpx_storage_path,trace_provider,trace_id,source_url,external_site_url,is_live,is_public,created_by,race_events(is_live)&limit=1`,
     {
       headers: {
         apikey: supabaseService.supabaseServiceRoleKey,
@@ -57,6 +58,8 @@ export async function GET(request: NextRequest) {
   }
 
   const rows = (await raceRes.json().catch(() => [])) as Array<{
+    event_id?: string | null;
+    edition_id?: string | null;
     gpx_storage_path?: string | null;
     trace_provider?: string | null;
     trace_id?: number | null;
@@ -71,11 +74,10 @@ export async function GET(request: NextRequest) {
   const eventIsLive = Array.isArray(race?.race_events)
     ? race.race_events.some((event) => event?.is_live === true)
     : race?.race_events?.is_live === true;
+  const publicAccess = Boolean(race && (race.is_live === true || race.is_public === true || eventIsLive));
   const canAccess = Boolean(
     race &&
-      (race.is_live === true ||
-        race.is_public === true ||
-        eventIsLive ||
+      (publicAccess ||
         (currentUser?.id && race.created_by === currentUser.id)),
   );
   if (!canAccess) {
@@ -187,15 +189,8 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return withSecurityHeaders(
-    NextResponse.json(
-      { elevationProfile, routePreviewPoints },
-      {
-        headers: {
-          "Cache-Control":
-            race?.is_live === true ? "public, max-age=3600, s-maxage=3600" : "private, no-store",
-        },
-      }
-    )
-  );
+  const response = withSecurityHeaders(NextResponse.json({ elevationProfile, routePreviewPoints }));
+  return publicAccess
+    ? setPublicRacebookCacheHeaders(response, { raceId, editionId: race?.edition_id, eventId: race?.event_id })
+    : setPrivateRacebookCacheHeaders(response);
 }

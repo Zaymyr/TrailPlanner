@@ -1,7 +1,7 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -32,4 +32,10 @@ Public/preview read and mutation rules are identical to other RaceBook content: 
 
 The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table. Published primary surfaces may style SAS cards and accent-tinted positive information rows may highlight the schedule, but neither changes time authority or ordering.
 
+The two-line clamp for bib-pickup address links is isolated from SAS rendering and does not change start-wave data or ordering.
+
+Disabling the format access override hides saved runner information only; it does not change SAS rows or start-time authority.
+
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local SAS edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting start waves.
+
+Published rows travel in the consolidated RaceBook CDN snapshot. A successful atomic SAS replacement invalidates the parent race tag after persistence.

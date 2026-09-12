@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -155,6 +155,7 @@ where ree.event_id = :event_id
 - Admins can explicitly return an edition entitlement to Visibilité; this hides attached RaceBooks while retaining catalog visibility and all stored content.
 
 - Do not use `race_events.race_date` as the canonical organizer edition date; it is a compatibility mirror.
+- Edition visibility, deletion, publication, module, sponsor, branding, and services writes invalidate the edition/event RaceBook cache tags only after their durable operation succeeds.
 - Application writes should persist `races.edition_id`. The database uses the format year only as a service-side compatibility repair when a dated event format arrives without one.
 - Do not replace `races.edition_group_id` with `edition_id`: one groups a format series across years, the other groups all formats in one event year.
 - A multi-day edition may end in the following calendar year; only its start year defines `edition_year`.

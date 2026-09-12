@@ -15,6 +15,7 @@ import {
 } from "../../../../../lib/organizer-dashboard-details";
 import { isOrganizerEditionModuleSelected, isOrganizerRaceModuleSelected } from "../../../../../lib/organizer-module-settings";
 import { loadOrganizerPublicationRequirement } from "../../../../../lib/organizer-publication-tier";
+import { invalidateRacebookCache } from "../../../../../lib/racebook-cache";
 
 const optionalPatchTextOrNull = z
   .union([z.string().trim(), z.null()])
@@ -281,6 +282,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const updated = z.array(raceRowSchema).parse(await response.json())[0] ?? null;
+  await invalidateRacebookCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(
     NextResponse.json({
       race: updated
@@ -343,5 +345,6 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     await deleteStorageObject(auth.serviceConfig, "race-images", raceImageStoragePath);
   }
 
+  await invalidateRacebookCache({ raceId: parsedParams.data.id, eventId: race.event_id });
   return withSecurityHeaders(NextResponse.json({ deleted: true, raceId: parsedParams.data.id, eventId: race.event_id }));
 }

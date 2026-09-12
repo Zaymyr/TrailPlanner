@@ -5,6 +5,7 @@ import { withSecurityHeaders } from "../../../lib/http";
 import { isOrganizerForEvent, serviceHeaders } from "../../../lib/organizer";
 import { hasOrganizerRacebookContent, racebookSponsorRowSchema } from "../../../lib/racebook-sponsors";
 import { racebookBrandingRowSchema, toPublishedBranding } from "../../../lib/racebook-branding";
+import { setPrivateRacebookCacheHeaders, setPublicRacebookCacheHeaders } from "../../../lib/racebook-cache";
 import { loadOrganizerEditionEntitlement } from "../../../lib/organizer-entitlements";
 import { effectiveOrganizerModules, loadOrganizerModuleSettings } from "../../../lib/organizer-module-settings";
 import { ORGANIZER_MODULES, type OrganizerModuleKey } from "../../../lib/organizer-modules";
@@ -75,7 +76,8 @@ export async function GET(request: NextRequest) {
   if (!hasOrganizerRacebookContent(event?.organizer_details, race.organizer_details, race.participation_mode, modules)) {
     return withSecurityHeaders(NextResponse.json({ message: "RaceBook not available." }, { status: 404 }));
   }
-  let canOpen = race.is_live && race.racebook_is_live && event?.is_live === true;
+  const isPublic = race.is_live && race.racebook_is_live && event?.is_live === true;
+  let canOpen = isPublic;
 
   if (!canOpen) {
     const token = extractBearerToken(request.headers.get("authorization"));
@@ -108,10 +110,14 @@ export async function GET(request: NextRequest) {
   } else if (brandingResponse) {
     console.warn("Unable to load optional RaceBook branding", brandingResponse.status);
   }
-  return withSecurityHeaders(NextResponse.json({
+  const response = withSecurityHeaders(NextResponse.json({
     loadingSponsors: sponsors.filter((sponsor) => sponsor.show_on_loading).slice(0, 2).map((sponsor) => publicSponsor(request, race.id, sponsor)),
     bannerSponsors: sponsors.filter((sponsor) => sponsor.show_in_banner).map((sponsor) => publicSponsor(request, race.id, sponsor)),
     branding,
     modules,
   }));
+
+  return isPublic
+    ? setPublicRacebookCacheHeaders(response, { raceId: race.id, editionId: race.edition_id, eventId: race.event_id })
+    : setPrivateRacebookCacheHeaders(response);
 }

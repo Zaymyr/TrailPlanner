@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: medium
 related_files:
   - package.json

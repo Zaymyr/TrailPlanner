@@ -31,10 +31,12 @@ export async function fetchRacebookSponsors(raceId: string): Promise<RacebookSpo
   if (cached && cached.expiresAt > now) return cached.request;
   if (cached) sponsorRequests.delete(cacheKey);
 
-  const request = fetch(`${WEB_API_BASE_URL}/api/racebook-sponsors?raceId=${encodeURIComponent(raceId)}`, {
-    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-  })
-    .then(async (response) => {
+  const url = `${WEB_API_BASE_URL}/api/racebook-sponsors?raceId=${encodeURIComponent(raceId)}`;
+  const request = fetch(url)
+    .then(async (publicResponse) => {
+      const response = publicResponse.ok || !token
+        ? publicResponse
+        : await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) return EMPTY_RACEBOOK_SPONSORS;
       return normalizeRacebookSponsorPresentation(await response.json().catch(() => null));
     })

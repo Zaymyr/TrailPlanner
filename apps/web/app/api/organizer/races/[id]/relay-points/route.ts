@@ -10,6 +10,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
+import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const relayPointRowSchema = z.object({
   id: z.string().uuid(),
@@ -177,5 +178,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const points = z.array(relayPointRowSchema).parse(await replaceResponse.json());
+  await invalidateRacebookCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ relayPoints: points.map(mapRelayPoint) }));
 }

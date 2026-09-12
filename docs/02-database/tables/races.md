@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -159,6 +159,7 @@ where is_live = true
 
 - Do not replace an unknown D+ or absent GPX with a fabricated zero or placeholder.
 - New rows without a GPX keep `gpx_path`, `gpx_hash`, and `gpx_storage_path` null. Historical placeholders are cleared by the catalog-contract migration when no stored object exists.
+- Public RaceBook snapshots and profile responses are tagged by race, edition, and event. Race metadata, image, GPX, visibility, and structured-content writes invalidate the narrowest applicable tag after success.
 - A declarative complete-row check is intentionally deferred until legacy catalog rows have been backfilled. The column-scoped completeness trigger protects new and catalog-relevant writes without blocking unrelated updates to legacy rows.
 - Do not set a draft live. The database constraint rejects both course and Racebook visibility.
 - Organizer membership may author selected module subtrees above the current tier. Never use the public/effective entitlement helper to discard those incoming private drafts.

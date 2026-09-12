@@ -1,7 +1,7 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -31,4 +31,10 @@ The shared web editor file also reports SAS count and earliest time to the surro
 
 The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no awards and does not invalidate the rest of the RaceBook. Its public policy resolves publication through `races`, without requiring client access to `race_event_editions`. Published edition primary surfaces and borders style podium cards only; they never change award ordering or meaning, while semantic states remain independent.
 
+The two-line clamp applied to bib-pickup address text is isolated from podium rendering and does not change award data or visibility.
+
+The format access override that hides saved runner information is likewise independent from award rows and their visibility.
+
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local award edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting awards.
+
+Published rows travel in the consolidated RaceBook CDN snapshot. A successful atomic awards replacement invalidates the parent race tag after persistence.

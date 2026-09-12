@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -78,11 +78,14 @@ Banner placements use an automatic horizontal carousel whenever at least two act
 
 RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, and foreground active duration. Sponsor impressions, identities, placements, and redirect presses remain excluded from that person-level stream; only the existing aggregate redirect boundary counts sponsor clicks.
 
+The two-line clamp for bib-pickup address links is independent from sponsor layouts, timing, redirects, and click counting.
+
 ## Gotchas
 
 - Sponsor eligibility depends on the effective Signature tier, not whether its origin is Admin, Offert, Stripe, or virement.
 
 - Sponsor ordering sends the complete edition list to `reorder_racebook_sponsors`. The function locks the edition and rejects partial lists, foreign ids, duplicate ids or duplicate positions before updating any row.
+- Public placement responses are edge-cached only for fully published RaceBooks. Sponsor create, edit, reorder, logo replacement, and delete invalidate the edition tag; the mobile 2.5-second loading placement remains intentional even on a cache hit.
 
 - The destination waits for the lightweight sponsor/module/branding response before revealing RaceBook content. Do not restore a short UI timeout that commits defaults while the valid edition response is still in flight.
 - The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.

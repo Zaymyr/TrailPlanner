@@ -11,6 +11,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { validateOrganizerEditionPublication } from "../../../../../../lib/organizer-publication";
+import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const editionSchema = z.object({
   id: z.string().uuid(),
@@ -72,6 +73,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     return jsonError("Affiche au moins un format dans ta démo avant de publier.", 409);
   }
 
+  await invalidateRacebookCache({ editionId: edition.id, eventId: edition.event_id });
   return withSecurityHeaders(NextResponse.json({
     publishedRaceIds: publishedRaces.map((race) => race.id),
   }));

@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts

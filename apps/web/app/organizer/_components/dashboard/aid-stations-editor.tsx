@@ -91,17 +91,17 @@ export function AidStationsEditor({
 }) {
   const [viewState, setViewState] = useState<{ scopeKey: string; view: EditorView }>({
     scopeKey: "",
-    view: "startWaves",
+    view: "aidStations",
   });
   const relayEnabled = participationMode === "relay" || participationMode === "solo_and_relay";
   const viewScopeKey = `${activeRace?.id ?? ""}:${participationMode}`;
 
   useEffect(() => {
-    setViewState({ scopeKey: viewScopeKey, view: "startWaves" });
+    setViewState({ scopeKey: viewScopeKey, view: "aidStations" });
   }, [viewScopeKey]);
 
   if (!activeRace) return <p className="text-sm text-muted-foreground">Sélectionne un format pour gérer ses ravitos.</p>;
-  const activeView = viewState.scopeKey === viewScopeKey ? viewState.view : "startWaves";
+  const activeView = viewState.scopeKey === viewScopeKey ? viewState.view : "aidStations";
   const sortedRelayPoints = [...relayPoints].sort((left, right) => left.distanceKm - right.distanceKm);
   const relayBoundaries = [
     { name: "Départ", distanceKm: 0 },

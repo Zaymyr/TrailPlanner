@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -133,6 +133,7 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Organizer collection replacement locks the parent race and preserves submitted station ids. Validation or write failure rolls the full replacement back, protecting product links from partial updates.
 
 - Public reads require the effective `aid_stations` module; organizer writes are refused while the module is inactive or locked.
+- Published mobile reads receive ravitos and nested products through the consolidated RaceBook API snapshot. Successful ravito, product, or GPX mutations invalidate the parent race tag.
 
 - Base ravito editing remains available without Pro. Relay linkage and official station products are separate Pro capabilities and must not block ordinary station saves.
 
