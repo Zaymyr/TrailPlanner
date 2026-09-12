@@ -12,6 +12,7 @@ import {
   sponsorMetadataSchema,
   toOrganizerSponsor,
 } from "../../../../../../../lib/racebook-sponsors";
+import { invalidateRacebookCache } from "../../../../../../../lib/racebook-cache";
 
 const paramsSchema = z.object({ id: z.string().uuid(), sponsorId: z.string().uuid() });
 const editionSchema = z.object({ event_id: z.string().uuid() });
@@ -85,6 +86,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     return jsonError("Unable to update sponsor.", 502);
   }
   const sponsor = z.array(racebookSponsorRowSchema).parse(await updateResponse.json())[0];
+  await invalidateRacebookCache({ editionId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ sponsor: sponsor ? toOrganizerSponsor(sponsor) : null }));
 }
 
@@ -131,6 +133,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     }).catch(() => null);
   }
   const sponsor = z.array(racebookSponsorRowSchema).parse(await updateResponse.json())[0];
+  await invalidateRacebookCache({ editionId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ sponsor: sponsor ? toOrganizerSponsor(sponsor) : null }));
 }
 
@@ -150,5 +153,6 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
       method: "DELETE", headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store",
     }).catch(() => null);
   }
+  await invalidateRacebookCache({ editionId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ deletedSponsorId: auth.sponsor.id }));
 }

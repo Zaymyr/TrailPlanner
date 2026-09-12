@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -165,6 +165,8 @@ The mobile RaceBook emits `racebook opened` only after an accessible RaceBook ha
 The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, and emergency-call actions. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
+
+The two-line visual truncation of a bib-pickup address is presentation-only: opening the link still emits the existing Maps action with the same bounded context and never sends the full address.
 
 Edition branding is presentation state only. Logo URLs, the temporary logo feature flag, custom color values, and derived accent-surface usage are not attached to identified RaceBook analytics events; existing race/event identifiers remain the comparison dimensions across default and customized editions.
 

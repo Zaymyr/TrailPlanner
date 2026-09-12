@@ -6,6 +6,7 @@ import { loadOrganizerEditionEntitlement } from "../../../../../../lib/organizer
 import { loadOrganizerModuleSettings } from "../../../../../../lib/organizer-module-settings";
 import { organizerModuleSettingsPatchSchema } from "../../../../../../lib/organizer-modules";
 import { jsonError, requireEventOrganizer, requireOrganizerAuth, serviceHeaders, uuidParamSchema } from "../../../../../../lib/organizer";
+import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const editionSchema = z.object({
   id: z.string().uuid(),
@@ -98,5 +99,6 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     auth.edition.module_setup_completed_at = completedAt;
   }
 
+  await invalidateRacebookCache({ editionId: auth.edition.id, eventId: auth.edition.event_id });
   return withSecurityHeaders(NextResponse.json(await responsePayload(auth)));
 }

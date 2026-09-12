@@ -1,7 +1,7 @@
 ---
 title: race_aid_station_products Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -105,6 +105,7 @@ order by order_index asc;
 - Organizer replacement and organizer-product creation use service-only atomic functions. Do not restore delete-then-insert route loops or split product creation from station attachment.
 
 - Official-product writes require Signature and an active `official_products` format module; public RLS masks links without deleting them otherwise.
+- After the atomic replacement succeeds, the organizer API invalidates the parent race's tagged CDN snapshot; invalidation failure never rolls back the database transaction.
 
 - Do not treat these rows as plan supplies by default. They are organization suggestions attached to source station rows and become plan supplies with `source: "organizer"` only after explicit runner selection or the web ravito-products auto-fill opt-in.
 - Do not assume an imported plan's stored `organizerAidStationProducts` is fresh. For plans with `race_id`, `/api/plans` should overlay the current source links and use the stored snapshot only as a fallback.

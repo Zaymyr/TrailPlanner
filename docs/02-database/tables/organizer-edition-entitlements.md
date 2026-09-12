@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_entitlements
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -80,6 +80,7 @@ where edition_id = :edition_id;
 - This table is a projection, not payment history.
 - Do not grant direct client select merely to render the dashboard; organizer APIs return the authorized edition projection.
 - Enforce branding publication in the server route; draft authoring uses event membership and the selected module, while runner visibility remains a separate effective-entitlement contract.
+- Entitlement or publication changes that alter public RaceBook availability must invalidate the edition/event CDN tags after the durable write; private organizer previews remain uncached.
 
 ## Related Docs
 

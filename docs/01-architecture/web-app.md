@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -176,7 +176,11 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
   - apps/web/app/api/organizer/editions/[id]/branding/route.test.ts
   - apps/web/app/api/racebook-sponsors/route.ts
+  - apps/web/app/api/racebook-data/route.ts
+  - apps/web/app/api/racebook-data/route.test.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
+  - apps/web/lib/racebook-cache.ts
+  - apps/web/lib/racebook-cache.test.ts
   - apps/web/lib/racebook-sponsors.ts
   - apps/web/lib/racebook-branding.ts
   - apps/web/lib/racebook-branding.test.ts
@@ -432,7 +436,7 @@ The v1 organizer portal is web-only:
 
 Organizer edits are source edits for `race_events`, `race_event_editions`, `races`, `race_aid_stations`, `race_relay_points`, and station products. Active membership authorizes private draft authoring, including modules above the current offer. Public publication and costly operations remain behind centralized edition capabilities; public serializers combine the publication flag, entitlement tier, and selected module before returning content.
 
-Inside the format-level `Départ, ravitos & relais` editor, the common start and finish schedule cards render above the local `SAS`, `Ravitos` and conditional `Relais` tabs. When at least one SAS exists, its earliest native time is displayed as the format start and the common start field is disabled; removing the last SAS restores manual editing without clearing the stored time. The contextual add action follows the active list tab. `Relais` shows compact derived legs in one horizontal row above the handover-point editor; handover cards expose only the point name, distance, cutoff, and a compact delete cross, while the persisted optional passage time and notes remain outside the current editor. Solo formats omit only the relay tab. This split is presentation-only and does not change the existing race-details, aid-station, or relay-point save order.
+Inside the format-level `Départ, ravitos & relais` editor, the common start and finish schedule cards render above the local `SAS`, `Ravitos` and conditional `Relais` tabs. `Ravitos` is the default local tab on initial mount and after changing format or participation mode. When at least one SAS exists, its earliest native time is displayed as the format start and the common start field is disabled; removing the last SAS restores manual editing without clearing the stored time. The contextual add action follows the active list tab. `Relais` shows compact derived legs in one horizontal row above the handover-point editor; handover cards expose only the point name, distance, cutoff, and a compact delete cross, while the persisted optional passage time and notes remain outside the current editor. Solo formats omit only the relay tab. This split is presentation-only and does not change the existing race-details, aid-station, or relay-point save order.
 
 The same approved-only dashboard exposes a manual `Notifier les coureurs` modal. The organizer selects the whole event or one format from the selected edition before sending. The route validates that the format belongs to the event, stores it as nullable `race_event_updates.race_id`, and uses the event or format name in the push title. Delivery still targets event followers; the payload includes `eventId`, `updateId`, optional `raceId`, and a catalog deep link. Delivery is logged in `push_notification_events` as `notification_kind = 'organizer-race-update'`. Each recent history card also has a compact delete cross; the `DELETE` handler repeats the organizer membership check and scopes the service-role deletion to both event id and update id.
 
@@ -452,7 +456,9 @@ The equipment editor layout should keep each item on one compact flexible row so
 
 The optional Organizer `Sponsors` tile is Pro-only. Visibilité and RaceBook editions see a Pro upsell and never mount the editor. With Pro active, opening the tile lazily reads the selected edition's list, while metadata blur/save, placement toggles, logo replacement, and deletion use edition routes that repeat both active-membership and `sponsors.manage` checks. Ordering submits the complete list to one service-only transaction; partial lists, foreign ids and duplicate positions are rejected. The same tile reports active rows and aggregate raw clicks. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
 
-Mobile calls the lightweight public `/api/racebook-sponsors?raceId=...` route in parallel with the main RaceBook data. Public access requires the same live race/event/RaceBook flags; an authenticated active organizer can preview. The response exposes only active placement DTOs and counted redirect URLs. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target.
+Mobile calls the lightweight public `/api/racebook-sponsors?raceId=...` route in parallel with `/api/racebook-data?raceId=...`, which assembles the race, ravitos/products, relay points, SAS, awards, and edition services in one server response. Both public responses use a five-minute Vercel CDN TTL with stale-while-revalidate and race/edition/event cache tags; organizer previews remain authenticated and `private, no-store`. The mobile caller deliberately tries the anonymous public URL first so an existing session does not bypass the shared CDN, then retries with its bearer token only for a private organizer preview. Successful organizer mutations invalidate the affected cache tag; a bounded TTL remains the fallback if invalidation is temporarily unavailable.
+
+The sponsor response still exposes only active placement DTOs and counted redirect URLs. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target.
 
 ### Billing and Entitlements
 
@@ -520,6 +526,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep the emergency contact at event scope as `organizer_details.emergencyContact`; its phone is display-normalized but remains simple operational JSON rather than a normalized user/contact record, and mobile turns the published value into a `tel:` action.
 - Keep event website/social link normalization in the shared organizer-details schema so foreground and background saves accept valid domain links without an explicit protocol but still reject arbitrary text and non-HTTP(S) schemes.
 - Course discovery and Racebook publication are separate contracts. Web catalog pages continue to use `is_live` / `is_public`; never substitute `racebook_is_live` into the SEO catalog filter.
+- Never cache an organizer RaceBook preview as public. Only fully live race/event/RaceBook snapshots receive CDN headers; authenticated fallback responses must remain `private, no-store`, and every organizer write that changes the snapshot, profile, branding, or sponsors must invalidate its race, edition, or event tag.
 - Catalog presentation may group formats only by stable `eventId`. Never merge homonymous events or synthesize event identity from display names or locations.
 - Keep bib pickup, equipment, and access at event level as the defaults. A format may opt into a complete replacement through the module's `overrideEnabled`; each override participates in the race-scoped autosave plan so navigation cannot discard the checkbox or its fields. Historical access JSON without the flag may still be treated as specific when it contains meaningful format data.
 - Preserve the tri-state compatibility of format equipment JSON: `true` is a full replacement, `false` is authoritative inheritance, and only a missing legacy flag may be inferred from old format-specific items or notes.

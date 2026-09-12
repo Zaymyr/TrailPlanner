@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -111,7 +111,7 @@ Summary:
 - The dashboard distinguishes `Créer un autre événement` from `Ajouter un format`; both still require the same authenticated membership boundaries and neither creates a legacy claim.
 - The responsive section chooser may stage several module switches before one save, but the eventual PATCH still requires the same active membership; pending browser drafts never grant claim or module authorization.
 - Grouping that chooser into edition-common and format-specific sections is presentation-only. It does not broaden a claim, and the server still authorizes the edition plus every targeted race id.
-- Inside a relay-capable format's `Ravito / relais` editor, the local `Ravitos` / `Relais` views remain presentation-only, including the title-aligned contextual add action, compact derived-leg row, and reduced handover fields. They do not change the membership boundary or grant a separate mutation path; the existing organizer routes continue to authorize every save.
+- Inside a relay-capable format's `Ravito / relais` editor, the local `Ravitos` / `Relais` views remain presentation-only, with `Ravitos` selected by default on entry and after a format or participation-mode change. The title-aligned contextual add action, compact derived-leg row, and reduced handover fields do not change the membership boundary or grant a separate mutation path; the existing organizer routes continue to authorize every save.
 - Moving the common departure/arrival cards above the SAS, ravito and relay views does not change authorization. SAS replacement remains membership-checked; its earliest time takes precedence over the disabled common departure input.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Completion percentages and initial tile summaries remain presentation data inside that approved dashboard: they do not grant membership, and the lightweight bootstrap aggregates stay behind the same claim-to-membership authorization boundary.

@@ -16,6 +16,7 @@ import {
 } from "../../../../../../lib/organizer";
 import type { FuelProduct } from "../../../../../../lib/product-types";
 import { isOrganizerRaceModuleSelected } from "../../../../../../lib/organizer-module-settings";
+import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const supabaseProductSchema = z.object({
   id: z.string().uuid(),
@@ -209,6 +210,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const rows = z.array(aidStationProductRowSchema.omit({ products: true })).parse(await replaceResponse.json());
+  await invalidateRacebookCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(
     NextResponse.json({
       products: rows.map((row) => ({
@@ -274,6 +276,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   }
 
   const created = createdProductResultSchema.parse(await createResponse.json());
+  await invalidateRacebookCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(
     NextResponse.json(
       {

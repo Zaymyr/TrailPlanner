@@ -9,6 +9,7 @@ import {
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
+import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_RACE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
@@ -97,5 +98,6 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const updatedRace = z.array(raceImageRowSchema).parse(await updateResponse.json())[0] ?? null;
+  await invalidateRacebookCache({ raceId: parsedParams.data.id, eventId: race.event_id });
   return withSecurityHeaders(NextResponse.json({ thumbnailUrl: publicUrl, race: updatedRace }));
 }

@@ -21,6 +21,7 @@ import { loadOrganizerEditionEntitlements } from "../../../../../lib/organizer-e
 import { loadOrganizerEditionPayments, selectEffectiveOrganizerPurchase } from "../../../../../lib/organizer-payments";
 import { isOrganizerEditionModuleSelected } from "../../../../../lib/organizer-module-settings";
 import { racebookBrandingRowSchema, toOrganizerBranding } from "../../../../../lib/racebook-branding";
+import { invalidateRacebookCache } from "../../../../../lib/racebook-cache";
 
 const updateEventSchema = z.object({
   selectedEditionYear: z.string().regex(/^\d{4}$/).optional(),
@@ -333,6 +334,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   }
 
   const event = z.array(eventDetailSchema.omit({ races: true })).parse(await response.json())[0] ?? null;
+  await invalidateRacebookCache({ eventId: parsedParams.data.id, editionId: edition?.id });
   return withSecurityHeaders(
     NextResponse.json({
       edition,
@@ -439,5 +441,6 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   for (const invoicePath of invoicePaths) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "organizer-invoices", invoicePath));
   await Promise.all(storageDeletes);
 
+  await invalidateRacebookCache({ eventId: parsedParams.data.id });
   return withSecurityHeaders(NextResponse.json({ deleted: true, eventId: parsedParams.data.id }));
 }

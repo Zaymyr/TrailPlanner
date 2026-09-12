@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -116,6 +116,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
 - Do not use a copied event location to make the UI look like a custom override. Equality with the current event location must still render as inherited, even though the save payload persists the effective location required by catalog publication.
 - Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.
+- The same access override gates format-specific runner information on mobile; disabling it preserves both runner text and geocoded access metadata while hiding the runner-info block.
 - Do not replace the canonical text fields with geocoded JSON. Publication and normal text display still depend on the string fields.
 - Do not use free-text parsing as a fallback for exact catalog geography. A missing normalized field means “not curated yet,” not permission to guess.
 - Do not promote country-level international evidence into a city anchor. Venues, islands, provinces and multi-city races require separate locality verification before nearby-city discovery is enabled.

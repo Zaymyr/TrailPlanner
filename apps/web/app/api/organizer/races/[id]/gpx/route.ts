@@ -12,6 +12,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { withSecurityHeaders } from "../../../../../../lib/http";
+import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 type ParsedOrganizerGpx = ReturnType<typeof parseGpx>;
 
@@ -285,6 +286,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
 
   const updated = await updateResponse.json().catch(() => null);
+  await invalidateRacebookCache({ raceId: parsedParams.data.id });
   return withSecurityHeaders(
     NextResponse.json({
       race: Array.isArray(updated) ? updated[0] ?? null : null,

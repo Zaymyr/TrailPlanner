@@ -31,7 +31,7 @@ import { OnboardingGuideCard } from '../../../../components/onboarding/Onboardin
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
-import { fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../../../lib/raceProfile';
+import { clearRaceProfileRequestCache, fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../../../lib/raceProfile';
 import { approximateDistanceKm, fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
 import {
   EMPTY_RACEBOOK_SPONSORS,
@@ -854,10 +854,18 @@ function BibPickupLocationList({
                   }}
                   style={styles.bibLocationAction}
                 >
-                  <Text style={[styles.bibLocationValue, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}>{group.location}</Text>
+                  <Text
+                    numberOfLines={2}
+                    ellipsizeMode="tail"
+                    style={[styles.bibLocationValue, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}
+                  >
+                    {group.location}
+                  </Text>
                 </Pressable>
               ) : (
-                <Text style={styles.bibLocationValue}>{group.location}</Text>
+                <Text numberOfLines={2} ellipsizeMode="tail" style={styles.bibLocationValue}>
+                  {group.location}
+                </Text>
               )}
             </View>
           </View>
@@ -1333,6 +1341,7 @@ export default function RaceRacebookScreen() {
     if (!id) return;
 
     setRefreshing(true);
+    clearRaceProfileRequestCache(id);
 
     try {
       const [result, profilePoints, routePoints] = await Promise.all([

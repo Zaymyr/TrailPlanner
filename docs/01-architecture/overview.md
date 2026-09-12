@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - package.json
@@ -25,6 +25,7 @@ This document gives the high-level map of the Pace Yourself monorepo. Use it to 
 
 - Monorepo: one repository with web, mobile, and package workspaces.
 - Web app: Next.js application deployed with Vercel settings.
+- Published mobile RaceBook reads are consolidated behind Vercel API routes so shared edge caching absorbs repeated consultation traffic; organizer previews remain private.
 - Mobile app: Expo Router application built through EAS profiles.
 - Backend: Supabase Auth, Postgres, Storage, Edge Functions, and pg_cron.
 - Shared logic: local packages used by both app surfaces where possible.

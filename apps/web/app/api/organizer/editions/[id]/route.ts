@@ -9,6 +9,7 @@ import {
   serviceHeaders,
   uuidParamSchema,
 } from "../../../../../lib/organizer";
+import { invalidateRacebookCache } from "../../../../../lib/racebook-cache";
 
 const updateEditionSchema = z.object({ isVisible: z.boolean() });
 
@@ -116,6 +117,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   const edition = z.array(editionSchema).parse(await response.json())[0] ?? null;
   if (!edition) return jsonError("Event edition not found.", 404);
 
+  await invalidateRacebookCache({ editionId: parsedParams.data.id, eventId: editionRead.edition.event_id });
   return withSecurityHeaders(NextResponse.json({ edition }));
 }
 
@@ -202,6 +204,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
   }
   for (const invoicePath of invoicePaths) storageDeletes.push(deleteStorageObject(auth.serviceConfig, "organizer-invoices", invoicePath));
   await Promise.all(storageDeletes);
+  await invalidateRacebookCache({ editionId: parsedParams.data.id, eventId: editionRead.edition.event_id });
 
   return withSecurityHeaders(NextResponse.json({
     deletedEditionId: result.deleted_edition_id,

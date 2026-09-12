@@ -107,6 +107,8 @@ describe("GET /api/racebook-sponsors", () => {
     expect(payload.loadingSponsors[0]).not.toHaveProperty("websiteUrl");
     expect(payload.branding).toEqual({ logoUrl: null, primaryColor: "#123456", accentColor: "#ABCDEF" });
     expect(JSON.stringify(payload)).not.toContain("draft.png");
+    expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("max-age=300");
+    expect(response.headers.get("Vercel-Cache-Tag")).toContain(`racebook:race:${raceId}`);
   });
 
   it("allows an authenticated organizer preview", async () => {
@@ -121,6 +123,7 @@ describe("GET /api/racebook-sponsors", () => {
       headers: { Authorization: "Bearer token" },
     }));
     expect(response.status).toBe(200);
+    expect(response.headers.get("Cache-Control")).toBe("private, no-store");
   });
 
   it("falls back to Pace Yourself defaults when stored branding is invalid", async () => {

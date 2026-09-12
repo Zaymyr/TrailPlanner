@@ -279,6 +279,8 @@ describe("organizer dashboard UTF-8 copy", () => {
 
     expect(source).toContain('{ id: "aidStations", label: "Ravitos" }');
     expect(source).toContain('{ id: "relay", label: "Relais" }');
+    expect(source.match(/view: "aidStations"/g)).toHaveLength(2);
+    expect(source).toContain('viewState.view : "aidStations"');
     expect(source).toContain('activeView === "aidStations"');
     expect(source.indexOf("<FixedCourseCard")).toBeLessThan(source.indexOf("<TabsList"));
     expect(source).toContain("disabled={startWaveCount > 0}");

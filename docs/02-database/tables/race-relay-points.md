@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -39,6 +39,10 @@ The compact runner-progress and unified sponsor loading composition is presentat
 
 The post-load automatic sponsor carousel likewise remains independent from relay ordering and the conditional `Relais` sub-tab.
 
+The two-line clamp for bib-pickup address links likewise remains independent from relay ordering, rows, and derived legs.
+
+Disabling the format access override hides saved runner information only; it does not change relay rows or the derived `Relais` view.
+
 The published edition accent may recolor route/profile graphics and their lightly tinted cards, while primary may recolor the active `Relais` tab. Neither value changes relay rows, ordering, semantic cutoff states, or derived-leg calculations.
 
 Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engagement with the parent race id. Relay-point payloads and persistence remain unchanged.
@@ -74,6 +78,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 - RaceBook onboarding is presentation-only and leaves relay-point loading and the conditional Relais tab unchanged.
 - Holding initial RaceBook progress for sponsor preparation does not delay, cache, or change the separate relay-point read contract.
+- Published relay points now also travel in the consolidated RaceBook CDN snapshot; a successful replacement invalidates the parent race tag while preserving the same row/RLS contract.
 - RaceBook tab analytics may report that the Relay view was selected, but must not emit relay notes or other organizer-authored content as analytics properties.
 - Do not use organizer branding colors to reinterpret relay cutoff or warning semantics.
 - Published primary surfaces may decorate relay segment cards, but handover/cutoff meaning, ordering, and warning treatment remain unchanged.

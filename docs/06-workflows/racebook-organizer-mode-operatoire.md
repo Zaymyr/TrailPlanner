@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire RaceBook organisateur
 scope: workflow
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -50,6 +50,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Confirmer que les trois états restent `Masqué`, `Privé` et `Public`.
 - Avec Essentiel déjà actif, confirmer que `Publier` et le passage d'un format à `Public` publient directement, que les sections Complet/Signature restent privées et qu'aucune erreur opérationnelle ne rouvre la fenêtre d'achat.
 - Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton RaceBook, qu'un format `Privé` garde un bouton RaceBook grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
+- Dans la tuile `Départ, ravitos & relais`, confirmer que l'onglet `Ravitos` est sélectionné par défaut à l'ouverture et après un changement de format.
 
 ## Do Not
 

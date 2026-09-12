@@ -23,6 +23,7 @@ import {
   toOrganizerBranding,
   type RacebookBrandingRow,
 } from "../../../../../../lib/racebook-branding";
+import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 const editionSchema = z.object({ id: z.string().uuid(), event_id: z.string().uuid() });
 
@@ -126,6 +127,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
       draft_primary_color: draft.data.primaryColor,
       draft_accent_color: draft.data.accentColor,
     });
+    await invalidateRacebookCache({ editionId: auth.edition.id });
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(row) }));
   } catch (error) {
     console.error("Unable to save RaceBook branding", error);
@@ -172,6 +174,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     if (previous?.draft_logo_url && previous.draft_logo_url !== previous.published_logo_url) {
       await deleteLogoObject(auth.serviceConfig, previous.draft_logo_url);
     }
+    await invalidateRacebookCache({ editionId: auth.edition.id });
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(row) }));
   } catch (error) {
     console.error("Unable to save RaceBook logo", error);
@@ -191,6 +194,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     if (previous?.draft_logo_url && previous.draft_logo_url !== previous.published_logo_url) {
       await deleteLogoObject(auth.serviceConfig, previous.draft_logo_url);
     }
+    await invalidateRacebookCache({ editionId: auth.edition.id });
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(row) }));
   } catch (error) {
     console.error("Unable to remove RaceBook logo", error);
@@ -227,6 +231,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     if (previous?.published_logo_url && previous.published_logo_url !== row.published_logo_url && previous.published_logo_url !== row.draft_logo_url) {
       await deleteLogoObject(auth.serviceConfig, previous.published_logo_url);
     }
+    await invalidateRacebookCache({ editionId: auth.edition.id });
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(row) }));
   } catch (error) {
     console.error("Unable to publish RaceBook branding", error);

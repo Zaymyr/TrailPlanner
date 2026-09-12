@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - vercel.json
@@ -34,6 +34,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 ## Key Concepts
 
 - Vercel: web deployment target for the Next.js app.
+- Vercel Functions: public RaceBook, sponsor, and profile responses use edge-cache headers and tag invalidation through `@vercel/functions`; private organizer previews use `private, no-store`.
 - EAS: Expo build/update system for the mobile app.
 - Supabase project: Auth, Postgres, Storage, Edge Functions, and cron.
 - Vault-backed cron secret: secret used by pg_cron to call push reminder functions.

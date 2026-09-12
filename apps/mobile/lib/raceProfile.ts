@@ -17,6 +17,14 @@ type ElevationProfileStats = {
   score: number;
 };
 
+type RaceProfilePayload = {
+  elevationProfile: ElevationPoint[];
+  routePreviewPoints: MobileGpxPreviewPoint[];
+};
+
+const RACE_PROFILE_REQUEST_TTL_MS = 60_000;
+const raceProfileRequests = new Map<string, { expiresAt: number; request: Promise<RaceProfilePayload> }>();
+
 function sanitizeElevationProfile(points: unknown): ElevationPoint[] {
   if (!Array.isArray(points)) return [];
 
@@ -280,37 +288,53 @@ async function fetchRaceGpxContent(raceId: string): Promise<string | null> {
 
 async function fetchRaceProfilePayload(
   raceId: string,
-): Promise<{ elevationProfile: ElevationPoint[]; routePreviewPoints: MobileGpxPreviewPoint[] }> {
+): Promise<RaceProfilePayload> {
   const apiBase = WEB_API_BASE_URL;
   if (!apiBase) {
     return { elevationProfile: [], routePreviewPoints: [] };
   }
 
-  try {
-    const { supabase } = await import('./supabase');
-    const session = await supabase.auth.getSession();
-    const accessToken = session.data?.session?.access_token ?? null;
+  const cached = raceProfileRequests.get(raceId);
+  const now = Date.now();
+  if (cached && cached.expiresAt > now) return cached.request;
+  if (cached) raceProfileRequests.delete(raceId);
 
-    const response = await fetch(`${apiBase}/api/onboarding/race-profile?raceId=${encodeURIComponent(raceId)}`, {
-      headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    });
+  const request = (async () => {
+    try {
+      const { supabase } = await import('./supabase');
+      const url = `${apiBase}/api/onboarding/race-profile?raceId=${encodeURIComponent(raceId)}`;
+      let response = await fetch(url);
 
-    if (!response.ok) {
+      if (!response.ok) {
+        const session = await supabase.auth.getSession();
+        const accessToken = session.data?.session?.access_token ?? null;
+        if (accessToken) response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      }
+
+      if (!response.ok) {
+        return { elevationProfile: [], routePreviewPoints: [] };
+      }
+
+      const data = (await response.json().catch(() => null)) as {
+        elevationProfile?: ElevationPoint[];
+        routePreviewPoints?: MobileGpxPreviewPoint[];
+      } | null;
+
+      return {
+        elevationProfile: sanitizeElevationProfile(data?.elevationProfile),
+        routePreviewPoints: sanitizeRoutePreviewPoints(data?.routePreviewPoints),
+      };
+    } catch {
       return { elevationProfile: [], routePreviewPoints: [] };
     }
+  })();
 
-    const data = (await response.json().catch(() => null)) as {
-      elevationProfile?: ElevationPoint[];
-      routePreviewPoints?: MobileGpxPreviewPoint[];
-    } | null;
+  raceProfileRequests.set(raceId, { expiresAt: now + RACE_PROFILE_REQUEST_TTL_MS, request });
+  return request;
+}
 
-    return {
-      elevationProfile: sanitizeElevationProfile(data?.elevationProfile),
-      routePreviewPoints: sanitizeRoutePreviewPoints(data?.routePreviewPoints),
-    };
-  } catch {
-    return { elevationProfile: [], routePreviewPoints: [] };
-  }
+export function clearRaceProfileRequestCache(raceId: string) {
+  raceProfileRequests.delete(raceId);
 }
 
 export async function fetchRaceElevationProfile(raceId: string | null | undefined): Promise<ElevationPoint[]> {
@@ -324,6 +348,7 @@ export async function fetchRaceElevationProfile(raceId: string | null | undefine
   }
 
   const { elevationProfile: apiProfile } = await fetchRaceProfilePayload(raceId);
+  if (apiProfile.length > 0) return apiProfile;
 
   const [storageProfile, storedProfile] = await Promise.all([
     fetchRaceElevationProfileFromStorage(raceId),
