@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -87,6 +87,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - Local Windows execution requires Maestro to be available on `PATH` and an Android build to be installed. EAS is the versioned cross-platform target once the account supports hosted Maestro jobs.
 - The checked-in EAS workflow is not executable on the project's current Expo plan because hosted Maestro jobs are paid. Keep it as the cross-platform target, or replace it deliberately with another CI runner before calling cloud coverage active.
 - Screen recordings may slightly affect emulator timing; the workflow uses one retry, but repeated flakes should be fixed rather than hidden with more retries.
+- After a shared RaceBook presentation change, keep the existing real-device RaceBook check: the organizer browser phone is not evidence that Expo navigation, external actions, or analytics still behave correctly.
 
 ## Related Docs
 

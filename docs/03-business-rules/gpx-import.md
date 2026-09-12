@@ -229,6 +229,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - Editing the event-level website, Instagram, or Facebook URL in the same Organizer information component does not change GPX parsing, storage, or format metrics.
 - Public course visualization must remain a server-parsed preview. Do not expose a signed/private GPX URL, raw file contents, or a download action from the SEO page.
 - Keep edition accent application presentation-only; GPX parsing and distance/elevation calculations must remain color-independent.
+- The organizer phone can reuse the already-local normalized GPX preview for presentation, but it neither uploads/parses a GPX nor makes an unsaved trace available to a public/mobile reader.
 
 ## Related Docs
 

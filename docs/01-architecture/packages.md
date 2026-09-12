@@ -1,16 +1,25 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-09-10
+last_verified: 2026-09-12
 ai_priority: medium
 related_files:
   - package.json
   - apps/web/next.config.mjs
+  - apps/web/tsconfig.json
+  - apps/web/types/react-native-web-shim.d.ts
   - packages/shared/src/index.ts
   - packages/design-system/package.json
   - packages/design-system/src/index.ts
   - packages/design-system/src/index.d.ts
   - packages/design-system/src/branding.ts
+  - packages/racebook-ui/package.json
+  - packages/racebook-ui/src/model/index.ts
+  - packages/racebook-ui/src/view/RacebookView.tsx
+  - packages/racebook-ui/src/view/RacebookLoadingView.tsx
+  - packages/racebook-ui/src/view/presentation.ts
+  - packages/racebook-ui/src/view/presentation.test.ts
+  - packages/racebook-ui/src/view/RacebookView.import-guard.test.mjs
   - packages/tanstack-react-query/package.json
   - packages/fuel-planner/computeFuelPlan.ts
 related_tables: []
@@ -60,6 +69,10 @@ Primary source files:
 - `packages/design-system/src/icons/index.ts`
 - `packages/design-system/src/branding.ts`
 
+### `@pace-yourself/racebook-ui`
+
+Location: `packages/racebook-ui`. It exports the normalized `RacebookViewModel`, the active presentation-only `RacebookView`, and `RacebookLoadingView` for the sponsor-loading state, all shared by Expo and the organizer phone preview. It accepts platform adapters for route/profile visuals, icons, typography and external actions; the apps retain loading and sponsor-gate timing, authentication, navigation, persistence and analytics. `presentation.ts` contains platform-neutral formatting, tab reconciliation, sponsor-carousel visibility, and external-action classification; its test covers those contracts. The import guard asserts that the mobile route actively imports and renders the shared view without a runtime feature guard. Its React peer range covers the web React 18 and mobile React 19 runtimes, and it must not import Next.js, Expo, Supabase, browser storage, or app-level data loaders.
+
 ### `@tanstack/react-query`
 
 Location: `packages/tanstack-react-query`
@@ -106,9 +119,11 @@ Keep logic inside an app when:
 
 - Keep the RaceBook branding resolver runtime-neutral: both Next.js and Expo import it, so it must not depend on DOM, Node, React, or React Native APIs.
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.
-- `apps/web/next.config.mjs` transpiles `@trailplanner/shared` and `@pace-yourself/design-system` and owns route-scoped response headers such as the English subtree's `Content-Language`. Preserve both responsibilities when editing the config; a new package that exports TS/TSX directly may need a matching transpile entry.
+- `apps/web/next.config.mjs` transpiles `@trailplanner/shared`, `@pace-yourself/design-system`, and `@pace-yourself/racebook-ui`, and owns route-scoped response headers such as the English subtree's `Content-Language`. Preserve those responsibilities when editing the config; a new package that exports TS/TSX directly may need a matching transpile entry.
 - The local `@tanstack/react-query` package can mask assumptions about the upstream package. Inspect it before changing data-fetching code.
 - Keep the root `packageManager` field present when upgrading npm/Turbo; current Turbo versions refuse to resolve this workspace graph without it.
+- `@pace-yourself/racebook-ui` ships TypeScript/TSX source. Keep it in the web `transpilePackages` list and alias `react-native` to `react-native-web` only in the web build; do not make the package choose a platform or perform a fetch.
+- The web TypeScript shim for React Native Web is deliberately narrower than the runtime alias: it prevents React Native global declarations from polluting DOM types while allowing the shared package to compile. Keep the shim included by `apps/web/tsconfig.json`.
 
 ## Related Docs
 

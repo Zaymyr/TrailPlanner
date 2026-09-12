@@ -46,6 +46,8 @@ Use this workflow when adding a screen to the Expo Router mobile app.
 
 RaceBook screens must treat the effective module map as additive server data: hide disabled tabs or sub-tabs, but default to the historical visible behavior when an older bootstrap omits the map during a rolling deployment.
 
+When changing RaceBook presentation, update `@pace-yourself/racebook-ui` and verify both the browser preview and the mobile route because both actively render the same `RacebookView`. The mobile route alone owns fetch, publication gates, refresh, navigation and analytics; the organizer receives only a local draft model with external actions disabled.
+
 - Route file: file under `apps/mobile/app`.
 - App shell: global providers and auth handling in `_layout.tsx`.
 - Premium gate: access checks from `usePremium`.

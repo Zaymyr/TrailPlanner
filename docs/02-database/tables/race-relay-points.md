@@ -80,6 +80,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 - Holding initial RaceBook progress for sponsor preparation does not delay, cache, or change the separate relay-point read contract.
 - Published relay points now also travel in the consolidated RaceBook CDN snapshot; a successful replacement invalidates the parent race tag while preserving the same row/RLS contract.
 - RaceBook tab analytics may report that the Relay view was selected, but must not emit relay notes or other organizer-authored content as analytics properties.
+- A relay draft may be rendered in the local organizer phone through the shared presentation model; it must not trigger mobile tab analytics or modify relay persistence.
 - Do not use organizer branding colors to reinterpret relay cutoff or warning semantics.
 - Published primary surfaces may decorate relay segment cards, but handover/cutoff meaning, ordering, and warning treatment remain unchanged.
 

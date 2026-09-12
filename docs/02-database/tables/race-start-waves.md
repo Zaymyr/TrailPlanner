@@ -39,3 +39,5 @@ Disabling the format access override hides saved runner information only; it doe
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local SAS edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting start waves.
 
 Published rows travel in the consolidated RaceBook CDN snapshot. A successful atomic SAS replacement invalidates the parent race tag after persistence.
+
+The organizer phone callback follows the editor revision: an older autosave response cannot replace a newer SAS draft in the preview. Rendering that state does not publish it.

@@ -9,6 +9,7 @@ import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { NumberField, TextAreaField, TextField } from "./controls";
 
 type Headers = Record<string, string>;
+export type RemoteDraftStatus = { dirty: boolean; message: string | null };
 
 export function reconcileRemoteListSave<T>({
   currentItems,
@@ -29,7 +30,23 @@ export function reconcileRemoteListSave<T>({
   };
 }
 
-function useRemoteList<T>(url: string | null, key: string, headers: Headers, initial: T[] = []) {
+export function getRemoteListDraftEmission<T>(phase: "scope-reset", items: T[]): null;
+export function getRemoteListDraftEmission<T>(phase: "remote-loaded" | "local-update" | "save-reconciled", items: T[]): T[];
+export function getRemoteListDraftEmission<T>(
+  phase: "scope-reset" | "remote-loaded" | "local-update" | "save-reconciled",
+  items: T[],
+): T[] | null {
+  return phase === "scope-reset" ? null : items;
+}
+
+function useRemoteList<T>(
+  url: string | null,
+  key: string,
+  headers: Headers,
+  initial: T[] = [],
+  onDraftChange?: (items: T[]) => void,
+  onDraftStatusChange?: (status: RemoteDraftStatus) => void,
+) {
   const [items, setItems] = useState<T[]>(initial);
   const [loaded, setLoaded] = useState(false);
   const [dirty, setDirty] = useState(false);
@@ -38,6 +55,8 @@ function useRemoteList<T>(url: string | null, key: string, headers: Headers, ini
   const itemsRef = useRef(items);
   const dirtyRef = useRef(dirty);
   const headersRef = useRef(headers);
+  const onDraftChangeRef = useRef(onDraftChange);
+  const onDraftStatusChangeRef = useRef(onDraftStatusChange);
   const mountedRef = useRef(false);
   const scopeRef = useRef(0);
   const revisionRef = useRef(0);
@@ -48,6 +67,8 @@ function useRemoteList<T>(url: string | null, key: string, headers: Headers, ini
   itemsRef.current = items;
   dirtyRef.current = dirty;
   headersRef.current = headers;
+  onDraftChangeRef.current = onDraftChange;
+  onDraftStatusChangeRef.current = onDraftStatusChange;
 
   useEffect(() => {
     mountedRef.current = true;
@@ -63,13 +84,20 @@ function useRemoteList<T>(url: string | null, key: string, headers: Headers, ini
     queuedRef.current = false;
     dirtyRef.current = false;
     setLoaded(false); setDirty(false); setMessage(null); setItems(initialRef.current);
+    onDraftStatusChangeRef.current?.({ dirty: false, message: null });
     if (!url) return;
     const controller = new AbortController();
     fetch(url, { headers: headersRef.current, cache: "no-store", signal: controller.signal }).then(async (response) => {
       if (!response.ok) throw new Error();
       const data = await response.json() as Record<string, T[]>;
       if (controller.signal.aborted || scopeRef.current !== scope) return;
-      if (revisionRef.current === 0) setItems(data[key] ?? []);
+      if (revisionRef.current === 0) {
+        const loadedItems = data[key] ?? [];
+        itemsRef.current = loadedItems;
+        setItems(loadedItems);
+        onDraftChangeRef.current?.(getRemoteListDraftEmission("remote-loaded", loadedItems));
+        onDraftStatusChangeRef.current?.({ dirty: false, message: null });
+      }
       setLoaded(true);
     }).catch(() => {
       if (!controller.signal.aborted && scopeRef.current === scope) setMessage("Impossible de charger ces informations.");
@@ -119,13 +147,16 @@ function useRemoteList<T>(url: string | null, key: string, headers: Headers, ini
       dirtyRef.current = reconciled.dirty;
       queuedRef.current ||= reconciled.saveAgain;
       setItems(reconciled.items);
+      onDraftChangeRef.current?.(getRemoteListDraftEmission("save-reconciled", reconciled.items));
       setDirty(reconciled.dirty);
       setMessage(reconciled.dirty ? "Enregistrement…" : "Enregistré");
+      onDraftStatusChangeRef.current?.({ dirty: reconciled.dirty, message: reconciled.dirty ? "Enregistrement…" : null });
     } catch {
       if (mountedRef.current && scopeRef.current === scope) {
         dirtyRef.current = true;
         setDirty(true);
         setMessage("Certains champs sont incomplets ou invalides.");
+        onDraftStatusChangeRef.current?.({ dirty: true, message: "Certains champs sont incomplets ou invalides." });
       }
     } finally {
       if (scopeRef.current !== scope) return;
@@ -160,6 +191,8 @@ function useRemoteList<T>(url: string | null, key: string, headers: Headers, ini
     dirtyRef.current=true;
     if (savingRef.current) queuedRef.current = true;
     setItems(next);
+    onDraftChangeRef.current?.(getRemoteListDraftEmission("local-update", next));
+    onDraftStatusChangeRef.current?.({ dirty: true, message: null });
     setDirty(true);
     setMessage(null);
   };
@@ -171,8 +204,8 @@ const Select = ({ value, onChange, children, label }: { value:string; onChange:(
 );
 const Status = ({ loaded, message }: { loaded:boolean; message:string|null }) => <p className="text-xs text-muted-foreground">{message ?? (loaded ? "Les modifications valides sont enregistrées automatiquement." : "Chargement…")}</p>;
 
-export function EditionServicesEditor({ editionId, headers, enabled, legacy, onLegacyChange }: { editionId:string|null; headers:Headers; enabled:boolean; legacy:OrganizerEventDetails["services"]; onLegacyChange:(details:OrganizerEventDetails["services"])=>void }) {
-  const remote=useRemoteList<EditionService>(enabled&&editionId?`/api/organizer/editions/${editionId}/services`:null,"services",headers);
+export function EditionServicesEditor({ editionId, headers, enabled, legacy, onLegacyChange, onDraftChange, onDraftStatusChange }: { editionId:string|null; headers:Headers; enabled:boolean; legacy:OrganizerEventDetails["services"]; onLegacyChange:(details:OrganizerEventDetails["services"])=>void; onDraftChange?: (items: EditionService[]) => void; onDraftStatusChange?: (status: RemoteDraftStatus) => void }) {
+  const remote=useRemoteList<EditionService>(enabled&&editionId?`/api/organizer/editions/${editionId}/services`:null,"services",headers,[],onDraftChange,onDraftStatusChange);
   if(!enabled)return <Locked label="Les services structurés sont inclus dans RaceBook."/>;
   const add=(serviceType:EditionService["serviceType"],description:string|null=null)=>remote.update([...remote.items,{serviceType,name:"",description,address:null,latitude:null,longitude:null,googleMapsUrl:null,websiteUrl:null,phone:null}]);
   const labels={restaurant:"Restaurant",accommodation:"Hébergement",recovery:"Récupération",other:"Autre service"};
@@ -195,13 +228,19 @@ export function StartWavesEditor({
   headers,
   enabled,
   onSummaryChange,
+  onDraftChange,
+  onDraftStatusChange,
+  onFocus,
 }: {
   raceId: string | null;
   headers: Headers;
   enabled: boolean;
   onSummaryChange?: (summary: { raceId: string; count: number; referenceStartTime: string | null }) => void;
+  onDraftChange?: (items: StartWave[]) => void;
+  onDraftStatusChange?: (status: RemoteDraftStatus) => void;
+  onFocus?: () => void;
 }) {
-  const remote=useRemoteList<StartWave>(enabled&&raceId?`/api/organizer/races/${raceId}/start-waves`:null,"startWaves",headers);
+  const remote=useRemoteList<StartWave>(enabled&&raceId?`/api/organizer/races/${raceId}/start-waves`:null,"startWaves",headers,[],onDraftChange,onDraftStatusChange);
   const referenceStartTime = remote.items.map((item) => item.startTime).filter(Boolean).sort()[0] ?? null;
   useEffect(() => {
     if (!raceId || !remote.loaded) return;
@@ -209,12 +248,12 @@ export function StartWavesEditor({
   }, [onSummaryChange, raceId, referenceStartTime, remote.items.length, remote.loaded]);
   if(!enabled)return <Locked label="Les SAS de départ sont inclus dans RaceBook."/>;
   const patch=(index:number,next:Partial<StartWave>)=>remote.update(remote.items.map((x,i)=>i===index?{...x,...next}:x));
-  return <div className="space-y-4"><div className="flex justify-between"><div><p className="font-semibold">SAS de départ</p><p className="text-sm text-muted-foreground">Le premier horaire devient l’heure de départ de référence.</p></div><Button type="button" variant="outline" onClick={()=>remote.update([...remote.items,{name:`SAS ${remote.items.length+1}`,startTime:"08:00",eligibilityType:"all",eligibilityNote:null}])}>Ajouter un SAS</Button></div>
+  return <div className="space-y-4" onFocusCapture={onFocus}><div className="flex justify-between"><div><p className="font-semibold">SAS de départ</p><p className="text-sm text-muted-foreground">Le premier horaire devient l’heure de départ de référence.</p></div><Button type="button" variant="outline" onClick={()=>remote.update([...remote.items,{name:`SAS ${remote.items.length+1}`,startTime:"08:00",eligibilityType:"all",eligibilityNote:null}])}>Ajouter un SAS</Button></div>
     {remote.items.length===0?<Empty text="Aucun SAS."/>:remote.items.map((item,index)=><article key={item.id??index} className="space-y-3 rounded-xl border border-border p-4"><div className="grid gap-3 md:grid-cols-[2fr_1fr_2fr_auto]"><TextField label="Nom" value={item.name} onChange={(name)=>patch(index,{name})}/><TextField label="Départ" type="time" value={item.startTime} onChange={(startTime)=>patch(index,{startTime})}/><div><p className="mb-1 text-sm font-medium">Critère</p><Select label="Critère d’accès" value={item.eligibilityType} onChange={(value)=>patch(index,{eligibilityType:value as StartWave["eligibilityType"]})}><option value="all">Tous</option><option value="bib_range">Dossards</option><option value="estimated_finish_time">Temps objectif</option><option value="pace">Allure</option><option value="custom">Règle libre</option></Select></div><Button type="button" variant="ghost" onClick={()=>remote.update(remote.items.filter((_,i)=>i!==index))}>Supprimer</Button></div><WaveCriterion item={item} patch={(next)=>patch(index,next)}/></article>)}<Status loaded={remote.loaded} message={remote.message}/></div>;
 }
 function WaveCriterion({item,patch}:{item:StartWave;patch:(next:Partial<StartWave>)=>void}){if(item.eligibilityType==="all")return null;if(item.eligibilityType==="custom")return <TextAreaField label="Règle d’accès" value={item.eligibilityNote??""} onChange={(eligibilityNote)=>patch({eligibilityNote})}/>;const finish=item.eligibilityType==="estimated_finish_time",pace=item.eligibilityType==="pace";const min=finish?item.finishMinutesMin:pace?item.paceSecondsMin:item.bibNumberMin;const max=finish?item.finishMinutesMax:pace?item.paceSecondsMax:item.bibNumberMax;const label=finish?"Minutes de course":pace?"Secondes par km":"Numéro de dossard";return <div className="grid gap-3 md:grid-cols-2"><NumberField label={`${label} minimum`} value={min??0} onChange={(value)=>patch(finish?{finishMinutesMin:value}:pace?{paceSecondsMin:value}:{bibNumberMin:value})}/><NumberField label={`${label} maximum`} value={max??0} onChange={(value)=>patch(finish?{finishMinutesMax:value}:pace?{paceSecondsMax:value}:{bibNumberMax:value})}/></div>}
 
-export function AwardsEditor({raceId,headers,enabled}:{raceId:string|null;headers:Headers;enabled:boolean}){const remote=useRemoteList<RaceAward>(enabled&&raceId?`/api/organizer/races/${raceId}/awards`:null,"awards",headers);if(!enabled)return <Locked label="Les podiums sont inclus dans RaceBook."/>;const patch=(index:number,next:Partial<RaceAward>)=>remote.update(remote.items.map((x,i)=>i===index?{...x,...next}:x));const labels:{[key:string]:string}={scratch:"Scratch",u18:"U18",u20:"U20",u23:"U23",senior:"Senior",master:"Master",custom:"Personnalisée"};return <div className="space-y-4"><div className="flex justify-between"><div><p className="font-semibold">Podiums & récompenses</p><p className="text-sm text-muted-foreground">Définis qui est récompensé et à quelle heure.</p></div><Button type="button" variant="outline" onClick={()=>remote.update([...remote.items,{categoryKey:"scratch",categoryLabel:"Scratch",audience:"mixed",placeFrom:1,placeTo:3,podiumTime:"15:00",podiumLocation:null,rewardNote:null}])}>Ajouter une catégorie</Button></div>{remote.items.length===0?<Empty text="Aucun podium programmé."/>:remote.items.map((item,index)=><article key={item.id??index} className="space-y-3 rounded-xl border border-border p-4"><div className="grid gap-3 lg:grid-cols-[1.2fr_1.5fr_1fr_.7fr_.7fr_1fr_auto]"><Select label="Catégorie" value={item.categoryKey} onChange={(value)=>patch(index,{categoryKey:value as RaceAward["categoryKey"],categoryLabel:labels[value]})}>{Object.entries(labels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</Select><TextField label="Libellé" value={item.categoryLabel} onChange={(categoryLabel)=>patch(index,{categoryLabel})}/><Select label="Audience" value={item.audience} onChange={(value)=>patch(index,{audience:value as RaceAward["audience"]})}><option value="mixed">Mixte</option><option value="women">Femmes</option><option value="men">Hommes</option></Select><NumberField label="Place de" value={item.placeFrom} onChange={(placeFrom)=>patch(index,{placeFrom})}/><NumberField label="Place à" value={item.placeTo} onChange={(placeTo)=>patch(index,{placeTo})}/><TextField label="Podium" type="time" value={item.podiumTime} onChange={(podiumTime)=>patch(index,{podiumTime})}/><Button type="button" variant="ghost" onClick={()=>remote.update(remote.items.filter((_,i)=>i!==index))}>Supprimer</Button></div><div className="grid gap-3 md:grid-cols-2"><TextField label="Lieu du podium" value={item.podiumLocation??""} onChange={(podiumLocation)=>patch(index,{podiumLocation:podiumLocation||null})}/><TextField label="Récompense / note" value={item.rewardNote??""} onChange={(rewardNote)=>patch(index,{rewardNote:rewardNote||null})}/></div></article>)}<Status loaded={remote.loaded} message={remote.message}/></div>}
+export function AwardsEditor({raceId,headers,enabled,onDraftChange,onDraftStatusChange}:{raceId:string|null;headers:Headers;enabled:boolean;onDraftChange?: (items: RaceAward[]) => void;onDraftStatusChange?: (status: RemoteDraftStatus) => void}){const remote=useRemoteList<RaceAward>(enabled&&raceId?`/api/organizer/races/${raceId}/awards`:null,"awards",headers,[],onDraftChange,onDraftStatusChange);if(!enabled)return <Locked label="Les podiums sont inclus dans RaceBook."/>;const patch=(index:number,next:Partial<RaceAward>)=>remote.update(remote.items.map((x,i)=>i===index?{...x,...next}:x));const labels:{[key:string]:string}={scratch:"Scratch",u18:"U18",u20:"U20",u23:"U23",senior:"Senior",master:"Master",custom:"Personnalisée"};return <div className="space-y-4"><div className="flex justify-between"><div><p className="font-semibold">Podiums & récompenses</p><p className="text-sm text-muted-foreground">Définis qui est récompensé et à quelle heure.</p></div><Button type="button" variant="outline" onClick={()=>remote.update([...remote.items,{categoryKey:"scratch",categoryLabel:"Scratch",audience:"mixed",placeFrom:1,placeTo:3,podiumTime:"15:00",podiumLocation:null,rewardNote:null}])}>Ajouter une catégorie</Button></div>{remote.items.length===0?<Empty text="Aucun podium programmé."/>:remote.items.map((item,index)=><article key={item.id??index} className="space-y-3 rounded-xl border border-border p-4"><div className="grid gap-3 lg:grid-cols-[1.2fr_1.5fr_1fr_.7fr_.7fr_1fr_auto]"><Select label="Catégorie" value={item.categoryKey} onChange={(value)=>patch(index,{categoryKey:value as RaceAward["categoryKey"],categoryLabel:labels[value]})}>{Object.entries(labels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</Select><TextField label="Libellé" value={item.categoryLabel} onChange={(categoryLabel)=>patch(index,{categoryLabel})}/><Select label="Audience" value={item.audience} onChange={(value)=>patch(index,{audience:value as RaceAward["audience"]})}><option value="mixed">Mixte</option><option value="women">Femmes</option><option value="men">Hommes</option></Select><NumberField label="Place de" value={item.placeFrom} onChange={(placeFrom)=>patch(index,{placeFrom})}/><NumberField label="Place à" value={item.placeTo} onChange={(placeTo)=>patch(index,{placeTo})}/><TextField label="Podium" type="time" value={item.podiumTime} onChange={(podiumTime)=>patch(index,{podiumTime})}/><Button type="button" variant="ghost" onClick={()=>remote.update(remote.items.filter((_,i)=>i!==index))}>Supprimer</Button></div><div className="grid gap-3 md:grid-cols-2"><TextField label="Lieu du podium" value={item.podiumLocation??""} onChange={(podiumLocation)=>patch(index,{podiumLocation:podiumLocation||null})}/><TextField label="Récompense / note" value={item.rewardNote??""} onChange={(rewardNote)=>patch(index,{rewardNote:rewardNote||null})}/></div></article>)}<Status loaded={remote.loaded} message={remote.message}/></div>}
 
 const Empty=({text}:{text:string})=><p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">{text}</p>;
 const Locked=({label}:{label:string})=><div className="rounded-lg border border-brand/40 bg-brand/5 p-5"><p className="font-semibold">{label}</p><p className="mt-2 text-sm text-muted-foreground">Active RaceBook sur cette édition pour compléter ces informations.</p></div>;

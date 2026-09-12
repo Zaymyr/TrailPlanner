@@ -90,6 +90,7 @@ where edition_id = :edition_id;
 ## Gotchas
 
 - The Organizer preview uses optimized image rendering and explicit form labels. Logo constraints are available through keyboard- and pointer-accessible contextual help instead of a permanent helper paragraph; these presentation details do not broaden the service-only draft access contract.
+- The organizer phone may temporarily show the current branding draft, including a browser object URL while an image upload is pending. That URL is revoked locally and is never a published branding value, CDN asset, or mobile bootstrap input.
 
 - Never return draft columns from a runner-facing route.
 - Do not grant direct mobile/browser access to this table; the existing server route is the compatibility and authorization boundary.

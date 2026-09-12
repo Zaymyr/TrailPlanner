@@ -60,6 +60,7 @@ The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeaflet
 - If a future screen needs editing or advanced basemap controls, extend the shared component instead of creating another map stack.
 - Never interpolate an unvalidated organizer color into the mobile WebView HTML.
 - Keep upload transport dependencies out of the map chunk; Organizer module code-splitting should not make TUS part of a route-preview load.
+- The organizer phone uses the lightweight shared RaceBook route adapter and local normalized GPX points; it does not create another Leaflet map, tile request, or route-data fetch.
 
 ## Related Docs
 

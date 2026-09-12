@@ -107,6 +107,7 @@ This table is retained publication-review history. New organizer publication use
 - Admin-only claim reconciliation and the signed per-field import snapshot are pre-publication controls. Confirming formats may create hidden incomplete drafts, and applying selected claims may complete source fields, but neither action establishes Racebook readiness or approval; the publication route revalidates persisted data independently.
 - Source-role classification for additional URLs and PDFs is likewise review evidence only. It cannot publish a course, approve a Racebook, or create a publication request.
 - Do not treat `published_at` on edition branding as RaceBook content approval; it records only which visual snapshot runner payloads may use.
+- Seeing a local organizer-phone draft is not publication readiness or approval evidence. The publication route continues to revalidate persisted data and effective modules.
 
 ## Related Docs
 

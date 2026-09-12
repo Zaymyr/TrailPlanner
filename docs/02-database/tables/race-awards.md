@@ -38,3 +38,5 @@ The format access override that hides saved runner information is likewise indep
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local award edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting awards.
 
 Published rows travel in the consolidated RaceBook CDN snapshot. A successful atomic awards replacement invalidates the parent race tag after persistence.
+
+The organizer phone may consume the editor's unsaved award list through a local callback. That preview is presentation-only and does not alter atomic replacement, RLS, or the published snapshot.
