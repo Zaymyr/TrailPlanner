@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -37,6 +37,7 @@ related_files:
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
+  - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
   - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -44,6 +45,7 @@ related_files:
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
+  - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
@@ -112,6 +114,8 @@ Early migrations create:
 - `affiliate_offers`
 - `affiliate_click_events`
 - `affiliate_events`
+
+The two affiliate engagement tables are historical only: `20260912172415_decommission_affiliate_engagement_analytics.sql` drops `affiliate_click_events`, `affiliate_events`, their event enum, and the affiliate reporting RPC. `affiliate_offers` remains available for resolving outbound merchant links.
 
 Important files:
 
@@ -290,6 +294,8 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 `supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql` aligns single-format publication with the server route by accepting active event organizers or trusted Auth app-metadata admins, while retaining service-role-only execution, readiness, edition, and entitlement checks. It also lets a real direct bank transfer replace a higher Admin/Offert grant with the paid tier actually selected; ledger-backed duplicate and downgrade protections remain unchanged.
 
+`supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql` is an idempotent data correction for the paid Essential bank transfer of Trail Ton Château 2026. It changes the known 20% tax amount to zero and recomputes the total from HT, without changing the payment status, entitlement, invoice metadata, grants, functions, or RLS.
+
 `supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql` repairs the service-only single-format publication RPC. The service role cannot read `auth.users` directly, so a private fixed-output security-definer helper now performs only the trusted `raw_app_meta_data` admin lookup; the mutating RPC remains security-invoker and service-role-only. Active organizers and trusted admins can publish one complete format under a visible, entitled edition without broadening Auth-table grants.
 
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
@@ -320,9 +326,9 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 
 ### Admin KPI Aggregates
 
-`supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql` adds reporting indexes for plans, affiliate events, and organizer payments plus two service-role-only aggregate functions. `get_admin_growth_metrics` returns Europe/Paris-bounded account, mature 24-hour activation, plan, effective Premium, organizer cohort, commercial revenue, and follow-up metrics. `get_admin_affiliate_metrics` returns complete period totals, unique sessions, CTR, per-product statistics, and a separately capped recent-event list. Both functions read privileged cross-user data with an empty `search_path`; execution is revoked from `PUBLIC`, `anon`, and `authenticated` and granted only to `service_role`.
+`supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql` originally added reporting indexes for plans, affiliate events, and organizer payments plus two service-role-only aggregate functions. `get_admin_growth_metrics` remains the Europe/Paris-bounded source for account, mature 24-hour activation, plan, effective Premium, organizer cohort, commercial revenue, and follow-up metrics. The later `20260912172415_decommission_affiliate_engagement_analytics.sql` removes the obsolete affiliate indexes with their tables and drops `get_admin_affiliate_metrics`.
 
-The migration adds no table or client-facing policy. App routes must authenticate a trusted admin before invoking either function with the server-side service key.
+The aggregate migration adds no table or client-facing policy. App routes must authenticate a trusted admin before invoking the remaining growth function with the server-side service key.
 
 ### Racebook Showcase Data
 

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../..
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
+import { getDaysUntilDate } from "../../lib/product-analytics";
 import {
   buildAuthHref,
   buildOrganizerCreationHref,
@@ -69,6 +70,8 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
       trackGoogleAnalyticsEvent("organizer_event_created", {
         event_category: "organizer_acquisition",
         event_id: data.event.id,
+        edition_year: eventForm.editionStartDate.slice(0, 4),
+        days_until_race: getDaysUntilDate(eventForm.editionStartDate),
         ...attribution,
       });
 

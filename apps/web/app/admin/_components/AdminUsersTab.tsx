@@ -90,6 +90,13 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
+  const [emailFilterInput, setEmailFilterInput] = useState("");
+  const [emailFilter, setEmailFilter] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | UserRoleOption>("all");
+  const [createdFrom, setCreatedFrom] = useState("");
+  const [createdTo, setCreatedTo] = useState("");
+  const [lastSignInFrom, setLastSignInFrom] = useState("");
+  const [lastSignInTo, setLastSignInTo] = useState("");
   const [sort, setSort] = useState<"email" | "role" | "createdAt" | "lastSignInAt">("createdAt");
   const [order, setOrder] = useState<"asc" | "desc">("desc");
 
@@ -144,13 +151,28 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
     const timeout = window.setTimeout(() => {
       setPage(1);
       setSearch(searchInput.trim());
+      setEmailFilter(emailFilterInput.trim());
     }, 300);
 
     return () => window.clearTimeout(timeout);
-  }, [searchInput]);
+  }, [emailFilterInput, searchInput]);
 
   const usersQuery = useQuery({
-    queryKey: ["admin", "users", accessToken, page, search, sort, order],
+    queryKey: [
+      "admin",
+      "users",
+      accessToken,
+      page,
+      search,
+      emailFilter,
+      roleFilter,
+      createdFrom,
+      createdTo,
+      lastSignInFrom,
+      lastSignInTo,
+      sort,
+      order,
+    ],
     enabled: Boolean(accessToken),
     queryFn: async () => {
       if (!accessToken) throw new Error(t.admin.users.loadError);
@@ -158,6 +180,12 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
       const params = new URLSearchParams({
         page: String(page),
         search,
+        email: emailFilter,
+        role: roleFilter,
+        createdFrom,
+        createdTo,
+        lastSignInFrom,
+        lastSignInTo,
         sort,
         order,
       });
@@ -347,6 +375,22 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
     setOrder(column === "createdAt" || column === "lastSignInAt" ? "desc" : "asc");
   };
 
+  const updateFilter = (setter: (value: string) => void, value: string) => {
+    setPage(1);
+    setter(value);
+  };
+
+  const clearColumnFilters = () => {
+    setPage(1);
+    setEmailFilterInput("");
+    setEmailFilter("");
+    setRoleFilter("all");
+    setCreatedFrom("");
+    setCreatedTo("");
+    setLastSignInFrom("");
+    setLastSignInTo("");
+  };
+
   const renderSortableHeader = (
     column: "email" | "role" | "createdAt" | "lastSignInAt",
     label: string
@@ -468,6 +512,101 @@ export function AdminUsersTab({ accessToken }: { accessToken: string | null }) {
                     {t.admin.users.table.premium}
                   </TableHead>
                   <TableHead className="text-slate-600 dark:text-slate-300">{t.admin.users.table.details}</TableHead>
+                </TableRow>
+                <TableRow className="align-top hover:bg-transparent">
+                  <TableHead className="min-w-52 p-2">
+                    <Label htmlFor="admin-users-email-filter" className="sr-only">
+                      {isFrench ? "Filtrer par e-mail" : "Filter by email"}
+                    </Label>
+                    <Input
+                      id="admin-users-email-filter"
+                      type="search"
+                      className="h-9 font-normal"
+                      value={emailFilterInput}
+                      placeholder={isFrench ? "Filtrer l’e-mail…" : "Filter email…"}
+                      onChange={(event) => setEmailFilterInput(event.target.value)}
+                    />
+                  </TableHead>
+                  <TableHead className="min-w-36 p-2">
+                    <Label htmlFor="admin-users-role-filter" className="sr-only">
+                      {isFrench ? "Filtrer par rôle" : "Filter by role"}
+                    </Label>
+                    <select
+                      id="admin-users-role-filter"
+                      className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm font-normal"
+                      value={roleFilter}
+                      onChange={(event) => {
+                        setPage(1);
+                        setRoleFilter(event.target.value as typeof roleFilter);
+                      }}
+                    >
+                      <option value="all">{isFrench ? "Tous les rôles" : "All roles"}</option>
+                      <option value="user">{roleLabels.user}</option>
+                      <option value="admin">{roleLabels.admin}</option>
+                    </select>
+                  </TableHead>
+                  <TableHead className="min-w-44 p-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="admin-users-created-from" className="block text-[10px] font-normal text-muted-foreground">
+                        {isFrench ? "Du" : "From"}
+                      </Label>
+                      <Input
+                        id="admin-users-created-from"
+                        type="date"
+                        className="h-9 font-normal"
+                        value={createdFrom}
+                        max={createdTo || undefined}
+                        onChange={(event) => updateFilter(setCreatedFrom, event.target.value)}
+                        title={isFrench ? "Créé à partir du" : "Created from"}
+                      />
+                      <Label htmlFor="admin-users-created-to" className="block text-[10px] font-normal text-muted-foreground">
+                        {isFrench ? "Au" : "To"}
+                      </Label>
+                      <Input
+                        id="admin-users-created-to"
+                        type="date"
+                        className="h-9 font-normal"
+                        value={createdTo}
+                        min={createdFrom || undefined}
+                        onChange={(event) => updateFilter(setCreatedTo, event.target.value)}
+                        title={isFrench ? "Créé jusqu’au" : "Created to"}
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead className="min-w-44 p-2">
+                    <div className="space-y-1">
+                      <Label htmlFor="admin-users-active-from" className="block text-[10px] font-normal text-muted-foreground">
+                        {isFrench ? "Du" : "From"}
+                      </Label>
+                      <Input
+                        id="admin-users-active-from"
+                        type="date"
+                        className="h-9 font-normal"
+                        value={lastSignInFrom}
+                        max={lastSignInTo || undefined}
+                        onChange={(event) => updateFilter(setLastSignInFrom, event.target.value)}
+                        title={isFrench ? "Actif à partir du" : "Active from"}
+                      />
+                      <Label htmlFor="admin-users-active-to" className="block text-[10px] font-normal text-muted-foreground">
+                        {isFrench ? "Au" : "To"}
+                      </Label>
+                      <Input
+                        id="admin-users-active-to"
+                        type="date"
+                        className="h-9 font-normal"
+                        value={lastSignInTo}
+                        min={lastSignInFrom || undefined}
+                        onChange={(event) => updateFilter(setLastSignInTo, event.target.value)}
+                        title={isFrench ? "Actif jusqu’au" : "Active to"}
+                      />
+                    </div>
+                  </TableHead>
+                  <TableHead className="p-2" />
+                  <TableHead className="p-2">
+                    <Button type="button" variant="ghost" className="h-9 px-2 text-xs" onClick={clearColumnFilters}>
+                      {isFrench ? "Réinitialiser" : "Reset"}
+                    </Button>
+                  </TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>

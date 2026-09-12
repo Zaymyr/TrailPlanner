@@ -25,6 +25,8 @@ related_files:
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
+  - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
+  - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -127,14 +129,13 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
 - Organizer edition entitlement: permanent Visibilité/Essential/Complete/Signature capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
+- Manual organizer bank transfer tax: the canonical pack subtotal is server-owned; a validated admin choice records either 20% VAT or zero VAT while preserving the same service-only payment ledger and entitlement derivation.
 
 ## Tables
 
 | Table | Purpose |
 | --- | --- |
 | `app_feedback` | Feedback submitted from app surfaces; later migrations add user and tracking fields. |
-| `affiliate_click_events` | Service-managed click events for affiliate offers. |
-| `affiliate_events` | Authenticated affiliate event tracking such as popup open or click. |
 | `affiliate_offers` | Merchant offer links attached to `products`. |
 | `app_changelog` | Published mobile app changelog entries. |
 | `nutrition_plans` | User-owned nutrition planning snapshots. |

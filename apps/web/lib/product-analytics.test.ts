@@ -2,11 +2,16 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { trackGoogleAnalyticsEvent } from "./google-analytics";
 import {
+  getChangedFieldNames,
+  getDaysUntilDate,
   trackCrewLinkOpened,
   trackCrewStateUpdated,
   trackOrganizerCheckoutStarted,
+  trackOrganizerEventUpdated,
   trackOrganizerOfferViewed,
   trackOrganizerPurchaseVerified,
+  trackOrganizerRaceCreated,
+  trackOrganizerRaceUpdated,
   trackPlanExported,
   trackPlanPersisted,
 } from "./product-analytics";
@@ -84,5 +89,63 @@ describe("product analytics events", () => {
       "organizer purchase verified",
     ]);
     expect(track.mock.calls[1]?.[1]).toMatchObject({ billing_provider: "stripe", target_tier: "signature" });
+  });
+
+  it("reports organizer edits without sending field values", () => {
+    const changedFields = getChangedFieldNames(
+      { name: "Ancien nom", location: "Annecy", schedule: { start: "06:00" } },
+      { name: "Nouveau nom", location: "Annecy", schedule: { start: "07:00" } }
+    );
+
+    trackOrganizerRaceUpdated({
+      eventId: "event-1",
+      raceId: "race-1",
+      editionYear: "2027",
+      daysUntilRace: 42,
+      changedFields,
+      saveMode: "background",
+    });
+
+    expect(track).toHaveBeenCalledWith("organizer race updated", {
+      event_category: "organizer_content",
+      event_id: "event-1",
+      race_id: "race-1",
+      edition_year: "2027",
+      days_until_race: 42,
+      changed_fields: "name,schedule",
+      changed_field_count: 2,
+      save_mode: "background",
+    });
+    expect(JSON.stringify(track.mock.calls[0]?.[1])).not.toContain("Nouveau nom");
+  });
+
+  it("measures calendar days until a race and tracks organizer creation", () => {
+    expect(getDaysUntilDate("2027-01-11", new Date("2027-01-01T23:30:00Z"))).toBe(10);
+    expect(getDaysUntilDate("invalid", new Date("2027-01-01T00:00:00Z"))).toBeNull();
+
+    trackOrganizerRaceCreated({
+      eventId: "event-1",
+      raceId: "race-1",
+      editionYear: "2027",
+      daysUntilRace: 10,
+      distanceKm: 42,
+      hasGpx: true,
+    });
+    expect(track).toHaveBeenCalledWith("organizer race created", expect.objectContaining({
+      days_until_race: 10,
+      distance_km: 42,
+      has_gpx: true,
+    }));
+  });
+
+  it("does not emit empty organizer update events", () => {
+    trackOrganizerEventUpdated({
+      eventId: "event-1",
+      editionYear: "2027",
+      daysUntilRace: 10,
+      changedFields: [],
+      saveMode: "manual",
+    });
+    expect(track).not.toHaveBeenCalled();
   });
 });

@@ -1049,25 +1049,6 @@ export const fr: Translations = {
         },
       },
     },
-    analytics: {
-      title: "Tableau de bord d'engagement",
-      description: "Suis les produits sélectionnés, l’ouverture des popups et les clics.",
-      loadError: "Impossible de charger les statistiques.",
-      empty: "Aucun évènement pour l’instant.",
-      totals: {
-        popupOpens: "Ouvertures de popup",
-        clicks: "Clics",
-      },
-      statsTitle: "Intérêt produits",
-      eventsTitle: "Évènements récents",
-      table: {
-        product: "Produit",
-        eventType: "Évènement",
-        country: "Pays",
-        merchant: "Marchand",
-        timestamp: "Quand",
-      },
-    },
     socialTemplates: {
       title: "Templates sociaux",
       description: "Choisis un plan existant, génère son carrousel HTML puis exporte les 4 slides en PNG.",

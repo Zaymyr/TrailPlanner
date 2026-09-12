@@ -153,7 +153,6 @@ export async function DELETE(request: NextRequest) {
     await deleteOwnedRows(adminClient, "races", "created_by", user.id);
     await deleteOwnedRows(adminClient, "products", "created_by", user.id);
     await deleteOwnedRows(adminClient, "race_requests", "user_id", user.id);
-    await deleteOwnedRows(adminClient, "affiliate_events", "user_id", user.id);
     await deleteOwnedRows(adminClient, "traces", "owner_id", user.id);
     await deleteOwnedRows(adminClient, "user_profiles", "user_id", user.id);
 

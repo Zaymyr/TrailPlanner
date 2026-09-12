@@ -61,6 +61,86 @@ export function trackCrewStateUpdated(input: {
 
 type OrganizerTier = "visibility" | "essential" | "complete" | "signature";
 
+type OrganizerSaveMode = "manual" | "background";
+
+export function getChangedFieldNames(
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): string[] {
+  return Object.keys(after).filter((field) => JSON.stringify(before[field]) !== JSON.stringify(after[field]));
+}
+
+export function getDaysUntilDate(dateValue: string | null | undefined, now = new Date()): number | null {
+  if (!dateValue) return null;
+  const target = new Date(`${dateValue.slice(0, 10)}T00:00:00Z`);
+  if (Number.isNaN(target.getTime())) return null;
+  const today = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate());
+  return Math.round((target.getTime() - today) / 86_400_000);
+}
+
+function organizerEditProperties(input: {
+  eventId: string;
+  raceId?: string;
+  editionYear: string;
+  daysUntilRace: number | null;
+  changedFields: string[];
+  saveMode: OrganizerSaveMode;
+}) {
+  const changedFields = [...new Set(input.changedFields)].sort();
+  return {
+    event_category: "organizer_content",
+    event_id: input.eventId,
+    race_id: input.raceId,
+    edition_year: input.editionYear,
+    days_until_race: input.daysUntilRace,
+    changed_fields: changedFields.join(","),
+    changed_field_count: changedFields.length,
+    save_mode: input.saveMode,
+  };
+}
+
+export function trackOrganizerEventUpdated(input: {
+  eventId: string;
+  editionYear: string;
+  daysUntilRace: number | null;
+  changedFields: string[];
+  saveMode: OrganizerSaveMode;
+}) {
+  if (input.changedFields.length === 0) return;
+  trackGoogleAnalyticsEvent("organizer event updated", organizerEditProperties(input));
+}
+
+export function trackOrganizerRaceCreated(input: {
+  eventId: string;
+  raceId: string;
+  editionYear: string;
+  daysUntilRace: number | null;
+  distanceKm: number;
+  hasGpx: boolean;
+}) {
+  trackGoogleAnalyticsEvent("organizer race created", {
+    event_category: "organizer_content",
+    event_id: input.eventId,
+    race_id: input.raceId,
+    edition_year: input.editionYear,
+    days_until_race: input.daysUntilRace,
+    distance_km: input.distanceKm,
+    has_gpx: input.hasGpx,
+  });
+}
+
+export function trackOrganizerRaceUpdated(input: {
+  eventId: string;
+  raceId: string;
+  editionYear: string;
+  daysUntilRace: number | null;
+  changedFields: string[];
+  saveMode: OrganizerSaveMode;
+}) {
+  if (input.changedFields.length === 0) return;
+  trackGoogleAnalyticsEvent("organizer race updated", organizerEditProperties(input));
+}
+
 export function trackOrganizerOfferViewed(input: {
   currentTier: OrganizerTier;
   editionYear: string;

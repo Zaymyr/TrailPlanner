@@ -1,0 +1,440 @@
+{
+  "generatedAt": "2026-09-12T17:39:29.630Z",
+  "baseURL": "https://pace-yourself.com",
+  "runs": [
+    {
+      "device": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 900
+      },
+      "url": "https://pace-yourself.com/organizer",
+      "steps": [
+        {
+          "index": 1,
+          "title": "Votre espace course",
+          "description": "Retrouvez ici la course active, son avancement et les actions principales.",
+          "buttons": [
+            "×",
+            "Suivant"
+          ],
+          "screenshot": "desktop-step-1.png",
+          "scrollY": 0,
+          "modal": {
+            "x": 464,
+            "y": 245,
+            "width": 512,
+            "height": 241,
+            "right": 976,
+            "bottom": 486
+          },
+          "spotlight": {
+            "x": 113,
+            "y": 131,
+            "width": 1214,
+            "height": 96,
+            "right": 1327,
+            "bottom": 227
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 2,
+          "title": "Course et édition",
+          "description": "Recherchez une course puis choisissez l’année que vous souhaitez mettre à jour.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "desktop-step-2.png",
+          "scrollY": 0,
+          "modal": {
+            "x": 464,
+            "y": 346,
+            "width": 512,
+            "height": 264,
+            "right": 976,
+            "bottom": 610
+          },
+          "spotlight": {
+            "x": 113,
+            "y": 223,
+            "width": 696,
+            "height": 105,
+            "right": 809,
+            "bottom": 328
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 3,
+          "title": "Commun ou par format",
+          "description": "Les informations communes valent pour toutes les courses. Chaque format possède ensuite ses propres contenus.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "desktop-step-3.png",
+          "scrollY": 0,
+          "modal": {
+            "x": 464,
+            "y": 218,
+            "width": 512,
+            "height": 264,
+            "right": 976,
+            "bottom": 482
+          },
+          "spotlight": {
+            "x": 109,
+            "y": 526,
+            "width": 1222,
+            "height": 144,
+            "right": 1331,
+            "bottom": 670
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 4,
+          "title": "Vos sections",
+          "description": "Cliquez sur une tuile pour l’ouvrir. Gris signifie vide, orange partiel et vert complet.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "desktop-step-4.png",
+          "scrollY": 0,
+          "modal": {
+            "x": 464,
+            "y": 350,
+            "width": 512,
+            "height": 264,
+            "right": 976,
+            "bottom": 613
+          },
+          "spotlight": {
+            "x": 109,
+            "y": 658,
+            "width": 1222,
+            "height": 106,
+            "right": 1331,
+            "bottom": 764
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 5,
+          "title": "Renseignez le contenu",
+          "description": "Modifiez la section sélectionnée. Le bouton Sauvegarder apparaît dès qu’un changement est en attente.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "desktop-step-5.png",
+          "scrollY": 797,
+          "modal": {
+            "x": 464,
+            "y": 8,
+            "width": 512,
+            "height": 264,
+            "right": 976,
+            "bottom": 272
+          },
+          "spotlight": {
+            "x": 92,
+            "y": -17,
+            "width": 1256,
+            "height": 892,
+            "right": 1348,
+            "bottom": 875
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": false,
+          "overlapArea": 135168,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 6,
+          "title": "Visibilité et publication",
+          "description": "Masqué retire le format, Privé le réserve à votre aperçu et Public le rend accessible aux coureurs.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Terminer",
+            "Configurer mes sections"
+          ],
+          "screenshot": "desktop-step-6.png",
+          "scrollY": 0,
+          "modal": {
+            "x": 464,
+            "y": 456,
+            "width": 512,
+            "height": 264,
+            "right": 976,
+            "bottom": 720
+          },
+          "spotlight": {
+            "x": 113,
+            "y": 370,
+            "width": 1214,
+            "height": 68,
+            "right": 1327,
+            "bottom": 438
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Configurer mes sections",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    },
+    {
+      "device": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "url": "https://pace-yourself.com/organizer",
+      "steps": [
+        {
+          "index": 1,
+          "title": "Votre espace course",
+          "description": "Retrouvez ici la course active, son avancement et les actions principales.",
+          "buttons": [
+            "×",
+            "Suivant"
+          ],
+          "screenshot": "mobile-step-1.png",
+          "scrollY": 0,
+          "modal": {
+            "x": 16,
+            "y": 279,
+            "width": 358,
+            "height": 264,
+            "right": 374,
+            "bottom": 543
+          },
+          "spotlight": {
+            "x": 37,
+            "y": 85,
+            "width": 316,
+            "height": 176,
+            "right": 353,
+            "bottom": 261
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 2,
+          "title": "Course et édition",
+          "description": "Recherchez une course puis choisissez l’année que vous souhaitez mettre à jour.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "mobile-step-2.png",
+          "scrollY": 0,
+          "modal": {
+            "x": 16,
+            "y": 456,
+            "width": 358,
+            "height": 264,
+            "right": 374,
+            "bottom": 720
+          },
+          "spotlight": {
+            "x": 37,
+            "y": 257,
+            "width": 316,
+            "height": 181,
+            "right": 353,
+            "bottom": 438
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 3,
+          "title": "Commun ou par format",
+          "description": "Les informations communes valent pour toutes les courses. Chaque format possède ensuite ses propres contenus.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "mobile-step-3.png",
+          "scrollY": 377,
+          "modal": {
+            "x": 16,
+            "y": 463,
+            "width": 358,
+            "height": 286,
+            "right": 374,
+            "bottom": 749
+          },
+          "spotlight": {
+            "x": 33,
+            "y": 351,
+            "width": 324,
+            "height": 94,
+            "right": 357,
+            "bottom": 445
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 4,
+          "title": "Vos sections",
+          "description": "Cliquez sur une tuile pour l’ouvrir. Gris signifie vide, orange partiel et vert complet.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "mobile-step-4.png",
+          "scrollY": 377,
+          "modal": {
+            "x": 16,
+            "y": 125,
+            "width": 358,
+            "height": 264,
+            "right": 374,
+            "bottom": 389
+          },
+          "spotlight": {
+            "x": 33,
+            "y": 433,
+            "width": 324,
+            "height": 196,
+            "right": 357,
+            "bottom": 629
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 5,
+          "title": "Renseignez le contenu",
+          "description": "Modifiez la section sélectionnée. Le bouton Sauvegarder apparaît dès qu’un changement est en attente.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Suivant"
+          ],
+          "screenshot": "mobile-step-5.png",
+          "scrollY": 1291,
+          "modal": {
+            "x": 16,
+            "y": 8,
+            "width": 358,
+            "height": 286,
+            "right": 374,
+            "bottom": 294
+          },
+          "spotlight": {
+            "x": 20,
+            "y": -269,
+            "width": 350,
+            "height": 1348,
+            "right": 370,
+            "bottom": 1079
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": false,
+          "overlapArea": 100100,
+          "activeElementText": "Suivant",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        },
+        {
+          "index": 6,
+          "title": "Visibilité et publication",
+          "description": "Masqué retire le format, Privé le réserve à votre aperçu et Public le rend accessible aux coureurs.",
+          "buttons": [
+            "×",
+            "Précédent",
+            "Terminer",
+            "Configurer mes sections"
+          ],
+          "screenshot": "mobile-step-6.png",
+          "scrollY": 182,
+          "modal": {
+            "x": 16,
+            "y": 429,
+            "width": 358,
+            "height": 312,
+            "right": 374,
+            "bottom": 741
+          },
+          "spotlight": {
+            "x": 37,
+            "y": 343,
+            "width": 316,
+            "height": 68,
+            "right": 353,
+            "bottom": 411
+          },
+          "modalInViewport": true,
+          "spotlightInViewport": true,
+          "overlapArea": 0,
+          "activeElementText": "Configurer mes sections",
+          "dialogOverflowY": "visible",
+          "bodyOverflow": "visible"
+        }
+      ],
+      "consoleErrors": [],
+      "pageErrors": [],
+      "failedResponses": []
+    }
+  ]
+}

@@ -205,7 +205,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.
 - Drafting several section switches in the Organizer chooser does not parse, upload, or reload GPX data; only the single successful module-settings save changes whether GPX-adjacent module UI is shown.
-- The Organizer spotlight guide may highlight the active editor, but it is presentation-only and never parses, uploads, replaces, or reloads a GPX.
+- The Organizer spotlight guide highlights only the active editor header, not the complete potentially oversized editor. This remains presentation-only and never parses, uploads, replaces, or reloads a GPX.
 - Separating edition-common and per-format switches in that chooser does not change GPX ownership: route geometry and its related controls remain attached to the targeted format.
 - Race-scoped autosave also includes format-specific bib-pickup, equipment, and access overrides; keep that metadata in the shared race-details save set when changing GPX or ravito navigation behavior.
 - Organizer tab navigation is immediate, so late GPX preview responses must verify that their requested race is still active before replacing the current preview or station interpolation context.

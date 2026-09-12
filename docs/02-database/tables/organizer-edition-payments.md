@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -19,6 +19,7 @@ related_files:
   - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
 related_tables:
   - organizer_edition_payments
   - organizer_edition_entitlements
@@ -29,7 +30,7 @@ related_tables:
 
 ## Purpose
 
-Stores Stripe attempts and paid bank transfers, with their tax-inclusive settlement values and invoice references, separately from the effective edition right.
+Stores Stripe attempts and paid bank transfers, with their settlement values and invoice references, separately from the effective edition right. Bank transfers may carry 20% VAT or zero VAT when the sale is exempt.
 
 ## Key Concepts
 
@@ -77,9 +78,10 @@ RLS is enabled with service-role-only grants. Checkout, webhook, and authenticat
 - Existence probes used by that recomputation parse only the response array and select an actual table column; edition branding must project its `edition_id` primary key rather than a nonexistent `id`.
 - Any refund event, including partial, and any open/lost dispute invalidates the complete transaction. A dispute closed as won restores only a row currently marked `disputed`.
 - Recalculation uses valid paid transaction paths, so a refunded/disputed base invalidates its dependent upgrade, and preserves admin overrides.
-- The protected admin route accepts only Essentiel, Complet, or Signature plus a non-future calendar date. It derives 99/199/349 € HT and 20% VAT from the selected direct pack, uses midnight UTC for the settlement date, and calls `record_admin_organizer_bank_transfer`; the function validates the minor-unit amounts, calculates TTC, inserts a paid ledger row, and recalculates the entitlement atomically.
+- The protected admin route accepts only Essentiel, Complet, or Signature plus a non-future calendar date and an explicit VAT choice. It derives 99/199/349 € HT and either 20% or zero VAT, uses midnight UTC for the settlement date, and calls `record_admin_organizer_bank_transfer`; the function validates the minor-unit amounts, calculates the total, inserts a paid ledger row, and recalculates the entitlement atomically. Missing VAT choice defaults to 20% for backward compatibility.
 - A bank transfer cannot duplicate or downgrade a ledger-backed paid tier. An `admin`, `complimentary`, or `legacy_admin` override is not payment history: a newly received transfer may replace it with the selected paid tier, even when that paid tier is lower than the temporary grant.
-- Never trust browser-supplied settlement amounts for a direct pack. The admin route is the canonical pricing boundary and recomputes HT/TVA before invoking the service-role-only function.
+- Never trust browser-supplied settlement amounts for a direct pack. The admin route is the canonical pricing boundary and recomputes HT/TVA from the pack plus the validated VAT boolean before invoking the service-role-only function.
+- The Trail Ton Château Essential transfer dated 2026-09-11 is corrected to zero VAT by `20260912172228_remove_trail_ton_chateau_vat.sql`; its HT amount, paid state, entitlement, and invoice metadata are unchanged.
 - Choosing Stripe or virement as the admin-visible publication origin never creates synthetic payment history; the requested tier and channel must already resolve from valid paid ledger rows.
 - Replacing a manual invoice changes only its file metadata. The transaction remains historical; the old object is removed after the new ledger reference is stored.
 

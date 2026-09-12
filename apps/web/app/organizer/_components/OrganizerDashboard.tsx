@@ -38,9 +38,14 @@ import {
 import { useVerifiedSession } from "../../hooks/useVerifiedSession";
 import { supportEmail } from "../../support/copy";
 import {
+  getChangedFieldNames,
+  getDaysUntilDate,
   trackOrganizerCheckoutStarted,
+  trackOrganizerEventUpdated,
   trackOrganizerOfferViewed,
   trackOrganizerPurchaseVerified,
+  trackOrganizerRaceCreated,
+  trackOrganizerRaceUpdated,
 } from "../../../lib/product-analytics";
 import { buildOrganizerCompletion, type OrganizerCompletionSummary, type OrganizerModuleId } from "./completion";
 import { ADD_FORMAT_TAB_ID, emptyProductForm, EVENT_TAB_ID, MAX_EVENT_IMAGE_SIZE_BYTES } from "./dashboard/constants";
@@ -171,11 +176,11 @@ const ORGANIZER_ONBOARDING_COPY: OnboardingOverlayCopy = {
     },
     {
       title: "Renseignez le contenu",
-      description: "Modifiez la section sélectionnée. Le bouton Sauvegarder apparaît dès qu’un changement est en attente.",
+      description: "L’éditeur de la section sélectionnée s’ouvre ici. Après une modification, la barre de sauvegarde apparaît.",
     },
     {
       title: "Visibilité et publication",
-      description: "Masqué retire le format, Privé le réserve à votre aperçu et Public le rend accessible aux coureurs.",
+      description: "Masqué retire le format du catalogue sans supprimer ses données. Privé le réserve à votre aperçu ; Public le rend accessible aux coureurs avec une offre active.",
     },
   ],
 };
@@ -1318,6 +1323,41 @@ export function OrganizerDashboard({
   const saveEvent = async (override?: Partial<EventFormValues>, options: OrganizerSaveOptions = {}) => {
     if (!accessToken || !selectedEventId) return false;
     const nextForm = { ...eventForm, ...override };
+    const persistedForm = eventDetail
+      ? eventToForm(eventDetail, getEventEdition(eventDetail, selectedEditionYear))
+      : nextForm;
+    const changedFields = getChangedFieldNames(
+      {
+        name: persistedForm.name,
+        location: persistedForm.location,
+        edition_start_date: persistedForm.editionStartDate,
+        edition_end_date: persistedForm.editionEndDate,
+        thumbnail: persistedForm.thumbnailUrl,
+        official_website: persistedForm.organizerDetails.officialWebsiteUrl,
+        social_links: [persistedForm.organizerDetails.instagramUrl, persistedForm.organizerDetails.facebookUrl],
+        emergency_contact: persistedForm.organizerDetails.emergencyContact,
+        event_location: persistedForm.organizerDetails.eventLocation,
+        equipment: persistedForm.organizerDetails.mandatoryEquipment,
+        bib_pickup: persistedForm.organizerDetails.bibPickup,
+        access: persistedForm.organizerDetails.access,
+        services: persistedForm.organizerDetails.services,
+      },
+      {
+        name: nextForm.name,
+        location: nextForm.location,
+        edition_start_date: nextForm.editionStartDate,
+        edition_end_date: nextForm.editionEndDate,
+        thumbnail: nextForm.thumbnailUrl,
+        official_website: nextForm.organizerDetails.officialWebsiteUrl,
+        social_links: [nextForm.organizerDetails.instagramUrl, nextForm.organizerDetails.facebookUrl],
+        emergency_contact: nextForm.organizerDetails.emergencyContact,
+        event_location: nextForm.organizerDetails.eventLocation,
+        equipment: nextForm.organizerDetails.mandatoryEquipment,
+        bib_pickup: nextForm.organizerDetails.bibPickup,
+        access: nextForm.organizerDetails.access,
+        services: nextForm.organizerDetails.services,
+      }
+    );
     if (!options.background) {
       setStatus("saving");
       setError(null);
@@ -1360,6 +1400,13 @@ export function OrganizerDashboard({
           : current
       );
       if (!options.background) showToast("success", "Événement mis à jour.");
+      trackOrganizerEventUpdated({
+        eventId: selectedEventId,
+        editionYear: selectedEditionYear,
+        daysUntilRace: getDaysUntilDate(nextForm.editionStartDate),
+        changedFields,
+        saveMode: options.background ? "background" : "manual",
+      });
       clearDirty(["event", "equipment", "bibPickup", "access", "services"], options.scopeRevision);
       if (options.reloadEvent === true) await loadEvent(selectedEventId, EVENT_TAB_ID);
       return true;
@@ -1376,6 +1423,43 @@ export function OrganizerDashboard({
       organizerDetails: sanitizeRaceDetailsForSave(override?.organizerDetails ?? raceForm.organizerDetails),
     };
     const nextForm = { ...mergedForm, seriesName: mergedForm.name };
+    const persistedForm = raceToForm(activeRace);
+    const changedFields = getChangedFieldNames(
+      {
+        name: persistedForm.name,
+        distance: persistedForm.distanceKm,
+        elevation_gain: persistedForm.elevationGainM,
+        elevation_loss: persistedForm.elevationLossM,
+        official_website: persistedForm.externalSiteUrl,
+        location: persistedForm.locationText,
+        race_date: persistedForm.raceDate,
+        thumbnail: persistedForm.thumbnailUrl,
+        participation_mode: persistedForm.participationMode,
+        race_location: persistedForm.organizerDetails.raceLocation,
+        schedule: persistedForm.organizerDetails.schedule,
+        equipment: persistedForm.organizerDetails.mandatoryEquipment,
+        bib_pickup: persistedForm.organizerDetails.bibPickup,
+        access: persistedForm.organizerDetails.access,
+        runner_info: persistedForm.organizerDetails.runnerInfo,
+      },
+      {
+        name: nextForm.name,
+        distance: nextForm.distanceKm,
+        elevation_gain: nextForm.elevationGainM,
+        elevation_loss: nextForm.elevationLossM,
+        official_website: nextForm.externalSiteUrl,
+        location: nextForm.locationText,
+        race_date: nextForm.raceDate,
+        thumbnail: nextForm.thumbnailUrl,
+        participation_mode: nextForm.participationMode,
+        race_location: nextForm.organizerDetails.raceLocation,
+        schedule: nextForm.organizerDetails.schedule,
+        equipment: nextForm.organizerDetails.mandatoryEquipment,
+        bib_pickup: nextForm.organizerDetails.bibPickup,
+        access: nextForm.organizerDetails.access,
+        runner_info: nextForm.organizerDetails.runnerInfo,
+      }
+    );
     if (!options.background) {
       setStatus("saving");
       setError(null);
@@ -1423,6 +1507,14 @@ export function OrganizerDashboard({
         setRelayPoints([]);
       }
       if (!options.background) showToast("success", "Format mis à jour.");
+      trackOrganizerRaceUpdated({
+        eventId: selectedEventId,
+        raceId: activeRace.id,
+        editionYear: getRaceEditionYear(activeRace, eventDetail?.editions),
+        daysUntilRace: getDaysUntilDate(nextForm.raceDate),
+        changedFields,
+        saveMode: options.background ? "background" : "manual",
+      });
       clearDirty(RACE_DETAILS_MODULE_IDS, options.scopeRevision);
       if (options.reloadEvent === true) {
         await loadEvent(selectedEventId, activeRace.edition_group_id, getRaceEditionYear(activeRace, eventDetail?.editions));
@@ -1473,10 +1565,19 @@ export function OrganizerDashboard({
       }
       const gpxUpload = newRaceGpxFile ? await uploadRaceGpxFile(data.race.id, newRaceGpxFile) : { ok: true };
       const imageUploaded = newRaceImageFile ? await uploadRaceImageFile(data.race.id, newRaceImageFile) : true;
+      const createdWithGpx = Boolean(newRaceGpxFile && gpxUpload.ok);
       setNewRaceForm(createEmptyRaceForm());
       setNewRaceImageFile(null);
       setNewRaceGpxFile(null);
       const createdEditionYear = getRaceEditionYear(data.race, eventDetail?.editions);
+      trackOrganizerRaceCreated({
+        eventId: selectedEventId,
+        raceId: data.race.id,
+        editionYear: createdEditionYear,
+        daysUntilRace: getDaysUntilDate(data.race.race_date ?? newRaceForm.raceDate),
+        distanceKm: data.race.distance_km,
+        hasGpx: createdWithGpx,
+      });
       setSelectedEditionYear(createdEditionYear);
       setActiveTab(data.race.edition_group_id);
       setActiveModule("formats");
@@ -1864,6 +1965,14 @@ export function OrganizerDashboard({
       };
       writeOrganizerRaceSidecarsCache(activeRace.id, sidecars);
       applyRaceSidecars(activeRace.id, sidecars, gpxPreview);
+      trackOrganizerRaceUpdated({
+        eventId: selectedEventId ?? "",
+        raceId: activeRace.id,
+        editionYear: getRaceEditionYear(activeRace, eventDetail?.editions),
+        daysUntilRace: getDaysUntilDate(activeRace.race_date),
+        changedFields: ["aid_stations"],
+        saveMode: options.background ? "background" : "manual",
+      });
       clearDirty(["aidStations"], options.scopeRevision);
       return true;
     } finally {
@@ -3011,6 +3120,7 @@ export function OrganizerDashboard({
         }
         importWebsiteLabel={isAdmin ? "Importer les informations" : "Demander un import assisté"}
         completion={completion}
+        isVisibilityOnboardingActive={organizerOnboardingOpen && organizerOnboardingStep === 5}
         hasDirtyChanges={hasDirtyChanges}
         hasAnyDirtyChanges={hasAnyDirtyChanges}
         status={status}
@@ -3175,8 +3285,9 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Card id="organizer-onboarding-editor" className="rounded-lg">
+      <Card className="rounded-lg">
         <CardHeader
+          id="organizer-onboarding-editor"
           className={
             (activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access") && activeRace
               ? "flex flex-row items-center justify-between gap-4 space-y-0"

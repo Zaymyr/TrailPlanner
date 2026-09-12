@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -158,12 +158,23 @@ type PublicationOrigin = "admin" | "stripe" | "manual_payment" | "complimentary"
 type PaidPublicationTier = Exclude<NonNullable<RacebookPublicationEvent["entitlement"]>["tier"], "visibility">;
 
 const ORGANIZER_VAT_RATE = 0.2;
-const getOrganizerPaymentAmounts = (tier: NonNullable<RacebookPublicationEvent["entitlement"]>["tier"]) => {
+const PUBLICATION_EVENTS_PER_PAGE = 10;
+
+const normalizeSearchValue = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("fr");
+
+const getOrganizerPaymentAmounts = (
+  tier: NonNullable<RacebookPublicationEvent["entitlement"]>["tier"],
+  applyVat = true
+) => {
   if (tier === "visibility") return { subtotal: "", tax: "" };
   const subtotal = ORGANIZER_TIER_PRICE_EUR[tier as PaidPublicationTier];
   return {
     subtotal: subtotal.toFixed(2).replace(".", ","),
-    tax: (subtotal * ORGANIZER_VAT_RATE).toFixed(2).replace(".", ","),
+    tax: (applyVat ? subtotal * ORGANIZER_VAT_RATE : 0).toFixed(2).replace(".", ","),
   };
 };
 
@@ -185,12 +196,15 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [events, setEvents] = useState<RaceEventOption[]>([]);
   const [publicationEvents, setPublicationEvents] = useState<RacebookPublicationEvent[]>([]);
   const [tierFilter, setTierFilter] = useState<"all" | "visibility" | "essential" | "complete" | "signature">("all");
+  const [publicationSearch, setPublicationSearch] = useState("");
+  const [publicationPage, setPublicationPage] = useState(1);
   const [purchaseEvent, setPurchaseEvent] = useState<RacebookPublicationEvent | null>(null);
   const [purchaseTier, setPurchaseTier] = useState<"visibility" | "essential" | "complete" | "signature">("essential");
   const [purchaseOrigin, setPurchaseOrigin] = useState<PublicationOrigin>("admin");
   const [purchaseDate, setPurchaseDate] = useState(currentParisDate);
   const [purchaseSubtotal, setPurchaseSubtotal] = useState("");
   const [purchaseTax, setPurchaseTax] = useState("");
+  const [purchaseApplyVat, setPurchaseApplyVat] = useState(true);
   const [purchaseInvoice, setPurchaseInvoice] = useState<File | null>(null);
   const [invoiceFiles, setInvoiceFiles] = useState<Record<string, File | null>>({});
   const [assignmentEmail, setAssignmentEmail] = useState("");
@@ -393,6 +407,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         formData.set("editionId", purchaseEvent.editionId);
         formData.set("tier", purchaseTier);
         formData.set("paidDate", purchaseDate);
+        formData.set("applyVat", String(purchaseApplyVat));
         if (purchaseInvoice) formData.set("invoice", purchaseInvoice);
         response = await fetch("/api/admin/organizer-payments", {
           method: "POST",
@@ -420,6 +435,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       setPurchaseInvoice(null);
       setPurchaseSubtotal("");
       setPurchaseTax("");
+      setPurchaseApplyVat(true);
       await load();
     } catch (caught) {
       console.error("Unable to update organizer publication right", caught);
@@ -465,7 +481,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         : "admin"
     );
     setPurchaseDate(currentParisDate());
-    const amounts = getOrganizerPaymentAmounts(currentTier);
+    setPurchaseApplyVat(true);
+    const amounts = getOrganizerPaymentAmounts(currentTier, true);
     setPurchaseSubtotal(amounts.subtotal);
     setPurchaseTax(amounts.tax);
     setPurchaseInvoice(null);
@@ -484,6 +501,33 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     && payment.to_tier === purchaseTier
   )) ?? false;
   const needsBankTransferDetails = purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && !hasSelectedBankTransfer;
+  const filteredPublicationEvents = useMemo(() => {
+    const normalizedSearch = normalizeSearchValue(publicationSearch.trim());
+    return publicationEvents.filter((event) => {
+      const tier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
+      if (tierFilter !== "all" && tier !== tierFilter) return false;
+      if (!normalizedSearch) return true;
+      return normalizeSearchValue([
+        event.name,
+        event.location ?? "",
+        ...event.races.map((race) => race.name),
+      ].join(" ")).includes(normalizedSearch);
+    });
+  }, [publicationEvents, publicationSearch, tierFilter]);
+  const publicationTotalPages = Math.max(1, Math.ceil(filteredPublicationEvents.length / PUBLICATION_EVENTS_PER_PAGE));
+  const paginatedPublicationEvents = filteredPublicationEvents.slice(
+    (publicationPage - 1) * PUBLICATION_EVENTS_PER_PAGE,
+    publicationPage * PUBLICATION_EVENTS_PER_PAGE
+  );
+  const publicationPageNumbers = useMemo(() => Array.from(
+    new Set([1, publicationPage - 1, publicationPage, publicationPage + 1, publicationTotalPages])
+  )
+    .filter((pageNumber) => pageNumber >= 1 && pageNumber <= publicationTotalPages)
+    .sort((left, right) => left - right), [publicationPage, publicationTotalPages]);
+
+  useEffect(() => {
+    setPublicationPage((current) => Math.min(current, publicationTotalPages));
+  }, [publicationTotalPages]);
 
   return (
     <div className="space-y-5">
@@ -693,12 +737,25 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="flex justify-end">
+          <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
+            <Input
+              type="search"
+              value={publicationSearch}
+              onChange={(event) => {
+                setPublicationSearch(event.target.value);
+                setPublicationPage(1);
+              }}
+              placeholder="Rechercher une course, un lieu ou un format…"
+              aria-label="Rechercher dans les droits de publication"
+            />
             <select
               aria-label="Filtrer par offre"
               className="h-9 rounded-md border border-border bg-card px-3 text-sm"
               value={tierFilter}
-              onChange={(event) => setTierFilter(event.target.value as typeof tierFilter)}
+              onChange={(event) => {
+                setTierFilter(event.target.value as typeof tierFilter);
+                setPublicationPage(1);
+              }}
             >
               <option value="all">Toutes les offres</option>
               <option value="visibility">Visibilité</option>
@@ -709,11 +766,10 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           </div>
           {publicationEvents.length === 0 ? (
             <p className="text-sm text-muted-foreground">Aucune course disponible.</p>
+          ) : filteredPublicationEvents.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Aucune course ne correspond à votre recherche.</p>
           ) : (
-            publicationEvents.filter((event) => {
-              const tier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
-              return tierFilter === "all" || tier === tierFilter;
-            }).map((event) => {
+            paginatedPublicationEvents.map((event) => {
               const pendingRequest = publicationRequests.find((request) => request.event_id === event.id) ?? null;
               const publishedCount = event.races.filter((race) => race.racebook_is_live).length;
               const approvedCount = event.races.filter((race) => race.racebook_publication_approved_at).length;
@@ -781,6 +837,55 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               );
             })
           )}
+          {filteredPublicationEvents.length > 0 ? (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
+              <p className="text-sm text-muted-foreground">
+                {filteredPublicationEvents.length} course(s) · page {publicationPage} sur {publicationTotalPages}
+              </p>
+              {publicationTotalPages > 1 ? (
+                <nav className="flex flex-wrap items-center gap-1" aria-label="Pagination des courses organisateurs">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9"
+                    onClick={() => setPublicationPage((current) => Math.max(1, current - 1))}
+                    disabled={publicationPage <= 1}
+                  >
+                    Précédente
+                  </Button>
+                  {publicationPageNumbers.map((pageNumber, index) => {
+                    const previousPageNumber = publicationPageNumbers[index - 1];
+                    return (
+                      <span key={pageNumber} className="flex items-center gap-1">
+                        {previousPageNumber && pageNumber - previousPageNumber > 1 ? (
+                          <span className="px-1 text-muted-foreground" aria-hidden>…</span>
+                        ) : null}
+                        <Button
+                          type="button"
+                          variant={pageNumber === publicationPage ? "default" : "outline"}
+                          className="h-9 min-w-9 px-2"
+                          aria-current={pageNumber === publicationPage ? "page" : undefined}
+                          aria-label={`Aller à la page ${pageNumber}`}
+                          onClick={() => setPublicationPage(pageNumber)}
+                        >
+                          {pageNumber}
+                        </Button>
+                      </span>
+                    );
+                  })}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="h-9"
+                    onClick={() => setPublicationPage((current) => Math.min(publicationTotalPages, current + 1))}
+                    disabled={publicationPage >= publicationTotalPages}
+                  >
+                    Suivante
+                  </Button>
+                </nav>
+              ) : null}
+            </div>
+          ) : null}
         </CardContent>
       </Card> : null}
 
@@ -819,7 +924,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       value={tier}
                       checked={purchaseTier === tier}
                       onChange={() => {
-                        const amounts = getOrganizerPaymentAmounts(tier);
+                        const amounts = getOrganizerPaymentAmounts(tier, purchaseApplyVat);
                         setPurchaseTier(tier);
                         setPurchaseSubtotal(amounts.subtotal);
                         setPurchaseTax(amounts.tax);
@@ -866,8 +971,21 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               <Label htmlFor="organizer-purchase-subtotal">Montant HT (€)</Label>
               <Input id="organizer-purchase-subtotal" inputMode="decimal" value={purchaseSubtotal} readOnly />
             </div>
+            <label className="flex items-center gap-2 sm:col-span-2">
+              <input
+                type="checkbox"
+                checked={purchaseApplyVat}
+                onChange={(event) => {
+                  const applyVat = event.target.checked;
+                  setPurchaseApplyVat(applyVat);
+                  setPurchaseTax(getOrganizerPaymentAmounts(purchaseTier, applyVat).tax);
+                }}
+                className="h-4 w-4 rounded border-input"
+              />
+              <span className="text-sm font-medium">Ajouter la TVA (20 %)</span>
+            </label>
             <div className="space-y-1.5">
-              <Label htmlFor="organizer-purchase-tax">TVA 20 % (€)</Label>
+              <Label htmlFor="organizer-purchase-tax">TVA (€)</Label>
               <Input id="organizer-purchase-tax" inputMode="decimal" value={purchaseTax} readOnly />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
@@ -876,7 +994,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               <p className="text-xs text-muted-foreground">10 Mo maximum. La facture pourra être ajoutée ou remplacée plus tard.</p>
             </div>
             <p className="sm:col-span-2 text-sm font-medium">
-              Total TTC : {purchaseTotal === null ? "—" : purchaseTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
+              Total à payer : {purchaseTotal === null ? "—" : purchaseTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
             </p>
             </> : null}
           </div>

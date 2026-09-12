@@ -136,41 +136,6 @@ export const premiumGrantResponseSchema = z.object({
     .nullable(),
 });
 
-export const adminAnalyticsSchema = z.object({
-  range: z.object({
-    key: z.enum(["today", "yesterday", "last7", "last30", "custom"]),
-    start: z.string(),
-    end: z.string(),
-  }),
-  totals: z.object({
-    popupOpens: z.number(),
-    clicks: z.number(),
-    uniquePopupSessions: z.number(),
-    uniqueClickSessions: z.number(),
-    ctr: z.number().nullable(),
-  }),
-  productStats: z.array(
-    z.object({
-      productId: z.string(),
-      productName: z.string().optional(),
-      popupOpens: z.number(),
-      clicks: z.number(),
-      ctr: z.number().nullable(),
-    })
-  ),
-  recentEvents: z.array(
-    z.object({
-      id: z.string(),
-      productId: z.string(),
-      productName: z.string().optional(),
-      eventType: z.enum(["popup_open", "click"]),
-      countryCode: z.string().optional(),
-      merchant: z.string().optional(),
-      occurredAt: z.string(),
-    })
-  ),
-});
-
 export const userRoleOptions = ["user", "admin"] as const;
 export type UserRoleOption = (typeof userRoleOptions)[number];
 

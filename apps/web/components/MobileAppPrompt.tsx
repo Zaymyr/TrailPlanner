@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { useI18n } from "../app/i18n-provider";
 import { COOKIE_CONSENT_EVENT, getCookieConsent } from "../lib/cookies/consent";
 import { trackGoogleAnalyticsEvent } from "../lib/google-analytics";
+import { isSpotlightOverlayOpen, SPOTLIGHT_OVERLAY_EVENT } from "../lib/spotlight-overlay";
 
 const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.paceyourself.app";
 const IOS_APP_STORE_URL = process.env.NEXT_PUBLIC_IOS_APP_STORE_URL?.trim() ?? "";
@@ -85,7 +86,7 @@ export function MobileAppPrompt() {
     hasTrackedViewRef.current = false;
 
     const updateVisibility = () => {
-      if (!getCookieConsent() || !isMobileBrowser() || isStandaloneApp()) {
+      if (isSpotlightOverlayOpen() || !getCookieConsent() || !isMobileBrowser() || isStandaloneApp()) {
         setIsVisible(false);
         return;
       }
@@ -113,10 +114,12 @@ export function MobileAppPrompt() {
 
     window.addEventListener("resize", updateVisibility);
     window.addEventListener(COOKIE_CONSENT_EVENT, updateVisibility);
+    window.addEventListener(SPOTLIGHT_OVERLAY_EVENT, updateVisibility);
 
     return () => {
       window.removeEventListener("resize", updateVisibility);
       window.removeEventListener(COOKIE_CONSENT_EVENT, updateVisibility);
+      window.removeEventListener(SPOTLIGHT_OVERLAY_EVENT, updateVisibility);
     };
   }, [pathname, shouldHideForPath]);
 

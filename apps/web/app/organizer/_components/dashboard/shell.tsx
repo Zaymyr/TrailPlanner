@@ -122,6 +122,7 @@ export function OrganizerSummaryHeader({
   onImportWebsite,
   importWebsiteLabel = "Importer les informations",
   completion,
+  isVisibilityOnboardingActive = false,
   hasDirtyChanges,
   hasAnyDirtyChanges,
   status,
@@ -153,6 +154,7 @@ export function OrganizerSummaryHeader({
   onImportWebsite?: () => void;
   importWebsiteLabel?: string;
   completion: OrganizerCompletionSummary | null;
+  isVisibilityOnboardingActive?: boolean;
   hasDirtyChanges: boolean;
   hasAnyDirtyChanges: boolean;
   status: "idle" | "loading" | "saving" | "uploading";
@@ -174,6 +176,10 @@ export function OrganizerSummaryHeader({
   const [deleteEditionDialogOpen, setDeleteEditionDialogOpen] = React.useState(false);
   const [deleteEditionConfirmation, setDeleteEditionConfirmation] = React.useState("");
   const [isSummaryExpanded, setIsSummaryExpanded] = React.useState(false);
+  React.useEffect(() => {
+    if (!isVisibilityOnboardingActive) setIsSummaryExpanded(false);
+  }, [isVisibilityOnboardingActive]);
+  const isVisibilityExpanded = isSummaryExpanded || isVisibilityOnboardingActive;
   const eventScore = completion?.raceProgressScore ?? 0;
   const raceProgress = completion?.raceProgress ?? [];
   const editionYearOptions = buildEditionYearOptions(event?.races ?? [], event?.editions ?? [], editionRequests, selectedEventId);
@@ -332,15 +338,15 @@ export function OrganizerSummaryHeader({
         <span className={cn("rounded-full px-2.5 py-1 text-xs font-semibold", completion?.informationComplete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800")}>{completion?.informationComplete ? "Prêt à publier" : "À compléter"}</span>
       </div>
 
-      <details open={isSummaryExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-2">
-        <summary id="organizer-onboarding-visibility" className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
+      <details open={isVisibilityExpanded} onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)} className="group mt-2">
+        <summary className="flex min-h-11 cursor-pointer list-none items-center gap-3 rounded-md px-2 py-2 text-sm font-semibold text-foreground transition hover:bg-muted/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring marker:content-none">
           Gérer la visibilité
           <span className="font-normal text-muted-foreground">{raceRows.length} format{raceRows.length > 1 ? "s" : ""}</span>
-          <span className="ml-auto text-xs text-muted-foreground">{isSummaryExpanded ? "Fermer" : "Ouvrir"}</span>
+          <span className="ml-auto text-xs text-muted-foreground">{isVisibilityExpanded ? "Fermer" : "Ouvrir"}</span>
           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className="h-4 w-4 text-muted-foreground transition-transform group-open:rotate-180"><path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" /></svg>
         </summary>
 
-        <div className="mt-2 space-y-2 rounded-lg border border-border bg-background/50 p-3">
+        <div id="organizer-onboarding-visibility" className="mt-2 space-y-2 rounded-lg border border-border bg-background/50 p-3">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">Catalogue</p>
@@ -888,7 +894,7 @@ export function OrganizerModuleGrid({
   const isDirty = (moduleId: OrganizerModuleId) => dirtyModules.has(moduleId);
   const statusLabels = {
     empty: "Aucune information",
-    incomplete: "Partiellement complété",
+    incomplete: "Partiel",
     complete: "Complet",
   } as const;
 
@@ -911,6 +917,7 @@ export function OrganizerModuleGrid({
           onClick={() => onSelectModule(module.id)}
         >
           <h2 className="pr-5 text-sm font-bold leading-snug text-foreground">{module.title}</h2>
+          <p className="mt-1 text-[11px] font-semibold leading-snug text-foreground/80">{statusLabels[module.status]}</p>
           <p className="mt-1.5 text-xs font-medium leading-snug text-muted-foreground">{module.countLabel}</p>
           {isDirty(module.id) ? <span className="sr-only">Modifications à sauvegarder</span> : null}
         </button>
