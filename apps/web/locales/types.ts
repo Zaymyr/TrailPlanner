@@ -957,25 +957,6 @@ export type AdminTranslations = {
       };
     };
   };
-  analytics: {
-    title: string;
-    description: string;
-    loadError: string;
-    empty: string;
-    totals: {
-      popupOpens: string;
-      clicks: string;
-    };
-    statsTitle: string;
-    eventsTitle: string;
-    table: {
-      product: string;
-      eventType: string;
-      country: string;
-      merchant: string;
-      timestamp: string;
-    };
-  };
   socialTemplates: {
     title: string;
     description: string;

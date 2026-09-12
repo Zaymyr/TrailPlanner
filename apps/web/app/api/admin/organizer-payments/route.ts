@@ -18,6 +18,7 @@ const dateSchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
   return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
 });
 const ORGANIZER_VAT_RATE = 0.2;
+const applyVatSchema = z.enum(["true", "false"]).default("true");
 
 const currentParisDate = () => new Intl.DateTimeFormat("en-CA", {
   timeZone: "Europe/Paris",
@@ -35,14 +36,15 @@ export async function POST(request: NextRequest) {
   const editionId = z.string().uuid().safeParse(formData.get("editionId"));
   const tier = paidTierSchema.safeParse(formData.get("tier"));
   const paidDate = dateSchema.safeParse(formData.get("paidDate"));
+  const applyVat = applyVatSchema.safeParse(formData.get("applyVat") ?? undefined);
   const invoiceValue = formData.get("invoice");
   const invoice = invoiceValue instanceof File && invoiceValue.size > 0 ? invoiceValue : null;
-  if (!editionId.success || !tier.success || !paidDate.success) {
+  if (!editionId.success || !tier.success || !paidDate.success || !applyVat.success) {
     return jsonError("Renseignez un pack et une date de paiement valides.", 400);
   }
   if (paidDate.data > currentParisDate()) return jsonError("La date de paiement ne peut pas être future.", 400);
   const amountSubtotal = ORGANIZER_TIER_PRICE_EUR[tier.data] * 100;
-  const amountTax = Math.round(amountSubtotal * ORGANIZER_VAT_RATE);
+  const amountTax = applyVat.data === "true" ? Math.round(amountSubtotal * ORGANIZER_VAT_RATE) : 0;
 
   let invoicePath: string | null = null;
   try {

@@ -30,9 +30,23 @@ const usersEnvelopeSchema = z.object({
   users: z.array(z.unknown()),
 });
 
+const dateOnlySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/)
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00.000Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().startsWith(value);
+  });
+
 const adminUsersQuerySchema = z.object({
   page: z.coerce.number().int().positive().catch(1),
   search: z.string().trim().catch(""),
+  email: z.string().trim().catch(""),
+  role: z.enum(["all", "user", "admin"]).catch("all"),
+  createdFrom: dateOnlySchema.optional().catch(undefined),
+  createdTo: dateOnlySchema.optional().catch(undefined),
+  lastSignInFrom: dateOnlySchema.optional().catch(undefined),
+  lastSignInTo: dateOnlySchema.optional().catch(undefined),
   sort: z.enum(["email", "role", "createdAt", "lastSignInAt"]).catch("createdAt"),
   order: z.enum(["asc", "desc"]).catch("desc"),
 });
@@ -156,6 +170,20 @@ const sortUsers = (users: MappedUser[], sort: AdminUserSort, order: SortDirectio
     if (comparison === 0) return left.id.localeCompare(right.id);
     return order === "asc" ? comparison : -comparison;
   });
+
+const matchesDateRange = (value: string | undefined, from?: string, to?: string) => {
+  if (!from && !to) return true;
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return false;
+  if (from && timestamp < new Date(`${from}T00:00:00.000Z`).getTime()) return false;
+  if (to) {
+    const exclusiveEnd = new Date(`${to}T00:00:00.000Z`);
+    exclusiveEnd.setUTCDate(exclusiveEnd.getUTCDate() + 1);
+    if (timestamp >= exclusiveEnd.getTime()) return false;
+  }
+  return true;
+};
 
 const premiumGrantRowSchema = z.object({
   id: z.string().uuid(),
@@ -382,6 +410,12 @@ export async function GET(request: NextRequest) {
   const query = adminUsersQuerySchema.parse({
     page: request.nextUrl.searchParams.get("page") ?? undefined,
     search: request.nextUrl.searchParams.get("search") ?? undefined,
+    email: request.nextUrl.searchParams.get("email") ?? undefined,
+    role: request.nextUrl.searchParams.get("role") ?? undefined,
+    createdFrom: request.nextUrl.searchParams.get("createdFrom") ?? undefined,
+    createdTo: request.nextUrl.searchParams.get("createdTo") ?? undefined,
+    lastSignInFrom: request.nextUrl.searchParams.get("lastSignInFrom") ?? undefined,
+    lastSignInTo: request.nextUrl.searchParams.get("lastSignInTo") ?? undefined,
     sort: request.nextUrl.searchParams.get("sort") ?? undefined,
     order: request.nextUrl.searchParams.get("order") ?? undefined,
   });
@@ -436,12 +470,19 @@ export async function GET(request: NextRequest) {
     }
 
     const normalizedSearch = query.search.toLocaleLowerCase();
+    const normalizedEmail = query.email.toLocaleLowerCase();
     const filteredUsers = rawUsers
       .map((entry) => mapUser(entry))
       .filter((user) => {
-        if (!normalizedSearch) return true;
         const roles = user.roles ?? (user.role ? [user.role] : ["user"]);
-        return [user.email, user.id, ...roles].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch));
+        if (
+          normalizedSearch
+          && ![user.email, user.id, ...roles].some((value) => value?.toLocaleLowerCase().includes(normalizedSearch))
+        ) return false;
+        if (normalizedEmail && !user.email?.toLocaleLowerCase().includes(normalizedEmail)) return false;
+        if (query.role !== "all" && !roles.includes(query.role)) return false;
+        if (!matchesDateRange(user.createdAt, query.createdFrom, query.createdTo)) return false;
+        return matchesDateRange(user.lastSignInAt, query.lastSignInFrom, query.lastSignInTo);
       });
     const sortedUsers = sortUsers(filteredUsers, query.sort, query.order);
     const total = sortedUsers.length;

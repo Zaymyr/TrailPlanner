@@ -88,6 +88,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain("Étape {current} sur {total}");
     expect(dashboardSource).toContain("Commun ou par format");
     expect(dashboardSource).toContain("Configurer mes sections");
+    expect(dashboardSource).toContain("L’éditeur de la section sélectionnée s’ouvre ici");
+    expect(dashboardSource).toContain("Masqué retire le format du catalogue sans supprimer ses données");
+    expect(dashboardSource).toContain("Public le rend accessible aux coureurs avec une offre active");
+    expect(dashboardSource).toContain("isVisibilityOnboardingActive={organizerOnboardingOpen && organizerOnboardingStep === 5}");
     expect(dashboardSource).not.toContain('if (data.setupCompletedAt === null && data.tier !== "visibility")');
     expect(shellSource).toContain("Revoir le guide");
     forbiddenSequences.forEach((sequence) => {
@@ -167,9 +171,12 @@ describe("organizer dashboard UTF-8 copy", () => {
     const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
 
     expect(shellSource).toContain("React.useState(false)");
-    expect(shellSource).toContain("open={isSummaryExpanded}");
+    expect(shellSource).toContain("const isVisibilityExpanded = isSummaryExpanded || isVisibilityOnboardingActive");
+    expect(shellSource).toContain("open={isVisibilityExpanded}");
     expect(shellSource).toContain("onToggle={(toggleEvent) => setIsSummaryExpanded(toggleEvent.currentTarget.open)}");
-    expect(shellSource).toContain('isSummaryExpanded ? "Fermer" : "Ouvrir"');
+    expect(shellSource).toContain("if (!isVisibilityOnboardingActive) setIsSummaryExpanded(false)");
+    expect(shellSource).toContain('id="organizer-onboarding-visibility"');
+    expect(shellSource).toContain('isVisibilityExpanded ? "Fermer" : "Ouvrir"');
     expect(shellSource).toContain('cn("h-5 overflow-hidden rounded-full"');
     expect(shellSource).toContain('htmlFor="organizer-event-combobox"');
     expect(shellSource).toContain('role="combobox"');
@@ -207,6 +214,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain('module.status === "empty" && "border-slate-200');
     expect(shellSource).toContain('module.status === "incomplete" && "border-amber-300');
     expect(shellSource).toContain('module.status === "complete" && "border-emerald-300');
+    expect(shellSource).toContain('incomplete: "Partiel"');
+    expect(shellSource).toContain('{statusLabels[module.status]}</p>');
     expect(shellSource).toContain('activeModule === module.id && "border-brand shadow-lg ring-2 ring-brand');
     expect(shellSource).toContain('min-h-[82px] rounded-lg');
     expect(shellSource).not.toContain('Manque : {module.missingLabels');

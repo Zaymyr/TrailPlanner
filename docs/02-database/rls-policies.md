@@ -34,6 +34,7 @@ related_files:
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
+  - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -333,8 +334,6 @@ Declared in `20260504120000_add_push_notifications.sql`.
 
 - `race_slug_redirects`: `anon` and `authenticated` can select only mappings whose target race is live/public and whose optional parent event is live. All mutations and the invoker-security rename RPC are service-role-only.
 - `affiliate_offers`: service role manages; authenticated users read active offers attached to live products.
-- `affiliate_click_events`: service role manages.
-- `affiliate_events`: service role manages; authenticated users insert events for self or anonymous session.
 - `app_feedback`: authenticated users can insert after later migration.
 - `app_changelog`: authenticated users can view.
 - `race_requests`: authenticated users can insert and read own requests.
@@ -352,7 +351,7 @@ Use SECURITY DEFINER when a function must do work the caller cannot safely do di
 
 Every SECURITY DEFINER function should set `search_path` explicitly when it touches user-controlled schemas.
 
-The admin KPI functions `get_admin_growth_metrics` and `get_admin_affiliate_metrics` require cross-user/Auth reads and therefore use `SECURITY DEFINER` with `search_path = ''`. They have explicit execution revocations for `PUBLIC`, `anon`, and `authenticated`, and only `service_role` may call them. Next.js routes still perform the trusted `app_metadata` admin check before using the service key.
+The admin KPI function `get_admin_growth_metrics` requires cross-user/Auth reads and therefore uses `SECURITY DEFINER` with `search_path = ''`. It has explicit execution revocations for `PUBLIC`, `anon`, and `authenticated`, and only `service_role` may call it. The Next.js route still performs the trusted `app_metadata` admin check before using the service key.
 
 ## Correct and Incorrect Examples
 

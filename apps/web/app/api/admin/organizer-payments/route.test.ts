@@ -65,6 +65,35 @@ describe("POST /api/admin/organizer-payments", () => {
     }
   });
 
+  it("records a VAT-exempt bank transfer when the admin unticks VAT", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "22222222-2222-2222-2222-222222222222" }));
+    const response = await POST(requestWith({
+      editionId,
+      tier: "essential",
+      paidDate: "2026-09-11",
+      applyVat: "false",
+    }));
+
+    expect(response.status).toBe(201);
+    const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(JSON.parse(String(init?.body))).toMatchObject({
+      p_amount_subtotal: 9900,
+      p_amount_tax: 0,
+    });
+  });
+
+  it("rejects an invalid VAT choice", async () => {
+    const response = await POST(requestWith({
+      editionId,
+      tier: "essential",
+      paidDate: "2026-09-11",
+      applyVat: "sometimes",
+    }));
+
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
   it("rejects future dates before writing", async () => {
     const response = await POST(requestWith({
       editionId,

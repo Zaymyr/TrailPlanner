@@ -1,6 +1,14 @@
 "use client";
 
 import { useEffect, useId, useRef, useState } from "react";
+
+import { COOKIE_CONSENT_EVENT, getCookieConsent } from "../../lib/cookies/consent";
+import {
+  clampSpotlightRect,
+  getOnboardingModalTop,
+  SPOTLIGHT_OVERLAY_ATTRIBUTE,
+  SPOTLIGHT_OVERLAY_EVENT,
+} from "../../lib/spotlight-overlay";
 import { Button } from "../ui/button";
 
 export type OnboardingOverlayCopy = {
@@ -9,10 +17,7 @@ export type OnboardingOverlayCopy = {
   next: string;
   previous: string;
   finish: string;
-  steps: ReadonlyArray<{
-    title: string;
-    description: string;
-  }>;
+  steps: ReadonlyArray<{ title: string; description: string }>;
 };
 
 type SpotlightRect = { x: number; y: number; width: number; height: number };
@@ -21,23 +26,15 @@ type Props = {
   open: boolean;
   step: number;
   copy: OnboardingOverlayCopy;
-  /** DOM element ID to highlight for this step, or null for no highlight */
   targetId: string | null;
   onClose: () => void;
   onNext: () => void;
   onPrevious: () => void;
-  secondaryFinishAction?: {
-    label: string;
-    onClick: () => void;
-  };
+  secondaryFinishAction?: { label: string; onClick: () => void };
 };
 
-const PAD = 12;           // padding around the spotlight cutout
-const Y_OFFSET = -24;     // nudge spotlight upward to compensate for layout offset
-const MODAL_H = 290;      // approximate modal height for positioning
-const GAP = 18;           // gap between spotlight and modal card
-const SETTLE_MS = 430;    // time to wait for smooth-scroll to finish
-
+const PAD = 12;
+const SETTLE_MS = 430;
 export function OnboardingOverlay({
   open,
   step,
@@ -49,13 +46,43 @@ export function OnboardingOverlay({
   secondaryFinishAction,
 }: Props) {
   const [spotlight, setSpotlight] = useState<SpotlightRect | null>(null);
-  const primaryActionRef = useRef<HTMLButtonElement>(null);
+  const [dialogHeight, setDialogHeight] = useState(290);
+  const [isConsentReady, setIsConsentReady] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   const titleId = useId();
   const descriptionId = useId();
+  const isPresented = open && isConsentReady;
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setIsConsentReady(false);
+      return;
+    }
+    const updateConsent = () => setIsConsentReady(getCookieConsent() !== null);
+    updateConsent();
+    window.addEventListener(COOKIE_CONSENT_EVENT, updateConsent);
+    return () => window.removeEventListener(COOKIE_CONSENT_EVENT, updateConsent);
+  }, [open]);
+
+  useEffect(() => {
+    if (!isPresented) return;
+    document.documentElement.setAttribute(SPOTLIGHT_OVERLAY_ATTRIBUTE, "open");
+    window.dispatchEvent(new CustomEvent(SPOTLIGHT_OVERLAY_EVENT, { detail: { open: true } }));
+    return () => {
+      document.documentElement.removeAttribute(SPOTLIGHT_OVERLAY_ATTRIBUTE);
+      window.dispatchEvent(new CustomEvent(SPOTLIGHT_OVERLAY_EVENT, { detail: { open: false } }));
+    };
+  }, [isPresented]);
+
+  useEffect(() => {
+    if (!isPresented) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousHtmlOverflow = document.documentElement.style.overflow;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.documentElement.style.overflow = "hidden";
+    document.body.style.overflow = "hidden";
 
     const handleKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
@@ -78,248 +105,143 @@ export function OnboardingOverlay({
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    const focusTimer = window.setTimeout(() => primaryActionRef.current?.focus(), 0);
-
     return () => {
-      window.clearTimeout(focusTimer);
       window.removeEventListener("keydown", handleKeyDown);
+      document.documentElement.style.overflow = previousHtmlOverflow;
+      document.body.style.overflow = previousBodyOverflow;
+      previousFocusRef.current?.focus();
     };
-  }, [open, onClose]);
+  }, [isPresented, onClose]);
 
   useEffect(() => {
-    if (!open) {
+    if (!isPresented) return;
+    const focusTimer = window.setTimeout(() => titleRef.current?.focus(), 0);
+    return () => window.clearTimeout(focusTimer);
+  }, [isPresented, step]);
+
+  useEffect(() => {
+    if (!isPresented || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const updateHeight = () => {
+      const nextHeight = Math.ceil(dialog.getBoundingClientRect().height);
+      setDialogHeight((current) => current === nextHeight ? current : nextHeight);
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(dialog);
+    return () => observer.disconnect();
+  }, [isPresented, spotlight, step]);
+
+  useEffect(() => {
+    if (!isPresented) {
       setSpotlight(null);
       return;
     }
-
-    // Lock user scroll while tutorial is active
-    const prevent = (e: Event) => e.preventDefault();
-    window.addEventListener("wheel", prevent, { passive: false });
-    window.addEventListener("touchmove", prevent, { passive: false });
-
-    // Clear stale spotlight while scrolling to next target
     setSpotlight(null);
-
     let timer: ReturnType<typeof setTimeout> | null = null;
+    let targetObserver: ResizeObserver | null = null;
+
+    const findVisible = (id: string): Element | null => {
+      for (const node of Array.from(document.querySelectorAll(`[id="${id}"]`))) {
+        const rect = node.getBoundingClientRect();
+        if (rect.width > 0 && rect.height > 0) return node;
+      }
+      return null;
+    };
+    const resolveTarget = () => targetId ? findVisible(targetId) : null;
+    const measure = (target: Element) => {
+      const rect = target.getBoundingClientRect();
+      setSpotlight(clampSpotlightRect({
+        rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+        viewportWidth: window.innerWidth,
+        viewportHeight: window.innerHeight,
+        dialogHeight,
+      }));
+    };
 
     const rafId = requestAnimationFrame(() => {
-      if (!targetId) {
-        // No target: scroll to top so the page looks tidy
+      const target = resolveTarget();
+      if (!target) {
         window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
-
-      // RacePlannerLayout renders the same content in both a mobile div
-      // (xl:hidden) and a desktop div (hidden xl:grid), giving each target
-      // element two DOM nodes with the same id.  getElementById always returns
-      // the first one, which is the mobile node – hidden on desktop via its
-      // parent's xl:hidden class – so getBoundingClientRect() returns zeros.
-      // We therefore query *all* matching nodes and pick the first visible one.
-      const findVisible = (id: string): Element | null => {
-        const nodes = document.querySelectorAll(`[id="${id}"]`);
-        for (const node of Array.from(nodes)) {
-          const r = node.getBoundingClientRect();
-          if (r.width > 0 && r.height > 0) return node;
-        }
-        return null;
-      };
-
-      const target = findVisible(targetId);
-      if (!target) return;
-
-      // Only scroll if the element is not already comfortably visible.
-      // When scrolling is needed, center the element in the viewport so users
-      // retain context and the spotlight ring stays fully in view.
-      const rectBefore = target.getBoundingClientRect();
-      const VISIBLE_PADDING = 100; // px from top/bottom edge to count as "in view"
-      const isInViewport =
-        rectBefore.top >= VISIBLE_PADDING &&
-        rectBefore.bottom <= window.innerHeight - VISIBLE_PADDING;
+      const rect = target.getBoundingClientRect();
+      const visiblePadding = 100;
+      const isInViewport = rect.top >= visiblePadding && rect.bottom <= window.innerHeight - visiblePadding;
       if (!isInViewport) {
-        target.scrollIntoView({ behavior: "smooth", block: "center" });
+        target.scrollIntoView({
+          behavior: "smooth",
+          block: rect.height > window.innerHeight - visiblePadding * 2 ? "start" : "center",
+        });
       }
-
-      // Only measure the rect AFTER the scroll animation has settled,
-      // and re-query to pick up the visible instance at the new scroll position.
       timer = setTimeout(() => {
-        const visible = findVisible(targetId);
+        const visible = resolveTarget();
         if (!visible) return;
-        const r = visible.getBoundingClientRect();
-        setSpotlight({ x: r.x, y: r.y + Y_OFFSET, width: r.width, height: r.height });
+        measure(visible);
+        targetObserver = new ResizeObserver(() => measure(visible));
+        targetObserver.observe(visible);
       }, SETTLE_MS);
     });
 
+    const handleViewportChange = () => {
+      const target = resolveTarget();
+      if (target) measure(target);
+    };
+    window.addEventListener("resize", handleViewportChange);
+    window.visualViewport?.addEventListener("resize", handleViewportChange);
     return () => {
       cancelAnimationFrame(rafId);
       if (timer !== null) clearTimeout(timer);
-      window.removeEventListener("wheel", prevent);
-      window.removeEventListener("touchmove", prevent);
+      targetObserver?.disconnect();
+      window.removeEventListener("resize", handleViewportChange);
+      window.visualViewport?.removeEventListener("resize", handleViewportChange);
     };
-  }, [open, step, targetId]);
+  }, [dialogHeight, isPresented, step, targetId]);
 
-  if (!open) return null;
+  if (!isPresented) return null;
 
   const totalSteps = copy.steps.length;
   const currentStep = copy.steps[step];
   const isFirst = step === 0;
   const isLast = step === totalSteps - 1;
-
-  const stepLabel = copy.stepOf
-    .replace("{current}", String(step + 1))
-    .replace("{total}", String(totalSteps));
-
-  // Decide where to pin the modal card
-  // – When a spotlight is active: place it just below (or above if no room)
-  // – When no spotlight: center it on screen
-  let modalTop: number | null = null;
-  if (spotlight) {
-    const vh = window.innerHeight;
-    const below = spotlight.y + spotlight.height + PAD + GAP;
-    if (below + MODAL_H <= vh - 8) {
-      modalTop = below;
-    } else {
-      modalTop = Math.max(8, spotlight.y - PAD - MODAL_H - GAP);
-    }
-  }
-
-  const cardClass =
-    "pointer-events-auto relative w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900/90";
-
+  const stepLabel = copy.stepOf.replace("{current}", String(step + 1)).replace("{total}", String(totalSteps));
+  const modalTop = spotlight ? getOnboardingModalTop({ spotlight, viewportHeight: window.innerHeight, dialogHeight }) : null;
+  const cardClass = "pointer-events-auto relative w-full max-w-lg rounded-lg border border-border bg-card p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900/90";
   const cardContent = (
     <>
-      {/* Header */}
       <div className="mb-4 flex items-center justify-between pr-8">
         <span className="text-xs font-medium text-muted-foreground">{stepLabel}</span>
-        <Button
-          type="button"
-          variant="ghost"
-          className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-foreground dark:text-slate-200"
-          aria-label={copy.closeLabel}
-          title={copy.closeLabel}
-          onClick={onClose}
-        >
-          ×
-        </Button>
+        <Button type="button" variant="ghost" className="absolute right-2 top-2 h-8 w-8 p-0 text-lg text-foreground dark:text-slate-200" aria-label={copy.closeLabel} title={copy.closeLabel} onClick={onClose}>&times;</Button>
       </div>
-
-      {/* Content */}
-      <h2 id={titleId} className="text-xl font-semibold text-foreground dark:text-slate-50">{currentStep.title}</h2>
+      <h2 ref={titleRef} tabIndex={-1} id={titleId} className="text-xl font-semibold text-foreground outline-none dark:text-slate-50">{currentStep.title}</h2>
       <p id={descriptionId} className="mt-3 text-sm leading-relaxed text-muted-foreground">{currentStep.description}</p>
-
-      {/* Progress dots */}
-      <div className="mt-6 flex items-center justify-center gap-2">
-        {copy.steps.map((_, i) => (
-          <span
-            key={i}
-            className={`h-2 w-2 rounded-full transition-colors ${
-              i === step ? "bg-primary" : i < step ? "bg-primary/40" : "bg-muted-foreground/30"
-            }`}
-          />
-        ))}
+      <div className="mt-6 flex items-center justify-center gap-2" aria-hidden="true">
+        {copy.steps.map((_, index) => <span key={index} className={`h-2 w-2 rounded-full transition-colors ${index === step ? "bg-primary" : index < step ? "bg-primary/40" : "bg-muted-foreground/30"}`} />)}
       </div>
-
-      {/* Footer */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          {!isFirst && (
-            <Button type="button" variant="ghost" onClick={onPrevious}>
-              {copy.previous}
-            </Button>
-          )}
-        </div>
+        <div>{!isFirst ? <Button type="button" variant="ghost" onClick={onPrevious}>{copy.previous}</Button> : null}</div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          {isLast && secondaryFinishAction ? (
-            <Button type="button" variant="outline" onClick={secondaryFinishAction.onClick}>
-              {secondaryFinishAction.label}
-            </Button>
-          ) : null}
-          <Button ref={primaryActionRef} type="button" onClick={onNext}>
-            {isLast ? copy.finish : copy.next}
+          {isLast && secondaryFinishAction ? <Button type="button" variant="outline" onClick={onNext}>{copy.finish}</Button> : null}
+          <Button type="button" onClick={isLast && secondaryFinishAction ? secondaryFinishAction.onClick : onNext}>
+            {isLast && secondaryFinishAction ? secondaryFinishAction.label : isLast ? copy.finish : copy.next}
           </Button>
         </div>
       </div>
     </>
   );
+  const dialog = <div ref={dialogRef} className={cardClass} role="dialog" aria-modal="true" aria-labelledby={titleId} aria-describedby={descriptionId}>{cardContent}</div>;
 
   return (
     <>
       <div className="fixed inset-0 z-50" aria-hidden="true" />
-      {/* ── Backdrop with spotlight cutout ── */}
-      <svg
-        className="pointer-events-none fixed inset-0 z-50 h-full w-full"
-        aria-hidden="true"
-      >
-        {spotlight ? (
-          <defs>
-            <mask id="tutorial-spotlight-mask">
-              {/* White = show backdrop colour, black = transparent (the cutout) */}
-              <rect width="100%" height="100%" fill="white" />
-              <rect
-                x={spotlight.x - PAD}
-                y={spotlight.y - PAD}
-                width={spotlight.width + PAD * 2}
-                height={spotlight.height + PAD * 2}
-                rx="8"
-                fill="black"
-              />
-            </mask>
-          </defs>
-        ) : null}
-        <rect
-          width="100%"
-          height="100%"
-          fill="rgba(15, 23, 42, 0.38)"
-          mask={spotlight ? "url(#tutorial-spotlight-mask)" : undefined}
-        />
+      <svg className="pointer-events-none fixed inset-0 z-50 h-full w-full" aria-hidden="true">
+        {spotlight ? <defs><mask id="tutorial-spotlight-mask"><rect width="100%" height="100%" fill="white" /><rect x={spotlight.x - PAD} y={spotlight.y - PAD} width={spotlight.width + PAD * 2} height={spotlight.height + PAD * 2} rx="8" fill="black" /></mask></defs> : null}
+        <rect width="100%" height="100%" fill="rgba(15, 23, 42, 0.38)" mask={spotlight ? "url(#tutorial-spotlight-mask)" : undefined} />
       </svg>
-
-      {/* ── Highlight ring around the target ── */}
-      {spotlight ? (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none fixed z-50 rounded-lg tutorial-spotlight-ring"
-          style={{
-            left: spotlight.x - PAD,
-            top: spotlight.y - PAD,
-            width: spotlight.width + PAD * 2,
-            height: spotlight.height + PAD * 2,
-          }}
-        />
-      ) : null}
-
-      {/* ── Modal card ── */}
-      {spotlight ? (
-        // Positioned close to the highlighted element
-        <div
-          className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4"
-          style={{ top: modalTop ?? 0 }}
-        >
-          <div
-            ref={dialogRef}
-            className={cardClass}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
-          >
-            {cardContent}
-          </div>
-        </div>
-      ) : (
-        // No spotlight → center on screen
-        <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div
-            ref={dialogRef}
-            className={cardClass}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby={titleId}
-            aria-describedby={descriptionId}
-          >
-            {cardContent}
-          </div>
-        </div>
-      )}
+      {spotlight ? <div aria-hidden="true" className="pointer-events-none fixed z-50 rounded-lg tutorial-spotlight-ring" style={{ left: spotlight.x - PAD, top: spotlight.y - PAD, width: spotlight.width + PAD * 2, height: spotlight.height + PAD * 2 }} /> : null}
+      {spotlight
+        ? <div className="pointer-events-none fixed inset-x-0 z-50 flex justify-center px-4" style={{ top: modalTop ?? 0 }}>{dialog}</div>
+        : <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center px-4">{dialog}</div>}
     </>
   );
 }

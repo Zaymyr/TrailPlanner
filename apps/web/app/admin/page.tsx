@@ -10,7 +10,6 @@ import { useI18n } from "../i18n-provider";
 import AdminGrowthSection from "./components/AdminGrowthSection";
 import AdminRaceCatalogSection from "./components/AdminRaceCatalogSection";
 import AdminSocialTemplatesSection from "./components/AdminSocialTemplatesSection";
-import { AdminAnalyticsTab } from "./_components/AdminAnalyticsTab";
 import { AdminOrganizerClaimsTab } from "./_components/AdminOrganizerClaimsTab";
 import { AdminProductsTab } from "./_components/AdminProductsTab";
 import { AdminUsersTab } from "./_components/AdminUsersTab";
@@ -85,7 +84,6 @@ export default function AdminPage() {
           { id: "races", label: t.admin.raceCatalog.title },
           { id: "organizers", label: "Organisateurs" },
           { id: "growth", label: t.admin.growth.title },
-          { id: "analytics", label: t.admin.analytics.title },
         ]}
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -99,7 +97,6 @@ export default function AdminPage() {
       {activeTab === "races" && <AdminRaceCatalogSection accessToken={accessToken ?? undefined} t={t.admin.raceCatalog} />}
       {activeTab === "organizers" && <AdminOrganizerClaimsTab accessToken={accessToken} />}
       {activeTab === "growth" && <AdminGrowthSection accessToken={accessToken ?? undefined} t={t.admin.growth} />}
-      {activeTab === "analytics" && <AdminAnalyticsTab accessToken={accessToken} />}
     </div>
   );
 }

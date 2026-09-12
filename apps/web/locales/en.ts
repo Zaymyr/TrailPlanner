@@ -1037,25 +1037,6 @@ export const en: Translations = {
         },
       },
     },
-    analytics: {
-      title: "Engagement dashboard",
-      description: "Track which products people select, when they open popups, and when they click.",
-      loadError: "Unable to load analytics.",
-      empty: "No events yet.",
-      totals: {
-        popupOpens: "Popup opens",
-        clicks: "Clicks",
-      },
-      statsTitle: "Product interest",
-      eventsTitle: "Recent events",
-      table: {
-        product: "Product",
-        eventType: "Event",
-        country: "Country",
-        merchant: "Merchant",
-        timestamp: "When",
-      },
-    },
     socialTemplates: {
       title: "Social templates",
       description: "Pick an existing plan, generate its HTML carousel, then export the 4 slides as PNG.",

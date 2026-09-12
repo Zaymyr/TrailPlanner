@@ -147,6 +147,54 @@ describe("GET /api/admin/users", () => {
     expect(payload.users.map((user: { email?: string }) => user.email)).toEqual(["alice@example.com"]);
   });
 
+  it("applies typed column filters before paginating", async () => {
+    const mockFetch = vi.mocked(fetch);
+
+    mockFetch
+      .mockResolvedValueOnce(
+        buildJsonResponse({
+          users: [
+            {
+              id: "11111111-1111-1111-1111-111111111111",
+              email: "admin@example.com",
+              created_at: "2026-05-10T10:00:00.000Z",
+              last_sign_in_at: "2026-06-15T08:00:00.000Z",
+              app_metadata: { roles: ["user", "admin"] },
+            },
+            {
+              id: "22222222-2222-2222-2222-222222222222",
+              email: "runner@example.com",
+              created_at: "2026-04-01T10:00:00.000Z",
+              last_sign_in_at: "2026-06-20T08:00:00.000Z",
+              app_metadata: { role: "user" },
+            },
+            {
+              id: "33333333-3333-3333-3333-333333333333",
+              email: "old-admin@example.com",
+              created_at: "2026-05-20T10:00:00.000Z",
+              last_sign_in_at: "2026-07-01T08:00:00.000Z",
+              app_metadata: { role: "admin" },
+            },
+          ],
+        })
+      )
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = (await GET(usersRequest(
+      "?email=ADMIN&role=admin&createdFrom=2026-05-01&createdTo=2026-05-31&lastSignInFrom=2026-06-01&lastSignInTo=2026-06-30"
+    ))) as Response;
+    const payload = await response.json();
+
+    expect(payload.pagination.total).toBe(1);
+    expect(payload.users.map((user: { email?: string }) => user.email)).toEqual(["admin@example.com"]);
+  });
+
   it("returns explicit Supabase Auth error details when the user list request fails", async () => {
     const mockFetch = vi.mocked(fetch);
 

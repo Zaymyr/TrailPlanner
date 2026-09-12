@@ -36,7 +36,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Newly created canonical editions use the database's visible-by-default state. Later visibility changes or confirmed year-typed deletion use `/api/organizer/editions/[id]`, not this retired request table.
 - The compact edition/format summary starts collapsed; expanding it or selecting a format through the mobile selector is local presentation state and neither action creates nor consults this retired request table.
 - Batching section-switch drafts into one explicit module-settings save likewise does not create or consult this retired request table. The chooser's edition-common and per-format groups only expose the existing settings scopes.
-- The per-event Organizer dashboard guide and its replay action are presentation state on the organizer membership; neither consults nor recreates an edition request.
+- The per-event Organizer dashboard guide, its responsive spotlight, and its temporary visibility-panel expansion are presentation state on the organizer membership; none consults or recreates an edition request.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
 - `/api/organizer/claims` continues to return only the current user's legacy edition-request rows even when its event selector is expanded to the full catalog for an admin; selector access does not revive or broaden this retired workflow.
 - Ordinary format saves, including checked format-specific bib-pickup, equipment, or access overrides, Ravitos schedule/station saves, image uploads, and GPX replacements preserve the active `races.race_date` year; they do not read or write this retired table. Edition selection changes immediately while the previous scope saves silently in the background. Ravitos saves PATCH race-level schedule details before PUTting station rows and do not reload the previous edition over the new selection.
@@ -59,7 +59,8 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 ## Gotchas
 
 - The current admin rights dialog may return the selected current edition to Visibilité, but this does not revive or mutate the retired edition-request workflow.
-- Its direct-virement fields now derive canonical pack HT and 20% VAT values automatically; this payment behavior remains independent from edition-request review history.
+- Searching, filtering, or paginating the admin publication-rights list does not read or mutate this retired request workflow.
+- Its direct-virement fields derive canonical pack HT and either checked 20% or zero VAT automatically; this payment behavior remains independent from edition-request review history.
 
 - Admin publication-origin changes are edition-entitlement updates, not edition requests. They never revive this retired workflow.
 

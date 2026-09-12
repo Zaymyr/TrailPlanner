@@ -7,10 +7,7 @@ import { getSupabaseServiceConfig } from "../../../../lib/supabase";
 const paramsSchema = z.object({ offerId: z.string().uuid() });
 
 const offerSchema = z.object({
-  id: z.string().uuid(),
-  product_id: z.string().uuid(),
   affiliate_url: z.string().url(),
-  country_code: z.string().length(2).nullable(),
   active: z.boolean(),
 });
 
@@ -43,7 +40,7 @@ export async function GET(request: NextRequest, { params }: { params: { offerId:
 
   try {
     const offerResponse = await fetch(
-      `${supabaseConfig.supabaseUrl}/rest/v1/affiliate_offers?id=eq.${offerId}&select=id,product_id,affiliate_url,country_code,active`,
+      `${supabaseConfig.supabaseUrl}/rest/v1/affiliate_offers?id=eq.${offerId}&select=affiliate_url,active`,
       {
         headers: {
           apikey: supabaseConfig.supabaseServiceRoleKey,
@@ -63,27 +60,6 @@ export async function GET(request: NextRequest, { params }: { params: { offerId:
     if (!offer || !offer.active) {
       return withSecurityHeaders(NextResponse.json({ message: "Offer not available." }, { status: 410 }));
     }
-
-    await fetch(`${supabaseConfig.supabaseUrl}/rest/v1/affiliate_click_events`, {
-      method: "POST",
-      headers: {
-        apikey: supabaseConfig.supabaseServiceRoleKey,
-        Authorization: `Bearer ${supabaseConfig.supabaseServiceRoleKey}`,
-        "Content-Type": "application/json",
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify({
-        offer_id: offer.id,
-        product_id: offer.product_id,
-        country_code: offer.country_code,
-        ip_address: rateLimitKey,
-        user_agent: request.headers.get("user-agent"),
-        referrer: request.headers.get("referer"),
-      }),
-      cache: "no-store",
-    }).catch((error) => {
-      console.error("Unable to log affiliate click", error);
-    });
 
     const redirectResponse = NextResponse.redirect(offer.affiliate_url, { status: 302 });
     redirectResponse.headers.set("Cache-Control", "no-store, private");
