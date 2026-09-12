@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { useCallback, useEffect, useId, useMemo, useState, type ChangeEvent, type FormEvent } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
@@ -19,11 +19,15 @@ export function SponsorsEditor({
   editionId,
   authHeaders,
   onSummaryChange,
+  onDraftChange,
+  onDraftStatusChange,
   onToast,
 }: {
   editionId: string;
   authHeaders: Record<string, string>;
   onSummaryChange: (summary: { sponsors: number; clicks: number }) => void;
+  onDraftChange?: (sponsors: OrganizerSponsor[]) => void;
+  onDraftStatusChange?: (status: { dirty: boolean }) => void;
   onToast: (type: "success" | "error", message: string) => void;
 }) {
   const [sponsors, setSponsors] = useState<OrganizerSponsor[]>([]);
@@ -32,10 +36,39 @@ export function SponsorsEditor({
   const [newName, setNewName] = useState("");
   const [newWebsiteUrl, setNewWebsiteUrl] = useState("");
   const [newImage, setNewImage] = useState<File | null>(null);
+  const [newImagePreviewUrl, setNewImagePreviewUrl] = useState<string | null>(null);
+  const [logoPreviewUrls, setLogoPreviewUrls] = useState<Record<string, string>>({});
   const [newShowOnLoading, setNewShowOnLoading] = useState(false);
   const [newShowInBanner, setNewShowInBanner] = useState(true);
   const [dirtySponsorIds, setDirtySponsorIds] = useState<Set<string>>(() => new Set());
   const formId = useId();
+  const objectUrlsRef = useRef<Set<string>>(new Set());
+  const sponsorsRef = useRef(sponsors);
+  const dirtySponsorIdsRef = useRef(dirtySponsorIds);
+  const onDraftChangeRef = useRef(onDraftChange);
+  const onDraftStatusChangeRef = useRef(onDraftStatusChange);
+  sponsorsRef.current = sponsors;
+  dirtySponsorIdsRef.current = dirtySponsorIds;
+  onDraftChangeRef.current = onDraftChange;
+  onDraftStatusChangeRef.current = onDraftStatusChange;
+
+  const createPreviewUrl = (image: File) => {
+    const url = URL.createObjectURL(image);
+    objectUrlsRef.current.add(url);
+    return url;
+  };
+
+  const revokePreviewUrl = (url: string | null | undefined) => {
+    if (!url || !objectUrlsRef.current.delete(url)) return;
+    URL.revokeObjectURL(url);
+  };
+
+  useEffect(() => () => {
+    onDraftChangeRef.current?.(sponsorsRef.current);
+    onDraftStatusChangeRef.current?.({ dirty: dirtySponsorIdsRef.current.size > 0 });
+    objectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    objectUrlsRef.current.clear();
+  }, []);
 
   const updateSummary = useCallback((items: OrganizerSponsor[]) => {
     onSummaryChange({
@@ -80,6 +113,43 @@ export function SponsorsEditor({
     () => sponsors.filter((sponsor) => sponsor.isActive && sponsor.showOnLoading).length,
     [sponsors],
   );
+
+  const previewSponsors = useMemo(() => {
+    const items = sponsors.map((sponsor) => ({
+      ...sponsor,
+      logoUrl: logoPreviewUrls[sponsor.id] ?? sponsor.logoUrl,
+    }));
+    if (!newName && !newWebsiteUrl && !newImagePreviewUrl) return items;
+    return [...items, {
+      id: "draft:new-sponsor",
+      editionId,
+      name: newName,
+      logoUrl: newImagePreviewUrl ?? "",
+      websiteUrl: newWebsiteUrl || null,
+      isActive: true,
+      showOnLoading: newShowOnLoading,
+      showInBanner: newShowInBanner,
+      position: items.length,
+      clickCount: 0,
+    }];
+  }, [editionId, logoPreviewUrls, newImagePreviewUrl, newName, newShowInBanner, newShowOnLoading, newWebsiteUrl, sponsors]);
+
+  useEffect(() => {
+    if (!loading) onDraftChangeRef.current?.(previewSponsors);
+  }, [loading, previewSponsors]);
+
+  useEffect(() => {
+    onDraftStatusChangeRef.current?.({
+      dirty: dirtySponsorIds.size > 0 || Boolean(newName || newWebsiteUrl || newImage),
+    });
+  }, [dirtySponsorIds, newImage, newName, newWebsiteUrl]);
+
+  const selectNewImage = (event: ChangeEvent<HTMLInputElement>) => {
+    const image = event.target.files?.[0] ?? null;
+    revokePreviewUrl(newImagePreviewUrl);
+    setNewImage(image);
+    setNewImagePreviewUrl(image ? createPreviewUrl(image) : null);
+  };
 
   const persistSponsor = async (next: OrganizerSponsor, successMessage?: string) => {
     setBusyId(next.id);
@@ -153,6 +223,8 @@ export function SponsorsEditor({
       setNewName("");
       setNewWebsiteUrl("");
       setNewImage(null);
+      revokePreviewUrl(newImagePreviewUrl);
+      setNewImagePreviewUrl(null);
       setNewShowOnLoading(false);
       setNewShowInBanner(true);
       onToast("success", "Sponsor ajouté.");
@@ -167,6 +239,8 @@ export function SponsorsEditor({
     const image = event.target.files?.[0];
     event.target.value = "";
     if (!image) return;
+    const localPreviewUrl = createPreviewUrl(image);
+    setLogoPreviewUrls((current) => ({ ...current, [sponsor.id]: localPreviewUrl }));
     setBusyId(sponsor.id);
     try {
       const formData = new FormData();
@@ -179,6 +253,12 @@ export function SponsorsEditor({
     } catch (error) {
       onToast("error", error instanceof Error ? error.message : "Impossible de remplacer le logo.");
     } finally {
+      setLogoPreviewUrls((current) => {
+        const next = { ...current };
+        delete next[sponsor.id];
+        return next;
+      });
+      revokePreviewUrl(localPreviewUrl);
       setBusyId(null);
     }
   };
@@ -258,7 +338,7 @@ export function SponsorsEditor({
               <div className="flex h-20 w-20 items-center justify-center rounded-md border border-border bg-white p-2">
                 <Image src={sponsor.logoUrl} alt={`Logo ${sponsor.name}`} width={80} height={80} sizes="80px" unoptimized className="max-h-full max-w-full object-contain" />
               </div>
-              <Label htmlFor={`${formId}-${sponsor.id}-logo`} className="block cursor-pointer text-xs text-brand">Remplacer</Label><Input id={`${formId}-${sponsor.id}-logo`} aria-label={`Remplacer le logo de ${sponsor.name}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void replaceLogo(sponsor, event)} />
+              <Label htmlFor={`${formId}-${sponsor.id}-logo`} className="block cursor-pointer text-xs text-brand">Remplacer</Label><Input id={`${formId}-${sponsor.id}-logo`} aria-label={`Remplacer le logo de ${sponsor.name}`} className="sr-only" type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => void replaceLogo(sponsor, event)} disabled={busyId !== null} />
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1"><Label htmlFor={`${formId}-${sponsor.id}-name`}>Nom</Label><Input id={`${formId}-${sponsor.id}-name`} value={sponsor.name} maxLength={80} onChange={(event) => changeSponsor(sponsor.id, { name: event.target.value })} onBlur={() => sponsor.name.trim() && void persistSponsor(sponsor)} /></div>
@@ -282,7 +362,7 @@ export function SponsorsEditor({
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1"><Label htmlFor={`${formId}-new-name`}>Nom</Label><Input id={`${formId}-new-name`} required maxLength={80} value={newName} onChange={(event) => setNewName(event.target.value)} /></div>
             <div className="space-y-1"><Label htmlFor={`${formId}-new-website`}>Site web optionnel</Label><Input id={`${formId}-new-website`} type="url" value={newWebsiteUrl} onChange={(event) => setNewWebsiteUrl(event.target.value)} /></div>
-            <div className="space-y-1"><Label htmlFor={`${formId}-new-logo`}>Logo</Label><Input id={`${formId}-new-logo`} required type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setNewImage(event.target.files?.[0] ?? null)} /></div>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-logo`}>Logo</Label><Input id={`${formId}-new-logo`} required type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={selectNewImage} /></div>
             <div className="flex flex-wrap items-end gap-4 pb-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onChange={(event) => setNewShowOnLoading(event.target.checked)} /> Chargement</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowInBanner} onChange={(event) => setNewShowInBanner(event.target.checked)} /> Bandeau</label></div>
           </div>
           <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>

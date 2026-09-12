@@ -17,6 +17,9 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
   - apps/web/lib/organizer-structured-content.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
+  - apps/web/app/organizer/_components/dashboard/racebook-preview-model/index.ts
+  - apps/web/app/organizer/_components/dashboard/racebook-phone-preview/RacebookPhonePreview.tsx
+  - packages/racebook-ui/src/model/index.ts
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.test.ts
   - apps/web/app/organizer/_components/dashboard/organizer-import-documents.ts
   - apps/web/app/organizer/_components/dashboard/organizer-import-documents.test.ts
@@ -224,6 +227,8 @@ The section chooser presents edition-common modules separately from format-owned
 Legacy service text is never parsed or deleted automatically. While SAS exist, their earliest time is authoritative: it is mirrored to `schedule.startTime`, displayed in the common departure card, and disables manual departure editing. Removing the final SAS preserves that stored value and re-enables the common field.
 
 Structured mobile reads are additive and deployment-tolerant: an unavailable services, SAS or awards table yields an empty optional module while the existing published RaceBook continues to render. This does not relax the core catalog-live, RaceBook-live and meaningful-content gate.
+
+The organizer phone preview is a separate local composition. When a selected persisted event/format scope first needs structured content, membership-authorized private reads hydrate only that scope; afterwards it receives form state and structured-editor `onDraftChange` values, normalizes incomplete values safely, and updates on every keystroke without an additional network request. A new, unsaved format never borrows a persisted format's sidecars; a local product draft is projected only under its active race/station. The discreet offer status is derived only from modules currently displayed by the phone. Preview scope state follows the existing race/GPX/sidecar invalidation and clears on a session boundary. It is allowed to render an enabled `draftOnly` section so an organizer can evaluate the future result, but it labels that state outside the phone. The hydration remains organizer-private: it never uses a public RaceBook route, changes the persisted effective module map, starts publication, or enters the public/mobile snapshot cache.
 
 Published mobile RaceBooks are assembled server-side into one public-first snapshot and cached at the Vercel edge for five minutes with stale-while-revalidate. The separate sponsor and profile responses use the same public-cache boundary. Race, edition, event, GPX, module, services, sponsor, and branding mutations invalidate the corresponding tagged snapshot after the database write succeeds; private organizer previews are never stored in the shared cache. If invalidation is unavailable, the write still succeeds and the bounded CDN TTL is the consistency fallback.
 
@@ -554,6 +559,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Keep direct organizer assignment admin-only and server-side. The browser must never receive the Supabase service credential or the complete Auth user list. A missing e-mail must be returned as a confirmable not-found result; account invitation/creation happens only after the admin confirms, and assignment must not implicitly publish or unpublish the event or its Racebook formats.
 - Do not restore an admin RaceBook publication switch. Admin records commercial purchases and invoices; organizer format controls remain the sole normal visibility UI.
 - Migration `20260820135823_add_racebook_publication_control.sql` intentionally resets organizer-managed Racebooks to hidden/unapproved for one safe revalidation pass; it keeps their courses visible in the catalog.
+- A local preview update must not race an autosave response: the editor keeps its newest revision and reports the same local draft to the phone. A failed autosave leaves that draft visible with the dashboard error; it is never sent through a runner-facing endpoint.
 
 - The complete Organizer event list must remain admin-only. It may be returned only after the server verifies trusted `app_metadata`; non-admin users remain limited to active `race_event_organizers` memberships.
 

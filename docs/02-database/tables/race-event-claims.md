@@ -164,6 +164,7 @@ order by created_at asc;
 - Do not block the admin claim queue on auxiliary enrichment reads. If edition-request loading or organizer-identity enrichment fails, or if an auth-user email is malformed, keep serving the base claim rows with contact-email or UUID fallbacks.
 - Claim approval grants membership, not a bypass around edition deletion confirmation or the server-side membership check.
 - Claim approval alone does not unlock edition branding; membership and the active Pro entitlement are checked independently.
+- The local organizer phone preview does not create a claim, imply membership, or reveal dashboard drafts before the existing membership checks succeed.
 
 ## Related Docs
 

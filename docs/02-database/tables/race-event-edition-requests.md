@@ -77,6 +77,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - The admin-only two-pass import binds its session directly to a canonical edition id. Format confirmation and signed field selections can affect only explicitly confirmed current rows under that edition; neither operation revives this retired request workflow.
 - Classifying additional official URLs or text PDFs may surface a date claim, but it never retargets the import session or creates a legacy edition request.
 - Do not couple the new edition branding tile or its completion signal to this retired workflow.
+- The local organizer phone is an authoring aid only; opening it or changing its draft view does not create, approve, or retarget an edition request.
 
 ## Related Docs
 

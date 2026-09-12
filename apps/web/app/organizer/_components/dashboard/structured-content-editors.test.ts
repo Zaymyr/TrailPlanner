@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { reconcileRemoteListSave } from "./structured-content-editors";
+import { getRemoteListDraftEmission, reconcileRemoteListSave } from "./structured-content-editors";
 
 describe("reconcileRemoteListSave", () => {
   it("uses the normalized server response when the saved revision is still current", () => {
@@ -27,5 +27,15 @@ describe("reconcileRemoteListSave", () => {
       dirty: true,
       saveAgain: true,
     });
+  });
+});
+
+describe("getRemoteListDraftEmission", () => {
+  it("does not clear the preview while a new remote scope is loading", () => {
+    expect(getRemoteListDraftEmission("scope-reset", [])).toBeNull();
+  });
+
+  it("does emit a genuinely empty list returned by the server", () => {
+    expect(getRemoteListDraftEmission("remote-loaded", [])).toEqual([]);
   });
 });

@@ -5,11 +5,13 @@ last_verified: 2026-09-12
 ai_priority: medium
 related_files:
   - package.json
+  - package-lock.json
   - turbo.json
   - apps/web/package.json
   - apps/web/playwright.organizer.config.ts
   - apps/web/e2e/organizer-payment.spec.ts
   - apps/mobile/package.json
+  - apps/mobile/package-lock.json
 related_tables: []
 ---
 
@@ -58,6 +60,8 @@ The organizer payment journey is an explicit, destructive test-mode check: run `
 The mobile UX gate is intentionally manual to control EAS usage. The immediately available path is `npm run test:e2e:ux -w @trailplanner/mobile` with a local Android device. The cross-platform target can be launched from `apps/mobile` with `eas workflow:run .eas/workflows/mobile-ux-audit.yml` only after the Expo account supports hosted Maestro jobs; its `preview` environment must contain secret `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` variables.
 
 The root `packageManager` pin is required by Turbo workspace discovery. Update it deliberately alongside npm upgrades instead of removing it.
+
+When a feature adds a workspace package, update its dependent app manifests and the root lockfile together, then typecheck/build each consuming runtime. A shared RaceBook presentation change additionally requires mobile and organizer-preview validation because the presentation package deliberately has no fetch or authorization layer.
 
 ## Do Not
 

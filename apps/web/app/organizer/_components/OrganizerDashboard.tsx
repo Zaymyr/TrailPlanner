@@ -2,6 +2,14 @@
 
 import { ChangeEvent, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import dynamic from "next/dynamic";
+import type {
+  RacebookCourseTab,
+  RacebookLocale,
+  RacebookModuleStatus,
+  RacebookModuleVisibility,
+  RacebookPreviewMode,
+  RacebookPrimaryTab,
+} from "@pace-yourself/racebook-ui";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -23,6 +31,7 @@ import {
 } from "../../../lib/organizer-dashboard-details";
 import type { FuelProduct } from "../../../lib/product-types";
 import type { OrganizerTier } from "../../../lib/organizer-entitlements";
+import type { EditionService, RaceAward, StartWave } from "../../../lib/organizer-structured-content";
 import {
   ORGANIZER_MODULES,
   ORGANIZER_TIER_LABEL,
@@ -109,6 +118,8 @@ import {
   type OrganizerImportUploadProgress,
 } from "./dashboard/organizer-import-documents";
 import { shouldOpenOrganizerOnboarding } from "./dashboard/onboarding";
+import { buildOrganizerRacebookPreviewModel } from "./dashboard/racebook-preview-model";
+import { getDisplayedPreviewModuleKeys, mergeDraftProductIntoPreview, resolvePreviewRace } from "./dashboard/racebook-preview-state";
 import { OrganizerInvoicesDialog } from "./dashboard/invoices-dialog";
 import {
   buildInitialWebsiteImportFieldSelections,
@@ -127,7 +138,10 @@ import type {
   EventFormValues,
   GpxPreview,
   MembershipRow,
+  OrganizerBranding,
+  OrganizerBrandingState,
   OrganizerEventDetail,
+  OrganizerSponsor,
   PublicationRequestRow,
   ProductFormValues,
   RaceFormat,
@@ -144,6 +158,9 @@ import type {
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const RACE_IMAGE_MIME_TYPES = ["image/png", "image/jpeg", "image/webp", "image/avif"] as const;
 const MAX_UPDATE_MESSAGE_LENGTH = 280;
+const RACEBOOK_LIVE_PREVIEW_ENABLED = process.env.NEXT_PUBLIC_ORGANIZER_RACEBOOK_LIVE_PREVIEW_ENABLED === "true";
+type ScopedPreviewState<T> = { scopeId: string; value: T };
+type PreviewDraftStatus = { scopeId: string; dirty: boolean; message?: string | null };
 type OrganizerPricingIntent = "publication" | "notification" | "upgrade";
 const WEBSITE_IMPORT_REQUIRED_FIELD_LABELS: Record<string, string> = {
   race_date: "date",
@@ -223,6 +240,10 @@ const SponsorsEditor = dynamic(
 );
 const BrandingEditor = dynamic(
   () => import("./dashboard/branding-editor").then((module) => module.BrandingEditor),
+  { loading: editorLoading }
+);
+const RacebookPhonePreview = dynamic(
+  () => import("./dashboard/racebook-phone-preview").then((module) => module.RacebookPhonePreview),
   { loading: editorLoading }
 );
 const WebsiteImportFieldReview = dynamic(
@@ -355,6 +376,18 @@ export function OrganizerDashboard({
   const [eventUpdates, setEventUpdates] = useState<OrganizerRaceEventUpdate[]>([]);
   const [sponsorSummary, setSponsorSummary] = useState<{ editionId: string; sponsors: number; clicks: number } | null>(null);
   const [brandingSummary, setBrandingSummary] = useState<{ editionId: string; configured: boolean; unpublished: boolean } | null>(null);
+  const [previewLocale, setPreviewLocale] = useState<RacebookLocale>("fr");
+  const [previewMode, setPreviewMode] = useState<RacebookPreviewMode>("content");
+  const [previewTab, setPreviewTab] = useState<RacebookPrimaryTab>("course");
+  const [previewCourseTab, setPreviewCourseTab] = useState<RacebookCourseTab>("route");
+  const [previewServices, setPreviewServices] = useState<ScopedPreviewState<EditionService[]> | null>(null);
+  const [previewStartWaves, setPreviewStartWaves] = useState<ScopedPreviewState<StartWave[]> | null>(null);
+  const [previewAwards, setPreviewAwards] = useState<ScopedPreviewState<RaceAward[]> | null>(null);
+  const [previewSponsors, setPreviewSponsors] = useState<ScopedPreviewState<OrganizerSponsor[]> | null>(null);
+  const [previewBranding, setPreviewBranding] = useState<ScopedPreviewState<OrganizerBranding> | null>(null);
+  const [previewSidecars, setPreviewSidecars] = useState<ScopedPreviewState<OrganizerRaceSidecars> | null>(null);
+  const [previewGpx, setPreviewGpx] = useState<ScopedPreviewState<GpxPreview | null> | null>(null);
+  const [previewDraftStatuses, setPreviewDraftStatuses] = useState<Record<string, PreviewDraftStatus>>({});
   const [websiteImportOpen, setWebsiteImportOpen] = useState(false);
   const [websiteImportUrl, setWebsiteImportUrl] = useState("");
   const [websiteImportFormatUrls, setWebsiteImportFormatUrls] = useState<string[]>([""]);
@@ -422,7 +455,41 @@ export function OrganizerDashboard({
       race.edition_id === activeEdition?.id || getRaceEditionYearValue(race.race_date) === selectedEditionYear
     ) ??
     null;
+  const isAddingFormat = activeTab === ADD_FORMAT_TAB_ID;
+  const previewFallbackRace = websiteImportExistingRaces[0] ?? null;
+  const previewRace = resolvePreviewRace(isAddingFormat, activeRace, previewFallbackRace);
   activeRaceIdRef.current = activeRace?.id ?? null;
+
+  useEffect(() => {
+    setPreviewServices(null);
+    setPreviewSponsors(null);
+    setPreviewBranding(null);
+  }, [activeEdition?.id]);
+
+  useEffect(() => {
+    setPreviewStartWaves(null);
+    setPreviewAwards(null);
+    setPreviewSidecars(null);
+    setPreviewGpx(null);
+  }, [previewRace?.id]);
+
+  useEffect(() => {
+    if (!RACEBOOK_LIVE_PREVIEW_ENABLED) return;
+    setPreviewMode("content");
+    if (activeModule === "equipment") setPreviewTab("gear");
+    else if (activeModule === "bibPickup") setPreviewTab("bib");
+    else if (activeModule === "access") setPreviewTab("access");
+    else if (activeModule === "services") setPreviewTab("services");
+    else if (activeModule === "aidStations" || activeModule === "products" || activeModule === "awards") {
+      setPreviewTab("course");
+      setPreviewCourseTab(activeModule === "awards" ? "awards" : "aid-stations");
+    } else if (activeModule === "sponsors") {
+      setPreviewMode("content");
+    } else if (activeModule !== "branding") {
+      setPreviewTab("course");
+      setPreviewCourseTab("route");
+    }
+  }, [activeModule]);
 
   useEffect(() => {
     if (activeTab === EVENT_TAB_ID || activeTab === ADD_FORMAT_TAB_ID) return;
@@ -543,6 +610,62 @@ export function OrganizerDashboard({
   const eventDraft = buildEventDraft(eventDetail, eventForm, activeRace, raceForm, selectedEditionYear);
   const productsById = useMemo(() => buildProductsById(catalogProducts, stationProducts), [catalogProducts, stationProducts]);
   const authHeaders = useMemo((): Record<string, string> => (accessToken ? { Authorization: `Bearer ${accessToken}` } : {}), [accessToken]);
+  const updatePreviewDraftStatus = useCallback((key: string, scopeId: string, status: { dirty: boolean; message?: string | null }) => {
+    setPreviewDraftStatuses((current) => {
+      const previous = current[key];
+      if (previous?.scopeId === scopeId && previous.dirty === status.dirty && previous.message === status.message) return current;
+      return { ...current, [key]: { scopeId, dirty: status.dirty, message: status.message } };
+    });
+  }, []);
+
+  useEffect(() => {
+    const editionId = activeEdition?.id;
+    if (!RACEBOOK_LIVE_PREVIEW_ENABLED || !editionId || !accessToken) return;
+    const controller = new AbortController();
+    const load = async <T,>(url: string, key: string, apply: (value: T) => void) => {
+      try {
+        const response = await fetch(url, { headers: authHeaders, cache: "no-store", signal: controller.signal });
+        const data = await response.json().catch(() => null) as Record<string, T> | null;
+        if (!response.ok || controller.signal.aborted || data?.[key] === undefined) return;
+        apply(data[key]);
+      } catch {
+        // The editor keeps its normal error handling; the preview remains usable with partial data.
+      }
+    };
+    void load<EditionService[]>(`/api/organizer/editions/${editionId}/services`, "services", (value) => {
+      setPreviewServices((current) => current?.scopeId === editionId ? current : { scopeId: editionId, value });
+    });
+    void load<OrganizerSponsor[]>(`/api/organizer/editions/${editionId}/sponsors`, "sponsors", (value) => {
+      setPreviewSponsors((current) => current?.scopeId === editionId ? current : { scopeId: editionId, value });
+    });
+    void load<OrganizerBrandingState>(`/api/organizer/editions/${editionId}/branding`, "branding", (value) => {
+      setPreviewBranding((current) => current?.scopeId === editionId ? current : { scopeId: editionId, value: value.draft });
+    });
+    return () => controller.abort();
+  }, [accessToken, activeEdition?.id, authHeaders]);
+
+  useEffect(() => {
+    const raceId = previewRace?.id;
+    if (!RACEBOOK_LIVE_PREVIEW_ENABLED || !raceId || !accessToken || !moduleSettings) return;
+    const controller = new AbortController();
+    const load = async <T,>(url: string, key: string, apply: (value: T) => void) => {
+      try {
+        const response = await fetch(url, { headers: authHeaders, cache: "no-store", signal: controller.signal });
+        const data = await response.json().catch(() => null) as Record<string, T> | null;
+        if (!response.ok || controller.signal.aborted || data?.[key] === undefined) return;
+        apply(data[key]);
+      } catch {
+        // A disabled/private module may reject this optional preload; other sections still render.
+      }
+    };
+    void load<StartWave[]>(`/api/organizer/races/${raceId}/start-waves`, "startWaves", (value) => {
+      setPreviewStartWaves((current) => current?.scopeId === raceId ? current : { scopeId: raceId, value });
+    });
+    void load<RaceAward[]>(`/api/organizer/races/${raceId}/awards`, "awards", (value) => {
+      setPreviewAwards((current) => current?.scopeId === raceId ? current : { scopeId: raceId, value });
+    });
+    return () => controller.abort();
+  }, [accessToken, authHeaders, moduleSettings, previewRace?.id]);
   const sanitizeRaceDetailsForSave = (details: RaceFormValues["organizerDetails"]) => ({
     ...details,
     schedule: {
@@ -916,6 +1039,16 @@ export function OrganizerDashboard({
         throw new Error((data && "message" in data ? data.message : null) ?? "Impossible de modifier cette section.");
       }
       setModuleSettings(data);
+      const updatedRaceIds = [...new Set(updates.flatMap((update) => update.raceId ? [update.raceId] : []))];
+      // In-flight sidecar reads captured the previous module configuration. Bump
+      // the generation before reloading so those stale promises cannot repopulate
+      // the cache or UI with partial arrays after a module is enabled.
+      cacheGenerationRef.current += 1;
+      sidecarRequestsRef.current.clear();
+      for (const raceId of updatedRaceIds) {
+        invalidateOrganizerRaceDataCache(raceId);
+        if (activeRace?.id === raceId) setSidecarLoadedRaceId(null);
+      }
       setModuleSettingsDraft({});
       setModuleSettingsOpen(false);
       showToast("success", draftEntries.length === 0 ? "Configuration enregistrée." : `${draftEntries.length} section${draftEntries.length > 1 ? "s" : ""} mise${draftEntries.length > 1 ? "s" : ""} à jour.`);
@@ -1134,25 +1267,24 @@ export function OrganizerDashboard({
   }, []);
 
   const loadRaceSidecar = useCallback(async (raceId: string, previewOverride: GpxPreview | null = null) => {
-    if (!accessToken) return;
+    if (!accessToken) return null;
     const cached = readOrganizerRaceSidecarsCache(raceId);
     if (cached) {
       applyRaceSidecars(raceId, cached, previewOverride);
-      return;
+      return cached;
     }
 
     let request = sidecarRequestsRef.current.get(raceId);
     if (!request) {
       const requestGeneration = cacheGenerationRef.current;
-      request = fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" })
-        .then(async (aidResponse) => {
+      request = Promise.resolve()
+        .then(async () => {
           if (cacheGenerationRef.current !== requestGeneration) return null;
-          if (!aidResponse.ok) return null;
-          const aidData = (await aidResponse.json()) as { aidStations?: OrganizerAidStationRow[] };
           let relayPoints: RelayPointDraft[] = [];
           let products: StationProduct[] = [];
           const raceModules = moduleSettings?.races[raceId];
-          const [relayResponse, productsResponse] = await Promise.all([
+          const [aidResponse, relayResponse, productsResponse] = await Promise.all([
+            fetch(`/api/organizer/races/${raceId}/aid-stations`, { headers: authHeaders, cache: "no-store" }),
             raceModules?.relay
               ? fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" })
               : Promise.resolve(null),
@@ -1160,6 +1292,8 @@ export function OrganizerDashboard({
               ? fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" })
               : Promise.resolve(null),
           ]);
+          if (!aidResponse.ok) return null;
+          const aidData = await aidResponse.json() as { aidStations?: OrganizerAidStationRow[] };
           if (relayResponse) {
             if (!relayResponse.ok) return null;
             const relayData = (await relayResponse.json()) as { relayPoints?: RelayPointDraft[] };
@@ -1186,6 +1320,7 @@ export function OrganizerDashboard({
     }
     const sidecars = await request;
     if (sidecars) applyRaceSidecars(raceId, sidecars, previewOverride);
+    return sidecars;
   }, [accessToken, applyRaceSidecars, authHeaders, moduleSettings]);
 
   const loadCatalogProducts = useCallback(async () => {
@@ -1217,14 +1352,14 @@ export function OrganizerDashboard({
   }, [accessToken, authHeaders]);
 
   const loadRaceGpxPreview = useCallback(async (raceId: string, gpxStoragePath: string) => {
-    if (!accessToken) return;
+    if (!accessToken) return null;
     const cached = readOrganizerGpxPreviewCache(raceId, gpxStoragePath);
     if (cached) {
       if (activeRaceIdRef.current === raceId) {
         setGpxPreview(cached);
         setGpxLoadedRaceKey(`${raceId}:${gpxStoragePath}`);
       }
-      return;
+      return cached;
     }
     const requestKey = `${raceId}:${gpxStoragePath}`;
     let request = gpxRequestsRef.current.get(requestKey);
@@ -1252,11 +1387,34 @@ export function OrganizerDashboard({
         setGpxPreview(preview);
         if (preview) setGpxLoadedRaceKey(`${raceId}:${gpxStoragePath}`);
       }
+      return preview;
     } catch (caught) {
       console.error("Unable to load organizer GPX preview", caught);
       if (activeRaceIdRef.current === raceId) setGpxPreview(null);
+      return null;
     }
   }, [accessToken, authHeaders]);
+
+  useEffect(() => {
+    const raceId = previewRace?.id;
+    if (!RACEBOOK_LIVE_PREVIEW_ENABLED || !raceId || !accessToken || !moduleSettings) return;
+    let cancelled = false;
+    void loadRaceSidecar(raceId).then((sidecars) => {
+      if (!cancelled && sidecars) setPreviewSidecars({ scopeId: raceId, value: sidecars });
+    });
+    return () => { cancelled = true; };
+  }, [accessToken, loadRaceSidecar, moduleSettings, previewRace?.id]);
+
+  useEffect(() => {
+    const raceId = previewRace?.id;
+    const storagePath = previewRace?.gpx_storage_path;
+    if (!RACEBOOK_LIVE_PREVIEW_ENABLED || !raceId || !storagePath || !accessToken) return;
+    let cancelled = false;
+    void loadRaceGpxPreview(raceId, storagePath).then((preview) => {
+      if (!cancelled) setPreviewGpx({ scopeId: raceId, value: preview });
+    });
+    return () => { cancelled = true; };
+  }, [accessToken, loadRaceGpxPreview, previewRace?.gpx_storage_path, previewRace?.id]);
 
   useEffect(() => {
     if (!activeRace) {
@@ -3050,6 +3208,123 @@ export function OrganizerDashboard({
     }
   };
 
+  const previewFormatForm = isAddingFormat
+    ? newRaceForm
+    : activeRace
+      ? raceForm
+      : previewRace
+        ? raceToForm(previewRace)
+        : createEmptyRaceForm();
+  const previewChoice = (key: OrganizerModuleKey) => {
+    const module = ORGANIZER_MODULES.find((candidate) => candidate.key === key);
+    if (!module) return undefined;
+    const persistedEnabled = moduleSettings
+      ? module.scope === "edition"
+        ? moduleSettings.edition[key as OrganizerEditionModuleKey]
+        : previewRace
+          ? moduleSettings.races[previewRace.id]?.[key as OrganizerRaceModuleKey] ?? module.defaultEnabled
+          : module.defaultEnabled
+      : module.defaultEnabled;
+    const stagedEnabled = isAddingFormat && module.scope === "race" ? undefined : moduleSettingsDraft[key];
+    const enabled = stagedEnabled ?? persistedEnabled;
+    return { ...module, state: getOrganizerModuleState(activeTier, key, enabled) };
+  };
+  const previewModuleStatus: RacebookModuleStatus = {
+    equipment: previewChoice("equipment")?.state ?? "inactive",
+    bibPickup: previewChoice("bib_pickup")?.state ?? "inactive",
+    access: previewChoice("access")?.state ?? "inactive",
+    services: previewChoice("services")?.state ?? "inactive",
+    branding: previewChoice("branding")?.state ?? "inactive",
+    sponsors: previewChoice("sponsors")?.state ?? "inactive",
+    aidStations: previewChoice("aid_stations")?.state ?? "inactive",
+    startWaves: previewChoice("start_waves")?.state ?? "inactive",
+    awards: previewChoice("awards")?.state ?? "inactive",
+    relay: previewChoice("relay")?.state ?? "inactive",
+    officialProducts: previewChoice("official_products")?.state ?? "inactive",
+  };
+  const previewModules = Object.fromEntries(
+    Object.entries(previewModuleStatus).map(([key, value]) => [key, value !== "inactive"]),
+  ) as RacebookModuleVisibility;
+  const previewRaceId = previewRace?.id ?? null;
+  const hydratedSidecars = previewRaceId && previewSidecars?.scopeId === previewRaceId ? previewSidecars.value : null;
+  const activeSidecarsReady = Boolean(previewRaceId && activeRace?.id === previewRaceId && sidecarLoadedRaceId === previewRaceId);
+  const previewAidStations = activeSidecarsReady ? aidStations : hydratedSidecars?.aidStations ?? [];
+  const previewRelayPoints = activeSidecarsReady ? relayPoints : hydratedSidecars?.relayPoints ?? [];
+  const persistedPreviewStationProducts = activeSidecarsReady ? stationProducts : hydratedSidecars?.stationProducts ?? [];
+  const previewStationProducts = mergeDraftProductIntoPreview(
+    persistedPreviewStationProducts,
+    productStationId,
+    productForm,
+    Boolean(previewRaceId && activeRace?.id === previewRaceId && activeSidecarsReady),
+  );
+  const previewRaceGpx = previewRaceId && activeRace?.id === previewRaceId && gpxLoadedRaceKey?.startsWith(`${previewRaceId}:`)
+    ? gpxPreview
+    : previewRaceId && previewGpx?.scopeId === previewRaceId
+      ? previewGpx.value
+      : null;
+  const previewModel = RACEBOOK_LIVE_PREVIEW_ENABLED ? buildOrganizerRacebookPreviewModel({
+    event: {
+      id: selectedEventId,
+      name: eventForm.name,
+      location: eventForm.location,
+      raceDate: eventForm.editionStartDate,
+      endDate: eventForm.editionEndDate,
+      thumbnailUrl: eventForm.thumbnailUrl,
+      organizerDetails: eventForm.organizerDetails,
+    },
+    format: {
+      id: isAddingFormat ? "draft-new-format" : previewRace?.id ?? null,
+      name: previewFormatForm.name,
+      distanceKm: previewFormatForm.distanceKm,
+      elevationGainM: previewFormatForm.elevationGainM,
+      elevationLossM: toNumberOrNull(previewFormatForm.elevationLossM),
+      raceDate: previewFormatForm.raceDate,
+      thumbnailUrl: previewFormatForm.thumbnailUrl,
+      locationText: previewFormatForm.locationText,
+      participationMode: previewFormatForm.participationMode,
+      organizerDetails: previewFormatForm.organizerDetails,
+    },
+    gpx: previewRaceGpx,
+    aidStations: previewAidStations,
+    stationProducts: previewStationProducts,
+    relayPoints: previewRelayPoints,
+    startWaves: previewRaceId && previewStartWaves?.scopeId === previewRaceId ? previewStartWaves.value : [],
+    awards: previewRaceId && previewAwards?.scopeId === previewRaceId ? previewAwards.value : [],
+    services: activeEdition?.id && previewServices?.scopeId === activeEdition.id ? previewServices.value : [],
+    sponsors: activeEdition?.id && previewSponsors?.scopeId === activeEdition.id ? previewSponsors.value : [],
+    branding: previewModules.branding && activeEdition?.id && previewBranding?.scopeId === activeEdition.id ? previewBranding.value : null,
+    modules: previewModules,
+    moduleStatus: previewModuleStatus,
+  }) : null;
+  const previewFormats = [
+    ...workspaceRaceSeriesGroups.map((group) => ({ id: group.id, label: group.seriesName })),
+    ...(isAddingFormat
+      ? [{ id: ADD_FORMAT_TAB_ID, label: newRaceForm.seriesName.trim() || newRaceForm.name.trim() || "Nouveau format" }]
+      : []),
+  ];
+  const relevantPreviewDraftStatuses = Object.values(previewDraftStatuses).filter(
+    (draftStatus) => draftStatus.scopeId === activeEdition?.id || draftStatus.scopeId === previewRaceId,
+  );
+  const hasUnsavedPreviewDraft = relevantPreviewDraftStatuses.some((draftStatus) => draftStatus.dirty);
+  const previewDraftError = relevantPreviewDraftStatuses.find((draftStatus) => draftStatus.dirty && draftStatus.message)?.message;
+  const displayedPreviewModuleChoices = getDisplayedPreviewModuleKeys(previewMode, previewTab, previewCourseTab)
+    .map(previewChoice)
+    .filter((choice) => choice?.state === "draftOnly");
+  const displayedPreviewLockedTiers = [...new Set(displayedPreviewModuleChoices.map((choice) => choice?.minimumTier).filter(Boolean))];
+  const previewStatuses = [
+    ...(hasAnyDirtyChanges || hasUnsavedPreviewDraft ? [{ label: previewDraftError ?? "Brouillon non enregistré", tone: "warning" as const }] : []),
+    ...displayedPreviewLockedTiers.map((tier) => ({ label: `Privé · ${ORGANIZER_TIER_LABEL[tier!]}`, tone: "locked" as const })),
+    ...(isAddingFormat
+      ? [{ label: "Nouveau format · brouillon", tone: "neutral" as const }]
+      : previewRace?.racebook_preview_is_visible === false
+      ? [{ label: "Format masqué", tone: "neutral" as const }]
+      : previewRace?.racebook_is_live
+        ? [{ label: "RaceBook public", tone: "neutral" as const }]
+        : previewRace
+          ? [{ label: "RaceBook privé", tone: "neutral" as const }]
+          : []),
+  ];
+
   if (isLoading) return <div className="mx-auto max-w-6xl px-4 py-8 text-sm text-muted-foreground">Vérification de session...</div>;
   if (!session) return <OrganizerSignedOutCard />;
 
@@ -3076,7 +3351,7 @@ export function OrganizerDashboard({
   const isEventTab = activeTab === EVENT_TAB_ID;
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5 px-4 py-8 sm:px-6">
+    <div className={`mx-auto flex flex-col gap-5 px-4 py-8 sm:px-6 ${RACEBOOK_LIVE_PREVIEW_ENABLED ? "max-w-[1600px]" : "max-w-7xl"}`}>
       <OrganizerToast toast={toast} />
       <OrganizerInvoicesDialog
         open={invoicesDialogOpen}
@@ -3285,7 +3560,8 @@ export function OrganizerDashboard({
         </DialogContent>
       </Dialog>
 
-      <Card className="rounded-lg">
+      <div className={RACEBOOK_LIVE_PREVIEW_ENABLED ? "flex flex-col items-stretch gap-5 xl:flex-row xl:items-start" : undefined}>
+      <Card className="min-w-0 flex-1 rounded-lg">
         <CardHeader
           id="organizer-onboarding-editor"
           className={
@@ -3465,6 +3741,16 @@ export function OrganizerDashboard({
                   headers={authHeaders}
                   enabled={Boolean(activeRace && moduleSettings?.races[activeRace.id]?.start_waves)}
                   onSummaryChange={handleStartWaveSummaryChange}
+                  onDraftChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (value) => {
+                    if (activeRace?.id) setPreviewStartWaves({ scopeId: activeRace.id, value });
+                  } : undefined}
+                  onDraftStatusChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (draftStatus) => {
+                    if (activeRace?.id) updatePreviewDraftStatus("start-waves", activeRace.id, draftStatus);
+                  } : undefined}
+                  onFocus={RACEBOOK_LIVE_PREVIEW_ENABLED ? () => {
+                    setPreviewTab("course");
+                    setPreviewCourseTab("start-waves");
+                  } : undefined}
                 />
               )}
               expandedStationKey={expandedStationKey}
@@ -3500,6 +3786,10 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onAddRelayPoint={() => {
+                if (RACEBOOK_LIVE_PREVIEW_ENABLED) {
+                  setPreviewTab("course");
+                  setPreviewCourseTab("relay");
+                }
                 const finishDistance = Math.max(0.2, raceForm.distanceKm);
                 const lastDistance = Math.max(0, ...relayPoints.map((point) => point.distanceKm));
                 const suggestedDistance = lastDistance > 0
@@ -3520,6 +3810,10 @@ export function OrganizerDashboard({
                 markDirty("aidStations");
               }}
               onUpdateRelayPoint={(index, point) => {
+                if (RACEBOOK_LIVE_PREVIEW_ENABLED) {
+                  setPreviewTab("course");
+                  setPreviewCourseTab("relay");
+                }
                 setRelayPoints((current) => current.map((item, pointIndex) => pointIndex === index ? point : item));
                 markDirty("aidStations");
               }}
@@ -3582,6 +3876,10 @@ export function OrganizerDashboard({
               productForm={productForm}
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
+                if (RACEBOOK_LIVE_PREVIEW_ENABLED) {
+                  setPreviewTab("course");
+                  setPreviewCourseTab("aid-stations");
+                }
                 setProductSearch("");
                 setProductPickerStationId(stationId);
               }}
@@ -3631,6 +3929,10 @@ export function OrganizerDashboard({
               productForm={productForm}
               productStationId={productStationId}
               onOpenProductPicker={(stationId) => {
+                if (RACEBOOK_LIVE_PREVIEW_ENABLED) {
+                  setPreviewTab("course");
+                  setPreviewCourseTab("aid-stations");
+                }
                 setProductSearch("");
                 setProductPickerStationId(stationId);
               }}
@@ -3645,9 +3947,9 @@ export function OrganizerDashboard({
               status={status}
             />
           ) : activeModule === "services" ? (
-            <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={Boolean(moduleSettings?.edition.services)} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} />
+            <EditionServicesEditor editionId={activeEdition?.id ?? null} headers={authHeaders} enabled={Boolean(moduleSettings?.edition.services)} legacy={eventForm.organizerDetails.services} onLegacyChange={(services) => updateEventDetails({ ...eventForm.organizerDetails, services }, "services")} onDraftChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (value) => { if (activeEdition?.id) setPreviewServices({ scopeId: activeEdition.id, value }); } : undefined} onDraftStatusChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (draftStatus) => { if (activeEdition?.id) updatePreviewDraftStatus("services", activeEdition.id, draftStatus); } : undefined} />
           ) : activeModule === "awards" ? (
-            <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={Boolean(activeRace && moduleSettings?.races[activeRace.id]?.awards)} />
+            <AwardsEditor raceId={activeRace?.id ?? null} headers={authHeaders} enabled={Boolean(activeRace && moduleSettings?.races[activeRace.id]?.awards)} onDraftChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (value) => { if (activeRace?.id) setPreviewAwards({ scopeId: activeRace.id, value }); } : undefined} onDraftStatusChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (draftStatus) => { if (activeRace?.id) updatePreviewDraftStatus("awards", activeRace.id, draftStatus); } : undefined} />
           ) : activeModule === "branding" && isEventTab && activeEdition?.id ? (
             <BrandingEditor
               key={activeEdition.id}
@@ -3655,7 +3957,10 @@ export function OrganizerDashboard({
               eventName={eventDetail?.name ?? "Événement"}
               authHeaders={authHeaders}
               onSummaryChange={handleBrandingSummaryChange}
+              onDraftChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (value) => setPreviewBranding({ scopeId: activeEdition.id, value }) : undefined}
+              onDraftStatusChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (draftStatus) => updatePreviewDraftStatus("branding", activeEdition.id, draftStatus) : undefined}
               onToast={showToast}
+              hideInlinePreview={RACEBOOK_LIVE_PREVIEW_ENABLED}
             />
           ) : activeModule === "sponsors" && isEventTab && activeEdition?.id ? (
             <SponsorsEditor
@@ -3663,11 +3968,31 @@ export function OrganizerDashboard({
               editionId={activeEdition.id}
               authHeaders={authHeaders}
               onSummaryChange={handleSponsorSummaryChange}
+              onDraftChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (value) => setPreviewSponsors({ scopeId: activeEdition.id, value }) : undefined}
+              onDraftStatusChange={RACEBOOK_LIVE_PREVIEW_ENABLED ? (draftStatus) => updatePreviewDraftStatus("sponsors", activeEdition.id, draftStatus) : undefined}
               onToast={showToast}
             />
           ) : null}
         </CardContent>
       </Card>
+      {RACEBOOK_LIVE_PREVIEW_ENABLED && previewModel ? (
+        <RacebookPhonePreview
+          model={previewModel}
+          locale={previewLocale}
+          onLocaleChange={setPreviewLocale}
+          previewMode={previewMode}
+          onPreviewModeChange={setPreviewMode}
+          formats={previewFormats}
+          selectedFormatId={isAddingFormat ? ADD_FORMAT_TAB_ID : activeSeries?.id ?? previewRace?.edition_group_id ?? null}
+          onFormatChange={handleTabChange}
+          activeTab={previewTab}
+          activeCourseTab={previewCourseTab}
+          onTabChange={setPreviewTab}
+          onCourseTabChange={setPreviewCourseTab}
+          statuses={previewStatuses}
+        />
+      ) : null}
+      </div>
 
       <ProductPickerModal
         station={productPickerStation}

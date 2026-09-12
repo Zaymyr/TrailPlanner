@@ -5,6 +5,7 @@ last_verified: 2026-09-12
 ai_priority: high
 related_files:
   - package.json
+  - package-lock.json
   - turbo.json
   - apps/web/package.json
   - apps/mobile/package.json
@@ -74,6 +75,7 @@ apps/
   web/          Next.js app, API routes, web planner, admin, auth/session routes.
   mobile/       Expo Router app, mobile onboarding, catalog, plan and push flows.
 packages/
+  racebook-ui/     Shared platform-neutral RaceBook presentation model and view for Expo and organizer preview.
   design-system/ Shared tokens, fonts, and signature icons.
   shared/        Shared alert scheduling and plan utility logic.
   tanstack-react-query/ Local package shim for React Query imports.
@@ -155,6 +157,7 @@ When docs and code disagree, use this order:
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
+- The organizer RaceBook phone is a local draft renderer, not a public/mobile preview endpoint. It and Expo use the same active `RacebookView`, fed by separate platform containers and models. Neither path may carry browser drafts into CDN, mobile, or analytics flows.
 
 ## Related Docs
 

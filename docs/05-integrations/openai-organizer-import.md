@@ -90,6 +90,7 @@ Edition branding is also outside import reconciliation. The import model cannot 
 - Never apply raw client values from the review payload. Verify the event/edition/session-bound signed field snapshot, expiry, field scope, target format, and selected claim ids first.
 - Never let an import proposal change edition visibility or request deletion. Those destructive controls require their dedicated membership-checked route and explicit organizer confirmation.
 - Never include edition branding fields in the LLM claim allowlist or infer a visual identity from crawled pages.
+- The local organizer phone may display the current form draft, but it does not start, cancel, apply, or otherwise affect an import reconciliation session.
 
 ## Related Docs
 

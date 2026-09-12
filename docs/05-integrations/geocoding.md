@@ -113,6 +113,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 ## Gotchas
 
 - RaceBook branding may recolor Maps buttons and location icons, but it must not alter stored coordinates, generated Google Maps URLs, deduplication, or location inheritance.
+- The organizer phone may render existing draft route/location geometry, but it must not open Maps, invoke address search, or persist geocoding values. It is not an additional geocoding client.
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
 - Do not use a copied event location to make the UI look like a custom override. Equality with the current event location must still render as inherited, even though the save payload persists the effective location required by catalog publication.
 - Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.

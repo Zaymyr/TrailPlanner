@@ -90,6 +90,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - The destination waits for the lightweight sponsor/module/branding response before revealing RaceBook content. Do not restore a short UI timeout that commits defaults while the valid edition response is still in flight.
 - The RaceBook onboarding guide is layered over the existing screen after loading; it does not replay, bypass, or alter sponsor lookup, timing, placement, or click counting.
 - Do not merge organizer branding with sponsor rows, placements, or click counters merely because the lightweight payload transports both.
+- The organizer phone can show its local sponsor-editor draft, but it must not issue a redirect, record a click/impression, or expose `website_url` outside that local component tree.
 
 - Do not query this table directly from mobile or browser code.
 - Do not expose `website_url` through the presentation payload; preserve the counted redirect boundary.

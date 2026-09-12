@@ -32,7 +32,7 @@ const createConfig = async () => {
     eslint: {
       ignoreDuringBuilds: true,
     },
-    transpilePackages: ['@trailplanner/shared', '@pace-yourself/design-system'],
+    transpilePackages: ['@trailplanner/shared', '@pace-yourself/design-system', '@pace-yourself/racebook-ui'],
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
     async headers() {
       return [
@@ -43,6 +43,11 @@ const createConfig = async () => {
       ];
     },
     webpack(config) {
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'react-native$': 'react-native-web',
+      };
+
       const fileLoaderRule = config.module.rules.find((rule) => rule.test?.test?.('.svg'));
 
       if (fileLoaderRule) {

@@ -16,6 +16,7 @@ related_files:
   - apps/web/playwright.organizer.config.ts
   - apps/web/e2e/organizer-payment.spec.ts
   - apps/web/tsconfig.json
+  - apps/web/types/react-native-web-shim.d.ts
   - apps/web/app/layout.tsx
   - apps/web/app/page.tsx
   - apps/web/app/seo.ts
@@ -140,6 +141,15 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/products-editor.tsx
   - apps/web/app/organizer/_components/dashboard/sponsors-editor.tsx
   - apps/web/app/organizer/_components/dashboard/branding-editor.tsx
+  - apps/web/app/organizer/_components/dashboard/racebook-preview-model/index.ts
+  - apps/web/app/organizer/_components/dashboard/racebook-phone-preview/RacebookPhonePreview.tsx
+  - apps/web/app/organizer/_components/dashboard/racebook-phone-preview/RacebookPhonePreview.behavior.test.ts
+  - apps/web/app/organizer/_components/dashboard/racebook-live-preview.integration.test.ts
+  - apps/web/app/organizer/_components/dashboard/racebook-preview-state.test.ts
+  - packages/racebook-ui/src/model/index.ts
+  - packages/racebook-ui/src/view/RacebookView.tsx
+  - packages/racebook-ui/src/view/RacebookLoadingView.tsx
+  - packages/racebook-ui/src/view/presentation.ts
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/completion.test.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -268,6 +278,8 @@ The event information editor uses five ordered visual sections instead of one fl
 
 The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. Edition-logo upload infrastructure and stored values remain intact, but the shared kill switch currently hides its controls and prevents public resolution. Non-Pro organizers receive an upsell instead of draft data.
 
+The organizer dashboard can render an opt-in phone preview from its in-memory forms and editor callbacks when `NEXT_PUBLIC_ORGANIZER_RACEBOOK_LIVE_PREVIEW_ENABLED=true`; the default is off. Membership-authorized private reads hydrate only the selected persisted event/format scope when needed, then `buildOrganizerRacebookPreviewModel` updates the shared `@pace-yourself/racebook-ui` presentation from local state on every keystroke with no additional request. A brand-new format is isolated from persisted sidecars, while a local custom product is projected only for the active race/station. Preview warnings derive from the modules currently displayed in the phone, so inactive or irrelevant draft state does not produce a misleading offer warning. The scoped preview state follows normal race/GPX/sidecar invalidation and is cleared at the session boundary. Next.js transpiles this package and maps `react-native` to `react-native-web`; the phone exposes only internal tabs/accordions while Maps, calls, websites, sponsor redirects and analytics adapters are absent. Expo and the organizer phone both render the same active `RacebookView` and `RacebookLoadingView`; their containers retain their platform-specific data loading, sponsor-gate, navigation and analytics responsibilities. Neither hydration nor local rendering calls a public RaceBook route, alters autosave, or exposes a draft to another account.
+
 ## Purpose
 
 The web app owns the browser planner, onboarding/account flows, admin catalog tools, server-side API routes, and most Supabase service-role operations. Read this before changing `apps/web` routes or planner state.
@@ -293,6 +305,8 @@ The web app owns the browser planner, onboarding/account flows, admin catalog to
 - `npm run typecheck --workspace apps/web`
 
 The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser map bindings added under `apps/web` must stay compatible with React 18 until the app is upgraded; for Leaflet route previews that means staying on the React 18-compatible `react-leaflet` line rather than the React 19-only v5 releases.
+
+The shared organizer RaceBook renderer is compiled through the runtime alias from `react-native` to `react-native-web`. `apps/web/types/react-native-web-shim.d.ts` keeps the corresponding React Native globals out of the DOM TypeScript project, so the alias does not pollute browser types; retain both the shim and the runtime alias when updating the shared package.
 
 The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` files. Vitest remains responsible for compiling and running those tests; this prevents a web-only Next.js build from following test imports into mobile-only Expo modules whose dependencies are intentionally absent from the web deployment.
 
@@ -572,6 +586,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Prefer a freshly loaded sponsor/branding editor summary over the bootstrap projection after a mutation; until then, use the selected edition's bootstrap summary instead of displaying a false empty tile.
 - Treat route-local Organizer cache values as immutable snapshots. Invalidate race data after relevant mutations and clear the complete cache at a user-session boundary so organizer-scoped products or draft course data cannot cross accounts.
 - Keep the Organizer cache bounds when adding cached sidecars. TTL alone does not cap memory for many event/race selections in a long-lived dashboard session.
+- Do not treat the phone preview as an authorization or publication boundary. It can show a selected `draftOnly` module for authoring feedback, but public responses still use the persisted effective module map and never receive browser draft values.
 
 ## Related Docs
 

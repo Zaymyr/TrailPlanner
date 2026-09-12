@@ -135,6 +135,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - Do not add a Resend dependency unless SDK-specific behavior is needed; current code uses REST through `fetch`.
 - Do not reuse the Organizer TUS upload client for email assets or contacts; Resend payloads continue through the bounded server-side REST helpers.
 - Supabase Auth email behavior is separate from Resend Contact syncing; this repo still has no app-managed Resend transactional email route.
+- The organizer RaceBook phone is a local visual preview; it must not subscribe, sync, or otherwise invoke Resend while a draft changes.
 
 ## Related Docs
 

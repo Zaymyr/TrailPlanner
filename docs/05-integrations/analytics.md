@@ -106,6 +106,8 @@ Organizer content analytics use `organizer_event_created` for the initial event,
 
 Opening, replaying, stepping through, or closing the Organizer spotlight guide emits no organizer content event. The guide waits for a cookie decision before presentation and suppresses the mobile-app prompt while active; this UI coordination must not be interpreted as analytics consent or as a saved organizer action.
 
+The organizer RaceBook phone preview emits no PostHog, Google Analytics, sponsor, or mobile engagement event. It is an in-memory authoring renderer; only completed organizer persistence and the real mobile RaceBook retain their existing analytics contracts.
+
 ## Web Plan Value Events
 
 `apps/web/lib/product-analytics.ts` centralizes consent-gated Web product events and keeps core plan names aligned with mobile:

@@ -10,6 +10,7 @@ related_files:
   - apps/mobile/locales/en.ts
   - apps/mobile/locales/types.ts
   - apps/mobile/package.json
+  - apps/mobile/package-lock.json
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
@@ -32,6 +33,12 @@ related_files:
   - apps/mobile/components/profile/ProfileOnboardingSection.tsx
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - packages/racebook-ui/src/model/index.ts
+  - packages/racebook-ui/src/view/RacebookView.tsx
+  - packages/racebook-ui/src/view/RacebookLoadingView.tsx
+  - packages/racebook-ui/src/view/presentation.ts
+  - packages/racebook-ui/src/view/presentation.test.ts
+  - packages/racebook-ui/src/view/RacebookView.import-guard.test.mjs
   - apps/mobile/components/premium/PremiumUpsellModal.tsx
   - apps/mobile/components/profile/ProfileLanguageSection.tsx
   - apps/mobile/components/profile/ProfilePremiumSection.tsx
@@ -69,6 +76,8 @@ related_tables:
 # Mobile App Architecture
 
 ## Structured RaceBook modules
+
+The mobile route remains the owner of authenticated loading, publication gates, refresh and RaceBook analytics. `@pace-yourself/racebook-ui` provides the normalized model, active `RacebookView`, and shared sponsor-loading `RacebookLoadingView` used by both Expo and the organizer browser preview. The mobile container maps its authenticated response into that model, owns the loading/sponsor gate timeline, and injects native icons, map/profile rendering, external actions and analytics; the shared views themselves never fetch data, inspect a session or receive organizer drafts.
 
 RaceBook loads its core race, ravito/product, relay, SAS, awards, and edition-services snapshot through one public-first web API request. The API can serve a shared CDN copy for published RaceBooks and mobile retries with the session token only when an organizer preview requires it; the former direct Supabase reads remain a compatibility fallback. Course shows conditional **SAS** and **Podiums** views. Services render as actionable cards; per category, structured rows take precedence over legacy text. Approximate distance uses start-address coordinates, then GPX start, then format/event coordinates, and is hidden when either endpoint is invalid. Google Maps remains responsible for the real itinerary.
 
@@ -214,7 +223,7 @@ The runner-facing subscription surfaces now keep App Store review compliance det
 
 ## RaceBook Sponsors
 
-When a runner presses the RaceBook action in the Courses sheet, mobile starts the lightweight `/api/racebook-sponsors` request before navigation and warms the returned loading logos. `racebookSponsors.ts` shares that short-lived account/race-scoped in-flight request with the destination so the screen does not issue a duplicate lookup. Direct links use the same destination fallback without requiring prior catalog state. Published sponsor and RaceBook requests are anonymous-first to reuse the Vercel CDN; the session token is sent only on the private-preview retry. The RaceBook starts its full data request on mount, holds its visible track at the initial position until the sponsor lookup and loading-logo prefetch settle, then advances toward a guarded pre-completion ceiling and visibly reaches 100% before content replaces it. Its dedicated loading composition keeps the native back/title header but temporarily hides feedback and the bottom tab bar. A localized preparation title, thin progress trail, and unframed runner form one compact group above a single sponsor panel; the panel reserves two vertically stacked slots separated by one subtle divider and occupies roughly one third of the available viewport. An empty or failed sponsor response removes the reserved panel and returns to the ordinary progress loader. When one or two loading sponsors exist, the 2.5-second minimum presentation starts only after that composition is ready, even when the RaceBook snapshot was already available from cache. Pull-to-refresh clears the short profile request cache and reloads RaceBook/profile/route data, but does not replay the sponsor interstitial.
+When a runner presses the RaceBook action in the Courses sheet, mobile starts the lightweight `/api/racebook-sponsors` request before navigation and warms the returned loading logos. `racebookSponsors.ts` shares that short-lived account/race-scoped in-flight request with the destination so the screen does not issue a duplicate lookup. Direct links use the same destination fallback without requiring prior catalog state. Published sponsor and RaceBook requests are anonymous-first to reuse the Vercel CDN; the session token is sent only on the private-preview retry. The RaceBook starts its full data request on mount, holds its visible track at the initial position until the sponsor lookup and loading-logo prefetch settle, then advances toward a guarded pre-completion ceiling and visibly reaches 100% before content replaces it. The mobile container owns that gate and passes its settled progress and sponsors to the shared `RacebookLoadingView`; the native back/title header stays available while feedback and the bottom tab bar are temporarily hidden. A localized preparation title, thin progress trail, and unframed runner form one compact group above a single sponsor panel; the panel reserves two vertically stacked slots separated by one subtle divider and occupies roughly one third of the available viewport. An empty or failed sponsor response removes the reserved panel and returns to the ordinary progress loader. When one or two loading sponsors exist, the 2.5-second minimum presentation starts only after that composition is ready, even when the RaceBook snapshot was already available from cache. Pull-to-refresh clears the short profile request cache and reloads RaceBook/profile/route data, but does not replay the sponsor interstitial.
 
 Active banner sponsors render in a roughly 44 dp strip before the identity card, with 24 dp logos and native text. One sponsor is centered without animation. With two or more sponsors, the banner is a width-independent horizontal carousel: one centered sponsor remains visible for three seconds, transitions to the next over 520 ms, and uses a duplicate first slide to loop without a visible backward jump. System reduced-motion preference disables autoplay and switches to a manually scrollable horizontal list. Only rows with a redirect URL are pressable, and all sponsor links open the counted server redirect rather than a direct target.
 

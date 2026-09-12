@@ -29,6 +29,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Les captures proviennent de l’interface web réelle avec des réponses API fictives et locales. Quatre encadrés numérotés relient visuellement chaque capture aux quatre actions expliquées sous l’image.
 - Aucune donnée Supabase de production n’est lue ou modifiée pendant la génération.
 - Le parcours couvre la création, la navigation, les sections, les trois modules communs de l’offre Essentiel (`Matériel`, `Dossard`, `Accès`), un format/GPX, les ravitaillements et la publication.
+- Le téléphone RaceBook de l’espace organisateur reflète localement les brouillons non enregistrés; il peut être contrôlé en français ou anglais sans publier ni déclencher de lien externe.
 
 ## Steps
 
@@ -54,6 +55,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Avec Essentiel déjà actif, confirmer que `Publier` et le passage d'un format à `Public` publient directement, que les sections Complet/Signature restent privées et qu'aucune erreur opérationnelle ne rouvre la fenêtre d'achat.
 - Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton RaceBook, qu'un format `Privé` garde un bouton RaceBook grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
 - Dans la tuile `Départ, ravitos & relais`, confirmer que l'onglet `Ravitos` est sélectionné par défaut à l'ouverture et après un changement de format.
+- Dans le dashboard, modifier un texte, une couleur, un ravito et une liste structurée sans enregistrer : le téléphone doit suivre immédiatement, signaler un module `draftOnly` hors de l’écran, et ne proposer que les interactions internes (onglets/accordéons).
 
 ## Do Not
 

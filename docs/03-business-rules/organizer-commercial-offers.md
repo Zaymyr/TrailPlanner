@@ -99,6 +99,7 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 - Never delete module content on disable or downgrade.
 - Never expose `organizer_racebook_module_settings` directly to clients; mobile receives only an effective boolean map.
 - Missing module configuration during rolling deployment uses the historical mobile behavior.
+- The organizer phone may render an enabled `draftOnly` module solely as local authoring feedback. This does not make it active, does not change checkout recommendations, and must never flow into a mobile or public RaceBook payload.
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
 - The dashboard keeps publication primary, groups rare actions in one menu, and starts detailed visibility collapsed. The guide may expand it temporarily to expose the real controls, then restores the collapsed state. Expansion is presentation-only; choosing a format state is a deliberate persisted action and must never grant an entitlement client-side.
