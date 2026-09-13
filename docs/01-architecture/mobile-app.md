@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -21,10 +21,13 @@ related_files:
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/components/catalog/CatalogPresentation.tsx
   - apps/web/lib/mobile-racebook-onboarding.test.ts
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - apps/mobile/app/(app)/profile.tsx
   - apps/mobile/app/(app)/onboarding.tsx
+  - apps/mobile/components/onboarding/OnboardingIntroSteps.tsx
+  - apps/mobile/components/onboarding/OnboardingProfileSteps.tsx
   - apps/mobile/lib/onboardingGate.ts
   - apps/mobile/lib/onboardingStatus.ts
   - apps/mobile/lib/onboardingStatusCore.ts
@@ -38,6 +41,7 @@ related_files:
   - apps/mobile/components/race/GpxImportPreviewModal.tsx
   - apps/mobile/components/race/GpxRoutePreviewCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
+  - apps/mobile/components/racebook/RacebookSponsorExperience.tsx
   - apps/mobile/components/plan-form/ProfileMiniChart.tsx
   - packages/design-system/src/branding.ts
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
@@ -74,6 +78,8 @@ RaceBook loads its core race, ravito/product, relay, SAS, awards, and edition-se
 
 These three normalized collections are additive reads. If one table is temporarily unavailable during a staggered database/app rollout, mobile records a bounded warning and treats that collection as empty; it continues rendering an otherwise valid legacy RaceBook. Core race, organizer-detail, ravito and relay failures still keep the unavailable state.
 
+RaceBook sponsor presentation is isolated in `RacebookSponsorExperience.tsx`: resilient edition logos, progressive loading, sponsor links, and the reduced-motion-aware banner remain UI concerns, while the route owns loading state and sponsor selection.
+
 ## Purpose
 
 The mobile app is the Expo Router client for onboarding, catalog browsing, plan creation, GPX import, premium state, push registration, and mobile analytics. Read this before changing native flows or EAS build assumptions.
@@ -93,19 +99,21 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 
 `apps/mobile/package.json` declares:
 
-- `expo ~54.0.33`
-- `expo-router ~6.0.23`
+- `expo ~54.0.37`
+- `expo-router ~6.0.24`
 - `react 19.1.0`
 - `react-native 0.81.5`
 - `@supabase/supabase-js ^2.45.4`
 - `expo-dev-client ~6.0.20`
 - `expo-crypto ~15.0.8`
-- `expo-updates ~29.0.16`
+- `expo-updates ~29.0.20`
 - `@react-native-google-signin/google-signin ^16.1.2` for Android native Google Sign-In only
 - `react-native-purchases ^9.15.1`
 - `posthog-react-native ^4.45.0`
 - `react-native-webview 13.15.0` for the interactive Racebook Leaflet map
 - `test:e2e:ux`, which invokes the local Maestro UX journey without storing credentials in source control
+
+The root layout imports only the nine Bricolage Grotesque and JetBrains Mono weight subpaths registered in `useFonts`. Importing from each font package root makes Metro retain unused weights and italics in the production asset graph.
 
 The app config in `apps/mobile/app.config.ts` declares:
 
@@ -155,6 +163,7 @@ The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is t
 The layout also tracks auth analytics for signed-in and signed-out events.
 Cold-start and post-auth navigation resolves the mobile onboarding statuses first, then opens either the initial chooser, a persisted in-progress stage, or the Courses catalog.
 The initial chooser is skippable and offers independent Plan and RaceBook tours. Plan setup remains a hidden non-tab flow, then hands off to the real Courses, Nutrition, plan creation, and editor screens. RaceBook uses the real Courses catalog and published RaceBook screen. In the guided RaceBook mode, the catalog immediately lists events with an ordinarily accessible published RaceBook and also lets the runner narrow that list by searching. It exposes only the RaceBook action so selecting a course cannot divert into plan creation. Those real screens keep normal tab navigation and add a non-blocking guide card. `user_profiles.plan_onboarding_status` and `racebook_onboarding_status` distinguish pending, in-progress, skipped, and completed states; local AsyncStorage retains the current stage/race for cold-start resumption.
+The shared onboarding shell, initial tour chooser, overview, workflow explanation, and completion summary are presentational components in `apps/mobile/components/onboarding/OnboardingIntroSteps.tsx`. Personal details, performance inputs, and nutrition targets live in `OnboardingProfileSteps.tsx`. The route remains responsible for state, validation, persistence, authentication callbacks, and navigation; extracted onboarding components must stay free of session and Supabase side effects.
 The Profile personal tab exposes both tours with their statuses. Its tab icon shows a notification dot until both are completed; skipped tours intentionally keep the dot visible. Replaying a completed tour does not downgrade its durable status.
 On cold start and after authentication, sessions that do not require onboarding open on the `catalog` Courses tab by default. The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of snapping to the default `catalog` tab when a hidden detail route was pushed.
 The visible bottom tab bar derives its bottom padding and total height from `react-native-safe-area-context`. This keeps the four tab actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS.
@@ -166,6 +175,8 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 ## Catalog and Event Sheets
 
 `apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
+
+Its reusable loading card, race row, personal-race section, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; the route retains catalog queries, filtering state, favorites, analytics, and navigation.
 
 - its public event relation uses an inner join filtered to `races.racebook_preview_is_visible = true`, so an event remains discoverable with private formats but no public RaceBook; the presentation filter removes every format whose preview flag is false;
 - masked formats are absent from the mobile catalog for runners and organizers; private formats remain listed for every runner and support plan creation, but only active event organizers receive the lightly dimmed RaceBook preview action; public formats use the normal runner presentation;
@@ -188,6 +199,8 @@ Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTit
 - `subscriptions` rows;
 - active `premium_grants`;
 - RevenueCat customer info.
+
+All `usePremium()` consumers subscribe to one module-level monitor. Auth, foreground, purchase, and RevenueCat signals are coalesced into a single refresh queue, so mounting several screens does not duplicate the Supabase/API reads or native listeners. State snapshots are emitted only when an entitlement field changes.
 
 When RevenueCat has an active entitlement and the server is not synced, mobile calls the web sync endpoint to persist the purchase into `subscriptions`.
 
@@ -257,6 +270,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.
 
 - Keep the shared/iOS runtime at `1.1.0` until a new iOS native build is released. Android overrides it with `1.1.1`; Android production OTAs must be published from configuration that resolves that platform runtime.
+- Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
@@ -281,6 +295,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep the event-sheet default compact: preload only the short organizer-update preview with the catalog query, place its light-green announcement panel after every actionable format row, show only the newest (or deep-link-targeted) message at first, and reveal older messages plus the longer history only when the runner explicitly asks to see more.
 - Read receipts are identified-user state. Anonymous sessions may read public updates but must not write `race_event_update_reads`.
 - Trial duration must remain aligned with web and migrations: 15 days.
+- Keep Premium monitoring shared across hook consumers. Reintroducing per-screen Auth, AppState, or RevenueCat listeners multiplies entitlement reads as tab screens mount.
 - Do not treat RevenueCat as a separate entitlement table. It syncs into `subscriptions`.
 - Do not use `premium paywall viewed` or `premium checkout started` as revenue. Only `premium purchase verified` confirms an active RevenueCat entitlement, and `environment: production` must still be reconciled with the store/RevenueCat transaction record.
 - Keep both required legal links visible from reviewer-reachable purchase surfaces: privacy should open the web legal page, and Terms of Use should open Apple’s standard EULA unless the billing/legal strategy is intentionally changed.

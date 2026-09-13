@@ -22,6 +22,18 @@ import type { FuelType, Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
 import { GpxImportPreviewModal } from '../../components/race/GpxImportPreviewModal';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
+import {
+  OnboardingCompletionStep,
+  OnboardingOverviewStep,
+  OnboardingShell,
+  OnboardingTourChoice,
+  OnboardingWorkflowStep,
+} from '../../components/onboarding/OnboardingIntroSteps';
+import {
+  OnboardingNutritionTargetsStep,
+  OnboardingPerformanceStep,
+  OnboardingPersonalStep,
+} from '../../components/onboarding/OnboardingProfileSteps';
 import { estimateHourlyTargets, isValidHeightCm, isValidWeightKg } from '../../components/profile/profileEstimator';
 import { useAppleAuth } from '../../hooks/useAppleAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
@@ -304,75 +316,6 @@ function isMissingUserForeignKeyError(error: unknown) {
 
   const haystack = `${candidate.details ?? ''} ${candidate.message ?? ''}`.toLowerCase();
   return haystack.includes('table "users"') || haystack.includes("table 'users'") || haystack.includes('auth.users');
-}
-
-function OnboardingShell({
-  children,
-  onSkip,
-  skipDisabled = false,
-  skipLabel,
-  step,
-  totalSteps,
-  stepLabel,
-}: {
-  children: React.ReactNode;
-  onSkip?: () => void;
-  skipDisabled?: boolean;
-  skipLabel?: string;
-  step: number;
-  totalSteps: number;
-  stepLabel: string;
-}) {
-  return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.topGlow} />
-      <ScrollView
-        contentContainerStyle={styles.shellScrollContent}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-      >
-        <View style={styles.inner}>
-          <View style={styles.hero}>
-            <View style={styles.heroTitleRow}>
-              <Text style={styles.logo}>Pace Yourself</Text>
-              {onSkip && skipLabel ? (
-                <TouchableOpacity
-                  accessibilityRole="button"
-                  accessibilityLabel={skipLabel}
-                  activeOpacity={0.7}
-                  disabled={skipDisabled}
-                  hitSlop={8}
-                  onPress={onSkip}
-                  style={[styles.skipOnboardingButton, skipDisabled && styles.buttonDisabled]}
-                >
-                  {skipDisabled ? (
-                    <ActivityIndicator color={Colors.textSecondary} size="small" />
-                  ) : (
-                    <Text style={styles.skipOnboardingButtonText}>{skipLabel}</Text>
-                  )}
-                </TouchableOpacity>
-              ) : null}
-            </View>
-            <Text style={styles.stepIndicator}>
-              {stepLabel.replace('{step}', String(step)).replace('{total}', String(totalSteps))}
-            </Text>
-            <View style={styles.progressRow}>
-              {Array.from({ length: totalSteps }).map((_, index) => (
-                <View
-                  key={`progress-${index + 1}`}
-                  style={[
-                    styles.progressSegment,
-                    index < step ? styles.progressSegmentActive : styles.progressSegmentInactive,
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
-          <View style={styles.card}>{children}</View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
-  );
 }
 
 export default function OnboardingScreen() {
@@ -1722,37 +1665,28 @@ export default function OnboardingScreen() {
   }
 
   if (completionPlanId) {
+    const raceName = selectedRace?.name ?? completedRaceNameParam;
+    const summaryLines = [
+      ...(raceName ? [t.onboarding.completionRaceLine.replace('{name}', raceName)] : []),
+      selectedProductIds.length > 0 || completedHasSelectedProductsParam
+        ? t.onboarding.completionFilledLine
+        : t.onboarding.completionEmptyLine,
+      t.onboarding.completionEditLine,
+    ];
+
     return (
-      <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
-        <View style={styles.notificationIconWrap}>
-          <Text style={styles.notificationIcon}>âœ“</Text>
-        </View>
-        <Text style={styles.title}>{t.onboarding.completionTitle}</Text>
-        <Text style={styles.subtitle}>{t.onboarding.completionSubtitle}</Text>
-
-        <View style={styles.noticeBox}>
-          <Text style={styles.noticeTitle}>{t.onboarding.completionSummaryTitle}</Text>
-          {selectedRace?.name || completedRaceNameParam ? (
-            <Text style={styles.noticeText}>
-              {t.onboarding.completionRaceLine.replace('{name}', selectedRace?.name ?? completedRaceNameParam ?? '')}
-            </Text>
-          ) : null}
-          <Text style={styles.noticeText}>
-            {(selectedProductIds.length > 0 || completedHasSelectedProductsParam)
-              ? t.onboarding.completionFilledLine
-              : t.onboarding.completionEmptyLine}
-          </Text>
-          <Text style={styles.noticeText}>{t.onboarding.completionEditLine}</Text>
-        </View>
-
-        <TouchableOpacity style={styles.primaryButton} onPress={handleOpenDemoPlan}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.completionContinueCta}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleCreateAnotherPlan}>
-          <Text style={styles.secondaryButtonText}>{t.onboarding.completionNewPlanCta}</Text>
-        </TouchableOpacity>
-      </OnboardingShell>
+      <OnboardingCompletionStep
+        totalSteps={totalSteps}
+        stepLabel={t.onboarding.stepLabel}
+        title={t.onboarding.completionTitle}
+        subtitle={t.onboarding.completionSubtitle}
+        summaryTitle={t.onboarding.completionSummaryTitle}
+        summaryLines={summaryLines}
+        primaryLabel={t.onboarding.completionContinueCta}
+        newPlanLabel={t.onboarding.completionNewPlanCta}
+        onContinue={handleOpenDemoPlan}
+        onNewPlan={handleCreateAnotherPlan}
+      />
     );
   }
 
@@ -1760,79 +1694,38 @@ export default function OnboardingScreen() {
     const copy = t.onboarding.tours;
 
     return (
-      <OnboardingShell step={1} totalSteps={1} stepLabel={t.onboarding.stepLabel}>
-        <Text style={styles.title}>{copy.choiceTitle}</Text>
-        <Text style={styles.subtitle}>{copy.choiceSubtitle}</Text>
-        <TouchableOpacity
-          disabled={choiceBusy}
-          onPress={() => void handleChooseOnboarding('plan')}
-          style={styles.phaseCard}
-        >
-          <View style={styles.phaseBadge}>
-            <Ionicons name="map-outline" size={20} color={Colors.brandPrimary} />
-          </View>
-          <View style={styles.phaseBody}>
-            <Text style={styles.phaseTitle}>{copy.planChoiceTitle}</Text>
-            <Text style={styles.phaseText}>{copy.planChoiceBody}</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          disabled={choiceBusy}
-          onPress={() => void handleChooseOnboarding('racebook')}
-          style={styles.phaseCard}
-        >
-          <View style={styles.phaseBadge}>
-            <Ionicons name="book-outline" size={20} color={Colors.brandPrimary} />
-          </View>
-          <View style={styles.phaseBody}>
-            <Text style={styles.phaseTitle}>{copy.racebookChoiceTitle}</Text>
-            <Text style={styles.phaseText}>{copy.racebookChoiceBody}</Text>
-          </View>
-        </TouchableOpacity>
-        <TouchableOpacity
-          disabled={choiceBusy}
-          onPress={() => void handleSkipChoice()}
-          style={styles.secondaryButton}
-        >
-          {choiceBusy ? (
-            <ActivityIndicator color={Colors.brandPrimary} />
-          ) : (
-            <Text style={styles.secondaryButtonText}>{copy.discoverLater}</Text>
-          )}
-        </TouchableOpacity>
-      </OnboardingShell>
+      <OnboardingTourChoice
+        busy={choiceBusy}
+        stepLabel={t.onboarding.stepLabel}
+        title={copy.choiceTitle}
+        subtitle={copy.choiceSubtitle}
+        planTitle={copy.planChoiceTitle}
+        planBody={copy.planChoiceBody}
+        racebookTitle={copy.racebookChoiceTitle}
+        racebookBody={copy.racebookChoiceBody}
+        discoverLaterLabel={copy.discoverLater}
+        onChoosePlan={() => void handleChooseOnboarding('plan')}
+        onChooseRacebook={() => void handleChooseOnboarding('racebook')}
+        onDiscoverLater={() => void handleSkipChoice()}
+      />
     );
   }
 
   if (step === 0) {
     return (
-      <OnboardingShell
-        step={1}
+      <OnboardingOverviewStep
         totalSteps={totalSteps}
         stepLabel={t.onboarding.stepLabel}
         skipLabel={t.onboarding.skipOnboardingCta}
         skipDisabled={skippingOnboarding}
         onSkip={requestSkipOnboarding}
-      >
-        <Text style={styles.kicker}>{t.onboarding.welcomeKicker}</Text>
-        <Text style={styles.title}>{t.onboarding.welcomeTitle}</Text>
-        <Text style={styles.subtitle}>{t.onboarding.welcomeSubtitle}</Text>
-
-        <View style={styles.phaseList}>
-          {overviewPhases.map((item) => (
-            <View key={item.title} style={styles.phaseCard}>
-              <View style={styles.phaseBadge}>
-                <Text style={styles.phaseBadgeText}>{item.index}</Text>
-              </View>
-              <View style={styles.phaseBody}>
-                <Text style={styles.phaseTitle}>{item.title}</Text>
-                <Text style={styles.phaseText}>{item.text}</Text>
-              </View>
-            </View>
-          ))}
-        </View>
-
-        {isGuestOnboardingSession ? (
+        kicker={t.onboarding.welcomeKicker}
+        title={t.onboarding.welcomeTitle}
+        subtitle={t.onboarding.welcomeSubtitle}
+        phases={overviewPhases}
+        startLabel={t.onboarding.startCta}
+        onStart={() => setStep(2)}
+        accountContent={isGuestOnboardingSession ? (
           <View style={styles.authChoiceCard}>
             <View style={styles.authChoiceBadge}>
               <Ionicons
@@ -1887,235 +1780,110 @@ export default function OnboardingScreen() {
 
             <Text style={styles.authChoiceHint}>{t.onboarding.welcomeAccountHint}</Text>
           </View>
-        ) : (
-          <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
-            <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
-          </TouchableOpacity>
-        )}
-      </OnboardingShell>
+        ) : undefined}
+      />
     );
   }
 
   if (step === 1) {
     return (
-      <OnboardingShell
+      <OnboardingWorkflowStep
+        totalSteps={totalSteps}
+        stepLabel={t.onboarding.stepLabel}
+        skipLabel={t.onboarding.skipOnboardingCta}
+        skipDisabled={skippingOnboarding}
+        onSkip={requestSkipOnboarding}
+        kicker={t.onboarding.workflowKicker}
+        title={t.onboarding.workflowTitle}
+        subtitle={t.onboarding.workflowSubtitle}
+        groups={workflowGroups}
+        startLabel={t.onboarding.startCta}
+        onStart={() => setStep(2)}
+      />
+    );
+  }
+
+  if (step === 2) {
+    return (
+      <OnboardingPersonalStep
         step={2}
         totalSteps={totalSteps}
         stepLabel={t.onboarding.stepLabel}
         skipLabel={t.onboarding.skipOnboardingCta}
         skipDisabled={skippingOnboarding}
         onSkip={requestSkipOnboarding}
-      >
-        <Text style={styles.kicker}>{t.onboarding.workflowKicker}</Text>
-        <Text style={styles.title}>{t.onboarding.workflowTitle}</Text>
-        <Text style={styles.subtitle}>{t.onboarding.workflowSubtitle}</Text>
-
-        <View style={styles.timelineGroups}>
-          {workflowGroups.map((group) => (
-            <View key={group.label} style={styles.timelineGroup}>
-              <Text style={styles.timelineGroupLabel}>{group.label}</Text>
-
-              <View style={styles.timelineGroupBody}>
-                {group.items.map((item) => {
-                  const globalIndex = workflowSteps.findIndex((workflowStep) => workflowStep.title === item.title);
-                  const isLast = group.items[group.items.length - 1]?.title === item.title;
-
-                  return (
-                    <View key={item.title} style={styles.timelineItem}>
-                      <View style={styles.timelineMarkerColumn}>
-                        <View style={styles.timelineBadge}>
-                          <Text style={styles.timelineBadgeText}>{globalIndex + 1}</Text>
-                        </View>
-                        {!isLast ? <View style={styles.timelineLine} /> : null}
-                      </View>
-
-                      <View style={styles.timelineCard}>
-                        <Text style={styles.timelineTitle}>{item.title}</Text>
-                        <Text style={styles.timelineText}>{item.text}</Text>
-                      </View>
-                    </View>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
-        </View>
-
-        <TouchableOpacity style={styles.primaryButton} onPress={() => setStep(2)}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.startCta}</Text>
-        </TouchableOpacity>
-      </OnboardingShell>
-    );
-  }
-
-  if (step === 2) {
-    return (
-      <>
-        <OnboardingShell
-          step={2}
-          totalSteps={totalSteps}
-          stepLabel={t.onboarding.stepLabel}
-          skipLabel={t.onboarding.skipOnboardingCta}
-          skipDisabled={skippingOnboarding}
-          onSkip={requestSkipOnboarding}
-        >
-          <Text style={styles.title}>{t.profile.personalSectionTitle}</Text>
-          <Text style={styles.subtitle}>{t.profile.personalSectionSubtitle}</Text>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.sectionTitle}>{t.profile.personalSectionTitle}</Text>
-            <Text style={styles.sectionSubtitle}>{t.profile.personalSectionSubtitle}</Text>
-
-            <Text style={styles.label}>{t.onboarding.firstNameLabel}</Text>
-            <TextInput
-              style={styles.textInput}
-              value={fullName}
-              onChangeText={(value) => {
-                setFullName(value);
-                if (profileError) setProfileError(null);
-              }}
-              placeholder={t.onboarding.firstNamePlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              autoCapitalize="words"
-              textContentType="givenName"
-            />
-
-            <View style={styles.bodyMetricsRow}>
-              <View style={styles.bodyMetricField}>
-                <Text style={styles.label}>{t.profile.weightLabel}</Text>
-                <View style={styles.metricInputShell}>
-                  <TextInput
-                    style={styles.metricInput}
-                    value={weightKg}
-                    onChangeText={(value) => {
-                      setWeightKg(sanitizeDigits(value, 3));
-                      if (profileError) setProfileError(null);
-                    }}
-                    placeholder={t.profile.weightPlaceholder}
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                  />
-                  <Text style={styles.metricInputUnit}>kg</Text>
-                </View>
-              </View>
-
-              <View style={styles.bodyMetricField}>
-                <Text style={styles.label}>{t.profile.heightLabel}</Text>
-                <View style={styles.metricInputShell}>
-                  <TextInput
-                    style={styles.metricInput}
-                    value={heightCm}
-                    onChangeText={(value) => {
-                      setHeightCm(sanitizeDigits(value, 3));
-                      if (profileError) setProfileError(null);
-                    }}
-                    placeholder={t.profile.heightPlaceholder}
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                  />
-                  <Text style={styles.metricInputUnit}>cm</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handlePersonalContinue}>
-            <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
-          </TouchableOpacity>
-        </OnboardingShell>
-      </>
+        title={t.profile.personalSectionTitle}
+        subtitle={t.profile.personalSectionSubtitle}
+        sectionTitle={t.profile.personalSectionTitle}
+        sectionSubtitle={t.profile.personalSectionSubtitle}
+        firstNameLabel={t.onboarding.firstNameLabel}
+        firstNamePlaceholder={t.onboarding.firstNamePlaceholder}
+        fullName={fullName}
+        onChangeFullName={(value) => {
+          setFullName(value);
+          if (profileError) setProfileError(null);
+        }}
+        weightLabel={t.profile.weightLabel}
+        weightPlaceholder={t.profile.weightPlaceholder}
+        weightKg={weightKg}
+        onChangeWeightKg={(value) => {
+          setWeightKg(sanitizeDigits(value, 3));
+          if (profileError) setProfileError(null);
+        }}
+        heightLabel={t.profile.heightLabel}
+        heightPlaceholder={t.profile.heightPlaceholder}
+        heightCm={heightCm}
+        onChangeHeightCm={(value) => {
+          setHeightCm(sanitizeDigits(value, 3));
+          if (profileError) setProfileError(null);
+        }}
+        error={profileError}
+        continueLabel={t.onboarding.continueCta}
+        onContinue={handlePersonalContinue}
+      />
     );
   }
 
   if (step === 3) {
     return (
       <>
-        <OnboardingShell
+        <OnboardingPerformanceStep
           step={3}
           totalSteps={totalSteps}
           stepLabel={t.onboarding.stepLabel}
           skipLabel={t.onboarding.skipOnboardingCta}
           skipDisabled={skippingOnboarding}
           onSkip={requestSkipOnboarding}
-        >
-          <Text style={styles.title}>{t.profile.performanceSectionTitle}</Text>
-          <Text style={styles.subtitle}>{t.onboarding.performanceStepSubtitle}</Text>
-
-          <View style={styles.sectionCard}>
-            <Text style={styles.label}>{t.onboarding.waterBagLabel}</Text>
-            <View style={styles.waterBagRow}>
-              {WATER_BAG_OPTIONS.map((opt) => (
-                <TouchableOpacity
-                  key={opt}
-                  style={[styles.waterBtn, waterBagLiters === opt && styles.waterBtnActive]}
-                  onPress={() => setWaterBagLiters(opt)}
-                >
-                  <Text style={[styles.waterBtnText, waterBagLiters === opt && styles.waterBtnTextActive]}>
-                    {opt}L
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.label}>{t.onboarding.comfortableFlatPaceLabel}</Text>
-            <View style={styles.paceInputRow}>
-              <View style={styles.paceInputGroup}>
-                <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceMinutesLabel}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={comfortableFlatPaceMinutes}
-                  onChangeText={(value) => {
-                    setComfortableFlatPaceMinutes(sanitizeDigits(value, 2));
-                    if (profileError) setProfileError(null);
-                  }}
-                  placeholder="6"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
-              <View style={styles.paceInputGroup}>
-                <Text style={styles.paceInputLabel}>{t.onboarding.comfortableFlatPaceSecondsLabel}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={comfortableFlatPaceSeconds}
-                  onChangeText={(value) => {
-                    setComfortableFlatPaceSeconds(sanitizeDigits(value, 2));
-                    if (profileError) setProfileError(null);
-                  }}
-                  placeholder="00"
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="number-pad"
-                  maxLength={2}
-                />
-              </View>
-            </View>
-
-            <Text style={styles.label}>{t.onboarding.utmbIndexLabel}</Text>
-            <TextInput
-              style={styles.textInput}
-              value={utmbIndex}
-              onChangeText={(value) => {
-                setUtmbIndex(sanitizeDigits(value, 4));
-                if (profileError) setProfileError(null);
-              }}
-              placeholder={t.onboarding.utmbIndexPlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              keyboardType="number-pad"
-              maxLength={4}
-            />
-          </View>
-
-          {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handlePerformanceContinue}>
-            <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
-          </TouchableOpacity>
-        </OnboardingShell>
+          title={t.profile.performanceSectionTitle}
+          subtitle={t.onboarding.performanceStepSubtitle}
+          waterBagLabel={t.onboarding.waterBagLabel}
+          waterBagOptions={WATER_BAG_OPTIONS}
+          waterBagLiters={waterBagLiters}
+          onChangeWaterBagLiters={setWaterBagLiters}
+          comfortableFlatPaceLabel={t.onboarding.comfortableFlatPaceLabel}
+          comfortableFlatPaceMinutesLabel={t.onboarding.comfortableFlatPaceMinutesLabel}
+          comfortableFlatPaceMinutes={comfortableFlatPaceMinutes}
+          onChangeComfortableFlatPaceMinutes={(value) => {
+            setComfortableFlatPaceMinutes(sanitizeDigits(value, 2));
+            if (profileError) setProfileError(null);
+          }}
+          comfortableFlatPaceSecondsLabel={t.onboarding.comfortableFlatPaceSecondsLabel}
+          comfortableFlatPaceSeconds={comfortableFlatPaceSeconds}
+          onChangeComfortableFlatPaceSeconds={(value) => {
+            setComfortableFlatPaceSeconds(sanitizeDigits(value, 2));
+            if (profileError) setProfileError(null);
+          }}
+          utmbIndexLabel={t.onboarding.utmbIndexLabel}
+          utmbIndexPlaceholder={t.onboarding.utmbIndexPlaceholder}
+          utmbIndex={utmbIndex}
+          onChangeUtmbIndex={(value) => {
+            setUtmbIndex(sanitizeDigits(value, 4));
+            if (profileError) setProfileError(null);
+          }}
+          error={profileError}
+          continueLabel={t.onboarding.continueCta}
+          onContinue={handlePerformanceContinue}
+        />
 
         {renderEstimatorModal()}
       </>
@@ -2125,88 +1893,39 @@ export default function OnboardingScreen() {
   if (step === 4) {
     return (
       <>
-        <OnboardingShell
+        <OnboardingNutritionTargetsStep
           step={4}
           totalSteps={totalSteps}
           stepLabel={t.onboarding.stepLabel}
           skipLabel={t.onboarding.skipOnboardingCta}
           skipDisabled={skippingOnboarding}
           onSkip={requestSkipOnboarding}
-        >
-          <Text style={styles.title}>{t.onboarding.nutritionTargetsTitle}</Text>
-          <Text style={styles.subtitle}>{t.onboarding.nutritionTargetsSubtitle}</Text>
-
-          <View style={styles.sectionCard}>
-            <TouchableOpacity style={styles.estimateButton} onPress={handleOpenEstimator}>
-              <Text style={styles.estimateButtonText}>{t.profile.estimatorButton}</Text>
-            </TouchableOpacity>
-
-            <View style={styles.targetsStack}>
-              <View style={[styles.targetRow, styles.targetRowBordered]}>
-                <Text style={styles.targetLabel}>{t.profile.defaultCarbsPerHourLabel}</Text>
-                <View style={styles.targetInputShell}>
-                  <TextInput
-                    style={styles.targetInput}
-                    value={defaultCarbsPerHour}
-                    onChangeText={(value) => {
-                      setDefaultCarbsPerHour(sanitizeDigits(value, 3));
-                      if (profileError) setProfileError(null);
-                    }}
-                    placeholder="70"
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={3}
-                  />
-                  <Text style={styles.targetUnit}>g</Text>
-                </View>
-              </View>
-
-              <View style={[styles.targetRow, styles.targetRowBordered]}>
-                <Text style={styles.targetLabel}>{t.profile.defaultWaterPerHourLabel}</Text>
-                <View style={styles.targetInputShell}>
-                  <TextInput
-                    style={styles.targetInput}
-                    value={defaultWaterPerHour}
-                    onChangeText={(value) => {
-                      setDefaultWaterPerHour(sanitizeDigits(value, 4));
-                      if (profileError) setProfileError(null);
-                    }}
-                    placeholder="500"
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={4}
-                  />
-                  <Text style={styles.targetUnit}>ml</Text>
-                </View>
-              </View>
-
-              <View style={styles.targetRow}>
-                <Text style={styles.targetLabel}>{t.profile.defaultSodiumPerHourLabel}</Text>
-                <View style={styles.targetInputShell}>
-                  <TextInput
-                    style={styles.targetInput}
-                    value={defaultSodiumPerHour}
-                    onChangeText={(value) => {
-                      setDefaultSodiumPerHour(sanitizeDigits(value, 4));
-                      if (profileError) setProfileError(null);
-                    }}
-                    placeholder="600"
-                    placeholderTextColor={Colors.textMuted}
-                    keyboardType="number-pad"
-                    maxLength={4}
-                  />
-                  <Text style={styles.targetUnit}>mg</Text>
-                </View>
-              </View>
-            </View>
-          </View>
-
-          {profileError ? <Text style={styles.errorText}>{profileError}</Text> : null}
-
-          <TouchableOpacity style={styles.primaryButton} onPress={handleTargetsContinue}>
-            <Text style={styles.primaryButtonText}>{t.onboarding.continueCta}</Text>
-          </TouchableOpacity>
-        </OnboardingShell>
+          title={t.onboarding.nutritionTargetsTitle}
+          subtitle={t.onboarding.nutritionTargetsSubtitle}
+          estimatorLabel={t.profile.estimatorButton}
+          onOpenEstimator={handleOpenEstimator}
+          carbsLabel={t.profile.defaultCarbsPerHourLabel}
+          carbsValue={defaultCarbsPerHour}
+          onChangeCarbs={(value) => {
+            setDefaultCarbsPerHour(sanitizeDigits(value, 3));
+            if (profileError) setProfileError(null);
+          }}
+          waterLabel={t.profile.defaultWaterPerHourLabel}
+          waterValue={defaultWaterPerHour}
+          onChangeWater={(value) => {
+            setDefaultWaterPerHour(sanitizeDigits(value, 4));
+            if (profileError) setProfileError(null);
+          }}
+          sodiumLabel={t.profile.defaultSodiumPerHourLabel}
+          sodiumValue={defaultSodiumPerHour}
+          onChangeSodium={(value) => {
+            setDefaultSodiumPerHour(sanitizeDigits(value, 4));
+            if (profileError) setProfileError(null);
+          }}
+          error={profileError}
+          continueLabel={t.onboarding.continueCta}
+          onContinue={handleTargetsContinue}
+        />
 
         {renderEstimatorModal()}
       </>
@@ -2805,41 +2524,6 @@ export default function OnboardingScreen() {
     );
   }
 
-  if (completionPlanId) {
-    return (
-      <OnboardingShell step={6} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
-        <View style={styles.notificationIconWrap}>
-          <Text style={styles.notificationIcon}>✓</Text>
-        </View>
-        <Text style={styles.title}>{t.onboarding.completionTitle}</Text>
-        <Text style={styles.subtitle}>{t.onboarding.completionSubtitle}</Text>
-
-        <View style={styles.noticeBox}>
-          <Text style={styles.noticeTitle}>{t.onboarding.completionSummaryTitle}</Text>
-          {selectedRace?.name || completedRaceNameParam ? (
-            <Text style={styles.noticeText}>
-              {t.onboarding.completionRaceLine.replace('{name}', selectedRace?.name ?? completedRaceNameParam ?? '')}
-            </Text>
-          ) : null}
-          <Text style={styles.noticeText}>
-            {(selectedProductIds.length > 0 || completedHasSelectedProductsParam)
-              ? t.onboarding.completionFilledLine
-              : t.onboarding.completionEmptyLine}
-          </Text>
-          <Text style={styles.noticeText}>{t.onboarding.completionEditLine}</Text>
-        </View>
-
-        <TouchableOpacity style={styles.primaryButton} onPress={handleOpenDemoPlan}>
-          <Text style={styles.primaryButtonText}>{t.onboarding.completionContinueCta}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={handleCreateAnotherPlan}>
-          <Text style={styles.secondaryButtonText}>{t.onboarding.completionNewPlanCta}</Text>
-        </TouchableOpacity>
-      </OnboardingShell>
-    );
-  }
-
   return (
     <>
       <OnboardingShell step={7} totalSteps={totalSteps} stepLabel={t.onboarding.stepLabel}>
@@ -2879,119 +2563,12 @@ export default function OnboardingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.background,
-  },
-  topGlow: {
-    position: 'absolute',
-    top: -60,
-    left: -20,
-    right: -20,
-    height: 220,
-    backgroundColor: Colors.brandSurface,
-    borderBottomLeftRadius: 120,
-    borderBottomRightRadius: 120,
-  },
-  shellScrollContent: {
-    flexGrow: 1,
-  },
-  inner: {
-    flexGrow: 1,
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    justifyContent: 'center',
-  },
-  hero: {
-    alignItems: 'center',
-    marginBottom: 18,
-  },
-  heroTitleRow: {
-    width: '100%',
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  progressRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginTop: 14,
-    width: '100%',
-  },
-  progressSegment: {
-    flex: 1,
-    height: 6,
-    borderRadius: 999,
-  },
-  progressSegmentActive: {
-    backgroundColor: Colors.brandPrimary,
-  },
-  progressSegmentInactive: {
-    backgroundColor: Colors.surfaceMuted,
-  },
-  logo: {
-    flex: 1,
-    fontSize: 28,
-    fontWeight: '800',
-    color: Colors.brandPrimary,
-    letterSpacing: 0.4,
-    textAlign: 'center',
-  },
-  skipOnboardingButton: {
-    width: 64,
-    minHeight: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 8,
-  },
-  skipOnboardingButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  stepIndicator: {
-    marginTop: 8,
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-  },
-  card: {
-    backgroundColor: Colors.surface,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 18,
-    elevation: 4,
-    marginBottom: 12,
-  },
   title: {
     fontSize: 28,
     fontWeight: '800',
     color: Colors.textPrimary,
     textAlign: 'center',
     marginBottom: 10,
-  },
-  kicker: {
-    alignSelf: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-    marginBottom: 12,
   },
   subtitle: {
     fontSize: 15,
@@ -3020,18 +2597,6 @@ const styles = StyleSheet.create({
   racePickerPanel: {
     gap: 14,
     marginBottom: 16,
-  },
-  sectionTitle: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-    marginBottom: 12,
   },
   summaryCard: {
     backgroundColor: Colors.brandSurface,
@@ -3084,119 +2649,6 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     textAlign: 'center',
   },
-  phaseList: {
-    gap: 14,
-    marginBottom: 28,
-  },
-  phaseCard: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'flex-start',
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  phaseBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 2,
-  },
-  phaseBadgeText: {
-    color: Colors.textOnBrand,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  phaseBody: {
-    flex: 1,
-  },
-  phaseTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  phaseText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  timelineGroups: {
-    gap: 16,
-    marginBottom: 28,
-  },
-  timelineGroup: {
-    gap: 10,
-  },
-  timelineGroupLabel: {
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
-  timelineGroupBody: {
-    gap: 12,
-  },
-  timelineItem: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'stretch',
-  },
-  timelineMarkerColumn: {
-    alignItems: 'center',
-    width: 30,
-  },
-  timelineBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  timelineBadgeText: {
-    color: Colors.textOnBrand,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  timelineLine: {
-    width: 2,
-    flex: 1,
-    backgroundColor: Colors.brandBorder,
-    marginTop: 6,
-    marginBottom: -6,
-  },
-  timelineCard: {
-    flex: 1,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 16,
-    padding: 14,
-  },
-  timelineTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-    marginBottom: 4,
-  },
-  timelineText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  label: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-    marginBottom: 6,
-    marginTop: 8,
-  },
   labelHint: {
     fontSize: 12,
     color: Colors.textMuted,
@@ -3213,98 +2665,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     marginBottom: 8,
-  },
-  paceInputRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 8,
-  },
-  paceInputGroup: {
-    flex: 1,
-    gap: 6,
-  },
-  paceInputLabel: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  waterBagRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 8,
-    flexWrap: 'wrap',
-  },
-  bodyMetricsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-  },
-  bodyMetricField: {
-    flex: 1,
-  },
-  metricInputShell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 3,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  metricInput: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: 'transparent',
-    color: Colors.textPrimary,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  metricInputUnit: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  waterBtn: {
-    backgroundColor: Colors.surfaceSecondary,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    minWidth: 72,
-    alignItems: 'center',
-  },
-  waterBtnActive: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-  },
-  waterBtnText: {
-    color: Colors.textSecondary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  waterBtnTextActive: {
-    color: Colors.brandPrimary,
-  },
-  estimateButton: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
-    marginTop: 4,
-    marginBottom: 14,
-  },
-  estimateButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
   },
   primaryButton: {
     backgroundColor: Colors.brandPrimary,
@@ -3364,59 +2724,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 4,
     marginBottom: 16,
-  },
-  targetsStack: {
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    overflow: 'hidden',
-  },
-  targetRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
-  targetRowBordered: {
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  targetLabel: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  targetInputShell: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minWidth: 116,
-    paddingHorizontal: 12,
-    paddingVertical: 2,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  targetInput: {
-    flex: 1,
-    minWidth: 0,
-    backgroundColor: 'transparent',
-    color: Colors.textPrimary,
-    paddingHorizontal: 0,
-    paddingVertical: 8,
-    fontSize: 15,
-    fontWeight: '700',
-    textAlign: 'right',
-  },
-  targetUnit: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: '700',
   },
   raceCenteredState: {
     alignItems: 'center',

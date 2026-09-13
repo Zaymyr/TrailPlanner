@@ -1,9 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
-  AccessibilityInfo,
-  Animated,
   AppState,
-  Easing,
   Image,
   Linking,
   Pressable,
@@ -28,6 +25,11 @@ import { DataText } from '../../../../components/themed/DataText';
 import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
+import {
+  RacebookBrandLogo as SponsorBrandLogo,
+  RacebookLoadingScreen as SponsorLoadingScreen,
+  SponsorBanner as RacebookSponsorBanner,
+} from '../../../../components/racebook/RacebookSponsorExperience';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
@@ -37,7 +39,6 @@ import {
   EMPTY_RACEBOOK_SPONSORS,
   fetchRacebookSponsors,
   RACEBOOK_SPONSOR_MINIMUM_MS,
-  type RacebookSponsor,
   type RacebookSponsorPresentation,
 } from '../../../../lib/racebookSponsors';
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
@@ -108,28 +109,6 @@ function useRacebookBrandTheme() {
   return useContext(RacebookBrandThemeContext);
 }
 
-function RacebookBrandLogo({
-  uri,
-  style,
-  accessibilityLabel,
-}: {
-  uri: string | null;
-  style: object;
-  accessibilityLabel: string;
-}) {
-  const [failedUri, setFailedUri] = useState<string | null>(null);
-  if (!uri || failedUri === uri) return null;
-  return (
-    <Image
-      source={{ uri }}
-      style={style}
-      resizeMode="contain"
-      accessibilityLabel={accessibilityLabel}
-      onError={() => setFailedUri(uri)}
-    />
-  );
-}
-
 function getDaysBeforeRace(raceDate: string | null, now = new Date()) {
   const match = raceDate?.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return null;
@@ -163,251 +142,6 @@ function buildRacebookAnalyticsProperties(data: RacebookScreenData, entryPoint: 
     race_timing_window: getRaceTimingWindow(daysBeforeRace),
     entry_point: entryPoint,
   };
-}
-
-function SponsorChip({ sponsor, compact = false }: { sponsor: RacebookSponsor; compact?: boolean }) {
-  const content = (
-    <View style={[styles.sponsorChip, compact && styles.sponsorChipCompact]}>
-      <Image
-        source={{ uri: sponsor.logoUrl }}
-        style={[styles.sponsorLogo, compact && styles.sponsorLogoCompact]}
-        resizeMode="contain"
-        accessibilityLabel={sponsor.name}
-      />
-      <Text numberOfLines={1} style={[styles.sponsorName, compact && styles.sponsorNameCompact]}>{sponsor.name}</Text>
-    </View>
-  );
-  if (!sponsor.clickUrl) return content;
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={sponsor.name}
-      onPress={() => Linking.openURL(sponsor.clickUrl!).catch(() => {})}
-      style={({ pressed }) => pressed && styles.sponsorPressed}
-    >
-      {content}
-    </Pressable>
-  );
-}
-
-function FeaturedSponsor({ sponsor }: { sponsor: RacebookSponsor }) {
-  const content = (
-    <View style={styles.featuredSponsorRow}>
-      <Image
-        source={{ uri: sponsor.logoUrl }}
-        style={styles.featuredSponsorLogo}
-        resizeMode="contain"
-        accessibilityLabel={sponsor.name}
-      />
-      <Text numberOfLines={1} style={styles.featuredSponsorName}>{sponsor.name}</Text>
-    </View>
-  );
-
-  if (!sponsor.clickUrl) return content;
-  return (
-    <Pressable
-      accessibilityRole="link"
-      accessibilityLabel={sponsor.name}
-      onPress={() => Linking.openURL(sponsor.clickUrl!).catch(() => {})}
-      style={({ pressed }) => [styles.featuredSponsorPressable, pressed && styles.sponsorPressed]}
-    >
-      {content}
-    </Pressable>
-  );
-}
-
-function RacebookLoadingScreen({
-  progress,
-  sponsors,
-  sponsorLabel,
-  loadingLabel,
-  viewportHeight,
-  sponsorLookupDone,
-  title,
-}: {
-  progress: number;
-  sponsors: RacebookSponsor[];
-  sponsorLabel: string;
-  loadingLabel: string;
-  viewportHeight: number;
-  sponsorLookupDone: boolean;
-  title: string;
-}) {
-  const brandTheme = useRacebookBrandTheme();
-  const animatedProgress = useRef(new Animated.Value(progress)).current;
-  const highestProgress = useRef(progress);
-  const [trackWidth, setTrackWidth] = useState(0);
-  const safeProgress = Math.max(0, Math.min(1, progress));
-  const sponsorAreaHeight = Math.max(228, Math.min(292, viewportHeight * 0.31));
-
-  useEffect(() => {
-    const nextProgress = Math.max(highestProgress.current, safeProgress);
-    highestProgress.current = nextProgress;
-    const animation = Animated.timing(animatedProgress, {
-      toValue: nextProgress,
-      duration: 260,
-      easing: Easing.out(Easing.cubic),
-      useNativeDriver: false,
-    });
-    animation.start();
-    return () => animation.stop();
-  }, [animatedProgress, safeProgress]);
-
-  const progressWidth = animatedProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-    extrapolate: 'clamp',
-  });
-  const runnerTranslateX = animatedProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0, Math.max(0, trackWidth - 34)],
-    extrapolate: 'clamp',
-  });
-
-  return (
-    <View style={styles.loadingScreen}>
-      <View style={styles.loadingIntro}>
-        {RACEBOOK_EDITION_LOGO_ENABLED ? (
-          <RacebookBrandLogo
-            uri={brandTheme.logoUrl}
-            style={[styles.loadingBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
-            accessibilityLabel={title}
-          />
-        ) : null}
-        <Heading variant="h3" style={styles.loadingTitle}>{title}</Heading>
-      </View>
-
-      <View style={styles.loadingProgressBlock}>
-        <View
-          style={styles.loadingProgressTrack}
-          onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)}
-          accessible
-          accessibilityRole="progressbar"
-          accessibilityValue={{ min: 0, max: 100, now: Math.round(safeProgress * 100) }}
-        >
-          <Animated.View style={[styles.loadingProgressFill, { width: progressWidth, backgroundColor: brandTheme.accentColor }]} />
-          <Animated.View style={[styles.loadingRunner, { transform: [{ translateX: runnerTranslateX }] }]}>
-            <Ionicons name="walk" size={27} color={Colors.brandPrimary} />
-          </Animated.View>
-        </View>
-        <View style={styles.loadingProgressCopy}>
-          <Text style={styles.loadingText}>{loadingLabel}</Text>
-          <DataText style={styles.loadingPercent}>{Math.round(safeProgress * 100)}%</DataText>
-        </View>
-      </View>
-
-      {sponsors.length > 0 || !sponsorLookupDone ? (
-        <View style={[styles.featuredSponsors, { minHeight: sponsorAreaHeight }]}>
-          <Text style={styles.sponsorLoadingLabel}>{sponsorLabel}</Text>
-          <View style={styles.featuredSponsorPanel}>
-            {sponsors.length > 0 ? (
-              sponsors.map((sponsor, index) => (
-                <View key={sponsor.id} style={styles.featuredSponsorSlot}>
-                  {index > 0 ? <View style={styles.featuredSponsorDivider} /> : null}
-                  <FeaturedSponsor sponsor={sponsor} />
-                </View>
-              ))
-            ) : (
-              <>
-                <View style={styles.featuredSponsorSlot}>
-                  <View style={styles.featuredSponsorPlaceholder} />
-                </View>
-                <View style={styles.featuredSponsorSlot}>
-                  <View style={styles.featuredSponsorDivider} />
-                  <View style={styles.featuredSponsorPlaceholder} />
-                </View>
-              </>
-            )}
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
-function SponsorBanner({ sponsors, label }: { sponsors: RacebookSponsor[]; label: string }) {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const activeSlideIndex = useRef(0);
-  const [viewportWidth, setViewportWidth] = useState(0);
-  const [reduceMotion, setReduceMotion] = useState(false);
-
-  useEffect(() => {
-    let mounted = true;
-    AccessibilityInfo.isReduceMotionEnabled().then((value) => mounted && setReduceMotion(value));
-    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotion);
-    return () => { mounted = false; subscription.remove(); };
-  }, []);
-
-  useEffect(() => {
-    translateX.stopAnimation();
-    translateX.setValue(0);
-    activeSlideIndex.current = 0;
-    if (reduceMotion || sponsors.length < 2 || viewportWidth <= 0) return;
-
-    const carouselTimer = setInterval(() => {
-      const nextIndex = activeSlideIndex.current + 1;
-      Animated.timing(translateX, {
-        toValue: -nextIndex * viewportWidth,
-        duration: 520,
-        easing: Easing.inOut(Easing.cubic),
-        useNativeDriver: true,
-      }).start(({ finished }) => {
-        if (!finished) return;
-        if (nextIndex === sponsors.length) {
-          translateX.setValue(0);
-          activeSlideIndex.current = 0;
-          return;
-        }
-        activeSlideIndex.current = nextIndex;
-      });
-    }, 3_000);
-
-    return () => {
-      clearInterval(carouselTimer);
-      translateX.stopAnimation();
-    };
-  }, [reduceMotion, sponsors.length, translateX, viewportWidth]);
-
-  if (sponsors.length === 0) return null;
-  if (reduceMotion || sponsors.length === 1) {
-    return (
-      <View style={styles.sponsorBanner}>
-        <Text style={styles.sponsorBannerLabel}>{label}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.sponsorBannerStaticRow}>
-          {sponsors.map((sponsor) => <SponsorChip key={sponsor.id} sponsor={sponsor} compact />)}
-        </ScrollView>
-      </View>
-    );
-  }
-
-  const carouselSponsors = [...sponsors, sponsors[0]];
-
-  return (
-    <View style={styles.sponsorBanner}>
-      <Text style={styles.sponsorBannerLabel}>{label}</Text>
-      <View
-        style={styles.sponsorBannerViewport}
-        onLayout={(event) => setViewportWidth(event.nativeEvent.layout.width)}
-      >
-        <Animated.View style={[styles.sponsorBannerAnimatedRow, { transform: [{ translateX }] }]}>
-          {carouselSponsors.map((sponsor, index) => {
-            const loopCopy = index === sponsors.length;
-            return (
-              <View
-                key={loopCopy ? `loop-${sponsor.id}` : sponsor.id}
-                pointerEvents={loopCopy ? 'none' : 'auto'}
-                accessibilityElementsHidden={loopCopy}
-                importantForAccessibility={loopCopy ? 'no-hide-descendants' : 'auto'}
-                style={[styles.sponsorBannerSlide, { width: viewportWidth }]}
-              >
-                <SponsorChip sponsor={sponsor} compact />
-              </View>
-            );
-          })}
-        </Animated.View>
-      </View>
-    </View>
-  );
 }
 
 function sortGearItems(items: RacebookScreenData['runnerDetails']['equipmentStatus']['items']) {
@@ -1866,7 +1600,7 @@ export default function RaceRacebookScreen() {
         }
       >
       {showLoading ? (
-        <RacebookLoadingScreen
+        <SponsorLoadingScreen
           key={id ?? 'missing-racebook'}
           progress={loadingProgress}
           sponsors={sponsorSplashVisible ? sponsorPresentation.loadingSponsors : []}
@@ -1875,6 +1609,7 @@ export default function RaceRacebookScreen() {
           title={t.catalog.racebookLoadingTitle}
           viewportHeight={viewportHeight}
           sponsorLookupDone={sponsorLookupDone}
+          theme={brandTheme}
         />
       ) : unavailable ? (
         <View style={styles.centerState}>
@@ -1891,10 +1626,10 @@ export default function RaceRacebookScreen() {
         </View>
       ) : data ? (
         <>
-          <SponsorBanner sponsors={sponsorPresentation.bannerSponsors} label={t.catalog.racebookSponsorsBannerLabel} />
+          <RacebookSponsorBanner sponsors={sponsorPresentation.bannerSponsors} label={t.catalog.racebookSponsorsBannerLabel} />
           <Card style={styles.heroCard}>
             {RACEBOOK_EDITION_LOGO_ENABLED ? (
-              <RacebookBrandLogo
+              <SponsorBrandLogo
                 uri={brandTheme.logoUrl}
                 style={[styles.heroBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
                 accessibilityLabel={data.event.name ?? data.race.name}

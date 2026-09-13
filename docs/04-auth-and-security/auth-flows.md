@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-10
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -25,6 +25,7 @@ related_files:
   - apps/mobile/app/(auth)/signup.tsx
   - apps/mobile/hooks/useAppleAuth.ts
   - apps/mobile/hooks/useGoogleAuth.ts
+  - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/lib/onboardingGate.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/trial.ts
@@ -85,6 +86,7 @@ The authenticated onboarding catalog accepts source-backed formats whose D+ is s
 - syncs identified, non-anonymous users to Resend through the web API bridge.
 
 Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mobile/app/(auth)/signup.tsx`, and the guest onboarding account choice in `apps/mobile/app/(app)/onboarding.tsx`.
+The onboarding route injects the guest account controls into its extracted presentational overview component. Apple/Google callbacks, loading state, guest continuation, and auth errors remain owned by the route so the component split does not create a second authentication lifecycle.
 The password-login inputs and submit action expose stable `auth-login-*` test ids and localized accessibility labels. The Maestro UX journey uses those hooks so translations can change without breaking authentication tests. Credentials enter the process through ignored local environment files or secret EAS `preview` variables; they are never embedded in the app bundle or flow YAML.
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 
@@ -111,6 +113,8 @@ Mobile social auth is platform-specific: iOS account surfaces show Sign in with 
 - fallback user role shape returned by the helper
 
 Do not use `user_metadata` for new authorization decisions.
+
+Mobile Profile admin/debug presentation follows the same boundary: it accepts only `app_metadata.role` and `app_metadata.roles`. It does not fall back to the user-editable `user_metadata.role` field.
 
 ## Gotchas
 

@@ -1,7 +1,7 @@
 ---
 title: premium_grants Table
 scope: database
-last_verified: 2026-06-18
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260301090000_add_premium_grants.sql
@@ -92,6 +92,7 @@ values ('<user-id>', now(), 30, 'manual support grant', '<admin-user-id>');
 - Do not expose full grant management to normal authenticated users.
 - New admin checks should use app metadata or server-side role verification, not `user_metadata`.
 - Keep mobile and web entitlement logic aligned when changing grant semantics.
+- Mobile consumers share one entitlement refresh queue; the query still reads the current user's grants ordered by newest `starts_at` and resolves the first active window.
 
 ## Related Docs
 

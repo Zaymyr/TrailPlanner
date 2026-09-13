@@ -21,19 +21,15 @@ import * as Linking from 'expo-linking';
 import { PostHogProvider as AnalyticsProvider } from 'posthog-react-native';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
-import {
-  BricolageGrotesque_300Light,
-  BricolageGrotesque_400Regular,
-  BricolageGrotesque_500Medium,
-  BricolageGrotesque_600SemiBold,
-  BricolageGrotesque_700Bold,
-} from '@expo-google-fonts/bricolage-grotesque';
-import {
-  JetBrainsMono_400Regular,
-  JetBrainsMono_500Medium,
-  JetBrainsMono_600SemiBold,
-  JetBrainsMono_700Bold,
-} from '@expo-google-fonts/jetbrains-mono';
+import { BricolageGrotesque_300Light } from '@expo-google-fonts/bricolage-grotesque/300Light';
+import { BricolageGrotesque_400Regular } from '@expo-google-fonts/bricolage-grotesque/400Regular';
+import { BricolageGrotesque_500Medium } from '@expo-google-fonts/bricolage-grotesque/500Medium';
+import { BricolageGrotesque_600SemiBold } from '@expo-google-fonts/bricolage-grotesque/600SemiBold';
+import { BricolageGrotesque_700Bold } from '@expo-google-fonts/bricolage-grotesque/700Bold';
+import { JetBrainsMono_400Regular } from '@expo-google-fonts/jetbrains-mono/400Regular';
+import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono/500Medium';
+import { JetBrainsMono_600SemiBold } from '@expo-google-fonts/jetbrains-mono/600SemiBold';
+import { JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono/700Bold';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
 import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';

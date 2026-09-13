@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -48,11 +48,11 @@ RaceBook screens must treat the effective module map as additive server data: hi
 
 - Route file: file under `apps/mobile/app`.
 - App shell: global providers and auth handling in `_layout.tsx`.
-- Premium gate: access checks from `usePremium`.
+- Premium gate: access checks from `usePremium`; every consumer shares the same entitlement monitor and must not add screen-local Auth/AppState refresh listeners.
 - Analytics screen: PostHog screen name from route segments.
 - RaceBook analytics: the existing RaceBook route adds stable race/event properties and foreground engagement events after its publication/content gate succeeds; sponsor reporting stays separate.
 - App-wide session side effect: behavior that belongs in `_layout.tsx`, such as push registration or Resend contact sync, not inside an individual screen.
-- Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`.
+- Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`. The root layout loads exact font-weight subpaths so unused package weights are not bundled.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.
 - Bottom tab safe area: keep the visible tab bar's height and bottom padding derived from `useSafeAreaInsets()` so Android three-button navigation cannot cover its actions.
 - Hidden detail headers with custom left/right actions should reserve title space through `headerTitleContainerStyle` in the parent layout or screen options. On narrow iPhones, prefer shared one-line truncation in `AppHeaderTitle` over wrapped titles that can collide with header icons.

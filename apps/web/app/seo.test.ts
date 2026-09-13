@@ -13,11 +13,11 @@ describe("SEO locale formats", () => {
 
 describe("default social preview", () => {
   it("uses an existing planner preview with declared dimensions", () => {
-    expect(DEFAULT_SOCIAL_IMAGE_PATH).toBe("/landing/secondary.png");
+    expect(DEFAULT_SOCIAL_IMAGE_PATH).toBe("/branding/social-preview-v2.png");
     expect(DEFAULT_SOCIAL_IMAGE).toEqual(expect.objectContaining({
       url: DEFAULT_SOCIAL_IMAGE_PATH,
-      width: 770,
-      height: 381,
+      width: 1200,
+      height: 630,
     }));
   });
 });

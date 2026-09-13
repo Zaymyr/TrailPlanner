@@ -37,7 +37,6 @@ export function RootChrome({ children }: RootChromeProps) {
               width={213}
               height={50}
               priority
-              unoptimized
               className="h-9 w-auto sm:h-10 xl:h-15"
             />
           </Link>

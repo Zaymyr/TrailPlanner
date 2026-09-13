@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-09-10
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -63,7 +63,7 @@ This document defines which public race pages Pace Yourself may expose to search
 
 Each current public slug resolves to `/courses/[slug]`. A known former slug reloads the target through the same current visibility checks, emits canonical metadata for the current URL, then returns a permanent redirect. Unknown mappings and targets that are no longer public remain not found and noindex.
 
-The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, display location, an allowlisted array of searchable location labels, distance, D+, slug and format official URL. Searchable labels come only from the format's two public location strings and the parent event's public location, city, department, region, and country; codes, coordinates, organizer JSON and operational fields stay outside the client DTO. The separate server-only `PublicRaceDetail` read rechecks `races.is_live`, `races.is_public`, the optional parent `race_events.is_live`, and the optional `race_event_editions.is_visible` before reading organizer details, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
+The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, display location, an allowlisted array of searchable location labels, distance, D+, slug and format official URL. Searchable labels come only from the format's two public location strings and the parent event's public location, city, department, region, and country; codes, coordinates, organizer JSON and operational fields stay outside the client DTO. The server validates attached editions through a service-role projection of visible edition ids and rejects rows whose edition is missing, hidden, or attached to another event; legacy rows without an edition remain supported. The separate server-only `PublicRaceDetail` read rechecks `races.is_live`, `races.is_public`, the optional parent `race_events.is_live`, and the optional `race_event_editions.is_visible` before reading organizer details, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
 
 The detail page applies the established event/format inheritance parser for schedule, equipment, bib pickup, access, runner information and services. Before serializing practical content, it also requires `racebook_is_live` and applies the effective edition/module entitlement. Higher-tier drafts and disabled modules therefore remain private even while the catalog identity page stays public. It exposes only available covered values, D+/D-, altitude bounds, participation mode, ravitos, format then event official websites, and event social profiles. It must not generate course difficulty, expected duration, weather, aid-station values, or other claims from absent source data.
 
@@ -120,6 +120,7 @@ Existing race slugs remain canonical until a rename is explicitly approved. The 
 
 - Public course discovery continues to use `races.is_live` / `races.is_public` and live parent events. `races.racebook_is_live` controls only the mobile runner Racebook and must not remove an otherwise published course from SEO/catalog pages.
 - Hiding an edition is the deliberate exception: the database forces every attached `races.is_live` and `racebook_is_live` flag false, so that year's course pages disappear without hiding other editions of the event. Re-showing restores only complete course rows and not their Racebook flags.
+- Keep catalog, slug resolution, sitemap, detail, and private-GPX preview on the shared 15-minute public-race revalidation window. A longer negative detail cache can otherwise outlive a catalog refresh and expose a temporary crawlable 404.
 
 - Do not count races with missing distance toward a distance landing page.
 - Do not present another format from the same event as a similar independent race.

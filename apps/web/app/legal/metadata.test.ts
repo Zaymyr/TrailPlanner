@@ -14,11 +14,11 @@ describe("legal metadata", () => {
     expect(metadata.robots).toMatchObject({ index: false, follow: true });
     expect(metadata.openGraph).toMatchObject({
       url: new URL("https://pace-yourself.com/legal/privacy"),
-      images: [expect.objectContaining({ url: "/landing/secondary.png" })],
+      images: [expect.objectContaining({ url: "/branding/social-preview-v2.png" })],
     });
     expect(metadata.twitter).toMatchObject({
       title: "Politique de confidentialité | Pace Yourself",
-      images: ["/landing/secondary.png"],
+      images: ["/branding/social-preview-v2.png"],
     });
   });
 });

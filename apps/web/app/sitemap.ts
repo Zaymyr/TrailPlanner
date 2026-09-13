@@ -1,13 +1,13 @@
 import type { MetadataRoute } from "next";
 
 import { getAllPostMetadata } from "../lib/blog/posts";
-import { getPublicRaces } from "../lib/public-races";
+import { getPublicRaces, PUBLIC_RACES_REVALIDATE_SECONDS } from "../lib/public-races";
 import { getIndexableDistancePages } from "../lib/race-discovery";
 import { HOME_PATH, RACE_PLANNER_PATH, SITE_URL } from "./seo";
 
 const toAbsoluteUrl = (path: string) => new URL(path, SITE_URL).toString();
 
-export const revalidate = 900;
+export const revalidate = PUBLIC_RACES_REVALIDATE_SECONDS;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [posts, races] = await Promise.all([getAllPostMetadata(), getPublicRaces()]);
