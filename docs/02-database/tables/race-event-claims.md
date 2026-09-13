@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -90,7 +90,7 @@ Summary:
 - A pending claim is not authorization.
 - Claims are retained for historical audit and existing admin workflows, but the current organizer onboarding UI does not create new claims or allow taking control of an existing catalog event.
 - The post-membership dashboard guide is tracked on the resulting `race_event_organizers` row. Waiting for cookie consent, suppressing another prompt, expanding visibility controls, completing, or skipping it never creates, approves, rejects, or reopens a claim.
-- The public `/organisateurs` landing and its UTM/auth return flow do not write this table; only the existing `/organizers` direct-creation route is reached after authentication. That page does not expose the admin-only URL importer and redirects a successful creation directly to the selected event without an import bootstrap parameter.
+- The homepage's `Je suis organisateur` route and the public `/organisateurs` landing do not write this table. Their UTM/auth return flow reaches only the existing `/organizers` direct-creation route after authentication. That page calls the action `Créer mon événement`, does not expose the admin-only URL importer, and redirects a successful creation directly to the selected event without an import bootstrap parameter.
 - One user cannot keep multiple pending/approved claims for the same event.
 - Manual claims still require a non-null `event_id`; the draft event row is created before the pending claim.
 - Legacy claimed events with dated formats but no canonical edition are repaired by the edition backfill; claim membership alone is never used as a substitute checkout edition id.
@@ -164,7 +164,6 @@ order by created_at asc;
 - Do not block the admin claim queue on auxiliary enrichment reads. If edition-request loading or organizer-identity enrichment fails, or if an auth-user email is malformed, keep serving the base claim rows with contact-email or UUID fallbacks.
 - Claim approval grants membership, not a bypass around edition deletion confirmation or the server-side membership check.
 - Claim approval alone does not unlock edition branding; membership and the active Pro entitlement are checked independently.
-- The local organizer phone preview does not create a claim, imply membership, or reveal dashboard drafts before the existing membership checks succeed.
 
 ## Related Docs
 

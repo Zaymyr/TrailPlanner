@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -98,15 +98,13 @@ Vercel analytics are loaded through:
 
 ## Organizer Acquisition
 
-The French `/organisateurs` landing page forwards only `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, and `utm_term` to `/organizers`. CTA clicks emit `organizer_landing_cta_clicked` with the CTA kind, placement, destination, and available attribution. Primary clicks target the organizer creation flow; secondary clicks target the production Google Play listing from the hero, TST demonstration, or final section. The authenticated `/organizer` dashboard is a valid post-auth return path but never retains arbitrary query values or acquisition parameters. Switching among the four TST screenshot tabs, including through the compact viewport-constrained preview, is deliberately not tracked. A successful event creation emits `organizer_event_created` with the same attribution before redirecting to the selected event; the creation page no longer gathers an import URL or starts the admin-only import flow. Both tracked events use the existing consent-gated `trackGoogleAnalyticsEvent` bridge, so PostHog and Google Analytics receive nothing before analytics consent.
+The homepage exposes a direct audience route to the French `/organisateurs` explanation page; ordinary consent-gated pageview tracking measures that navigation without a new custom event. That landing page forwards only `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, and `utm_term` to `/organizers`. CTA clicks emit `organizer_landing_cta_clicked` with the CTA kind, placement, destination, and available attribution. Primary clicks target the organizer creation flow; secondary clicks target the production Google Play listing from the hero, TST demonstration, or final section. The authenticated `/organizer` dashboard is a valid post-auth return path but never retains arbitrary query values or acquisition parameters. Switching among the four TST screenshot tabs, including through the compact viewport-constrained preview, is deliberately not tracked. A successful event creation emits `organizer_event_created` with the same attribution before redirecting to the selected event; renaming its card to `Créer mon événement` changes no event name or payload. Both tracked events use the existing consent-gated `trackGoogleAnalyticsEvent` bridge, so PostHog and Google Analytics receive nothing before analytics consent.
 
 The authenticated organizer dashboard adds a separate commercial funnel: `organizer offer viewed` when the pricing dialog opens with a valid edition context and at least one locally publishable format, `organizer checkout started` only after the server creates a Stripe Checkout URL, and `organizer purchase verified` only after the normal dashboard refresh observes the requested active edition entitlement. These events contain tier and edition-year context, not amounts or payment identifiers; Stripe and `organizer_edition_payments` remain the financial source of truth.
 
 Organizer content analytics use `organizer_event_created` for the initial event, then `organizer race created`, `organizer event updated`, and `organizer race updated` for successful dashboard writes. The creation event includes the edition year and calendar days remaining before its start. Update events expose only technical ids, edition year, calendar `days_until_race`, manual/background save mode, and a comma-separated allowlist of changed field categories. They never send field values, event/race names, contact details, locations, URLs, or announcement copy. Aid-station replacement is counted as the `aid_stations` category. PostHog dashboards must exclude `$internal_or_test_user = true`; newly added update insights remain empty until the updated Web client is deployed and consented organizers save content.
 
 Opening, replaying, stepping through, or closing the Organizer spotlight guide emits no organizer content event. The guide waits for a cookie decision before presentation and suppresses the mobile-app prompt while active; this UI coordination must not be interpreted as analytics consent or as a saved organizer action.
-
-The organizer RaceBook phone preview emits no PostHog, Google Analytics, sponsor, or mobile engagement event. It is an in-memory authoring renderer; only completed organizer persistence and the real mobile RaceBook retain their existing analytics contracts.
 
 ## Web Plan Value Events
 

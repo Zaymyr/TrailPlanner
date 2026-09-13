@@ -109,7 +109,7 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
 
         <Card className="rounded-lg">
           <CardHeader>
-            <CardTitle>Ajouter une course</CardTitle>
+            <CardTitle>Créer mon événement</CardTitle>
             <CardDescription>
               Crée la première édition avec sa plage de dates, puis complète ses formats dans le dashboard.
             </CardDescription>
@@ -119,7 +119,7 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
               <p className="text-sm text-muted-foreground">Vérification de la session...</p>
             ) : !session ? (
               <div className="space-y-4 text-sm text-muted-foreground">
-                <p>Connecte-toi pour créer une course et obtenir immédiatement son accès organisateur.</p>
+                <p>Connecte-toi pour créer ton événement et obtenir immédiatement son accès organisateur.</p>
                 <div className="flex flex-wrap gap-2">
                   <Link href={signInHref as Route}>
                     <Button>Se connecter</Button>

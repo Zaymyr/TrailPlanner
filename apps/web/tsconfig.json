@@ -17,8 +17,7 @@
     "jsx": "preserve",
     "plugins": [{ "name": "next" }],
     "paths": {
-      "@tanstack/react-query": ["../../packages/tanstack-react-query"],
-      "react-native": ["./types/react-native-web-shim.d.ts"]
+      "@tanstack/react-query": ["../../packages/tanstack-react-query"]
     }
   },
   "include": [

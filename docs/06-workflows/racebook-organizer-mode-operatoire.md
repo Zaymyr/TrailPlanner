@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire RaceBook organisateur
 scope: workflow
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -29,7 +29,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Les captures proviennent de l’interface web réelle avec des réponses API fictives et locales. Quatre encadrés numérotés relient visuellement chaque capture aux quatre actions expliquées sous l’image.
 - Aucune donnée Supabase de production n’est lue ou modifiée pendant la génération.
 - Le parcours couvre la création, la navigation, les sections, les trois modules communs de l’offre Essentiel (`Matériel`, `Dossard`, `Accès`), un format/GPX, les ravitaillements et la publication.
-- Le téléphone RaceBook de l’espace organisateur reflète localement les brouillons non enregistrés; il peut être contrôlé en français ou anglais sans publier ni déclencher de lien externe.
+- L’entrée publique est intitulée `Espace organisateur`; la page de création distingue `Créer mon événement` de l’ajout ultérieur de formats.
 
 ## Steps
 
@@ -48,6 +48,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Vérifier que chaque capture porte la mention ou les données de démonstration.
 - Vérifier que chaque capture comporte les repères `1`, `2`, `3` et `4`, sans masquer le libellé de l’action ciblée.
 - Comparer les boutons et libellés du guide aux composants listés dans `related_files`.
+- Vérifier que la première étape emploie toujours le vocabulaire `événement`, puis `format`, et non la création de course personnelle du planificateur coureur.
 - Sur un navigateur sans consentement enregistré, confirmer que le guide attend la réponse cookies puis que la promotion d'installation mobile reste masquée jusqu'à sa fermeture.
 - Rejouer les six étapes en 1440 × 900 et 390 × 844 : la cible et la carte doivent rester entièrement dans le viewport sans se chevaucher. L'étape éditeur cible seulement son en-tête; l'étape visibilité ouvre les contrôles puis les referme en sortie.
 - Vérifier au clavier que le titre reçoit le focus à chaque étape, que Tab reste dans la carte, qu'Échap ferme le guide, que le document ne défile pas et que le focus initial est restauré.
@@ -55,7 +56,6 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Avec Essentiel déjà actif, confirmer que `Publier` et le passage d'un format à `Public` publient directement, que les sections Complet/Signature restent privées et qu'aucune erreur opérationnelle ne rouvre la fenêtre d'achat.
 - Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton RaceBook, qu'un format `Privé` garde un bouton RaceBook grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
 - Dans la tuile `Départ, ravitos & relais`, confirmer que l'onglet `Ravitos` est sélectionné par défaut à l'ouverture et après un changement de format.
-- Dans le dashboard, modifier un texte, une couleur, un ravito et une liste structurée sans enregistrer : le téléphone doit suivre immédiatement, signaler un module `draftOnly` hors de l’écran, et ne proposer que les interactions internes (onglets/accordéons).
 
 ## Do Not
 

@@ -255,6 +255,8 @@ export async function POST(request: NextRequest) {
 
   const insertPayload: Record<string, unknown> = {
     id: raceId,
+    edition_group_id: raceId,
+    series_name: body.name,
     slug: body.slug?.trim() || buildSlug(body.name),
     name: body.name,
     distance_km: Number(resolvedDistance.toFixed(2)),

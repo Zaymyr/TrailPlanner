@@ -328,7 +328,7 @@ export function CreateRaceForm({ onSubmit, isSubmitting, error }: Props) {
       {error && <p className="text-xs text-red-400">{error}</p>}
 
       <Button type="submit" className="w-full" disabled={isSubmitting || !name.trim() || !distanceKm || !elevationGain}>
-        {isSubmitting ? "Création…" : "Créer la course"}
+        {isSubmitting ? "Création…" : "Créer ma course personnelle"}
       </Button>
     </form>
   );

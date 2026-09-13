@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -88,6 +88,7 @@ Summary:
 ## Business Invariants
 
 - Race aid stations are source data, not per-plan state.
+- Parent race creation must first satisfy the required standalone series identity (`edition_group_id = races.id`, `series_name = races.name`) before inserting derived or manual stations.
 - When a plan is created from catalog, water availability is copied into `plan_aid_stations`, while water, solid, and assistance flags are copied into `race_plans.planner_values.aidStations`.
 - If a race has no aid stations, import code may derive stations from GPX waypoints.
 - Derived or imported source aid stations do not by themselves make a race eligible for the mobile Racebook entry point.

@@ -41,10 +41,12 @@ const IconPlay = (props: SVGProps<SVGSVGElement>) => (
 
 type HeroSectionProps = {
   hero: LandingPageTranslations["hero"];
+  locale: "fr" | "en";
 };
 
-export function HeroSection({ hero }: HeroSectionProps) {
+export function HeroSection({ hero, locale }: HeroSectionProps) {
   const [heroSrc, setHeroSrc] = useState("/landing/hero.png");
+  const isFrench = locale === "fr";
 
   return (
     <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card/90 to-muted p-4 shadow-[0_24px_70px_rgba(45,80,22,0.10)] sm:p-8 lg:p-12">
@@ -67,22 +69,35 @@ export function HeroSection({ hero }: HeroSectionProps) {
             ))}
           </ul>
           <p className="text-sm font-medium text-muted-foreground dark:text-emerald-200">{hero.socialProof}</p>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="grid gap-3 sm:grid-cols-2">
             <Link
               href="/race-planner"
-              className="inline-flex items-center justify-center gap-2 rounded-lg bg-brand px-5 py-3 text-sm font-semibold text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
+              className="group inline-flex min-h-16 items-center justify-between gap-3 rounded-lg bg-brand px-5 py-3 text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
             >
-              {hero.primaryCta}
-              <IconArrowRight className="h-4 w-4" />
+              <span className="flex flex-col">
+                <span className="text-xs font-medium opacity-80">{isFrench ? "Je suis coureur" : "I am a runner"}</span>
+                <span className="text-sm font-semibold">{hero.primaryCta}</span>
+              </span>
+              <IconArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </Link>
             <Link
-              href="#demo"
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-card/80 px-5 py-3 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:border-emerald-300 dark:hover:text-emerald-100 dark:focus-visible:outline-emerald-300"
+              href="/organisateurs"
+              className="group inline-flex min-h-16 items-center justify-between gap-3 rounded-lg border border-brand-border bg-brand-surface px-5 py-3 text-brand transition hover:-translate-y-[1px] hover:bg-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:border-emerald-400/50 dark:bg-emerald-400/10 dark:text-emerald-100 dark:hover:bg-emerald-400/15 dark:focus-visible:outline-emerald-300"
             >
-              <IconPlay className="h-4 w-4" />
-              {hero.secondaryCta}
+              <span className="flex flex-col">
+                <span className="text-xs font-medium opacity-80">{isFrench ? "Je suis organisateur" : "I am an organizer"}</span>
+                <span className="text-sm font-semibold">{isFrench ? "Créer mon RaceBook" : "Create my RaceBook"}</span>
+              </span>
+              <IconArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </Link>
           </div>
+          <Link
+            href="#demo"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-muted-foreground underline-offset-4 transition hover:text-brand hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:text-emerald-200"
+          >
+            <IconPlay className="h-4 w-4" />
+            {hero.secondaryCta}
+          </Link>
         </div>
 
         <div className="relative">
