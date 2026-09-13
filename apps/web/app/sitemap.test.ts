@@ -7,15 +7,19 @@ const { getAllPostMetadata, getPublicRaces, getIndexableDistancePages } = vi.hoi
 }));
 
 vi.mock('../lib/blog/posts', () => ({ getAllPostMetadata }));
-vi.mock('../lib/public-races', () => ({ getPublicRaces }));
+vi.mock('../lib/public-races', () => ({ getPublicRaces, PUBLIC_RACES_REVALIDATE_SECONDS: 900 }));
 vi.mock('../lib/race-discovery', () => ({ getIndexableDistancePages }));
 
-import sitemap from './sitemap';
+import sitemap, { revalidate } from './sitemap';
 
 describe('sitemap', () => {
   beforeEach(() => {
     getPublicRaces.mockResolvedValue([]);
     getIndexableDistancePages.mockReturnValue([]);
+  });
+
+  it('shares the public race cache duration', () => {
+    expect(revalidate).toBe(900);
   });
 
   it('includes every unique canonical blog URL with its last modification date', async () => {

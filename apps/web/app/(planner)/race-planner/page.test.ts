@@ -24,10 +24,10 @@ describe("race planner server SEO", () => {
 
   it("publishes social images", () => {
     expect(metadata.openGraph).toEqual(expect.objectContaining({
-      images: [expect.objectContaining({ url: "/landing/secondary.png" })],
+      images: [expect.objectContaining({ url: "/branding/social-preview-v2.png" })],
     }));
     expect(metadata.twitter).toEqual(expect.objectContaining({
-      images: ["/landing/secondary.png"],
+      images: ["/branding/social-preview-v2.png"],
     }));
   });
 });

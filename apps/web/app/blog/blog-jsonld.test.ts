@@ -43,6 +43,23 @@ describe("BlogPosting structured data", () => {
     expect(jsonLd).not.toHaveProperty("articleBody");
   });
 
+  it("uses the dedicated search copy when an article provides it", () => {
+    const jsonLd = buildBlogPostingJsonLd(
+      {
+        ...post,
+        meta: {
+          ...post.meta,
+          seoTitle: "Titre pour les moteurs",
+          seoDescription: "Description concise pour les moteurs.",
+        },
+      } as CompiledPost,
+      "https://pace-yourself.com/blog/article-test",
+    );
+
+    expect(jsonLd.headline).toBe("Titre pour les moteurs");
+    expect(jsonLd.description).toBe("Description concise pour les moteurs.");
+  });
+
   it("serializes JSON-LD safely for the server-rendered script element", () => {
     const html = serializeBlogPostingJsonLd(
       { ...post, meta: { ...post.meta, title: "Trail </script> test" } } as CompiledPost,

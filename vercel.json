@@ -11,6 +11,17 @@
       "has": [
         {
           "type": "host",
+          "value": "www.pace-yourself.com"
+        }
+      ],
+      "destination": "https://pace-yourself.com/:path*",
+      "permanent": true
+    },
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
           "value": "trailplanner.app"
         }
       ],

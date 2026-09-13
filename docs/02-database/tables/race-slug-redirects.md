@@ -1,7 +1,7 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-09-10
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -30,7 +30,7 @@ related_tables:
 - Former slug: a previously canonical course slug stored once in `old_slug`.
 - Stable target: `race_id` points to the race row, not another redirect, so repeated renames do not create redirect chains.
 - Reserved slug: a former slug cannot later be assigned to any race.
-- Public resolution: clients can read a mapping only while its race remains live/public and its optional parent event remains live.
+- Public resolution: clients can read a mapping only while its race remains live/public, its optional parent event remains live, and its optional attached edition is visible and belongs to that event.
 
 ## Columns
 
@@ -64,7 +64,7 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - Transaction advisory locks serialize reservations for the old and new names; the existing unique race-slug constraint remains the canonical-name collision guard.
 - `rename_race_slug` normalizes trim/case, validates the allowed slug format, locks the race row, updates it, and lets the trigger record the redirect atomically.
 - The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract. Metadata for an old slug is already canonicalized to the current page and uses the same bounded helper, whose distance/year suffix and middle truncation retain the distinguishing end of long format names.
-- Canonical and redirected catalog reads share the same explicit parent-event projection. Adding searchable city, department, region, and country labels does not change redirect visibility or expose organizer JSON, codes, or coordinates.
+- Canonical and redirected catalog reads share the same explicit parent-event projection and service-side visible-edition projection. Adding searchable city, department, region, and country labels does not change redirect visibility or expose organizer JSON, codes, or coordinates.
 
 ## Common Queries
 
@@ -87,6 +87,7 @@ from public.rename_race_slug(:race_id, :new_slug);
 
 - Do not update `races.slug` in bulk from the browser. Review `scripts/audit-public-race-slugs.mjs` output, then invoke the service-only RPC for approved rows.
 - Do not expose redirects for hidden/private races; the page must remain not found until the target is public again.
+- Do not let a stale or mismatched `edition_id` bypass redirect visibility; attached editions fail closed unless their id/event pair is currently visible.
 - Do not point one redirect at another slug. Always resolve through `race_id` to the current canonical slug.
 - The migration is versioned locally but has not been applied to a remote database by this change.
 

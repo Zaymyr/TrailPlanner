@@ -64,7 +64,6 @@ function resolveIsAdminFromAuthUser(
   user:
     | {
         app_metadata?: Record<string, unknown> | null;
-        user_metadata?: Record<string, unknown> | null;
       }
     | null
     | undefined,
@@ -74,13 +73,8 @@ function resolveIsAdminFromAuthUser(
   }
 
   const appMetadata = user.app_metadata ?? null;
-  const userMetadata = user.user_metadata ?? null;
   const roles = normalizeRoles(appMetadata?.roles);
-  const role =
-    (typeof appMetadata?.role === 'string' ? appMetadata.role : null) ??
-    (typeof userMetadata?.role === 'string' ? userMetadata.role : null) ??
-    roles[0] ??
-    null;
+  const role = typeof appMetadata?.role === 'string' ? appMetadata.role : null;
 
   return role === 'admin' || roles.includes('admin');
 }

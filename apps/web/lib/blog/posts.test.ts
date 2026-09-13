@@ -55,4 +55,15 @@ describe('blog metadata discovery', () => {
     expect(posts.length).toBeGreaterThan(0);
     expect(posts.every((post) => post.canonicalPath.startsWith('/blog/'))).toBe(true);
   });
+
+  it('keeps dedicated search snippets within recommended lengths', async () => {
+    const posts = await getAllPostMetadata();
+
+    posts.forEach((post) => {
+      expect(post.seoTitle, post.slug).toBeTruthy();
+      expect(post.seoDescription, post.slug).toBeTruthy();
+      expect(post.seoTitle?.length, post.slug).toBeLessThanOrEqual(60);
+      expect(post.seoDescription?.length, post.slug).toBeLessThanOrEqual(160);
+    });
+  });
 });

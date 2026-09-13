@@ -132,7 +132,7 @@ export const fr: Translations = {
     meta: {
       title: "Référencez vos produits dans Pace Yourself",
       description:
-        "L'application de planification trail qui intègre les produits réels des marques de nutrition. Données validées, lien sortant vers votre site, intégration officielle.",
+        "Référencez vos produits de nutrition trail avec des données validées et un lien vers votre site.",
     },
     hero: {
       title: "Référencez vos produits dans Pace Yourself",

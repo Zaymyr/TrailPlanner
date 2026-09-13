@@ -21,6 +21,12 @@ import { RootScreenActionMenu } from '../../components/navigation/RootScreenActi
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
+import {
+  CatalogFiltersModal,
+  CatalogLoadingCard,
+  CatalogPersonalRacesSection,
+  CatalogRaceRow,
+} from '../../components/catalog/CatalogPresentation';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { isAnonymousSession } from '../../lib/appSession';
@@ -283,114 +289,6 @@ function formatUpdateDate(value: string, locale: 'fr' | 'en') {
     day: 'numeric',
     month: 'short',
   });
-}
-
-function SkeletonEventCard() {
-  return (
-    <View style={[styles.eventCard, { opacity: 0.6 }]}>
-      <View style={styles.skeletonHeaderRow}>
-        <View style={styles.skeletonBadge} />
-        <View style={styles.skeletonHeaderText}>
-          <View style={styles.skeletonTitle} />
-          <View style={styles.skeletonSubtitle} />
-        </View>
-      </View>
-      <View style={styles.skeletonPillsRow}>
-        <View style={styles.skeletonPill} />
-        <View style={styles.skeletonPill} />
-      </View>
-      <View style={styles.skeletonSupportText} />
-      <View style={styles.skeletonButton} />
-    </View>
-  );
-}
-
-function RaceRow({
-  title,
-  subtitle,
-  isDimmed = false,
-  secondaryActionLabel,
-  secondaryActionDimmed = false,
-  onSecondaryPressIn,
-  onSecondaryPress,
-  primaryActionLabel,
-  onPrimaryPress,
-}: {
-  title: string;
-  subtitle: string;
-  isDimmed?: boolean;
-  secondaryActionLabel?: string;
-  secondaryActionDimmed?: boolean;
-  onSecondaryPressIn?: () => void;
-  onSecondaryPress?: () => void;
-  primaryActionLabel?: string;
-  onPrimaryPress?: () => void;
-}) {
-  return (
-    <View style={[styles.formatRow, isDimmed && styles.formatRowDimmed]}>
-      <View style={styles.formatRowContent}>
-        <Text style={styles.formatTitle}>{title}</Text>
-        <Text style={styles.formatSubtitle}>{subtitle}</Text>
-      </View>
-      <View style={styles.formatActions}>
-        {secondaryActionLabel && onSecondaryPress ? (
-          <TouchableOpacity
-            style={[
-              styles.formatSecondaryActionButton,
-              secondaryActionDimmed && styles.formatSecondaryActionButtonDimmed,
-            ]}
-            onPressIn={onSecondaryPressIn}
-            onPress={onSecondaryPress}
-          >
-            <Text style={[
-              styles.formatSecondaryActionButtonText,
-              secondaryActionDimmed && styles.formatSecondaryActionButtonTextDimmed,
-            ]}>{secondaryActionLabel}</Text>
-          </TouchableOpacity>
-        ) : null}
-        {primaryActionLabel && onPrimaryPress ? (
-          <TouchableOpacity style={styles.formatActionButton} onPress={onPrimaryPress}>
-            <Text style={styles.formatActionButtonText}>{primaryActionLabel}</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-    </View>
-  );
-}
-
-function PersonalRacesSection({
-  races,
-  title,
-  createPlanLabel,
-  onCreatePlan,
-}: {
-  races: Race[];
-  title: string;
-  createPlanLabel: string;
-  onCreatePlan: (raceId: string) => void;
-}) {
-  return (
-    <View style={styles.personalSection}>
-      <View style={styles.personalSectionHeader}>
-        <View style={styles.eventBadge}>
-          <Ionicons name="person-outline" size={18} color={Colors.brandPrimary} />
-        </View>
-        <Text style={styles.personalSectionTitle}>{title}</Text>
-      </View>
-
-      <View style={styles.personalList}>
-        {races.map((race) => (
-          <RaceRow
-            key={race.id}
-            title={race.name}
-            subtitle={`${formatDistance(race.distance_km)} km • ${formatElevation(race.elevation_gain_m)}`}
-            primaryActionLabel={race.elevation_gain_m === null ? undefined : createPlanLabel}
-            onPrimaryPress={race.elevation_gain_m === null ? undefined : () => onCreatePlan(race.id)}
-          />
-        ))}
-      </View>
-    </View>
-  );
 }
 
 async function fetchRaceFavoriteEventIds() {
@@ -1058,8 +956,8 @@ export default function CatalogScreen() {
   if (loading) {
     return (
       <ScrollView style={styles.container} contentContainerStyle={loadingListStyle}>
-        <SkeletonEventCard />
-        <SkeletonEventCard />
+        <CatalogLoadingCard />
+        <CatalogLoadingCard />
       </ScrollView>
     );
   }
@@ -1132,8 +1030,14 @@ export default function CatalogScreen() {
             </View>
 
             {onboardingMode !== 'racebook' && filteredPersonalRaces.length > 0 ? (
-              <PersonalRacesSection
-                races={filteredPersonalRaces}
+              <CatalogPersonalRacesSection
+                races={filteredPersonalRaces.map((race) => ({
+                  id: race.id,
+                  name: race.name,
+                  distanceKm: formatDistance(race.distance_km),
+                  elevationLabel: formatElevation(race.elevation_gain_m),
+                  canCreatePlan: race.elevation_gain_m !== null,
+                }))}
                 title={t.catalog.myRaces}
                 createPlanLabel={t.catalog.createPlan}
                 onCreatePlan={handleCreatePlan}
@@ -1244,73 +1148,20 @@ export default function CatalogScreen() {
         />
       ) : null}
 
-      <Modal
+      <CatalogFiltersModal
         visible={filtersOpen}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setFiltersOpen(false)}
-      >
-        <View style={styles.modalBackdrop}>
-          <SafeAreaView style={styles.modalSheet}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{t.catalog.modalTitle}</Text>
-              <TouchableOpacity onPress={() => setFiltersOpen(false)}>
-                <Ionicons name="close" size={22} color={Colors.textPrimary} />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView contentContainerStyle={styles.modalContent}>
-              <Text style={styles.modalSectionTitle}>{t.catalog.distanceTitle}</Text>
-              <View style={styles.rangeRow}>
-                <TextInput
-                  value={distanceMinFilter}
-                  onChangeText={setDistanceMinFilter}
-                  placeholder={t.catalog.minKm}
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="decimal-pad"
-                  style={[styles.filterInput, styles.rangeInput]}
-                />
-                <TextInput
-                  value={distanceMaxFilter}
-                  onChangeText={setDistanceMaxFilter}
-                  placeholder={t.catalog.maxKm}
-                  placeholderTextColor={Colors.textMuted}
-                  keyboardType="decimal-pad"
-                  style={[styles.filterInput, styles.rangeInput]}
-                />
-              </View>
-
-              <Text style={styles.modalSectionTitle}>{t.catalog.dateTitle}</Text>
-              <View style={styles.rangeRow}>
-                <TextInput
-                  value={dateMinFilter}
-                  onChangeText={setDateMinFilter}
-                  placeholder={t.catalog.minDate}
-                  placeholderTextColor={Colors.textMuted}
-                  style={[styles.filterInput, styles.rangeInput]}
-                />
-                <TextInput
-                  value={dateMaxFilter}
-                  onChangeText={setDateMaxFilter}
-                  placeholder={t.catalog.maxDate}
-                  placeholderTextColor={Colors.textMuted}
-                  style={[styles.filterInput, styles.rangeInput]}
-                />
-              </View>
-              <Text style={styles.modalHint}>{t.catalog.dateHint}</Text>
-            </ScrollView>
-
-            <View style={styles.modalFooter}>
-              <TouchableOpacity style={styles.secondaryActionButton} onPress={resetFilters}>
-                <Text style={styles.secondaryActionButtonText}>{t.catalog.reset}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.primaryActionButton} onPress={() => setFiltersOpen(false)}>
-                <Text style={styles.primaryActionButtonText}>{t.catalog.apply}</Text>
-              </TouchableOpacity>
-            </View>
-          </SafeAreaView>
-        </View>
-      </Modal>
+        text={t.catalog}
+        distanceMin={distanceMinFilter}
+        distanceMax={distanceMaxFilter}
+        dateMin={dateMinFilter}
+        dateMax={dateMaxFilter}
+        onChangeDistanceMin={setDistanceMinFilter}
+        onChangeDistanceMax={setDistanceMaxFilter}
+        onChangeDateMin={setDateMinFilter}
+        onChangeDateMax={setDateMaxFilter}
+        onClose={() => setFiltersOpen(false)}
+        onReset={resetFilters}
+      />
 
       <Modal
         visible={Boolean(selectedEvent)}
@@ -1370,7 +1221,7 @@ export default function CatalogScreen() {
 
             <ScrollView contentContainerStyle={styles.sheetContent}>
               {selectedEvent?.races.map((race) => (
-                <RaceRow
+                <CatalogRaceRow
                   key={race.id}
                   title={getRaceShortLabel(race.name, selectedEvent.name)}
                   secondaryActionDimmed={
@@ -1643,71 +1494,6 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     textAlign: 'center',
   },
-  personalSection: {
-    gap: 12,
-  },
-  personalSectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  personalSectionTitle: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  personalList: {
-    gap: 10,
-  },
-  eventCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.07,
-    shadowRadius: 6,
-    elevation: 3,
-    gap: 14,
-  },
-  eventHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  eventBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  eventHeaderText: {
-    flex: 1,
-    gap: 3,
-  },
-  eventName: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-  },
-  eventMeta: {
-    fontSize: 13,
-    color: Colors.textSecondary,
-  },
-  eventThumbnail: {
-    width: 68,
-    height: 68,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
   eventSummaryRow: {
     flexDirection: 'row',
     gap: 8,
@@ -1726,221 +1512,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '700',
   },
-  eventSupportText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  eventPrimaryButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  eventPrimaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  formatRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  formatRowDimmed: {
-    opacity: 0.58,
-  },
-  formatRowContent: {
-    flex: 1,
-    gap: 4,
-  },
-  formatTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  formatSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-  },
-  formatActionButton: {
-    minWidth: 104,
-    minHeight: 42,
-    borderRadius: 10,
-    backgroundColor: Colors.brandPrimary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  formatActionButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  formatActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  formatSecondaryActionButton: {
-    minWidth: 96,
-    minHeight: 42,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.brandSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  formatSecondaryActionButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  skeletonHeaderRow: {
-    flexDirection: 'row',
-    gap: 12,
-    alignItems: 'center',
-  },
-  skeletonBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  skeletonHeaderText: {
-    flex: 1,
-    gap: 8,
-  },
-  skeletonTitle: {
-    height: 18,
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 8,
-    width: '60%',
-  },
-  skeletonSubtitle: {
-    height: 13,
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 6,
-    width: '40%',
-  },
-  skeletonPillsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  skeletonPill: {
-    width: 84,
-    height: 28,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  skeletonSupportText: {
-    height: 16,
-    borderRadius: 8,
-    width: '70%',
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  skeletonButton: {
-    height: 48,
-    borderRadius: 12,
-    backgroundColor: Colors.surfaceSecondary,
-  },
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(18, 24, 16, 0.24)',
-  },
-  modalSheet: {
-    maxHeight: '78%',
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  modalTitle: {
-    color: Colors.textPrimary,
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  modalContent: {
-    padding: 20,
-    gap: 14,
-  },
-  modalSectionTitle: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    marginTop: 4,
-  },
-  rangeRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  rangeInput: {
-    flex: 1,
-  },
-  modalHint: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 18,
-  },
-  modalFooter: {
-    flexDirection: 'row',
-    gap: 10,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  secondaryActionButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  secondaryActionButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  primaryActionButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandPrimary,
-    borderRadius: 14,
-    paddingVertical: 14,
-  },
-  primaryActionButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 14,
-    fontWeight: '700',
   },
   sheetOverlay: {
     ...StyleSheet.absoluteFillObject,

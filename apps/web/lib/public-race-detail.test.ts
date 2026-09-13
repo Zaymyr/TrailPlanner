@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("server-only", () => ({}));
 
 import { buildPublicRaceRoutePreview, getPublicRaceDetail } from "./public-race-detail";
-import type { PublicRace } from "./public-races";
+import { PUBLIC_RACES_REVALIDATE_SECONDS, type PublicRace } from "./public-races";
 
 const baseRace: PublicRace = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -124,6 +124,9 @@ describe("public race detail", () => {
     expect(JSON.stringify(detail)).not.toContain("0612345678");
     expect(JSON.stringify(detail)).not.toContain("message privé");
     expect(fetchMock.mock.calls[0]?.[0]).toContain("is_live=eq.true&is_public=eq.true");
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+    }));
   });
 
   it("refuses rich content when the parent event is no longer public", async () => {

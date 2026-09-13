@@ -8,11 +8,11 @@ export const RACE_PLANNER_PATH = "/race-planner";
 export const CANONICAL_PATH = HOME_PATH;
 export const CANONICAL_URL = new URL(CANONICAL_PATH, SITE_URL).toString();
 export const RACE_PLANNER_URL = new URL(RACE_PLANNER_PATH, SITE_URL).toString();
-export const DEFAULT_SOCIAL_IMAGE_PATH = "/landing/secondary.png";
+export const DEFAULT_SOCIAL_IMAGE_PATH = "/branding/social-preview-v2.png";
 export const DEFAULT_SOCIAL_IMAGE = {
   url: DEFAULT_SOCIAL_IMAGE_PATH,
-  width: 770,
-  height: 381,
+  width: 1200,
+  height: 630,
   alt: "Aperçu du planificateur de course Pace Yourself",
 };
 

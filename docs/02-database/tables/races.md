@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -128,7 +128,7 @@ Existing `races` policies control the whole row, including import status. Organi
 - The organizer-source March–May 2027 batch publishes 15 additional formats across Rouffach, Cahors, and Volvic. Exact dates, locations, distances, and source URLs come from organizer pages; D+ stays null for Volvic formats whose 2027 elevation is not yet published. The existing 2026 XGTV format retains its measured metrics and receives only its verified route label/source fallback.
 - The normalized-geography migration refreshes eleven Search Console-priority `location`/`location_text` labels with source-backed city, route endpoint and administrative-area wording. Exact region/department filters belong to the parent `race_events` normalized fields rather than parsed format text.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
-- Public SEO detail reads revalidate `is_live = true` and `is_public = true` with service credentials before reading `organizer_details`, ravitos, or private `gpx_storage_path`. An attached event and edition must also remain visible. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
+- Public catalog, slug, and SEO detail reads revalidate `is_live = true` and `is_public = true`; attached events and editions must also remain visible, and an attached edition must belong to the same event. Service credentials are required before reading edition visibility, `organizer_details`, ravitos, or private `gpx_storage_path`. Catalog, sitemap, detail, and GPX preview share a 15-minute revalidation window. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 
 ## Common Queries

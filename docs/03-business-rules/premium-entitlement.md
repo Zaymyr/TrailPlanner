@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-09-11
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -79,6 +79,8 @@ Important behavior:
 
 If RevenueCat reports an active entitlement but the server row is not synced, mobile calls the web RevenueCat sync endpoint.
 
+The hook exposes one shared external-store snapshot. Its Auth, foreground, premium-status, and RevenueCat listeners are installed once across all mounted consumers; overlapping signals are serialized and coalesced before the Supabase, API, and RevenueCat checks run. Equivalent results do not notify screens again.
+
 An SDK purchase return is not sufficient by itself for success UI or purchase analytics. The billing hook resolves the configured Premium entitlement from the returned `CustomerInfo` and requires it to be active and backed by the same product as the completed transaction before returning `purchased`. A missing, inactive, or mismatched entitlement returns `unverified`, keeps the success alert hidden, and is tracked separately from verified purchases. Sandbox and production purchases can both unlock Premium, but analytics retain their environment distinction.
 
 ## Billing Sources
@@ -107,6 +109,7 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 - Be careful with missing `current_period_end`; code paths differ in how permissive they are.
 - Stripe product/price identities are environment/dashboard configuration, not hardcoded repo facts.
 - Do not resolve organizer edition capabilities from `subscriptions`, RevenueCat, trial state, or `premium_grants`.
+- Do not move entitlement listeners back into individual hook instances; tab and detail screens frequently mount `usePremium` at the same time.
 
 ## Related Docs
 

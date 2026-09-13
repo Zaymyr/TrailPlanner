@@ -49,7 +49,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const canonicalUrl = buildCanonicalUrl(post.meta);
-  const description = post.meta.description ??
+  const title = post.meta.seoTitle ?? post.meta.title;
+  const description = post.meta.seoDescription ?? post.meta.description ??
     (post.meta.locale === "fr"
       ? "Conseils de l’équipe Pace Yourself pour préparer votre prochaine course de trail."
       : "Insights from the Pace Yourself team.");
@@ -58,7 +59,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     metadataBase: new URL(SITE_URL),
-    title: post.meta.title,
+    title,
     description,
     alternates: {
       canonical: canonicalUrl,
@@ -67,7 +68,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       },
     },
     openGraph: {
-      title: post.meta.title,
+      title,
       description,
       url: canonicalUrl,
       siteName: "Pace Yourself",
@@ -80,14 +81,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
         ? [
             {
               url: ogImage,
-              alt: post.meta.imageAlt ?? post.meta.title,
+              alt: post.meta.imageAlt ?? title,
             },
           ]
         : undefined,
     },
     twitter: {
       card: "summary_large_image",
-      title: post.meta.title,
+      title,
       description,
       images: ogImage ? [ogImage] : undefined,
     },

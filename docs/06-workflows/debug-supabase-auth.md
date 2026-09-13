@@ -1,7 +1,7 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-09-10
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts

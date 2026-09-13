@@ -23,8 +23,8 @@ const formatUpdatedAt = (isoDate?: string): string | undefined =>
 export const buildBlogPostingJsonLd = (post: CompiledPost, canonicalUrl: string) => ({
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  headline: post.meta.title,
-  description: post.meta.description,
+  headline: post.meta.seoTitle ?? post.meta.title,
+  description: post.meta.seoDescription ?? post.meta.description,
   datePublished: post.meta.date,
   dateModified: post.meta.updatedAt ?? post.meta.date,
   url: canonicalUrl,

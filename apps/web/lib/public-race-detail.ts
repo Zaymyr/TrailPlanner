@@ -13,7 +13,7 @@ import {
 import { loadOrganizerEditionEntitlement } from "./organizer-entitlements";
 import { effectiveOrganizerModules, loadOrganizerModuleSettings } from "./organizer-module-settings";
 import { ORGANIZER_MODULES, type OrganizerModuleKey } from "./organizer-modules";
-import type { PublicRace } from "./public-races";
+import { PUBLIC_RACES_REVALIDATE_SECONDS, type PublicRace } from "./public-races";
 import { getSupabaseServiceConfig, type SupabaseServiceConfig } from "./supabase";
 
 const detailRaceSchema = z.object({
@@ -155,7 +155,7 @@ const serviceHeaders = (config: SupabaseServiceConfig) => ({
 const fetchServiceRows = async <T>(config: SupabaseServiceConfig, path: string, schema: z.ZodType<T>) => {
   const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
     headers: serviceHeaders(config),
-    next: { revalidate: 3600 },
+    next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
   });
   if (!response.ok) throw new Error(`Supabase detail read failed (${response.status})`);
   return z.array(schema).parse(await response.json());
@@ -242,7 +242,7 @@ async function loadRoutePreview(config: SupabaseServiceConfig, storagePath: stri
   try {
     const response = await fetch(`${config.supabaseUrl}/storage/v1/object/race-gpx/${storagePath}`, {
       headers: serviceHeaders(config),
-      next: { revalidate: 3600 },
+      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
     });
     if (!response.ok) return null;
     return buildPublicRaceRoutePreview(await response.text());

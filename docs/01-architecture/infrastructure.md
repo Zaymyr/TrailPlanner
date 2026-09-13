@@ -60,6 +60,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 
 It also redirects:
 
+- `www.pace-yourself.com/*` to `https://pace-yourself.com/*`
 - `trailplanner.app/*` to `https://pace-yourself.com/*`
 - `trail-planner.vercel.app/*` to `https://pace-yourself.com/*`
 
@@ -187,6 +188,7 @@ Document variable names, not secret values. Important names visible in code incl
 - Never commit actual environment values into docs.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
+- Keep every alternate production hostname on a permanent redirect to `https://pace-yourself.com`; temporary host redirects split canonical signals and should not be configured in the Vercel domain settings.
 - Keep the Vercel dependency install scoped to `@trailplanner/web`. Removing the workspace filter makes npm install every workspace, including the mobile Expo graph, even though Vercel builds only the web app. Do not replace it with `npm ci` without re-evaluating build timings because `npm ci` deletes the dependency tree restored from Vercel's cache.
 - The app only sends analytics through the public Web and Expo PostHog keys. The admin dashboard does not query PostHog and uses Supabase metrics only.
 - The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.

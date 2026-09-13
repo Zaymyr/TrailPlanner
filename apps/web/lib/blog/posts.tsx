@@ -62,6 +62,8 @@ const normalizeDate = (value: string): string => new Date(value).toISOString();
 export type PostFrontmatter = {
   title: string;
   description?: string;
+  seoTitle?: string;
+  seoDescription?: string;
   date: string;
   locale?: "fr" | "en";
   updatedAt?: string;
@@ -80,6 +82,8 @@ export type PostMeta = {
   slug: string;
   title: string;
   description?: string;
+  seoTitle?: string;
+  seoDescription?: string;
   date: string;
   locale: "fr" | "en";
   updatedAt?: string;
@@ -243,6 +247,8 @@ const loadPostFromFile = async (filePath: string): Promise<CompiledPost> => {
     slug,
     title: frontmatter.title,
     description: frontmatter.description,
+    seoTitle: frontmatter.seoTitle,
+    seoDescription: frontmatter.seoDescription,
     date: frontmatter.date,
     locale: frontmatter.locale ?? "fr",
     updatedAt: frontmatter.updatedAt,
@@ -289,7 +295,7 @@ const sanitizeTags = (tags?: unknown): string[] => {
 };
 
 const validateFrontmatter = (data: Record<string, unknown>, filePath: string): PostFrontmatter => {
-  const { title, description, date, locale, updatedAt, tags, canonical, image, imageAlt } = data;
+  const { title, description, seoTitle, seoDescription, date, locale, updatedAt, tags, canonical, image, imageAlt } = data;
 
   if (typeof title !== 'string' || !title.trim()) {
     throw new Error(`Missing or invalid "title" in frontmatter for ${filePath}`);
@@ -305,6 +311,14 @@ const validateFrontmatter = (data: Record<string, unknown>, filePath: string): P
 
   if (typeof description !== 'undefined' && typeof description !== 'string') {
     throw new Error(`Invalid "description" in frontmatter for ${filePath}`);
+  }
+
+  if (typeof seoTitle !== 'undefined' && (typeof seoTitle !== 'string' || !seoTitle.trim())) {
+    throw new Error(`Invalid "seoTitle" in frontmatter for ${filePath}`);
+  }
+
+  if (typeof seoDescription !== 'undefined' && (typeof seoDescription !== 'string' || !seoDescription.trim())) {
+    throw new Error(`Invalid "seoDescription" in frontmatter for ${filePath}`);
   }
 
   if (typeof locale !== 'undefined' && locale !== 'fr' && locale !== 'en') {
@@ -330,6 +344,8 @@ const validateFrontmatter = (data: Record<string, unknown>, filePath: string): P
   return {
     title: title.trim(),
     description,
+    seoTitle: seoTitle?.trim(),
+    seoDescription: seoDescription?.trim(),
     date: normalizeDate(date),
     locale: locale as "fr" | "en" | undefined,
     updatedAt: updatedAt ? normalizeDate(updatedAt) : undefined,

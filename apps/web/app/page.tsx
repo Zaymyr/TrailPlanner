@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 
 import { getAllPostMetadata } from "../lib/blog/posts";
 import { LandingPage } from "./landing-page";
+import { buildHomeStructuredData } from "./home-structured-data";
 import { CANONICAL_PATH } from "./seo";
 
 export const metadata: Metadata = {
@@ -38,5 +39,15 @@ const selectFeaturedGuides = async (): Promise<FeaturedGuideCard[]> => {
 export default async function HomePage() {
   const featuredGuides = await selectFeaturedGuides();
 
-  return <LandingPage featuredGuides={featuredGuides} />;
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildHomeStructuredData()).replace(/</g, "\\u003c"),
+        }}
+      />
+      <LandingPage featuredGuides={featuredGuides} />
+    </>
+  );
 }

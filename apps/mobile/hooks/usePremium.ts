@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 import { AppState, Platform } from 'react-native';
 import type { AuthChangeEvent, Session, User } from '@supabase/supabase-js';
 import type { CustomerInfo } from 'react-native-purchases';
@@ -188,198 +188,303 @@ function isActiveSubscription(subscription: SubscriptionRow | null) {
   return Number.isFinite(periodEnd) ? periodEnd > Date.now() : false;
 }
 
-export function usePremium(): PremiumState {
-  const [state, setState] = useState<PremiumState>(premiumStateCache);
-  const revenueCatSyncInFlightRef = useRef(false);
+const premiumStateListeners = new Set<() => void>();
+let stopPremiumMonitor: (() => void) | null = null;
+let premiumMonitorGeneration = 0;
+let revenueCatSyncInFlight = false;
+let revenueCatListenerGeneration = 0;
+let removeRevenueCatCustomerInfoListener: (() => void) | null = null;
 
-  useEffect(() => {
-    let cancelled = false;
-    let removeCustomerInfoListener: (() => void) | null = null;
-    const applyState = (nextState: PremiumState) => {
-      premiumStateCache = nextState;
-      setState(nextState);
-    };
+type PremiumCheckRequest = {
+  customerInfoOverride: CustomerInfo | null | undefined;
+  userOverride: User | null | undefined;
+  version: number;
+};
 
-    async function checkPremium(userOverride?: User | null, customerInfoOverride?: CustomerInfo | null) {
-      const user =
-        userOverride !== undefined
-          ? userOverride
-          : (await supabase.auth.getUser()).data.user;
+let pendingPremiumCheck: PremiumCheckRequest | null = null;
+let premiumCheckLoop: Promise<void> | null = null;
+let premiumCheckVersion = 0;
 
-      if (!user) {
-        if (!cancelled) {
-          applyState({
-            isPremium: false,
-            hasPaidPremium: false,
-            paidPremiumSource: null,
-            subscriptionRenewalAt: null,
-            premiumGrant: null,
-            isTrialActive: false,
-            trialEndsAt: null,
-            isLoading: false,
-          });
-        }
-        return;
-      }
+function arePremiumGrantsEqual(left: ActivePremiumGrant | null, right: ActivePremiumGrant | null) {
+  if (left === right) return true;
+  if (!left || !right) return false;
 
-      if (cancelled) return;
+  return (
+    left.startsAt === right.startsAt &&
+    left.endsAt === right.endsAt &&
+    left.initialDurationDays === right.initialDurationDays &&
+    left.reason === right.reason &&
+    left.remainingDays === right.remainingDays
+  );
+}
 
-      const uid = user.id;
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const accessToken = session?.access_token ?? null;
+function arePremiumStatesEqual(left: PremiumState, right: PremiumState) {
+  return (
+    left.isPremium === right.isPremium &&
+    left.hasPaidPremium === right.hasPaidPremium &&
+    left.paidPremiumSource === right.paidPremiumSource &&
+    left.subscriptionRenewalAt === right.subscriptionRenewalAt &&
+    arePremiumGrantsEqual(left.premiumGrant, right.premiumGrant) &&
+    left.isTrialActive === right.isTrialActive &&
+    left.trialEndsAt === right.trialEndsAt &&
+    left.isLoading === right.isLoading
+  );
+}
 
-      if (session) {
-        await ensureTrialStatusForSession(session);
-      }
+function applyPremiumState(nextState: PremiumState) {
+  if (arePremiumStatesEqual(premiumStateCache, nextState)) return;
 
-      const [profileResult, subscriptionRow, serverEntitlements, activePremiumGrant, revenueCatCustomerInfo] =
-        await Promise.all([
-        supabase
-          .from('user_profiles')
-          .select('trial_ends_at')
-          .eq('user_id', uid)
-          .maybeSingle(),
-        fetchServerSubscription(uid),
-        fetchServerEntitlements(accessToken),
-        fetchActivePremiumGrant(uid),
-        customerInfoOverride !== undefined
-          ? Promise.resolve(customerInfoOverride)
-          : canUseRevenueCat()
-            ? getRevenueCatCustomerInfo(uid).catch((error) => {
-                console.warn('Unable to load RevenueCat premium state.', error);
-                return null;
-              })
-            : Promise.resolve(null),
+  premiumStateCache = nextState;
+  premiumStateListeners.forEach((listener) => listener());
+}
+
+async function checkPremium(
+  request: PremiumCheckRequest,
+  monitorGeneration: number,
+) {
+  const isCurrentMonitor = () =>
+    stopPremiumMonitor !== null &&
+    monitorGeneration === premiumMonitorGeneration &&
+    request.version === premiumCheckVersion;
+  const user =
+    request.userOverride !== undefined
+      ? request.userOverride
+      : (await supabase.auth.getUser()).data.user;
+
+  if (!isCurrentMonitor()) return;
+
+  if (!user) {
+    applyPremiumState({
+      isPremium: false,
+      hasPaidPremium: false,
+      paidPremiumSource: null,
+      subscriptionRenewalAt: null,
+      premiumGrant: null,
+      isTrialActive: false,
+      trialEndsAt: null,
+      isLoading: false,
+    });
+    return;
+  }
+
+  const uid = user.id;
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
+  const accessToken = session?.access_token ?? null;
+
+  if (session) {
+    await ensureTrialStatusForSession(session);
+  }
+
+  const [profileResult, subscriptionRow, serverEntitlements, activePremiumGrant, revenueCatCustomerInfo] =
+    await Promise.all([
+      supabase
+        .from('user_profiles')
+        .select('trial_ends_at')
+        .eq('user_id', uid)
+        .maybeSingle(),
+      fetchServerSubscription(uid),
+      fetchServerEntitlements(accessToken),
+      fetchActivePremiumGrant(uid),
+      request.customerInfoOverride !== undefined
+        ? Promise.resolve(request.customerInfoOverride)
+        : canUseRevenueCat()
+          ? getRevenueCatCustomerInfo(uid).catch((error) => {
+              console.warn('Unable to load RevenueCat premium state.', error);
+              return null;
+            })
+          : Promise.resolve(null),
+    ]);
+
+  if (!isCurrentMonitor()) return;
+
+  let resolvedServerEntitlements = serverEntitlements;
+  let resolvedSubscriptionRow = subscriptionRow;
+  const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
+  const hasSyncedSubscription = isActiveSubscription(resolvedSubscriptionRow);
+
+  if (
+    hasActiveRevenueCatEntitlement &&
+    accessToken &&
+    !revenueCatSyncInFlight &&
+    (!hasSyncedSubscription || !resolvedServerEntitlements?.isPremium)
+  ) {
+    revenueCatSyncInFlight = true;
+
+    try {
+      const syncResult = await syncRevenueCatSubscriptionToServer(
+        accessToken,
+        getCurrentRevenueCatProviderHint(),
+      );
+
+      if (syncResult?.synced) {
+        const [nextSubscriptionRow, nextServerEntitlements] = await Promise.all([
+          fetchServerSubscription(uid),
+          fetchServerEntitlements(accessToken),
         ]);
 
-      if (cancelled) return;
-
-      let resolvedServerEntitlements = serverEntitlements;
-      let resolvedSubscriptionRow = subscriptionRow;
-      const hasActiveRevenueCatEntitlement = hasRevenueCatPremiumEntitlement(revenueCatCustomerInfo);
-      const hasSyncedSubscription = isActiveSubscription(resolvedSubscriptionRow);
-
-      if (
-        hasActiveRevenueCatEntitlement &&
-        accessToken &&
-        !revenueCatSyncInFlightRef.current &&
-        (!hasSyncedSubscription || !resolvedServerEntitlements?.isPremium)
-      ) {
-        revenueCatSyncInFlightRef.current = true;
-
-        try {
-          const syncResult = await syncRevenueCatSubscriptionToServer(
-            accessToken,
-            getCurrentRevenueCatProviderHint()
-          );
-
-          if (syncResult?.synced) {
-            const [nextSubscriptionRow, nextServerEntitlements] = await Promise.all([
-              fetchServerSubscription(uid),
-              fetchServerEntitlements(accessToken),
-            ]);
-
-            resolvedSubscriptionRow = nextSubscriptionRow ?? resolvedSubscriptionRow;
-            resolvedServerEntitlements = nextServerEntitlements ?? resolvedServerEntitlements;
-          }
-        } finally {
-          revenueCatSyncInFlightRef.current = false;
-        }
+        resolvedSubscriptionRow = nextSubscriptionRow ?? resolvedSubscriptionRow;
+        resolvedServerEntitlements = nextServerEntitlements ?? resolvedServerEntitlements;
       }
-
-      if (cancelled) return;
-
-      const trialEndsAt = resolvedServerEntitlements?.trialEndsAt ?? profileResult.data?.trial_ends_at ?? null;
-      const isTrialActive = trialEndsAt
-        ? new Date(trialEndsAt).getTime() > Date.now()
-        : false;
-      const hasActiveSubscription = isActiveSubscription(resolvedSubscriptionRow);
-      const hasPaidPremium = hasActiveSubscription || hasActiveRevenueCatEntitlement;
-      const subscriptionRenewalAt = hasActiveSubscription
-        ? (resolvedSubscriptionRow?.current_period_end ?? getRevenueCatPremiumExpiration(revenueCatCustomerInfo))
-        : hasActiveRevenueCatEntitlement
-          ? getRevenueCatPremiumExpiration(revenueCatCustomerInfo)
-          : null;
-      const subscriptionProvider =
-        hasActiveSubscription && typeof resolvedSubscriptionRow?.provider === 'string'
-          ? (resolvedSubscriptionRow?.provider ?? '').trim().toLowerCase()
-          : '';
-      const paidPremiumSource: PaidPremiumSource = hasActiveSubscription
-        ? subscriptionProvider === 'google' || subscriptionProvider === 'apple'
-          ? (subscriptionProvider as PaidPremiumSource)
-          : 'web'
-        : hasActiveRevenueCatEntitlement
-          ? Platform.OS === 'android'
-            ? 'google'
-            : Platform.OS === 'ios'
-              ? 'apple'
-              : null
-          : null;
-
-      const fallbackPremium = isTrialActive || hasActiveSubscription || activePremiumGrant !== null;
-      const isPremium = (resolvedServerEntitlements?.isPremium ?? fallbackPremium) || hasActiveRevenueCatEntitlement;
-
-      applyState({
-        isPremium,
-        hasPaidPremium,
-        paidPremiumSource,
-        subscriptionRenewalAt,
-        premiumGrant: activePremiumGrant,
-        isTrialActive,
-        trialEndsAt,
-        isLoading: false,
-      });
+    } finally {
+      revenueCatSyncInFlight = false;
     }
+  }
 
-    async function attachRevenueCatListener(user: User | null) {
-      removeCustomerInfoListener?.();
-      removeCustomerInfoListener = null;
+  if (!isCurrentMonitor()) return;
 
-      if (!user || !canUseRevenueCat()) return;
+  const trialEndsAt = resolvedServerEntitlements?.trialEndsAt ?? profileResult.data?.trial_ends_at ?? null;
+  const isTrialActive = trialEndsAt ? new Date(trialEndsAt).getTime() > Date.now() : false;
+  const hasActiveSubscription = isActiveSubscription(resolvedSubscriptionRow);
+  const hasPaidPremium = hasActiveSubscription || hasActiveRevenueCatEntitlement;
+  const subscriptionRenewalAt = hasActiveSubscription
+    ? (resolvedSubscriptionRow?.current_period_end ?? getRevenueCatPremiumExpiration(revenueCatCustomerInfo))
+    : hasActiveRevenueCatEntitlement
+      ? getRevenueCatPremiumExpiration(revenueCatCustomerInfo)
+      : null;
+  const subscriptionProvider =
+    hasActiveSubscription && typeof resolvedSubscriptionRow?.provider === 'string'
+      ? (resolvedSubscriptionRow.provider ?? '').trim().toLowerCase()
+      : '';
+  const paidPremiumSource: PaidPremiumSource = hasActiveSubscription
+    ? subscriptionProvider === 'google' || subscriptionProvider === 'apple'
+      ? (subscriptionProvider as PaidPremiumSource)
+      : 'web'
+    : hasActiveRevenueCatEntitlement
+      ? Platform.OS === 'android'
+        ? 'google'
+        : Platform.OS === 'ios'
+          ? 'apple'
+          : null
+      : null;
+  const fallbackPremium = isTrialActive || hasActiveSubscription || activePremiumGrant !== null;
+  const isPremium = (resolvedServerEntitlements?.isPremium ?? fallbackPremium) || hasActiveRevenueCatEntitlement;
 
-      removeCustomerInfoListener =
-        (await addRevenueCatCustomerInfoListener(user.id, (customerInfo) => {
-          void checkPremium(user, customerInfo);
-        })) ?? null;
+  applyPremiumState({
+    isPremium,
+    hasPaidPremium,
+    paidPremiumSource,
+    subscriptionRenewalAt,
+    premiumGrant: activePremiumGrant,
+    isTrialActive,
+    trialEndsAt,
+    isLoading: false,
+  });
+}
+
+function queuePremiumCheck(
+  userOverride?: User | null,
+  customerInfoOverride?: CustomerInfo | null,
+) {
+  pendingPremiumCheck = {
+    userOverride,
+    customerInfoOverride,
+    version: ++premiumCheckVersion,
+  };
+  if (premiumCheckLoop) return premiumCheckLoop;
+
+  premiumCheckLoop = (async () => {
+    while (pendingPremiumCheck) {
+      const request = pendingPremiumCheck;
+      pendingPremiumCheck = null;
+      try {
+        await checkPremium(request, premiumMonitorGeneration);
+      } catch (error) {
+        console.warn('Unable to refresh shared premium state.', error);
+      }
     }
+  })().finally(() => {
+    premiumCheckLoop = null;
+  });
 
-    void (async () => {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+  return premiumCheckLoop;
+}
 
-      await attachRevenueCatListener(user);
-      await checkPremium(user);
-    })();
+async function attachRevenueCatListener(user: User | null) {
+  const listenerGeneration = ++revenueCatListenerGeneration;
+  removeRevenueCatCustomerInfoListener?.();
+  removeRevenueCatCustomerInfoListener = null;
 
+  if (!user || !canUseRevenueCat()) return;
+
+  const removeListener =
+    (await addRevenueCatCustomerInfoListener(user.id, (customerInfo) => {
+      void queuePremiumCheck(user, customerInfo);
+    })) ?? null;
+
+  if (listenerGeneration !== revenueCatListenerGeneration || stopPremiumMonitor === null) {
+    removeListener?.();
+    return;
+  }
+
+  removeRevenueCatCustomerInfoListener = removeListener;
+}
+
+function startPremiumMonitor() {
+  if (stopPremiumMonitor) return;
+
+  const monitorGeneration = ++premiumMonitorGeneration;
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
+    const nextUser = session?.user ?? null;
+    void attachRevenueCatListener(nextUser);
+    void queuePremiumCheck(nextUser);
+  });
+  const appStateSubscription = AppState.addEventListener('change', (nextState) => {
+    if (nextState === 'active') {
+      void queuePremiumCheck();
+    }
+  });
+  const removePremiumStatusChangeListener = addPremiumStatusChangeListener(({ customerInfo }) => {
+    void queuePremiumCheck(undefined, customerInfo);
+  });
+
+  stopPremiumMonitor = () => {
+    premiumMonitorGeneration += 1;
+    revenueCatListenerGeneration += 1;
+    premiumCheckVersion += 1;
+    pendingPremiumCheck = null;
+    removeRevenueCatCustomerInfoListener?.();
+    removeRevenueCatCustomerInfoListener = null;
+    removePremiumStatusChangeListener();
+    subscription.unsubscribe();
+    appStateSubscription.remove();
+    stopPremiumMonitor = null;
+  };
+
+  void (async () => {
     const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event: AuthChangeEvent, session: Session | null) => {
-      const nextUser = session?.user ?? null;
-      void attachRevenueCatListener(nextUser);
-      void checkPremium(nextUser);
-    });
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    const appStateSubscription = AppState.addEventListener('change', (nextState) => {
-      if (nextState === 'active') {
-        void checkPremium();
-      }
-    });
-    const removePremiumStatusChangeListener = addPremiumStatusChangeListener(({ customerInfo }) => {
-      void checkPremium(undefined, customerInfo);
-    });
+    if (monitorGeneration !== premiumMonitorGeneration || !stopPremiumMonitor) return;
+    await attachRevenueCatListener(user);
+    await queuePremiumCheck(user);
+  })();
+}
 
-    return () => {
-      cancelled = true;
-      revenueCatSyncInFlightRef.current = false;
-      removeCustomerInfoListener?.();
-      removePremiumStatusChangeListener();
-      subscription.unsubscribe();
-      appStateSubscription.remove();
-    };
-  }, []);
+function subscribeToPremiumState(listener: () => void) {
+  premiumStateListeners.add(listener);
+  startPremiumMonitor();
 
-  return state;
+  return () => {
+    premiumStateListeners.delete(listener);
+    if (premiumStateListeners.size === 0) {
+      stopPremiumMonitor?.();
+    }
+  };
+}
+
+function getPremiumStateSnapshot() {
+  return premiumStateCache;
+}
+
+export function usePremium(): PremiumState {
+  return useSyncExternalStore(
+    subscribeToPremiumState,
+    getPremiumStateSnapshot,
+    getPremiumStateSnapshot,
+  );
 }

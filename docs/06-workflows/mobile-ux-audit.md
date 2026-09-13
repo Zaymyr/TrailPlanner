@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-10
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -64,6 +64,7 @@ Before accepting changes to the harness:
 
 ```bash
 npm run typecheck -w @trailplanner/mobile
+npx expo-doctor apps/mobile
 node --check apps/mobile/scripts/run-mobile-ux-audit.mjs
 npx eas-cli@latest config --platform android --profile e2e-test
 npx eas-cli@latest config --platform ios --profile e2e-test
@@ -87,6 +88,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - Local Windows execution requires Maestro to be available on `PATH` and an Android build to be installed. EAS is the versioned cross-platform target once the account supports hosted Maestro jobs.
 - The checked-in EAS workflow is not executable on the project's current Expo plan because hosted Maestro jobs are paid. Keep it as the cross-platform target, or replace it deliberately with another CI runner before calling cloud coverage active.
 - Screen recordings may slightly affect emulator timing; the workflow uses one retry, but repeated flakes should be fixed rather than hidden with more retries.
+- Expo Doctor reports the deliberate Metro isolation and the separate React 18 web / React 19 mobile installs as monorepo warnings. Investigate new duplicate native-module warnings, but do not remove the mobile-first resolver without revalidating that Metro still resolves React 19 for React Native 0.81.
 
 ## Related Docs
 

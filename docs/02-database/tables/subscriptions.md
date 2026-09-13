@@ -1,7 +1,7 @@
 ---
 title: subscriptions Table
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
@@ -97,6 +97,7 @@ set stripe_customer_id = excluded.stripe_customer_id,
 - Do not write mobile purchases into a separate entitlement table. Sync them here.
 - A single primary key means a RevenueCat sync can replace the user's row; preserve intended provider behavior when changing sync code.
 - Never insert organizer RaceBook purchases into this runner entitlement snapshot.
+- Multiple mounted mobile screens share one subscription refresh; keep this table read inside the central Premium monitor instead of adding screen-local copies.
 
 ## Related Docs
 

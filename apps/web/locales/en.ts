@@ -122,7 +122,7 @@ export const en: Translations = {
     meta: {
       title: "List your products in Pace Yourself",
       description:
-        "The trail race planner that integrates real products from nutrition brands. Validated data, outbound link to your site, official integration.",
+        "List your trail nutrition products with validated data and a direct link to your website.",
     },
     hero: {
       title: "List your products in Pace Yourself",

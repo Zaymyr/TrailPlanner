@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { getSupabaseAnonConfig } from "./supabase";
+import { getSupabaseAnonConfig, getSupabaseServiceConfig } from "./supabase";
 
 const raceSchema = z.object({
   id: z.string().uuid(),
@@ -31,6 +31,11 @@ const eventSchema = z.object({
   race_date: z.string().nullable(),
   thumbnail_url: z.string().nullable(),
   updated_at: z.string().nullable().optional(),
+});
+
+const editionSchema = z.object({
+  id: z.string().uuid(),
+  event_id: z.string().uuid(),
 });
 
 const raceSlugRedirectSchema = z.object({
@@ -123,6 +128,42 @@ const fetchPublicRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T
   }
 };
 
+const fetchVisibleEditionRows = async (editionId?: string): Promise<z.infer<typeof editionSchema>[]> => {
+  const config = getSupabaseServiceConfig();
+  if (!config) return [];
+
+  try {
+    const response = await fetch(
+      `${config.supabaseUrl}/rest/v1/race_event_editions?select=id,event_id&is_visible=eq.true${
+        editionId ? `&id=eq.${encodeURIComponent(editionId)}&limit=1` : ""
+      }`,
+      {
+        headers: {
+          apikey: config.supabaseServiceRoleKey,
+          Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
+        },
+        next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      },
+    );
+
+    if (!response.ok) {
+      console.error("Unable to load visible race editions", response.status, await response.text());
+      return [];
+    }
+
+    const parsed = z.array(editionSchema).safeParse(await response.json());
+    if (!parsed.success) {
+      console.error("Unable to parse visible race editions", parsed.error.flatten());
+      return [];
+    }
+
+    return parsed.data;
+  } catch (error) {
+    console.error("Unexpected error while loading visible race editions", error);
+    return [];
+  }
+};
+
 const toPublicRace = (
   race: z.infer<typeof raceSchema>,
   event: z.infer<typeof eventSchema> | undefined,
@@ -161,17 +202,24 @@ const toPublicRace = (
 });
 
 export async function getPublicRaces(): Promise<PublicRace[]> {
-  const [races, events] = await Promise.all([
+  const [races, events, visibleEditions] = await Promise.all([
     fetchPublicRows(
       `races?select=${raceSelect}&is_live=eq.true&is_public=eq.true&order=race_date.asc.nullslast,name.asc`,
       raceSchema,
     ),
     fetchPublicRows(`race_events?select=${eventSelect}&is_live=eq.true`, eventSchema),
+    fetchVisibleEditionRows(),
   ]);
   const eventsById = new Map(events.map((event) => [event.id, event]));
+  const visibleEditionsById = new Map(visibleEditions.map((edition) => [edition.id, edition]));
 
   return races
     .filter((race) => !race.event_id || eventsById.has(race.event_id))
+    .filter((race) => {
+      if (!race.edition_id) return true;
+      const edition = visibleEditionsById.get(race.edition_id);
+      return Boolean(edition && edition.event_id === race.event_id);
+    })
     .map((race) => toPublicRace(race, race.event_id ? eventsById.get(race.event_id) : undefined));
 }
 
@@ -199,6 +247,12 @@ const loadPublicRace = async (
   // A format attached to an unpublished event must not become public merely
   // because its own flags are still live.
   if (race.event_id && !events[0]) return null;
+
+  if (race.edition_id) {
+    const visibleEditions = await fetchVisibleEditionRows(race.edition_id);
+    const edition = visibleEditions[0];
+    if (!edition || edition.event_id !== race.event_id) return null;
+  }
 
   return toPublicRace(race, events[0]);
 };

@@ -154,6 +154,7 @@ The former `premium purchased` event is legacy data and is no longer emitted. Do
 `apps/mobile/app/_layout.tsx` is also the home for other session side effects such as push registration and Resend contact sync. Those side effects should stay separate from PostHog identify/reset calls.
 Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
 The normal cold-start destination is the Courses catalog; that routing decision does not change analytics identity initialization.
+The Profile debug/admin presentation uses the same trusted-role rule: `app_metadata.role` or `app_metadata.roles` only. User-editable `user_metadata` never marks a mobile user as internal/admin.
 
 ## RaceBook Engagement
 
@@ -222,6 +223,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Never paste real PostHog keys into docs.
 - Do not include sensitive URL tokens in analytics paths.
 - Keep the PostHog internal/test-user exclusion enabled. The app marks the owner email and trusted Supabase admins; it does not delete their raw events.
+- Keep every mobile admin/internal classification on trusted `app_metadata`; never restore the removed `user_metadata.role` fallback in Profile presentation.
 - Web analytics are consent-gated; mobile analytics default opt-in is configured in the native PostHog client.
 - PostHog covers only consented Web traffic. Do not compare its visitor totals directly with all Supabase accounts as if both sources had equal coverage.
 - Do not present the 30-day run rate as a predictive model; short ranges such as today can be volatile.

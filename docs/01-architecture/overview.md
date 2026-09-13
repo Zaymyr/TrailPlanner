@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - package.json
@@ -57,7 +57,7 @@ The mobile app is an Expo Router app:
 - Source: `apps/mobile`
 - Config: `apps/mobile/app.config.ts`
 - EAS profiles: `apps/mobile/eas.json`
-- Expo SDK: `expo ~54.0.33`
+- Expo SDK: `expo ~54.0.37`
 - React Native: `react-native 0.81.5`
 - Android compile/target SDK: Android 16 / API 36 through the Expo SDK 54 defaults
 - React: `react 19.1.0`
@@ -95,7 +95,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 - `installCommand: "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund"`, which installs only the web workspace dependency graph, preserves Vercel's restored `node_modules` cache, and avoids unrelated Expo/mobile packages and install-time audit requests
 - `outputDirectory: ".next"`
 - an ignored-build command that skips Vercel deployments when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged
-- redirects from `trailplanner.app` and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
+- permanent redirects from `www.pace-yourself.com`, `trailplanner.app`, and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
 
 The mobile app is configured for EAS in `apps/mobile/eas.json`:
 

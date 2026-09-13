@@ -138,7 +138,7 @@ The mobile import preview also keeps the parsed route geometry client-side throu
 
 ## Public Course Preview
 
-The public `/courses/[slug]` detail loader can read a private `race-gpx` object only from the server and only after independently confirming `races.is_live`, `races.is_public`, the optional parent event liveness, and optional edition visibility. It parses through the same `parseGpx` source of truth and sends the browser a bounded route/elevation DTO of about 600 points. The Storage path and GPX source content are never serialized, and the page exposes no GPX download button.
+The public `/courses/[slug]` detail loader can read a private `race-gpx` object only from the server and only after independently confirming `races.is_live`, `races.is_public`, the optional parent event liveness, and optional edition visibility. It parses through the same `parseGpx` source of truth and sends the browser a bounded route/elevation DTO of about 600 points. The Storage path and GPX source content are never serialized, and the page exposes no GPX download button. Its server fetch uses the shared 15-minute public-race revalidation window so GPX/detail visibility cannot remain stale longer than the catalog or sitemap.
 
 Route geometry remains usable when elevation tags are absent, but the elevation profile is omitted rather than inventing zero-altitude data. Missing objects and parse failures return no preview without blocking the remaining public course facts.
 

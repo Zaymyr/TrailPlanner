@@ -139,11 +139,11 @@ describe("public race legacy slug page", () => {
     const metadata = await generateMetadata({ params: { slug: canonicalRace.slug } });
 
     expect(metadata.openGraph).toEqual(expect.objectContaining({
-      images: [expect.objectContaining({ url: "/landing/secondary.png" })],
+      images: [expect.objectContaining({ url: "/branding/social-preview-v2.png" })],
     }));
     expect(metadata.twitter).toEqual(expect.objectContaining({
       card: "summary_large_image",
-      images: ["/landing/secondary.png"],
+      images: ["/branding/social-preview-v2.png"],
     }));
   });
 
