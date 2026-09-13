@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire RaceBook organisateur
 scope: workflow
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -29,6 +29,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Les captures proviennent de l’interface web réelle avec des réponses API fictives et locales. Quatre encadrés numérotés relient visuellement chaque capture aux quatre actions expliquées sous l’image.
 - Aucune donnée Supabase de production n’est lue ou modifiée pendant la génération.
 - Le parcours couvre la création, la navigation, les sections, les trois modules communs de l’offre Essentiel (`Matériel`, `Dossard`, `Accès`), un format/GPX, les ravitaillements et la publication.
+- L’entrée publique est intitulée `Espace organisateur`; la page de création distingue `Créer mon événement` de l’ajout ultérieur de formats.
 
 ## Steps
 
@@ -47,6 +48,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Vérifier que chaque capture porte la mention ou les données de démonstration.
 - Vérifier que chaque capture comporte les repères `1`, `2`, `3` et `4`, sans masquer le libellé de l’action ciblée.
 - Comparer les boutons et libellés du guide aux composants listés dans `related_files`.
+- Vérifier que la première étape emploie toujours le vocabulaire `événement`, puis `format`, et non la création de course personnelle du planificateur coureur.
 - Sur un navigateur sans consentement enregistré, confirmer que le guide attend la réponse cookies puis que la promotion d'installation mobile reste masquée jusqu'à sa fermeture.
 - Rejouer les six étapes en 1440 × 900 et 390 × 844 : la cible et la carte doivent rester entièrement dans le viewport sans se chevaucher. L'étape éditeur cible seulement son en-tête; l'étape visibilité ouvre les contrôles puis les referme en sortie.
 - Vérifier au clavier que le titre reçoit le focus à chaque étape, que Tab reste dans la carte, qu'Échap ferme le guide, que le document ne défile pas et que le focus initial est restauré.

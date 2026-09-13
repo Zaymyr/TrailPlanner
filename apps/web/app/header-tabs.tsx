@@ -26,7 +26,7 @@ export function HeaderTabs() {
 
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const coursesLabel = locale === "fr" ? "Courses" : "Races";
-  const organizerLabel = locale === "fr" ? "Mes courses" : "My races";
+  const organizerLabel = locale === "fr" ? "Espace organisateur" : "Organizer space";
   const organizerHref: Route = hasManagedRaces ? "/organizer" : "/organizers";
 
   const tabItems: TabItem[] = useMemo(

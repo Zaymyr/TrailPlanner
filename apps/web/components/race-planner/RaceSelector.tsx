@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { Race } from "../../app/(planner)/race-planner/types";
 import { CreateRaceForm, type CreateRaceFormValues } from "./CreateRaceForm";
@@ -81,7 +82,7 @@ export function RaceSelector({ races, isOpen, onClose, onRaceSelected, onCreateR
                 : "text-muted-foreground hover:text-foreground"
             }`}
           >
-            Créer une course
+            Course personnelle
           </button>
         </div>
 
@@ -136,18 +137,32 @@ export function RaceSelector({ races, isOpen, onClose, onRaceSelected, onCreateR
                   onClick={() => setTab("create")}
                   className="w-full rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition hover:border-[hsl(var(--brand))] hover:text-foreground dark:text-slate-400"
                 >
-                  + Créer une nouvelle course
+                  + Ajouter une course personnelle
                 </button>
               )}
             </div>
           )}
 
           {tab === "create" && (
-            <CreateRaceForm
-              onSubmit={handleCreate}
-              isSubmitting={isCreating}
-              error={createError}
-            />
+            <div className="space-y-4">
+              <div className="rounded-lg border border-brand-border bg-brand-surface p-3 text-sm text-foreground dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-50">
+                <p className="font-semibold">Vous représentez l’organisation de cette course&nbsp;?</p>
+                <p className="mt-1 text-xs leading-5 text-muted-foreground dark:text-emerald-100/80">
+                  Utilisez l’Espace organisateur pour publier les GPX, horaires, barrières et informations pratiques destinées aux coureurs.
+                </p>
+                <Link
+                  href="/organisateurs"
+                  className="mt-2 inline-flex font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-200"
+                >
+                  Découvrir l’Espace organisateur →
+                </Link>
+              </div>
+              <CreateRaceForm
+                onSubmit={handleCreate}
+                isSubmitting={isCreating}
+                error={createError}
+              />
+            </div>
           )}
         </div>
       </div>

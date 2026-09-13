@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -18,6 +18,7 @@ related_files:
   - apps/web/tsconfig.json
   - apps/web/app/layout.tsx
   - apps/web/app/page.tsx
+  - apps/web/app/audience-routing.test.ts
   - apps/web/app/seo.ts
   - apps/web/app/seo.test.ts
   - apps/web/lib/legacy-redirects.ts
@@ -307,6 +308,8 @@ The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` file
 
 ## Main Runtime Areas
 
+The public homepage hero offers two explicit audience routes without adding a blocking interstitial: runners continue to `/race-planner`, while organizers first reach the explanatory `/organisateurs` page. Desktop and mobile navigation call the latter destination `Espace organisateur`, and the planner's private-course form repeats that distinction before a user creates runner-owned race data.
+
 ### Organizer Information Import
 
 The organizer dashboard action is named `Importer les informations` and is visible and callable only to a trusted admin. Its source step accepts an optional main website URL, up to twelve additional official URLs of any useful role, and up to eight PDF/image selections capped at 25 MB each. Additional URLs may be event, regulation, program, logistics, registration, archive, or format pages; their presence never asserts that each URL is one format. The browser uploads documents directly to the private `organizer-imports` Storage bucket through resumable TUS transfers with 6 MB chunks, retry, progress, cancellation and cleanup, then sends only their temporary paths to the API. The session manifest retains those paths only for the two review passes; apply, cancel, or expiry cleanup deletes the objects. A document-only discovery remains possible without a website URL.
@@ -355,11 +358,11 @@ The public client emits consent-gated, aggregate-only crew engagement events for
 
 Catalog reads tolerate an officially unpublished D+ as `null`. Runner and admin surfaces display it as not supplied (never as zero or `NaN`), and catalog plan creation remains unavailable until a real elevation value exists.
 
-Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live.
+Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live. A new catalog race initializes its required series identity with `edition_group_id = id` and `series_name = name`.
 
 The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, and direct GPX download. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition.
 
-User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false` and `created_by` set to the authenticated user.
+User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false`, `created_by` set to the authenticated user, `edition_group_id` set to their new id, and `series_name` set to their name.
 
 ### Public SEO Routes
 

@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -170,7 +170,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Former course slugs use the same rule: `race_slug_redirects` is readable and the canonical race is returned only while the optional parent event remains live.
 - Event rows can also be created by `POST /api/organizer/events`; those rows are inserted with `is_live = true`, then linked to their creator through an active owner membership. Their Racebooks stay separately hidden.
 - Admin catalog/event creation flows should also default new event rows to `is_live = false` unless the operator explicitly publishes them.
-- Race rows can refer to an existing or newly created event.
+- Race rows can refer to an existing or newly created event; a newly inserted catalog format still initializes `edition_group_id` from its own id and `series_name` from its name when no prior series exists.
 - Approved organizer membership is event-scoped and grants access to all race formats linked by `races.event_id`.
 - Trusted admins can select every event, including drafts, from the existing Organizer header and use the same server mutation routes. This admin catalog read is service-role-backed after `app_metadata` verification and does not create organizer memberships.
 - The separate `Accès organisateurs` admin sub-tab also reads the complete event list only after the same trusted admin check. Submitting an existing e-mail creates/reactivates membership. If the account is absent, only explicit confirmation creates and invites it before membership insertion. Both paths leave every `race_events` field, including `is_live`, unchanged.

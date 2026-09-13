@@ -452,6 +452,8 @@ export async function POST(request: NextRequest) {
     },
     body: JSON.stringify({
       id: raceId,
+      edition_group_id: raceId,
+      series_name: raceName,
       slug,
       name: raceName,
       event_id: eventId,

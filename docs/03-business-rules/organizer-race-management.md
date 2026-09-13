@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -236,6 +236,8 @@ Edition duplication copies the common settings and the settings for each cloned 
 ## Purpose
 
 This document records the organizer portal rules: authenticated users create a catalog-visible event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile exposes each populated Racebook to its active organizers for preview while keeping runner access behind the edition entitlement and publication flag.
+
+The public homepage and navigation label this route `Espace organisateur`. The homepage sends organizers through `/organisateurs` before `/organizers`, while the runner planner labels its separate user-owned creation flow `Course personnelle` and links back to the organizer explanation.
 
 ## Key Concepts
 

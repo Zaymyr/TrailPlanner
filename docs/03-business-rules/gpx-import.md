@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-12
+last_verified: 2026-09-13
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -97,7 +97,7 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 3. Optionally creates a draft `race_events` row unless the admin explicitly marks it live.
 4. Uploads GPX into private `race-gpx`.
 5. Optionally uploads image into public `race-images`.
-6. Inserts a public `races` row that stays draft (`is_live = false`) by default unless the admin explicitly marks it live.
+6. Inserts a public `races` row that stays draft (`is_live = false`) by default unless the admin explicitly marks it live, initializing `edition_group_id` from the new race id and `series_name` from its name.
 7. Inserts `race_aid_stations` from manual stations or normalized GPX waypoints.
 
 The Trace de Trail admin adapter first tries the official download with the credentials supplied for the current dialog, then retries the public download endpoint. When both downloads remain protected but the public trace page already exposes its route geometry, it rebuilds an importable GPX from that embedded geometry. The admin preview identifies this result as `embedded`. From the same reviewed preview, the admin can either create the catalog race or download the recovered GPX directly; the download action does not create a `race_events`/`races` row and does not upload anything to Supabase Storage.
@@ -112,7 +112,7 @@ New Trace de Trail catalog races initialize `edition_group_id` with their own ra
 2. Accepts JSON or multipart form input.
 3. Parses optional GPX content.
 4. Uploads GPX into `race-gpx` when provided.
-5. Inserts a private race with `is_public: false`, `created_by: user.id`, and `is_live: true`.
+5. Inserts a private race with `is_public: false`, `created_by: user.id`, and `is_live: true`, initializing `edition_group_id` from the new race id and `series_name` from its name.
 6. Inserts `race_aid_stations` when supplied or derived.
 
 `apps/mobile/lib/race-import.ts` calls this web route from mobile and then updates the race as private/non-live through Supabase.

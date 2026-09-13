@@ -19,12 +19,12 @@ type LandingPageProps = {
 };
 
 export function LandingPage({ featuredGuides }: LandingPageProps) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const landing = t.landing;
 
   return (
     <div className="space-y-12 pb-16">
-      <HeroSection hero={landing.hero} />
+      <HeroSection hero={landing.hero} locale={locale} />
       <HowItWorksSection copy={landing.howItWorks} />
       <DemoSection
         demo={landing.demo}
