@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -400,7 +400,7 @@ The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib
 
 `/a-propos` and `/methodologie` explain the product mission, editorial safeguards, calculator assumptions, source policy, and correction path. They are linked from the global footer and included in the sitemap to provide public trust and provenance signals.
 
-`sitemap.ts` includes the organizer landing page, Premium, French and English partner acquisition, support, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. Race URLs use the latest format/event `updated_at` as evidence-based `<lastmod>`; distance landing pages use the newest timestamp among their listed races. Blog discovery resolves `content/blog` from both the web workspace and monorepo/runtime ancestors and fails explicitly when the directory is absent, preventing a successful but empty blog sitemap. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, organizer-creation, planner-print, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index. The four legal routes use distinct self-canonicals and remain `noindex,follow` until their complete regulatory identity and hosting details receive maintainer/legal validation.
+`sitemap.ts` includes the organizer landing page, Premium, French and English partner acquisition, support, race catalog, every currently published race slug, qualified distance pages, the calculator, trust pages, and existing blog pages. Race URLs use the latest format/event `updated_at` as evidence-based `<lastmod>`; distance landing pages use the newest timestamp among their listed races. Blog discovery resolves `content/blog` from both the web workspace and monorepo/runtime ancestors and fails explicitly when the directory is absent, preventing a successful but empty blog sitemap. `robots.ts` permits public crawling but excludes `/api/`. Account, admin, onboarding, organizer-dashboard, organizer-creation, planner-print, and token-share route layouts reuse `noindex-metadata.ts`; they remain crawlable so search engines can observe the noindex directive, but should not remain in the index. The legal notice publishes the maintainer-confirmed micro-enterprise identity, registration, contact, VAT exemption, publication director, and Vercel hosting details. The four legal routes keep distinct self-canonicals and remain `noindex,follow` pending broader legal validation, including designation of the consumer mediator required for paid consumer offers.
 
 ### Organizer Portal
 
@@ -501,6 +501,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 
 ## Gotchas
 
+- Keep the public legal identity synchronized with the current business registration and tax regime. Consumer mediation details must not be invented; add the selected mediator before treating the B2C legal surface as complete.
 - Admin publication management distinguishes operational Admin, payment Stripe, payment by bank transfer, and Offert. Stripe and bank-transfer origins remain derived from valid payment history; the organizer header renders Admin and Offert separately.
 - Format-scoped publication authorizes the same two caller classes as the server route: an active event member or a trusted `app_metadata` admin. Database errors remain differentiated as access, readiness, hidden-edition, entitlement, or operational failures.
 

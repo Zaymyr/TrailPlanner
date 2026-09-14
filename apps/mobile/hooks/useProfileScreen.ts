@@ -42,6 +42,7 @@ import { supabase } from '../lib/supabase';
 import { WEB_API_BASE_URL } from '../lib/webApi';
 import { usePremium } from './usePremium';
 import { useRevenueCatBilling } from './useRevenueCatBilling';
+import { formatDebugTimestamp, formatPushRegistrationDetails, resolveIsAdminFromAuthUser } from './profileScreenHelpers';
 
 const ANDROID_PACKAGE_NAME = Constants.expoConfig?.android?.package ?? 'com.paceyourself.app';
 const PLAY_SUBSCRIPTIONS_URL = `https://play.google.com/store/account/subscriptions?package=${ANDROID_PACKAGE_NAME}`;
@@ -50,74 +51,6 @@ const APPLE_STANDARD_EULA_URL = 'https://www.apple.com/legal/internet-services/i
 
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
-}
-
-function normalizeRoles(value: unknown): string[] {
-  if (!Array.isArray(value)) {
-    return [];
-  }
-
-  return value.filter((entry): entry is string => typeof entry === 'string');
-}
-
-function resolveIsAdminFromAuthUser(
-  user:
-    | {
-        app_metadata?: Record<string, unknown> | null;
-      }
-    | null
-    | undefined,
-): boolean {
-  if (!user) {
-    return false;
-  }
-
-  const appMetadata = user.app_metadata ?? null;
-  const roles = normalizeRoles(appMetadata?.roles);
-  const role = typeof appMetadata?.role === 'string' ? appMetadata.role : null;
-
-  return role === 'admin' || roles.includes('admin');
-}
-
-function formatDebugTimestamp(value: string, locale: string): string {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
-
-function formatPushRegistrationDetails(details?: Record<string, unknown>): string | null {
-  if (!details) {
-    return null;
-  }
-
-  const formattedEntries = Object.entries(details)
-    .filter(([, value]) => value !== undefined && value !== null && value !== '')
-    .map(([key, value]) => {
-      if (Array.isArray(value)) {
-        return `${key}=${value.join(', ')}`;
-      }
-
-      if (typeof value === 'object') {
-        try {
-          return `${key}=${JSON.stringify(value)}`;
-        } catch {
-          return `${key}=[object]`;
-        }
-      }
-
-      return `${key}=${String(value)}`;
-    });
-
-  return formattedEntries.length > 0 ? formattedEntries.join(' | ') : null;
 }
 
 export function useProfileScreen() {
@@ -916,7 +849,7 @@ export function useProfileScreen() {
   const updateSource = Updates.isEmbeddedLaunch
     ? t.profile.updateSourceEmbedded
     : t.profile.updateSourceDownloaded;
-  const isAdmin = profile?.role === 'admin' || isAdminFromAuth;
+  const isAdmin = isAdminFromAuth;
   const showAdminGrant = !hasPaidPremium && premiumGrant !== null;
   const showTrialActive = Boolean(!hasPaidPremium && !showAdminGrant && isTrialActive && trialEndsAt);
   const showTrialExpired = Boolean(!isPremium && !isTrialActive && trialEndsAt);

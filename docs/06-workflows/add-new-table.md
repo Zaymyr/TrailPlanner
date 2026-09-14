@@ -1,10 +1,11 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-09-11
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
@@ -81,7 +82,7 @@ The organizer entitlement/payment pair is the current service-only projection-pl
 - Do not update `docs/_archive/db/schema.sql` as current documentation.
 - Do not assume columns used in code exist without checking migrations or live schema.
 - Do not rely on a service-role route as the only validation for a newly exposed table.
-- Do not forget explicit grants for tables accessed through Supabase REST/client APIs; RLS policies alone do not grant table privileges.
+- Do not forget explicit grants for tables and functions accessed through Supabase REST/client APIs. New `postgres`-owned public functions are not client-executable by default, and RLS policies alone do not grant table privileges.
 - Do not add new grants or policies for a column-only marker when the existing owner-scoped row access remains the intended boundary.
 - Do not create a table or migration for a route-only query optimization such as replacing row materialization with a Data API exact count; document the access pattern in the existing schema/table docs instead.
 - Do not apply new-table DDL or policy steps to a data-only showcase seed; verify the existing table contracts and public visibility gates instead.

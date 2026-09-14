@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-09-03
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx

@@ -1,7 +1,7 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-08-30
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
@@ -11,6 +11,8 @@ related_files:
   - supabase/migrations/20260414173000_add_body_metrics_to_user_profiles.sql
   - supabase/migrations/20260525094919_add_sign_in_metrics_to_user_profiles.sql
   - supabase/migrations/20260618145940_remove_coach_features.sql
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - apps/web/lib/trial-server.ts
@@ -43,14 +45,14 @@ related_tables:
 | `plan_onboarding_status` | `text` | not null, default `pending`, checked enum | Plan guided-tour state. |
 | `racebook_onboarding_status` | `text` | not null, default `pending`, checked enum | RaceBook guided-tour state. |
 | `full_name` | `text` | nullable | User display name. |
-| `role` | `text` | nullable | Legacy/profile role used in some admin checks. |
+| `role` | `text` | nullable, server-managed | Legacy display value; never an authorization source. |
 | `age` | `integer` | nullable, check `age >= 0` | Legacy age field. |
 | `birth_date` | date-like | nullable | Birth date added after age. |
 | `water_bag_liters` | `numeric` | nullable, check `>= 0` | Water carrying capacity. |
 | `utmb_index` | `numeric` | nullable, check `0..2000` | UTMB index. |
 | `comfortable_flat_pace_min_per_km` | `numeric` | nullable, check positive | User comfort pace. |
-| `trial_started_at` | `timestamptz` | nullable | Trial start time. |
-| `trial_ends_at` | `timestamptz` | nullable | Trial end time. |
+| `trial_started_at` | `timestamptz` | nullable, server-managed | Trial start time. |
+| `trial_ends_at` | `timestamptz` | nullable, server-managed | Trial end time. |
 | `trial_welcome_seen_at` | `timestamptz` | nullable | Welcome modal/banner acknowledgement. |
 | `trial_expired_seen_at` | `timestamptz` | nullable | Expired notice acknowledgement. |
 | `default_carbs_g_per_hour` | `numeric` | nullable | Default carb target. |
@@ -58,9 +60,9 @@ related_tables:
 | `default_sodium_mg_per_hour` | `numeric` | nullable | Default sodium target. |
 | `weight_kg` | `numeric` | nullable | Athlete body weight. |
 | `height_cm` | `numeric` | nullable | Athlete height. |
-| `sign_in_count` | `integer` | not null, default `0` | Number of successful app sign-ins recorded by server routes. |
-| `first_sign_in_at` | `timestamptz` | nullable | Timestamp of first recorded sign-in. |
-| `last_sign_in_at` | `timestamptz` | nullable | Timestamp of latest recorded sign-in. |
+| `sign_in_count` | `integer` | not null, default `0`, server-managed | Number of successful app sign-ins recorded by server routes. |
+| `first_sign_in_at` | `timestamptz` | nullable, server-managed | Timestamp of first recorded sign-in. |
+| `last_sign_in_at` | `timestamptz` | nullable, server-managed | Timestamp of latest recorded sign-in. |
 
 ## Foreign Keys
 
@@ -78,6 +80,8 @@ Summary:
 
 - Users can select, insert, and update their own profile.
 - Service-role routes and SECURITY DEFINER auth trigger can create/repair rows.
+- Authenticated clients cannot set or change `role`, trial dates, or sign-in metrics; a database trigger reserves those fields for trusted server/database/Auth roles while preserving owner writes to ordinary athlete preferences.
+- The hardening migration clears stale `admin` profile labels unless the matching Auth user independently has trusted admin app metadata.
 
 ## Business Invariants
 
@@ -113,9 +117,10 @@ where user_id = '<user-id>';
 - Do not read `auth.users` from client code to get profile fields.
 - Use `birth_date` for new age-related work unless maintaining legacy `age`.
 - Trial fields can be missing for older users; server code repairs them.
+- Trial dates and sign-in metrics are entitlement/audit inputs. Never add them to a client profile mutation payload or weaken their server-managed trigger guard.
 - Legacy onboarded profiles can have a null `onboarding_completed_at`; the mobile gate keeps recognizing existing onboarding profile fields and favorite products for backward compatibility.
 - The status migration marks Plan completed for every existing profile and intentionally leaves RaceBook pending; profiles created afterward default both tours to pending.
-- Profile `role` exists, but new auth decisions should prefer trusted `app_metadata` or server-side checks.
+- Profile `role` exists only for legacy presentation compatibility. All authorization must use trusted `app_metadata` or a server-side Auth lookup.
 - Sign-in metrics are best-effort and currently incremented on credential sign-in route; include this caveat in admin analytics interpretation.
 
 ## Related Docs

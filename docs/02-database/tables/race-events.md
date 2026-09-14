@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -69,8 +69,10 @@ related_files:
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
 related_tables:
   - race_events
   - race_event_claims
@@ -276,6 +278,7 @@ where is_live = true
 - Do not add docs that claim exact constraints for `race_events` without verification.
 - Code paths are real even though migration provenance is incomplete.
 - Keep shared mobile event-row UI changes separate from race event query or schema changes.
+- The focused mobile access section receives normalized event/format locations from the RaceBook route and must not query `race_events` directly.
 - Do not group web catalog formats by `race_events.name`; two different event ids may legitimately share a display name, and different editions of one event must stay separate when `edition_id` exists.
 - Do not use `races.created_by` to represent event organizer ownership for claimed public events.
 - Organizer events remain public catalog rows independently from the admin Racebook publication review.

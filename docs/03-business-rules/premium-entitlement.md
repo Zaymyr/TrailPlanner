@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -76,6 +76,8 @@ Important behavior:
 - web `/api/entitlements`;
 - active `premium_grants`;
 - RevenueCat customer info.
+
+`apps/mobile/hooks/useProfileScreen.ts` consumes this resolved entitlement only for Profile presentation and billing actions; its extracted profile diagnostic helpers do not alter purchase verification or entitlement resolution.
 
 If RevenueCat reports an active entitlement but the server row is not synced, mobile calls the web RevenueCat sync endpoint.
 

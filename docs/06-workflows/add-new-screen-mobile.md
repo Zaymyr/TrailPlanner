@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -10,14 +10,20 @@ related_files:
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookAccessSection.tsx
+  - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
+  - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/app/(app)/training-live.tsx
+  - apps/mobile/components/race/TrainingLiveSession.tsx
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/components/navigation/FloatingActionMenu.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
@@ -51,7 +57,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - Premium gate: access checks from `usePremium`; every consumer shares the same entitlement monitor and must not add screen-local Auth/AppState refresh listeners.
 - Analytics screen: PostHog screen name from route segments.
 - RaceBook analytics: the existing RaceBook route adds stable race/event properties and foreground engagement events after its publication/content gate succeeds; sponsor reporting stays separate.
-- App-wide session side effect: behavior that belongs in `_layout.tsx`, such as push registration or Resend contact sync, not inside an individual screen.
+- App-wide session side effect: behavior coordinated by `_layout.tsx` or its `useSessionSideEffects` helper, such as push registration or Resend contact sync, not inside an individual screen.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`. The root layout loads exact font-weight subpaths so unused package weights are not bundled.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.
 - Bottom tab safe area: keep the visible tab bar's height and bottom padding derived from `useSafeAreaInsets()` so Android three-button navigation cannot cover its actions.
@@ -60,6 +66,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - Non-root plan actions can reuse `FloatingActionMenu` directly. The component keeps its default add icon for root menus but also accepts optional closed/open icons when a screen needs an actions affordance instead of a create affordance.
 - Hidden utility screens, such as free training live and plan recap, should be registered as non-tab `Tabs.Screen` entries with `href: null` and a clear header title in `apps/mobile/app/(app)/_layout.tsx`. Add the specific dynamic child route too, not only the parent route, so Expo Router does not surface it as an automatic bottom-tab item. Use `href: null` alone when the screen should keep the bottom navigation visible; add `tabBarStyle: { display: 'none' }` only for flows that should hide the bar. The default root tab is `catalog`. Preserve the tab navigator's history-based back behavior so Android hardware back returns to the actual previous screen after these hidden routes are pushed.
 - Compact detail routes under an existing stack, such as `race/[id]/racebook`, can keep a route-local tab bar/state machine. Keep the Racebook entry point hidden until the course format is live, `racebook_is_live` is true, and real organizer content exists; aid stations alone should not unlock it. Preserve the existing identity card: its flexible metadata row uses calendar/location icons, dot separators, and compact `Solo` and/or `Relais` badges, with two separate badges for mixed formats. Keep its emphasized localized format-date row when that date differs from the event start date, alerts, four permanent tabs, conditional Services tab, responsive location, route, ravito, and pull-to-refresh behavior. Inside `Course`, keep important schedule information above the compact `Tracé` / `Ravitos` / conditional `Relais` sub-tabs so the map/profile and long station lists no longer share one continuous scroll. Keep ravito rows collapsed by default with essential distance, service, segment-elevation, and cutoff context in the summary; only one row expands at a time to show products, notes, and full labeled details. In `Dossard`, render each pickup address directly without a repeated numbered location heading, cap its visible text at two lines, and retain the complete value in the link's accessibility label. In `Accès`, honor every format-level enabled flag, put notes/restrictions first, deduplicate identical start/finish addresses, use labeled Maps actions instead of raw URLs, and keep parking/navette detail rows collapsed until requested. Keep feedback in the native header except during the dedicated initial loading composition, then restore it with the bottom tab bar before content appears. Render conditional official-site, Instagram, and Facebook actions as accessible icon-only outlined controls beside the identity, then separate the emergency row with a divider. That row keeps `Urgence - nom - téléphone` on one line beside a localized outlined call action, and uses the display-normalized phone without separators for its `tel:` URL.
+- Extend the existing `RacebookAccessSection`, `RacebookAidStationsSection` and `RacebookStructuredCourseSections` for their respective presentation blocks instead of growing the route again. Keep data normalization and analytics callbacks in the route, and pass explicit localized copy and the resolved theme into the presentational component.
 - Format-specific runner information in the identity card requires both the format access override and its runner-info flag; stored text must remain hidden when either control is off.
 - Shared catalog components must accept a nullable D+ from `races`: display `D+ non renseigné`, never coerce it to zero, and disable plan creation until a verified value exists.
 - The Racebook publication requirement above applies to ordinary runners, but course discovery is broader: Courses shows preview-selected private formats to every runner for plan creation and removes every masked format (`racebook_preview_is_visible = false`) from cards, counts, deep links, and format sheets. After verifying `race_event_organizers`, a private format additionally receives a dimmed functional RaceBook preview action. The direct screen still verifies membership, and aid stations alone do not unlock it.
@@ -69,6 +76,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - In the Racebook `Services` tab, keep each populated category in its own titled card and render its content as plain text without list bullets.
 - Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and reload it whenever the recap screen regains focus after an edit. Use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code. Preserve per-checkpoint assistance availability in the generated snapshot so recap screens can highlight crew handoff points, mute no-assistance points, and avoid showing a product handoff block where the crew cannot be present.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
+- Keep free-training setup/session orchestration in its route, while the active-session rendering stays in `components/race/TrainingLiveSession.tsx`; that presentation component consumes computed live state and must not duplicate nutrition or alert scheduling rules.
 - Keep only Plan profile setup inside the hidden onboarding shell. Course, product, plan, and RaceBook guidance must route through their real screens with the localized `OnboardingGuideCard` and ordinary tab navigation.
 - Persist each tour independently as pending, in-progress, skipped, or completed. Local progress may resume a stage, but the Profile notification dot must use the durable profile statuses.
 - Keep guided-route behavior behind an explicit `onboarding` parameter. Normal Courses, Nutrition, plan creation, and RaceBook behavior must remain unchanged when it is absent.

@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -16,6 +16,9 @@ related_files:
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookAccessSection.tsx
+  - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
+  - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
   - packages/design-system/src/branding.ts
 related_tables:
   - race_event_edition_branding
@@ -36,6 +39,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 - Runner and mobile preview payloads expose only published color values, and return no RaceBook payload for a format explicitly masked from the organizer demo. `RACEBOOK_EDITION_LOGO_ENABLED` currently forces the resolved logo to `null` without deleting stored draft or published URLs.
 - Editing the draft requires active event membership and a selected `branding` module. Copying the draft to the published snapshot requires the Signature `branding.manage` capability and an effectively active module. A downgrade masks the published identity without deleting either snapshot.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, and semantic danger/warning/info colors.
+- Focused access, ravito and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves.
 - Branding can recolor the linked bib address, but its two-line clamp and complete accessibility label remain app-owned presentation behavior.
 
 ## Columns

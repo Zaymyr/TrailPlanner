@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../themed/Text';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 
 type ProfilePersonalSectionProps = {

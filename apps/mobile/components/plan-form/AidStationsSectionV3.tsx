@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   useCallback,
   useEffect,
@@ -16,7 +16,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   TouchableOpacity,
   useWindowDimensions,
   View,
@@ -37,6 +36,8 @@ import { Heading } from '../themed/Heading';
 import { Text, Text as ThemedText } from '../themed/Text';
 import type { GaugeMetric } from './GaugeArc';
 import { GaugesRow } from './GaugesRow';
+import { AidStationCoveragePanel } from './AidStationCoveragePanel';
+import { AidStationProfileSegmentCard } from './AidStationProfileSegmentCard';
 import { ProfileMiniChart } from './ProfileMiniChart';
 import { SuppliesList } from './SuppliesList';
 import type { EditingStation } from './EditStationModal';
@@ -48,8 +49,15 @@ import type {
   SectionSummary,
   SectionTarget
 } from './contracts';
-import { getGaugeTolerance } from './metrics';
 import { adjustedPaceMinutesPerKm, getElevationSlice } from './profile-utils';
+import {
+  formatPace,
+  formatSectionDuration,
+  formatSectionTarget,
+  formatTimelineMinute,
+  getSegmentCardTitle,
+  parsePaceInput,
+} from './aidStationPresentationHelpers';
 import { styles } from './styles';
 import type { PlanEditTutorialTargetKey } from '../../hooks/usePlanEditTutorial';
 
@@ -242,17 +250,6 @@ export function AidStationsSectionV3({
     );
   }
 
-  function formatTimelineMinute(minute: number) {
-    if (minute <= 0) return 'Départ';
-    return `${minute} min`;
-  }
-
-  function formatSectionDuration(durationMin: number) {
-    const hours = Math.floor(durationMin / 60);
-    const mins = Math.round(durationMin % 60);
-    return hours > 0 ? `${hours}h${String(mins).padStart(2, '0')}` : `${mins}min`;
-  }
-
   function renderPauseBadge(pauseMinutes: number | undefined) {
     const safePause = Math.max(0, Math.round(pauseMinutes ?? 0));
     if (safePause <= 0) return null;
@@ -306,35 +303,6 @@ export function AidStationsSectionV3({
         ) : null}
       </View>
     );
-  }
-
-  function formatPace(minutesPerKm: number) {
-    const safeValue = Math.max(0.01, minutesPerKm);
-    const minutes = Math.floor(safeValue);
-    const seconds = Math.round((safeValue - minutes) * 60);
-    if (seconds === 60) {
-      return `${minutes + 1}:00`;
-    }
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
-  }
-
-  function parsePaceInput(text: string) {
-    const trimmed = text.trim().replace(',', '.');
-    if (trimmed === '') return undefined;
-
-    if (trimmed.includes(':')) {
-      const [minutesPart, secondsPart = '0'] = trimmed.split(':');
-      const minutes = Number(minutesPart);
-      const seconds = Number(secondsPart);
-      if (!Number.isFinite(minutes) || !Number.isFinite(seconds) || minutes < 0 || seconds < 0) {
-        return null;
-      }
-      return minutes + seconds / 60;
-    }
-
-    const parsed = Number(trimmed);
-    if (!Number.isFinite(parsed) || parsed <= 0) return null;
-    return parsed;
   }
 
   function setPaceDraft(key: string, value: string) {
@@ -676,164 +644,14 @@ export function AidStationsSectionV3({
     setPagerScrollEnabled(allowHorizontalSwipe);
   }
 
-  function formatSectionTarget(summary: SectionSummary | null): SectionTarget {
-    return {
-      targetCarbsG: summary?.targetCarbsG ?? 0,
-      targetSodiumMg: summary?.targetSodiumMg ?? 0,
-      targetWaterMl: summary?.targetWaterMl ?? 0,
-    };
-  }
-
-  function formatCoveragePair(metric: {
-    key: GaugeMetric['key'];
-    current: number;
-    target: number;
-    unit: string;
-    label: string;
-  }) {
-    if (metric.key === 'water') {
-      const currentMl = Math.round(metric.current / 100) * 100;
-      const targetMl = Math.round(metric.target / 100) * 100;
-      return `${currentMl} / ${targetMl} ml eau`;
-    }
-
-    return `${Math.round(metric.current)} / ${Math.round(metric.target)} ${metric.unit} ${metric.label.toLowerCase()}`;
-  }
-
-  function summarizeCoverage(target: 'start' | number, summary: SectionSummary | null) {
-    const metrics = getGaugeMetrics(target, formatSectionTarget(summary));
-    const chips = metrics.map((metric) => formatCoveragePair(metric));
-    const deficits = metrics
-      .map((metric) => ({
-        key: metric.key,
-        label: metric.label,
-        unit: metric.unit,
-        ratio: metric.statusRatio ?? metric.ratio,
-        missing: Math.max(0, metric.target - metric.current),
-        tolerance: getGaugeTolerance(metric.key, metric.target),
-      }))
-      .filter((metric) => metric.missing > metric.tolerance);
-
-    const hasCritical = deficits.some((metric) => metric.ratio < 0.82);
-    const hasWarning = deficits.some((metric) => metric.ratio < 1);
-
-    const severity = hasCritical ? 'danger' : hasWarning ? 'warning' : 'ok';
-    const title =
-      severity === 'ok'
-        ? 'Couvert jusqu au prochain point utile'
-        : severity === 'warning'
-          ? 'Un peu juste pour tenir la suite'
-          : 'Risque de manque avant recharge';
-
-    const shortLabel =
-      severity === 'ok'
-        ? 'OK'
-        : severity === 'warning'
-          ? 'A ajuster'
-          : 'Insuffisant';
-
-    if (deficits.length === 0) {
-      return {
-        severity,
-        title,
-        shortLabel,
-        detail: 'Ce que tu emportes ici suffit jusqu au prochain point ou tu peux recharger cette ressource.',
-        action: 'Tu peux repartir comme ca.',
-        chips,
-      };
-    }
-
-    const topDeficit = [...deficits].sort((a, b) => b.missing - a.missing)[0];
-    const deficitChips = deficits.slice(0, 2).map((metric) => {
-      if (metric.key === 'water') return `${Math.round(metric.missing / 100) * 100} ml manquants`;
-      return `${Math.round(metric.missing)} ${metric.unit} manquants`;
-    });
-
-    let action = 'Ajoute un peu de ravitaillement avant de repartir.';
-    if (topDeficit.key === 'carbs') {
-      action =
-        topDeficit.missing <= 30
-          ? 'Ajoute 1 prise sucree de plus pour eviter le deficit.'
-          : 'Ajoute au moins 2 prises glucides avant de repartir.';
-    } else if (topDeficit.key === 'water') {
-      action =
-        topDeficit.missing <= 300
-          ? 'Ajoute un petit complement d eau avant de repartir.'
-          : 'Remplis au moins 500 ml de plus avant de repartir.';
-    } else if (topDeficit.key === 'sodium') {
-      action =
-        topDeficit.missing <= 250
-          ? 'Ajoute un peu de sodium pour securiser ce segment.'
-          : 'Ajoute une source de sodium en plus avant de repartir.';
-    }
-
-    const detail =
-      topDeficit.key === 'water'
-        ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu au prochain point d eau.`
-        : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir jusqu au prochain point solide.`;
-
-    return {
-      severity,
-      title,
-      shortLabel,
-      detail,
-      action,
-      chips: [...chips, ...deficitChips],
-    };
-  }
-
-  function renderCoveragePanel(target: 'start' | number, summary: SectionSummary | null, compact = false) {
-    const coverage = summarizeCoverage(target, summary);
-    const toneStyle =
-      coverage.severity === 'ok'
-        ? styles.coveragePanelOk
-        : coverage.severity === 'warning'
-          ? styles.coveragePanelWarning
-          : styles.coveragePanelDanger;
-    const pillStyle =
-      coverage.severity === 'ok'
-        ? styles.coveragePillOk
-        : coverage.severity === 'warning'
-          ? styles.coveragePillWarning
-          : styles.coveragePillDanger;
-    const pillTextStyle =
-      coverage.severity === 'ok'
-        ? styles.coveragePillTextOk
-        : coverage.severity === 'warning'
-          ? styles.coveragePillTextWarning
-          : styles.coveragePillTextDanger;
-
-    if (compact) {
-      return (
-        <View style={[styles.coverageCompactRow, toneStyle]}>
-          <View style={[styles.coveragePill, pillStyle]}>
-            <Text style={[styles.coveragePillText, pillTextStyle]}>{coverage.shortLabel}</Text>
-          </View>
-          <Text style={styles.coverageCompactTitle} numberOfLines={1}>
-            {coverage.title}
-          </Text>
-        </View>
-      );
-    }
-
+  function renderCoveragePanel(target: PlanTarget, summary: SectionSummary | null, compact = false) {
     return (
-      <View style={[styles.coveragePanel, toneStyle]}>
-        <View style={styles.coveragePanelHeader}>
-          <View style={[styles.coveragePill, pillStyle]}>
-            <Text style={[styles.coveragePillText, pillTextStyle]}>{coverage.shortLabel}</Text>
-          </View>
-          <Text style={styles.coveragePanelTitle}>{coverage.title}</Text>
-        </View>
-        <Text style={styles.coveragePanelDetail}>{coverage.detail}</Text>
-        <Text style={styles.coveragePanelAction}>{coverage.action}</Text>
-        <View style={styles.coverageChipRow}>
-          {coverage.chips.map((chip) => (
-            <View key={chip} style={styles.coverageChip}>
-              <Text style={styles.coverageChipText}>{chip}</Text>
-            </View>
-          ))}
-        </View>
-      </View>
+      <AidStationCoveragePanel
+        target={target}
+        summary={summary}
+        compact={compact}
+        getGaugeMetrics={getGaugeMetrics}
+      />
     );
   }
 
@@ -844,18 +662,6 @@ export function AidStationsSectionV3({
     if (allGreen) return styles.stationCardCollapsedGreen;
     if (hasRed) return styles.stationCardCollapsedRed;
     return styles.stationCardCollapsedOrange;
-  }
-
-  function getSegmentLabel(label: string | undefined, index: number) {
-    if (label === 'climb') return 'Montee';
-    if (label === 'descent') return 'Descente';
-    if (label === 'flat') return 'Plat';
-    return `Segment ${index + 1}`;
-  }
-
-  function getSegmentCardTitle(label: string | undefined, index: number) {
-    const baseLabel = getSegmentLabel(label, index);
-    return baseLabel.startsWith('Segment') ? baseLabel : `${baseLabel} ${index + 1}`;
   }
 
   function renderStationsView() {
@@ -1265,143 +1071,58 @@ export function AidStationsSectionV3({
                 const canRemove = controls.canRemove;
 
                 return (
-                  <View
+                  <AidStationProfileSegmentCard
                     key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`}
-                    style={[
-                      styles.profileCard,
-                      planDetailStyles.sectionCard,
-                      segmentIndex % 2 === 0 ? planDetailStyles.cardWhite : planDetailStyles.cardCream,
-                    ]}
-                  >
-                    <View style={styles.profileHeader}>
-                      <View style={styles.profileHeaderText}>
-                        <Heading variant="h3" style={planDetailStyles.profileSegmentLabel}>
-                          {getSegmentCardTitle(segment.label, segmentIndex)}
-                        </Heading>
-                        <ThemedText tone="tertiary" size="xs" weight="semibold" style={planDetailStyles.profileSegmentTimeLabel}>
-                          Temps estime
-                        </ThemedText>
-                        <DataText tone="brand" size="2xl" weight="bold" style={planDetailStyles.profileSegmentTime}>
-                          {formatSectionDuration(segmentStat.etaSeconds / 60)}
-                        </DataText>
-                      </View>
-                      <View style={styles.profilePaceWrap}>
-                        <Text style={styles.profilePaceLabel}>Allure</Text>
-                        <View style={styles.profilePaceControlRow}>
-                          <TouchableOpacity
-                            style={styles.profilePaceStepBtn}
-                            onPress={() =>
-                              applyAbsolutePace(
-                                targetKey,
-                                segmentIndex,
-                                currentPaceMinutes - paceStepMinutes,
-                                baseAdjustedPaceMinutes,
-                                paceDraftKey,
-                              )
-                            }
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.profilePaceStepBtnText}>-</Text>
-                          </TouchableOpacity>
-                          <TextInput
-                            style={styles.profilePaceInput}
-                            value={adjustmentValue}
-                            onChangeText={(text) => {
-                              setPaceDraft(paceDraftKey, text);
-                              const parsed = parsePaceInput(text);
-                              if (parsed === undefined) {
-                                onUpdateSectionSegmentPaceAdjustment(targetKey, segmentIndex, undefined);
-                                return;
-                              }
-                              if (parsed !== null) {
-                                applyAbsolutePace(targetKey, segmentIndex, parsed, baseAdjustedPaceMinutes);
-                              }
-                            }}
-                            onBlur={() => {
-                              const draft = paceDrafts[paceDraftKey];
-                              const parsed = parsePaceInput(draft ?? adjustmentValue);
-                              if (parsed === undefined) {
-                                onUpdateSectionSegmentPaceAdjustment(targetKey, segmentIndex, undefined);
-                              } else if (parsed !== null) {
-                                applyAbsolutePace(targetKey, segmentIndex, parsed, baseAdjustedPaceMinutes);
-                              }
-                              clearPaceDraft(paceDraftKey);
-                            }}
-                            keyboardType="numbers-and-punctuation"
-                            placeholder="6:00"
-                            placeholderTextColor={colors.text.tertiary}
-                            autoCapitalize="none"
-                            autoCorrect={false}
-                          />
-                          <TouchableOpacity
-                            style={styles.profilePaceStepBtn}
-                            onPress={() =>
-                              applyAbsolutePace(
-                                targetKey,
-                                segmentIndex,
-                                currentPaceMinutes + paceStepMinutes,
-                                baseAdjustedPaceMinutes,
-                                paceDraftKey,
-                              )
-                            }
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.profilePaceStepBtnText}>+</Text>
-                          </TouchableOpacity>
-                        </View>
-                        <Text style={styles.profilePaceHint}>min/km</Text>
-                      </View>
-                    </View>
-
-                    {segmentProfile.length > 1 ? (
-                      <ProfileMiniChart points={segmentProfile} />
-                    ) : (
-                      <Text style={styles.profileEmptyText}>Profil indisponible pour ce segment.</Text>
-                    )}
-
-                    <View style={styles.profileMetricsRow}>
-                      <View style={styles.profileMetricPill}>
-                        <DataText tone="secondary" size="xs" weight="semibold">
-                          {segmentStat.distKm.toFixed(2)} km
-                        </DataText>
-                      </View>
-                      <View style={styles.profileMetricPill}>
-                        <DataText tone="secondary" size="xs" weight="semibold">
-                          D+ {Math.round(segmentStat.dPlus)} m
-                        </DataText>
-                      </View>
-                      <View style={styles.profileMetricPill}>
-                        <DataText tone="secondary" size="xs" weight="semibold">
-                          D- {Math.round(segmentStat.dMinus)} m
-                        </DataText>
-                      </View>
-                    </View>
-
-                    <View style={styles.profileSegmentControls}>
-                      <View style={styles.profileSegmentActions}>
-                        <TouchableOpacity
-                          style={[styles.profileActionBtn, !canSplit && styles.profileActionBtnDisabled]}
-                          onPress={() => onSplitSectionSegment(targetKey, segmentIndex)}
-                          activeOpacity={0.8}
-                          disabled={!canSplit}
-                        >
-                          <Text style={styles.profileActionBtnText}>
-                            {canSplit ? 'Decouper plus finement' : 'Decoupage indisponible sur ce segment'}
-                          </Text>
-                        </TouchableOpacity>
-
-                        {canRemove ? (
-                          <TouchableOpacity
-                            style={[styles.profileActionBtn, styles.profileDeleteBtn]}
-                            onPress={() => onRemoveSectionSegment(targetKey, segmentIndex)}
-                            activeOpacity={0.8}
-                          >
-                            <Text style={styles.profileDeleteBtnText}>Supprimer et fusionner</Text>
-                          </TouchableOpacity>
-                        ) : null}
-                      </View>
-                    </View>
-                  </View>
+                    title={getSegmentCardTitle(segment.label, segmentIndex)}
+                    durationLabel={formatSectionDuration(segmentStat.etaSeconds / 60)}
+                    paceValue={adjustmentValue}
+                    profilePoints={segmentProfile}
+                    stats={segmentStat}
+                    alternateBackground={segmentIndex % 2 !== 0}
+                    canSplit={canSplit}
+                    canRemove={canRemove}
+                    onDecreasePace={() =>
+                      applyAbsolutePace(
+                        targetKey,
+                        segmentIndex,
+                        currentPaceMinutes - paceStepMinutes,
+                        baseAdjustedPaceMinutes,
+                        paceDraftKey,
+                      )
+                    }
+                    onIncreasePace={() =>
+                      applyAbsolutePace(
+                        targetKey,
+                        segmentIndex,
+                        currentPaceMinutes + paceStepMinutes,
+                        baseAdjustedPaceMinutes,
+                        paceDraftKey,
+                      )
+                    }
+                    onPaceChange={(text) => {
+                      setPaceDraft(paceDraftKey, text);
+                      const parsed = parsePaceInput(text);
+                      if (parsed === undefined) {
+                        onUpdateSectionSegmentPaceAdjustment(targetKey, segmentIndex, undefined);
+                        return;
+                      }
+                      if (parsed !== null) {
+                        applyAbsolutePace(targetKey, segmentIndex, parsed, baseAdjustedPaceMinutes);
+                      }
+                    }}
+                    onPaceBlur={() => {
+                      const draft = paceDrafts[paceDraftKey];
+                      const parsed = parsePaceInput(draft ?? adjustmentValue);
+                      if (parsed === undefined) {
+                        onUpdateSectionSegmentPaceAdjustment(targetKey, segmentIndex, undefined);
+                      } else if (parsed !== null) {
+                        applyAbsolutePace(targetKey, segmentIndex, parsed, baseAdjustedPaceMinutes);
+                      }
+                      clearPaceDraft(paceDraftKey);
+                    }}
+                    onSplit={() => onSplitSectionSegment(targetKey, segmentIndex)}
+                    onRemove={() => onRemoveSectionSegment(targetKey, segmentIndex)}
+                  />
                 );
               })}
             </View>
@@ -1762,17 +1483,6 @@ const planDetailStyles = StyleSheet.create({
   },
   profileMeta: {
     marginTop: spacing[1],
-  },
-  profileSegmentLabel: {
-    color: colors.text.primary,
-    fontSize: 17,
-    lineHeight: 21,
-  },
-  profileSegmentTimeLabel: {
-    marginTop: spacing[2],
-  },
-  profileSegmentTime: {
-    marginTop: spacing[0.5],
   },
   scrollContextLabel: {
     flex: 1,

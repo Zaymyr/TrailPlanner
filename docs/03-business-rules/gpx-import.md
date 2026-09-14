@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -34,6 +34,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/helpers.test.ts
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/api/races/route.ts
+  - apps/web/app/api/races/route.test.ts
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/components/GpxAidStationImporter.tsx
   - apps/mobile/components/race/GpxImportPreviewModal.tsx
@@ -112,10 +113,12 @@ New Trace de Trail catalog races initialize `edition_group_id` with their own ra
 2. Accepts JSON or multipart form input.
 3. Parses optional GPX content.
 4. Uploads GPX into `race-gpx` when provided.
-5. Inserts a private race with `is_public: false`, `created_by: user.id`, and `is_live: true`, initializing `edition_group_id` from the new race id and `series_name` from its name.
+5. Inserts a private standalone race atomically with `is_public`, `is_live`, `is_published`, RaceBook preview and RaceBook publication all false; `event_id`/`edition_id` and publication approval fields are null, `created_by` is the authenticated user, and `edition_group_id` is the new race id.
 6. Inserts `race_aid_stations` when supplied or derived.
 
-`apps/mobile/lib/race-import.ts` calls this web route from mobile and then updates the race as private/non-live through Supabase.
+`apps/mobile/lib/race-import.ts` calls this web route from mobile and idempotently confirms the private/non-live flags through Supabase. Security no longer depends on that second request succeeding.
+
+Authenticated race loaders return public/live catalog races plus races created by the current user. This owner-aware read keeps a newly imported private race selectable even though the write invariant requires `is_live = false`.
 
 The mobile import preview also keeps the parsed route geometry client-side through `apps/mobile/lib/gpx.ts`. `apps/mobile/components/race/GpxImportPreviewModal.tsx` renders that geometry with `GpxRoutePreviewCard.tsx`, giving the runner a native route sketch before confirming the import without waiting for any server round-trip.
 
@@ -196,6 +199,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - A dated event format must have a canonical `edition_id`. The database assignment trigger creates or reuses the matching event/year edition for service-side catalog/import inserts; GPX parsing itself must not infer the commercial checkout target.
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
+- A user GPX import must be private and non-live in the initial database insert. Never rely on a follow-up mobile update to close a temporary public row.
 - Keep `GPX récupéré` tied to importable GPX content, not only to reliable provider metrics; some adapters can know distance/elevation without returning a file.
 - Never merge a distance-only GPX detection into a named format automatically. Preserve it as a separate candidate until identity is confirmed.
 - Do not let a general-page embedded GPX suppress named candidates from other official sources. In the current two-pass workflow, `additionalUrls` are classified evidence pages; only the legacy one-pass `formatUrls` mode treats supplied pages as authoritative format pages.

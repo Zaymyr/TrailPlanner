@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -42,6 +42,9 @@ related_files:
   - apps/mobile/components/nutrition/NutritionContent.tsx
   - apps/mobile/components/nutrition/ProductDetailModal.tsx
   - apps/mobile/components/plan-form/AidStationsSectionV3.tsx
+  - apps/mobile/components/plan-form/AidStationCoveragePanel.tsx
+  - apps/mobile/components/plan-form/AidStationProfileSegmentCard.tsx
+  - apps/mobile/components/plan-form/aidStationPresentationHelpers.ts
   - apps/mobile/components/plan-form/carryover.ts
   - apps/mobile/components/plan-form/contracts.ts
   - apps/mobile/components/plan-form/EditStationModal.tsx
@@ -55,6 +58,7 @@ related_files:
   - apps/mobile/lib/continuousNutrition.ts
   - apps/mobile/lib/freeTrainingLive.ts
   - apps/mobile/lib/raceLiveSession.ts
+  - apps/mobile/components/race/TrainingLiveSession.tsx
   - apps/mobile/lib/planSummary.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/app/(app)/training-live.tsx
@@ -169,6 +173,8 @@ Mobile implementation:
 
 - `apps/mobile/components/plan-form/carryover.ts` simulates whole-unit inventory and nutrition balance for gauges.
 - `apps/mobile/components/plan-form/usePlanSupplies.ts` uses the same carryover rule when auto-filling supplies.
+- `apps/mobile/components/plan-form/AidStationCoveragePanel.tsx` presents the existing cumulative gauge result and deficit guidance; it receives computed metrics and does not introduce a second allocation path.
+- `apps/mobile/components/plan-form/AidStationProfileSegmentCard.tsx` and `aidStationPresentationHelpers.ts` isolate pace/profile presentation and formatting from the ravito pager. They receive already computed section data and must not introduce nutrition or hydration allocation logic.
 - Mobile auto-fill can receive optional per-product stock limits from the favorites stock modal. A missing limit means unlimited for that run; a present limit caps total planned units across the whole race, including supplies grouped onto previous assistance checkpoints for no-assistance sections. The mobile plan form keeps the latest entered limits in screen memory while the current plan editor stays open, but does not persist them into saved plan data. The optimizer favors less-used products over time and applies a small duplicate-unit penalty inside one section so similar products are varied when coverage remains acceptable. When limits leave an unresolved cumulative carb or sodium deficit beyond gauge tolerance, mobile shows a shortage alert instead of silently overusing a product.
 - `apps/mobile/lib/planSummary.ts` builds the runner pack list, ravito checklist, and native share text from stored plan values. It reuses the live-section timing model rather than introducing a separate nutrition allocation rule. The mobile recap screen reloads those stored values when it regains focus after plan edits.
 
@@ -197,6 +203,8 @@ If no water, carb, or sodium supply is carried and the matching target is active
 Liquid products (`drink_mix` and `electrolyte`) occupy carried water capacity. Mobile uses `DEFAULT_FLUID_PRODUCT_VOLUME_ML` (`500 ml`) per liquid product serving. A runner cannot start free training if the selected liquid products require more volume than the carried liquid capacity. Liquid product nutrients are consumed with the water reminders; they do not add extra water beyond the carried capacity.
 
 The free training session uses the same in-memory live session store as race live mode, but passes prebuilt alert specs instead of section-derived plan alerts. Its runner-facing notification copy is French-accented (`Entraînement`) so titles, bodies, and section labels remain consistent.
+
+`apps/mobile/app/(app)/training-live.tsx` owns session setup and orchestration. The active-session presentation (gauges, next alert, upcoming alerts, recent intake and stop action) lives in `apps/mobile/components/race/TrainingLiveSession.tsx`; it receives the already-computed live state and must not introduce a second nutrition calculation path.
 
 ## Legacy API Allocation Order
 

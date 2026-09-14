@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -27,10 +27,15 @@ related_files:
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/privileged_database_access_checks.sql
+  - apps/web/app/api/races/route.ts
+  - apps/web/app/api/races/route.test.ts
+  - apps/mobile/components/RaceSelector.tsx
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
   - apps/web/lib/public-races.ts
@@ -103,9 +108,13 @@ Important visible indexes cover slug uniqueness, catalog flags, edition membersh
 
 Existing `races` policies control the whole row, including import status. Organizer import writes use service-role-only `SECURITY INVOKER` RPCs after the trusted server route verifies the admin/session scope. No direct client grant is added for draft fields.
 
+An authenticated non-admin may insert, update, or delete only a standalone race owned by their `auth.uid()`: it must remain private, non-live, non-published, detached from event/edition rows, unselected for RaceBook preview, without RaceBook approval provenance, and use its own id as `edition_group_id`. Trusted `app_metadata` admins retain catalog management; organizer mutations remain service-route operations.
+
 ## Business Invariants
 
 - `data_status = complete` requires an empty `missing_required_fields` array.
+- User-created standalone races are private at the initial insert. The web import route no longer creates a transient live row before the mobile cleanup call.
+- Authenticated race selectors combine public/live catalog rows with private rows owned by the current user. A private standalone race remains selectable even though its required `is_live` value is false.
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
 - A runner-live RaceBook must also be selected for organizer preview. Turning preview off atomically clears `racebook_is_live`; turning it back on never publishes by itself.
 - The service-only format publication function locks one row, authorizes either an active parent-event organizer or a trusted Auth `raw_app_meta_data` admin, and atomically restores `is_live`, `racebook_preview_is_visible`, and `racebook_is_live`; the admin lookup is isolated behind a private boolean-only helper because `service_role` cannot select `auth.users` directly. Its false branch produces the private state, while the route writes the masked state directly in one update. The edition publication function performs the same public transition for every selected complete public-source format and must not require `is_live` before that update.
@@ -162,6 +171,7 @@ where is_live = true
 - Public RaceBook snapshots and profile responses are tagged by race, edition, and event. Race metadata, image, GPX, visibility, and structured-content writes invalidate the narrowest applicable tag after success.
 - A declarative complete-row check is intentionally deferred until legacy catalog rows have been backfilled. The column-scoped completeness trigger protects new and catalog-relevant writes without blocking unrelated updates to legacy rows.
 - Do not set a draft live. The database constraint rejects both course and Racebook visibility.
+- Do not broaden `races_insert` for convenience. User imports must satisfy the private standalone invariant in their first atomic insert; later client updates cannot attach them to an event/edition or publish them.
 - Organizer membership may author selected module subtrees above the current tier. Never use the public/effective entitlement helper to discard those incoming private drafts.
 - Do not use `edition_group_id` as yearly edition membership; use `edition_id`.
 - Do not derive Racebook visibility from catalog completion or `is_live`.

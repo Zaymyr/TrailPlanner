@@ -9,7 +9,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useRouter } from 'expo-router';
 
 import { ProductPickerModal } from '../../components/plan-form/ProductPickerModal';
@@ -21,8 +21,7 @@ import {
   type Supply,
 } from '../../components/plan-form/contracts';
 import { loadPlanProductsBootstrap } from '../../components/plan-form/usePlanProducts';
-import { LiveFuelGauge } from '../../components/race/LiveFuelGauge';
-import { LiveNextIntakeCard } from '../../components/race/LiveNextIntakeCard';
+import { TrainingLiveSession } from '../../components/race/TrainingLiveSession';
 import { Button } from '../../components/themed/Button';
 import { DataText } from '../../components/themed/DataText';
 import { Text } from '../../components/themed/Text';
@@ -42,7 +41,6 @@ import {
   respondToAlert,
   startFreeTraining,
   stopRace,
-  type ActiveAlert,
   type AlertConfirmMode,
 } from '../../lib/raceLiveSession';
 import {
@@ -80,14 +78,6 @@ function formatDuration(totalMinutes: number | null) {
   if (hours <= 0) return `${safeMinutes} min`;
   if (minutes === 0) return `${hours}h`;
   return `${hours}h${String(minutes).padStart(2, '0')}`;
-}
-
-function formatClock(date: Date): string {
-  return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
-}
-
-function addMinutes(date: Date, minutes: number) {
-  return new Date(date.getTime() + minutes * 60_000);
 }
 
 function isFluidProduct(product: PlanProduct | undefined) {
@@ -412,85 +402,16 @@ export default function TrainingLiveScreen() {
   }
 
   if (racing) {
-    const activeMetrics = (stats?.metrics ?? []).filter((metric) => activeResourceKeys.has(metric.key));
-
     return (
-      <>
-        <Stack.Screen options={{ title: copy.title }} />
-        <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.screen} contentContainerStyle={styles.content}>
-          <BackButton label={locale === 'fr' ? 'Retour' : 'Back'} onPress={() => router.back()} />
-
-          <View style={styles.liveHero}>
-            <View>
-              <Text style={styles.kicker}>{copy.liveKicker}</Text>
-              <DataText style={styles.liveChrono}>{formatDuration(stats?.elapsedMinutes ?? 0)}</DataText>
-            </View>
-            <Text style={styles.liveSummary}>
-              {Math.round(stats?.totalCarbsConsumed ?? 0)} g glucides - {Math.round(stats?.totalWaterConsumed ?? 0)} ml eau - {Math.round(stats?.totalSodiumConsumed ?? 0)} mg sodium
-            </Text>
-          </View>
-
-          <Text style={styles.sectionHeading}>{copy.nextIntake}</Text>
-          <LiveNextIntakeCard
-            alert={stats?.nextAlert ?? null}
-            startedAt={startedAt}
-            onConfirm={() => {
-              if (stats?.nextAlert) void handleAlertAction(stats.nextAlert.id, 'confirmed');
-            }}
-            onSnooze={(minutes) => {
-              if (stats?.nextAlert) void handleAlertAction(stats.nextAlert.id, 'snoozed', minutes);
-            }}
-            onSkip={() => {
-              if (stats?.nextAlert) void handleAlertAction(stats.nextAlert.id, 'skipped');
-            }}
-          />
-
-          <Text style={styles.sectionHeading}>{copy.liveLevels}</Text>
-          {activeMetrics.map((metric) => (
-            <LiveFuelGauge key={metric.key} metric={metric} />
-          ))}
-
-          <Text style={styles.sectionHeading}>{copy.upcoming}</Text>
-          {(stats?.upcomingAlerts ?? []).length === 0 ? (
-            <View style={styles.card}>
-              <Text style={styles.mutedText}>{copy.emptyUpcoming}</Text>
-            </View>
-          ) : (
-            stats?.upcomingAlerts.slice(0, 5).map((alert: ActiveAlert) => (
-              <View key={alert.id} style={styles.listRow}>
-                <DataText style={styles.listTime}>{formatClock(addMinutes(startedAt, alert.triggerMinutes))}</DataText>
-                <View style={styles.listContent}>
-                  <Text style={styles.listTitle}>{alert.title}</Text>
-                  <Text style={styles.mutedText}>{alert.payload.detail}</Text>
-                </View>
-              </View>
-            ))
-          )}
-
-          <Text style={styles.sectionHeading}>{copy.recent}</Text>
-          {(stats?.recentIntakes ?? []).length === 0 ? (
-            <View style={styles.card}>
-              <Text style={styles.mutedText}>{copy.emptyRecent}</Text>
-            </View>
-          ) : (
-            stats?.recentIntakes.map((intake) => (
-              <View key={intake.alertId} style={styles.listRow}>
-                <DataText style={styles.listTime}>{formatClock(new Date(intake.confirmedAt))}</DataText>
-                <View style={styles.listContent}>
-                  <Text style={styles.listTitle}>{intake.detail}</Text>
-                  <DataText style={styles.mutedText}>
-                    {Math.round(intake.carbsGrams)} g - {Math.round(intake.sodiumMg)} mg - {Math.round(intake.waterMl)} ml
-                  </DataText>
-                </View>
-              </View>
-            ))
-          )}
-
-          <TouchableOpacity style={styles.stopButton} onPress={handleStop}>
-            <Text style={styles.stopButtonText}>{copy.stop}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-      </>
+      <TrainingLiveSession
+        activeResourceKeys={activeResourceKeys}
+        backButton={<BackButton label={locale === 'fr' ? 'Retour' : 'Back'} onPress={() => router.back()} />}
+        copy={copy}
+        onAlertAction={handleAlertAction}
+        onStop={handleStop}
+        startedAt={startedAt}
+        stats={stats}
+      />
     );
   }
 
@@ -817,13 +738,6 @@ const styles = StyleSheet.create({
     padding: 16,
     gap: 12,
   },
-  kicker: {
-    color: Colors.textMuted,
-    fontSize: 11,
-    fontWeight: '800',
-    letterSpacing: 1,
-    textTransform: 'uppercase',
-  },
   heroTitle: {
     color: Colors.textPrimary,
     fontSize: 24,
@@ -1087,61 +1001,6 @@ const styles = StyleSheet.create({
   },
   startButtonText: {
     color: Colors.textOnBrand,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  liveHero: {
-    backgroundColor: Colors.surface,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 18,
-    gap: 8,
-  },
-  liveChrono: {
-    color: Colors.textPrimary,
-    fontSize: 30,
-    fontWeight: '800',
-  },
-  liveSummary: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-  },
-  listRow: {
-    flexDirection: 'row',
-    gap: 12,
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
-  },
-  listTime: {
-    width: 54,
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '800',
-  },
-  listContent: {
-    flex: 1,
-    gap: 2,
-  },
-  listTitle: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  stopButton: {
-    backgroundColor: Colors.dangerSurface,
-    borderRadius: 18,
-    paddingVertical: 16,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#f4c7c1',
-  },
-  stopButtonText: {
-    color: Colors.danger,
     fontSize: 16,
     fontWeight: '800',
   },

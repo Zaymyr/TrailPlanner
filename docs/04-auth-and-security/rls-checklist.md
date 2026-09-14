@@ -1,10 +1,12 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
@@ -101,7 +103,7 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 3. Add select/insert/update/delete policies explicitly; do not rely on grants alone.
 4. Use `auth.uid()` for owner checks.
 5. Use parent-table `exists` checks for child rows such as `plan_aid_stations`.
-6. Use `app_metadata` or server/profile checks for admin authorization.
+6. Use trusted `app_metadata` or a server-side Auth lookup for admin authorization; never use a client-writable profile field.
 7. Do not use `user_metadata` for new authorization decisions.
 8. Grant table privileges only when the RLS policy should be reachable by that role.
 9. Keep service-role access in Next.js server routes or Supabase functions only.
@@ -109,6 +111,7 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 11. For commercial capabilities, enforce the entitlement on the service route and repeat it in direct RLS/read overlays where a client could bypass that route.
 12. For service-only destructive RPCs, prefer `SECURITY INVOKER`, revoke `PUBLIC`, grant only `service_role`, and keep the user-to-parent authorization check in the server route.
 13. When adding columns to an existing RLS-protected table, confirm the existing row policies still match the new data sensitivity.
+14. Protect server-owned entitlement, billing, analytics, and publication columns from owner-wide policies with column grants, a validated trigger, or a narrow server route.
 
 ## Correct Parent Policy Shape
 
@@ -146,6 +149,7 @@ Use:
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
 - `supabase/tests/organizer_edition_entitlements_checks.sql` for Stripe/manual recalculation, complimentary-override conversion, duplicate/downgrade rejection, invoice-bucket privacy configuration, and bank-transfer RPC privileges;
+- `supabase/tests/privileged_database_access_checks.sql` for profile-role self-promotion denial, trusted admin claims, privileged RPC revocations, and invoker-secured review views;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 
@@ -154,13 +158,14 @@ Use:
 - A child-table RLS policy runs with the querying role's privileges for referenced parents. Do not join `race_event_editions` from a client policy while that parent remains service-role-only; use the already-readable `races` publication relationship or a separately reviewed narrow access boundary.
 
 - `delete_race_event_edition` intentionally relies on the service role's existing table privileges while preserving invoker security. Do not convert it to `SECURITY DEFINER` or grant it directly to authenticated clients.
-- This project has direct default `EXECUTE` grants for `anon` and `authenticated`; for every new service-only function, revoke those roles explicitly in addition to `PUBLIC`, then verify with `has_function_privilege`.
+- Client execution is revoked from future `postgres`-owned public-schema functions by default. Every client RPC needs an explicit grant; every service-only function must still explicitly revoke `PUBLIC`, `anon`, and `authenticated`, then be verified with `has_function_privilege`.
 - Replacing `replace_race_start_waves` to preserve the common start time when no waves remain does not broaden access: keep it `SECURITY INVOKER`, with an empty search path and execution restricted to `service_role`.
 - The remaining admin growth KPI function is a justified `SECURITY DEFINER` exception because it reads `auth.users` and cross-owner rows. Keep its empty search path, service-role-only execute grant, bounded date range, and route-level trusted-admin authorization together. The retired affiliate reporting function and its event tables must not be recreated for application-side engagement reporting.
 - `assign_race_event_edition()` remains `SECURITY INVOKER`, receives no client table privileges, and has explicit `PUBLIC`/`anon`/`authenticated` execute revocations; it is a service-write consistency trigger, not an authorization bypass.
 - Public child mappings such as `race_slug_redirects` need an explicit client `SELECT` grant plus an RLS `exists` check against every parent visibility gate. Keep all writes and the rename RPC service-role-only.
 
 - Service role bypasses RLS, so passing a service-route test does not prove client RLS works.
+- Owner access to a row does not imply authority over every column. Trial/sign-in fields and race publication/event attachment fields remain server-managed.
 - `anon` grants are intentional for anonymous Supabase users only when policies still bind to `auth.uid()`.
 - Archived schema docs may show stale policy names.
 - Avoid overloading owner columns for presentation metadata. For example, `products.is_official` is the official/shared catalog flag; `products.created_by` remains ownership only.

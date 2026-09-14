@@ -43,21 +43,39 @@ export function RaceSelector({ visible, onClose, onSelect, userId }: Props) {
   const fetchRaces = useCallback(async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
+      const publicRacesQuery = supabase
         .from('races')
         .select('id, name, distance_km, elevation_gain_m, location_text, is_public, created_by')
         .eq('is_live', true)
+        .eq('is_public', true)
         .order('name');
 
-      if (!error && data) {
-        setRaces(data as RaceRow[]);
+      const [publicResult, personalResult] = await Promise.all([
+        publicRacesQuery,
+        userId
+          ? supabase
+              .from('races')
+              .select('id, name, distance_km, elevation_gain_m, location_text, is_public, created_by')
+              .eq('created_by', userId)
+              .eq('is_public', false)
+              .order('name')
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+
+      if (publicResult.error) throw publicResult.error;
+      if (personalResult.error) throw personalResult.error;
+
+      const racesById = new Map<string, RaceRow>();
+      for (const race of [...(personalResult.data ?? []), ...(publicResult.data ?? [])] as RaceRow[]) {
+        racesById.set(race.id, race);
       }
+      setRaces([...racesById.values()]);
     } catch {
       // ignore
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     if (visible) {

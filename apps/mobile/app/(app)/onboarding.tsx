@@ -2,26 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   View,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   ActivityIndicator,
-  SafeAreaView,
-  ScrollView,
-  Modal,
-  Pressable,
-  Image
 } from 'react-native';
 import { Text } from '../../components/themed/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
-import type { FuelType, Product } from '../../components/nutrition/types';
+import type { Product } from '../../components/nutrition/types';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
-import { GpxImportPreviewModal } from '../../components/race/GpxImportPreviewModal';
-import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import {
   OnboardingCompletionStep,
   OnboardingOverviewStep,
@@ -34,6 +26,12 @@ import {
   OnboardingPerformanceStep,
   OnboardingPersonalStep,
 } from '../../components/onboarding/OnboardingProfileSteps';
+import { OnboardingNutritionProductsStep } from '../../components/onboarding/OnboardingNutritionProductsStep';
+import {
+  OnboardingRaceSelectionStep,
+  type OnboardingRaceEventGroup as RaceEventGroup,
+  type OnboardingRaceOption as RaceOption,
+} from '../../components/onboarding/OnboardingRaceSelectionStep';
 import { estimateHourlyTargets, isValidHeightCm, isValidWeightKg } from '../../components/profile/profileEstimator';
 import { useAppleAuth } from '../../hooks/useAppleAuth';
 import { useGoogleAuth } from '../../hooks/useGoogleAuth';
@@ -78,34 +76,11 @@ import {
   setPlanEditProductsBootstrap
 } from '../../lib/planEditSession';
 
-const verifiedProductIcon = require('../../assets/verified-product.png');
-
 function sanitizeDigits(value: string, maxLength: number): string {
   return value.replace(/\D/g, '').slice(0, maxLength);
 }
 
-type RaceOption = {
-  id: string;
-  name: string;
-  distance_km: number;
-  elevation_gain_m: number | null;
-  location_text: string | null;
-  race_date: string | null;
-  is_public: boolean;
-  created_by: string | null;
-  thumbnail_url?: string | null;
-};
-
 type RaceOptionWithElevation = RaceOption & { elevation_gain_m: number };
-
-type RaceEventGroup = {
-  id: string;
-  name: string;
-  location: string | null;
-  race_date: string | null;
-  thumbnail_url?: string | null;
-  races: RaceOption[];
-};
 
 type OnboardingProfileSavePayload = {
   userId: string;
@@ -133,71 +108,9 @@ type ExistingOnboardingProfileRow = {
   default_sodium_mg_per_hour: number | null;
 };
 
-const PRODUCT_PRIORITY: Record<FuelType, number> = {
-  gel: 0,
-  drink_mix: 1,
-  electrolyte: 2,
-  bar: 3,
-  real_food: 4,
-  capsule: 5,
-  other: 6,
-};
-
-function formatRaceDate(isoDate: string | null, locale: 'fr' | 'en') {
-  if (!isoDate) return null;
-
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return null;
-
-  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
-
-function formatEventDate(isoDate: string | null, locale: 'fr' | 'en') {
-  if (!isoDate) return null;
-
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return null;
-
-  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
-
-function formatDistance(distanceKm: number) {
-  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
-}
-
-function formatElevation(elevationGainM: number | null) {
-  return elevationGainM === null ? 'non renseigné' : Math.round(elevationGainM).toString();
-}
-
 function getRaceShortLabel(raceName: string, eventName: string) {
   const cleaned = raceName.replace(eventName, '').replace(/[\s\-–—·]+/g, ' ').trim();
   return cleaned.length > 2 ? cleaned : raceName;
-}
-
-function getEventImageUrl(event: Pick<RaceEventGroup, 'thumbnail_url' | 'races'>): string | null {
-  return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
-}
-
-function getEventDistanceRange(races: RaceOption[]) {
-  if (races.length === 0) return null;
-
-  const distances = races.map((race) => race.distance_km);
-  const minDistance = Math.min(...distances);
-  const maxDistance = Math.max(...distances);
-
-  if (Math.abs(maxDistance - minDistance) < 0.05) {
-    return `${formatDistance(maxDistance)} km`;
-  }
-
-  return `${formatDistance(minDistance)}-${formatDistance(maxDistance)} km`;
 }
 
 function sortRaceOptions(races: RaceOption[]) {
@@ -222,90 +135,6 @@ function sortRaceEvents(events: RaceEventGroup[]) {
     if (timestampDiff !== 0) return timestampDiff;
     return left.name.localeCompare(right.name);
   });
-}
-
-function inferNutritionBrand(product: Pick<Product, 'name' | 'brand'>) {
-  const explicitBrand = product.brand?.trim();
-  if (explicitBrand) {
-    return explicitBrand;
-  }
-
-  const productName = product.name;
-  const fromDelimiter = productName.split(' - ')[0]?.trim();
-  const source = fromDelimiter || productName;
-  const firstToken = source
-    .split(/\s+/)
-    .map((part) => part.replace(/^[^A-Za-zÀ-ÿ0-9]+|[^A-Za-zÀ-ÿ0-9]+$/g, ''))
-    .find(Boolean);
-
-  const genericTokens = new Set([
-    'bar',
-    'capsule',
-    'capsules',
-    'decathlon',
-    'drink',
-    'electrolyte',
-    'energy',
-    'food',
-    'fuel',
-    'gel',
-    'gels',
-    'mix',
-    'nutrition',
-    'other',
-    'product',
-  ]);
-
-  if (firstToken && genericTokens.has(firstToken.toLowerCase())) {
-    return null;
-  }
-
-  return firstToken || source.trim() || 'Other';
-}
-
-function getFuelTypeLabel(fuelType: FuelType, locale: 'fr' | 'en') {
-  const labels =
-    locale === 'fr'
-      ? {
-          gel: 'Gel',
-          drink_mix: 'Boisson',
-          electrolyte: 'Électrolyte',
-          capsule: 'Capsule',
-          bar: 'Barre',
-          real_food: 'Aliment',
-          other: 'Autre',
-        }
-      : {
-          gel: 'Gel',
-          drink_mix: 'Drink mix',
-          electrolyte: 'Electrolyte',
-          capsule: 'Capsule',
-          bar: 'Bar',
-          real_food: 'Real food',
-          other: 'Other',
-        };
-
-  return labels[fuelType];
-}
-
-function formatProductMeta(product: Product, locale: 'fr' | 'en') {
-  const parts = [getFuelTypeLabel(product.fuel_type, locale)];
-  const carbs = Math.round(product.carbs_g ?? 0);
-  const sodium = Math.round(product.sodium_mg ?? 0);
-
-  if (carbs > 0) {
-    parts.push(locale === 'fr' ? `${carbs} g glucides` : `${carbs} g carbs`);
-  }
-
-  if (sodium > 0) {
-    parts.push(`${sodium} mg sodium`);
-  }
-
-  return parts.join(' • ');
-}
-
-function isVerifiedProduct(product: Product) {
-  return product.is_official === true;
 }
 
 function isMissingUserForeignKeyError(error: unknown) {
@@ -436,101 +265,7 @@ export default function OnboardingScreen() {
 
     return `${parentEvent.name} • ${getRaceShortLabel(selectedRace.name, parentEvent.name)}`;
   }, [raceEventGroups, selectedRace]);
-  const filteredRaceEventGroups = useMemo(() => {
-    const normalizedSearch = raceSearch.trim().toLowerCase();
-
-    return raceEventGroups
-      .map((event) => {
-        const eventMatchesName =
-          normalizedSearch.length === 0 ||
-          event.name.toLowerCase().includes(normalizedSearch) ||
-          (event.location ?? '').toLowerCase().includes(normalizedSearch);
-
-        const races = sortRaceOptions(
-          event.races.filter((race) => {
-            if (eventMatchesName) {
-              return true;
-            }
-
-            const location = race.location_text?.toLowerCase() ?? '';
-            return (
-              race.name.toLowerCase().includes(normalizedSearch) ||
-              location.includes(normalizedSearch)
-            );
-          }),
-        );
-
-        return { ...event, races };
-      })
-      .filter((event) => event.races.length > 0);
-  }, [raceEventGroups, raceSearch]);
-  const filteredPersonalRaceOptions = useMemo(() => {
-    const normalizedSearch = raceSearch.trim().toLowerCase();
-
-    return personalRaceOptions.filter((race) => {
-      if (!normalizedSearch) {
-        return true;
-      }
-
-      const location = race.location_text?.toLowerCase() ?? '';
-      return (
-        race.name.toLowerCase().includes(normalizedSearch) ||
-        location.includes(normalizedSearch)
-      );
-    });
-  }, [personalRaceOptions, raceSearch]);
   const publicRaceOptions = useMemo(() => [] as RaceOption[], []);
-  const filteredNutritionProducts = useMemo(() => {
-    const normalizedSearch = nutritionSearch.trim().toLowerCase();
-
-    return nutritionProducts
-      .filter((product) => {
-        if (!normalizedSearch) {
-          return true;
-        }
-
-        const brandLabel = (inferNutritionBrand(product) ?? '').toLowerCase();
-        return (
-          product.name.toLowerCase().includes(normalizedSearch) ||
-          brandLabel.includes(normalizedSearch)
-        );
-      })
-      .sort((left, right) => {
-        const leftPriority = PRODUCT_PRIORITY[left.fuel_type] ?? 99;
-        const rightPriority = PRODUCT_PRIORITY[right.fuel_type] ?? 99;
-        if (leftPriority !== rightPriority) {
-          return leftPriority - rightPriority;
-        }
-
-        const leftDensity = (left.carbs_g ?? 0) + (left.sodium_mg ?? 0) / 100;
-        const rightDensity = (right.carbs_g ?? 0) + (right.sodium_mg ?? 0) / 100;
-        if (leftDensity !== rightDensity) {
-          return rightDensity - leftDensity;
-        }
-
-        return left.name.localeCompare(right.name);
-      });
-  }, [nutritionProducts, nutritionSearch, selectedProductIds]);
-  const groupedNutritionProducts = useMemo(
-    () =>
-      Array.from(
-        filteredNutritionProducts.reduce((groups, product) => {
-          const brandLabel =
-            inferNutritionBrand(product) || (locale === 'fr' ? 'Autres marques' : 'Other brands');
-          const currentGroup = groups.get(brandLabel) ?? [];
-          currentGroup.push(product);
-          groups.set(brandLabel, currentGroup);
-          return groups;
-        }, new Map<string, Product[]>()),
-      )
-        .map(([brandLabel, products]) => ({
-          brandLabel,
-          products,
-        }))
-        .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel)),
-    [filteredNutritionProducts, locale],
-  );
-  const hiddenNutritionProducts = useMemo(() => [] as Product[], []);
   const isOnboardingStatePristine = useMemo(
     () =>
       fullName.trim().length === 0 &&
@@ -558,21 +293,6 @@ export default function OnboardingScreen() {
       weightKg,
     ],
   );
-  const selectedRaceEventDate = selectedRaceEvent
-    ? formatEventDate(selectedRaceEvent.race_date, locale)
-    : null;
-  const selectedRaceEventMeta = selectedRaceEvent
-    ? [selectedRaceEvent.location, selectedRaceEventDate].filter(Boolean).join(' • ')
-    : null;
-  const selectedRaceEventImage = selectedRaceEvent ? getEventImageUrl(selectedRaceEvent) : null;
-  const selectedRaceEventDistanceRange = selectedRaceEvent
-    ? getEventDistanceRange(selectedRaceEvent.races)
-    : null;
-  const selectedRaceEventFormatsLabel = selectedRaceEvent
-    ? selectedRaceEvent.races.length === 1
-      ? t.catalog.singleFormatLabel
-      : t.catalog.multipleFormatsLabel.replace('{count}', String(selectedRaceEvent.races.length))
-    : null;
   const carbEstimatorOptions = useMemo(
     () => [
       { value: 'beginner' as const, label: t.profile.estimatorCarbBeginner },
@@ -1438,10 +1158,6 @@ export default function OnboardingScreen() {
     }
   }
 
-  function handleRaceContinue() {
-    setStep(6);
-  }
-
   function handleSelectRace(raceId: string) {
     setSelectedRaceId(raceId);
     setSelectedRaceEvent(null);
@@ -1934,555 +1650,69 @@ export default function OnboardingScreen() {
 
   if (step === 5) {
     return (
-      <>
-        <OnboardingShell
-          step={5}
-          totalSteps={totalSteps}
-          stepLabel={t.onboarding.stepLabel}
-          skipLabel={t.onboarding.skipOnboardingCta}
-          skipDisabled={skippingOnboarding}
-          onSkip={requestSkipOnboarding}
-        >
-        <Text style={styles.title}>{t.onboarding.raceTitle}</Text>
-        <Text style={styles.subtitle}>{t.onboarding.raceSubtitle}</Text>
-        <Text style={styles.predictionHint}>{t.onboarding.raceHint}</Text>
-
-        <View style={styles.racePickerPanel}>
-          <View style={[styles.noticeBox, styles.raceImportNoticeBox]}>
-            <Text style={styles.noticeTitle}>{t.onboarding.raceImportTitle}</Text>
-            <Text style={styles.noticeText}>{t.onboarding.raceImportSubtitle}</Text>
-            <TouchableOpacity
-              style={[styles.importGpxButton, importingRaceGpx && styles.buttonDisabled]}
-              onPress={handleImportRaceFromGpx}
-              disabled={importingRaceGpx}
-            >
-              {importingRaceGpx ? (
-                <ActivityIndicator color={Colors.brandPrimary} />
-              ) : (
-                <View style={styles.importGpxButtonContent}>
-                  <Ionicons name="document-attach-outline" size={18} color={Colors.brandPrimary} />
-                  <Text style={styles.importGpxButtonText}>{t.onboarding.raceImportCta}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            {raceImportFeedback ? (
-              <View
-                style={[
-                  styles.importGpxFeedback,
-                  raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
-                ]}
-              >
-                <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
-              </View>
-            ) : null}
-          </View>
-
-          {selectedRaceSummary ? (
-            <View style={styles.inlineInfoRow}>
-              <View style={styles.selectionCountPill}>
-                <Text style={styles.selectionCountText}>{selectedRaceSummary}</Text>
-              </View>
-            </View>
-          ) : null}
-
-          <TextInput
-            style={styles.textInput}
-            value={raceSearch}
-            onChangeText={setRaceSearch}
-            placeholder={t.onboarding.raceSearchPlaceholder}
-            placeholderTextColor={Colors.textMuted}
-            autoCapitalize="none"
-          />
-
-          {loadingRaces ? (
-            <View style={styles.raceCenteredState}>
-              <ActivityIndicator color={Colors.brandPrimary} />
-              <Text style={styles.raceStateText}>{t.onboarding.raceLoading}</Text>
-            </View>
-          ) : raceLoadError ? (
-            <View style={styles.raceCenteredState}>
-              <Text style={styles.errorText}>{raceLoadError}</Text>
-              <TouchableOpacity
-                style={styles.retryButtonInline}
-                onPress={() => {
-                  setHasLoadedRaceOptions(false);
-                  void loadRaceOptions();
-                }}
-              >
-                <Text style={styles.retryButtonInlineText}>{t.common.retry}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : filteredPersonalRaceOptions.length === 0 && filteredRaceEventGroups.length === 0 ? (
-            <View style={styles.raceCenteredState}>
-              <Text style={styles.emptyTitle}>{t.onboarding.raceEmptyTitle}</Text>
-              <Text style={styles.emptySubtitle}>{t.onboarding.raceEmptySubtitle}</Text>
-            </View>
-          ) : (
-            <View style={styles.raceEventList}>
-              {filteredPersonalRaceOptions.length > 0 ? (
-                <View style={styles.raceGroup}>
-                  <Text style={styles.raceGroupLabel}>{t.races.myRaces}</Text>
-                  {filteredPersonalRaceOptions.map((race) => {
-                    const selected = race.id === selectedRaceId;
-                    const raceMeta = [race.location_text, formatRaceDate(race.race_date, locale)]
-                      .filter(Boolean)
-                      .join(' • ');
-
-                    return (
-                      <TouchableOpacity
-                        key={race.id}
-                        style={[
-                          styles.raceChoiceCard,
-                          selected && styles.raceChoiceCardSelected,
-                        ]}
-                        disabled={race.elevation_gain_m === null}
-                        onPress={() => handleSelectRace(race.id)}
-                      >
-                        <View style={styles.raceChoiceHeader}>
-                          <Text style={styles.raceChoiceTitle}>{race.name}</Text>
-                          {selected ? (
-                            <View style={styles.raceSelectedBadge}>
-                              <Text style={styles.raceSelectedBadgeText}>
-                                {t.onboarding.raceSelectedBadge}
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <Text style={styles.raceChoiceStats}>
-                          {race.distance_km} km • {race.elevation_gain_m === null ? 'D+ non renseigné' : `D+ ${race.elevation_gain_m} m`}
-                        </Text>
-                        {raceMeta ? <Text style={styles.raceChoiceMeta}>{raceMeta}</Text> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : null}
-
-              {filteredRaceEventGroups.map((event) => (
-                <RaceEventSummaryCard
-                  key={event.id}
-                  event={event}
-                  locale={locale}
-                  viewFormatsLabel={t.catalog.viewFormats}
-                  singleFormatLabel={t.catalog.singleFormatLabel}
-                  multipleFormatsLabel={t.catalog.multipleFormatsLabel}
-                  chooseFormatHint={t.catalog.chooseFormatHint}
-                  onOpenFormats={() => setSelectedRaceEvent(event)}
-                />
-              ))}
-
-              {publicRaceOptions.length > 0 ? (
-                <View style={styles.raceGroup}>
-                  <Text style={styles.raceGroupLabel}>{t.races.publicRaces}</Text>
-                  {publicRaceOptions.map((race) => {
-                    const selected = race.id === selectedRaceId;
-                    const raceMeta = [race.location_text, formatRaceDate(race.race_date, locale)]
-                      .filter(Boolean)
-                      .join(' • ');
-
-                    return (
-                      <TouchableOpacity
-                        key={race.id}
-                        style={[
-                          styles.raceChoiceCard,
-                          selected && styles.raceChoiceCardSelected,
-                        ]}
-                        disabled={race.elevation_gain_m === null}
-                        onPress={() => handleSelectRace(race.id)}
-                      >
-                        <View style={styles.raceChoiceHeader}>
-                          <Text style={styles.raceChoiceTitle}>{race.name}</Text>
-                          {selected ? (
-                            <View style={styles.raceSelectedBadge}>
-                              <Text style={styles.raceSelectedBadgeText}>
-                                {t.onboarding.raceSelectedBadge}
-                              </Text>
-                            </View>
-                          ) : null}
-                        </View>
-                        <Text style={styles.raceChoiceStats}>
-                          {race.distance_km} km • {race.elevation_gain_m === null ? 'D+ non renseigné' : `D+ ${race.elevation_gain_m} m`}
-                        </Text>
-                        {raceMeta ? <Text style={styles.raceChoiceMeta}>{raceMeta}</Text> : null}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              ) : null}
-            </View>
-          )}
-        </View>
-
-        </OnboardingShell>
-
-        <GpxImportPreviewModal
-          visible={Boolean(pendingRaceGpxDocument)}
-          document={pendingRaceGpxDocument}
-          raceName={pendingRaceGpxName}
-          onRaceNameChange={setPendingRaceGpxName}
-          onCancel={handleCancelRaceGpxPreview}
-          onConfirm={() => void handleConfirmRaceGpxImport()}
-          confirming={importingRaceGpx}
-        />
-
-        <Modal
-          visible={Boolean(selectedRaceEvent)}
-          animationType="slide"
-          transparent
-          onRequestClose={() => setSelectedRaceEvent(null)}
-        >
-          <View style={styles.modalBackdrop}>
-            <Pressable style={styles.sheetOverlay} onPress={() => setSelectedRaceEvent(null)} />
-            <SafeAreaView style={styles.sheetCard}>
-              <View style={styles.sheetHandle} />
-              <View style={styles.sheetHeader}>
-                <View style={styles.sheetHeaderText}>
-                  <Text style={styles.sheetTitle}>{selectedRaceEvent?.name}</Text>
-                  {selectedRaceEventMeta ? <Text style={styles.sheetSubtitle}>{selectedRaceEventMeta}</Text> : null}
-                </View>
-                <TouchableOpacity style={styles.sheetCloseButton} onPress={() => setSelectedRaceEvent(null)}>
-                  <Ionicons name="close" size={20} color={Colors.textPrimary} />
-                </TouchableOpacity>
-              </View>
-
-              {selectedRaceEventImage ? (
-                <Image source={{ uri: selectedRaceEventImage }} style={styles.sheetImage} resizeMode="cover" />
-              ) : null}
-
-              <View style={styles.eventSummaryRow}>
-                {selectedRaceEventFormatsLabel ? (
-                  <View style={styles.summaryPill}>
-                    <Text style={styles.summaryPillText}>{selectedRaceEventFormatsLabel}</Text>
-                  </View>
-                ) : null}
-                {selectedRaceEventDistanceRange ? (
-                  <View style={styles.summaryPill}>
-                    <Text style={styles.summaryPillText}>{selectedRaceEventDistanceRange}</Text>
-                  </View>
-                ) : null}
-              </View>
-
-              <Text style={styles.sheetHint}>{t.catalog.chooseFormatHint}</Text>
-
-              <ScrollView contentContainerStyle={styles.sheetContent}>
-                {selectedRaceEvent?.races.map((race) => {
-                  const selected = race.id === selectedRaceId;
-
-                  return (
-                    <TouchableOpacity
-                      key={race.id}
-                      style={[styles.formatRow, selected && styles.formatRowSelected]}
-                      disabled={race.elevation_gain_m === null}
-                      onPress={() => handleSelectRace(race.id)}
-                    >
-                      <View style={styles.formatRowContent}>
-                        <Text style={styles.formatTitle}>
-                          {selectedRaceEvent ? getRaceShortLabel(race.name, selectedRaceEvent.name) : race.name}
-                        </Text>
-                        {race.elevation_gain_m === null ? (
-                          <Text style={styles.formatSubtitle}>D+ non renseigné</Text>
-                        ) : (
-                        <Text style={styles.formatSubtitle}>
-                          {`${formatDistance(race.distance_km)} km • D+ ${formatElevation(race.elevation_gain_m)} m`}
-                        </Text>
-                        )}
-                      </View>
-
-                      {selected ? (
-                        <View style={styles.raceSelectedBadge}>
-                          <Text style={styles.raceSelectedBadgeText}>
-                            {t.onboarding.raceSelectedBadge}
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={styles.formatActionButton}>
-                          <Text style={styles.formatActionButtonText}>{t.catalog.selectRace}</Text>
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            </SafeAreaView>
-          </View>
-        </Modal>
-      </>
-    );
-  }
-
-  if (step === 6) {
-    const selectedCountLabel = t.onboarding.nutritionSelectedCount.replace(
-      '{count}',
-      String(selectedProductIds.length),
-    );
-
-    return (
-      <OnboardingShell
-        step={6}
+      <OnboardingRaceSelectionStep
+        copy={t}
+        locale={locale}
         totalSteps={totalSteps}
-        stepLabel={t.onboarding.stepLabel}
-        skipLabel={t.onboarding.skipOnboardingCta}
-        skipDisabled={skippingOnboarding}
+        skippingOnboarding={skippingOnboarding}
         onSkip={requestSkipOnboarding}
-      >
-        <Text style={styles.title}>{t.onboarding.nutritionTitle}</Text>
-        <Text style={styles.subtitle}>{t.onboarding.nutritionSubtitle}</Text>
-
-        <View style={styles.sectionCard}>
-          {selectedRaceSummary ? (
-            <View style={styles.selectionActionRow}>
-              <View style={styles.selectionCountPill}>
-                <Text style={styles.selectionCountText}>{selectedRaceSummary}</Text>
-              </View>
-
-              <TouchableOpacity style={styles.retryButtonInline} onPress={handleBackToRaceChoice}>
-                <Text style={styles.retryButtonInlineText}>{t.onboarding.changeRaceCta}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : null}
-
-          {raceImportFeedback ? (
-            <View
-              style={[
-                styles.importGpxFeedback,
-                raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
-              ]}
-            >
-              <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
-            </View>
-          ) : null}
-
-          <View style={[styles.noticeBox, styles.nutritionNoticeBox]}>
-            <Text style={styles.noticeTitle}>{t.onboarding.nutritionHintTitle}</Text>
-            <Text style={styles.noticeText}>{t.onboarding.nutritionHint}</Text>
-            <Text style={styles.nutritionSelectionStatus}>
-              {selectedProductIds.length > 0
-                ? selectedCountLabel
-                : t.onboarding.nutritionSelectionEmpty}
-            </Text>
-          </View>
-
-          <TextInput
-            style={styles.textInput}
-            value={nutritionSearch}
-            onChangeText={setNutritionSearch}
-            placeholder={t.onboarding.nutritionSearchPlaceholder}
-            placeholderTextColor={Colors.textMuted}
-            autoCapitalize="none"
-          />
-
-          {loadingNutritionProducts ? (
-            <View style={styles.raceCenteredState}>
-              <ActivityIndicator color={Colors.brandPrimary} />
-              <Text style={styles.raceStateText}>{t.onboarding.nutritionLoading}</Text>
-            </View>
-          ) : nutritionLoadError ? (
-            <View style={styles.raceCenteredState}>
-              <Text style={styles.errorText}>{nutritionLoadError}</Text>
-              <TouchableOpacity
-                style={styles.retryButtonInline}
-                onPress={() => {
-                  setHasLoadedNutritionProducts(false);
-                  void loadNutritionProducts();
-                }}
-              >
-                <Text style={styles.retryButtonInlineText}>{t.common.retry}</Text>
-              </TouchableOpacity>
-            </View>
-          ) : groupedNutritionProducts.length === 0 ? (
-            <View style={styles.raceCenteredState}>
-              <Text style={styles.emptyTitle}>{t.onboarding.nutritionEmptyTitle}</Text>
-              <Text style={styles.emptySubtitle}>{t.onboarding.nutritionEmptySubtitle}</Text>
-            </View>
-          ) : (
-            <View style={styles.productList}>
-              {groupedNutritionProducts.map((group) => {
-                const brandExpanded =
-                  nutritionSearch.trim().length > 0 || expandedNutritionBrands.includes(group.brandLabel);
-                const selectedProductsInBrand = group.products.filter((product) =>
-                  selectedProductIds.includes(product.id),
-                ).length;
-                const hasVerifiedProduct = group.products.some(isVerifiedProduct);
-
-                return (
-                  <View key={group.brandLabel} style={styles.productBrandGroup}>
-                    <TouchableOpacity
-                      style={[
-                        styles.productBrandHeader,
-                        brandExpanded && styles.productBrandHeaderExpanded,
-                      ]}
-                      onPress={() => toggleNutritionBrand(group.brandLabel)}
-                      activeOpacity={0.8}
-                    >
-                      <View style={styles.productBrandTitleRow}>
-                        <Text
-                          numberOfLines={1}
-                          style={[
-                            styles.productBrandTitle,
-                            hasVerifiedProduct && styles.productBrandTitleOfficial,
-                          ]}
-                        >
-                          {group.brandLabel}
-                        </Text>
-                      </View>
-
-                      <View style={styles.productBrandHeaderActions}>
-                        {selectedProductsInBrand > 0 ? (
-                          <View style={styles.productBrandSelectedPill}>
-                            <Ionicons name="checkmark" size={12} color={Colors.textOnBrand} />
-                            <Text style={styles.productBrandSelectedText}>{selectedProductsInBrand}</Text>
-                          </View>
-                        ) : null}
-                        <View style={styles.productBrandCountPill}>
-                          <Text style={styles.productBrandCountText}>{group.products.length}</Text>
-                        </View>
-                        <Ionicons
-                          name={brandExpanded ? 'chevron-up' : 'chevron-down'}
-                          size={18}
-                          color={Colors.brandPrimary}
-                        />
-                      </View>
-                    </TouchableOpacity>
-
-                    {brandExpanded ? (
-                      <View style={styles.productBrandItems}>
-                        {group.products.map((product) => {
-                          const selected = selectedProductIds.includes(product.id);
-
-                          return (
-                            <TouchableOpacity
-                              key={product.id}
-                              style={[
-                                styles.productChoiceCard,
-                                selected && styles.productChoiceCardSelected,
-                              ]}
-                              onPress={() => toggleProductSelection(product.id)}
-                            >
-                              <View style={styles.productChoiceContentRow}>
-                                <View style={styles.productChoiceMedia}>
-                                  {product.image_url ? (
-                                    <Image
-                                      source={{ uri: product.image_url }}
-                                      style={styles.productChoiceImage}
-                                      resizeMode="cover"
-                                    />
-                                  ) : (
-                                    <View style={styles.productChoiceImagePlaceholder}>
-                                      <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
-                                    </View>
-                                  )}
-                                  {isVerifiedProduct(product) ? (
-                                    <View style={styles.productVerifiedBadge}>
-                                      <Image
-                                        accessibilityIgnoresInvertColors
-                                        source={verifiedProductIcon}
-                                        style={styles.productVerifiedIcon}
-                                      />
-                                    </View>
-                                  ) : null}
-                                </View>
-
-                                <View style={styles.productChoiceBody}>
-                                  <View style={styles.raceChoiceHeader}>
-                                    <Text numberOfLines={2} style={styles.productChoiceTitle}>{product.name}</Text>
-                                  </View>
-                                  <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
-                                </View>
-
-                                <View style={[styles.productSelectControl, selected && styles.productSelectControlSelected]}>
-                                  {selected ? (
-                                    <Ionicons name="checkmark" size={16} color={Colors.textOnBrand} />
-                                  ) : null}
-                                </View>
-                              </View>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    ) : null}
-                  </View>
-                );
-              })}
-
-              {hiddenNutritionProducts.map((product) => {
-                const selected = selectedProductIds.includes(product.id);
-
-                return (
-                  <TouchableOpacity
-                    key={product.id}
-                    style={[
-                      styles.productChoiceCard,
-                      selected && styles.productChoiceCardSelected,
-                    ]}
-                    onPress={() => toggleProductSelection(product.id)}
-                  >
-                    <View style={styles.productChoiceContentRow}>
-                      <View style={styles.productChoiceMedia}>
-                        {product.image_url ? (
-                          <Image
-                            source={{ uri: product.image_url }}
-                            style={styles.productChoiceImage}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <View style={styles.productChoiceImagePlaceholder}>
-                            <Ionicons name="image-outline" size={18} color={Colors.textMuted} />
-                          </View>
-                        )}
-                        {isVerifiedProduct(product) ? (
-                          <View style={styles.productVerifiedBadge}>
-                            <Image
-                              accessibilityIgnoresInvertColors
-                              source={verifiedProductIcon}
-                              style={styles.productVerifiedIcon}
-                            />
-                          </View>
-                        ) : null}
-                      </View>
-
-                      <View style={styles.productChoiceBody}>
-                        <View style={styles.raceChoiceHeader}>
-                          <Text numberOfLines={2} style={styles.productChoiceTitle}>{product.name}</Text>
-                        </View>
-                        <Text style={styles.productChoiceMeta}>{formatProductMeta(product, locale)}</Text>
-                      </View>
-
-                      <View style={[styles.productSelectControl, selected && styles.productSelectControlSelected]}>
-                        {selected ? (
-                          <Ionicons name="checkmark" size={16} color={Colors.textOnBrand} />
-                        ) : null}
-                      </View>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          )}
-        </View>
-
-        <TouchableOpacity
-          style={[
-            styles.primaryButton,
-            (selectedProductIds.length === 0 || saving) && styles.buttonDisabled,
-          ]}
-          onPress={handleNutritionContinue}
-          disabled={selectedProductIds.length === 0 || saving}
-        >
-          {saving ? (
-            <ActivityIndicator color={Colors.textOnBrand} />
-          ) : (
-            <Text style={styles.primaryButtonText}>
-              {selectedProductIds.length > 0
-                ? t.onboarding.nutritionContinueCta
-                : t.onboarding.continueCta}
-            </Text>
-          )}
-        </TouchableOpacity>
-
-      </OnboardingShell>
+        raceSearch={raceSearch}
+        onChangeRaceSearch={setRaceSearch}
+        loadingRaces={loadingRaces}
+        raceLoadError={raceLoadError}
+        onRetryRaces={() => {
+          setHasLoadedRaceOptions(false);
+          void loadRaceOptions();
+        }}
+        personalRaceOptions={personalRaceOptions}
+        raceEventGroups={raceEventGroups}
+        publicRaceOptions={publicRaceOptions}
+        selectedRaceId={selectedRaceId}
+        selectedRaceSummary={selectedRaceSummary}
+        selectedRaceEvent={selectedRaceEvent}
+        onOpenRaceEvent={setSelectedRaceEvent}
+        onCloseRaceEvent={() => setSelectedRaceEvent(null)}
+        onSelectRace={handleSelectRace}
+        importingRaceGpx={importingRaceGpx}
+        raceImportFeedback={raceImportFeedback}
+        onImportRaceGpx={() => void handleImportRaceFromGpx()}
+        pendingRaceGpxDocument={pendingRaceGpxDocument}
+        pendingRaceGpxName={pendingRaceGpxName}
+        onChangePendingRaceGpxName={setPendingRaceGpxName}
+        onCancelRaceGpxPreview={handleCancelRaceGpxPreview}
+        onConfirmRaceGpxImport={() => void handleConfirmRaceGpxImport()}
+      />
     );
   }
-
+  if (step === 6) {
+    return (
+      <OnboardingNutritionProductsStep
+        copy={t}
+        locale={locale}
+        totalSteps={totalSteps}
+        skippingOnboarding={skippingOnboarding}
+        onSkip={requestSkipOnboarding}
+        selectedRaceSummary={selectedRaceSummary}
+        onChangeRace={handleBackToRaceChoice}
+        raceImportFeedback={raceImportFeedback}
+        products={nutritionProducts}
+        selectedProductIds={selectedProductIds}
+        expandedBrands={expandedNutritionBrands}
+        search={nutritionSearch}
+        onChangeSearch={setNutritionSearch}
+        onToggleBrand={toggleNutritionBrand}
+        onToggleProduct={toggleProductSelection}
+        loading={loadingNutritionProducts}
+        loadError={nutritionLoadError}
+        onRetry={() => {
+          setHasLoadedNutritionProducts(false);
+          void loadNutritionProducts();
+        }}
+        saving={saving}
+        onContinue={handleNutritionContinue}
+      />
+    );
+  }
   if (step === 7) {
     return (
       <>
@@ -2577,46 +1807,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 24,
   },
-  predictionHint: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    lineHeight: 18,
-    textAlign: 'center',
-    marginTop: -8,
-    marginBottom: 20,
-    fontWeight: '600',
-  },
-  sectionCard: {
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 16,
-    marginBottom: 16,
-  },
-  racePickerPanel: {
-    gap: 14,
-    marginBottom: 16,
-  },
-  summaryCard: {
-    backgroundColor: Colors.brandSurface,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    padding: 16,
-    marginBottom: 20,
-  },
-  summaryTitle: {
-    color: Colors.brandPrimary,
-    fontSize: 15,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  summaryText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 21,
-  },
   authChoiceCard: {
     gap: 12,
   },
@@ -2648,23 +1838,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     textAlign: 'center',
-  },
-  labelHint: {
-    fontSize: 12,
-    color: Colors.textMuted,
-    marginBottom: 10,
-    marginTop: -2,
-  },
-  textInput: {
-    backgroundColor: Colors.surfaceSecondary,
-    color: Colors.textPrimary,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 16,
-    marginBottom: 8,
   },
   primaryButton: {
     backgroundColor: Colors.brandPrimary,
@@ -2725,430 +1898,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 16,
   },
-  raceCenteredState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 28,
-    gap: 10,
-  },
-  raceStateText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    textAlign: 'center',
-  },
-  retryButtonInline: {
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.brandSurface,
-  },
-  retryButtonInlineText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  emptyTitle: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  emptySubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 20,
-    textAlign: 'center',
-  },
-  inlineInfoRow: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    marginBottom: 12,
-  },
-  selectionActionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    marginBottom: 12,
-    flexWrap: 'wrap',
-  },
-  raceList: {
-    gap: 16,
-  },
-  raceEventList: {
-    gap: 16,
-  },
-  raceGroup: {
-    gap: 0,
-  },
-  raceGroupLabel: {
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-    marginBottom: 8,
-  },
-  raceChoiceCard: {
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 13,
-    gap: 5,
-  },
-  raceChoiceCardSelected: {
-    borderLeftColor: Colors.brandPrimary,
-    borderBottomColor: 'transparent',
-    backgroundColor: Colors.brandSurface,
-  },
-  raceChoiceHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-  },
-  raceChoiceTitle: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  raceChoiceStats: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  raceChoiceMeta: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  eventSummaryRow: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  summaryPill: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  summaryPillText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  selectionCountPill: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  selectionCountText: {
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  raceSelectedBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 999,
-    backgroundColor: Colors.brandPrimary,
-  },
-  raceSelectedBadgeText: {
-    color: Colors.textOnBrand,
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  modalBackdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(18, 24, 16, 0.24)',
-  },
-  sheetOverlay: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sheetCard: {
-    maxHeight: '82%',
-    backgroundColor: Colors.background,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 24,
-    gap: 14,
-  },
-  sheetHandle: {
-    width: 42,
-    height: 4,
-    borderRadius: 999,
-    backgroundColor: Colors.border,
-    alignSelf: 'center',
-  },
-  sheetHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 12,
-  },
-  sheetHeaderText: {
-    flex: 1,
-    gap: 4,
-  },
-  sheetTitle: {
-    color: Colors.textPrimary,
-    fontSize: 20,
-    fontWeight: '800',
-  },
-  sheetSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  sheetCloseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  sheetImage: {
-    width: '100%',
-    height: 132,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  sheetHint: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 19,
-  },
-  sheetContent: {
-    gap: 10,
-    paddingBottom: 12,
-  },
-  formatRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-  },
-  formatRowSelected: {
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.brandSurface,
-  },
-  formatRowContent: {
-    flex: 1,
-    gap: 4,
-  },
-  formatTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  formatSubtitle: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-  },
-  formatActionButton: {
-    minWidth: 112,
-    minHeight: 42,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.brandSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 12,
-  },
-  formatActionButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  productList: {
-    gap: 8,
-  },
-  productBrandGroup: {
-    gap: 0,
-  },
-  productBrandHeader: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    backgroundColor: Colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    marginBottom: 8,
-  },
-  productBrandHeaderExpanded: {
-    backgroundColor: Colors.brandSurface,
-    borderColor: Colors.brandBorder,
-  },
-  productBrandHeaderActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  productBrandTitleRow: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  productBrandTitle: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  productBrandTitleOfficial: {
-    color: Colors.brandLight,
-  },
-  productBrandSelectedPill: {
-    minWidth: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: Colors.brandPrimary,
-  },
-  productBrandSelectedText: {
-    color: Colors.textOnBrand,
-    fontSize: 12,
-    fontWeight: '800',
-  },
-  productBrandCountPill: {
-    minWidth: 30,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    alignItems: 'center',
-  },
-  productBrandCountText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  productBrandItems: {
-    gap: 0,
-  },
-  productChoiceCard: {
-    padding: 14,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    marginBottom: 10,
-  },
-  productChoiceCardSelected: {
-    borderColor: Colors.brandPrimary,
-    backgroundColor: Colors.brandSurface,
-  },
-  productChoiceContentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  productChoiceMedia: {
-    position: 'relative',
-    flexShrink: 0,
-  },
-  productChoiceImage: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-  },
-  productChoiceImagePlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  productVerifiedBadge: {
-    position: 'absolute',
-    top: -5,
-    right: -5,
-    width: 24,
-    height: 24,
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  productVerifiedIcon: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'contain',
-  },
-  productChoiceBody: {
-    flex: 1,
-    minWidth: 0,
-    gap: 6,
-  },
-  productChoiceTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-    flex: 1,
-  },
-  productChoiceMeta: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  productSelectControl: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    borderColor: Colors.border,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  productSelectControlSelected: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
-  },
   notificationIconWrap: {
     width: 72,
     height: 72,
@@ -3175,54 +1924,6 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 24,
   },
-  raceImportNoticeBox: {
-    backgroundColor: 'transparent',
-    borderWidth: 0,
-    padding: 0,
-    marginBottom: 2,
-  },
-  importGpxButton: {
-    minHeight: 48,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 14,
-    marginTop: 4,
-  },
-  importGpxButtonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  importGpxButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  importGpxFeedback: {
-    marginTop: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  importGpxFeedbackWarning: {
-    borderColor: Colors.warning,
-  },
-  importGpxFeedbackText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  nutritionNoticeBox: {
-    marginBottom: 14,
-  },
   noticeTitle: {
     color: Colors.textPrimary,
     fontSize: 15,
@@ -3233,11 +1934,5 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
     fontSize: 14,
     lineHeight: 20,
-  },
-  nutritionSelectionStatus: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-    marginTop: 2,
   },
 });

@@ -1,6 +1,7 @@
 import type { ElevationPoint } from '../components/PlanForm';
 import { parseGpxForRaceImport, type MobileGpxPreviewPoint } from './gpx';
 import { WEB_API_BASE_URL } from './webApi';
+import { fetchWithTimeout } from './fetchWithTimeout';
 
 export type CatalogAidStation = {
   name: string;
@@ -303,12 +304,14 @@ async function fetchRaceProfilePayload(
     try {
       const { supabase } = await import('./supabase');
       const url = `${apiBase}/api/onboarding/race-profile?raceId=${encodeURIComponent(raceId)}`;
-      let response = await fetch(url);
+      let response = await fetchWithTimeout(url);
 
       if (!response.ok) {
         const session = await supabase.auth.getSession();
         const accessToken = session.data?.session?.access_token ?? null;
-        if (accessToken) response = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+        if (accessToken) {
+          response = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+        }
       }
 
       if (!response.ok) {

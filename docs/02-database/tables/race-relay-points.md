@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -10,7 +10,9 @@ related_files:
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
 related_tables:
   - race_relay_points
   - races
@@ -29,6 +31,7 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 - A point may stand alone or reference a source `race_aid_stations` row.
 - Copied `name` and `km` values form the durable relay snapshot; deleting a linked ravito only clears the optional link.
 - Legs are derived from start, ordered points, and finish rather than stored as rows, then rendered only in the mobile Racebook `Course` tab's conditional `Relais` sub-tab.
+- The route still derives those legs; `RacebookStructuredCourseSections` only renders the typed result and never feeds it into nutrition or persistence.
 - Relay cards remain isolated from the event-level `Services` tab, the flag-filtered optional content and route-local transport expansion state in `Accès`, the single-open ravito accordion state, and the Racebook identity card's compact icon-only website/social actions, emergency action, flexible icon-and-separator metadata row, participation badges, and emphasized race-day row. Mixed formats show separate `Solo` and `Relais` badges in the metadata row.
 
 ## Racebook Identity Presentation

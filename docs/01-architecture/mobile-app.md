@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -10,6 +10,7 @@ related_files:
   - apps/mobile/locales/en.ts
   - apps/mobile/locales/types.ts
   - apps/mobile/package.json
+  - apps/mobile/.eslintrc.js
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
@@ -28,6 +29,9 @@ related_files:
   - apps/mobile/app/(app)/onboarding.tsx
   - apps/mobile/components/onboarding/OnboardingIntroSteps.tsx
   - apps/mobile/components/onboarding/OnboardingProfileSteps.tsx
+  - apps/mobile/components/onboarding/OnboardingProductChoice.tsx
+  - apps/mobile/components/onboarding/OnboardingRaceSelectionStep.tsx
+  - apps/mobile/components/onboarding/OnboardingNutritionProductsStep.tsx
   - apps/mobile/lib/onboardingGate.ts
   - apps/mobile/lib/onboardingStatus.ts
   - apps/mobile/lib/onboardingStatusCore.ts
@@ -35,6 +39,9 @@ related_files:
   - apps/mobile/components/profile/ProfileOnboardingSection.tsx
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookAccessSection.tsx
+  - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
+  - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
   - apps/mobile/components/premium/PremiumUpsellModal.tsx
   - apps/mobile/components/profile/ProfileLanguageSection.tsx
   - apps/mobile/components/profile/ProfilePremiumSection.tsx
@@ -42,15 +49,19 @@ related_files:
   - apps/mobile/components/race/GpxRoutePreviewCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
   - apps/mobile/components/racebook/RacebookSponsorExperience.tsx
+  - apps/mobile/components/racebook/RacebookTabBar.tsx
   - apps/mobile/components/plan-form/ProfileMiniChart.tsx
   - packages/design-system/src/branding.ts
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/lib/gpx.ts
   - apps/mobile/hooks/usePremium.ts
+  - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/hooks/useProfileScreen.ts
+  - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/mobile/lib/racebookSponsors.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/planShareLinks.ts
@@ -112,6 +123,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - `posthog-react-native ^4.45.0`
 - `react-native-webview 13.15.0` for the interactive Racebook Leaflet map
 - `test:e2e:ux`, which invokes the local Maestro UX journey without storing credentials in source control
+- `lint`, which runs the Expo-compatible ESLint rules while excluding generated export directories
 
 The root layout imports only the nine Bricolage Grotesque and JetBrains Mono weight subpaths registered in `useFonts`. Importing from each font package root makes Metro retain unused weights and italics in the production asset graph.
 
@@ -160,10 +172,12 @@ The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is t
 - push registration once a session is active;
 - Resend contact sync once an identified, non-anonymous session is active.
 
+`apps/mobile/hooks/useSessionSideEffects.ts` owns the session-bound trial refresh, identified-user Resend sync, and pending account/guest conversion finalization. It deliberately does not own session navigation, PostHog identity/reset, or push registration, which remain coordinated by the root layout.
+
 The layout also tracks auth analytics for signed-in and signed-out events.
 Cold-start and post-auth navigation resolves the mobile onboarding statuses first, then opens either the initial chooser, a persisted in-progress stage, or the Courses catalog.
 The initial chooser is skippable and offers independent Plan and RaceBook tours. Plan setup remains a hidden non-tab flow, then hands off to the real Courses, Nutrition, plan creation, and editor screens. RaceBook uses the real Courses catalog and published RaceBook screen. In the guided RaceBook mode, the catalog immediately lists events with an ordinarily accessible published RaceBook and also lets the runner narrow that list by searching. It exposes only the RaceBook action so selecting a course cannot divert into plan creation. Those real screens keep normal tab navigation and add a non-blocking guide card. `user_profiles.plan_onboarding_status` and `racebook_onboarding_status` distinguish pending, in-progress, skipped, and completed states; local AsyncStorage retains the current stage/race for cold-start resumption.
-The shared onboarding shell, initial tour chooser, overview, workflow explanation, and completion summary are presentational components in `apps/mobile/components/onboarding/OnboardingIntroSteps.tsx`. Personal details, performance inputs, and nutrition targets live in `OnboardingProfileSteps.tsx`. The route remains responsible for state, validation, persistence, authentication callbacks, and navigation; extracted onboarding components must stay free of session and Supabase side effects.
+The shared onboarding shell, initial tour chooser, overview, workflow explanation, and completion summary are presentational components in `apps/mobile/components/onboarding/OnboardingIntroSteps.tsx`. Personal details, performance inputs, and nutrition targets live in `OnboardingProfileSteps.tsx`. Course search, personal GPX import presentation, event-format selection, and its format sheet live in `OnboardingRaceSelectionStep.tsx`; searchable brand/product selection lives in `OnboardingNutritionProductsStep.tsx`, with each product row delegated to `OnboardingProductChoice.tsx`. The route remains responsible for state, validation, loading, persistence, authentication callbacks, analytics, and navigation; extracted onboarding components must stay free of session and Supabase side effects.
 The Profile personal tab exposes both tours with their statuses. Its tab icon shows a notification dot until both are completed; skipped tours intentionally keep the dot visible. Replaying a completed tour does not downgrade its durable status.
 On cold start and after authentication, sessions that do not require onboarding open on the `catalog` Courses tab by default. The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of snapping to the default `catalog` tab when a hidden detail route was pushed.
 The visible bottom tab bar derives its bottom padding and total height from `react-native-safe-area-context`. This keeps the four tab actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS.
@@ -227,7 +241,7 @@ The runner-facing subscription surfaces now keep App Store review compliance det
 
 ## RaceBook Sponsors
 
-When a runner presses the RaceBook action in the Courses sheet, mobile starts the lightweight `/api/racebook-sponsors` request before navigation and warms the returned loading logos. `racebookSponsors.ts` shares that short-lived account/race-scoped in-flight request with the destination so the screen does not issue a duplicate lookup. Direct links use the same destination fallback without requiring prior catalog state. Published sponsor and RaceBook requests are anonymous-first to reuse the Vercel CDN; the session token is sent only on the private-preview retry. The RaceBook starts its full data request on mount, holds its visible track at the initial position until the sponsor lookup and loading-logo prefetch settle, then advances toward a guarded pre-completion ceiling and visibly reaches 100% before content replaces it. Its dedicated loading composition keeps the native back/title header but temporarily hides feedback and the bottom tab bar. A localized preparation title, thin progress trail, and unframed runner form one compact group above a single sponsor panel; the panel reserves two vertically stacked slots separated by one subtle divider and occupies roughly one third of the available viewport. An empty or failed sponsor response removes the reserved panel and returns to the ordinary progress loader. When one or two loading sponsors exist, the 2.5-second minimum presentation starts only after that composition is ready, even when the RaceBook snapshot was already available from cache. Pull-to-refresh clears the short profile request cache and reloads RaceBook/profile/route data, but does not replay the sponsor interstitial.
+When a runner presses the RaceBook action in the Courses sheet, mobile starts the lightweight `/api/racebook-sponsors` request before navigation and warms the returned loading logos. `racebookSponsors.ts` shares that short-lived account/race-scoped in-flight request with the destination so the screen does not issue a duplicate lookup. Direct links use the same destination fallback without requiring prior catalog state. Published sponsor and RaceBook requests are anonymous-first to reuse the Vercel CDN; the session token is sent only on the private-preview retry. Server-mediated mobile fetches use the shared abortable timeout helper so a stalled public attempt cannot hold the loading flow indefinitely. The RaceBook starts its full data request on mount, holds its visible track at the initial position until the sponsor lookup and loading-logo prefetch settle, then advances toward a guarded pre-completion ceiling and visibly reaches 100% before content replaces it. Its dedicated loading composition keeps the native back/title header but temporarily hides feedback and the bottom tab bar. A localized preparation title, thin progress trail, and unframed runner form one compact group above a single sponsor panel; the panel reserves two vertically stacked slots separated by one subtle divider and occupies roughly one third of the available viewport. An empty or failed sponsor response removes the reserved panel and returns to the ordinary progress loader. When one or two loading sponsors exist, the 2.5-second minimum presentation starts only after that composition is ready, even when the RaceBook snapshot was already available from cache. Pull-to-refresh clears the short profile request cache and reloads RaceBook/profile/route data, but does not replay the sponsor interstitial.
 
 Active banner sponsors render in a roughly 44 dp strip before the identity card, with 24 dp logos and native text. One sponsor is centered without animation. With two or more sponsors, the banner is a width-independent horizontal carousel: one centered sponsor remains visible for three seconds, transitions to the next over 520 ms, and uses a duplicate first slide to loop without a visible backward jump. System reduced-motion preference disables autoplay and switches to a manually scrollable horizontal list. Only rows with a redirect URL are pressable, and all sponsor links open the counted server redirect rather than a direct target.
 
@@ -270,7 +284,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.
 
 - Keep the shared/iOS runtime at `1.1.0` until a new iOS native build is released. Android overrides it with `1.1.1`; Android production OTAs must be published from configuration that resolves that platform runtime.
-- Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export.
+- Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export. Likewise, import Expo vector-icon families from their direct subpath (for example, `@expo/vector-icons/Ionicons`) instead of the package barrel so Metro does not retain unrelated icon-font families.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
 - Mobile writes some private race cleanup directly through Supabase after calling the web API. RLS must continue to allow owner updates for private races.
 - The current mobile GPX route preview is a native SVG sketch, not an interactive slippy map. Reuse it when a lightweight course overview is enough; introduce a dedicated native map stack only when mobile really needs pan/zoom tiles.
@@ -304,6 +318,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Apple Sign in uses `expo-crypto` to hash the nonce challenge sent to Apple while Supabase receives the raw nonce for ID-token verification.
 - Keep `@react-native-google-signin/google-signin` excluded from iOS in both `apps/mobile/package.json` and `apps/mobile/react-native.config.js`, and keep it out of `apps/mobile/app.config.ts` plugins unless native Google Sign-In is intentionally enabled on iOS; otherwise `GoogleSignIn` can both pull `AppCheckCore` back into the iOS pod graph and trigger a Fabric launch crash from a partially registered `RNGoogleSignInButton` component.
 - Keep the mobile Racebook read-only. A course may remain in the catalog while its Racebook is hidden. The catalog CTA and direct screen load must enforce the public flags for runners and independently verify active event membership before granting an unpublished organizer preview. It must not import organizer dashboard mutation logic or admin routes. Preserve the identity, four primary tabs, conditional Services tab, the `Course` sub-tabs that separate route visuals, ravitos, and conditional relay legs, and the single-open ravito accordion so long station lists remain scannable without hiding their essential summary.
+- Keep the route focused on loading, state and navigation: access cards live in `RacebookAccessSection`, the single-open ravito presentation in `RacebookAidStationsSection`, and relay/SAS/podium cards in `RacebookStructuredCourseSections`. These components receive already-normalized data, explicit copy, callbacks and the resolved edition theme; they must not introduce their own data access or publication decisions.
 - Keep sponsor requests server-mediated and edition-scoped. Reserve the unified two-slot loading panel before the lightweight sponsor response so late logos do not shift the page, but remove it once the lookup settles without placements. Restore the feedback action and inset-aware bottom tab bar as soon as loading completes or the screen unmounts. Keep the compact banner carousel based on viewport-sized slides rather than aggregate content measurement, and keep reduced-motion users on the manual list. Never expose direct sponsor table access or the destination website URL and never replay the 2.5-second sponsor gate on refresh.
 - Keep sponsor prefetch account-scoped and ephemeral. Catalog warmup may share the authorized server response with the immediately opened screen, but session changes must resolve a different cache key and direct navigation must remain fully functional.
 - Do not remove or shorten the 2.5-second sponsor presentation when data becomes cache-fast. CDN and request deduplication optimize backend load; sponsor visibility remains a deliberate product requirement once at least one loading placement and its logo are ready.

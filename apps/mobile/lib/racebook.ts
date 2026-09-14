@@ -1,4 +1,5 @@
 import { WEB_API_BASE_URL } from './webApi';
+import { fetchWithTimeout } from './fetchWithTimeout';
 
 type OrganizerEquipmentItem = {
   id: string | null;
@@ -830,13 +831,13 @@ async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPaylo
   const url = `${WEB_API_BASE_URL}/api/racebook-data?raceId=${encodeURIComponent(raceId)}`;
 
   try {
-    const publicResponse = await fetch(url);
+    const publicResponse = await fetchWithTimeout(url);
     let response = publicResponse;
 
     if (!publicResponse.ok) {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
-      if (token) response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+      if (token) response = await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
     }
 
     if (!response.ok) return null;

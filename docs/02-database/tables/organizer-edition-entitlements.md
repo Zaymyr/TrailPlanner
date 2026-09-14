@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_entitlements
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
@@ -49,7 +50,7 @@ The row is edition-scoped, while human access remains event-scoped through `race
 
 ## Indexes
 
-The unique `edition_id` constraint provides the effective-right lookup.
+The unique `edition_id` constraint provides the effective-right lookup. A partial `granted_by` index supports Auth-user deletion cleanup and grant attribution.
 
 ## RLS Policies
 

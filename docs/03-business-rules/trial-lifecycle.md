@@ -1,12 +1,13 @@
 ---
 title: Trial Lifecycle
 scope: business-rule
-last_verified: 2026-05-17
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/web/lib/trial.ts
   - apps/web/lib/trial-server.ts
   - apps/mobile/lib/trial.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
   - supabase/migrations/20260408100000_initialize_trial_profile_on_user_created.sql
   - apps/web/app/api/auth/session/route.ts
 related_tables:
@@ -72,7 +73,7 @@ It:
 `apps/mobile/lib/trial.ts` uses the same 15-day duration. It:
 
 - uses an in-flight map per user to prevent duplicate initialization;
-- first tries the web `/api/trial/status` path;
+- first tries the web `/api/trial/status` path with the shared 10-second timeout for idempotent GETs;
 - falls back to direct Supabase upsert/update when needed.
 
 ## Seen Markers

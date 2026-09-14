@@ -1,10 +1,12 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -84,6 +86,8 @@ related_tables:
 ---
 
 # Migrations
+
+`20260914055319_harden_privileged_database_access.sql` removes client-writable profile roles from database authorization, clears untrusted legacy admin labels, protects server-owned profile entitlement/analytics fields, restricts user-created races to private standalone rows, restricts privileged SECURITY DEFINER RPCs to `service_role`, enables invoker security on `product_brand_review`, pins advisor-reported function search paths, optimizes the replaced owner/admin RLS predicates, and adds five targeted foreign-key indexes. `supabase/tests/privileged_database_access_checks.sql` verifies profile-field and race-publication escalation denial, trusted-metadata-only admin resolution, view security, and RPC privileges in a rollback transaction.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 
@@ -392,6 +396,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 
 - Do not copy old `race_catalog` DDL from `docs/_archive/db/schema.sql`.
 - Do not add `user_metadata` admin checks in new policies.
+- Do not grant authority from `user_profiles.role`; the final security migration keeps it as server-managed legacy data only.
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.

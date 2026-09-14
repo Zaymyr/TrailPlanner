@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: medium
 related_files:
   - package.json
@@ -50,6 +50,7 @@ npm run lint
 9. For Supabase changes, verify RLS and service-role behavior separately.
 10. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
     Run `npx expo-doctor apps/mobile` after installation and distinguish intentional monorepo Metro isolation warnings from actual SDK version mismatches.
+    Run `npm run lint -w @trailplanner/mobile` after TypeScript or JavaScript changes.
 11. For mobile navigation, authentication, or visual changes, run the Maestro shell journey and review its screenshots against [Mobile UX Audit](mobile-ux-audit.md). Treat the automated pass as functional evidence, not as proof that the composition is harmonious.
 
 The web CI workflow runs lint, typecheck, the complete web Vitest suite, then the production build. Keep targeted local tests for fast feedback, but do not remove the full test gate from CI.

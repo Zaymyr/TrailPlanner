@@ -1,10 +1,12 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-09-11
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
@@ -52,7 +54,7 @@ rg -n "create policy|drop policy|enable row level security" supabase/migrations
 
 4. Write a migration that drops/recreates or adds the policy explicitly.
 5. For owner policies, use `auth.uid()`.
-6. For admin checks, use `app_metadata` or a server/profile role pattern.
+6. For admin checks, use trusted `app_metadata` or a server-side Auth lookup; never use `user_profiles.role`.
 7. Add `with check` for insert/update policies.
 8. Add or update a manual SQL check when the policy has relationship logic.
 9. Update [../02-database/rls-policies.md](../02-database/rls-policies.md).
@@ -74,6 +76,7 @@ Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended desi
 Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping needs explicit anon/authenticated select grants, parent-visibility RLS, and service-only mutation functions.
 Use `supabase/tests/organizer_edition_entitlements_checks.sql` with organizer offer route tests when a public child read depends on a service-only commercial entitlement.
 Use `supabase/tests/organizer_racebook_module_settings_checks.sql` to keep service-only publication functions restricted while verifying that trusted admins are resolved from app metadata, never user metadata, and that a service-role invoker RPC does not query `auth.users` directly.
+Use `supabase/tests/privileged_database_access_checks.sql` for global privileged-RPC grants, legacy profile-role self-promotion, and trusted admin metadata.
 
 ## Do Not
 

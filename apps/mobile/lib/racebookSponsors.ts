@@ -2,6 +2,7 @@ import { Image } from 'react-native';
 
 import { supabase } from './supabase';
 import { WEB_API_BASE_URL } from './webApi';
+import { fetchWithTimeout } from './fetchWithTimeout';
 import {
   EMPTY_RACEBOOK_SPONSORS,
   normalizeRacebookSponsorPresentation,
@@ -32,11 +33,11 @@ export async function fetchRacebookSponsors(raceId: string): Promise<RacebookSpo
   if (cached) sponsorRequests.delete(cacheKey);
 
   const url = `${WEB_API_BASE_URL}/api/racebook-sponsors?raceId=${encodeURIComponent(raceId)}`;
-  const request = fetch(url)
+  const request = fetchWithTimeout(url)
     .then(async (publicResponse) => {
       const response = publicResponse.ok || !token
         ? publicResponse
-        : await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        : await fetchWithTimeout(url, { headers: { Authorization: `Bearer ${token}` } });
       if (!response.ok) return EMPTY_RACEBOOK_SPONSORS;
       return normalizeRacebookSponsorPresentation(await response.json().catch(() => null));
     })

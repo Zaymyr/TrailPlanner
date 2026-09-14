@@ -11,7 +11,7 @@ import {
   View,
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   RACEBOOK_EDITION_LOGO_ENABLED,
   resolveRacebookTheme,
@@ -30,11 +30,19 @@ import {
   RacebookLoadingScreen as SponsorLoadingScreen,
   SponsorBanner as RacebookSponsorBanner,
 } from '../../../../components/racebook/RacebookSponsorExperience';
+import {
+  RacebookAccessSection,
+  type RacebookAccessLocation,
+  type RacebookAccessTransport,
+} from '../../../../components/racebook/RacebookAccessSection';
+import { RacebookAidStationsSection } from '../../../../components/racebook/RacebookAidStationsSection';
+import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
+import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
 import { clearRaceProfileRequestCache, fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../../../lib/raceProfile';
-import { approximateDistanceKm, fetchRaceRacebookData, type RacebookAidStation, type RacebookScreenData } from '../../../../lib/racebook';
+import { approximateDistanceKm, fetchRaceRacebookData, type RacebookScreenData } from '../../../../lib/racebook';
 import {
   EMPTY_RACEBOOK_SPONSORS,
   fetchRacebookSponsors,
@@ -63,27 +71,6 @@ type LabeledItem = {
   actionUrl: string | null;
   dataValue?: boolean;
   tone?: 'neutral' | 'positive' | 'critical';
-};
-
-type MetricItem = {
-  label: string;
-  value: string;
-  tone?: 'neutral' | 'gain' | 'loss';
-};
-
-type AccessLocationItem = {
-  key: string;
-  label: string;
-  value: string;
-  actionUrl: string | null;
-};
-
-type AccessTransportItem = {
-  key: 'parking' | 'shuttles';
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  description: string;
-  schedule?: string | null;
 };
 
 type BibPickupSlot = RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number];
@@ -238,10 +225,6 @@ function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
-function formatStationDistance(km: number) {
-  return `${formatDistance(km)} km`;
-}
-
 function SectionCard({
   title,
   children,
@@ -338,154 +321,6 @@ function InlineAlertCard({
         </Text>
       </View>
     </View>
-  );
-}
-
-function AccessPriorityCard({ title, items }: { title: string; items: Array<{ label: string; value: string }> }) {
-  return (
-    <View style={styles.accessPriorityCard}>
-      <View style={styles.accessPriorityHeader}>
-        <View style={styles.accessPriorityIcon}>
-          <Ionicons name="alert-circle-outline" size={18} color={Colors.warning} />
-        </View>
-        <Text style={styles.accessPriorityTitle}>{title}</Text>
-      </View>
-      <View style={styles.accessPriorityList}>
-        {items.map((item, index) => (
-          <View key={item.label} style={[styles.accessPriorityItem, index > 0 ? styles.accessPriorityItemBorder : null]}>
-            <Text style={styles.accessPriorityLabel}>{item.label}</Text>
-            <Text style={styles.accessPriorityText}>{item.value}</Text>
-          </View>
-        ))}
-      </View>
-    </View>
-  );
-}
-
-function AccessLocationsCard({
-  title,
-  locations,
-  generalMapUrl,
-  openMapsLabel,
-  openGeneralMapLabel,
-  onOpenMap,
-}: {
-  title: string;
-  locations: AccessLocationItem[];
-  generalMapUrl: string | null;
-  openMapsLabel: string;
-  openGeneralMapLabel: string;
-  onOpenMap: (location: string) => void;
-}) {
-  const brandTheme = useRacebookBrandTheme();
-  return (
-    <SectionCard title={title}>
-      <View style={styles.accessLocationList}>
-        {locations.map((location, index) => (
-          <View key={location.key} style={[styles.accessLocationItem, index > 0 ? styles.accessLocationItemBorder : null]}>
-            <View style={[styles.accessLocationIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
-              <Ionicons name="location-outline" size={18} color={brandTheme.primaryColor} />
-            </View>
-            <View style={styles.accessLocationContent}>
-              <Text style={styles.accessLocationLabel}>{location.label}</Text>
-              <Text style={styles.accessLocationValue}>{location.value}</Text>
-              {location.actionUrl ? (
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={`${openMapsLabel} - ${location.label}`}
-                  onPress={() => {
-                    onOpenMap(location.key);
-                    Linking.openURL(location.actionUrl!).catch(() => {});
-                  }}
-                  style={({ pressed }) => [styles.accessMapAction, pressed ? styles.accessActionPressed : null]}
-                >
-                  <Ionicons name="navigate-outline" size={15} color={brandTheme.primaryColor} />
-                  <Text style={[styles.accessMapActionText, { color: brandTheme.primaryColor }]}>{openMapsLabel}</Text>
-                </Pressable>
-              ) : null}
-            </View>
-          </View>
-        ))}
-      </View>
-      {generalMapUrl ? (
-        <Pressable
-          accessibilityRole="link"
-          accessibilityLabel={openGeneralMapLabel}
-          onPress={() => {
-            onOpenMap('general');
-            Linking.openURL(generalMapUrl).catch(() => {});
-          }}
-          style={({ pressed }) => [styles.accessGeneralMapAction, { backgroundColor: brandTheme.primaryColor }, pressed ? styles.accessActionPressed : null]}
-        >
-          <Ionicons name="map-outline" size={17} color={brandTheme.onPrimaryColor} />
-          <Text style={[styles.accessGeneralMapActionText, { color: brandTheme.onPrimaryColor }]}>{openGeneralMapLabel}</Text>
-        </Pressable>
-      ) : null}
-    </SectionCard>
-  );
-}
-
-function AccessTransportCard({
-  title,
-  items,
-  expanded,
-  onToggle,
-  showDetailsLabel,
-  hideDetailsLabel,
-  scheduleLabel,
-}: {
-  title: string;
-  items: AccessTransportItem[];
-  expanded: Record<AccessTransportItem['key'], boolean>;
-  onToggle: (key: AccessTransportItem['key']) => void;
-  showDetailsLabel: string;
-  hideDetailsLabel: string;
-  scheduleLabel: string;
-}) {
-  const brandTheme = useRacebookBrandTheme();
-  return (
-    <SectionCard title={title}>
-      <View style={styles.accessTransportList}>
-        {items.map((item, index) => {
-          const isExpanded = expanded[item.key];
-          return (
-            <Pressable
-              key={item.key}
-              accessibilityRole="button"
-              accessibilityState={{ expanded: isExpanded }}
-              accessibilityLabel={`${item.title} - ${isExpanded ? hideDetailsLabel : showDetailsLabel}`}
-              onPress={() => onToggle(item.key)}
-              style={({ pressed }) => [
-                styles.accessTransportItem,
-                index > 0 ? styles.accessTransportItemBorder : null,
-                pressed ? styles.accessActionPressed : null,
-              ]}
-            >
-              <View style={styles.accessTransportHeader}>
-                <View style={[styles.accessTransportIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
-                  <Ionicons name={item.icon} size={18} color={brandTheme.primaryColor} />
-                </View>
-                <View style={styles.accessTransportHeading}>
-                  <Text style={styles.accessTransportTitle}>{item.title}</Text>
-                  <Text style={styles.accessTransportHint}>{isExpanded ? hideDetailsLabel : showDetailsLabel}</Text>
-                </View>
-                <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={18} color={Colors.textSecondary} />
-              </View>
-              <Text numberOfLines={isExpanded ? undefined : 2} style={styles.accessTransportText}>{item.description}</Text>
-              {isExpanded && item.schedule ? (
-                <View style={[styles.accessScheduleRow, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
-                  <Ionicons name="time-outline" size={16} color={brandTheme.accentColor} />
-                  <View style={styles.accessScheduleContent}>
-                    <Text style={[styles.accessScheduleLabel, { color: brandTheme.primaryColor }]}>{scheduleLabel}</Text>
-                    <Text style={styles.accessScheduleText}>{item.schedule}</Text>
-                  </View>
-                </View>
-              ) : null}
-            </Pressable>
-          );
-        })}
-      </View>
-    </SectionCard>
   );
 }
 
@@ -637,19 +472,6 @@ function HeroDetailGroup({ title, values }: { title: string; values: string[] })
   );
 }
 
-function ChipRow({ values }: { values: string[] }) {
-  const brandTheme = useRacebookBrandTheme();
-  return (
-    <View style={styles.chipRow}>
-      {values.map((value) => (
-        <View key={value} style={[styles.chip, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}>
-          <Text style={[styles.chipText, { color: brandTheme.primaryColor }]}>{value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function GearList({
   items,
   requiredLabel,
@@ -713,213 +535,6 @@ function GearList({
   );
 }
 
-function ServiceIconButton({
-  icon,
-  label,
-  active,
-  onPress,
-}: {
-  icon: keyof typeof Ionicons.glyphMap;
-  label: string;
-  active: boolean;
-  onPress: () => void;
-}) {
-  const brandTheme = useRacebookBrandTheme();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ expanded: active }}
-      hitSlop={4}
-      onPress={onPress}
-      style={[styles.serviceIconButton, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }, active ? styles.serviceIconButtonActive : null, active ? { backgroundColor: brandTheme.primaryColor, borderColor: brandTheme.primaryColor } : null]}
-    >
-      <Ionicons name={icon} size={17} color={active ? brandTheme.onPrimaryColor : brandTheme.primaryColor} />
-    </Pressable>
-  );
-}
-
-function AidStationCard({
-  station,
-  previousStation,
-  copy,
-  expanded,
-  onToggle,
-}: {
-  station: RacebookAidStation;
-  previousStation?: RacebookAidStation;
-  expanded: boolean;
-  onToggle: () => void;
-  copy: {
-    aidProducts: string;
-    aidWater: string;
-    aidFood: string;
-    aidAssistance: string;
-    aidDropBag: string;
-    aidDistance: string;
-    aidElevationGain: string;
-    aidElevationLoss: string;
-    aidCutoffTime: string;
-  };
-}) {
-  const brandTheme = useRacebookBrandTheme();
-  const [activeServiceLabel, setActiveServiceLabel] = useState<string | null>(null);
-  const serviceItems = [
-    station.waterAvailable ? { icon: 'water-outline' as const, label: copy.aidWater } : null,
-    station.solidAvailable ? { icon: 'restaurant-outline' as const, label: copy.aidFood } : null,
-    station.assistanceAllowed ? { icon: 'people-outline' as const, label: copy.aidAssistance } : null,
-    station.organizerDetails.dropBagAvailable ? { icon: 'briefcase-outline' as const, label: copy.aidDropBag } : null,
-  ].filter((value): value is NonNullable<typeof value> => Boolean(value));
-
-  const segmentGain = (() => {
-    if (station.organizerDetails.cumulativeElevationGainM === null) return null;
-    if (!previousStation || previousStation.organizerDetails.cumulativeElevationGainM === null) {
-      return Math.round(station.organizerDetails.cumulativeElevationGainM);
-    }
-    return Math.round(station.organizerDetails.cumulativeElevationGainM - previousStation.organizerDetails.cumulativeElevationGainM);
-  })();
-
-  const segmentLoss = (() => {
-    if (station.organizerDetails.cumulativeElevationLossM === null) return null;
-    if (!previousStation || previousStation.organizerDetails.cumulativeElevationLossM === null) {
-      return Math.round(station.organizerDetails.cumulativeElevationLossM);
-    }
-    return Math.round(station.organizerDetails.cumulativeElevationLossM - previousStation.organizerDetails.cumulativeElevationLossM);
-  })();
-
-  const metricItems: MetricItem[] = [
-    { label: copy.aidDistance, value: formatStationDistance(station.km) },
-    ...(segmentGain !== null ? [{ label: copy.aidElevationGain, value: `${segmentGain} m`, tone: 'gain' as const }] : []),
-    ...(segmentLoss !== null ? [{ label: copy.aidElevationLoss, value: `${segmentLoss} m`, tone: 'loss' as const }] : []),
-    ...(station.organizerDetails.cutoffTime ? [{ label: copy.aidCutoffTime, value: station.organizerDetails.cutoffTime }] : []),
-  ];
-
-  useEffect(() => {
-    if (!expanded) setActiveServiceLabel(null);
-  }, [expanded]);
-
-  const summaryMetrics = metricItems.slice(1);
-
-  return (
-    <View style={styles.aidStationCard}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={[
-          station.name,
-          formatStationDistance(station.km),
-          ...serviceItems.map((item) => item.label),
-          ...summaryMetrics.map((item) => `${item.label} ${item.value}`),
-        ].join(', ')}
-        accessibilityState={{ expanded }}
-        onPress={onToggle}
-        style={({ pressed }) => [styles.aidStationSummary, pressed ? styles.aidStationSummaryPressed : null, pressed ? { backgroundColor: brandTheme.primarySurfaceColor } : null]}
-      >
-        <View style={styles.aidStationSummaryMain}>
-          <Text style={styles.aidStationName} numberOfLines={1}>
-            {station.name}
-          </Text>
-          {serviceItems.length > 0 || summaryMetrics.length > 0 ? (
-            <View style={styles.aidStationSummaryMeta}>
-              {serviceItems.length > 0 ? (
-                <View style={styles.serviceSummaryRow}>
-                  {serviceItems.map((item) => (
-                    <View key={`${station.id}-summary-${item.label}`} style={[styles.serviceSummaryIcon, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}>
-                      <Ionicons name={item.icon} size={13} color={brandTheme.primaryColor} />
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-              {summaryMetrics.map((item) => (
-                <DataText
-                  key={`${station.id}-summary-${item.label}`}
-                  numberOfLines={1}
-                  style={[
-                    styles.aidStationSummaryMetric,
-                    item.tone === 'gain' ? styles.segmentGainText : null,
-                    item.tone === 'loss' ? styles.segmentLossText : null,
-                  ]}
-                >
-                  {item.label} {item.value}
-                </DataText>
-              ))}
-            </View>
-          ) : null}
-        </View>
-        <View style={styles.aidStationSummaryAction}>
-          <DataText style={styles.aidStationSummaryDistance}>{formatStationDistance(station.km)}</DataText>
-          <Ionicons
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={18}
-            color={Colors.textSecondary}
-          />
-        </View>
-      </Pressable>
-
-      {expanded ? (
-        <View style={styles.aidStationExpandedContent}>
-          <View style={styles.aidStationLayout}>
-            <View style={styles.aidStationMainColumn}>
-              {serviceItems.length > 0 ? (
-                <View style={styles.serviceInfoGroup}>
-                  <View style={styles.serviceIconRow}>
-                    {serviceItems.map((item) => (
-                      <ServiceIconButton
-                        key={`${station.id}-${item.label}`}
-                        icon={item.icon}
-                        label={item.label}
-                        active={activeServiceLabel === item.label}
-                        onPress={() => {
-                          setActiveServiceLabel((current) => (current === item.label ? null : item.label));
-                        }}
-                      />
-                    ))}
-                  </View>
-                  {activeServiceLabel ? (
-                    <View style={styles.serviceTooltip} accessibilityLiveRegion="polite">
-                      <Text style={styles.serviceTooltipText}>{activeServiceLabel}</Text>
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-
-              {station.products.length > 0 ? (
-                <View style={styles.inlineBlock}>
-                  <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
-                  <ChipRow values={station.products.map((product) => product.label)} />
-                </View>
-              ) : null}
-
-              {station.organizerDetails.organizerNote || station.notes ? (
-                <Text style={styles.noteText}>{station.organizerDetails.organizerNote ?? station.notes}</Text>
-              ) : null}
-            </View>
-
-            <View style={styles.aidStationMetricsColumn}>
-              {metricItems.map((item) => (
-                <View key={`${station.id}-${item.label}`} style={styles.metricRow}>
-                  <Text style={styles.metricLabel} numberOfLines={1}>
-                    {item.label}
-                  </Text>
-                  <DataText
-                    numberOfLines={1}
-                    style={[
-                      styles.metricValue,
-                      item.tone === 'gain' ? styles.segmentGainText : null,
-                      item.tone === 'loss' ? styles.segmentLossText : null,
-                    ]}
-                  >
-                    {item.value}
-                  </DataText>
-                </View>
-              ))}
-            </View>
-          </View>
-        </View>
-      ) : null}
-    </View>
-  );
-}
-
 export default function RaceRacebookScreen() {
   const { id, onboarding } = useLocalSearchParams<{ id?: string; onboarding?: 'racebook' }>();
   const router = useRouter();
@@ -941,7 +556,7 @@ export default function RaceRacebookScreen() {
   const [sponsorLookupDone, setSponsorLookupDone] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0.06);
   const [loadingExitDone, setLoadingExitDone] = useState(false);
-  const [expandedAccessTransport, setExpandedAccessTransport] = useState<Record<AccessTransportItem['key'], boolean>>({
+  const [expandedAccessTransport, setExpandedAccessTransport] = useState<Record<RacebookAccessTransport['key'], boolean>>({
     parking: false,
     shuttles: false,
   });
@@ -1371,7 +986,7 @@ export default function RaceRacebookScreen() {
     const normalizedStart = access.startAddress?.trim().toLocaleLowerCase().replace(/\s+/g, ' ') ?? '';
     const normalizedFinish = access.finishAddress?.trim().toLocaleLowerCase().replace(/\s+/g, ' ') ?? '';
     const sameLocation = Boolean(normalizedStart && normalizedStart === normalizedFinish);
-    const locations: AccessLocationItem[] = sameLocation
+    const locations: RacebookAccessLocation[] = sameLocation
       ? [{
           key: 'start-finish',
           label: t.catalog.racebookAccessSameLocation,
@@ -1385,14 +1000,14 @@ export default function RaceRacebookScreen() {
           access.finishAddress
             ? { key: 'finish', label: t.catalog.racebookFieldFinishLocation, value: access.finishAddress, actionUrl: access.finishLocation.googleMapsUrl }
             : null,
-        ].filter((value): value is AccessLocationItem => Boolean(value));
+        ].filter((value): value is RacebookAccessLocation => Boolean(value));
     const priorityItems = [
       access.note ? { label: t.catalog.racebookAccessImportantInfo, value: access.note } : null,
       access.enabledSections.roadRestrictions && access.roadRestrictions
         ? { label: t.catalog.racebookAccessRestrictions, value: access.roadRestrictions }
         : null,
     ].filter((value): value is { label: string; value: string } => Boolean(value));
-    const transportItems: AccessTransportItem[] = [];
+    const transportItems: RacebookAccessTransport[] = [];
     if (access.enabledSections.officialParkings && access.officialParkings) {
       transportItems.push({
         key: 'parking',
@@ -1770,36 +1385,12 @@ export default function RaceRacebookScreen() {
             <InlineAlertCard icon="megaphone-outline" title={t.catalog.racebookLastMinuteTitle} message={lastMinuteMessage} />
           ) : null}
 
-          <View style={styles.tabsWrap}>
-            {tabs.map((tab) => {
-              const active = activeTab === tab.key;
-
-              return (
-                <Pressable
-                  key={tab.key}
-                  style={[
-                    styles.tabButton,
-                    tabs.length === 5 ? styles.tabButtonCompact : null,
-                    active && styles.tabButtonActive,
-                    active && { backgroundColor: brandTheme.primaryColor, borderColor: brandTheme.primaryColor },
-                  ]}
-                  onPress={() => handleTabPress(tab.key)}
-                >
-                  <Text
-                    style={[
-                      styles.tabButtonText,
-                      tabs.length === 5 ? styles.tabButtonTextCompact : null,
-                      active && styles.tabButtonTextActive,
-                      active && { color: brandTheme.onPrimaryColor },
-                    ]}
-                    numberOfLines={1}
-                  >
-                    {tab.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
+          <RacebookTabBar
+            tabs={tabs}
+            activeTab={activeTab}
+            onPress={handleTabPress}
+            theme={brandTheme}
+          />
 
           <View style={styles.contentWrap}>
             {activeTab === 'gear' ? (
@@ -1946,140 +1537,92 @@ export default function RaceRacebookScreen() {
                   )
                 ) : null}
 
-                {activeCourseTab === 'relay' && relaySegments.length > 0 ? (
-                  <SectionCard title={t.catalog.racebookSectionRelay}>
-                    <View style={styles.relaySegmentsList}>
-                      {relaySegments.map((segment, index) => (
-                        <View
-                          key={`${segment.start.name}-${segment.end.name}-${index}`}
-                          style={[
-                            styles.relaySegmentCard,
-                            { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor },
-                          ]}
-                        >
-                          <View style={styles.relaySegmentHeader}>
-                            <Text style={[styles.relaySegmentKicker, { color: brandTheme.primaryColor }]}>
-                              {t.catalog.racebookRelayLeg.replace('{number}', String(index + 1))}
-                            </Text>
-                            <DataText style={styles.relaySegmentDistance}>{formatStationDistance(segment.distanceKm)}</DataText>
-                          </View>
-                          <Text style={styles.relaySegmentTitle}>{`${segment.start.name} → ${segment.end.name}`}</Text>
-                          {segment.end.handoverTime ? (
-                            <Text style={styles.relaySegmentMeta}>{`${t.catalog.racebookRelayHandoverTime} · ${segment.end.handoverTime}`}</Text>
-                          ) : null}
-                          {segment.end.cutoffTime ? (
-                            <Text style={styles.relaySegmentMeta}>{`${t.catalog.racebookAidCutoffTime} · ${segment.end.cutoffTime}`}</Text>
-                          ) : null}
-                          {segment.end.notes ? <Text style={styles.noteText}>{segment.end.notes}</Text> : null}
-                        </View>
-                      ))}
-                    </View>
-                  </SectionCard>
-                ) : null}
-
-                {activeCourseTab === 'start-waves' ? (
-                  <SectionCard title={t.catalog.racebookSectionStartWaves}>
-                    <View style={styles.relaySegmentsList}>{data.startWaves.map((wave) => {
-                      const criterion = wave.eligibilityType === 'bib_range' ? `${t.catalog.racebookWaveBibNumbers} ${wave.bibNumberMin}–${wave.bibNumberMax}` : wave.eligibilityType === 'estimated_finish_time' ? `${wave.finishMinutesMin}–${wave.finishMinutesMax} min` : wave.eligibilityType === 'pace' ? `${wave.paceSecondsMin}–${wave.paceSecondsMax} s/km` : wave.eligibilityType === 'custom' ? wave.eligibilityNote : t.catalog.racebookWaveAll;
-                      return <View key={wave.id} style={[styles.relaySegmentCard, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}><View style={styles.relaySegmentHeader}><Text style={styles.relaySegmentTitle}>{wave.name}</Text><DataText style={[styles.relaySegmentDistance, { color: brandTheme.primaryColor }]}>{wave.startTime}</DataText></View>{criterion ? <Text style={styles.noteText}>{criterion}</Text> : null}</View>;
-                    })}</View>
-                  </SectionCard>
-                ) : null}
-
-                {activeCourseTab === 'awards' ? (
-                  <View style={styles.relaySegmentsList}>{awardsByTime.map(([podiumTime, awards]) => (
-                    <SectionCard key={podiumTime} title={`${t.catalog.racebookSectionAwards} · ${podiumTime}`}>
-                      <View style={styles.relaySegmentsList}>{awards.map((award) => <View key={award.id} style={[styles.relaySegmentCard, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}><Text style={styles.relaySegmentTitle}>{award.categoryLabel}</Text><Text style={styles.relaySegmentMeta}>{`${award.audience === 'women' ? t.catalog.racebookAwardWomen : award.audience === 'men' ? t.catalog.racebookAwardMen : t.catalog.racebookAwardMixed} · ${award.placeFrom}–${award.placeTo}`}</Text>{award.podiumLocation ? <Text style={styles.noteText}>{award.podiumLocation}</Text> : null}{award.rewardNote ? <Text style={styles.noteText}>{award.rewardNote}</Text> : null}</View>)}</View>
-                    </SectionCard>
-                  ))}</View>
-                ) : null}
+                <RacebookStructuredCourseSections
+                  activeTab={activeCourseTab}
+                  relaySegments={relaySegments}
+                  startWaves={data.startWaves}
+                  awardsByTime={awardsByTime}
+                  theme={brandTheme}
+                  copy={{
+                    relayTitle: t.catalog.racebookSectionRelay,
+                    relayLeg: t.catalog.racebookRelayLeg,
+                    relayHandoverTime: t.catalog.racebookRelayHandoverTime,
+                    aidCutoffTime: t.catalog.racebookAidCutoffTime,
+                    startWavesTitle: t.catalog.racebookSectionStartWaves,
+                    waveBibNumbers: t.catalog.racebookWaveBibNumbers,
+                    waveAll: t.catalog.racebookWaveAll,
+                    awardsTitle: t.catalog.racebookSectionAwards,
+                    awardWomen: t.catalog.racebookAwardWomen,
+                    awardMen: t.catalog.racebookAwardMen,
+                    awardMixed: t.catalog.racebookAwardMixed,
+                  }}
+                />
 
                 {activeCourseTab === 'aid-stations' ? (
-                  <SectionCard title={t.catalog.racebookSectionAidStations}>
-                    {data.aidStations.length > 0 ? (
-                      <View style={styles.aidStationsWrap}>
-                        {data.aidStations.map((station: RacebookAidStation, index: number) => (
-                          <AidStationCard
-                            key={station.id}
-                            station={sponsorPresentation.modules.official_products ? station : { ...station, products: [] }}
-                            previousStation={index > 0 ? data.aidStations[index - 1] : undefined}
-                            expanded={expandedAidStationId === station.id}
-                            onToggle={() => {
-                              if (expandedAidStationId !== station.id) {
-                                captureRacebookInteraction('racebook aid station opened', {
-                                  aid_station_id: station.id,
-                                  aid_station_name: station.name,
-                                  distance_km: station.km,
-                                });
-                              }
-                              setExpandedAidStationId((current) => (current === station.id ? null : station.id));
-                            }}
-                            copy={{
-                              aidProducts: t.catalog.racebookAidProducts,
-                              aidWater: t.catalog.racebookAidWater,
-                              aidFood: t.catalog.racebookAidFood,
-                              aidAssistance: t.catalog.racebookAidAssistance,
-                              aidDropBag: t.catalog.racebookAidDropBag,
-                              aidDistance: t.catalog.racebookAidDistance,
-                              aidElevationGain: t.catalog.racebookAidElevationGain,
-                              aidElevationLoss: t.catalog.racebookAidElevationLoss,
-                              aidCutoffTime: t.catalog.racebookAidCutoffTime,
-                            }}
-                          />
-                        ))}
-                      </View>
-                    ) : (
-                      <EmptyState message={t.catalog.racebookEmptyAidStations} />
-                    )}
-                  </SectionCard>
+                  <RacebookAidStationsSection
+                    stations={data.aidStations}
+                    expandedStationId={expandedAidStationId}
+                    showOfficialProducts={sponsorPresentation.modules.official_products}
+                    theme={brandTheme}
+                    onToggleStation={(station) => {
+                      if (expandedAidStationId !== station.id) {
+                        captureRacebookInteraction('racebook aid station opened', {
+                          aid_station_id: station.id,
+                          aid_station_name: station.name,
+                          distance_km: station.km,
+                        });
+                      }
+                      setExpandedAidStationId((current) => (current === station.id ? null : station.id));
+                    }}
+                    copy={{
+                      sectionTitle: t.catalog.racebookSectionAidStations,
+                      emptyMessage: t.catalog.racebookEmptyAidStations,
+                      aidProducts: t.catalog.racebookAidProducts,
+                      aidWater: t.catalog.racebookAidWater,
+                      aidFood: t.catalog.racebookAidFood,
+                      aidAssistance: t.catalog.racebookAidAssistance,
+                      aidDropBag: t.catalog.racebookAidDropBag,
+                      aidDistance: t.catalog.racebookAidDistance,
+                      aidElevationGain: t.catalog.racebookAidElevationGain,
+                      aidElevationLoss: t.catalog.racebookAidElevationLoss,
+                      aidCutoffTime: t.catalog.racebookAidCutoffTime,
+                    }}
+                  />
                 ) : null}
 
               </>
             ) : null}
 
             {activeTab === 'access' ? (
-              accessPresentation?.hasContent ? (
-                <>
-                  {accessPresentation.priorityItems.length > 0 ? (
-                    <AccessPriorityCard title={t.catalog.racebookAccessEssential} items={accessPresentation.priorityItems} />
-                  ) : null}
-                  {accessPresentation.locations.length > 0 || accessPresentation.generalMapUrl ? (
-                    <AccessLocationsCard
-                      title={t.catalog.racebookAccessLocations}
-                      locations={accessPresentation.locations}
-                      generalMapUrl={accessPresentation.generalMapUrl}
-                      openMapsLabel={t.catalog.racebookAccessOpenMaps}
-                      openGeneralMapLabel={t.catalog.racebookAccessOpenGeneralMap}
-                      onOpenMap={(location) => {
-                        captureRacebookInteraction('racebook action clicked', {
-                          action: 'map_opened',
-                          action_context: `access_${location}`,
-                        });
-                      }}
-                    />
-                  ) : null}
-                  {accessPresentation.transportItems.length > 0 ? (
-                    <AccessTransportCard
-                      title={t.catalog.racebookAccessGettingThere}
-                      items={accessPresentation.transportItems}
-                      expanded={expandedAccessTransport}
-                      onToggle={(key) => {
-                        if (!expandedAccessTransport[key]) {
-                          captureRacebookInteraction('racebook access detail opened', { detail: key });
-                        }
-                        setExpandedAccessTransport((current) => ({ ...current, [key]: !current[key] }));
-                      }}
-                      showDetailsLabel={t.catalog.racebookAccessShowDetails}
-                      hideDetailsLabel={t.catalog.racebookAccessHideDetails}
-                      scheduleLabel={t.catalog.racebookAccessSchedule}
-                    />
-                  ) : null}
-                </>
-              ) : (
-                <SectionCard title={t.catalog.racebookTabAccess}>
-                  <EmptyState message={t.catalog.racebookEmptyAccess} />
-                </SectionCard>
-              )
+              <RacebookAccessSection
+                presentation={accessPresentation}
+                expanded={expandedAccessTransport}
+                theme={brandTheme}
+                onOpenMap={(location) => {
+                  captureRacebookInteraction('racebook action clicked', {
+                    action: 'map_opened',
+                    action_context: `access_${location}`,
+                  });
+                }}
+                onToggleTransport={(key) => {
+                  if (!expandedAccessTransport[key]) {
+                    captureRacebookInteraction('racebook access detail opened', { detail: key });
+                  }
+                  setExpandedAccessTransport((current) => ({ ...current, [key]: !current[key] }));
+                }}
+                copy={{
+                  accessTitle: t.catalog.racebookTabAccess,
+                  emptyMessage: t.catalog.racebookEmptyAccess,
+                  essentialTitle: t.catalog.racebookAccessEssential,
+                  locationsTitle: t.catalog.racebookAccessLocations,
+                  gettingThereTitle: t.catalog.racebookAccessGettingThere,
+                  openMapsLabel: t.catalog.racebookAccessOpenMaps,
+                  openGeneralMapLabel: t.catalog.racebookAccessOpenGeneralMap,
+                  showDetailsLabel: t.catalog.racebookAccessShowDetails,
+                  hideDetailsLabel: t.catalog.racebookAccessHideDetails,
+                  scheduleLabel: t.catalog.racebookAccessSchedule,
+                }}
+              />
             ) : null}
 
             {activeTab === 'services' ? (
@@ -2143,213 +1686,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 24,
     gap: 14,
-  },
-  loadingScreen: {
-    flex: 1,
-    width: '100%',
-    alignItems: 'center',
-    justifyContent: 'flex-start',
-    paddingHorizontal: 8,
-    paddingTop: 28,
-    paddingBottom: 20,
-    gap: 26,
-  },
-  loadingIntro: {
-    width: '100%',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    gap: 12,
-  },
-  loadingBrandLogo: {
-    width: 84,
-    height: 64,
-    borderRadius: 16,
-    borderWidth: 1,
-    backgroundColor: Colors.surface,
-    padding: 8,
-  },
-  loadingTitle: {
-    color: Colors.textPrimary,
-    textAlign: 'center',
-  },
-  loadingProgressBlock: {
-    width: '100%',
-    gap: 12,
-  },
-  loadingProgressTrack: {
-    width: '100%',
-    height: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.surfaceMuted,
-  },
-  loadingProgressFill: {
-    height: '100%',
-    borderRadius: 999,
-    backgroundColor: Colors.brandLight,
-  },
-  loadingRunner: {
-    position: 'absolute',
-    top: -24,
-    left: 0,
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.background,
-  },
-  loadingProgressCopy: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  loadingText: {
-    color: Colors.textSecondary,
-    fontSize: 14,
-  },
-  loadingPercent: {
-    color: Colors.brandPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  featuredSponsors: {
-    width: '100%',
-    alignItems: 'center',
-    gap: 10,
-    marginTop: 8,
-  },
-  sponsorLoadingLabel: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-  },
-  featuredSponsorPanel: {
-    width: '100%',
-    flex: 1,
-    overflow: 'hidden',
-    borderRadius: 24,
-    backgroundColor: Colors.surface,
-    shadowColor: '#1A1A1A',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: 7 },
-    elevation: 3,
-  },
-  featuredSponsorSlot: {
-    flex: 1,
-    width: '100%',
-  },
-  featuredSponsorPressable: {
-    flex: 1,
-    width: '100%',
-  },
-  featuredSponsorRow: {
-    flex: 1,
-    width: '100%',
-    minHeight: 104,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 24,
-    paddingVertical: 10,
-  },
-  featuredSponsorDivider: {
-    height: 1,
-    marginHorizontal: 24,
-    backgroundColor: Colors.border,
-  },
-  featuredSponsorLogo: {
-    width: '88%',
-    maxWidth: 280,
-    flex: 1,
-    minHeight: 72,
-  },
-  featuredSponsorName: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  featuredSponsorPlaceholder: {
-    flex: 1,
-    minHeight: 78,
-    marginHorizontal: 24,
-    marginVertical: 14,
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceSecondary,
-    opacity: 0.7,
-  },
-  sponsorChip: {
-    maxWidth: 150,
-    alignItems: 'center',
-    gap: 8,
-  },
-  sponsorChipCompact: {
-    maxWidth: 170,
-    flexDirection: 'row',
-    gap: 7,
-  },
-  sponsorLogo: {
-    width: 76,
-    height: 76,
-  },
-  sponsorLogoCompact: {
-    width: 24,
-    height: 24,
-  },
-  sponsorName: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  sponsorNameCompact: {
-    maxWidth: 130,
-    fontSize: 12,
-    textAlign: 'left',
-  },
-  sponsorPressed: {
-    opacity: 0.65,
-  },
-  sponsorBanner: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: Colors.border,
-    borderRadius: 12,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 10,
-    gap: 10,
-  },
-  sponsorBannerLabel: {
-    color: Colors.textSecondary,
-    fontSize: 10,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
-  sponsorBannerViewport: {
-    flex: 1,
-    overflow: 'hidden',
-  },
-  sponsorBannerAnimatedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  sponsorBannerSlide: {
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  sponsorBannerStaticRow: {
-    flexGrow: 1,
-    minHeight: 42,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 22,
   },
   emptyIconWrap: {
     width: 56,
@@ -2436,29 +1772,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
-  accessPriorityCard: {
-    gap: 12,
-    padding: 16,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: '#E7C97A',
-    backgroundColor: Colors.warningSurface,
-  },
-  accessPriorityHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  accessPriorityIcon: {
-    width: 30,
-    height: 30,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 15,
-    backgroundColor: '#FFF8E7',
-  },
-  accessPriorityTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '800' },
-  accessPriorityList: { gap: 12 },
-  accessPriorityItem: { gap: 4 },
-  accessPriorityItemBorder: { paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E7C97A' },
-  accessPriorityLabel: { color: '#8A4B08', fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
-  accessPriorityText: { color: Colors.textPrimary, fontSize: 14, lineHeight: 20 },
   heroHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -2636,40 +1949,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
   },
-  tabsWrap: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  tabButton: {
-    flex: 1,
-    minHeight: 40,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  tabButtonActive: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
-  },
-  tabButtonCompact: {
-    minWidth: 0,
-    paddingHorizontal: 4,
-  },
-  tabButtonText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
-  tabButtonTextCompact: {
-    fontSize: 11,
-  },
-  tabButtonTextActive: {
-    color: Colors.textOnBrand,
-  },
   contentWrap: {
     gap: 12,
   },
@@ -2712,63 +1991,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
   },
-  accessLocationList: { gap: 0 },
-  accessLocationItem: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 4 },
-  accessLocationItemBorder: { marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
-  accessLocationIcon: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 17,
-    backgroundColor: Colors.brandSurface,
-  },
-  accessLocationContent: { flex: 1, gap: 4 },
-  accessLocationLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
-  accessLocationValue: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', lineHeight: 21 },
-  accessMapAction: {
-    minHeight: 34,
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginTop: 3,
-    paddingHorizontal: 10,
-    borderRadius: 17,
-    backgroundColor: Colors.brandSurface,
-  },
-  accessMapActionText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '800' },
-  accessGeneralMapAction: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
-  },
-  accessGeneralMapActionText: { color: Colors.textOnBrand, fontSize: 14, fontWeight: '800' },
-  accessActionPressed: { opacity: 0.72 },
-  accessTransportList: { gap: 0 },
-  accessTransportItem: { gap: 10, paddingVertical: 4 },
-  accessTransportItemBorder: { marginTop: 12, paddingTop: 16, borderTopWidth: 1, borderTopColor: Colors.border },
-  accessTransportHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  accessTransportIcon: {
-    width: 34,
-    height: 34,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 17,
-    backgroundColor: Colors.brandSurface,
-  },
-  accessTransportHeading: { flex: 1, gap: 1 },
-  accessTransportTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '800' },
-  accessTransportHint: { color: Colors.textSecondary, fontSize: 11 },
-  accessTransportText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  accessScheduleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 10, borderRadius: 12, borderWidth: 1, backgroundColor: Colors.brandSurface },
-  accessScheduleContent: { flex: 1, gap: 2 },
-  accessScheduleLabel: { color: Colors.brandPrimary, fontSize: 11, fontWeight: '800', textTransform: 'uppercase' },
-  accessScheduleText: { color: Colors.textPrimary, fontSize: 13, lineHeight: 18 },
   serviceText: {
     color: Colors.textSecondary,
     fontSize: 14,
@@ -2947,24 +2169,6 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '700',
   },
-  chipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  chip: {
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 999,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  chipText: {
-    color: Colors.brandPrimary,
-    fontSize: 12,
-    fontWeight: '700',
-  },
   courseProfileWrap: {
     gap: 10,
   },
@@ -3067,195 +2271,5 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textDecorationLine: 'underline',
-  },
-  relaySegmentsList: {
-    gap: 10,
-  },
-  relaySegmentCard: {
-    gap: 6,
-    padding: 14,
-    borderRadius: 16,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  relaySegmentHeader: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'space-between',
-    gap: 12,
-  },
-  relaySegmentKicker: {
-    color: Colors.brandPrimary,
-    fontSize: 11,
-    fontWeight: '800',
-    textTransform: 'uppercase',
-  },
-  relaySegmentDistance: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '800',
-  },
-  relaySegmentTitle: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  relaySegmentMeta: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 17,
-  },
-  aidStationsWrap: {
-    gap: 12,
-  },
-  aidStationCard: {
-    borderRadius: 16,
-    backgroundColor: Colors.surfaceSecondary,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    overflow: 'hidden',
-  },
-  aidStationSummary: {
-    minHeight: 64,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  aidStationSummaryPressed: {
-    backgroundColor: Colors.brandSurface,
-  },
-  aidStationSummaryMain: {
-    flex: 1,
-    gap: 7,
-  },
-  aidStationSummaryMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 7,
-  },
-  aidStationSummaryAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 7,
-  },
-  aidStationSummaryDistance: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  aidStationSummaryMetric: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  aidStationExpandedContent: {
-    padding: 14,
-    borderTopWidth: 1,
-    borderTopColor: Colors.border,
-  },
-  aidStationLayout: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 12,
-  },
-  aidStationMainColumn: {
-    flex: 1,
-    gap: 10,
-  },
-  aidStationName: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-  aidStationMetricsColumn: {
-    width: 104,
-    paddingLeft: 10,
-    borderLeftWidth: 1,
-    borderLeftColor: Colors.border,
-    gap: 8,
-  },
-  metricRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
-    justifyContent: 'flex-end',
-    gap: 5,
-  },
-  metricLabel: {
-    color: Colors.textSecondary,
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  metricValue: {
-    color: Colors.textPrimary,
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  serviceInfoGroup: {
-    alignItems: 'flex-start',
-    gap: 6,
-  },
-  serviceIconRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
-  serviceSummaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  serviceSummaryIcon: {
-    width: 22,
-    height: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 11,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  serviceIconButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 20,
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  serviceIconButtonActive: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
-  },
-  serviceTooltip: {
-    maxWidth: '100%',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-    borderRadius: 10,
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.borderStrong,
-  },
-  serviceTooltipText: {
-    color: Colors.textPrimary,
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  segmentGainText: {
-    color: Colors.danger,
-  },
-  segmentLossText: {
-    color: '#2563EB',
-  },
-  noteText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
   },
 });
