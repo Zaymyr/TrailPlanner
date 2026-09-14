@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-config.ts
@@ -26,11 +26,15 @@ related_files:
   - apps/web/lib/product-analytics.test.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/hooks/useProfileScreen.ts
+  - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/hooks/useRevenueCatBilling.ts
   - apps/mobile/components/premium/PremiumUpsellModal.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookAccessSection.tsx
+  - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
@@ -151,10 +155,10 @@ The mobile Premium funnel uses explicit events instead of treating a store callb
 
 The former `premium purchased` event is legacy data and is no longer emitted. Do not combine it with `premium purchase verified` in revenue reporting. PostHog remains product analytics; RevenueCat/App Store or Stripe remains authoritative for recognized transactions.
 
-`apps/mobile/app/_layout.tsx` is also the home for other session side effects such as push registration and Resend contact sync. Those side effects should stay separate from PostHog identify/reset calls.
+`apps/mobile/app/_layout.tsx` retains push registration while `useSessionSideEffects` runs Resend and other session maintenance. Both remain separate from PostHog identify/reset calls.
 Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
 The normal cold-start destination is the Courses catalog; that routing decision does not change analytics identity initialization.
-The Profile debug/admin presentation uses the same trusted-role rule: `app_metadata.role` or `app_metadata.roles` only. User-editable `user_metadata` never marks a mobile user as internal/admin.
+The Profile debug/admin presentation uses the same pure trusted-role helper: `app_metadata.role` or `app_metadata.roles` only. User-editable `user_metadata` never marks a mobile user as internal/admin.
 
 ## RaceBook Engagement
 
@@ -169,6 +173,8 @@ The ordered funnel is `onboarding started` filtered to `onboarding_kind = racebo
 The mobile RaceBook emits `racebook opened` only after an accessible RaceBook has finished loading, the edition sponsor/module/branding bootstrap has resolved, and the loading composition has exited. Every RaceBook engagement event carries the stable `race_id`, optional parent `event_id`, public race/event names, race date, local-calendar `days_before_race`, a bounded proximity window, and whether the screen was opened by the guided tour or standard navigation. This supports per-RaceBook unique-reader trends and same-RaceBook retention without adding an analytics table to Supabase.
 
 The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, and emergency-call actions. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
+
+Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 

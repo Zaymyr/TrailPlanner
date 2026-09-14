@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - package.json
@@ -62,6 +62,7 @@ The mobile app is an Expo Router app:
 - Android compile/target SDK: Android 16 / API 36 through the Expo SDK 54 defaults
 - React: `react 19.1.0`
 - Supabase dependency: `@supabase/supabase-js ^2.45.4`
+- Mobile lint: Expo's ESLint configuration through `npm run lint -w @trailplanner/mobile`.
 - Apple auth nonce helper: `expo-crypto ~15.0.8`
 - Native billing dependency: `react-native-purchases ^9.15.1`
 - Native analytics dependency: `posthog-react-native ^4.45.0`

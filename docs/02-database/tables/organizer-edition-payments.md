@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -20,6 +20,7 @@ related_files:
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
 related_tables:
   - organizer_edition_payments
   - organizer_edition_entitlements
@@ -66,6 +67,7 @@ Current purchase kinds are `essential_direct`, `complete_direct`, `signature_dir
 - `(edition_id, created_at desc)` for history.
 - PaymentIntent index and unique provider identifiers.
 - Partial unique `edition_id` while pending prevents concurrent or incompatible checkouts for the same edition. A repeated request for the same offer reuses the stored Checkout URL when available.
+- Partial indexes on `purchaser_user_id`, `recorded_by`, and `invoice_uploaded_by` support Auth-user cleanup, admin audit attribution, and purchaser analytics.
 
 ## RLS Policies
 

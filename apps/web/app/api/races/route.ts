@@ -123,8 +123,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    const params = new URLSearchParams({
+      select: "id,name,location_text,distance_km,elevation_gain_m,elevation_loss_m,is_public,created_by,gpx_storage_path",
+      or: `(and(is_live.eq.true,is_public.eq.true),created_by.eq.${user.id})`,
+      order: "name.asc",
+    });
     const response = await fetch(
-      `${supabaseAnon.supabaseUrl}/rest/v1/races?select=id,name,location_text,distance_km,elevation_gain_m,elevation_loss_m,is_public,created_by,gpx_storage_path&is_live=eq.true&order=name.asc`,
+      `${supabaseAnon.supabaseUrl}/rest/v1/races?${params.toString()}`,
       {
         headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
         cache: "no-store",
@@ -266,8 +271,15 @@ export async function POST(request: NextRequest) {
     gpx_path: gpxPath,
     gpx_hash: gpxHash,
     is_public: false,
+    is_published: false,
     created_by: user.id,
-    is_live: true,
+    is_live: false,
+    event_id: null,
+    edition_id: null,
+    racebook_preview_is_visible: false,
+    racebook_is_live: false,
+    racebook_publication_approved_at: null,
+    racebook_publication_approved_by: null,
     gpx_storage_path: gpxStoragePath ?? null,
     gpx_sha256: gpxStoragePath ? gpxHash : null,
   };

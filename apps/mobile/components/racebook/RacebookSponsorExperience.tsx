@@ -12,7 +12,7 @@ import {
   type ImageStyle,
   type StyleProp,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { RACEBOOK_EDITION_LOGO_ENABLED, type ResolvedRacebookTheme } from '@pace-yourself/design-system';
 
 import { Colors } from '../../constants/colors';

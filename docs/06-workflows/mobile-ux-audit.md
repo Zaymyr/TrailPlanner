@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -64,6 +64,7 @@ Before accepting changes to the harness:
 
 ```bash
 npm run typecheck -w @trailplanner/mobile
+npm run lint -w @trailplanner/mobile
 npx expo-doctor apps/mobile
 node --check apps/mobile/scripts/run-mobile-ux-audit.mjs
 npx eas-cli@latest config --platform android --profile e2e-test

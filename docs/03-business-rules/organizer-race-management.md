@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -45,7 +45,11 @@ related_files:
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookAccessSection.tsx
+  - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
+  - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - supabase/tests/organizer_rls_checks.sql
@@ -373,6 +377,8 @@ Published runner-facing surfaces resolve details as:
 - key locations = plain text address plus optional geocoded `organizer_details` metadata for event, format, bib pickup, and start/finish access, rendered as GPS coordinates and Google Maps links when available.
 
 The mobile Racebook view uses the same merge rules for live formats, but keeps them read-only and compact. Its top identity card contains event/format identity, the event date range, the best published location, and runner information, while distance, D+, D-, and start-time metric pills are omitted from this synthesis. Its flexible metadata row uses calendar/location icons, dot separators, and compact `Solo` and/or `Relais` participation badges; mixed participation uses two separate badges rather than one combined label. When the format date differs from the event start date, it is emphasized in a bordered calendar row labeled `Jour de course :` / `Race day:`. Weather and last-minute messages remain dedicated compact alert cards immediately below it. The route-local tabs remain `Matériel`, `Dossard`, `Course`, and `Accès`, with a fifth `Services` tab only when event service details are populated. Published `officialWebsiteUrl`, `instagramUrl`, and `facebookUrl` values render as a compact group of accessible icon-only outlined actions beside the race identity, with the social icons below the website icon when it exists. A divider separates the emergency phone row, which presents `Urgence - nom - téléphone` on one line beside a localized outlined call action; the native header retains only feedback. Tapping any part of the emergency row opens the platform phone application through a normalized `tel:` URL, and the optional contact name stays visible without the narrow side-panel constraint. French phone values are normalized to `+33 X XX XX XX XX` both when organizer details are saved and when older JSON is read. The emergency phone counts as meaningful non-ravito organizer content for the Racebook availability gate. Equipment is split into active required, active recommended, and weather-conditional inactive groups; `Dossard` groups every pickup location first, renders its address directly without a redundant numbered location heading, caps that visible address at two lines with a trailing ellipsis while retaining the complete accessible link label, then groups its slots by day so same-day ranges share one localized short weekday/day/month label and use locale-specific hour formatting before documents and notes. `Course` owns the explicitly labeled start time as the first light-green important-information row and keeps the finish cutoff critical, then places its longer content behind compact `Tracé`, `Ravitos`, and conditional `Relais` sub-tabs. `Tracé` contains the stored GPX map and elevation profile, `Ravitos` contains the source aid-station list, and `Relais` contains the derived legs only when published relay points produce them. `Accès` begins with start/finish linked locations, then parking, shuttles, road restrictions, the published map URL, and access notes; each of those four optional blocks is omitted when its format-level flag is disabled, regardless of a previously saved value. Published geocoded event, start, finish, or bib values remain tappable so runners can launch navigation directly. Equipment status badges stay inline and right-aligned, and weather-tagged items retain icon-only cold/heat markers while remaining muted whenever the active plan does not match. A native pull-to-refresh re-queries the complete published Racebook snapshot, profile, and route so organizer changes can appear without restarting the app; a failed refresh keeps the last successful snapshot visible.
+
+Access, ravito, and structured Course presentation now live in focused typed mobile components. The RaceBook route still owns merged-data normalization, publication/module gates, expansion state and analytics callbacks, so this split does not alter organizer business rules.
 
 Within the conditional `Services` tab, every populated event service category uses its own localized titled card. The organizer value is rendered as plain text rather than an unlabeled bullet.
 

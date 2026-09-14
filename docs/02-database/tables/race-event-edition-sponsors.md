@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -100,6 +100,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - Keep the sponsor handoff cache short-lived and scoped by authenticated user id plus race id. It may share one in-flight request across the catalog and destination, but must not reuse an organizer-only draft response after a session change.
 - Keep the compact banner carousel independent from aggregate row-width measurement; every active banner sponsor must rotate even when several logos could technically fit at once.
 - Keep sponsor timing independent from route-local expansion state; opening a parking, shuttle, or ravito accordion row must not restart the banner or sponsor gate.
+- The extracted access, ravito and structured Course components remain below the route-owned sponsor gate and do not read or mutate sponsor presentation state.
 - Do not add sponsor ids or names to identified RaceBook engagement events. Sponsor performance remains an aggregate click-count contract.
 
 ## Related Docs

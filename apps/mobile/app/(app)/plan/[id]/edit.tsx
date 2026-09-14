@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import { Text } from '../../../../components/themed/Text';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../../../lib/supabase';
 import { AppHeaderTitle } from '../../../../components/navigation/AppHeaderTitle';
 import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';

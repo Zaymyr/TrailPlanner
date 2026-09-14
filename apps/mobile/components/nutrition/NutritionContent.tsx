@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import { Text } from '../themed/Text';
 import { DataText } from '../themed/DataText';
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
 import { FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';

@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
   - apps/web/app/api/location-search/route.ts
   - apps/web/lib/location-utils.ts
   - apps/web/app/organizer/_components/dashboard/address-autocomplete-field.tsx

@@ -1,10 +1,12 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -86,7 +88,7 @@ This document describes the row-level security patterns used by Pace Yourself. U
 - `auth.uid()`: Supabase user id for owner-scoped rows.
 - `auth.role()`: role claim such as `anon`, `authenticated`, or `service_role`.
 - `app_metadata`: trusted auth metadata for role checks.
-- `user_metadata`: user-editable metadata; do not use for new authorization decisions.
+- `user_metadata`: user-editable metadata; never use for authorization decisions.
 - SECURITY INVOKER RPC: preferred service-only mutation that retains the caller's privileges and transaction boundary.
 - SECURITY DEFINER RPC: exceptional privileged function that requires a fixed search path, narrow grants, and explicit authorization.
 
@@ -107,7 +109,7 @@ For admin checks in new policies, prefer:
 (auth.jwt() -> 'app_metadata' ->> 'role') = 'admin'
 ```
 
-or a server-side/profile-based check that cannot be edited by the user.
+or a server-side Auth lookup that reads only `raw_app_meta_data`.
 
 Do not add new policies that rely on:
 
@@ -115,7 +117,7 @@ Do not add new policies that rely on:
 (auth.jwt() -> 'user_metadata' ->> 'role') = 'admin'
 ```
 
-<!-- CONFLICT: older migrations still contain user_metadata admin checks, especially around premium grants and race image policies. Current guidance is to avoid that pattern for new policies and replace it during security-focused refactors. -->
+The final hardening migration replaces the active premium-grant, race, and race-aid-station mutation branches that trusted legacy profile or user metadata. Historical migration text is not the effective policy state.
 
 ## Policy Enumeration
 
@@ -160,6 +162,7 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 - Non-live organizer formats with `racebook_preview_is_visible = true` are readable by runners only under a visible parent event/edition. Masked rows remain limited to their creator, an active parent-event organizer, or a trusted admin.
 - Admins can manage catalog races.
 - Owners can manage private races through `created_by`.
+- Non-admin inserts, updates, deletes, and direct child-station mutations require the complete standalone boundary: matching owner, private/non-live/non-published flags, null event and edition, disabled RaceBook preview/publication, null approval provenance, and `edition_group_id = id`.
 - Approved organizers mutate claimed races through service routes and `race_event_organizers`, not through `races.created_by`; the select policy separately permits their membership-bounded private reads.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.
 - `races.edition_group_id` and `races.series_name` inherit the same `races` row policies; the organizer edition-grouping migration adds no new grants or RLS branches.
@@ -300,6 +303,7 @@ Declared in `20250624103000_add_user_profiles.sql`.
 - Users can select own profile.
 - Users can insert own profile.
 - Users can update own profile.
+- `role`, trial dates, and sign-in metrics are server-managed; authenticated clients cannot initialize or change them, while normal owner profile fields remain writable.
 
 The auth trigger in `20260408100000_initialize_trial_profile_on_user_created.sql` uses SECURITY DEFINER to create/repair profile rows after auth user creation.
 The legacy `user_profiles.onboarding_completed_at` marker and the Plan/RaceBook status columns are owner-only column additions. They inherit the same profile select/insert/update policies; mobile writes them using the active user's session and explicit ownership key/filter.
@@ -319,8 +323,7 @@ Declared in `20260301090000_add_premium_grants.sql`.
 
 - Service role or admins can manage grants.
 - Users can read their own active grants.
-
-<!-- CONFLICT: the manage policy includes app_metadata, user_profiles.role, user_metadata, and top-level role checks. New policies should not use user_metadata. -->
+- Admin management checks only trusted Auth `app_metadata`; `user_profiles.role` and `user_metadata` grant no database authority.
 
 ### Push Tables
 
@@ -351,6 +354,8 @@ Use SECURITY DEFINER when a function must do work the caller cannot safely do di
 
 Every SECURITY DEFINER function should set `search_path` explicitly when it touches user-controlled schemas.
 
+Privileged growth, trial-reminder, cron, sign-in metric, and rate-limit maintenance functions revoke execution from `PUBLIC`, `anon`, and `authenticated`; only `service_role` may invoke them. New public-schema functions no longer inherit client execution through the `postgres` default privileges and must be granted deliberately.
+
 The admin KPI function `get_admin_growth_metrics` requires cross-user/Auth reads and therefore uses `SECURITY DEFINER` with `search_path = ''`. It has explicit execution revocations for `PUBLIC`, `anon`, and `authenticated`, and only `service_role` may call it. The Next.js route still performs the trusted `app_metadata` admin check before using the service key.
 
 ## Correct and Incorrect Examples
@@ -380,6 +385,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 ## Gotchas
 
 - `auth.users` is not a normal client-readable app table. Do not query it from client routes.
+- `user_profiles.role` is not an authorization source. Its write guard is defense in depth; administrator authority comes only from trusted Auth app metadata.
 - Grants to `anon` do not bypass RLS; they allow anonymous Supabase users to reach the policy checks.
 - Service role bypasses RLS. Only server code and Supabase functions may use it.
 - The coach/coachee feature is retired; do not add broad coach-role access or restore historical coach policies without a new design.

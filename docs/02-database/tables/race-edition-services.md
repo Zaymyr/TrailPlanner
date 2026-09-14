@@ -1,7 +1,7 @@
 ---
 title: race_edition_services Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -11,6 +11,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.tsx
   - apps/web/app/organizer/_components/dashboard/structured-content-editors.test.ts
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/fetchWithTimeout.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
 related_tables:
   - race_edition_services
@@ -46,6 +47,8 @@ Legacy `organizer_details.services` text remains untouched. Mobile prefers struc
 The structured collection is additive on mobile. A temporary Data API/table-unavailable error falls back to the preserved legacy services instead of making the complete RaceBook unavailable. Public and organizer-preview policies find the parent edition through `races`, avoiding a direct client-policy dependency on service-role-only `race_event_editions`.
 
 The two-line clamp applied to bib-pickup address text is isolated from service-card rendering and does not change service addresses or links.
+
+The extracted mobile access and ravito sections do not consume edition-service rows; structured service normalization and rendering remain in the RaceBook route.
 
 The format access override that hides saved runner information is likewise independent from edition service rows and their visibility.
 

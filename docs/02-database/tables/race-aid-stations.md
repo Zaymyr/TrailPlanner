@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -14,6 +14,7 @@ related_files:
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/races/route.ts
+  - apps/web/app/api/races/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
@@ -89,6 +90,8 @@ Summary:
 
 - Race aid stations are source data, not per-plan state.
 - Parent race creation must first satisfy the required standalone series identity (`edition_group_id = races.id`, `series_name = races.name`) before inserting derived or manual stations.
+- User-imported station parents are private, non-live, non-published, and detached from organizer event/edition scope at their initial insert; owner station writes cannot be used to publish the parent.
+- Authenticated race reads include the caller's private parent race alongside public/live catalog races, so its source aid stations remain reachable in planning flows without relaxing public visibility.
 - When a plan is created from catalog, water availability is copied into `plan_aid_stations`, while water, solid, and assistance flags are copied into `race_plans.planner_values.aidStations`.
 - If a race has no aid stations, import code may derive stations from GPX waypoints.
 - Derived or imported source aid stations do not by themselves make a race eligible for the mobile Racebook entry point.

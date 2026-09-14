@@ -23,20 +23,37 @@ export default function MentionsLegalesPage() {
       <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Informations sur l&apos;éditeur</h2>
         <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300 sm:text-base">
-          <li>Éditeur : Faustin Bertrand</li>
-          <li>Service édité : Pace Yourself</li>
+          <li>Éditeur : Faustin Bertrand, entrepreneur individuel sous le régime de la micro-entreprise</li>
+          <li>Nom commercial et service édité : Pace Yourself</li>
+          <li>Adresse : 10 avenue Félix Faure, 69580 Sathonay-Camp, France</li>
+          <li>SIREN : 109 903 757</li>
+          <li>SIRET : 109 903 757 00010</li>
+          <li>Immatriculation : RCS Lyon n° 109 903 757</li>
+          <li>TVA non applicable, art. 293 B du CGI</li>
           <li>
-            Contact : <a className="underline" href={`mailto:${supportEmail}`}>{supportEmail}</a>
+            E-mail : <a className="underline" href={`mailto:${supportEmail}`}>{supportEmail}</a>
+          </li>
+          <li>
+            Téléphone : <a className="underline" href="tel:+33623203657">06 23 20 36 57</a>
           </li>
         </ul>
       </section>
 
       <section className="space-y-3">
+        <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Directeur de la publication</h2>
+        <p className="text-sm leading-relaxed text-slate-300 sm:text-base">Faustin Bertrand</p>
+      </section>
+
+      <section className="space-y-3">
         <h2 className="text-xl font-semibold text-slate-100 sm:text-2xl">Hébergement</h2>
-        <p className="text-sm leading-relaxed text-slate-300 sm:text-base">
-          Le service s&apos;appuie sur des prestataires d&apos;hébergement cloud. Toute demande relative à
-          l&apos;hébergement ou à un incident peut être adressée à {supportEmail}.
-        </p>
+        <ul className="list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-300 sm:text-base">
+          <li>Hébergeur : Vercel Inc.</li>
+          <li>Adresse : 440 N Barranca Avenue #4133, Covina, CA 91723, États-Unis</li>
+          <li>Téléphone : +1 559 288 7060</li>
+          <li>
+            Site : <a className="underline" href="https://vercel.com" rel="noreferrer">vercel.com</a>
+          </li>
+        </ul>
       </section>
 
       <section className="space-y-3">

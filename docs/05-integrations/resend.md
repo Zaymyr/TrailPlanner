@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: medium
 related_files:
   - package.json
@@ -16,6 +16,7 @@ related_files:
   - apps/web/app/api/admin/resend/sync/route.test.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/web/app/api/auth/session/route.ts
 related_tables:
@@ -60,7 +61,7 @@ The per-user contact route:
 - always sends `unsubscribed: false` for identified users, per the current product decision;
 - is called by `apps/web/app/hooks/useVerifiedSession.tsx` after web session verification;
 - runs independently from the background entitlement refresh and does not extend the verified-session loading state;
-- is called by `apps/mobile/lib/resendContactSync.ts` from `apps/mobile/app/_layout.tsx` after a mobile non-anonymous session is active.
+- is called by `apps/mobile/lib/resendContactSync.ts` from `apps/mobile/hooks/useSessionSideEffects.ts` after a mobile non-anonymous session is active.
 
 `apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding. Keep those route presentation changes independent from the Resend sync trigger.
 Its normal post-auth destination is the Courses catalog; changing that destination must not move or delay the identified-user contact sync.

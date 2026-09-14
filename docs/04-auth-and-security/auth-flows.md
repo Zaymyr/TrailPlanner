@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -20,12 +20,14 @@ related_files:
   - apps/web/lib/organizer-acquisition.test.ts
   - apps/web/lib/supabase.ts
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/app/(app)/onboarding.tsx
   - apps/mobile/app/(auth)/login.tsx
   - apps/mobile/app/(auth)/signup.tsx
   - apps/mobile/hooks/useAppleAuth.ts
   - apps/mobile/hooks/useGoogleAuth.ts
   - apps/mobile/hooks/useProfileScreen.ts
+  - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/onboardingGate.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/trial.ts
@@ -85,12 +87,14 @@ The authenticated onboarding catalog accepts source-backed formats whose D+ is s
 - registers push tokens after session is active;
 - syncs identified, non-anonymous users to Resend through the web API bridge.
 
+The root keeps auth navigation and analytics identity. `useSessionSideEffects` encapsulates only idempotent trial, Resend, and pending account/guest conversion maintenance.
+
 Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mobile/app/(auth)/signup.tsx`, and the guest onboarding account choice in `apps/mobile/app/(app)/onboarding.tsx`.
 The onboarding route injects the guest account controls into its extracted presentational overview component. Apple/Google callbacks, loading state, guest continuation, and auth errors remain owned by the route so the component split does not create a second authentication lifecycle.
 The password-login inputs and submit action expose stable `auth-login-*` test ids and localized accessibility labels. The Maestro UX journey uses those hooks so translations can change without breaking authentication tests. Credentials enter the process through ignored local environment files or secret EAS `preview` variables; they are never embedded in the app bundle or flow YAML.
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 
-Non-auth onboarding steps, such as race/catalog selection UI, must not add separate session side effects; keep session, analytics identity, push registration, and Resend sync behavior in `_layout.tsx` or the existing dedicated helpers.
+Non-auth onboarding steps, such as the extracted race/catalog and nutrition-product presentation components, must not add separate session side effects; their callbacks remain owned by the onboarding route, while session, analytics identity, push registration, and Resend sync behavior stay in `_layout.tsx` or the existing dedicated helpers.
 The onboarding race chooser inner-filters event formats to `races.is_live = true`. This visibility filter is catalog behavior only and must not add a new authentication/session side effect.
 `apps/mobile/lib/onboardingGate.ts` decides whether the initial chooser or an in-progress tour should reopen after auth. Two durable owner-scoped statuses distinguish Plan and RaceBook. The gate shows the chooser only while both are untouched, resumes a stored in-progress stage on cold start, and otherwise opens Courses. The status migration marks Plan completed for existing profiles while leaving RaceBook pending; profiles created afterward start with both tours pending.
 When onboarding does reopen for an identified user, `apps/mobile/app/(app)/onboarding.tsx` should hydrate existing `user_profiles` values and favorite products before the runner edits anything, so revisits do not appear empty or overwrite stored profile defaults unintentionally.

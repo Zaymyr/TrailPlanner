@@ -1,10 +1,12 @@
 ---
 title: premium_grants Table
 scope: database
-last_verified: 2026-09-13
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20260301090000_add_premium_grants.sql
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/tests/privileged_database_access_checks.sql
   - apps/web/lib/entitlements.ts
   - apps/mobile/hooks/usePremium.ts
 related_tables:
@@ -59,7 +61,7 @@ Summary:
 - Service role or admins can manage grants.
 - Users can read their own active grants.
 
-<!-- CONFLICT: the manage policy includes a user_metadata admin check. New policies must not use user_metadata for authorization. -->
+The final hardening policy authorizes administrators only from trusted Auth `app_metadata`; neither profile roles nor user metadata grant access.
 
 ## Business Invariants
 
@@ -90,7 +92,7 @@ values ('<user-id>', now(), 30, 'manual support grant', '<admin-user-id>');
 ## Gotchas
 
 - Do not expose full grant management to normal authenticated users.
-- New admin checks should use app metadata or server-side role verification, not `user_metadata`.
+- Admin checks use trusted app metadata or server-side Auth verification, never `user_profiles.role` or `user_metadata`.
 - Keep mobile and web entitlement logic aligned when changing grant semantics.
 - Mobile consumers share one entitlement refresh queue; the query still reads the current user's grants ordered by newest `starts_at` and resolves the first active window.
 

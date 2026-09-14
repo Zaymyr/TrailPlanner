@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-14
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -11,6 +11,7 @@ related_files:
   - supabase/migrations/20260417103000_add_product_images.sql
   - supabase/migrations/20260417190000_add_product_brand_cleanup.sql
   - supabase/migrations/20260525191426_add_official_product_metadata.sql
+  - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260526120000_add_meltonic_products.sql
   - supabase/migrations/20260526135521_add_meltonic_product_images.sql
   - apps/web/app/api/admin/products/route.ts
@@ -105,6 +106,8 @@ Mobile product edits and deletes go through `apps/web/app/api/products/[productI
 The same route exposes an admin-only `GET` response for product favorite usage. It validates the bearer token against trusted `app_metadata`, uses the server-side service role to count `user_favorite_products`, and returns only the aggregate favorite count for the product.
 
 The public product API returns `isOfficial: true` for official/shared catalog rows so clients can show a verified/validated badge. `createdBy` remains ownership metadata only. User-created products return their owner id in `createdBy` and `isOfficial: false`.
+
+The maintenance-only `product_brand_review` view uses `security_invoker = true`, so direct access cannot bypass the caller's `products` grants and RLS policies.
 
 ## Business Invariants
 

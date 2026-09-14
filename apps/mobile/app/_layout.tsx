@@ -1,4 +1,4 @@
-import { Text, View, ScrollView, AppState } from 'react-native';
+import { AppState, Text, View } from 'react-native';
 
 // Global error handlers - must be first
 const originalConsoleError = console.error;
@@ -33,15 +33,9 @@ import { JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono/700Bold
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
 import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';
-import {
-  finalizePendingAccountConversion,
-  finalizePendingGuestMerge,
-  hasPendingGuestMerge,
-} from '../lib/accountConversion';
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
 import { noteReviewActiveDuration, noteReviewSessionStart } from '../lib/appReview';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
-import { syncResendContactRegistration } from '../lib/resendContactSync';
 import {
   clearInactivityReminder,
   clearUnfinishedPlanReminder,
@@ -67,7 +61,7 @@ import {
   resetAnalytics,
   trackAnalyticsScreen,
 } from '../lib/posthog';
-import { ensureTrialStatusForSession } from '../lib/trial';
+import { useSessionSideEffects } from '../hooks/useSessionSideEffects';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
 
@@ -177,7 +171,6 @@ function RootLayoutContent() {
   const foregroundUpdateCheckInFlightRef = useRef(false);
   const hasShownForegroundUpdateNotificationRef = useRef(false);
   const pushRegistrationInFlightRef = useRef(false);
-  const resendContactSyncInFlightRef = useRef(false);
   const pushPermissionAutoRequestUserIdRef = useRef<string | null>(null);
   const identifiedAnalyticsUserIdRef = useRef<string | null>(null);
   const lastTrackedScreenKeyRef = useRef<string | null>(null);
@@ -192,6 +185,7 @@ function RootLayoutContent() {
     () => getPendingOnboardingTransition(),
   );
   const [onboardingTransitionExiting, setOnboardingTransitionExiting] = useState(false);
+  useSessionSideEffects(session, setMergingGuestData);
   const [launchOverlayPhase, setLaunchOverlayPhase] = useState<LaunchOverlayPhase>('active');
   const shouldHoldForInitialRoute = !segments[0];
   const analyticsScreenName = useMemo(
@@ -640,64 +634,6 @@ function RootLayoutContent() {
       }
     };
   }, []);
-
-  useEffect(() => {
-    if (!session) return;
-
-    void ensureTrialStatusForSession(session);
-  }, [session]);
-
-  useEffect(() => {
-    if (!session || isAnonymousSession(session) || !session.access_token) return;
-    if (resendContactSyncInFlightRef.current) return;
-
-    resendContactSyncInFlightRef.current = true;
-    void syncResendContactRegistration(session)
-      .catch((error) => {
-        console.error('Unable to sync Resend contact:', error);
-      })
-      .finally(() => {
-        resendContactSyncInFlightRef.current = false;
-      });
-  }, [session]);
-
-  useEffect(() => {
-    if (!session || isAnonymousSession(session)) return;
-
-    void finalizePendingAccountConversion(session).then((result) => {
-      if (!result.completed && result.reason === 'password-update-failed') {
-        console.warn('Pending account conversion could not finalize password automatically.', result.error);
-      }
-    });
-  }, [session]);
-
-  useEffect(() => {
-    if (!session || isAnonymousSession(session)) return;
-
-    let cancelled = false;
-
-    void hasPendingGuestMerge().then((pending) => {
-      if (!pending || cancelled) return;
-
-      setMergingGuestData(true);
-
-      void finalizePendingGuestMerge(session)
-        .then((result) => {
-          if (!result.merged && result.reason === 'merge-request-failed') {
-            console.warn('Pending guest merge could not complete automatically.', result.error);
-          }
-        })
-        .finally(() => {
-          if (!cancelled) {
-            setMergingGuestData(false);
-          }
-        });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [session]);
 
   // Route guard
   useEffect(() => {

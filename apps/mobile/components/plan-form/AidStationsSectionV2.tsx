@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { useState, type ReactElement } from 'react';
 import { TouchableOpacity, View } from 'react-native';
 import { Text } from '../themed/Text';

@@ -1,5 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './supabase';
+import { fetchWithTimeout } from './fetchWithTimeout';
 import { WEB_API_BASE_URL } from './webApi';
 
 const TRIAL_DURATION_DAYS = 15;
@@ -40,7 +41,7 @@ function mapTrialRow(row: TrialRow | null | undefined): TrialStatus {
 
 async function ensureTrialStatusViaWeb(accessToken: string) {
   try {
-    const response = await fetch(`${WEB_API_BASE_URL}/api/trial/status`, {
+    const response = await fetchWithTimeout(`${WEB_API_BASE_URL}/api/trial/status`, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
