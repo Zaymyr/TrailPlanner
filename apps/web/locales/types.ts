@@ -749,25 +749,22 @@ export type LinksPageTranslations = {
     description: string;
   };
   tagline: string;
-  waitlist: {
+  download: {
     title: string;
     subtitle: string;
-    cta: string;
+    googlePlayCta: string;
+    appStoreCta: string;
   };
   cards: {
     blog: {
       title: string;
       subtitle: string;
     };
-    app: {
+    organizer: {
       title: string;
       subtitle: string;
     };
     partners: {
-      title: string;
-      subtitle: string;
-    };
-    instagram: {
       title: string;
       subtitle: string;
     };

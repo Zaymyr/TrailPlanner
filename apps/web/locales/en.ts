@@ -214,27 +214,24 @@ export const en: Translations = {
       description: "All links to discover Pace Yourself, the trail race planning application.",
     },
     tagline: "Trail race planning made simple",
-    waitlist: {
-      title: "🏔️ Join the private beta",
-      subtitle: "Early access + 3 months Premium for the first members",
-      cta: "Join the waitlist →",
+    download: {
+      title: "Download the app",
+      subtitle: "Plan your pace and nutrition strategy for your next trail race.",
+      googlePlayCta: "Google Play →",
+      appStoreCta: "App Store →",
     },
     cards: {
       blog: {
         title: "Blog",
         subtitle: "Trail articles & guides",
       },
-      app: {
-        title: "See the app",
-        subtitle: "Discover Pace Yourself",
+      organizer: {
+        title: "I am an organizer",
+        subtitle: "Visit the organizer site",
       },
       partners: {
         title: "For brands",
         subtitle: "Product listing program",
-      },
-      instagram: {
-        title: "Instagram",
-        subtitle: "Race plans & content",
       },
       contact: {
         title: "Contact",
