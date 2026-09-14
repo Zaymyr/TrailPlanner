@@ -131,6 +131,7 @@ function MetricInput({
           placeholder={placeholder}
           placeholderTextColor={Colors.textMuted}
           keyboardType="number-pad"
+          inputAccessoryViewID="pace-yourself-numeric-keyboard"
           maxLength={3}
         />
         <Text style={styles.metricInputUnit}>{unit}</Text>
@@ -234,6 +235,7 @@ export function OnboardingPerformanceStep({
           placeholder={utmbIndexPlaceholder}
           placeholderTextColor={Colors.textMuted}
           keyboardType="number-pad"
+          inputAccessoryViewID="pace-yourself-numeric-keyboard"
           maxLength={4}
         />
       </View>
@@ -263,6 +265,7 @@ function PaceInput({
         placeholder={placeholder}
         placeholderTextColor={Colors.textMuted}
         keyboardType="number-pad"
+        inputAccessoryViewID="pace-yourself-numeric-keyboard"
         maxLength={2}
       />
     </View>
@@ -359,6 +362,7 @@ function TargetInput({
           placeholder={maxLength === 3 ? '70' : unit === 'ml' ? '500' : '600'}
           placeholderTextColor={Colors.textMuted}
           keyboardType="number-pad"
+          inputAccessoryViewID="pace-yourself-numeric-keyboard"
           maxLength={maxLength}
         />
         <Text style={styles.targetUnit}>{unit}</Text>

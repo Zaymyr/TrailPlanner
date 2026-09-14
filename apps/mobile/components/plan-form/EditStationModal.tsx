@@ -93,6 +93,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
             value={editingStation?.km ?? ''}
             onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, km: t } : prev))}
             keyboardType="numeric"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholder="0"
             placeholderTextColor={Colors.textMuted}
           />
@@ -102,6 +103,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
             value={editingStation?.pauseMinutes ?? ''}
             onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: t } : prev))}
             keyboardType="numeric"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholder="0"
             placeholderTextColor={Colors.textMuted}
           />

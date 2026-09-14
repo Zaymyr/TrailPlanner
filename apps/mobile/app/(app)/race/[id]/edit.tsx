@@ -140,6 +140,7 @@ export default function EditRaceScreen() {
             value={distanceKm}
             onChangeText={setDistanceKm}
             keyboardType="decimal-pad"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholderTextColor="#475569"
           />
         </View>
@@ -150,6 +151,7 @@ export default function EditRaceScreen() {
             value={elevationGain}
             onChangeText={setElevationGain}
             keyboardType="number-pad"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholderTextColor="#475569"
           />
         </View>
@@ -163,6 +165,7 @@ export default function EditRaceScreen() {
             value={elevationLoss}
             onChangeText={setElevationLoss}
             keyboardType="number-pad"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholderTextColor="#475569"
           />
         </View>

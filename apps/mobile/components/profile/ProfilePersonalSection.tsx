@@ -81,6 +81,7 @@ function ProfilePersonalSectionComponent({
           placeholder={birthDatePlaceholder}
           placeholderTextColor={Colors.textMuted}
           keyboardType="number-pad"
+          inputAccessoryViewID="pace-yourself-numeric-keyboard"
           maxLength={10}
         />
         <Text style={styles.helperText}>{birthDateHelpText}</Text>
@@ -97,6 +98,7 @@ function ProfilePersonalSectionComponent({
               placeholder={weightPlaceholder}
               placeholderTextColor={Colors.textMuted}
               keyboardType="number-pad"
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
               maxLength={3}
             />
             <Text style={styles.metricInputUnit}>kg</Text>
@@ -113,6 +115,7 @@ function ProfilePersonalSectionComponent({
               placeholder={heightPlaceholder}
               placeholderTextColor={Colors.textMuted}
               keyboardType="number-pad"
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
               maxLength={3}
             />
             <Text style={styles.metricInputUnit}>cm</Text>

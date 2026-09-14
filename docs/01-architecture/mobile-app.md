@@ -21,6 +21,7 @@ related_files:
   - apps/mobile/app/_layout.tsx
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
+  - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/catalog/CatalogPresentation.tsx
   - apps/web/lib/mobile-racebook-onboarding.test.ts
@@ -181,10 +182,12 @@ The shared onboarding shell, initial tour chooser, overview, workflow explanatio
 The Profile personal tab exposes both tours with their statuses. Its tab icon shows a notification dot until both are completed; skipped tours intentionally keep the dot visible. Replaying a completed tour does not downgrade its durable status.
 On cold start and after authentication, sessions that do not require onboarding open on the `catalog` Courses tab by default. The tab shell in `apps/mobile/app/(app)/_layout.tsx` also registers hidden detail routes such as `race/[id]/racebook` explicitly so Expo Router does not surface them as bottom-tab destinations while keeping normal pushed navigation behavior. The tabs use history-based back behavior so Android hardware back returns to the actual previous screen instead of snapping to the default `catalog` tab when a hidden detail route was pushed.
 The visible bottom tab bar derives its bottom padding and total height from `react-native-safe-area-context`. This keeps the four tab actions above Android's three-button navigation area while preserving the existing minimum spacing on gesture-navigation devices and iOS.
+Numeric, decimal, and pace inputs attach to the shared iOS `NumericKeyboardAccessory`, which exposes a visible `Terminé` action because those native keyboards do not provide a return key. The accessory is mounted once by the authenticated app shell and is inert on Android.
 The four visible tab actions expose stable `nav-tab-*` test ids for cross-locale Maestro navigation. These ids are test hooks only and do not alter labels, routing, or accessibility state.
 Organizer update pushes deep-link into the catalog with `eventId`, `updateId`, and an optional `raceId`. The catalog reopens the event sheet, loads an older targeted message when it is outside the preview, places that message first, and highlights the concerned format.
 French inactivity and unfinished-plan notifications come from `apps/mobile/locales/fr.ts`; their titles use typographic apostrophes and must stay aligned with the server-side reminder copy.
 Shared hidden-screen headers use `apps/mobile/components/navigation/AppHeaderTitle.tsx` with explicit title-container insets from `apps/mobile/app/(app)/_layout.tsx`. When a screen adds extra header actions, keep enough right inset for those icons so long French titles truncate cleanly instead of overlapping the header buttons on narrow iPhones.
+Race detail stacks use minimal iOS back indicators so dynamic route segments such as `[id]/racebook` are never exposed as user-facing copy. RaceBook's back action explicitly returns to the Courses catalog, including when the screen was opened without usable navigation history.
 
 ## Catalog and Event Sheets
 

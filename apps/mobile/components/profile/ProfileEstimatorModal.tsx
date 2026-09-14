@@ -151,6 +151,7 @@ function ProfileEstimatorModalComponent({
                       placeholder={weightPlaceholder}
                       placeholderTextColor={Colors.textMuted}
                       keyboardType="number-pad"
+                      inputAccessoryViewID="pace-yourself-numeric-keyboard"
                       maxLength={3}
                     />
                     <Text style={styles.metricInputUnit}>kg</Text>
@@ -167,6 +168,7 @@ function ProfileEstimatorModalComponent({
                       placeholder={heightPlaceholder}
                       placeholderTextColor={Colors.textMuted}
                       keyboardType="number-pad"
+                      inputAccessoryViewID="pace-yourself-numeric-keyboard"
                       maxLength={3}
                     />
                     <Text style={styles.metricInputUnit}>cm</Text>

@@ -15,6 +15,7 @@ import {
   View
 } from 'react-native';
 import { Text } from '../../../components/themed/Text';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import type { PlanProduct } from '../../../components/plan-form/contracts';
 import { LiveFuelGauge } from '../../../components/race/LiveFuelGauge';
@@ -419,8 +420,15 @@ export default function RaceScreenV2() {
               <FeedbackHeaderButton
                 contextLabel={plan.name}
                 leading={(
-                  <TouchableOpacity onPress={() => router.push(`/(app)/plan/${id}/edit`)}>
-                    <Text style={styles.headerAction}>Modifier</Text>
+                  <TouchableOpacity
+                    accessibilityLabel={t.common.edit}
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => router.push(`/(app)/plan/${id}/edit`)}
+                    style={styles.headerAction}
+                    testID="edit-plan-header-button"
+                  >
+                    <Ionicons name="pencil-outline" size={19} color={Colors.brandPrimary} />
                   </TouchableOpacity>
                 )}
               />
@@ -849,10 +857,14 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
   },
   headerAction: {
-    color: Colors.brandPrimary,
-    fontSize: 15,
-    fontWeight: '700',
-    marginRight: 4,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   heroCard: {
     backgroundColor: Colors.surface,

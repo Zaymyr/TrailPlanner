@@ -72,6 +72,7 @@ export function AidStationProfileSegmentCard({
               onChangeText={onPaceChange}
               onBlur={onPaceBlur}
               keyboardType="numbers-and-punctuation"
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
               placeholder="6:00"
               placeholderTextColor={colors.text.tertiary}
               autoCapitalize="none"

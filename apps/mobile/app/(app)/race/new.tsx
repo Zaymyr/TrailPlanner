@@ -286,6 +286,7 @@ export default function NewRaceScreen() {
               clearFieldError('distanceKm');
             }}
             keyboardType="decimal-pad"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholder="50"
             placeholderTextColor={Colors.textMuted}
           />
@@ -301,6 +302,7 @@ export default function NewRaceScreen() {
               clearFieldError('elevationGain');
             }}
             keyboardType="number-pad"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholder="2200"
             placeholderTextColor={Colors.textMuted}
           />
@@ -320,6 +322,7 @@ export default function NewRaceScreen() {
               clearFieldError('elevationLoss');
             }}
             keyboardType="number-pad"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholder="2100"
             placeholderTextColor={Colors.textMuted}
           />
@@ -378,6 +381,7 @@ export default function NewRaceScreen() {
               clearFieldError('aidStations');
             }}
             keyboardType="decimal-pad"
+            inputAccessoryViewID="pace-yourself-numeric-keyboard"
             placeholder="km"
             placeholderTextColor={Colors.textMuted}
           />

@@ -297,6 +297,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
                 <TextInput
                   editable={editable}
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   onChangeText={setCarbsG}
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}
@@ -310,6 +311,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
                 <TextInput
                   editable={editable}
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   onChangeText={setSodiumMg}
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}
@@ -323,6 +325,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
                 <TextInput
                   editable={editable}
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   onChangeText={setCaloriesKcal}
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}

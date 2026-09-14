@@ -12,6 +12,7 @@ related_files:
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/(auth)/login.tsx
   - apps/mobile/app/(app)/_layout.tsx
+  - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
 related_tables: []
 ---
 
@@ -38,6 +39,7 @@ Use one reproducible runner journey to catch broken navigation and produce compa
 5. Compare the login, Courses, Plans, Nutrition, and Profile captures. Review both the initial viewport and the post-scroll viewport.
 6. Record every finding using the rubric below. Link the platform, screenshot, affected user goal, severity, and proposed correction.
 7. After a correction, rerun the same flow and compare the same named artifact. Add a focused Maestro flow only when a new critical interaction cannot be represented safely in the shell journey.
+8. On iOS, focus at least one numeric or decimal field and confirm the shared `Terminé` accessory dismisses the keyboard without closing the form or discarding its value.
 
 ## Visual Review Rubric
 
@@ -89,6 +91,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - Local Windows execution requires Maestro to be available on `PATH` and an Android build to be installed. EAS is the versioned cross-platform target once the account supports hosted Maestro jobs.
 - The checked-in EAS workflow is not executable on the project's current Expo plan because hosted Maestro jobs are paid. Keep it as the cross-platform target, or replace it deliberately with another CI runner before calling cloud coverage active.
 - Screen recordings may slightly affect emulator timing; the workflow uses one retry, but repeated flakes should be fixed rather than hidden with more retries.
+- `number-pad` and `decimal-pad` have no native return key on iOS. Every such field must stay connected to the shared numeric keyboard accessory; a form-level close button is not an equivalent keyboard-dismiss path.
 - Expo Doctor reports the deliberate Metro isolation and the separate React 18 web / React 19 mobile installs as monorepo warnings. Investigate new duplicate native-module warnings, but do not remove the mobile-first resolver without revalidating that Metro still resolves React 19 for React Native 0.81.
 
 ## Related Docs

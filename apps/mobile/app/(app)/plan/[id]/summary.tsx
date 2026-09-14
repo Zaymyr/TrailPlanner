@@ -489,6 +489,7 @@ export default function PlanSummaryScreen() {
                 </Text>
                 <TextInput
                   keyboardType="number-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   maxLength={2}
                   onChangeText={(text) => setPickerHour(text.replace(/\D/g, '').slice(0, 2))}
                   placeholder="07"
@@ -507,6 +508,7 @@ export default function PlanSummaryScreen() {
                 </Text>
                 <TextInput
                   keyboardType="number-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   maxLength={2}
                   onChangeText={(text) => setPickerMinute(text.replace(/\D/g, '').slice(0, 2))}
                   placeholder="52"
