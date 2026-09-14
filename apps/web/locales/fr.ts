@@ -225,27 +225,24 @@ export const fr: Translations = {
       description: "Tous les liens pour découvrir Pace Yourself, l'application de planification trail.",
     },
     tagline: "Planification nutrition & allure pour traileurs",
-    waitlist: {
-      title: "🏔️ Rejoins la beta privée",
-      subtitle: "Accès anticipé + 3 mois Premium offerts pour les premiers inscrits",
-      cta: "Rejoindre la waitlist →",
+    download: {
+      title: "Télécharge l'application",
+      subtitle: "Prépare ta stratégie d'allure et de nutrition pour ton prochain trail.",
+      googlePlayCta: "Google Play →",
+      appStoreCta: "App Store →",
     },
     cards: {
       blog: {
         title: "Blog",
         subtitle: "Articles & guides trail",
       },
-      app: {
-        title: "Voir l'application",
-        subtitle: "Découvrir Pace Yourself",
+      organizer: {
+        title: "Je suis organisateur",
+        subtitle: "Voir le site",
       },
       partners: {
         title: "Espace marques",
         subtitle: "Référencement produits",
-      },
-      instagram: {
-        title: "Instagram",
-        subtitle: "Plans de course & contenus",
       },
       contact: {
         title: "Contact",

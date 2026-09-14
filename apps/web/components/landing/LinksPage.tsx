@@ -4,19 +4,19 @@ import type { Route } from "next";
 
 import type { LinksPageTranslations, Locale } from "../../locales/types";
 
-const TALLY_WAITLIST_URL = "https://tally.so/r/7R1AxL";
-const INSTAGRAM_URL = "https://instagram.com/pace_your.self";
+const PLAY_STORE_URL = "https://play.google.com/store/apps/details?id=com.paceyourself.app";
+const APP_STORE_URL = "https://apps.apple.com/app/id6772180071";
 const CONTACT_URL = "mailto:faustin@pace-yourself.com";
 
-const routeByLocale: Record<Locale, { blog: Route; home: Route; partners: Route }> = {
+const routeByLocale: Record<Locale, { blog: Route; organizers: Route; partners: Route }> = {
   en: {
     blog: "/blog",
-    home: "/",
+    organizers: "/organisateurs",
     partners: "/en/partners",
   },
   fr: {
     blog: "/blog",
-    home: "/",
+    organizers: "/organisateurs",
     partners: "/partenaires",
   },
 };
@@ -101,23 +101,16 @@ export function LinksPage({ copy, locale }: LinksPageProps) {
       subtitle: copy.cards.blog.subtitle,
     },
     {
-      emoji: "🏔️",
-      href: routes.home,
-      title: copy.cards.app.title,
-      subtitle: copy.cards.app.subtitle,
+      emoji: "🏁",
+      href: routes.organizers,
+      title: copy.cards.organizer.title,
+      subtitle: copy.cards.organizer.subtitle,
     },
     {
       emoji: "🤝",
       href: routes.partners,
       title: copy.cards.partners.title,
       subtitle: copy.cards.partners.subtitle,
-    },
-    {
-      emoji: "📸",
-      href: INSTAGRAM_URL,
-      title: copy.cards.instagram.title,
-      subtitle: copy.cards.instagram.subtitle,
-      external: true,
     },
     {
       emoji: "✉️",
@@ -144,23 +137,33 @@ export function LinksPage({ copy, locale }: LinksPageProps) {
         </header>
 
         <section
-          aria-labelledby="links-waitlist-title"
+          aria-labelledby="links-download-title"
           className="rounded-2xl bg-[hsl(var(--brand))] p-6 text-white shadow-xl shadow-[rgba(45,80,22,0.18)]"
         >
           <div className="space-y-3">
-            <h1 id="links-waitlist-title" className="text-2xl font-bold tracking-tight">
-              {copy.waitlist.title}
+            <h1 id="links-download-title" className="text-2xl font-bold tracking-tight">
+              {copy.download.title}
             </h1>
-            <p className="text-sm leading-6 text-white/85">{copy.waitlist.subtitle}</p>
+            <p className="text-sm leading-6 text-white/85">{copy.download.subtitle}</p>
           </div>
-          <Link
-            className="mt-6 inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-white px-5 py-3 text-sm font-bold text-[hsl(var(--brand))] transition hover:scale-[1.02] hover:bg-[hsl(var(--brand-surface))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-            href={TALLY_WAITLIST_URL as Route}
-            rel="noopener noreferrer"
-            target="_blank"
-          >
-            {copy.waitlist.cta}
-          </Link>
+          <div className="mt-6 grid gap-3 sm:grid-cols-2">
+            <a
+              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-4 py-3 text-center text-sm font-bold text-[hsl(var(--brand))] transition hover:scale-[1.02] hover:bg-[hsl(var(--brand-surface))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              href={PLAY_STORE_URL}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {copy.download.googlePlayCta}
+            </a>
+            <a
+              className="inline-flex min-h-12 items-center justify-center rounded-xl bg-white px-4 py-3 text-center text-sm font-bold text-[hsl(var(--brand))] transition hover:scale-[1.02] hover:bg-[hsl(var(--brand-surface))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+              href={APP_STORE_URL}
+              rel="noopener noreferrer"
+              target="_blank"
+            >
+              {copy.download.appStoreCta}
+            </a>
+          </div>
         </section>
 
         <nav aria-label="Pace Yourself links" className="flex flex-col gap-4">
