@@ -6,8 +6,9 @@ export function formatTimelineMinute(minute: number) {
 }
 
 export function formatSectionDuration(durationMin: number) {
-  const hours = Math.floor(durationMin / 60);
-  const mins = Math.round(durationMin % 60);
+  const roundedMinutes = Math.max(0, Math.round(durationMin));
+  const hours = Math.floor(roundedMinutes / 60);
+  const mins = roundedMinutes % 60;
   return hours > 0 ? `${hours}h${String(mins).padStart(2, '0')}` : `${mins}min`;
 }
 

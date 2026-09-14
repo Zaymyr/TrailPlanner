@@ -19,6 +19,7 @@ export function NumberInput({ value, onChange, placeholder, style }: NumberInput
         onChange(Number.isNaN(parsed) ? 0 : parsed);
       }}
       keyboardType="numeric"
+      inputAccessoryViewID="pace-yourself-numeric-keyboard"
       placeholder={placeholder ?? '0'}
       placeholderTextColor={Colors.textMuted}
     />

@@ -172,6 +172,7 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
                       <TextInput
                         editable={row.limited}
                         keyboardType="number-pad"
+                        inputAccessoryViewID="pace-yourself-numeric-keyboard"
                         onChangeText={(value) => updateQuantity(product.id, value)}
                         placeholder={row.limited ? '0' : 'Illimite'}
                         placeholderTextColor={Colors.textMuted}

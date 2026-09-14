@@ -123,6 +123,7 @@ function ProfilePerformanceSectionComponent({
               placeholder="600"
               placeholderTextColor={Colors.textMuted}
               keyboardType="number-pad"
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
               maxLength={4}
             />
           </View>
@@ -139,6 +140,7 @@ function ProfilePerformanceSectionComponent({
                   placeholder="6"
                   placeholderTextColor={Colors.textMuted}
                   keyboardType="number-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   maxLength={2}
                 />
               </View>
@@ -152,6 +154,7 @@ function ProfilePerformanceSectionComponent({
                   placeholder="00"
                   placeholderTextColor={Colors.textMuted}
                   keyboardType="number-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   maxLength={2}
                 />
               </View>
@@ -184,6 +187,7 @@ function ProfilePerformanceSectionComponent({
                 placeholder="70"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="number-pad"
+                inputAccessoryViewID="pace-yourself-numeric-keyboard"
                 maxLength={3}
               />
               <Text style={styles.targetUnit}>g</Text>
@@ -200,6 +204,7 @@ function ProfilePerformanceSectionComponent({
                 placeholder="500"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="number-pad"
+                inputAccessoryViewID="pace-yourself-numeric-keyboard"
                 maxLength={4}
               />
               <Text style={styles.targetUnit}>ml</Text>
@@ -216,6 +221,7 @@ function ProfilePerformanceSectionComponent({
                 placeholder="600"
                 placeholderTextColor={Colors.textMuted}
                 keyboardType="number-pad"
+                inputAccessoryViewID="pace-yourself-numeric-keyboard"
                 maxLength={4}
               />
               <Text style={styles.targetUnit}>mg</Text>

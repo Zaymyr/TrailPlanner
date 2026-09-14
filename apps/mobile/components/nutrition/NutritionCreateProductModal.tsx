@@ -136,6 +136,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
                 <Text style={styles.inputLabel}>Glucides (g)</Text>
                 <TextInput
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   onChangeText={onChangeCarbsG}
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}
@@ -147,6 +148,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
                 <Text style={styles.inputLabel}>Sodium (mg)</Text>
                 <TextInput
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   onChangeText={onChangeSodiumMg}
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}
@@ -158,6 +160,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
                 <Text style={styles.inputLabel}>Kcal</Text>
                 <TextInput
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   onChangeText={onChangeCaloriesKcal}
                   placeholder="0"
                   placeholderTextColor={Colors.textMuted}

@@ -171,8 +171,8 @@ export function CatalogFiltersModal({
           <ScrollView contentContainerStyle={styles.modalContent}>
             <Text style={styles.modalSectionTitle}>{text.distanceTitle}</Text>
             <View style={styles.rangeRow}>
-              <TextInput value={distanceMin} onChangeText={onChangeDistanceMin} placeholder={text.minKm} placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" style={[styles.filterInput, styles.rangeInput]} />
-              <TextInput value={distanceMax} onChangeText={onChangeDistanceMax} placeholder={text.maxKm} placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" style={[styles.filterInput, styles.rangeInput]} />
+              <TextInput value={distanceMin} onChangeText={onChangeDistanceMin} placeholder={text.minKm} placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" inputAccessoryViewID="pace-yourself-numeric-keyboard" style={[styles.filterInput, styles.rangeInput]} />
+              <TextInput value={distanceMax} onChangeText={onChangeDistanceMax} placeholder={text.maxKm} placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" inputAccessoryViewID="pace-yourself-numeric-keyboard" style={[styles.filterInput, styles.rangeInput]} />
             </View>
             <Text style={styles.modalSectionTitle}>{text.dateTitle}</Text>
             <View style={styles.rangeRow}>

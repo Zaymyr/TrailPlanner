@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
+import { NumericKeyboardAccessory } from '../../components/inputs/NumericKeyboardAccessory';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -68,6 +69,8 @@ export default function AppLayout() {
         return t.planSummary.title;
       case 'training-live':
         return t.trainingLive.title;
+      case 'race/[id]/racebook':
+        return t.catalog.racebookTitle;
       default:
         return 'Pace Yourself';
     }
@@ -109,10 +112,11 @@ export default function AppLayout() {
   };
 
   return (
-    <Tabs
-      backBehavior="history"
-      initialRouteName="catalog"
-      screenOptions={({ route }) => {
+    <>
+      <Tabs
+        backBehavior="history"
+        initialRouteName="catalog"
+        screenOptions={({ route }) => {
         const isRootTab = ROOT_TAB_ROUTES.has(route.name);
 
         return {
@@ -120,6 +124,7 @@ export default function AppLayout() {
           headerStyle: { backgroundColor: Colors.background },
           headerTintColor: Colors.textPrimary,
           headerShadowVisible: false,
+          headerBackButtonDisplayMode: 'minimal',
           headerTitleAlign: 'left',
           headerTitle: () => <AppHeaderTitle title={getHeaderTitle(route.name)} />,
           headerTitleContainerStyle: {
@@ -141,8 +146,8 @@ export default function AppLayout() {
             <FeedbackHeaderButton contextLabel={getFeedbackContext(route.name)} />
           ),
         };
-      }}
-    >
+        }}
+      >
       {/* Far left: Profile */}
       <Tabs.Screen
         name="profile"
@@ -216,7 +221,21 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="race/[id]/racebook"
-        options={{ href: null }}
+        options={{
+          href: null,
+          headerLeft: () => (
+            <TouchableOpacity
+              accessibilityLabel={t.common.back}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={() => router.dismissTo('/(app)/catalog')}
+              style={styles.headerBackButton}
+              testID="racebook-back-to-catalog"
+            >
+              <Ionicons name="chevron-back" size={28} color={Colors.textPrimary} />
+            </TouchableOpacity>
+          ),
+        }}
       />
       <Tabs.Screen
         name="plan"
@@ -242,7 +261,9 @@ export default function AppLayout() {
         name="onboarding"
         options={{ href: null, headerShown: false, tabBarStyle: { display: 'none' } }}
       />
-    </Tabs>
+      </Tabs>
+      <NumericKeyboardAccessory />
+    </>
   );
 }
 
@@ -258,6 +279,12 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: Colors.background,
     backgroundColor: Colors.danger,
+  },
+  headerBackButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
 

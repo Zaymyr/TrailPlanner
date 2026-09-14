@@ -603,6 +603,7 @@ function TargetInput({
       <View style={styles.inputShell}>
         <TextInput
           keyboardType="number-pad"
+          inputAccessoryViewID="pace-yourself-numeric-keyboard"
           maxLength={4}
           onChangeText={onChangeText}
           placeholder="0"
