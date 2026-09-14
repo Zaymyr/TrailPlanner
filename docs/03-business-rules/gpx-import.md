@@ -120,7 +120,7 @@ New Trace de Trail catalog races initialize `edition_group_id` with their own ra
 
 Authenticated race loaders return public/live catalog races plus races created by the current user. This owner-aware read keeps a newly imported private race selectable even though the write invariant requires `is_live = false`.
 
-The mobile import preview also keeps the parsed route geometry client-side through `apps/mobile/lib/gpx.ts`. `apps/mobile/components/race/GpxImportPreviewModal.tsx` renders that geometry with `GpxRoutePreviewCard.tsx`, giving the runner a native route sketch before confirming the import without waiting for any server round-trip.
+The mobile import preview also keeps the parsed route geometry client-side through `apps/mobile/lib/gpx.ts`. `apps/mobile/components/race/GpxImportPreviewModal.tsx` renders that geometry with `GpxRoutePreviewCard.tsx`, giving the runner a native route sketch before confirming the import without waiting for any server round-trip. The preview sheet is isolated as a modal accessibility surface and exposes its title as a VoiceOver heading; this changes neither the parsed geometry nor what confirmation sends to the import route.
 
 ## Catalog Plan Import
 
@@ -206,6 +206,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - The organizer roadbook workflow is not a GPX upload. Its PDF/image selection permits up to 25 MB per file through temporary private Storage; apply, cancel, or expiry cleanup deletes each object. Larger route files continue to use the dedicated GPX route.
 - The roadbook preview and its LLM reconciliation are admin-only and do not change GPX ownership or bypass the dedicated organizer GPX route.
 - The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
+- Keep GPX preview accessibility presentation-only. Modal focus semantics, headings, touch targets, and dismissal behavior must not parse again, mutate preview points, upload a file, or confirm an import.
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.
 - Drafting several section switches in the Organizer chooser does not parse, upload, or reload GPX data; only the single successful module-settings save changes whether GPX-adjacent module UI is shown.

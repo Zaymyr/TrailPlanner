@@ -69,6 +69,7 @@ Mobile listens to `supabase.auth.onAuthStateChange` in `apps/mobile/app/_layout.
 The layout retains push registration and delegates trial, Resend contact sync, and pending account/guest conversion to `useSessionSideEffects`. These are not onboarding plan saves, but they follow the same idempotency principle because Supabase sessions can refresh or be observed more than once.
 Repeated PostHog identification is also safe: it refreshes the same person's properties and marks owner/admin identities as internal without creating a second application record.
 Presentation-only route configuration in the layout, such as hiding the bottom tab bar for required onboarding, is not part of this duplicate-event guard pattern.
+Likewise, the layout's light-system appearance and dark status-bar presentation are device UI configuration only; they must not be coupled to session listeners or auth-event guards.
 Likewise, routing returning sessions to the Courses catalog without a Plans preload does not alter the session-event guards.
 
 ## Gotchas

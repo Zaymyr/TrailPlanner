@@ -85,6 +85,8 @@ The hook exposes one shared external-store snapshot. Its Auth, foreground, premi
 
 An SDK purchase return is not sufficient by itself for success UI or purchase analytics. The billing hook resolves the configured Premium entitlement from the returned `CustomerInfo` and requires it to be active and backed by the same product as the completed transaction before returning `purchased`. A missing, inactive, or mismatched entitlement returns `unverified`, keeps the success alert hidden, and is tracked separately from verified purchases. Sandbox and production purchases can both unlock Premium, but analytics retain their environment distinction.
 
+The mobile Premium upsell sheet identifies its content as a modal accessibility surface and its title as a VoiceOver heading. This is presentation-only: opening, reading, dismissing, or navigating the sheet does not grant Premium and does not bypass the billing hook's verified-purchase requirement.
+
 ## Billing Sources
 
 `subscriptions.provider` identifies the billing source:
@@ -112,6 +114,7 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 - Stripe product/price identities are environment/dashboard configuration, not hardcoded repo facts.
 - Do not resolve organizer edition capabilities from `subscriptions`, RevenueCat, trial state, or `premium_grants`.
 - Do not move entitlement listeners back into individual hook instances; tab and detail screens frequently mount `usePremium` at the same time.
+- Keep accessibility semantics on the Premium upsell presentation-only. Modal focus and headings must not be treated as checkout progress, purchase success, or evidence of an active entitlement.
 
 ## Related Docs
 

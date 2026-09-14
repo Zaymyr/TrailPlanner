@@ -1,6 +1,8 @@
 import { memo } from 'react';
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -8,6 +10,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type {
@@ -70,6 +73,9 @@ function EstimatorOptionList<T extends string>({
         const isSelected = selectedValue === option.value;
         return (
           <TouchableOpacity
+            accessibilityLabel={option.label}
+            accessibilityRole="radio"
+            accessibilityState={{ selected: isSelected }}
             key={option.value}
             style={[styles.option, isSelected && styles.optionSelected]}
             onPress={() => onSelect(option.value)}
@@ -122,22 +128,40 @@ function ProfileEstimatorModalComponent({
   onApply,
   onClose,
 }: ProfileEstimatorModalProps) {
+  const insets = useSafeAreaInsets();
+
   return (
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
-      <View style={styles.modalWrapper}>
-        <Pressable style={styles.modalOverlay} onPress={onClose} />
-        <View style={styles.modalSheet}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalWrapper}
+      >
+        <Pressable accessible={false} style={styles.modalOverlay} onPress={onClose} />
+        <View
+          accessibilityViewIsModal
+          style={[styles.modalSheet, { paddingBottom: Math.max(20, insets.bottom) }]}
+        >
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderContent}>
-              <Text style={styles.modalTitle}>{title}</Text>
+              <Text accessibilityRole="header" style={styles.modalTitle}>{title}</Text>
               <Text style={styles.modalSubtitle}>{subtitle}</Text>
             </View>
-            <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
+            <TouchableOpacity
+              accessibilityLabel={closeLabel}
+              accessibilityRole="button"
+              style={styles.modalCloseButton}
+              onPress={onClose}
+            >
               <Text style={styles.modalCloseButtonText}>{closeLabel}</Text>
             </TouchableOpacity>
           </View>
 
-          <ScrollView contentContainerStyle={styles.estimatorContent}>
+          <ScrollView
+            contentContainerStyle={styles.estimatorContent}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            style={styles.estimatorScroll}
+          >
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{bodyMetricsTitle}</Text>
               <View style={styles.bodyMetricsRow}>
@@ -145,6 +169,7 @@ function ProfileEstimatorModalComponent({
                   <Text style={styles.label}>{weightLabel}</Text>
                   <View style={styles.metricInputShell}>
                     <TextInput
+                      accessibilityLabel={weightLabel}
                       style={styles.metricInput}
                       value={estimatorWeightKg}
                       onChangeText={onChangeEstimatorWeightKg}
@@ -162,6 +187,7 @@ function ProfileEstimatorModalComponent({
                   <Text style={styles.label}>{heightLabel}</Text>
                   <View style={styles.metricInputShell}>
                     <TextInput
+                      accessibilityLabel={heightLabel}
                       style={styles.metricInput}
                       value={estimatorHeightCm}
                       onChangeText={onChangeEstimatorHeightCm}
@@ -239,7 +265,7 @@ function ProfileEstimatorModalComponent({
             <Text style={styles.applyButtonText}>{applyLabel}</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -261,8 +287,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingHorizontal: 20,
     paddingTop: 20,
-    paddingBottom: 28,
-    maxHeight: '78%',
+    maxHeight: '90%',
     borderTopWidth: 1,
     borderLeftWidth: 1,
     borderRightWidth: 1,
@@ -290,6 +315,8 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   modalCloseButton: {
+    minHeight: 44,
+    justifyContent: 'center',
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 999,
@@ -305,6 +332,9 @@ const styles = StyleSheet.create({
   estimatorContent: {
     gap: 16,
     paddingBottom: 20,
+  },
+  estimatorScroll: {
+    flexShrink: 1,
   },
   section: {
     gap: 10,

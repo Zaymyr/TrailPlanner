@@ -69,6 +69,7 @@ export function PlanBasicsSection({
   const fatigueLevel = Number.isFinite(values.fatigueLevel) ? Math.min(1, Math.max(0, values.fatigueLevel)) : 0.5;
   const [fatiguePreviewLevel, setFatiguePreviewLevel] = useState(fatigueLevel);
   const isDraggingFatigueRef = useRef(false);
+  const fatigueGestureDidDragRef = useRef(false);
   const dragStartFatigueLevelRef = useRef(fatigueLevel);
 
   useEffect(() => {
@@ -113,10 +114,15 @@ export function PlanBasicsSection({
   const panResponder = useMemo(
     () =>
       PanResponder.create({
-        onStartShouldSetPanResponder: () => true,
-        onMoveShouldSetPanResponder: () => true,
+        // Let the enclosing ScrollView keep vertical drags. The slider takes
+        // ownership only once a deliberate horizontal gesture is established.
+        onStartShouldSetPanResponder: () => false,
+        onMoveShouldSetPanResponder: (_event, gestureState) => {
+          return Math.abs(gestureState.dx) > 4 && Math.abs(gestureState.dx) > Math.abs(gestureState.dy);
+        },
         onPanResponderGrant: (event) => {
           isDraggingFatigueRef.current = true;
+          fatigueGestureDidDragRef.current = true;
           const initialRatio = getFatigueRatioFromLocation(event.nativeEvent.locationX);
           dragStartFatigueLevelRef.current = initialRatio;
           updateFatigueLevel(initialRatio);
@@ -137,6 +143,15 @@ export function PlanBasicsSection({
       }),
     [fatigueTrackWidth, getFatigueRatioFromLocation, updateFatigueLevel],
   );
+
+  const handleFatigueTrackTouchStart = () => {
+    fatigueGestureDidDragRef.current = false;
+  };
+
+  const handleFatigueTrackTouchEnd = (event: { nativeEvent: { locationX: number } }) => {
+    if (fatigueGestureDidDragRef.current) return;
+    updateFatigueLevel(getFatigueRatioFromLocation(event.nativeEvent.locationX), true);
+  };
 
   const renderAccordionHeader = (
     section: AccordionSection,
@@ -198,16 +213,18 @@ export function PlanBasicsSection({
 
       <Modal visible={settingsVisible} transparent animationType="slide" onRequestClose={onCloseSettings}>
         <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <Pressable style={styles.modalOverlay} onPress={onCloseSettings} />
-          <View style={styles.settingsSheet}>
+          <Pressable accessible={false} style={styles.modalOverlay} onPress={onCloseSettings} />
+          <View accessibilityViewIsModal style={styles.settingsSheet}>
             <View style={styles.settingsSheetHandle} />
             <View style={styles.settingsSheetHeader}>
               <View style={styles.settingsSheetHeaderCopy}>
-                <Text style={styles.settingsSheetTitle}>Paramètres du plan</Text>
+                <Text accessibilityRole="header" style={styles.settingsSheetTitle}>Paramètres du plan</Text>
                 <Text style={styles.settingsSheetSubtitle}>Course, allure et cibles nutritionnelles</Text>
               </View>
               <TouchableOpacity
                 accessibilityLabel="Fermer les paramètres du plan"
+                accessibilityRole="button"
+                hitSlop={6}
                 onPress={onCloseSettings}
                 style={styles.pickerCloseBtn}
               >
@@ -308,6 +325,8 @@ export function PlanBasicsSection({
                       <View
                         style={styles.fatigueSliderTouchArea}
                         onLayout={(event) => setFatigueTrackWidth(event.nativeEvent.layout.width)}
+                        onTouchStart={handleFatigueTrackTouchStart}
+                        onTouchEnd={handleFatigueTrackTouchEnd}
                         {...panResponder.panHandlers}
                       />
                       <View style={[styles.fatigueSliderFill, { width: `${displayedFatigueLevel * 100}%` }]} />

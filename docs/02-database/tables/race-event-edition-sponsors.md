@@ -82,6 +82,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; sponsor placement eligibility, redirect counting, payload filtering, and storage contracts remain unchanged.
 - Sponsor eligibility depends on the effective Signature tier, not whether its origin is Admin, Offert, Stripe, or virement.
 
 - Sponsor ordering sends the complete edition list to `reorder_racebook_sponsors`. The function locks the edition and rejects partial lists, foreign ids, duplicate ids or duplicate positions before updating any row.

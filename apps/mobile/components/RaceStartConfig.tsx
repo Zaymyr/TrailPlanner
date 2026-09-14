@@ -55,11 +55,11 @@ export default function RaceStartConfig({ visible, raceName, onStart, onCancel }
   const [confirmMode, setConfirmMode] = useState<AlertConfirmMode>('manual');
 
   return (
-    <Modal visible={visible} transparent animationType="slide">
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onCancel}>
       <View style={styles.overlay}>
-        <View style={styles.sheet}>
+        <View accessibilityViewIsModal style={styles.sheet}>
           <View style={styles.header}>
-            <Text style={styles.headerTitle}>Démarrer</Text>
+            <Text accessibilityRole="header" style={styles.headerTitle}>Démarrer</Text>
             <Text style={styles.headerSubtitle} numberOfLines={2}>
               {raceName}
             </Text>

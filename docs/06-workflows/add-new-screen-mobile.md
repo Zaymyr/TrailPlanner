@@ -62,6 +62,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`. The root layout loads exact font-weight subpaths so unused package weights are not bundled.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; pushed or hidden detail screens should keep a clear header title.
 - Bottom tab safe area: keep the visible tab bar's height and bottom padding derived from `useSafeAreaInsets()` so Android three-button navigation cannot cover its actions.
+- A modal sheet must set `accessibilityViewIsModal`, expose its title as an accessibility header, and give each icon-only dismissal control a localized label plus a 44-point target or equivalent hit slop. Keep the backdrop out of the VoiceOver focus order.
 - Hidden detail headers with custom left/right actions should reserve title space through `headerTitleContainerStyle` in the parent layout or screen options. On narrow iPhones, prefer shared one-line truncation in `AppHeaderTitle` over wrapped titles that can collide with header icons.
 - Numeric, decimal, and pace `TextInput` controls must set `inputAccessoryViewID="pace-yourself-numeric-keyboard"`. The authenticated app shell mounts the matching shared iOS accessory so users always have a `Terminé` action; Android ignores it.
 - Root tab actions: primary tab screens hide the native header and place global actions in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`. Add safe-area top padding in the screen content when the header is hidden; keep the floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast.
@@ -87,7 +88,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - When a mobile screen embeds public formats under `race_events`, use an explicit live-format relation filter; use `!inner` when parent events with no visible formats must also disappear. RLS/public flags alone do not filter the embedded array in this schema.
 - When extending the Courses tab, preserve its event-level route contract: favorites stay tied to `race_events`; a confirmed favorite addition shows localized success feedback and scrolls to the event's new pinned position; organizer-update links add `updateId` and optional `raceId` to the catalog route so the existing event sheet opens the precise message and format context; the light-green update panel follows every format action, shows only the newest or targeted message while collapsed, and reveals older messages plus lazy-loaded history through `View more`.
 - Premium purchase UI that can trigger App Store review should keep the subscription summary plus both legal links close to the CTA: explicit title, duration, price, privacy policy, and Terms of Use (EULA).
-- Native changes require a new platform-compatible EAS Update runtime. The current release keeps iOS on `1.1.0` and uses the Android-specific `1.1.1` runtime for the Android 16 / API 36 binary.
+- Native changes require a new platform-compatible EAS Update runtime. The current source targets shared runtime `1.1.1`; the light iOS appearance requires a new iOS `1.1.1` binary before its OTA channel receives `1.1.1` updates.
 
 ### Racebook Identity Presentation
 
@@ -126,7 +127,7 @@ For native behavior, build/run with the development client profile from `apps/mo
 
 For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobile-ux-audit.md). Run `npm run test:e2e:ux -w @trailplanner/mobile` locally when Maestro and an installed build are available, or launch the manual EAS workflow.
 
-For Android production OTA updates, resolve and verify the Android runtime before publishing; the API 36 binary expects runtime `1.1.1` while the current iOS binary remains on `1.1.0`.
+For production OTA updates, resolve and verify runtime `1.1.1` on both platforms. Do not publish an iOS `1.1.1` OTA until a matching iOS binary containing the light appearance configuration is installed or released.
 
 For App Store subscription work, verify on iPhone and iPad layouts that the purchase surface still exposes functional privacy and Terms/EULA links without truncation.
 
@@ -148,7 +149,7 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 - Do not switch the tab shell back to `backBehavior: 'initialRoute'` for hidden child flows unless you explicitly want Android hardware back to jump to the default tab instead of the previous screen.
 - Do not replace the inset-aware visible tab bar sizing with a fixed height; Android system navigation modes reserve different bottom areas.
 - Do not hide subscription legal links in a distant settings screen when the active surface is an in-app paywall; premium upgrade prompts should expose privacy and Terms/EULA directly.
-- Do not publish one undifferentiated OTA when platform runtimes differ. Publish and verify Android and iOS updates against their own resolved runtimes.
+- Do not publish an OTA across incompatible native runtimes. The current release line uses `1.1.1` on both platforms, but older iOS `1.1.0` binaries must remain isolated from its updates.
 - Do not apply organizer accent colors to semantic status UI or expose an unpublished branding draft through a mobile screen.
 - Do not store test credentials in a flow, snapshot, source file, or public Expo environment variable.
 

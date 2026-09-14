@@ -609,27 +609,27 @@ export default function RaceScreenV2() {
           onCancel={() => setShowConfig(false)}
         />
 
-        <Modal visible={showTimePicker} transparent animationType="fade">
+        <Modal visible={showTimePicker} transparent animationType="fade" onRequestClose={() => setShowTimePicker(false)}>
           <View style={styles.modalOverlay}>
-            <View style={styles.timeModal}>
-              <Text style={styles.timeModalTitle}>Heure de départ</Text>
+            <View accessibilityViewIsModal style={styles.timeModal}>
+              <Text accessibilityRole="header" style={styles.timeModalTitle}>Heure de départ</Text>
               <View style={styles.timePickerRow}>
                 <View style={styles.timeUnit}>
-                  <TouchableOpacity onPress={() => setPickerHour((hour) => (hour + 1) % 24)}>
+                  <TouchableOpacity accessibilityLabel="Augmenter les heures" accessibilityRole="button" hitSlop={8} onPress={() => setPickerHour((hour) => (hour + 1) % 24)}>
                     <Text style={styles.timeArrow}>+</Text>
                   </TouchableOpacity>
                   <Text style={styles.timeValue}>{String(pickerHour).padStart(2, '0')}</Text>
-                  <TouchableOpacity onPress={() => setPickerHour((hour) => (hour - 1 + 24) % 24)}>
+                  <TouchableOpacity accessibilityLabel="Diminuer les heures" accessibilityRole="button" hitSlop={8} onPress={() => setPickerHour((hour) => (hour - 1 + 24) % 24)}>
                     <Text style={styles.timeArrow}>-</Text>
                   </TouchableOpacity>
                 </View>
                 <Text style={styles.timeSeparator}>:</Text>
                 <View style={styles.timeUnit}>
-                  <TouchableOpacity onPress={() => setPickerMinute((minute) => (minute + 5) % 60)}>
+                  <TouchableOpacity accessibilityLabel="Augmenter les minutes" accessibilityRole="button" hitSlop={8} onPress={() => setPickerMinute((minute) => (minute + 5) % 60)}>
                     <Text style={styles.timeArrow}>+</Text>
                   </TouchableOpacity>
                   <Text style={styles.timeValue}>{String(pickerMinute).padStart(2, '0')}</Text>
-                  <TouchableOpacity onPress={() => setPickerMinute((minute) => (minute - 5 + 60) % 60)}>
+                  <TouchableOpacity accessibilityLabel="Diminuer les minutes" accessibilityRole="button" hitSlop={8} onPress={() => setPickerMinute((minute) => (minute - 5 + 60) % 60)}>
                     <Text style={styles.timeArrow}>-</Text>
                   </TouchableOpacity>
                 </View>

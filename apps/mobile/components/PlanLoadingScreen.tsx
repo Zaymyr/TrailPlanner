@@ -1,6 +1,7 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AccessibilityInfo,
   Animated,
   Easing,
   StyleSheet,
@@ -24,6 +25,7 @@ export function PlanLoadingScreen({
   stage,
   isFinishing = false,
 }: Props) {
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const safeProgress = Math.max(0, Math.min(1, progress));
   const animatedProgress = useRef(new Animated.Value(isFinishing ? safeProgress : 0)).current;
   const containerOpacity = useRef(new Animated.Value(isFinishing ? 1 : 0)).current;
@@ -32,8 +34,26 @@ export function PlanLoadingScreen({
   const highestProgressRef = useRef(isFinishing ? safeProgress : 0);
 
   useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotionEnabled(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionEnabled);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     const nextProgress = Math.max(highestProgressRef.current, safeProgress);
     highestProgressRef.current = nextProgress;
+
+    animatedProgress.stopAnimation();
+    if (reduceMotionEnabled) {
+      animatedProgress.setValue(nextProgress);
+      return;
+    }
 
     Animated.timing(animatedProgress, {
       toValue: nextProgress,
@@ -41,9 +61,19 @@ export function PlanLoadingScreen({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [animatedProgress, isFinishing, safeProgress]);
+  }, [animatedProgress, isFinishing, reduceMotionEnabled, safeProgress]);
 
   useEffect(() => {
+    containerOpacity.stopAnimation();
+    cardOpacity.stopAnimation();
+    cardTranslateY.stopAnimation();
+    if (reduceMotionEnabled) {
+      containerOpacity.setValue(isFinishing ? 0 : 1);
+      cardOpacity.setValue(isFinishing ? 0 : 1);
+      cardTranslateY.setValue(isFinishing ? -8 : 0);
+      return;
+    }
+
     Animated.parallel([
       Animated.timing(containerOpacity, {
         toValue: isFinishing ? 0 : 1,
@@ -64,7 +94,7 @@ export function PlanLoadingScreen({
         useNativeDriver: true,
       }),
     ]).start();
-  }, [cardOpacity, cardTranslateY, containerOpacity, isFinishing]);
+  }, [cardOpacity, cardTranslateY, containerOpacity, isFinishing, reduceMotionEnabled]);
 
   const animatedProgressWidth = animatedProgress.interpolate({
     inputRange: [0, 1],
@@ -83,7 +113,16 @@ export function PlanLoadingScreen({
           },
         ]}
       >
-        <ActivityIndicator color={Colors.brandPrimary} size="large" />
+        {reduceMotionEnabled ? (
+          <View
+            accessibilityLabel={stage}
+            accessibilityRole="progressbar"
+            accessibilityValue={{ min: 0, max: 100, now: Math.round(safeProgress * 100) }}
+            style={styles.staticProgressIndicator}
+          />
+        ) : (
+          <ActivityIndicator color={Colors.brandPrimary} size="large" />
+        )}
         <Text style={styles.loadingTitle}>{title}</Text>
         {planName ? <Text style={styles.loadingPlanName}>{planName}</Text> : null}
         <View style={styles.loadingProgressTrack}>
@@ -111,6 +150,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surface,
     padding: 24,
     alignItems: 'center',
+  },
+  staticProgressIndicator: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.brandPrimary,
   },
   loadingTitle: {
     color: Colors.textPrimary,

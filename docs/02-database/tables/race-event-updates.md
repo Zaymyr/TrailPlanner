@@ -99,6 +99,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; announcement visibility, targeting, history, and push contracts remain unchanged.
 - The runner catalog may reuse the same bounded event update preview when a visible event has only private plan-capable formats, but it removes masked formats after deduplicating stable event and format ids; this presentation filter does not change announcement audience or visibility policies.
 - The catalog onboarding parameter is presentation/navigation state only; organizer-update loading, targeting, visibility, and read behavior stay unchanged.
 - Guided RaceBook search filters already-loaded event/format rows in memory; it neither changes update visibility nor records the entered query in `race_event_updates`.

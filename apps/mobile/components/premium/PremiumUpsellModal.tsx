@@ -161,12 +161,12 @@ function PremiumUpsellModalContent({
     >
       <View style={styles.modalWrapper}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
-        <View style={styles.modalSheet}>
+        <View accessibilityViewIsModal style={styles.modalSheet}>
           <View style={styles.iconWrap}>
             <Ionicons name="lock-closed" size={20} color={Colors.warning} />
           </View>
 
-          <Text style={styles.modalTitle}>{title}</Text>
+          <Text accessibilityRole="header" style={styles.modalTitle}>{title}</Text>
           <Text style={styles.modalMessage}>{message}</Text>
 
           <View style={styles.benefitsCard}>

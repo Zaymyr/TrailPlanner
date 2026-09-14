@@ -268,6 +268,7 @@ erDiagram
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes keyboard, gesture, motion, safe-area, and touch-target presentation only; it adds no schema field, relationship, RLS policy, or client database access.
 - Do not use `docs/_archive/db/schema.sql` as current truth.
 - RLS is enabled on the main app tables; tests and server routes must be explicit about role context.
 - Historical migrations contain unsafe administrator branches, but the final hardening migration replaces active privileged policies with trusted `app_metadata` checks. Never authorize from `user_profiles.role` or `user_metadata`.

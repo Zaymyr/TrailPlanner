@@ -67,9 +67,9 @@ export function GpxImportPreviewModal({
 
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
-      <Pressable style={styles.backdrop} onPress={onCancel}>
-        <Pressable style={styles.sheet} onPress={() => undefined}>
-          <Text style={styles.title}>{t.races.gpxPreview}</Text>
+      <Pressable accessible={false} style={styles.backdrop} onPress={onCancel}>
+        <Pressable accessibilityViewIsModal style={styles.sheet} onPress={() => undefined}>
+          <Text accessibilityRole="header" style={styles.title}>{t.races.gpxPreview}</Text>
           <Text style={styles.subtitle}>{t.races.gpxPreviewSubtitle}</Text>
 
           <View style={styles.section}>

@@ -89,6 +89,7 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; favorite ownership, pinning, mutation confirmation, and notification audience contracts remain unchanged.
 - Preview-selected private formats can keep a visible parent event in every runner's Courses catalog, while masked formats remain absent. This does not change favorite ownership or notification membership; favorites remain runner-owned and event-scoped.
 - Guided onboarding reuses the catalog without changing event-favorite ownership, pinning, or notification audience semantics.
 - Guided RaceBook results require a search and hide the favorite/create-plan detours, but this presentation rule never creates or removes an event favorite.

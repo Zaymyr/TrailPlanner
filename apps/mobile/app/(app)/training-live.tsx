@@ -508,6 +508,7 @@ export default function TrainingLiveScreen() {
         </View>
 
         <SupplyGroup
+          locale={locale}
           title={copy.fluids}
           supplies={fluidSupplies}
           productMap={productMap}
@@ -515,6 +516,7 @@ export default function TrainingLiveScreen() {
           onIncrement={(productId) => updateSupplyQuantity(productId, 1)}
         />
         <SupplyGroup
+          locale={locale}
           title={copy.solids}
           supplies={solidSupplies}
           productMap={productMap}
@@ -636,12 +638,14 @@ function MetricCard({ label, value }: { label: string; value: string }) {
 }
 
 function SupplyGroup({
+  locale,
   title,
   supplies,
   productMap,
   onIncrement,
   onDecrement,
 }: {
+  locale: 'fr' | 'en';
   title: string;
   supplies: Supply[];
   productMap: Record<string, PlanProduct>;
@@ -666,11 +670,21 @@ function SupplyGroup({
               </DataText>
             </View>
             <View style={styles.stepper}>
-              <TouchableOpacity style={styles.stepperButton} onPress={() => onDecrement(supply.productId)}>
+              <TouchableOpacity
+                accessibilityLabel={`${locale === 'fr' ? 'Réduire' : 'Decrease'} ${product.name}`}
+                accessibilityRole="button"
+                style={styles.stepperButton}
+                onPress={() => onDecrement(supply.productId)}
+              >
                 <Ionicons color={Colors.textPrimary} name="remove" size={16} />
               </TouchableOpacity>
               <DataText style={styles.stepperValue}>{supply.quantity}</DataText>
-              <TouchableOpacity style={styles.stepperButton} onPress={() => onIncrement(supply.productId)}>
+              <TouchableOpacity
+                accessibilityLabel={`${locale === 'fr' ? 'Augmenter' : 'Increase'} ${product.name}`}
+                accessibilityRole="button"
+                style={styles.stepperButton}
+                onPress={() => onIncrement(supply.productId)}
+              >
                 <Ionicons color={Colors.textPrimary} name="add" size={16} />
               </TouchableOpacity>
             </View>
@@ -945,9 +959,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stepperButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,

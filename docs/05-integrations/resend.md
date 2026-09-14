@@ -63,7 +63,7 @@ The per-user contact route:
 - runs independently from the background entitlement refresh and does not extend the verified-session loading state;
 - is called by `apps/mobile/lib/resendContactSync.ts` from `apps/mobile/hooks/useSessionSideEffects.ts` after a mobile non-anonymous session is active.
 
-`apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding. Keep those route presentation changes independent from the Resend sync trigger.
+`apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding and the light-system/dark-status-bar presentation. Keep those device presentation changes independent from the Resend sync trigger.
 Its normal post-auth destination is the Courses catalog; changing that destination must not move or delay the identified-user contact sync.
 The same layout marks owner/admin PostHog identities as internal, but that analytics classification remains independent from Resend contact eligibility and subscription state.
 

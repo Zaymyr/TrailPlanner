@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import type { ReactNode } from 'react';
-import { Linking, Pressable, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Card } from '../themed/Card';
 import { Text } from '../themed/Text';
@@ -47,6 +47,7 @@ type RacebookAccessSectionProps = {
     scheduleLabel: string;
   };
   onOpenMap: (location: string) => void;
+  onOpenUrl: (url: string) => void;
   onToggleTransport: (key: RacebookAccessTransport['key']) => void;
 };
 
@@ -87,6 +88,7 @@ function LocationsCard({
   openMapsLabel,
   openGeneralMapLabel,
   onOpenMap,
+  onOpenUrl,
   theme,
 }: {
   title: string;
@@ -95,6 +97,7 @@ function LocationsCard({
   openMapsLabel: string;
   openGeneralMapLabel: string;
   onOpenMap: (location: string) => void;
+  onOpenUrl: (url: string) => void;
   theme: ResolvedRacebookTheme;
 }) {
   return (
@@ -114,7 +117,7 @@ function LocationsCard({
                   accessibilityLabel={`${openMapsLabel} - ${location.label}`}
                   onPress={() => {
                     onOpenMap(location.key);
-                    Linking.openURL(location.actionUrl!).catch(() => {});
+                    onOpenUrl(location.actionUrl!);
                   }}
                   style={({ pressed }) => [styles.mapAction, pressed ? styles.actionPressed : null]}
                 >
@@ -132,7 +135,7 @@ function LocationsCard({
           accessibilityLabel={openGeneralMapLabel}
           onPress={() => {
             onOpenMap('general');
-            Linking.openURL(generalMapUrl).catch(() => {});
+            onOpenUrl(generalMapUrl);
           }}
           style={({ pressed }) => [styles.generalMapAction, { backgroundColor: theme.primaryColor }, pressed ? styles.actionPressed : null]}
         >
@@ -215,6 +218,7 @@ export function RacebookAccessSection({
   theme,
   copy,
   onOpenMap,
+  onOpenUrl,
   onToggleTransport,
 }: RacebookAccessSectionProps) {
   if (!presentation?.hasContent) {
@@ -238,6 +242,7 @@ export function RacebookAccessSection({
           openMapsLabel={copy.openMapsLabel}
           openGeneralMapLabel={copy.openGeneralMapLabel}
           onOpenMap={onOpenMap}
+          onOpenUrl={onOpenUrl}
           theme={theme}
         />
       ) : null}

@@ -36,10 +36,12 @@ Use one reproducible runner journey to catch broken navigation and produce compa
 2. Install the `e2e-test` build on the target emulator or device. Native modules make a real development/EAS build preferable to Expo Go.
 3. From the repository root, run `npm run test:e2e:ux -w @trailplanner/mobile`. The local runner fails without printing credentials when Maestro or the secrets are unavailable.
 4. For the cloud matrix, first confirm that the Expo account includes hosted Maestro jobs. The current project plan does not. After a plan upgrade, change to `apps/mobile` and run `eas workflow:run .eas/workflows/mobile-ux-audit.yml`. Android and iOS then build and test in parallel; the jobs record video, retry one failure, and retain the nine named screenshots.
-5. Compare the login, Courses, Plans, Nutrition, and Profile captures. Review both the initial viewport and the post-scroll viewport.
+5. Compare the login, Courses, Plans, Nutrition, and Profile captures. Review both the initial viewport and the post-scroll viewport; on iOS also confirm the dark status-bar content remains legible over the light palette.
 6. Record every finding using the rubric below. Link the platform, screenshot, affected user goal, severity, and proposed correction.
 7. After a correction, rerun the same flow and compare the same named artifact. Add a focused Maestro flow only when a new critical interaction cannot be represented safely in the shell journey.
 8. On iOS, focus at least one numeric or decimal field and confirm the shared `Terminé` accessory dismisses the keyboard without closing the form or discarding its value.
+
+9. On iOS, open a representative modal with VoiceOver: focus must remain inside the sheet, its title must be announced as a header, and each icon-only close action must announce its purpose with a 44-point target or equivalent hit slop.
 
 ## Visual Review Rubric
 
@@ -92,6 +94,8 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - The checked-in EAS workflow is not executable on the project's current Expo plan because hosted Maestro jobs are paid. Keep it as the cross-platform target, or replace it deliberately with another CI runner before calling cloud coverage active.
 - Screen recordings may slightly affect emulator timing; the workflow uses one retry, but repeated flakes should be fixed rather than hidden with more retries.
 - `number-pad` and `decimal-pad` have no native return key on iOS. Every such field must stay connected to the shared numeric keyboard accessory; a form-level close button is not an equivalent keyboard-dismiss path.
+- The login screen must remain scrollable with the keyboard visible and with enlarged Dynamic Type. A static centered form can hide the password, sign-in, or account-creation actions on compact iPhones.
+- Changing Expo `userInterfaceStyle` is native configuration. Validate the new status-bar contrast in a matching iOS binary; an OTA cannot retrofit the appearance setting to an older runtime.
 - Expo Doctor reports the deliberate Metro isolation and the separate React 18 web / React 19 mobile installs as monorepo warnings. Investigate new duplicate native-module warnings, but do not remove the mobile-first resolver without revalidating that Metro still resolves React 19 for React Native 0.81.
 
 ## Related Docs

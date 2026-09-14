@@ -1,6 +1,9 @@
 import {
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
+  ScrollView,
   TextInput,
   TouchableOpacity,
   View
@@ -42,6 +45,10 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
 
     return (
       <TouchableOpacity
+        accessibilityLabel={label}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked }}
+        accessibilityHint={description}
         style={[styles.stationServiceOption, checked && styles.stationServiceOptionActive]}
         onPress={() => updateService(field)}
         activeOpacity={0.86}
@@ -69,57 +76,80 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
       animationType="fade"
       onRequestClose={() => setEditingStation(null)}
     >
-      <Pressable style={styles.editModalOverlay} onPress={() => setEditingStation(null)}>
-        <Pressable style={styles.editModalCard} onPress={() => {}}>
-          <View style={styles.editModalHeader}>
-            <Text style={styles.editModalTitle}>
-              {isCreateMode ? 'Ajouter un ravitaillement' : 'Modifier le ravitaillement'}
-            </Text>
-            <TouchableOpacity onPress={() => setEditingStation(null)} style={styles.pickerCloseBtn}>
-              <Text style={styles.pickerCloseText}>✕</Text>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.editModalOverlay}
+      >
+        <Pressable
+          accessible={false}
+          onPress={() => setEditingStation(null)}
+          style={styles.editModalBackdrop}
+        />
+        <View accessibilityViewIsModal style={styles.editModalCard}>
+          <ScrollView
+            contentContainerStyle={styles.editModalContent}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View style={styles.editModalHeader}>
+              <Text accessibilityRole="header" style={styles.editModalTitle}>
+                {isCreateMode ? 'Ajouter un ravitaillement' : 'Modifier le ravitaillement'}
+              </Text>
+              <TouchableOpacity
+                accessibilityLabel="Fermer"
+                accessibilityRole="button"
+                onPress={() => setEditingStation(null)}
+              style={[styles.pickerCloseBtn, styles.editModalCloseButton]}
+              >
+                <Text style={styles.pickerCloseText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={styles.label}>Nom</Text>
+            <TextInput
+              accessibilityLabel="Nom"
+              style={styles.textInput}
+              value={editingStation?.name ?? ''}
+              onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, name: t } : prev))}
+              placeholder="Nom du ravitaillement"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <Text style={styles.label}>Distance (km)</Text>
+            <TextInput
+              accessibilityLabel="Distance en kilomètres"
+              style={[styles.textInput, { marginBottom: 20 }]}
+              value={editingStation?.km ?? ''}
+              onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, km: t } : prev))}
+              keyboardType="numeric"
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
+              placeholder="0"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <Text style={styles.label}>Pause (min)</Text>
+            <TextInput
+              accessibilityLabel="Pause en minutes"
+              style={[styles.textInput, { marginBottom: 20 }]}
+              value={editingStation?.pauseMinutes ?? ''}
+              onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: t } : prev))}
+              keyboardType="numeric"
+              inputAccessoryViewID="pace-yourself-numeric-keyboard"
+              placeholder="0"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <Text style={styles.label}>Services disponibles</Text>
+            <View style={styles.stationServiceOptions}>
+              {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou poche.', 'water-outline')}
+              {renderServiceOption('solidRefill', 'Ravito solide', "Produits fournis par l'organisation.", 'nutrition-outline')}
+              {renderServiceOption('assistanceAllowed', 'Assistance', "Ton equipe peut donner tes produits favoris.", 'people-outline')}
+            </View>
+            <TouchableOpacity style={styles.saveButton} onPress={onSave}>
+              <Text style={styles.saveButtonText}>
+                {isCreateMode ? 'Ajouter le ravitaillement' : 'Enregistrer'}
+              </Text>
             </TouchableOpacity>
-          </View>
-          <Text style={styles.label}>Nom</Text>
-          <TextInput
-            style={styles.textInput}
-            value={editingStation?.name ?? ''}
-            onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, name: t } : prev))}
-            placeholder="Nom du ravitaillement"
-            placeholderTextColor={Colors.textMuted}
-          />
-          <Text style={styles.label}>Distance (km)</Text>
-          <TextInput
-            style={[styles.textInput, { marginBottom: 20 }]}
-            value={editingStation?.km ?? ''}
-            onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, km: t } : prev))}
-            keyboardType="numeric"
-            inputAccessoryViewID="pace-yourself-numeric-keyboard"
-            placeholder="0"
-            placeholderTextColor={Colors.textMuted}
-          />
-          <Text style={styles.label}>Pause (min)</Text>
-          <TextInput
-            style={[styles.textInput, { marginBottom: 20 }]}
-            value={editingStation?.pauseMinutes ?? ''}
-            onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: t } : prev))}
-            keyboardType="numeric"
-            inputAccessoryViewID="pace-yourself-numeric-keyboard"
-            placeholder="0"
-            placeholderTextColor={Colors.textMuted}
-          />
-          <Text style={styles.label}>Services disponibles</Text>
-          <View style={styles.stationServiceOptions}>
-            {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou poche.', 'water-outline')}
-            {renderServiceOption('solidRefill', 'Ravito solide', "Produits fournis par l'organisation.", 'nutrition-outline')}
-            {renderServiceOption('assistanceAllowed', 'Assistance', "Ton equipe peut donner tes produits favoris.", 'people-outline')}
-          </View>
-          <TouchableOpacity style={styles.saveButton} onPress={onSave}>
-            <Text style={styles.saveButtonText}>
-              {isCreateMode ? 'Ajouter le ravitaillement' : 'Enregistrer'}
-            </Text>
-          </TouchableOpacity>
-        </Pressable>
-      </Pressable>
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

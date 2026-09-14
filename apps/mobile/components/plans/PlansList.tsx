@@ -242,7 +242,13 @@ function PlanCard({
       ) : (
         <View style={styles.cardActionsLeft}>
           {editButtonVisible ? (
-            <TouchableOpacity activeOpacity={0.8} onPress={onEdit} style={styles.iconBtn}>
+            <TouchableOpacity
+              accessibilityLabel={locale === 'fr' ? `Modifier ${item.name}` : `Edit ${item.name}`}
+              accessibilityRole="button"
+              activeOpacity={0.8}
+              onPress={onEdit}
+              style={styles.iconBtn}
+            >
               <Ionicons color={colors.text.secondary} name="create-outline" size={16} />
             </TouchableOpacity>
           ) : (
@@ -250,7 +256,13 @@ function PlanCard({
               <Ionicons color={colors.accent.amber} name="lock-closed-outline" size={16} />
             </View>
           )}
-          <TouchableOpacity activeOpacity={0.8} onPress={onDelete} style={styles.iconBtn}>
+          <TouchableOpacity
+            accessibilityLabel={locale === 'fr' ? `Supprimer ${item.name}` : `Delete ${item.name}`}
+            accessibilityRole="button"
+            activeOpacity={0.8}
+            onPress={onDelete}
+            style={styles.iconBtn}
+          >
             <Ionicons color={colors.accent.terracotta} name="trash-outline" size={16} />
           </TouchableOpacity>
         </View>
@@ -456,8 +468,8 @@ const styles = StyleSheet.create({
     gap: spacing[0.5],
   },
   iconBtn: {
-    width: 34,
-    height: 34,
+    width: 44,
+    height: 44,
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',

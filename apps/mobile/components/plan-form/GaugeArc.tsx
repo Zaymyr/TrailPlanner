@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Easing, View } from 'react-native';
 import Svg, { Circle } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 import { DataText } from '../themed/DataText';
@@ -47,6 +47,7 @@ export const GaugeArc = React.memo(function GaugeArc({
   compact = false,
   animateSignal = 0,
 }: Props) {
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const size = compact ? 32 : 68;
   const center = size / 2;
   const strokeWidth = compact ? 4 : 5;
@@ -67,6 +68,18 @@ export const GaugeArc = React.memo(function GaugeArc({
   const overflowColor = darkenHex(fillColor);
 
   useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotionEnabled(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionEnabled);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hasMounted.current) {
       hasMounted.current = true;
       lastAnimateSignal.current = animateSignal;
@@ -74,7 +87,7 @@ export const GaugeArc = React.memo(function GaugeArc({
       return;
     }
 
-    const shouldAnimate = !compact && animateSignal > 0 && animateSignal !== lastAnimateSignal.current;
+    const shouldAnimate = !reduceMotionEnabled && !compact && animateSignal > 0 && animateSignal !== lastAnimateSignal.current;
     lastAnimateSignal.current = animateSignal;
 
     if (!shouldAnimate) {
@@ -89,7 +102,7 @@ export const GaugeArc = React.memo(function GaugeArc({
       easing: Easing.out(Easing.cubic),
       useNativeDriver: false,
     }).start();
-  }, [animateSignal, animatedRatio, compact, visualRatio]);
+  }, [animateSignal, animatedRatio, compact, reduceMotionEnabled, visualRatio]);
 
   const dashOffset = compact
     ? circumference * (1 - visualRatio)

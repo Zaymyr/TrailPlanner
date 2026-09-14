@@ -14,6 +14,7 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
+  Platform,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -638,7 +639,12 @@ export function AidStationsSectionV3({
       PAGER_EDGE_SWIPE_MAX_WIDTH,
       Math.max(PAGER_EDGE_SWIPE_MIN_WIDTH, Math.round(pageWidth * 0.25)),
     );
-    const allowHorizontalSwipe = startX <= edgeWidth || startX >= pageWidth - edgeWidth;
+    // iOS reserves the left edge for the native back gesture. The view switcher
+    // remains available for the reverse direction, so only expose the pager from
+    // the right edge there. Android keeps its existing bidirectional edge swipe.
+    const allowHorizontalSwipe = Platform.OS === 'ios'
+      ? startX >= pageWidth - edgeWidth
+      : startX <= edgeWidth || startX >= pageWidth - edgeWidth;
     pagerEdgeGestureAllowedRef.current = allowHorizontalSwipe;
     pagerRef.current?.setNativeProps({ scrollEnabled: allowHorizontalSwipe });
     setPagerScrollEnabled(allowHorizontalSwipe);
@@ -1346,6 +1352,7 @@ export function AidStationsSectionV3({
             ref={pagerRef}
             horizontal
             pagingEnabled
+            directionalLockEnabled
             scrollEnabled={pagerScrollEnabled}
             nestedScrollEnabled
             bounces={false}

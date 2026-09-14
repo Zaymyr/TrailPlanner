@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   ScrollView,
   Share,
   StyleSheet,
@@ -9,6 +11,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Stack, useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 
@@ -200,6 +203,7 @@ export default function PlanSummaryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { locale, t } = useI18n();
+  const insets = useSafeAreaInsets();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const [summary, setSummary] = useState<PlanSummary | null>(null);
   const [loading, setLoading] = useState(true);
@@ -476,18 +480,40 @@ export default function PlanSummaryScreen() {
         <View style={styles.bottomSpacer} />
       </ScrollView>
 
-      <Modal visible={timePickerVisible} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.timeModal}>
-            <Text weight="bold" style={styles.timeModalTitle}>
-              {t.planSummary.departureTime}
-            </Text>
+      <Modal
+        visible={timePickerVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setTimePickerVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}
+        >
+          <ScrollView
+            contentContainerStyle={[
+              styles.timeModalScrollContent,
+              {
+                paddingTop: Math.max(24, insets.top),
+                paddingBottom: Math.max(24, insets.bottom),
+              },
+            ]}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            style={styles.timeModalScroll}
+          >
+            <View accessibilityViewIsModal style={styles.timeModal}>
+              <Text accessibilityRole="header" weight="bold" style={styles.timeModalTitle}>
+                {t.planSummary.departureTime}
+              </Text>
             <View style={styles.timePickerRow}>
               <View style={styles.timeField}>
                 <Text tone="secondary" size="xs" weight="semibold" style={styles.timeFieldLabel}>
                   HH
                 </Text>
                 <TextInput
+                  accessibilityLabel="HH"
                   keyboardType="number-pad"
                   inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   maxLength={2}
@@ -507,6 +533,7 @@ export default function PlanSummaryScreen() {
                   MM
                 </Text>
                 <TextInput
+                  accessibilityLabel="MM"
                   keyboardType="number-pad"
                   inputAccessoryViewID="pace-yourself-numeric-keyboard"
                   maxLength={2}
@@ -530,8 +557,9 @@ export default function PlanSummaryScreen() {
             <TouchableOpacity style={styles.secondaryButton} onPress={() => setTimePickerVisible(false)}>
               <Text weight="bold">{t.common.cancel}</Text>
             </TouchableOpacity>
-          </View>
-        </View>
+            </View>
+          </ScrollView>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -802,10 +830,17 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
+    backgroundColor: 'rgba(26, 26, 26, 0.42)',
+  },
+  timeModalScrollContent: {
+    flexGrow: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(26, 26, 26, 0.42)',
-    padding: 24,
+    paddingHorizontal: 24,
+  },
+  timeModalScroll: {
+    flex: 1,
+    width: '100%',
   },
   timeModal: {
     width: '100%',

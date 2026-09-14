@@ -118,16 +118,16 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
-        <View style={styles.autoFillLimitsSheet}>
+        <View accessibilityViewIsModal style={styles.autoFillLimitsSheet}>
           <View style={styles.settingsSheetHandle} />
           <View style={styles.autoFillLimitsHeader}>
             <View style={styles.autoFillLimitsHeaderCopy}>
-              <Text style={styles.autoFillLimitsTitle}>Stock disponible</Text>
+              <Text accessibilityRole="header" style={styles.autoFillLimitsTitle}>Stock disponible</Text>
               <Text style={styles.autoFillLimitsSubtitle}>
                 Limite les favoris que le calcul auto peut utiliser. Sans limite, le produit reste illimite.
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.pickerCloseBtn}>
+            <TouchableOpacity accessibilityLabel="Fermer" accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
               <Ionicons color={Colors.textSecondary} name="close" size={18} />
             </TouchableOpacity>
           </View>

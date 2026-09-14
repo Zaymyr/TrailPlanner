@@ -105,10 +105,10 @@ export function RaceSelector({ visible, onClose, onSelect, userId }: Props) {
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <Pressable style={styles.overlay} onPress={onClose}>
-        <Pressable style={styles.sheet} onPress={() => {}}>
+      <Pressable accessible={false} style={styles.overlay} onPress={onClose}>
+        <Pressable accessibilityViewIsModal style={styles.sheet} onPress={() => {}}>
           <View style={styles.handle} />
-          <Text style={styles.title}>{t.planForm.selectRaceTitle}</Text>
+          <Text accessibilityRole="header" style={styles.title}>{t.planForm.selectRaceTitle}</Text>
           <Text style={styles.subtitle}>{t.planForm.selectRaceSubtitle}</Text>
 
           <TextInput
