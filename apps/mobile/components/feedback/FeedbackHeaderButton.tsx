@@ -111,6 +111,7 @@ export function FeedbackHeaderButton({ children, contextLabel, leading }: Feedba
           {leading}
           <TouchableOpacity
             accessibilityLabel={t.feedback.triggerLabel}
+            accessibilityRole="button"
             onPress={handleOpen}
             style={styles.iconButton}
           >
@@ -130,7 +131,7 @@ export function FeedbackHeaderButton({ children, contextLabel, leading }: Feedba
           style={styles.modalWrapper}
         >
           <Pressable style={styles.overlay} onPress={handleClose} />
-          <View style={styles.card}>
+          <View accessibilityViewIsModal style={styles.card}>
             <Text style={styles.title}>{t.feedback.modalTitle}</Text>
             <Text style={styles.subtitle}>{t.feedback.modalSubtitle}</Text>
 
@@ -205,9 +206,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

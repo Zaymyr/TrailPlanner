@@ -157,10 +157,10 @@ export const ProductPickerModal = React.memo(function ProductPickerModal({
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView style={styles.modalWrapper} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
-        <View style={styles.pickerSheet}>
+        <View accessibilityViewIsModal style={styles.pickerSheet}>
           <View style={styles.pickerHeader}>
-            <Text style={styles.pickerTitle}>Choisir un produit</Text>
-            <TouchableOpacity onPress={onClose} style={styles.pickerCloseBtn}>
+            <Text accessibilityRole="header" style={styles.pickerTitle}>Choisir un produit</Text>
+            <TouchableOpacity accessibilityLabel="Fermer" accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
               <Text style={styles.pickerCloseText}>✕</Text>
             </TouchableOpacity>
           </View>

@@ -65,13 +65,13 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
         style={styles.modalWrapper}
       >
         <Pressable onPress={onCancel} style={styles.modalOverlay} />
-        <View style={styles.modalSheet}>
+        <View accessibilityViewIsModal style={styles.modalSheet}>
           <ScrollView
             bounces={false}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.modalTitle}>Créer un produit</Text>
+            <Text accessibilityRole="header" style={styles.modalTitle}>Créer un produit</Text>
 
             <Text style={styles.inputLabel}>Nom *</Text>
             <TextInput

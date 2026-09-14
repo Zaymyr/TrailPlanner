@@ -358,14 +358,19 @@ export function OnboardingRaceSelectionStep({
       >
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.sheetOverlay} onPress={onCloseRaceEvent} />
-          <SafeAreaView style={styles.sheetCard}>
+          <SafeAreaView accessibilityViewIsModal style={styles.sheetCard}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderText}>
                 <Text style={styles.sheetTitle}>{selectedRaceEvent?.name}</Text>
                 {selectedRaceEventMeta ? <Text style={styles.sheetSubtitle}>{selectedRaceEventMeta}</Text> : null}
               </View>
-              <TouchableOpacity style={styles.sheetCloseButton} onPress={onCloseRaceEvent}>
+              <TouchableOpacity
+                accessibilityLabel={copy.common.close}
+                accessibilityRole="button"
+                style={styles.sheetCloseButton}
+                onPress={onCloseRaceEvent}
+              >
                 <Ionicons name="close" size={20} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -484,7 +489,7 @@ const styles = StyleSheet.create({
   sheetHeaderText: { flex: 1, gap: 4 },
   sheetTitle: { color: Colors.textPrimary, fontSize: 20, fontWeight: '800' },
   sheetSubtitle: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  sheetCloseButton: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
+  sheetCloseButton: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.surface, borderWidth: 1, borderColor: Colors.border },
   sheetImage: { width: '100%', height: 132, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
   sheetHint: { color: Colors.textSecondary, fontSize: 14, lineHeight: 19 },
   sheetContent: { gap: 10, paddingBottom: 12 },

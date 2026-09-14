@@ -164,6 +164,7 @@ where is_live = true
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; race fields, visibility-state transitions, organizer JSON, and RaceBook gates remain unchanged.
 - A format's public state consumes the edition entitlement regardless of whether its origin is Admin, Offert, Stripe, or virement; changing origin does not directly rewrite format visibility.
 
 - Do not replace an unknown D+ or absent GPX with a fabricated zero or placeholder.

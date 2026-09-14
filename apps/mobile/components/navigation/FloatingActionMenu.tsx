@@ -50,6 +50,7 @@ export function FloatingActionMenu({
       {open ? (
         <Pressable
           accessibilityLabel={dismissAccessibilityLabel}
+          accessibilityRole="button"
           onPress={() => setOpen(false)}
           style={styles.dismissLayer}
         />
@@ -62,11 +63,12 @@ export function FloatingActionMenu({
               <TouchableOpacity
                 activeOpacity={0.86}
                 accessibilityLabel={action.label}
+                accessibilityRole="button"
                 key={action.key}
                 onPress={() => handleActionPress(action.onPress)}
                 style={styles.actionButton}
               >
-                <Text numberOfLines={1} style={styles.actionLabel}>
+                <Text numberOfLines={2} style={styles.actionLabel}>
                   {action.label}
                 </Text>
                 <View style={styles.actionIcon}>
@@ -80,6 +82,8 @@ export function FloatingActionMenu({
         <TouchableOpacity
           activeOpacity={0.88}
           accessibilityLabel={accessibilityLabel}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: open }}
           onPress={() => setOpen((current) => !current)}
           style={styles.fab}
         >

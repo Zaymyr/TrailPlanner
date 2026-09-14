@@ -6,7 +6,6 @@ import {
   Modal,
   Pressable,
   RefreshControl,
-  SafeAreaView,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -16,7 +15,7 @@ import {
 import { Text } from '../../components/themed/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
@@ -1171,7 +1170,7 @@ export default function CatalogScreen() {
       >
         <View style={styles.modalBackdrop}>
           <Pressable style={styles.sheetOverlay} onPress={() => setSelectedEvent(null)} />
-          <SafeAreaView style={styles.sheetCard}>
+          <SafeAreaView accessibilityViewIsModal style={styles.sheetCard}>
             <View style={styles.sheetHandle} />
             <View style={styles.sheetHeader}>
               <View style={styles.sheetHeaderText}>
@@ -1180,6 +1179,11 @@ export default function CatalogScreen() {
               </View>
               {selectedEvent && canFavoriteEvents ? (
                 <TouchableOpacity
+                  accessibilityLabel={favoriteEventIds.includes(selectedEvent.id)
+                    ? (locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites')
+                    : (locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites')}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: favoriteEventIds.includes(selectedEvent.id) }}
                   style={[
                     styles.sheetFavoriteButton,
                     favoriteEventIds.includes(selectedEvent.id) && styles.sheetFavoriteButtonActive,
@@ -1195,7 +1199,12 @@ export default function CatalogScreen() {
                   />
                 </TouchableOpacity>
               ) : null}
-              <TouchableOpacity style={styles.sheetCloseButton} onPress={() => setSelectedEvent(null)}>
+              <TouchableOpacity
+                accessibilityLabel={t.common.close}
+                accessibilityRole="button"
+                style={styles.sheetCloseButton}
+                onPress={() => setSelectedEvent(null)}
+              >
                 <Ionicons name="close" size={20} color={Colors.textPrimary} />
               </TouchableOpacity>
             </View>
@@ -1549,9 +1558,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   sheetFavoriteButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.brandSurface,
@@ -1573,9 +1582,9 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   sheetCloseButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.surface,

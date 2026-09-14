@@ -152,7 +152,7 @@ When docs and code disagree, use this order:
 - Several code paths reference `race_events` and newer race columns that are not fully backed by visible migrations in this repo. Those are documented with conflict markers in database docs.
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.
 - Maestro is external test tooling and is not bundled into the application. Local runs require its CLI on `PATH`; the EAS workflow provides the cloud runner.
-- Android and iOS temporarily use different EAS Update runtimes: Android `1.1.1` for the API 36 native build and iOS `1.1.0` for the current App Store binary.
+- Android and the next iOS binary use EAS Update runtime `1.1.1`. Because the light iOS appearance is native configuration, ship that iOS binary before publishing a `1.1.1` OTA; existing iOS `1.1.0` installs stay in their prior compatibility group.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.

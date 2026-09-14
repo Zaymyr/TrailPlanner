@@ -15,6 +15,7 @@ export function HelpHeaderButton({ screenKey }: HelpHeaderButtonProps) {
   return (
     <TouchableOpacity
       accessibilityLabel={t.helpTutorial.triggerLabel}
+      accessibilityRole="button"
       onPress={() => emitHelpTutorialRequest(screenKey)}
       style={styles.iconButton}
     >
@@ -25,9 +26,9 @@ export function HelpHeaderButton({ screenKey }: HelpHeaderButtonProps) {
 
 const styles = StyleSheet.create({
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

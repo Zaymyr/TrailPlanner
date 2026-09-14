@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
+  Alert,
   AppState,
   Image,
   Linking,
@@ -338,7 +339,11 @@ function InfoList({ values }: { values: string[] }) {
   );
 }
 
-function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; emphasis?: boolean }) {
+function LabeledInfoList({ items, emphasis = false, onOpenUrl }: {
+  items: LabeledItem[];
+  emphasis?: boolean;
+  onOpenUrl: (url: string) => void;
+}) {
   const brandTheme = useRacebookBrandTheme();
   return (
     <View style={styles.listGroup}>
@@ -359,7 +364,7 @@ function LabeledInfoList({ items, emphasis = false }: { items: LabeledItem[]; em
             {item.actionUrl ? (
               <Pressable
                 style={styles.tableValueAction}
-                onPress={() => Linking.openURL(item.actionUrl!).catch(() => {})}
+                onPress={() => onOpenUrl(item.actionUrl!)}
                 accessibilityRole="link"
                 accessibilityLabel={`Ouvrir ${item.label}`}
               >
@@ -398,10 +403,12 @@ function BibPickupLocationList({
   groups,
   locationLabel,
   onOpenMap,
+  onOpenUrl,
 }: {
   groups: BibPickupLocationGroup[];
   locationLabel: string;
   onOpenMap: (location: string) => void;
+  onOpenUrl: (url: string) => void;
 }) {
   const brandTheme = useRacebookBrandTheme();
   return (
@@ -419,7 +426,7 @@ function BibPickupLocationList({
                   accessibilityLabel={`${locationLabel}: ${group.location}`}
                   onPress={() => {
                     onOpenMap(group.key);
-                    Linking.openURL(group.actionUrl!).catch(() => {});
+                    onOpenUrl(group.actionUrl!);
                   }}
                   style={styles.bibLocationAction}
                 >
@@ -1168,13 +1175,22 @@ export default function RaceRacebookScreen() {
     });
   }, [activeCourseTab]);
 
+  const openExternalUrl = useCallback((url: string) => {
+    void Linking.openURL(url).catch(() => {
+      Alert.alert(
+        t.common.error,
+        locale === 'fr' ? "Impossible d’ouvrir ce lien sur cet appareil." : 'This link cannot be opened on this device.',
+      );
+    });
+  }, [locale, t.common.error]);
+
   const openTrackedUrl = useCallback((url: string, action: string, context?: string) => {
     captureRacebookInteraction('racebook action clicked', {
       action,
       action_context: context ?? null,
     });
-    Linking.openURL(url).catch(() => {});
-  }, [captureRacebookInteraction]);
+    openExternalUrl(url);
+  }, [captureRacebookInteraction, openExternalUrl]);
 
   useEffect(() => {
     const tabsNavigation = navigation.getParent();
@@ -1452,6 +1468,7 @@ export default function RaceRacebookScreen() {
                       <BibPickupLocationList
                         groups={bibLocationGroups}
                         locationLabel={t.catalog.racebookFieldBibLocation}
+                        onOpenUrl={openExternalUrl}
                         onOpenMap={(location) => {
                           captureRacebookInteraction('racebook action clicked', {
                             action: 'map_opened',
@@ -1463,11 +1480,11 @@ export default function RaceRacebookScreen() {
                     {bibLocationGroups.length > 0 && (bibPrimaryItems.length > 0 || bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
                       <View style={styles.sectionDivider} />
                     ) : null}
-                    {bibPrimaryItems.length > 0 ? <LabeledInfoList items={bibPrimaryItems} emphasis /> : null}
+                    {bibPrimaryItems.length > 0 ? <LabeledInfoList items={bibPrimaryItems} emphasis onOpenUrl={openExternalUrl} /> : null}
                     {bibPrimaryItems.length > 0 && (bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
                       <View style={styles.sectionDivider} />
                     ) : null}
-                    {bibSecondaryItems.length > 0 ? <LabeledInfoList items={bibSecondaryItems} /> : null}
+                    {bibSecondaryItems.length > 0 ? <LabeledInfoList items={bibSecondaryItems} onOpenUrl={openExternalUrl} /> : null}
                     {bibLines.length > 0 ? <InfoList values={bibLines} /> : null}
                   </>
                 )}
@@ -1478,7 +1495,7 @@ export default function RaceRacebookScreen() {
               <>
                 {courseItems.length > 0 || courseConstraintLines.length > 0 ? (
                   <SectionCard title={t.catalog.racebookSectionCourseEssentials}>
-                    {courseItems.length > 0 ? <LabeledInfoList items={courseItems} emphasis /> : null}
+                    {courseItems.length > 0 ? <LabeledInfoList items={courseItems} emphasis onOpenUrl={openExternalUrl} /> : null}
                     {courseItems.length > 0 && courseConstraintLines.length > 0 ? (
                       <View style={styles.sectionDivider} />
                     ) : null}
@@ -1598,6 +1615,7 @@ export default function RaceRacebookScreen() {
                 presentation={accessPresentation}
                 expanded={expandedAccessTransport}
                 theme={brandTheme}
+                onOpenUrl={openExternalUrl}
                 onOpenMap={(location) => {
                   captureRacebookInteraction('racebook action clicked', {
                     action: 'map_opened',
@@ -1632,7 +1650,15 @@ export default function RaceRacebookScreen() {
                   {service.address ? <Pressable disabled={!service.directionsUrl} onPress={() => service.directionsUrl && openTrackedUrl(service.directionsUrl, 'service_directions', service.serviceType)}><Text style={styles.serviceText}>{service.address}{service.distanceKm != null ? ` · ${service.distanceKm.toFixed(1)} km` : ''}</Text></Pressable> : null}
                   {service.description ? <Text style={styles.serviceText}>{service.description}</Text> : null}
                   {service.websiteUrl ? <Pressable onPress={() => openTrackedUrl(service.websiteUrl!, 'service_website', service.serviceType)}><Text style={styles.serviceText}>{t.catalog.racebookServiceWebsite}</Text></Pressable> : null}
-                  {service.phone ? <Pressable onPress={() => Linking.openURL(`tel:${service.phone!.replace(/\D/g, '')}`).catch(()=>{})}><Text style={styles.serviceText}>{service.phone}</Text></Pressable> : null}
+                  {service.phone && buildTelephoneUrl(service.phone) ? (
+                    <Pressable
+                      accessibilityRole="link"
+                      accessibilityLabel={`${t.catalog.racebookCallAction}: ${service.name}`}
+                      onPress={() => openTrackedUrl(buildTelephoneUrl(service.phone!)!, 'service_phone', service.serviceType)}
+                    >
+                      <Text style={styles.serviceText}>{service.phone}</Text>
+                    </Pressable>
+                  ) : null}
                 </SectionCard>
               ))}
               {serviceSections.map((section) => (

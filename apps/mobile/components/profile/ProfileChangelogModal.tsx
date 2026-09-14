@@ -43,13 +43,13 @@ function ProfileChangelogModalComponent({
     <Modal animationType="slide" onRequestClose={onClose} transparent visible={visible}>
       <View style={styles.modalWrapper}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
-        <View style={styles.modalSheet}>
+        <View accessibilityViewIsModal style={styles.modalSheet}>
           <View style={styles.modalHeader}>
             <View style={styles.modalHeaderContent}>
-              <Text style={styles.modalTitle}>{title}</Text>
+              <Text accessibilityRole="header" style={styles.modalTitle}>{title}</Text>
               <Text style={styles.modalSubtitle}>{subtitle}</Text>
             </View>
-            <TouchableOpacity style={styles.modalCloseButton} onPress={onClose}>
+            <TouchableOpacity accessibilityLabel={closeLabel} accessibilityRole="button" style={styles.modalCloseButton} onPress={onClose}>
               <Text style={styles.modalCloseButtonText}>{closeLabel}</Text>
             </TouchableOpacity>
           </View>
@@ -133,6 +133,7 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   modalCloseButton: {
+    minHeight: 44,
     paddingVertical: 8,
     paddingHorizontal: 10,
     borderRadius: 999,

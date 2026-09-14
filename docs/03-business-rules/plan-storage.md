@@ -104,7 +104,7 @@ Catalog imports copy source `race_aid_stations` service flags into `planner_valu
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans. On GET, plans with `race_id` receive the current `race_aid_station_products` mapped into `planner_values.organizerAidStationProducts` in the response only. This read-time overlay does not update the database row.
 
 Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`, and the recap reloads that saved source whenever the screen regains focus after editing.
-Numeric fields in mobile editors and recap-time controls attach to the shared iOS keyboard accessory. Dismissing that keyboard does not save, discard, or otherwise change the durable planner state.
+Numeric fields in mobile editors and recap-time controls attach to the shared iOS keyboard accessory. Their audited modals also move above the keyboard, provide a bounded scroll area on compact screens, retain intended taps, respect safe-area insets where needed, and expose modal controls to VoiceOver. Dismissing the keyboard, scrolling, closing a modal, or using the native modal-close request does not save, discard, or otherwise change the durable planner state.
 
 Successful Web persistence emits the consent-gated `plan created` or `plan saved` event only after the server response has been parsed. GPX download and assistance printing emit `plan exported`; these analytics events carry aggregate shape/source fields and never become a second persistence source of truth.
 
@@ -157,6 +157,7 @@ It:
 - Legacy random-token share links remain readable, but the next re-share creates a new stable reusable URL because the old raw token cannot be reconstructed from `token_hash`.
 - Crew start-time and passage confirmations persist on the share row as `departure_time` and `crew_state`. Resetting the public tracking state should clear only crew confirmations and should not alter `snapshot`. These mutations should stay narrow public-link mutations and never become a general plan editing API.
 - Public crew analytics must never include the raw share token, plan name, or snapshot content. They record only aggregate checkpoint state after a successful public mutation.
+- Keyboard avoidance, safe-area padding, VoiceOver semantics, reduced animation, and gesture arbitration in the mobile planner are presentation concerns. They must not introduce an additional autosave path or change `planner_values`, `elevation_profile`, `plan_aid_stations`, or public recap snapshots.
 
 ## Related Docs
 

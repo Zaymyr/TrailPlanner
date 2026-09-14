@@ -93,6 +93,7 @@ where edition_id = :edition_id;
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter the resolved published-branding payload, service-only access boundary, or color semantics.
 - The Organizer preview uses optimized image rendering and explicit form labels. Logo constraints are available through keyboard- and pointer-accessible contextual help instead of a permanent helper paragraph; these presentation details do not broaden the service-only draft access contract.
 
 - Never return draft columns from a runner-facing route.

@@ -5,7 +5,8 @@ import {
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { Text } from '../../components/themed/Text';
 import { Link } from 'expo-router';
@@ -135,7 +136,7 @@ export default function LoginScreen() {
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <View style={styles.inner}>
+      <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Pace Yourself</Text>
         <Text style={styles.subtitle}>
           {isGuestSession ? t.auth.guestLoginSubtitle : t.auth.loginSubtitle}
@@ -243,7 +244,7 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </Link>
         </View>
-      </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
@@ -254,9 +255,10 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   inner: {
-    flex: 1,
+    flexGrow: 1,
     justifyContent: 'center',
     paddingHorizontal: 24,
+    paddingVertical: 48,
   },
   title: {
     fontSize: 32,

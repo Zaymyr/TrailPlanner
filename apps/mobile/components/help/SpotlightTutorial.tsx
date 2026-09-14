@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
+  AccessibilityInfo,
   Animated,
   BackHandler,
   Pressable,
@@ -109,6 +110,7 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
   viewportHeight,
   viewportWidth,
 }: SpotlightTutorialProps<TTargetKey>) {
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const step = steps[activeStepIndex] ?? null;
   const isLastStep = activeStepIndex >= steps.length - 1;
   const hasPrevious = activeStepIndex > 0;
@@ -117,6 +119,18 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
   const holeWidth = useRef(new Animated.Value(0)).current;
   const holeHeight = useRef(new Animated.Value(0)).current;
   const holeRadius = useRef(new Animated.Value(DEFAULT_HIGHLIGHT_RADIUS)).current;
+
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotionEnabled(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener('reduceMotionChanged', setReduceMotionEnabled);
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!visible) return undefined;
@@ -147,6 +161,20 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
 
   useEffect(() => {
     if (!visible || !highlightRect) return;
+
+    holeX.stopAnimation();
+    holeY.stopAnimation();
+    holeWidth.stopAnimation();
+    holeHeight.stopAnimation();
+    holeRadius.stopAnimation();
+    if (reduceMotionEnabled) {
+      holeX.setValue(highlightRect.x);
+      holeY.setValue(highlightRect.y);
+      holeWidth.setValue(highlightRect.width);
+      holeHeight.setValue(highlightRect.height);
+      holeRadius.setValue(highlightRadiusValue);
+      return;
+    }
 
     Animated.parallel([
       Animated.timing(holeX, {
@@ -183,6 +211,7 @@ export function SpotlightTutorial<TTargetKey extends string = string>({
     holeWidth,
     holeX,
     holeY,
+    reduceMotionEnabled,
     visible,
   ]);
 

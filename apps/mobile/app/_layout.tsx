@@ -924,7 +924,7 @@ function RootLayoutContent() {
 
   const appContent = (
     <>
-      <StatusBar style="light" />
+      <StatusBar style="dark" />
       <View style={{ flex: 1 }}>
         <Stack
           screenOptions={{

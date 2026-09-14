@@ -186,7 +186,7 @@ export const ProductDetailModal = memo(function ProductDetailModal({
         style={styles.modalWrapper}
       >
         <Pressable disabled={busy} onPress={onClose} style={styles.modalOverlay} />
-        <View style={styles.modalSheet}>
+        <View accessibilityViewIsModal style={styles.modalSheet}>
           <View style={styles.header}>
             <View style={styles.titleBlock}>
               <Text style={styles.modalTitle}>Fiche produit</Text>
@@ -197,7 +197,13 @@ export const ProductDetailModal = memo(function ProductDetailModal({
               </View>
             </View>
 
-            <TouchableOpacity disabled={busy} onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity
+              accessibilityLabel="Fermer"
+              accessibilityRole="button"
+              disabled={busy}
+              onPress={onClose}
+              style={styles.closeButton}
+            >
               <Ionicons color={Colors.textSecondary} name="close" size={20} />
             </TouchableOpacity>
           </View>
@@ -496,9 +502,9 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.surfaceSecondary,

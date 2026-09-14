@@ -602,6 +602,9 @@ function ProductCard({
       </View>
 
       <TouchableOpacity
+        accessibilityLabel={`${isFavorite ? 'Retirer' : 'Ajouter'} ${product.name} ${isFavorite ? 'des' : 'aux'} favoris`}
+        accessibilityRole="button"
+        accessibilityState={{ selected: isFavorite }}
         activeOpacity={0.8}
         onPress={(event) => {
           event.stopPropagation();
@@ -892,9 +895,9 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   favButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: 'transparent',
     borderWidth: 1.5,
     borderColor: 'transparent',

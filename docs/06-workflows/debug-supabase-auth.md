@@ -48,6 +48,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 11. If the symptom is only bottom-tab availability during onboarding, inspect route options in `apps/mobile/app/(app)/_layout.tsx`; that is navigation-shell configuration, not an auth/session failure.
 12. If a completed session opens the wrong root tab, verify that `getPostAuthRoute` and the tab navigator both use `catalog`; this is routing behavior, not an auth failure.
 13. If a RaceBook cannot return to course search or a header exposes a route template, inspect the nested race stack and the explicit hidden-screen options in `apps/mobile/app/(app)/_layout.tsx`; these are navigation-shell issues, not session failures.
+14. If login controls are obscured only with the iOS keyboard or enlarged text, inspect the login `ScrollView`/`KeyboardAvoidingView` layout; that is a presentation issue, not failed authentication.
 
 ## Useful Searches
 

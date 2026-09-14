@@ -130,6 +130,7 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
       ) : (
         <TouchableOpacity
           accessibilityLabel={t.raceRequests.triggerLabel}
+          accessibilityRole="button"
           onPress={() => setVisible(true)}
           style={styles.iconButton}
         >
@@ -148,7 +149,7 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
           style={styles.modalWrapper}
         >
           <Pressable style={styles.overlay} onPress={handleClose} />
-          <View style={styles.card}>
+          <View accessibilityViewIsModal style={styles.card}>
             <Text style={styles.title}>{t.raceRequests.modalTitle}</Text>
             <Text style={styles.subtitle}>{t.raceRequests.modalSubtitle}</Text>
 
@@ -207,9 +208,9 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
 
 const styles = StyleSheet.create({
   iconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

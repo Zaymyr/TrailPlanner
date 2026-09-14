@@ -755,9 +755,12 @@ export const styles = StyleSheet.create({
   sectionTimelineEmpty: { color: Colors.textMuted, fontSize: 13, fontStyle: 'italic', paddingVertical: 4 },
   collapsedGaugeRow: { paddingHorizontal: 10, paddingBottom: 10 },
   editModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  editModalCard: { backgroundColor: Colors.surface, borderRadius: 16, padding: 24, width: '100%' },
+  editModalBackdrop: { ...StyleSheet.absoluteFillObject },
+  editModalCard: { backgroundColor: Colors.surface, borderRadius: 16, width: '100%', maxHeight: '92%', overflow: 'hidden' },
+  editModalContent: { padding: 24 },
   editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   editModalTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
+  editModalCloseButton: { width: 44, height: 44, borderRadius: 22 },
   stationServiceOptions: {
     gap: 8,
   },

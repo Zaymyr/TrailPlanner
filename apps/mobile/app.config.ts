@@ -18,13 +18,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     updates: {
       url: 'https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c',
     },
-    // Keep the shared/iOS runtime aligned with the current iOS store build. Android
-    // overrides it below because the API 36 native build must not share OTA updates
-    // with the previous Android runtime.
-    runtimeVersion: '1.1.0',
+    // The light iOS appearance below changes native configuration, so the next iOS
+    // binary and Android API 36 binary share the same, new OTA compatibility group.
+    runtimeVersion: '1.1.1',
     orientation: 'portrait',
     icon: './assets/icon.png',
-    userInterfaceStyle: 'dark',
+    userInterfaceStyle: 'light',
     splash: {
       image: './assets/splash.png',
       backgroundColor: '#f7efe8',

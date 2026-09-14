@@ -263,6 +263,7 @@ where is_live = true
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter event fields, organizer JSON, visibility gates, or RaceBook read contracts.
 - Publication origin is edition-scoped rather than event-scoped. Admin, Offert, Stripe, and virement changes must target the selected canonical edition and do not rewrite the parent event.
 
 - Organizer bootstrap and event-detail reads must include all three nested format visibility flags. Masked/private formats use `is_live = false`; preview false/true distinguishes a format absent from the mobile app from a runner-visible course format. Private formats support plan creation for runners, while only active organizers receive the dimmed functional RaceBook preview. Both remain editable in the authorized web workspace.

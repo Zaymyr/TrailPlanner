@@ -55,3 +55,5 @@ The format access override that hides saved runner information is likewise indep
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local service edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting edition service rows.
 
 Published rows travel in the consolidated RaceBook CDN snapshot. A successful services replacement invalidates the edition tag after persistence.
+
+The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; structured service rows, links, visibility, and API/RLS contracts remain unchanged.

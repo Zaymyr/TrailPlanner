@@ -75,6 +75,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 ## Gotchas
 
+- The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; relay-point rows, ordering, derived legs, and nutrition separation remain unchanged.
 - Organizer relay replacement is a single parent-race-locked transaction. Keep race/station ownership and distance validation inside the database function so failures cannot leave a partial sequence.
 
 - Relay writes require Signature and an active `relay` format module; public RLS masks stored points when the module is inactive or locked.

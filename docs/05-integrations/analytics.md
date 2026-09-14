@@ -157,6 +157,7 @@ The former `premium purchased` event is legacy data and is no longer emitted. Do
 
 `apps/mobile/app/_layout.tsx` retains push registration while `useSessionSideEffects` runs Resend and other session maintenance. Both remain separate from PostHog identify/reset calls.
 Route-presentation choices in the same layout, such as hiding the bottom tab bar for required onboarding, must stay separate from analytics identity and screen tracking behavior.
+The premium modal's VoiceOver isolation and labeled dismissal controls are presentation-only; they do not emit analytics events or change the Premium funnel.
 The normal cold-start destination is the Courses catalog; that routing decision does not change analytics identity initialization.
 The Profile debug/admin presentation uses the same pure trusted-role helper: `app_metadata.role` or `app_metadata.roles` only. User-editable `user_metadata` never marks a mobile user as internal/admin.
 

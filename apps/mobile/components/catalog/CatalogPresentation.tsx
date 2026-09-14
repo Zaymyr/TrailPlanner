@@ -1,13 +1,16 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import {
+  KeyboardAvoidingView,
   Modal,
-  SafeAreaView,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 
@@ -160,15 +163,30 @@ export function CatalogFiltersModal({
 }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
-        <SafeAreaView style={styles.modalSheet}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.modalBackdrop}
+      >
+        <Pressable accessible={false} onPress={onClose} style={styles.modalDismissArea} />
+        <SafeAreaView accessibilityViewIsModal edges={['bottom']} style={styles.modalSheet}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{text.modalTitle}</Text>
-            <TouchableOpacity onPress={onClose}>
+            <Text accessibilityRole="header" style={styles.modalTitle}>{text.modalTitle}</Text>
+            <TouchableOpacity
+              accessibilityLabel="Fermer"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.modalCloseButton}
+            >
               <Ionicons name="close" size={22} color={Colors.textPrimary} />
             </TouchableOpacity>
           </View>
-          <ScrollView contentContainerStyle={styles.modalContent}>
+          <ScrollView
+            contentContainerStyle={styles.modalContent}
+            keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+            keyboardShouldPersistTaps="handled"
+            style={styles.modalScroll}
+          >
             <Text style={styles.modalSectionTitle}>{text.distanceTitle}</Text>
             <View style={styles.rangeRow}>
               <TextInput value={distanceMin} onChangeText={onChangeDistanceMin} placeholder={text.minKm} placeholderTextColor={Colors.textMuted} keyboardType="decimal-pad" inputAccessoryViewID="pace-yourself-numeric-keyboard" style={[styles.filterInput, styles.rangeInput]} />
@@ -190,7 +208,7 @@ export function CatalogFiltersModal({
             </TouchableOpacity>
           </View>
         </SafeAreaView>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -224,9 +242,12 @@ const styles = StyleSheet.create({
   skeletonSupportText: { height: 16, borderRadius: 8, width: '70%', backgroundColor: Colors.surfaceSecondary },
   skeletonButton: { height: 48, borderRadius: 12, backgroundColor: Colors.surfaceSecondary },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(18, 24, 16, 0.24)' },
-  modalSheet: { maxHeight: '78%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
+  modalDismissArea: { ...StyleSheet.absoluteFillObject },
+  modalSheet: { maxHeight: '90%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, overflow: 'hidden' },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: Colors.border, backgroundColor: Colors.surface },
+  modalCloseButton: { width: 44, height: 44, marginVertical: -10, marginRight: -10, alignItems: 'center', justifyContent: 'center', borderRadius: 22 },
   modalTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  modalScroll: { flexShrink: 1 },
   modalContent: { padding: 20, gap: 14 },
   modalSectionTitle: { color: Colors.brandPrimary, fontSize: 14, fontWeight: '700', marginTop: 4 },
   rangeRow: { flexDirection: 'row', gap: 10 },
