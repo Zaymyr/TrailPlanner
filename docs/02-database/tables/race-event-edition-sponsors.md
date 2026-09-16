@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -84,6 +84,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; sponsor placement eligibility, redirect counting, payload filtering, and storage contracts remain unchanged.
 - Sponsor eligibility depends on the effective Signature tier, not whether its origin is Admin, Offert, Stripe, or virement.
+- The separate `racebook_analytics.view` complimentary capability never unlocks sponsor authoring or presentation; `sponsors.manage` remains Signature-only.
 
 - Sponsor ordering sends the complete edition list to `reorder_racebook_sponsors`. The function locks the edition and rejects partial lists, foreign ids, duplicate ids or duplicate positions before updating any row.
 - Public placement responses are edge-cached only for fully published RaceBooks. Sponsor create, edit, reorder, logo replacement, and delete invalidate the edition tag; the mobile 2.5-second loading placement remains intentional even on a cache hit.

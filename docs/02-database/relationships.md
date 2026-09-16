@@ -32,6 +32,7 @@ related_files:
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -59,6 +60,7 @@ related_tables:
   - premium_grants
   - organizer_edition_entitlements
   - organizer_edition_payments
+  - organizer_edition_capability_grants
 ---
 
 # Database Relationships
@@ -201,6 +203,9 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `organizer_import_sessions.created_by -> auth.users(id) on delete cascade`
 - `organizer_edition_entitlements.edition_id -> race_event_editions(id) on delete cascade`
 - `organizer_edition_entitlements.granted_by -> auth.users(id) on delete set null`
+- `organizer_edition_capability_grants.edition_id -> race_event_editions(id) on delete cascade`
+- `organizer_edition_capability_grants.granted_by -> auth.users(id) on delete set null`
+- `organizer_edition_capability_grants.revoked_by -> auth.users(id) on delete set null`
 - `organizer_edition_payments.edition_id -> race_event_editions(id) on delete cascade`
 - `organizer_edition_payments.purchaser_user_id -> auth.users(id) on delete set null`
 
@@ -228,6 +233,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - Explicit import replacement of `aidStations` deletes and recreates the source station set atomically. Because station products cascade by station id, the review must warn that selected replacement removes existing `race_aid_station_products`; omitting the field preserves every station and product link.
 - A deleted race removes its unusable slug mappings by cascade. While the race exists, former slugs remain reserved and cannot be reassigned to another row.
 - Edition deletion also removes its entitlement and payment ledger. Membership remains event-scoped, so every active organizer consumes the same edition capability.
+- Edition deletion also removes its complimentary capability grants. Pack changes leave those rows untouched because the grant projection is independent from the entitlement projection.
 - Sponsor clicks belong to the edition sponsor row rather than to a race or runner. The redirect RPC verifies the requested race shares that edition before incrementing.
 
 ## Related Docs

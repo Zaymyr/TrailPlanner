@@ -1,7 +1,7 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -14,12 +14,17 @@ related_files:
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/tests/organizer_edition_capability_grants_checks.sql
   - apps/web/lib/supabase.ts
 related_tables:
   - race_slug_redirects
+  - organizer_edition_capability_grants
 ---
 
 # Add RLS Policy
@@ -77,6 +82,8 @@ Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping 
 Use `supabase/tests/organizer_edition_entitlements_checks.sql` with organizer offer route tests when a public child read depends on a service-only commercial entitlement.
 Use `supabase/tests/organizer_racebook_module_settings_checks.sql` to keep service-only publication functions restricted while verifying that trusted admins are resolved from app metadata, never user metadata, and that a service-role invoker RPC does not query `auth.users` directly.
 Use `supabase/tests/privileged_database_access_checks.sql` for global privileged-RPC grants, legacy profile-role self-promotion, and trusted admin metadata.
+Use `supabase/tests/organizer_generated_invoice_checks.sql` for a service-role-only invoice-issuance RPC and a trigger that prevents mutation or deletion of issued financial facts without exposing the ledger to clients.
+Use `supabase/tests/organizer_edition_capability_grants_checks.sql` for a service-only grant projection whose invoker RPC allowlists capability keys and retains active/revoked audit state.
 
 ## Do Not
 

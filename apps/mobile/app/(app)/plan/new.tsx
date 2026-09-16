@@ -9,6 +9,7 @@ import { PremiumUpsellModal } from '../../../components/premium/PremiumUpsellMod
 import { PlanLoadingScreen } from '../../../components/PlanLoadingScreen';
 import { RaceSelector } from '../../../components/RaceSelector';
 import { Colors } from '../../../constants/colors';
+import { useGuestAccountPrompt } from '../../../hooks/useGuestAccountPrompt';
 import { usePremium } from '../../../hooks/usePremium';
 import { useI18n } from '../../../lib/i18n';
 import { ensureAppSession, isAnonymousSession } from '../../../lib/appSession';
@@ -117,6 +118,7 @@ export default function NewPlanScreen() {
   const planCreationSource = catalogRaceId ? 'catalog' : raceId ? 'preselected_race' : 'selector';
   const router = useRouter();
   const { t } = useI18n();
+  const promptGuestAccount = useGuestAccountPrompt();
   const { isPremium, isLoading: premiumLoading } = usePremium();
 
   const [selectedRace, setSelectedRace] = useState<RaceInfo | null>(null);
@@ -287,15 +289,11 @@ export default function NewPlanScreen() {
             setLoading(false);
             setShowRaceSelector(false);
             setLoadingProgress(1);
-            Alert.alert(t.plans.guestLimitTitle, t.plans.guestLimitMessage, [
-              { text: t.common.cancel, style: 'cancel' },
-              {
-                text: t.auth.signUpCta,
-                onPress: () => {
-                  router.replace('/(auth)/login');
-                },
-              },
-            ]);
+            promptGuestAccount({
+              source: 'plan_limit',
+              title: t.plans.guestLimitTitle,
+              message: t.plans.guestLimitMessage,
+            });
             return;
           }
 
@@ -323,7 +321,15 @@ export default function NewPlanScreen() {
         setLoading(Boolean(resolvedRaceId));
         setShowRaceSelector(!resolvedRaceId);
       };
-    }, [isPremium, loadRaceSeed, premiumLoading, resolvedRaceId, router, t.auth.signUpCta, t.common.cancel, t.plans.guestLimitMessage, t.plans.guestLimitTitle]),
+    }, [
+      isPremium,
+      loadRaceSeed,
+      premiumLoading,
+      promptGuestAccount,
+      resolvedRaceId,
+      t.plans.guestLimitMessage,
+      t.plans.guestLimitTitle,
+    ]),
   );
 
   const handleRaceSelected = useCallback(

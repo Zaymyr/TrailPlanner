@@ -1,13 +1,14 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: medium
 related_files:
   - apps/mobile/app
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/hooks/useGuestAccountPrompt.ts
   - apps/mobile/app/(app)/race/_layout.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
@@ -100,7 +101,7 @@ The identity card displays the formatted course date beneath the race name in th
 2. Pick the route group under `apps/mobile/app`.
 3. Create the screen file with Expo Router conventions.
 4. Use existing mobile components/styles before introducing new primitives.
-5. If the screen needs auth, use existing session helpers and route patterns.
+5. If the screen needs auth, use existing session helpers and route patterns. When an action stays visible to a guest but requires an identified account, call `useGuestAccountPrompt` before optimistic state or persistence so the runner can either create an account or sign in to an existing one.
 6. If the screen offers social sign-in, keep the provider platform-specific: Apple on iOS, Google on Android.
 7. If the screen needs premium access, read `apps/mobile/hooks/usePremium.ts`.
 8. If the screen calls server functionality, prefer existing web API bridge patterns.

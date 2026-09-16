@@ -119,6 +119,35 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     });
   });
 
+  it("enables an edition analytics module through the audited capability function", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{
+      edition_id: "33333333-3333-3333-3333-333333333333",
+      capability_key: "racebook_analytics.view",
+      status: "active",
+    }]));
+    const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
+      method: "PATCH",
+      headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
+      body: JSON.stringify({
+        action: "setEditionCapabilityGrant",
+        editionId: "33333333-3333-3333-3333-333333333333",
+        capabilityKey: "racebook_analytics.view",
+        enabled: true,
+      }),
+    });
+
+    const response = await PATCH(request);
+    expect(response.status).toBe(200);
+    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
+    expect(String(url)).toContain("/rpc/set_admin_organizer_edition_capability_grant");
+    expect(JSON.parse(init?.body as string)).toEqual({
+      p_edition_id: "33333333-3333-3333-3333-333333333333",
+      p_admin_id: "00000000-0000-0000-0000-000000000099",
+      p_capability_key: "racebook_analytics.view",
+      p_enabled: true,
+    });
+  });
+
   it("returns a clear conflict when no matching paid transaction exists", async () => {
     vi.mocked(fetch).mockResolvedValueOnce(new Response("No matching paid organizer transaction exists", { status: 400 }));
     const request = new NextRequest("http://localhost/api/admin/event-publication-requests", {
@@ -139,7 +168,7 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     });
   });
 
-  it("loads the pending requests and current-edition Racebook controls", async () => {
+  it("loads independent Racebook controls for every event edition", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(Response.json([
         {
@@ -156,7 +185,20 @@ describe("/api/admin/event-publication-requests PATCH", () => {
         {
           id: "22222222-2222-2222-2222-222222222222",
           name: "Trail du Fort",
-          race_event_editions: [{ id: "33333333-3333-3333-3333-333333333333", is_current: true }],
+          race_event_editions: [
+            {
+              id: "33333333-3333-3333-3333-333333333333",
+              is_current: true,
+              edition_year: 2026,
+              start_date: "2026-08-20",
+            },
+            {
+              id: "66666666-6666-6666-6666-666666666666",
+              is_current: false,
+              edition_year: 2025,
+              start_date: "2025-08-20",
+            },
+          ],
           races: [
             {
               id: "44444444-4444-4444-4444-444444444444",
@@ -191,6 +233,11 @@ describe("/api/admin/event-publication-requests PATCH", () => {
         currency: "eur",
         paid_at: "2026-08-20T12:00:00Z",
         created_at: "2026-08-20T12:00:00Z",
+      }]))
+      .mockResolvedValueOnce(Response.json([{
+        edition_id: "33333333-3333-3333-3333-333333333333",
+        capability_key: "racebook_analytics.view",
+        status: "active",
       }]));
 
     const response = await GET(new NextRequest("http://localhost/api/admin/event-publication-requests", {
@@ -199,12 +246,24 @@ describe("/api/admin/event-publication-requests PATCH", () => {
     const payload = await response.json();
 
     expect(response.status).toBe(200);
+    expect(payload.events).toHaveLength(2);
+    expect(payload.events[0]).toMatchObject({ editionYear: 2026, isCurrentEdition: true });
     expect(payload.events[0].races).toHaveLength(1);
     expect(payload.events[0].races[0].name).toBe("42 km");
     expect(payload.events[0].entitlement.tier).toBe("complete");
     expect(payload.events[0].payments[0].payment_channel).toBe("stripe");
+    expect(payload.events[0].analyticsCapabilityGrant.status).toBe("active");
+    expect(payload.events[1]).toMatchObject({
+      editionId: "66666666-6666-6666-6666-666666666666",
+      editionYear: 2025,
+      isCurrentEdition: false,
+      entitlement: null,
+      analyticsCapabilityGrant: null,
+    });
+    expect(payload.events[1].races[0].name).toBe("Ancienne édition");
     expect(payload.publicationRequests[0].requested_race.name).toBe("42 km");
     expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("requested_race:races");
+    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain("race_event_editions(id,is_current,edition_year,start_date)");
   });
 });
 

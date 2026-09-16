@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -104,6 +104,8 @@ related_files:
   - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/claims/route.test.ts
   - apps/web/app/api/organizer/bootstrap/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
   - apps/web/app/api/organizer/events/route.ts
   - apps/web/app/api/organizer/events/route.test.ts
   - apps/web/app/api/organizer/edition-requests/route.test.ts
@@ -130,12 +132,14 @@ related_files:
   - apps/web/app/api/admin/organizer-claims/route.ts
   - apps/web/app/api/admin/organizer-claims/route.test.ts
   - apps/web/app/api/admin/organizer-payments/route.ts
+  - apps/web/app/api/admin/organizer-payments/preview/route.ts
   - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.ts
   - apps/web/app/api/organizer/invoices/route.ts
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/app/organizer/_components/dashboard/invoices-dialog.tsx
   - apps/web/lib/organizer-payments.ts
   - apps/web/lib/organizer-invoices.ts
+  - apps/web/lib/organizer-invoice-document.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.test.ts
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
@@ -194,6 +198,8 @@ related_files:
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/tests/organizer_dashboard_onboarding_checks.sql
 related_tables:
   - race_event_claims
@@ -269,13 +275,15 @@ The admin Organizer area is split into `Publier le RaceBook` and `Accès organis
 
 Revoking access still sets `revoked_at` on the membership and blocks future organizer writes without changing the format's visibility state. Yearly editions can be visible while each new organizer format starts private: the course and RaceBook are available only to active organizers until explicit publication. RaceBook publication is edition-entitlement gated: the server filters every module outside the active tier without deleting its draft. A trusted admin may retain a complimentary offer through the audited `source=admin` entitlement boundary, or record a real paid bank transfer through the purchase ledger; free draft editing never creates either right.
 
-The admin publication tab no longer controls individual RaceBook visibility. Visibility remains an organizer-owned, format-scoped action, with the same trusted-admin bypass as the surrounding Organizer routes even when the admin has no synthetic event membership. Its commercial area can return an edition to catalog-only Visibilité, or record Essentiel, Complet, or Signature bank transfers with a payment date, the canonical 99/199/349 € HT pack price, optional 20% VAT selected by a checked-by-default checkbox, the resulting total, and an optional PDF. The protected route derives those amounts again and stores a selected same-day payment at midnight UTC so it cannot become artificially future-dated. Recording a new virement creates the ledger row and grants the selected paid tier atomically; it does not require a pre-existing payment row. The organizer summary displays the effective pack, Stripe/Virement, and payment date. `Actions > Factures` lists every edition purchase for the selected event; all active event members may download an available invoice, while a missing manual PDF is shown as pending.
+The admin publication tab no longer controls individual RaceBook visibility. Visibility remains an organizer-owned, format-scoped action, with the same trusted-admin bypass as the surrounding Organizer routes even when the admin has no synthetic event membership. Its commercial area can return an edition to catalog-only Visibilité, or record Essentiel, Complet, or Signature bank transfers with a payment date, the canonical 99/199/349 € HT pack price, zero VAT under article 293 B CGI, and mandatory customer billing identity. The admin can preview the server-rendered PDF before saving; preview allocates no number. The protected route derives amounts again and stores a selected same-day payment at midnight UTC so it cannot become artificially future-dated. Recording a new virement creates the ledger row and grants the selected paid tier atomically, then allocates a chronological invoice number, freezes its legal snapshot, and stores the PDF privately. The organizer summary displays the effective pack, Stripe/Virement, payment date, and invoice number. `Actions > Factures` lists every edition purchase for the selected event; all active event members may download an available invoice through a short signed URL.
 
 The same identified Supabase account sees its managed events and every attached private/public format in the mobile Courses catalog, independently of the runner-facing catalog toggle. Mobile resolves this exception from the active `race_event_organizers` membership created for the account e-mail; revoked memberships lose it immediately. A masked format is removed from the mobile application for every role and remains accessible only in the authorized web workspace for reactivation. A private format remains normally listed and its lightly dimmed RaceBook action still opens the organizer preview. A public format uses the ordinary runner presentation. This organizer-only view does not change `races.is_live` or `races.racebook_is_live` and does not expose drafts to ordinary runners.
 
 ## Organizer Dashboard Rules
 
 `/organizer` is web-only in v1. It shows states for no request, pending request, rejected request, and an approved modular dashboard.
+
+The organizer workspace exposes `Contenu | Statistiques` for the selected edition. Its bootstrap projection contains only the effective analytics decision `{ allowed, source }`, where source is `tier`, `complimentary`, or null; no PostHog data or credential is part of bootstrap. Signature includes the capability, while a lower tier can receive an edition-scoped complimentary grant. The lazy statistics request repeats authentication, parent-event membership, effective-capability, and optional format-membership checks before contacting PostHog.
 
 Organizers with an active event membership can:
 
@@ -382,7 +390,7 @@ Access, ravito, and structured Course presentation now live in focused typed mob
 
 Within the conditional `Services` tab, every populated event service category uses its own localized titled card. The organizer value is rendered as plain text rather than an unlabeled bullet.
 
-Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, a confirmed favorite addition shows a brief localized toast and scrolls to the newly pinned event, and unread previews add a `NEW` badge. In the event sheet, every format stays ahead of one light-green organizer-update panel; that panel initially shows only the newest (or deep-link-targeted) announcement, then reveals the other messages and longer history through `View more`. Pushes deep-link with event, optional format, and update ids so the sheet opens directly on the targeted message and highlights the concerned format. Identified runners persist read receipts only for messages displayed in the panel.
+Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top, a confirmed favorite addition shows a brief localized toast and scrolls to the newly pinned event, and unread previews add a `NEW` badge. Guests can see and press the same heart, but the app opens the shared account creation/sign-in prompt before any favorite write. In the event sheet, every format stays ahead of one light-green organizer-update panel; that panel initially shows only the newest (or deep-link-targeted) announcement, then reveals the other messages and longer history through `View more`. Pushes deep-link with event, optional format, and update ids so the sheet opens directly on the targeted message and highlights the concerned format. Identified runners persist read receipts only for messages displayed in the panel.
 
 ### Racebook Identity Presentation
 
@@ -467,7 +475,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
-- The admin publication manager exposes Visibilité plus the three paid packs through full-row radio targets, then four distinct origins for a paid pack: Admin, Paiement Stripe, Paiement par virement, and Offert. Admin/Offert are editable grants; selecting a new virement preloads read-only canonical HT, lets the admin keep or remove 20% VAT, and writes its real ledger row, while restoring Stripe or an already-recorded virement still requires a matching valid path.
+- The admin publication manager exposes Visibilité plus the three paid packs through full-row radio targets, then four distinct origins for a paid pack: Admin, Paiement Stripe, Paiement par virement, and Offert. Admin/Offert are editable grants; selecting a new virement preloads read-only canonical HT and zero VAT, requires the customer's name/address/SIREN, previews the PDF on demand, and writes its real ledger plus immutable invoice facts. Restoring Stripe or an already-recorded virement still requires a matching valid path.
 - Keep the route and format-publication RPC authorization aligned: active event membership or trusted Auth `app_metadata` admin. Never require an artificial membership row solely for an admin format toggle.
 
 - Publication checkout inspects populated module tables before contacting Stripe. Branding presence is checked through the real `edition_id` key; do not assume every Organizer content table exposes an `id` column.

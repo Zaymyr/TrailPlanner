@@ -719,6 +719,9 @@ export const fr: MobileTranslations = {
     noCatalogTitle: 'Aucune course disponible',
     noCatalogSubtitle: 'Le catalogue sera bientôt enrichi.',
     loadError: 'Impossible de charger les courses',
+    favoriteAccountTitle: 'Crée ton compte pour suivre cette course',
+    favoriteAccountMessage:
+      'Ajoute cette course à tes favoris, reçois les informations de l’organisateur et conserve ton suivi sur tous tes appareils.',
   },
   nutrition: {
     favoritesLimitBanner: '{count} favoris gratuits. Premium débloque les favoris illimités.',

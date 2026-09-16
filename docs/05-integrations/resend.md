@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: medium
 related_files:
   - package.json
@@ -45,7 +45,7 @@ The repo has one checked-in Broadcast template and two server-side Resend Contac
 - `emails/resend/production-launch.html` is a static HTML template for the Google Play production launch Broadcast. Its support ask mentions both a Google Play rating and the `@pace_your.self` Instagram account.
 - `emails/resend/production-launch.txt` is the matching plain-text copy.
 - `apps/web/lib/resend.ts` wraps the Resend Contacts REST API with `fetch`; no `resend` npm dependency is installed.
-- The web package now also contains `tus-js-client` for Organizer Storage uploads; it is unrelated to Resend, which remains a direct REST integration without the Resend SDK.
+- The web package also contains `tus-js-client` for Organizer Storage uploads and server-only `pdf-lib` for invoice PDFs; both are unrelated to Resend, which remains a direct REST integration without the Resend SDK.
 - The root npm version is pinned for reliable Turbo/CI workspace discovery; this does not add a Resend SDK or change the REST contract.
 - `apps/web/app/api/resend/contact/route.ts` exposes `POST /api/resend/contact` for the current authenticated user.
 - `apps/web/app/api/resend/contact/route.test.ts` covers anonymous-user skipping, identified-user syncing, and Resend failure handling.

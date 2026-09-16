@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -265,6 +265,7 @@ where is_live = true
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter event fields, organizer JSON, visibility gates, or RaceBook read contracts.
 - Publication origin is edition-scoped rather than event-scoped. Admin, Offert, Stripe, and virement changes must target the selected canonical edition and do not rewrite the parent event.
+- The admin publication response may project generated invoice number/source beside an edition payment. Those fields come from the service-only payment ledger and do not add invoice or billing columns to `race_events`.
 
 - Organizer bootstrap and event-detail reads must include all three nested format visibility flags. Masked/private formats use `is_live = false`; preview false/true distinguishes a format absent from the mobile app from a runner-visible course format. Private formats support plan creation for runners, while only active organizers receive the dimmed functional RaceBook preview. Both remain editable in the authorized web workspace.
 - Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
@@ -285,6 +286,7 @@ where is_live = true
 - Organizer events remain public catalog rows independently from the admin Racebook publication review.
 - Do not set `race_events.is_live = false` to hide one edition; that would hide every year. Use the edition visibility route, which scopes changes to attached formats.
 - Keep favorites event-scoped. Organizer updates always retain an event id and may additionally carry a child format id for title and navigation context.
+- Keeping the mobile heart visible for guests is an account-conversion presentation rule only; it must not broaden event-favorite writes or event visibility.
 - Keep the event-level catalog query narrow even with update previews: mobile should embed only the short recent history needed for instant sheet rendering, not the full announcement archive for every event.
 - Deleting a manual announcement is an organizer-history action scoped by event membership; it must not mutate the parent event, its formats, or its favorite audience.
 - Do not include `organizer_details` in public/mobile event queries unless the runner-facing contract is explicitly designed. The current exception is the live-format mobile Racebook flow, which still stays hidden for aid-station-only formats.

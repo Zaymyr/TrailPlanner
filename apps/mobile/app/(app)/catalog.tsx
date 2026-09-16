@@ -18,6 +18,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
+import { useGuestAccountPrompt } from '../../hooks/useGuestAccountPrompt';
 import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import {
@@ -391,6 +392,7 @@ export default function CatalogScreen() {
   }>();
   const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
+  const promptGuestAccount = useGuestAccountPrompt();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
@@ -789,6 +791,15 @@ export default function CatalogScreen() {
   }
 
   async function handleToggleFavorite(eventId: string) {
+    if (!canFavoriteEvents) {
+      promptGuestAccount({
+        source: 'race_favorite',
+        title: t.catalog.favoriteAccountTitle,
+        message: t.catalog.favoriteAccountMessage,
+      });
+      return;
+    }
+
     const previousFavoriteIds = favoriteEventIds;
     const wasFavorite = favoriteEventIds.includes(eventId);
     const nextFavoriteIds = wasFavorite
@@ -1084,13 +1095,9 @@ export default function CatalogScreen() {
             unfavoriteLabel={locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites'}
             isFavorite={favoriteEventIds.includes(event.id)}
             hasNewUpdate={eventsWithUnreadUpdates.has(event.id)}
-            onToggleFavorite={
-              canFavoriteEvents
-                ? () => {
-                    void handleToggleFavorite(event.id);
-                  }
-                : undefined
-            }
+            onToggleFavorite={() => {
+              void handleToggleFavorite(event.id);
+            }}
             onOpenFormats={() => {
               if (onboardingMode === 'racebook') {
                 captureRacebookOnboardingSearch();
@@ -1177,7 +1184,7 @@ export default function CatalogScreen() {
                 <Text style={styles.sheetTitle}>{selectedEvent?.name}</Text>
                 {selectedEventMeta ? <Text style={styles.sheetSubtitle}>{selectedEventMeta}</Text> : null}
               </View>
-              {selectedEvent && canFavoriteEvents ? (
+              {selectedEvent ? (
                 <TouchableOpacity
                   accessibilityLabel={favoriteEventIds.includes(selectedEvent.id)
                     ? (locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites')

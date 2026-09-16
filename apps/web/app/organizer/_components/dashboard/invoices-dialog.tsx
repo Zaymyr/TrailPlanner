@@ -93,6 +93,7 @@ export function OrganizerInvoicesDialog({
             <div key={invoice.id} className="flex flex-col gap-3 rounded-lg border border-border p-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <p className="font-semibold text-foreground">Pack {ORGANIZER_TIER_LABEL[invoice.tier]}{invoice.editionYear ? ` · édition ${invoice.editionYear}` : ""}</p>
+                {invoice.invoiceNumber ? <p className="text-sm font-medium text-foreground">Facture {invoice.invoiceNumber}</p> : null}
                 <p className="text-sm text-muted-foreground">
                   {invoice.paymentChannel === "bank_transfer" ? "Virement bancaire" : "Stripe"}
                   {invoice.paidAt ? ` · ${new Date(invoice.paidAt).toLocaleDateString("fr-FR")}` : ""}

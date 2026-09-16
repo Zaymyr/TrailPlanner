@@ -11,12 +11,15 @@ related_files:
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
+  - supabase/tests/organizer_edition_capability_grants_checks.sql
   - apps/web/lib/organizer-entitlements.ts
   - apps/web/app/api/organizer/editions/[id]/branding/route.ts
 related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
+  - organizer_edition_capability_grants
   - race_event_editions
 ---
 
@@ -67,6 +70,7 @@ RLS is enabled with no client grants. Only service role can read or mutate rows.
 - A direct bank transfer may replace a higher operational Admin/Offert grant with the lower tier actually purchased; paid-ledger rights still reject downgrade purchases.
 - Legacy RaceBook and Pro editions are mapped to Complete and Signature without charge.
 - `branding.manage` is granted only by an active Signature entitlement and controls publication of the branding snapshot. Membership still permits reading and editing the private draft; a downgrade masks the published identity and preserves both snapshots.
+- `racebook_analytics.view` is included in Signature. Lower tiers can receive it through an independent active `organizer_edition_capability_grants` row; pack changes do not delete that complimentary module grant.
 
 ## Common Queries
 
@@ -87,3 +91,4 @@ where edition_id = :edition_id;
 
 - [organizer_edition_payments](organizer-edition-payments.md)
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)
+- [organizer_edition_capability_grants](organizer-edition-capability-grants.md)

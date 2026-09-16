@@ -31,6 +31,8 @@ const publicationEventSchema = z.object({
   race_event_editions: z.array(z.object({
     id: z.string().uuid(),
     is_current: z.boolean(),
+    edition_year: z.number().int(),
+    start_date: z.string(),
   })).nullable().optional(),
   races: z.array(z.object({
     id: z.string().uuid(),
@@ -64,7 +66,15 @@ const paymentSchema = z.object({
   paid_at: z.string().nullable().optional(),
   invoice_storage_path: z.string().nullable().optional(),
   invoice_original_name: z.string().nullable().optional(),
+  invoice_number: z.string().nullable().optional(),
+  invoice_source: z.enum(["generated", "uploaded"]).nullable().optional(),
   created_at: z.string(),
+});
+
+const capabilityGrantSchema = z.object({
+  edition_id: z.string().uuid(),
+  capability_key: z.literal("racebook_analytics.view"),
+  status: z.enum(["active", "revoked"]),
 });
 
 const reviewSchema = z.object({
@@ -86,17 +96,24 @@ const grantSchema = z.object({
   origin: z.enum(["admin", "complimentary", "stripe", "manual_payment"]),
 });
 
+const capabilityGrantActionSchema = z.object({
+  action: z.literal("setEditionCapabilityGrant"),
+  editionId: z.string().uuid(),
+  capabilityKey: z.literal("racebook_analytics.view"),
+  enabled: z.boolean(),
+});
+
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
 
-  const [response, eventsResponse, entitlementsResponse, paymentsResponse] = await Promise.all([
+  const [response, eventsResponse, entitlementsResponse, paymentsResponse, capabilityGrantsResponse] = await Promise.all([
     fetch(
       `${auth.serviceConfig.supabaseUrl}/rest/v1/race_event_publication_requests?status=eq.pending&select=id,created_at,user_id,event_id,race_id,status,reviewer_notes,race_events(name,location,race_date),requested_race:races(name,race_date)&order=created_at.asc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at,data_status,missing_required_fields)&order=name.asc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/race_events?select=id,name,location,race_date,race_event_editions(id,is_current,edition_year,start_date),races(id,edition_id,name,race_date,racebook_is_live,racebook_publication_approved_at,data_status,missing_required_fields)&order=name.asc`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
@@ -104,31 +121,46 @@ export async function GET(request: NextRequest) {
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
     fetch(
-      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?select=id,edition_id,to_tier,status,payment_channel,amount_subtotal,amount_tax,amount_total,currency,paid_at,invoice_storage_path,invoice_original_name,created_at&order=paid_at.desc.nullslast,created_at.desc`,
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_payments?select=id,edition_id,to_tier,status,payment_channel,amount_subtotal,amount_tax,amount_total,currency,paid_at,invoice_storage_path,invoice_original_name,invoice_number,invoice_source,created_at&order=paid_at.desc.nullslast,created_at.desc`,
+      { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
+    ),
+    fetch(
+      `${auth.serviceConfig.supabaseUrl}/rest/v1/organizer_edition_capability_grants?capability_key=eq.racebook_analytics.view&select=edition_id,capability_key,status`,
       { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" }
     ),
   ]);
-  if (!response.ok || !eventsResponse.ok || !entitlementsResponse.ok || !paymentsResponse.ok) {
+  if (!response.ok || !eventsResponse.ok || !entitlementsResponse.ok || !paymentsResponse.ok || !capabilityGrantsResponse.ok) {
     return jsonError("Unable to load Racebook publication controls.", 502);
   }
 
   const publicationRequests = z.array(publicationRequestSchema).parse(await response.json());
   const entitlements = z.array(entitlementSchema).parse(await entitlementsResponse.json());
   const payments = z.array(paymentSchema).parse(await paymentsResponse.json());
-  const events = z.array(publicationEventSchema).parse(await eventsResponse.json()).map((event) => {
-    const currentEditionId = (event.race_event_editions ?? []).find((edition) => edition.is_current)?.id ?? null;
-    return {
-      id: event.id,
-      name: event.name,
-      location: event.location ?? null,
-      race_date: event.race_date ?? null,
-      editionId: currentEditionId,
-      entitlement: entitlements.find((item) => item.edition_id === currentEditionId) ?? null,
-      payments: payments.filter((item) => item.edition_id === currentEditionId),
-      races: (event.races ?? [])
-        .filter((race) => !currentEditionId || race.edition_id === currentEditionId)
-        .sort((left, right) => left.name.localeCompare(right.name, "fr")),
-    };
+  const capabilityGrants = z.array(capabilityGrantSchema).parse(await capabilityGrantsResponse.json());
+  const events = z.array(publicationEventSchema).parse(await eventsResponse.json()).flatMap((event) => {
+    const editions = [...(event.race_event_editions ?? [])].sort((left, right) => (
+      Number(right.is_current) - Number(left.is_current)
+      || right.start_date.localeCompare(left.start_date)
+    ));
+    const editionRows = editions.length > 0 ? editions : [null];
+    return editionRows.map((edition) => {
+      const editionId = edition?.id ?? null;
+      return {
+        id: event.id,
+        name: event.name,
+        location: event.location ?? null,
+        race_date: event.race_date ?? null,
+        editionId,
+        editionYear: edition?.edition_year ?? null,
+        isCurrentEdition: edition?.is_current ?? false,
+        entitlement: entitlements.find((item) => item.edition_id === editionId) ?? null,
+        payments: payments.filter((item) => item.edition_id === editionId),
+        analyticsCapabilityGrant: capabilityGrants.find((item) => item.edition_id === editionId) ?? null,
+        races: (event.races ?? [])
+          .filter((race) => !editionId || race.edition_id === editionId)
+          .sort((left, right) => left.name.localeCompare(right.name, "fr")),
+      };
+    });
   });
   return withSecurityHeaders(NextResponse.json({ publicationRequests, events }));
 }
@@ -137,6 +169,25 @@ export async function PATCH(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
   const body = await request.json().catch(() => null);
+  const capabilityGrant = capabilityGrantActionSchema.safeParse(body);
+  if (capabilityGrant.success) {
+    const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_capability_grant`, {
+      method: "POST",
+      headers: serviceHeaders(auth.serviceConfig),
+      body: JSON.stringify({
+        p_edition_id: capabilityGrant.data.editionId,
+        p_admin_id: auth.user.id,
+        p_capability_key: capabilityGrant.data.capabilityKey,
+        p_enabled: capabilityGrant.data.enabled,
+      }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      console.error("Unable to update organizer edition capability grant", await response.text());
+      return jsonError("Impossible de modifier ce module offert.", 502);
+    }
+    return withSecurityHeaders(NextResponse.json({ capabilityGrant: await response.json() }));
+  }
   const grant = grantSchema.safeParse(body);
   if (grant.success) {
     const response = await fetch(`${auth.serviceConfig.supabaseUrl}/rest/v1/rpc/set_admin_organizer_edition_grant`, {

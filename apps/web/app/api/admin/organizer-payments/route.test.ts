@@ -1,14 +1,26 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ORGANIZER_INVOICE_SELLER } from "../../../../lib/organizer-invoice-document";
 import { deleteOrganizerInvoice, uploadOrganizerInvoice } from "../../../../lib/organizer-invoices";
 import { POST } from "./route";
 
 const editionId = "11111111-1111-1111-1111-111111111111";
+const paymentId = "22222222-2222-2222-2222-222222222222";
 
-const requestWith = (values: Record<string, string | File>) => {
+const requestWith = (values: Record<string, string> = {}) => {
   const data = new FormData();
-  Object.entries(values).forEach(([key, value]) => data.set(key, value));
+  Object.entries({
+    editionId,
+    tier: "complete",
+    paidDate: "2026-09-10",
+    customerLegalName: "Association Trail Test",
+    customerBillingAddress: "12 rue des Crêtes\n69000 Lyon",
+    customerSiren: "123 456 789",
+    customerVatNumber: "",
+    purchaseOrderNumber: "BC-42",
+    ...values,
+  }).forEach(([key, value]) => data.set(key, value));
   return new NextRequest("http://localhost/api/admin/organizer-payments", {
     method: "POST",
     headers: { authorization: "Bearer admin-token" },
@@ -16,117 +28,80 @@ const requestWith = (values: Record<string, string | File>) => {
   });
 };
 
+const issuedSnapshot = {
+  seller: ORGANIZER_INVOICE_SELLER,
+  customer: {
+    legalName: "Association Trail Test",
+    billingAddress: "12 rue des Crêtes\n69000 Lyon",
+    siren: "123456789",
+    vatNumber: null,
+    purchaseOrderNumber: "BC-42",
+  },
+  service: {
+    description: "Pack Complet Pace Yourself - Trail Test, édition 2026",
+    category: "Prestations de services",
+    serviceDate: "2026-09-10",
+  },
+  amounts: { subtotalCents: 19900, taxCents: 0, totalCents: 19900, currency: "EUR" },
+  payment: { channel: "Virement bancaire", paidDate: "2026-09-10" },
+};
+
 describe("POST /api/admin/organizer-payments", () => {
   beforeEach(() => vi.stubGlobal("fetch", vi.fn()));
   afterEach(() => vi.restoreAllMocks());
 
-  it("derives the canonical pack price and 20% VAT through the atomic service RPC", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "22222222-2222-2222-2222-222222222222" }));
-    const response = await POST(requestWith({
-      editionId,
-      tier: "complete",
-      paidDate: "2026-09-10",
-      amountSubtotal: "0",
-      amountTax: "0",
-    }));
+  it("records the VAT-exempt payment, allocates a number, renders and attaches the PDF", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([{ edition_year: 2026, race_events: { name: "Trail Test" } }]))
+      .mockResolvedValueOnce(Response.json({
+        id: paymentId,
+        edition_id: editionId,
+        invoice_number: "PY-2026-000001",
+        invoice_issued_at: "2026-09-15T08:00:00.000Z",
+        invoice_legal_snapshot: issuedSnapshot,
+      }))
+      .mockResolvedValueOnce(Response.json([{ id: paymentId, invoice_storage_path: "edition/payment/invoice.pdf" }]));
+
+    const response = await POST(requestWith());
 
     expect(response.status).toBe(201);
-    const [url, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-    expect(String(url)).toContain("/rpc/record_admin_organizer_bank_transfer");
-    expect(JSON.parse(String(init?.body))).toMatchObject({
-      p_edition_id: editionId,
-      p_tier: "complete",
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
       p_amount_subtotal: 19900,
-      p_amount_tax: 3980,
-      p_paid_at: "2026-09-10T00:00:00.000Z",
+      p_invoice_legal_snapshot: { customer: { siren: "123456789" } },
     });
-  });
-
-  it("records today's date at midnight so it is never rejected as a future transfer", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-09-11T08:00:00.000Z"));
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "22222222-2222-2222-2222-222222222222" }));
-    try {
-      const response = await POST(requestWith({
-        editionId,
-        tier: "essential",
-        paidDate: "2026-09-11",
-      }));
-
-      expect(response.status).toBe(201);
-      const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-      expect(JSON.parse(String(init?.body))).toMatchObject({
-        p_amount_subtotal: 9900,
-        p_amount_tax: 1980,
-        p_paid_at: "2026-09-11T00:00:00.000Z",
-      });
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("records a VAT-exempt bank transfer when the admin unticks VAT", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(Response.json({ id: "22222222-2222-2222-2222-222222222222" }));
-    const response = await POST(requestWith({
-      editionId,
-      tier: "essential",
-      paidDate: "2026-09-11",
-      applyVat: "false",
-    }));
-
-    expect(response.status).toBe(201);
-    const [, init] = vi.mocked(fetch).mock.calls[0] ?? [];
-    expect(JSON.parse(String(init?.body))).toMatchObject({
-      p_amount_subtotal: 9900,
-      p_amount_tax: 0,
-    });
-  });
-
-  it("rejects an invalid VAT choice", async () => {
-    const response = await POST(requestWith({
-      editionId,
-      tier: "essential",
-      paidDate: "2026-09-11",
-      applyVat: "sometimes",
-    }));
-
-    expect(response.status).toBe(400);
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("rejects future dates before writing", async () => {
-    const response = await POST(requestWith({
-      editionId,
-      tier: "essential",
-      paidDate: "2099-01-01",
-      amountSubtotal: "99",
-      amountTax: "0",
-    }));
-    expect(response.status).toBe(400);
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("rejects impossible dates", async () => {
-    const invalidDate = await POST(requestWith({
-      editionId,
-      tier: "essential",
-      paidDate: "2026-02-31",
-    }));
-    expect(invalidDate.status).toBe(400);
-    expect(fetch).not.toHaveBeenCalled();
-  });
-
-  it("removes an uploaded invoice when the atomic RPC fails", async () => {
-    vi.mocked(fetch).mockResolvedValueOnce(new Response("already active", { status: 409 }));
-    const response = await POST(requestWith({
-      editionId,
-      tier: "complete",
-      paidDate: "2026-09-10",
-      invoice: new File(["%PDF-1.7"], "facture.pdf", { type: "application/pdf" }),
-    }));
-    expect(response.status).toBe(409);
     expect(uploadOrganizerInvoice).toHaveBeenCalledOnce();
-    expect(deleteOrganizerInvoice).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[2]?.[1]?.body))).toMatchObject({
+      invoice_original_name: "facture-PY-2026-000001.pdf",
+    });
+  });
+
+  it("rejects incomplete legal customer details before writing", async () => {
+    const response = await POST(requestWith({ customerSiren: "123" }));
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("rejects future payment dates before writing", async () => {
+    const response = await POST(requestWith({ paidDate: "2099-01-01" }));
+    expect(response.status).toBe(400);
+    expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("removes the generated object if attaching its ledger reference fails", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([{ edition_year: 2026, race_events: { name: "Trail Test" } }]))
+      .mockResolvedValueOnce(Response.json({
+        id: paymentId,
+        edition_id: editionId,
+        invoice_number: "PY-2026-000001",
+        invoice_issued_at: "2026-09-15T08:00:00.000Z",
+        invoice_legal_snapshot: issuedSnapshot,
+      }))
+      .mockResolvedValueOnce(new Response("failure", { status: 500 }));
+
+    const response = await POST(requestWith());
+    expect(response.status).toBe(202);
+    expect(deleteOrganizerInvoice).toHaveBeenCalledWith(expect.anything(), "edition/payment/invoice.pdf");
   });
 });
 
@@ -143,5 +118,4 @@ vi.mock("../../../../lib/organizer-invoices", () => ({
   buildOrganizerInvoicePath: () => "edition/payment/invoice.pdf",
   deleteOrganizerInvoice: vi.fn(() => Promise.resolve()),
   uploadOrganizerInvoice: vi.fn(() => Promise.resolve()),
-  validateOrganizerInvoice: vi.fn((file: File) => file.arrayBuffer()),
 }));

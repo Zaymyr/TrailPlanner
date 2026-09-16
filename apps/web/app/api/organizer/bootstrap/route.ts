@@ -7,7 +7,11 @@ import {
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
 } from "../../../../lib/organizer-dashboard-details";
-import { loadOrganizerEditionEntitlements } from "../../../../lib/organizer-entitlements";
+import {
+  loadOrganizerEditionCapabilityGrants,
+  loadOrganizerEditionEntitlements,
+  resolveOrganizerCapabilityAccess,
+} from "../../../../lib/organizer-entitlements";
 import { loadOrganizerEditionPayments, selectEffectiveOrganizerPurchase } from "../../../../lib/organizer-payments";
 import { isAdminUser } from "../../../../lib/supabase";
 import { racebookBrandingRowSchema, toOrganizerBranding } from "../../../../lib/racebook-branding";
@@ -125,6 +129,7 @@ const eventDetailSchema = z.object({
 const mapEventDetail = (
   event: z.infer<typeof eventDetailSchema>,
   entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {},
+  capabilityGrants: Awaited<ReturnType<typeof loadOrganizerEditionCapabilityGrants>> = {},
   payments: Awaited<ReturnType<typeof loadOrganizerEditionPayments>> = {}
 ) => ({
   ...event,
@@ -147,6 +152,11 @@ const mapEventDetail = (
         brandingConfigured: Boolean(branding.publishedAt),
         brandingUnpublished: branding.hasUnpublishedChanges,
         entitlement,
+        analyticsAccess: resolveOrganizerCapabilityAccess(
+          entitlement,
+          capabilityGrants[edition.id] ?? [],
+          "racebook_analytics.view"
+        ),
         purchase: selectEffectiveOrganizerPurchase(payments[edition.id], entitlement?.tier),
       };
     }),
@@ -237,11 +247,12 @@ export async function GET(request: NextRequest) {
     const eventRow = z.array(eventDetailSchema).parse(await eventResponse.json())[0] ?? null;
     if (!eventRow) return jsonError("Event not found.", 404);
     const editionIds = (eventRow.race_event_editions ?? []).map((edition) => edition.id);
-    const [entitlements, payments] = await Promise.all([
+    const [entitlements, capabilityGrants, payments] = await Promise.all([
       loadOrganizerEditionEntitlements(auth.serviceConfig, editionIds),
+      loadOrganizerEditionCapabilityGrants(auth.serviceConfig, editionIds),
       loadOrganizerEditionPayments(auth.serviceConfig, editionIds),
     ]);
-    event = mapEventDetail(eventRow, entitlements, payments);
+    event = mapEventDetail(eventRow, entitlements, capabilityGrants, payments);
   }
 
   return withSecurityHeaders(

@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -108,6 +108,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 - The mobile event sheet now preloads only a short recent preview from the main catalog query so the sheet can render updates immediately; keep that embedded payload intentionally small.
 - The catalog's embedded formats are filtered to preview-visible rows. Hiding an edition removes its format actions/RaceBooks but does not delete event announcement history; deleting the edition nulls a targeted update's `race_id` through the race foreign key.
 - Adding an event favorite from that sheet may close it so the catalog can reveal the newly pinned event and success toast; this must not load, reorder, or mark organizer announcements.
+- A guest tapping that same heart sees an account prompt instead; no favorite audience membership, update read, or organizer push is created until an identified account later confirms a favorite.
 - The mobile update panel belongs after every format action, uses a light-green treatment, and shows only the newest or deep-link-targeted update while collapsed so notification volume cannot bury the plan/Racebook choices.
 - Removing the repeated multi-format helper sentence from the surrounding Courses event card changes only card density; it must not move, filter, or mark the organizer-update panel.
 - The RaceBook action may warm sponsor data before navigation, but that side request must not delay, reorder, fetch, or mark organizer announcements.

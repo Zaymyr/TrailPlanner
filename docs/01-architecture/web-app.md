@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -165,13 +165,21 @@ related_files:
   - apps/web/app/api/organizer/claims/route.test.ts
   - apps/web/app/api/organizer/bootstrap/route.ts
   - apps/web/app/api/organizer/bootstrap/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
+  - apps/web/lib/posthog-organizer-analytics.ts
+  - apps/web/lib/posthog-organizer-analytics.test.ts
   - apps/web/app/api/admin/organizer-payments/route.ts
+  - apps/web/app/api/admin/organizer-payments/preview/route.ts
+  - apps/web/app/api/admin/organizer-payments/preview/route.test.ts
   - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.ts
   - apps/web/app/api/organizer/invoices/route.ts
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/app/organizer/_components/dashboard/invoices-dialog.tsx
   - apps/web/lib/organizer-payments.ts
   - apps/web/lib/organizer-invoices.ts
+  - apps/web/lib/organizer-invoice-document.ts
+  - apps/web/lib/organizer-invoice-document.test.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
   - apps/web/app/api/organizer/edition-requests/route.test.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
@@ -222,6 +230,8 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/app/api/location-search/route.ts
   - apps/web/lib/organizer-website-import.ts
@@ -268,6 +278,8 @@ related_tables:
 The organizer dashboard code-splits its heavy module editors and review panels, then loads module data only when needed. Structured collection autosaves are serialized and revision-aware, so an older server response cannot overwrite edits made during the request. Late dashboard responses are abortable and scoped to the active event/race. Aid-station, station-product, relay-point and sponsor-order mutations use service-only atomic database functions instead of write loops. The bootstrap embeds only lightweight status projections, so every tile is correct on first render without downloading editable collections. The shared module catalog separates selected authoring state from effective public state: inactive tiles leave navigation, while `draftOnly` tiles remain editable and are filtered from runner responses until the required offer becomes active.
 
 The dashboard uses progressive disclosure for secondary guidance: controls keep short labels, while reusable contextual help exposes longer explanations on pointer hover and keyboard/touch focus. Validation errors, missing-data warnings, save state, and actual event values remain visible because they require immediate attention and must not depend on hover.
+
+Organizer RaceBook statistics are also lazy. Bootstrap exposes only an edition-level effective-access source, and the dedicated authenticated route verifies membership, capability, and format ownership before making one server-to-server PostHog Endpoint request. Its four KPIs and daily series are bounded to 7, 30, or 90 UTC calendar days; PostHog credentials remain server-only and upstream failures render as a temporary-unavailability state rather than an empty successful series.
 
 The event information editor uses five ordered visual sections instead of one flat grid: primary identity, online presence, edition dates, emergency contact, and cover image. The emergency block has a restrained warning surface, while the image preview and picker share one bounded row so neither creates unused page width.
 
@@ -404,7 +416,7 @@ The calculator's bounded duration/tolerance interpolation lives in `apps/web/lib
 
 ### Organizer Portal
 
-The admin Organizer area separates publication and membership work into `Publier le RaceBook` and `Accès organisateurs`. Its publication-rights collection is filtered client-side by an accent-insensitive event/location/format search plus the existing offer selector, then paginated in ten-event pages; changing either filter returns to the first page. Its rights dialog uses large radio rows for Visibilité, Essentiel, Complet, and Signature; choosing Visibilité keeps the catalog edition visible while removing its RaceBooks from public access. Choosing a new virement preloads the canonical pack price and lets the admin include or omit 20% VAT; the amounts remain read-only, while the protected route independently derives the canonical HT and selected VAT amount and normalizes the payment date to midnight UTC before creating the payment plus effective right in one action. Direct e-mail assignment performs the Auth lookup only in the protected server route. A missing account returns a bounded not-found response that opens a cancel/create dialog; confirmation calls the route again, creates the Supabase account through the server-side invitation endpoint, sends the invite, and then inserts the event membership. The browser never receives the service credential or an Auth user list.
+The admin Organizer area separates publication and membership work into `Publier le RaceBook` and `Accès organisateurs`. Its publication-rights collection is filtered client-side by an accent-insensitive event/location/format search plus the existing offer selector, then paginated in ten-event pages; changing either filter returns to the first page. Its rights dialog uses large radio rows for Visibilité, Essentiel, Complet, and Signature; choosing Visibilité keeps the catalog edition visible while removing its RaceBooks from public access. Choosing a new virement preloads the canonical pack price, zero VAT under article 293 B CGI, and requires customer name/address/SIREN. The preview endpoint renders a non-persisted inline PDF through the same `pdf-lib` document builder used at issuance. The protected write route derives the canonical amount, normalizes the payment date to midnight UTC, creates the payment/right, allocates its chronological invoice number, freezes the legal snapshot, and uploads the final PDF. Direct e-mail assignment performs the Auth lookup only in the protected server route. A missing account returns a bounded not-found response that opens a cancel/create dialog; confirmation calls the route again, creates the Supabase account through the server-side invitation endpoint, sends the invite, and then inserts the event membership. The browser never receives the service credential or an Auth user list.
 
 For trusted admins, the organizer header also exposes `Importer les informations`. That flow posts to `/api/organizer/events/[id]/website-import`, reuses the existing UTMB / Trace de Trail import adapters when possible, and falls back to generic HTML/JSON-LD extraction. It is review-first in two passes: source discovery writes no race data; confirming the final format list atomically binds existing rows or creates hidden drafts; applying reviewed fields later enriches only that event and those confirmed formats. It must never create another event row or publish a Racebook automatically. Historical drafts are importable even after the normal edition edit window has elapsed.
 
@@ -480,7 +492,7 @@ Stripe routes live under `apps/web/app/api/stripe`:
 - `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`.
 - `organizer/publication-checkout/route.ts`: creates one-time 99/199/349 € HT edition checkouts, plus 100/250/150 € HT upgrades, selected entirely by the server.
 
-The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, disputes, and the generated Invoice reference, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears. The same ledger stores admin-recorded EUR bank transfers. Organizer event/bootstrap DTOs expose only a sanitized purchase summary; the Factures action loads event-wide edition history and obtains manual private-Storage or Stripe PDF URLs from membership-checked server routes.
+The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, disputes, and the generated Invoice reference, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears. The same ledger stores admin-recorded EUR bank transfers plus generated invoice number and legal snapshot. Organizer event/bootstrap DTOs expose only a sanitized purchase summary; the Factures action loads event-wide edition history, shows the invoice number, and obtains private-Storage or Stripe PDF URLs from membership-checked server routes.
 
 RevenueCat routes live under `apps/web/app/api/revenuecat`. They synchronize mobile purchases into the same `subscriptions` table with provider `google` or `apple`.
 

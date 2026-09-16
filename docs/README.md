@@ -60,6 +60,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [race_event_edition_sponsors](02-database/tables/race-event-edition-sponsors.md)
 - [race_event_edition_branding](02-database/tables/race-event-edition-branding.md)
 - [organizer_edition_entitlements](02-database/tables/organizer-edition-entitlements.md)
+- [organizer_edition_capability_grants](02-database/tables/organizer-edition-capability-grants.md)
 - [organizer_edition_payments](02-database/tables/organizer-edition-payments.md)
 - [organizer_racebook_module_settings](02-database/tables/organizer-racebook-module-settings.md)
 - [organizer_import_sessions](02-database/tables/organizer-import-sessions.md)

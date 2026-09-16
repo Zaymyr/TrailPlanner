@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: medium
 related_files:
   - package.json
@@ -56,6 +56,8 @@ npm run lint
 The web CI workflow runs lint, typecheck, the complete web Vitest suite, then the production build. Keep targeted local tests for fast feedback, but do not remove the full test gate from CI.
 
 The organizer payment journey is an explicit, destructive test-mode check: run `npm run test:e2e:organizer-payment -w @trailplanner/web` only with `RUN_ORGANIZER_PAYMENT_E2E=1`, `ORGANIZER_E2E_EMAIL`, `ORGANIZER_E2E_PASSWORD`, and an optional `ORGANIZER_E2E_BASE_URL`. It refuses non-`cs_test_` Stripe Checkout sessions and deletes its uniquely named `TEST` event both through the UI and a fallback API cleanup.
+
+Generated organizer invoices have a non-destructive focused gate: run the organizer-payment route tests plus `lib/organizer-invoice-document.test.ts`. The latter loads the emitted bytes back through `pdf-lib` to confirm a valid one-page PDF and stable document metadata; SQL numbering/immutability is covered separately by `supabase/tests/organizer_generated_invoice_checks.sql`.
 
 The mobile UX gate is intentionally manual to control EAS usage. The immediately available path is `npm run test:e2e:ux -w @trailplanner/mobile` with a local Android device. The cross-platform target can be launched from `apps/mobile` with `eas workflow:run .eas/workflows/mobile-ux-audit.yml` only after the Expo account supports hosted Maestro jobs; its `preview` environment must contain secret `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` variables.
 

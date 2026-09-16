@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -33,6 +33,8 @@ related_files:
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911093649_add_organizer_publication_grant_origin.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
@@ -48,6 +50,8 @@ related_files:
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/tests/organizer_edition_capability_grants_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
@@ -70,6 +74,7 @@ related_tables:
   - race_event_edition_sponsors
   - race_event_edition_branding
   - organizer_racebook_module_settings
+  - organizer_edition_capability_grants
 ---
 
 # RLS Checklist
@@ -85,6 +90,8 @@ Use this checklist before adding or changing Supabase tables, policies, or servi
 `record_admin_organizer_bank_transfer` is also invoker-security and service-role-only. The admin route verifies `app_metadata`, validates date/money/PDF input, and cleans an uploaded object if the atomic database write fails. `organizer-invoices` has no direct client policy; the download route rechecks active parent-event membership before signing a manual object for 60 seconds.
 
 `set_admin_organizer_edition_grant` is invoker-security and service-role-only. It permits direct Admin/Offert grants, but restores Stripe or virement only from a matching valid payment path, so the presentation origin cannot manufacture financial history.
+
+`set_admin_organizer_edition_capability_grant` is invoker-security and service-role-only. Its table has RLS with no client policy or privilege, and the RPC accepts only the allowlisted analytics capability after the web route verifies trusted admin authority.
 
 `set_organizer_racebook_visibility` remains invoker-security and service-role-only. It repeats the server route's caller model by accepting an active event membership or a trusted admin resolved only from `auth.users.raw_app_meta_data`; it never consults user-editable metadata. Since `service_role` cannot select `auth.users` directly, only the trusted-admin boolean lookup is delegated to `private.user_has_trusted_admin_role`, a fixed-search-path security-definer helper whose execution is revoked from client roles.
 
@@ -149,6 +156,8 @@ Use:
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
 - `supabase/tests/organizer_edition_entitlements_checks.sql` for Stripe/manual recalculation, complimentary-override conversion, duplicate/downgrade rejection, invoice-bucket privacy configuration, and bank-transfer RPC privileges;
+- `supabase/tests/organizer_edition_capability_grants_checks.sql` for service-only privileges, invoker execution, lifecycle audit, pack independence, and capability allowlisting;
+- `supabase/tests/organizer_generated_invoice_checks.sql` for client execute revocation, serialized invoice allocation, and issued-fact update/delete protection;
 - `supabase/tests/privileged_database_access_checks.sql` for profile-role self-promotion denial, trusted admin claims, privileged RPC revocations, and invoker-secured review views;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
@@ -197,6 +206,7 @@ Use:
 - `race_event_edition_sponsors` is also intentionally service-only. Public presentation must pass through the RaceBook gate and expose counted redirect URLs rather than direct destination fields.
 - Atomic Organizer course and sponsor-order functions remain invoker-security, empty-search-path and `service_role`-only. Their database validation complements rather than replaces route membership and entitlement checks.
 - `race_event_edition_branding` is intentionally service-only. Its organizer route requires active parent-event membership plus Pro; public/mobile presentation must expose only the published snapshot and keep downgrade behavior read-only rather than destructive.
+- `organizer_edition_capability_grants` is intentionally service-only. Resolve it in authorized server routes and never expose its admin audit fields through a generic client table query.
 
 ## Related Docs
 

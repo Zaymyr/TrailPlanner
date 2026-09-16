@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -109,6 +109,8 @@ Numeric fields in mobile editors and recap-time controls attach to the shared iO
 Successful Web persistence emits the consent-gated `plan created` or `plan saved` event only after the server response has been parsed. GPX download and assistance printing emit `plan exported`; these analytics events carry aggregate shape/source fields and never become a second persistence source of truth.
 
 The mobile Plan onboarding now uses the ordinary Courses and Nutrition screens, then calls the standard `plan/new` catalog import. A successful `race_plans` insert marks the Plan tour completed and opens the existing editor tutorial; a failed insert leaves the tour in progress and does not create a false completion.
+
+When a guest reaches the one-plan limit, mobile opens the shared account prompt with separate account-creation and existing-account sign-in actions. The prompt runs before another insert and therefore does not create a duplicate or inaccessible `race_plans` row.
 
 When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
 
