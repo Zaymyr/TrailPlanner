@@ -52,6 +52,7 @@ type RefreshOptions = {
 
 const VerifiedSessionContext = createContext<VerifiedSessionContextValue | null>(null);
 const RESEND_CONTACT_SYNCED_KEY_PREFIX = "trailplanner.resendContactSynced";
+const SESSION_VERIFICATION_TIMEOUT_MS = 10_000;
 
 const syncResendContactOnce = async (session: VerifiedSession): Promise<void> => {
   if (typeof window === "undefined") return;
@@ -134,13 +135,21 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
           return false;
         }
 
-        const response = await fetch("/api/auth/session", {
-          headers: {
-            Authorization: `Bearer ${stored.accessToken}`,
-            ...(stored.refreshToken ? { "x-refresh-token": `Bearer ${stored.refreshToken}` } : {}),
-          },
-          cache: "no-store",
-        });
+        const controller = new AbortController();
+        const timeoutId = window.setTimeout(() => controller.abort(), SESSION_VERIFICATION_TIMEOUT_MS);
+        let response: Response;
+        try {
+          response = await fetch("/api/auth/session", {
+            headers: {
+              Authorization: `Bearer ${stored.accessToken}`,
+              ...(stored.refreshToken ? { "x-refresh-token": `Bearer ${stored.refreshToken}` } : {}),
+            },
+            cache: "no-store",
+            signal: controller.signal,
+          });
+        } finally {
+          window.clearTimeout(timeoutId);
+        }
 
         if (!response.ok) {
           if (response.status === 401) {

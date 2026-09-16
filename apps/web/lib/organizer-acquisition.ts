@@ -14,6 +14,7 @@ type SearchParamInput = URLSearchParams | Record<string, SearchParamValue> | nul
 
 const DEFAULT_RETURN_PATH = "/race-planner";
 const ALLOWED_RETURN_PATHS = new Set(["/organizer", "/organizers"]);
+const ORGANIZER_EVENT_ID_PATTERN = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i;
 
 const readSearchParam = (input: SearchParamInput, key: OrganizerUtmKey): string | null => {
   if (!input) return null;
@@ -58,7 +59,10 @@ export function normalizeInternalReturnPath(value: string | string[] | null | un
     }
 
     if (parsed.pathname === "/organizer") {
-      return "/organizer";
+      const eventId = parsed.searchParams.get("eventId")?.trim();
+      return eventId && ORGANIZER_EVENT_ID_PATTERN.test(eventId)
+        ? `/organizer?eventId=${encodeURIComponent(eventId)}`
+        : "/organizer";
     }
 
     const attribution = extractOrganizerAttribution(parsed.searchParams);

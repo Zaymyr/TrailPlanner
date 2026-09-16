@@ -218,7 +218,7 @@ describe("PATCH /api/admin/organizer-claims", () => {
     expect(mocks.sendOrganizerAssignmentEmail).toHaveBeenCalledWith({
       to: "organisateur@example.com",
       eventName: "Trail des Crêtes",
-      organizerUrl: `http://localhost/organizer?eventId=${eventId}`,
+      organizerUrl: `http://localhost/sign-in?next=%2Forganizer%3FeventId%3D${eventId}`,
     });
 
     const membershipCall = mockFetch.mock.calls.find(

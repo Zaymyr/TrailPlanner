@@ -38,6 +38,7 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 3. Check `/api/auth/session` response handling in `apps/web/app/api/auth/session/route.ts`.
    If sign-in succeeds but the destination still looks signed out, verify that `trailplanner:session-updated` waits for any older in-flight refresh, that the older response cannot clear the new token, and that the provider then verifies the latest stored token.
    For an invite that remains on `Vérification de session...`, confirm the password page rejects non-200 session responses, awaits `refresh({ afterCurrent: true })`, and navigates client-side only after that refresh succeeds. In production logs, a successful password update and session endpoint followed by no second client verification indicates a redirect/hydration race rather than invalid credentials.
+   For an existing-account assignment e-mail, confirm the CTA opens `/sign-in` with a URL-encoded `/organizer?eventId=<uuid>` return path. A direct Organizer visit whose verification endpoint stalls must leave the loading state after the 10-second browser timeout.
 4. Distinguish verified-session readiness from the asynchronous entitlement state: `isLoading` can be false while `isEntitlementsLoading` is still true.
 5. Verify whether the user is anonymous with `isAnonymousUser`.
 6. Confirm `ensureTrialStatus` can read/write `user_profiles`.

@@ -54,7 +54,7 @@ Persisting a session dispatches:
 
 When `trailplanner:session-updated` arrives during an older verification request, the provider waits for that request and starts a fresh verification from the newly stored tokens. An older 401 or successful response is not allowed to clear or replace a newer stored access token. This prevents a successful sign-in from leaving the next organizer page in its signed-out state until a manual reload.
 
-The in-flight promise is registered before verification work begins, including the synchronous no-token path, and is cleared only by that same promise. Password creation persists the server-verified invite session, awaits a queued provider refresh, and navigates only after the provider reports success. The organizer dashboard therefore cannot remain on its server-rendered session-checking placeholder merely because the destination hydration or a prior empty-session check raced the redirect.
+The in-flight promise is registered before verification work begins, including the synchronous no-token path, and is cleared only by that same promise. Each browser call to `/api/auth/session` has a 10-second abort boundary; a stalled network or server request therefore releases the loading state instead of leaving protected pages indefinitely on `Vérification de session...`. Password creation persists the server-verified invite session, awaits a queued provider refresh, and navigates only after the provider reports success.
 
 After successful verification, the context calls `POST /api/resend/contact` for identified, non-anonymous users that have not already been marked in localStorage with `trailplanner.resendContactSynced:<userId>:<email>`.
 
@@ -87,6 +87,7 @@ The route also sets HTTP-only cookies for web requests.
 - Do not read localStorage values as proof of authentication. They are input to verification.
 - Session refresh can race across tabs; handlers must be idempotent.
 - Never let a synchronously completed no-token refresh leave a settled promise in the in-flight slot; later `afterCurrent` refreshes would otherwise reuse it without verifying newly stored tokens.
+- Keep the browser verification timeout bounded. A timeout may preserve stored tokens for a later focus/manual retry, but it must always release `isLoading`.
 - Clearing planner storage on sign-out is intentional because anonymous/onboarding state can leak otherwise.
 - Keep access-token and refresh-token handling synchronized with mobile/web session expectations.
 - Do not use the verified-session `isLoading` flag as an entitlement-readiness signal; premium-gated consumers must observe `isEntitlementsLoading` as well.

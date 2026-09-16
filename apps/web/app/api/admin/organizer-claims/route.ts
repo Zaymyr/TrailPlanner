@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
 import { buildSlug, jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
+import { buildAuthHref } from "../../../../lib/organizer-acquisition";
 import { sendOrganizerAssignmentEmail } from "../../../../lib/resend";
 
 const claimRowSchema = z.object({
@@ -838,8 +839,8 @@ export async function PATCH(request: NextRequest) {
     let notificationSent: boolean | null = null;
     if (!accountCreated) {
       try {
-        const organizerUrl = new URL("/organizer", request.nextUrl.origin);
-        organizerUrl.searchParams.set("eventId", event.id);
+        const organizerPath = `/organizer?eventId=${encodeURIComponent(event.id)}`;
+        const organizerUrl = new URL(buildAuthHref("/sign-in", organizerPath), request.nextUrl.origin);
         const notification = await sendOrganizerAssignmentEmail({
           to: authUser.email,
           eventName: event.name,
