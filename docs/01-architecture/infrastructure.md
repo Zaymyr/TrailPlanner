@@ -53,6 +53,11 @@ This document records the infrastructure visible from the repository: Vercel, EA
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": "nextjs",
+  "git": {
+    "deploymentEnabled": {
+      "dependabot/**": false
+    }
+  },
   "buildCommand": "npm run build",
   "installCommand": "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund",
   "outputDirectory": ".next",
@@ -68,7 +73,7 @@ It also redirects:
 
 Because the Vercel project root is `apps/web`, the build command maps to the web workspace's `build` script and runs `next build`. npm still discovers the workspace root from that directory, so the install command explicitly selects `@trailplanner/web` while avoiding the unrelated Expo/mobile dependency graph. `npm install` is intentional here: unlike `npm ci`, it preserves a `node_modules` tree restored by Vercel's build cache; `--prefer-offline` prioritizes cached package data, while audit and funding requests are disabled during deployment. Server-only dependencies such as `pdf-lib` for organizer invoice rendering are included by this workspace-scoped install.
 
-The ignored-build command first skips every Preview deployment whose Git branch starts with `dependabot/`. Dependabot pull requests remain covered by GitHub CI, while their merged commit on `main` still triggers the normal production deployment. For every other branch, the command compares the current commit with its parent and skips the web deployment when none of these inputs changed:
+The Git deployment filter prevents Vercel from creating deployments for branches matching `dependabot/**`. The ignored-build command keeps the same branch check as a defensive fallback if a deployment is started outside the ordinary Git integration. Dependabot pull requests remain covered by GitHub CI, while their merged commit on `main` still triggers the normal production deployment. For every other branch, the command compares the current commit with its parent and skips the web deployment when none of these inputs changed:
 
 - `apps/web`
 - shared packages under `packages`
@@ -194,7 +199,7 @@ Document variable names, not secret values. Important names visible in code incl
 - Never commit actual environment values into docs.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
-- Keep the `dependabot/` Preview exclusion limited to that branch prefix. The merge commit on `main` must continue to trigger the single production deployment after a dependency batch is approved.
+- Keep the `dependabot/**` Git deployment exclusion and its ignored-build fallback limited to that branch prefix. The merge commit on `main` must continue to trigger the single production deployment after a dependency batch is approved.
 - Keep every alternate production hostname on a permanent redirect to `https://pace-yourself.com`; temporary host redirects split canonical signals and should not be configured in the Vercel domain settings.
 - Keep the Vercel dependency install scoped to `@trailplanner/web`. Removing the workspace filter makes npm install every workspace, including the mobile Expo graph, even though Vercel builds only the web app. Do not replace it with `npm ci` without re-evaluating build timings because `npm ci` deletes the dependency tree restored from Vercel's cache.
 - The app sends events through the public Web and Expo PostHog keys. The admin dashboard still uses Supabase metrics only; the organizer statistics route separately reads one named PostHog Endpoint with a server-only `endpoint:read` key and a 15-minute Endpoint cache.
