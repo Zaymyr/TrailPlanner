@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - package.json
@@ -40,6 +40,8 @@ Pace Yourself uses npm workspaces declared in `package.json` and pins npm 10.9.2
 
 Turbo is configured in `turbo.json` with `build`, `dev`, `typecheck`, `lint`, and `test` tasks. Build outputs include `.next/**` and `dist/**`.
 
+The root scripts expose reproducible quality gates: `docs:check` enforces documentation relationships, `test:web` runs the complete web Vitest suite, `verify:web` adds lint, typecheck and the production web build, and `verify` runs the monorepo lint/typecheck/test/build graph.
+
 The web app is a Next.js 14 app:
 
 - Source: `apps/web`
@@ -64,6 +66,7 @@ The mobile app is an Expo Router app:
 - React: `react 19.1.0`
 - Supabase dependency: `@supabase/supabase-js ^2.45.4`
 - Mobile lint: Expo's ESLint configuration through `npm run lint -w @trailplanner/mobile`.
+- Mobile unit tests: Node-only Vitest tests for pure scheduling and RaceBook normalization through `npm run test -w @trailplanner/mobile`; native behavior stays in Maestro/device validation.
 - Apple auth nonce helper: `expo-crypto ~15.0.8`
 - Native billing dependency: `react-native-purchases ^9.15.1`
 - Native analytics dependency: `posthog-react-native ^4.45.0`
@@ -157,6 +160,7 @@ When docs and code disagree, use this order:
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
+- `npm run verify` is the local/CI contract. Keep app-level scripts wired into Turbo instead of maintaining a separate undocumented command sequence.
 
 ## Related Docs
 

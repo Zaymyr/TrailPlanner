@@ -65,6 +65,7 @@ This table is retained publication-review history. New organizer publication use
 - The paid checkout validates event name/location, the selected edition range, and at least one complete format before creating a Stripe session.
 - From Visibilité, the current dashboard publication action opens the edition offer dialog and never creates a publication-request row. A format-route `403` may reopen that dialog only while the displayed tier is also Visibilité. With Essential, Complete, or Signature already active, single-format and bulk publication never upsell; operational failures stay visible and higher-tier sections remain filtered from runner output. A trusted admin may grant RaceBook from the offer dialog without payment through the current edition-grant RPC; the grant is edition-scoped and leaves this legacy table unchanged.
 - Detailed format visibility starts collapsed while the primary publication action remains visible. Expanding it does nothing by itself; explicitly choosing Masqué, Privé, or Public updates the authorized format state without creating a publication-request row.
+- The adjacent admin purchase/invoice dialog is not part of this legacy queue. Its customer SIREN is optional and has no effect on publication-request state.
 - The authorized format navigation mirrors that state without writing it: masked formats remain editable but appear grey with `Course masquée pour le public`, while private/public formats show compact status text. These labels neither publish a RaceBook nor create a publication-request row.
 - The dashboard guide only explains those visibility states. It temporarily opens the real controls without selecting one; completing, skipping, or replaying it does not create a publication request.
 - Staged section switches affect publication and completion only after their single module-settings PATCH succeeds; their edition-common/per-format grouping never inserts a row in this legacy publication queue.
@@ -89,7 +90,7 @@ This table is retained publication-review history. New organizer publication use
 
 - Current admin pack changes, Visibilité downgrades, and direct-virement recording do not create or reopen legacy publication-request rows.
 - The admin rights search, offer filter, and ten-event pagination are client-side presentation controls; they do not change or narrow the dedicated pending-request review queue.
-- Canonical direct-virement pricing, article 293 B zero VAT, invoice preview/issuance, and same-day payment-date normalization occur in protected payment routes without touching this legacy request table.
+- Canonical direct-virement pricing, article 293 B zero VAT, invoice preview/issuance (including customers without a SIREN), and same-day payment-date normalization occur in protected payment routes without touching this legacy request table.
 - On-demand issuance for an older paid virement reuses its stored ledger facts and changes no publication request, payment entitlement, or RaceBook visibility.
 
 - The current admin publication manager writes the edition entitlement origin, not a legacy publication-request row. Admin and Offert are distinct, while Stripe/virement require matching paid history.

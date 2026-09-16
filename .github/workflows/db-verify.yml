@@ -1,0 +1,131 @@
+name: Supabase DB Verify
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/db-migrate.yml"
+      - ".github/workflows/db-verify.yml"
+      - ".github/workflows/db-schema-snapshot.yml"
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      base_sha:
+        description: Commit before the migration change
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  static-migration-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate migration history and changed SQL
+        env:
+          INPUT_BASE_SHA: ${{ inputs.base_sha }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${INPUT_BASE_SHA:-${PR_BASE_SHA:-}}"
+          if [[ -z "$BASE_SHA" || "$BASE_SHA" =~ ^0+$ ]] || ! git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null; then
+            BASE_SHA="$(git rev-parse HEAD^)"
+          fi
+
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- 'supabase/migrations/*.sql' > changed-migrations.txt
+
+          python3 <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          migration_dir = pathlib.Path("supabase/migrations")
+          migrations = sorted(migration_dir.glob("*.sql"))
+          filename_pattern = re.compile(r"^(\d{14})_[a-z0-9_]+\.sql$")
+          errors = []
+          versions = {}
+
+          for path in migrations:
+              match = filename_pattern.fullmatch(path.name)
+              if not match:
+                  errors.append(f"{path}: expected <14-digit timestamp>_<snake_case>.sql")
+                  continue
+              versions.setdefault(match.group(1), []).append(path.name)
+
+          for version, names in sorted(versions.items()):
+              if len(names) > 1:
+                  errors.append(f"duplicate migration version {version}: {', '.join(names)}")
+
+          changed = [
+              pathlib.Path(line.strip())
+              for line in pathlib.Path("changed-migrations.txt").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+
+          create_table = re.compile(
+              r"\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?(?:public|\"public\")\."
+              r"(?:\"([^\"]+)\"|([a-zA-Z_][a-zA-Z0-9_]*))",
+              re.IGNORECASE,
+          )
+
+          def strip_comments(sql: str) -> str:
+              sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
+              return re.sub(r"--[^\n]*", " ", sql)
+
+          def qualified_table(name: str) -> str:
+              return rf"(?:public|\"public\")\.(?:\"{re.escape(name)}\"|{re.escape(name)})"
+
+          for path in changed:
+              if not path.exists():
+                  continue
+              sql = strip_comments(path.read_text(encoding="utf-8"))
+              for match in create_table.finditer(sql):
+                  table = match.group(1) or match.group(2)
+                  table_ref = qualified_table(table)
+                  rls = re.search(
+                      rf"\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?{table_ref}\s+enable\s+row\s+level\s+security\b",
+                      sql,
+                      re.IGNORECASE,
+                  )
+                  if not rls:
+                      errors.append(f"{path}: public.{table} is created without enabling RLS")
+
+                  table_statements = [
+                      statement
+                      for statement in sql.split(";")
+                      if re.search(
+                          rf"\b(?:grant|revoke)\b.*?\bon\s+(?:table\s+)?{table_ref}(?=\s|,|$)",
+                          statement,
+                          re.IGNORECASE | re.DOTALL,
+                      )
+                  ]
+                  for role in ("anon", "authenticated", "service_role"):
+                      if not any(re.search(rf"\b{role}\b", statement, re.IGNORECASE) for statement in table_statements):
+                          errors.append(
+                              f"{path}: public.{table} has no explicit GRANT/REVOKE decision for {role}"
+                          )
+
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+
+          if changed:
+              print("Checked changed migrations: " + ", ".join(str(path) for path in changed))
+          else:
+              print("No migration SQL changed; repository migration names remain valid.")
+          PY
+
+      - name: Explain local database test boundary
+        run: |
+          echo "Static migration checks completed."
+          echo "A local reset and supabase/tests execution are not run here because this repository"
+          echo "does not contain the complete schema baseline or supabase/config.toml."
+          echo "Run those checks on an isolated staging project once a reproducible baseline exists."

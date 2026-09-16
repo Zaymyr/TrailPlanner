@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: medium
 related_files:
   - package.json
@@ -46,7 +46,7 @@ The repo has one checked-in Broadcast template and two server-side Resend Contac
 - `emails/resend/production-launch.txt` is the matching plain-text copy.
 - `apps/web/lib/resend.ts` wraps the Resend Contacts REST API with `fetch`; no `resend` npm dependency is installed.
 - The web package also contains `tus-js-client` for Organizer Storage uploads and server-only `pdf-lib` for invoice PDFs; both are unrelated to Resend, which remains a direct REST integration without the Resend SDK.
-- The root npm version is pinned for reliable Turbo/CI workspace discovery; this does not add a Resend SDK or change the REST contract.
+- The root npm version is pinned for reliable Turbo/CI workspace discovery. Its `docs:check` and `verify` quality gates do not add a Resend SDK or change the REST contract.
 - `apps/web/app/api/resend/contact/route.ts` exposes `POST /api/resend/contact` for the current authenticated user.
 - `apps/web/app/api/resend/contact/route.test.ts` covers anonymous-user skipping, identified-user syncing, and Resend failure handling.
 - `apps/web/app/api/admin/resend/sync/route.ts` exposes `POST /api/admin/resend/sync`.

@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-14
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -25,6 +25,7 @@ Use one reproducible runner journey to catch broken navigation and produce compa
 ## Key Concepts
 
 - Functional smoke test: confirms that login and the four root tabs remain reachable.
+- Unit test: validates pure mobile scheduling and RaceBook normalization in Node; it complements but does not replace the device journey.
 - Visual audit: human review of named screenshots and screen recordings from the same journey.
 - Stable selector: a locale-independent React Native `testID` such as `nav-tab-catalog`.
 - Test account: a dedicated identified Supabase user whose Plan and RaceBook onboarding statuses do not both remain pending.
@@ -67,6 +68,7 @@ Use these severities:
 Before accepting changes to the harness:
 
 ```bash
+npm run test -w @trailplanner/mobile
 npm run typecheck -w @trailplanner/mobile
 npm run lint -w @trailplanner/mobile
 npx expo-doctor apps/mobile
@@ -88,6 +90,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 
 ## Gotchas
 
+- The mobile Vitest suite deliberately excludes Expo and React Native runtime behavior. A passing unit suite does not prove navigation, notifications, native billing, safe areas, or accessibility on a device; retain the Maestro and manual checks for those surfaces.
 - A clean install uses the real application bootstrap and may create an anonymous Supabase session before password login. The dedicated test account and normal test-data retention process must account for that behavior.
 - If the test account has both onboarding tours pending, the shell flow correctly fails because the root tab journey is not yet available. Prepare the account once instead of bypassing the gate.
 - Local Windows execution requires Maestro to be available on `PATH` and an Android build to be installed. EAS is the versioned cross-platform target once the account supports hosted Maestro jobs.

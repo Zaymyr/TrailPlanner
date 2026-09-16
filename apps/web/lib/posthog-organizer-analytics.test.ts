@@ -66,6 +66,14 @@ describe("PostHog organizer analytics client", () => {
     } as NodeJS.ProcessEnv)).toThrow(PostHogOrganizerAnalyticsError);
   });
 
+  it("accepts the existing server-only personal API key variable", () => {
+    expect(getPostHogOrganizerAnalyticsConfig({
+      POSTHOG_PERSONAL_API_KEY: "secret",
+      POSTHOG_PROJECT_ID: "176628",
+      POSTHOG_API_HOST: "https://eu.posthog.com",
+    } as NodeJS.ProcessEnv)).toMatchObject({ apiKey: "secret", projectId: "176628" });
+  });
+
   it("calls one named endpoint with bounded variables and maps its rows", async () => {
     const fetchMock = vi.spyOn(global, "fetch").mockResolvedValue(Response.json({
       results: [
@@ -104,6 +112,21 @@ describe("PostHog organizer analytics client", () => {
       daily: [],
     });
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("maps the positional rows returned by live SQL endpoints", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(Response.json({
+      results: [
+        ["daily", "2026-09-14", 4, 7, null, null],
+        ["summary", "", 9, 15, 82.4, 0.625],
+      ],
+      columns: ["kind", "date", "unique_readers", "total_opens", "average_active_seconds", "engagement_rate"],
+    }));
+
+    await expect(loadPostHogOrganizerAnalytics(input, config)).resolves.toEqual({
+      summary: { uniqueReaders: 9, totalOpens: 15, averageActiveSeconds: 82.4, engagementRate: 0.625 },
+      daily: [{ date: "2026-09-14", uniqueReaders: 4, totalOpens: 7 }],
+    });
   });
 
   it("rejects malformed endpoint results", async () => {

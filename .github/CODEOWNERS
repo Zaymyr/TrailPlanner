@@ -1,0 +1,20 @@
+# Delivery and infrastructure changes need an explicit maintainer review.
+/.github/workflows/ @Zaymyr
+/supabase/ @Zaymyr
+
+# Authentication and authorization boundaries.
+/apps/web/app/api/auth/ @Zaymyr
+/apps/web/app/auth/ @Zaymyr
+/apps/web/lib/auth-*.ts @Zaymyr
+/apps/mobile/app/(auth)/ @Zaymyr
+/apps/mobile/app/auth/ @Zaymyr
+
+# Payment, billing, and entitlement integrations.
+/apps/web/app/api/stripe/ @Zaymyr
+/apps/web/app/api/revenuecat/ @Zaymyr
+/apps/web/app/api/admin/organizer-payments/ @Zaymyr
+/apps/web/app/api/organizer/invoices/ @Zaymyr
+/apps/web/lib/stripe.ts @Zaymyr
+/apps/web/lib/revenuecat.ts @Zaymyr
+/apps/web/lib/organizer-payments.ts @Zaymyr
+/docs/05-integrations/stripe.md @Zaymyr

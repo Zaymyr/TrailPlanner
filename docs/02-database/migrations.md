@@ -4,6 +4,9 @@ scope: database
 last_verified: 2026-09-16
 ai_priority: high
 related_files:
+  - .github/workflows/db-migrate.yml
+  - .github/workflows/db-verify.yml
+  - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/tests/privileged_database_access_checks.sql
@@ -110,6 +113,30 @@ This document summarizes the migration history and the rules for adding new Supa
 - Archived schema: historical SQL reference under `docs/_archive/db/schema.sql`.
 - Refactor migration: a migration that renames or replaces earlier objects.
 - Repair migration: a later migration that fixes policy, cron, or schema behavior.
+
+## CI and Production Deployment
+
+Database changes use three separate safeguards:
+
+- `.github/workflows/db-verify.yml` runs on pull requests that change migrations. It validates the complete migration filename history and checks newly created `public` tables in changed SQL for RLS plus an explicit `GRANT` or `REVOKE` decision for `anon`, `authenticated`, and `service_role`.
+- `.github/workflows/db-migrate.yml` runs serially after a migration reaches `main`. It calls the same static verification, compares remote migration versions with files in the repository, uploads the CLI listing as a diagnostic, previews the pending push with `--dry-run`, then deploys. A remote-only version blocks the job. CI must never repair migration history automatically: `migration repair` changes the tracking table without proving that the schema matches the repository.
+- `.github/workflows/db-schema-snapshot.yml` runs only after a successful production migration. It checks out `main`, writes a non-empty PostgreSQL 17 schema dump including access-control statements, regenerates `docs/db/README.md`, and commits only when the snapshot changed. The migration workflow is path-filtered to `supabase/migrations/**`, so this bot commit cannot redeploy the database or create a snapshot loop.
+
+The repository currently cannot prove a clean local rebuild: `supabase/config.toml` is absent and the `race_events` create-table migration is still missing from the visible history. Consequently, CI does **not** claim that `supabase db reset` or the 13 rollback SQL scripts under `supabase/tests` pass from an empty database. Restore and verify a complete baseline before adding those dynamic checks to the required workflow. Until then, run the SQL scripts only against an isolated, schema-compatible staging database, never against production as a substitute for pre-deployment verification.
+
+## Data API Grants
+
+RLS and PostgreSQL privileges are independent layers. RLS controls rows after a role can reach a table; it does not expose the table through PostgREST or GraphQL.
+
+Supabase stopped automatically exposing new `public` tables for new projects on 30 May 2026 and will apply that behavior to existing projects on 30 October 2026. Every new table migration must therefore make the intended Data API boundary reviewable in SQL:
+
+- enable RLS for every new table in an exposed schema;
+- grant only the operations required by `anon` and/or `authenticated`, or explicitly revoke them for service-only tables;
+- explicitly grant the required operations to `service_role` when server-side Data API code uses the table;
+- grant sequence usage only to roles that need inserts backed by that sequence;
+- pair client grants with narrow RLS policies. A grant alone is never authorization.
+
+Prefer per-table statements over broad `ALL TABLES IN SCHEMA public` defaults. This keeps new access deliberate and allows the static CI guard to verify each table.
 
 ## Migration Phases
 
@@ -397,15 +424,19 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 2. Read current migrations that last touched the table.
 3. Run `npx supabase migration new <descriptive-name>` to create the timestamped SQL file; do not invent the filename manually.
 4. Write idempotent DDL where possible with `if exists` / `if not exists`.
-5. Add or update RLS in the same migration when adding a user-facing table.
-6. Add comments or tests for SECURITY DEFINER functions.
-7. Update this docs tree in the same PR/branch.
+5. Enable RLS for every new table in an exposed schema and add the required policies in the same migration.
+6. Add an explicit per-role `GRANT` or `REVOKE` decision for `anon`, `authenticated`, and `service_role`; include sequence privileges when required.
+7. Add comments or tests for SECURITY DEFINER functions.
+8. Update this docs tree in the same PR/branch.
 
 ## Gotchas
 
 - Do not copy old `race_catalog` DDL from `docs/_archive/db/schema.sql`.
 - Do not add `user_metadata` admin checks in new policies.
 - Do not grant authority from `user_profiles.role`; the final security migration keeps it as server-managed legacy data only.
+- Do not use `supabase migration repair` merely to make a deployment continue. First reconcile the actual remote schema with repository history in a reviewed change; the production workflow intentionally fails on remote-only versions.
+- A clean local migration reset is not currently reproducible from this repository because the Supabase config and part of the schema baseline are absent. Static CI is a guard, not proof that all migrations or rollback tests execute successfully.
+- New `public` tables require explicit Data API privilege decisions. RLS without a `GRANT` can produce `42501 permission denied`; a `GRANT` without RLS can expose unintended rows.
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.
 - When a route already expects a column not visible in migrations, add a conflict marker in docs and verify live schema before migration work.
 - The organizer portal migration references `race_events`; its create-table migration is still not visible here, so verify live schema before changing event-level DDL.

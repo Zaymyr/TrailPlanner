@@ -687,8 +687,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   )) ?? false;
   const needsBankTransferDetails = purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && !hasSelectedBankTransfer;
   const invoiceCustomerComplete = invoiceCustomerLegalName.trim().length >= 2
-    && invoiceCustomerAddress.trim().length >= 5
-    && /^\d{9}$/.test(invoiceCustomerSiren.replace(/\s/g, ""));
+    && invoiceCustomerAddress.trim().length >= 5;
   const filteredPublicationEvents = useMemo(() => {
     const normalizedSearch = normalizeSearchValue(publicationSearch.trim());
     return publicationEvents.filter((event) => {
@@ -1223,8 +1222,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               <Input id="organizer-invoice-customer-name" value={invoiceCustomerLegalName} onChange={(event) => setInvoiceCustomerLegalName(event.target.value)} maxLength={160} required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="organizer-invoice-customer-siren">SIREN</Label>
-              <Input id="organizer-invoice-customer-siren" inputMode="numeric" value={invoiceCustomerSiren} onChange={(event) => setInvoiceCustomerSiren(event.target.value)} placeholder="123 456 789" required />
+              <Label htmlFor="organizer-invoice-customer-siren">SIREN (si l’organisation en possède un)</Label>
+              <Input id="organizer-invoice-customer-siren" inputMode="numeric" value={invoiceCustomerSiren} onChange={(event) => setInvoiceCustomerSiren(event.target.value)} placeholder="123 456 789" />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="organizer-invoice-customer-address">Adresse de facturation</Label>
@@ -1307,8 +1306,8 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               <Input id="historical-invoice-customer-name" value={invoiceCustomerLegalName} onChange={(event) => setInvoiceCustomerLegalName(event.target.value)} maxLength={160} required />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="historical-invoice-customer-siren">SIREN</Label>
-              <Input id="historical-invoice-customer-siren" inputMode="numeric" value={invoiceCustomerSiren} onChange={(event) => setInvoiceCustomerSiren(event.target.value)} placeholder="123 456 789" required />
+              <Label htmlFor="historical-invoice-customer-siren">SIREN (si l’organisation en possède un)</Label>
+              <Input id="historical-invoice-customer-siren" inputMode="numeric" value={invoiceCustomerSiren} onChange={(event) => setInvoiceCustomerSiren(event.target.value)} placeholder="123 456 789" />
             </div>
             <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="historical-invoice-customer-address">Adresse de facturation</Label>

@@ -60,7 +60,8 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 
 - The current admin rights dialog may return the selected current edition to Visibilité, but this does not revive or mutate the retired edition-request workflow.
 - Searching, filtering, or paginating the admin publication-rights list does not read or mutate this retired request workflow.
-- Its direct-virement fields derive canonical pack HT, zero VAT under article 293 B CGI, and a generated invoice from required client billing identity; this payment behavior remains independent from edition-request review history.
+- Its direct-virement fields derive canonical pack HT, zero VAT under article 293 B CGI, and a generated invoice from the required client name/address plus an optional validated SIREN; this payment behavior remains independent from edition-request review history.
+- The shared invoice renderer omits the customer SIREN line when that optional value is absent; this remains unrelated to the retired request state.
 - Generating a missing invoice for an older paid virement updates only that payment's invoice metadata and likewise never creates or reactivates an edition request.
 
 - Admin publication-origin changes are edition-entitlement updates, not edition requests. They never revive this retired workflow.

@@ -9,12 +9,19 @@
   ],
   "scripts": {
     "dev:web": "npm run dev -w @trailplanner/web",
+    "build": "turbo run build",
     "build:web": "npm run build -w @trailplanner/web",
     "dev:mobile": "npm run start -w @trailplanner/mobile",
     "changelog:add": "node ./scripts/create-app-changelog.mjs",
+    "docs:check": "node ./scripts/check-related-docs.mjs",
     "typecheck": "turbo run typecheck",
     "lint": "turbo run lint",
-    "test": "turbo run test"
+    "test": "turbo run test",
+    "test:web": "npm run test -w @trailplanner/web -- --run",
+    "test:mobile": "npm run test -w @trailplanner/mobile",
+    "test:ci": "npm run test:web && npm run test:mobile",
+    "verify:web": "npm run docs:check && npm run lint && npm run typecheck && npm run test:web && npm run build:web",
+    "verify": "npm run docs:check && npm run lint && npm run typecheck && npm run test:ci && npm run build"
   },
   "devDependencies": {
     "@types/react": "^18.3.5",

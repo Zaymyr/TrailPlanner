@@ -476,7 +476,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
-- The admin publication manager exposes Visibilité plus the three paid packs through full-row radio targets, then four distinct origins for a paid pack: Admin, Paiement Stripe, Paiement par virement, and Offert. Admin/Offert are editable grants; selecting a new virement preloads read-only canonical HT and zero VAT, requires the customer's name/address/SIREN, previews the PDF on demand, and writes its real ledger plus immutable invoice facts. Restoring Stripe or an already-recorded virement still requires a matching valid path.
+- The admin publication manager exposes Visibilité plus the three paid packs through full-row radio targets, then four distinct origins for a paid pack: Admin, Paiement Stripe, Paiement par virement, and Offert. Admin/Offert are editable grants; selecting a new virement preloads read-only canonical HT and zero VAT, requires the customer's name and address, accepts an absent SIREN but validates it as nine digits when present, previews the PDF on demand, and writes its real ledger plus immutable invoice facts. Restoring Stripe or an already-recorded virement still requires a matching valid path.
+- Keep the optional-SIREN rule aligned across the admin form, preview route, persisted legal snapshot, and final PDF; an empty value is `null` and must not create a blank document line.
 - Generating a missing historical invoice is not a new purchase action. Keep it on the existing paid bank-transfer row and reject non-EUR, taxed, inconsistent, or already-invoiced rows instead of rewriting their history.
 - Keep the route and format-publication RPC authorization aligned: active event membership or trusted Auth `app_metadata` admin. Never require an artificial membership row solely for an admin format toggle.
 

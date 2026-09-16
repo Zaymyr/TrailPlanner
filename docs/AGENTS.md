@@ -27,6 +27,8 @@ related_files:
 
 If any file you modify appears in any `related_files` list → the doc(s) referencing it MUST be updated in the same commit.
 
+Run `npm run docs:check` before handoff. CI runs the same check against the pull-request base and rejects a referenced file change when its documentation is absent from the diff. The script also rejects stale `related_files` paths.
+
 ### What "updating a doc" means
 
 Updating a doc is NOT just bumping the date. It requires, in order:
@@ -101,6 +103,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Mobile UI/UX audit or E2E test | `docs/06-workflows/mobile-ux-audit.md` + `docs/01-architecture/mobile-app.md` |
 | Design system changes | `docs/07-design-system/` |
 | New feature shipping | `docs/06-workflows/ship-a-feature.md` |
+| Agentic implementation or review | `docs/06-workflows/agentic-development.md` + `docs/06-workflows/ship-a-feature.md` |
 
 ## Context Budget And Progressive Reading
 

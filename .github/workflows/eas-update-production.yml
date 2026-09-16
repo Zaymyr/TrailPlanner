@@ -1,19 +1,28 @@
 name: EAS Update Production
 
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'apps/mobile/**'
-      - 'packages/**'
-      - 'package-lock.json'
-      - '.github/workflows/eas-update-production.yml'
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Commit SHA already merged into main and validated in preview"
+        required: true
+        type: string
+      confirmation:
+        description: "Type PROMOTE_TO_PRODUCTION to confirm"
+        required: true
+        type: string
+
+concurrency:
+  group: eas-update-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
 
 jobs:
   update-production:
     runs-on: ubuntu-latest
+    environment: production
     env:
       npm_config_fetch_retries: "5"
       npm_config_fetch_retry_factor: "2"
@@ -26,6 +35,31 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Validate production promotion
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          PRODUCTION_REF: ${{ inputs.ref }}
+        run: |
+          if [ "$CONFIRMATION" != "PROMOTE_TO_PRODUCTION" ]; then
+            echo "Production promotion was not explicitly confirmed."
+            exit 1
+          fi
+
+          if [[ ! "$PRODUCTION_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "The production ref must be a full 40-character commit SHA."
+            exit 1
+          fi
+
+          git fetch origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "The requested ref must already be merged into main."
+            exit 1
+          fi
 
       - name: Setup Node
         uses: actions/setup-node@v4
@@ -49,7 +83,20 @@ jobs:
             sleep 15
           done
 
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Expo version check
+        run: npx expo install --check
+
       - name: Publish production OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas update --branch production --environment production --message "${{ github.event.head_commit.message || 'Production OTA update' }}" --non-interactive
+          OTA_MESSAGE: Promote ${{ inputs.ref }} to production
+        run: eas update --branch production --environment production --message "$OTA_MESSAGE" --non-interactive

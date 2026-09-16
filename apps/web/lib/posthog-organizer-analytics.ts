@@ -114,7 +114,7 @@ type PostHogOrganizerAnalyticsInput = {
 };
 
 const endpointResponseSchema = z.object({
-  results: z.array(z.record(z.unknown())),
+  results: z.array(z.union([z.record(z.unknown()), z.array(z.unknown())])),
   columns: z.array(z.string()).optional(),
   hasMore: z.boolean().optional(),
 });
@@ -146,7 +146,7 @@ export class PostHogOrganizerAnalyticsError extends Error {
 
 export function getPostHogOrganizerAnalyticsConfig(env: NodeJS.ProcessEnv = process.env) {
   const parsed = postHogConfigSchema.safeParse({
-    apiKey: env.POSTHOG_API_KEY,
+    apiKey: env.POSTHOG_API_KEY ?? env.POSTHOG_PERSONAL_API_KEY,
     projectId: env.POSTHOG_PROJECT_ID,
     apiHost: env.POSTHOG_API_HOST,
     endpointName: env.POSTHOG_ORGANIZER_ANALYTICS_ENDPOINT ?? DEFAULT_ORGANIZER_ANALYTICS_ENDPOINT,
@@ -231,7 +231,12 @@ export async function loadPostHogOrganizerAnalytics(
     throw new PostHogOrganizerAnalyticsError("PostHog organizer analytics returned an invalid response.", "response");
   }
 
-  const rows = z.array(endpointRowSchema).safeParse(endpointResponse.data.results);
+  const normalizedResults = endpointResponse.data.results.map((row) => {
+    if (!Array.isArray(row)) return row;
+    if (!endpointResponse.data.columns || row.length !== endpointResponse.data.columns.length) return row;
+    return Object.fromEntries(endpointResponse.data.columns.map((column, index) => [column, row[index]]));
+  });
+  const rows = z.array(endpointRowSchema).safeParse(normalizedResults);
   if (!rows.success) {
     throw new PostHogOrganizerAnalyticsError("PostHog organizer analytics rows do not match the endpoint contract.", "response");
   }
