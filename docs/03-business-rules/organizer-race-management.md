@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -134,6 +134,7 @@ related_files:
   - apps/web/app/api/admin/organizer-payments/route.ts
   - apps/web/app/api/admin/organizer-payments/preview/route.ts
   - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.ts
+  - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.test.ts
   - apps/web/app/api/organizer/invoices/route.ts
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/app/organizer/_components/dashboard/invoices-dialog.tsx
@@ -275,7 +276,7 @@ The admin Organizer area is split into `Publier le RaceBook` and `Accès organis
 
 Revoking access still sets `revoked_at` on the membership and blocks future organizer writes without changing the format's visibility state. Yearly editions can be visible while each new organizer format starts private: the course and RaceBook are available only to active organizers until explicit publication. RaceBook publication is edition-entitlement gated: the server filters every module outside the active tier without deleting its draft. A trusted admin may retain a complimentary offer through the audited `source=admin` entitlement boundary, or record a real paid bank transfer through the purchase ledger; free draft editing never creates either right.
 
-The admin publication tab no longer controls individual RaceBook visibility. Visibility remains an organizer-owned, format-scoped action, with the same trusted-admin bypass as the surrounding Organizer routes even when the admin has no synthetic event membership. Its commercial area can return an edition to catalog-only Visibilité, or record Essentiel, Complet, or Signature bank transfers with a payment date, the canonical 99/199/349 € HT pack price, zero VAT under article 293 B CGI, and mandatory customer billing identity. The admin can preview the server-rendered PDF before saving; preview allocates no number. The protected route derives amounts again and stores a selected same-day payment at midnight UTC so it cannot become artificially future-dated. Recording a new virement creates the ledger row and grants the selected paid tier atomically, then allocates a chronological invoice number, freezes its legal snapshot, and stores the PDF privately. The organizer summary displays the effective pack, Stripe/Virement, payment date, and invoice number. `Actions > Factures` lists every edition purchase for the selected event; all active event members may download an available invoice through a short signed URL.
+The admin publication tab no longer controls individual RaceBook visibility. Visibility remains an organizer-owned, format-scoped action, with the same trusted-admin bypass as the surrounding Organizer routes even when the admin has no synthetic event membership. Its commercial area can return an edition to catalog-only Visibilité, or record Essentiel, Complet, or Signature bank transfers with a payment date, the canonical 99/199/349 € HT pack price, zero VAT under article 293 B CGI, and mandatory customer billing identity. The admin can preview the server-rendered PDF before saving; preview allocates no number. The protected route derives amounts again and stores a selected same-day payment at midnight UTC so it cannot become artificially future-dated. Recording a new virement creates the ledger row and grants the selected paid tier atomically, then allocates a chronological invoice number, freezes its legal snapshot, and stores the PDF privately. Older paid zero-VAT virements without any invoice expose a separate `Générer une facture` action: preview and issuance reuse their stored tier, amount and date, attach the invoice to the existing row, and do not change the payment or entitlement. The organizer summary displays the effective pack, Stripe/Virement, payment date, and invoice number. `Actions > Factures` lists every edition purchase for the selected event; all active event members may download an available invoice through a short signed URL.
 
 The same identified Supabase account sees its managed events and every attached private/public format in the mobile Courses catalog, independently of the runner-facing catalog toggle. Mobile resolves this exception from the active `race_event_organizers` membership created for the account e-mail; revoked memberships lose it immediately. A masked format is removed from the mobile application for every role and remains accessible only in the authorized web workspace for reactivation. A private format remains normally listed and its lightly dimmed RaceBook action still opens the organizer preview. A public format uses the ordinary runner presentation. This organizer-only view does not change `races.is_live` or `races.racebook_is_live` and does not expose drafts to ordinary runners.
 
@@ -283,7 +284,7 @@ The same identified Supabase account sees its managed events and every attached 
 
 `/organizer` is web-only in v1. It shows states for no request, pending request, rejected request, and an approved modular dashboard.
 
-The organizer workspace exposes `Contenu | Statistiques` for the selected edition. Its bootstrap projection contains only the effective analytics decision `{ allowed, source }`, where source is `tier`, `complimentary`, or null; no PostHog data or credential is part of bootstrap. Signature includes the capability, while a lower tier can receive an edition-scoped complimentary grant. The lazy statistics request repeats authentication, parent-event membership, effective-capability, and optional format-membership checks before contacting PostHog.
+The organizer workspace exposes `Contenu | Statistiques` for the selected edition. Its bootstrap and event-detail projections both contain only the effective analytics decision `{ allowed, source }`, where source is `tier`, `complimentary`, or null; no PostHog data or credential is part of either response. Keeping both projections aligned is required because event selection and organizer mutations replace the bootstrap snapshot with the event-detail response. Signature includes the capability, while a lower tier can receive an edition-scoped complimentary grant. The lazy statistics request repeats authentication, parent-event membership, effective-capability, and optional format-membership checks before contacting PostHog.
 
 Organizers with an active event membership can:
 
@@ -476,6 +477,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 ## Gotchas
 
 - The admin publication manager exposes Visibilité plus the three paid packs through full-row radio targets, then four distinct origins for a paid pack: Admin, Paiement Stripe, Paiement par virement, and Offert. Admin/Offert are editable grants; selecting a new virement preloads read-only canonical HT and zero VAT, requires the customer's name/address/SIREN, previews the PDF on demand, and writes its real ledger plus immutable invoice facts. Restoring Stripe or an already-recorded virement still requires a matching valid path.
+- Generating a missing historical invoice is not a new purchase action. Keep it on the existing paid bank-transfer row and reject non-EUR, taxed, inconsistent, or already-invoiced rows instead of rewriting their history.
 - Keep the route and format-publication RPC authorization aligned: active event membership or trusted Auth `app_metadata` admin. Never require an artificial membership row solely for an admin format toggle.
 
 - Publication checkout inspects populated module tables before contacting Stripe. Branding presence is checked through the real `edition_id` key; do not assume every Organizer content table exposes an `id` column.
@@ -516,6 +518,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Direct organizer creation creates catalog-visible events and an immediate owner membership; this does not publish any Racebook.
 - Keep organizer import bootstrap query parsing in the `/organizer` server page unless the client dashboard is explicitly wrapped in Suspense; direct `useSearchParams` usage otherwise breaks the production static build.
 - Keep the initial Organizer bootstrap authorization tied to the active memberships already loaded in that request. A query-string `eventId` alone grants no access, and this response must stay free of GPX and module-specific sidecars.
+- Keep edition-level effective capabilities aligned between Organizer bootstrap and `GET /api/organizer/events/[id]`. The dashboard replaces its bootstrap event after selections and mutations; omitting a complimentary grant from the event-detail projection silently relocks Analytics for non-Signature editions.
 - Keep heavy Organizer data module-scoped. The event overview must remain usable without loading format GPX, source course points, products, announcements, or follower totals.
 - Keep Organizer cache invalidation aligned with mutations. Never reuse a sidecar snapshot after ravito, relay, or station-product writes; never reuse a GPX preview under a different `gpx_storage_path`; clear all route-local entries when the authenticated user changes.
 - Do not let browser switches grant entitlement. The service-only publication RPC checks the active paid RaceBook tier and atomically records publication provenance on first publish. Its invoker-security body must not query `auth.users` directly; the trusted-admin predicate is isolated in the private service-only boolean helper.

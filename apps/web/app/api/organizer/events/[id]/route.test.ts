@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DELETE, GET, PATCH } from "./route";
 
 const eventId = "11111111-1111-1111-1111-111111111111";
+const editionId = "99999999-9999-4999-8999-999999999999";
 
 const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) =>
   new Response(JSON.stringify(payload), {
@@ -116,6 +117,66 @@ describe("/api/organizer/events/[id]", () => {
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_edition_services(id)");
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_event_edition_sponsors(id,is_active,click_count)");
     expect(vi.mocked(fetch).mock.calls[0]?.[0]).toContain("race_event_edition_branding(*)");
+  });
+
+  it("keeps complimentary analytics access when the dashboard reloads an event", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse([{
+        id: eventId,
+        name: "Trail Ton Château",
+        location: "Château-Thierry",
+        race_date: "2026-05-10",
+        thumbnail_url: null,
+        is_live: true,
+        organizer_details: null,
+        race_event_editions: [{
+          id: editionId,
+          event_id: eventId,
+          edition_year: 2026,
+          start_date: "2026-05-10",
+          end_date: "2026-05-10",
+          is_current: true,
+          is_visible: true,
+          race_edition_services: [],
+          race_event_edition_sponsors: [],
+          race_event_edition_branding: null,
+        }],
+        races: [],
+      }]))
+      .mockResolvedValueOnce(buildJsonResponse([{
+        id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        edition_id: editionId,
+        tier: "essential",
+        source: "admin",
+        status: "active",
+        activated_at: "2026-09-16T07:00:00.000Z",
+        revoked_at: null,
+      }]))
+      .mockResolvedValueOnce(buildJsonResponse([{
+        id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        edition_id: editionId,
+        capability_key: "racebook_analytics.view",
+        status: "active",
+        granted_by: null,
+        granted_at: "2026-09-16T07:13:46.000Z",
+        revoked_by: null,
+        revoked_at: null,
+      }]))
+      .mockResolvedValueOnce(buildJsonResponse([]));
+
+    const response = await GET(organizerRequest(), { params: { id: eventId } });
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.event.editions[0].entitlement.tier).toBe("essential");
+    expect(payload.event.editions[0].analyticsAccess).toEqual({
+      allowed: true,
+      source: "complimentary",
+    });
+    expect(mockFetch.mock.calls.some(([url]) =>
+      String(url).includes("organizer_edition_capability_grants")
+    )).toBe(true);
   });
 
   it("persists organizerDetails on patch", async () => {
