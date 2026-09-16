@@ -751,7 +751,10 @@ export async function PATCH(request: NextRequest) {
       const inviteResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/auth/v1/invite`, {
         method: "POST",
         headers: serviceHeaders(auth.serviceConfig),
-        body: JSON.stringify({ email: parsedBody.data.email }),
+        body: JSON.stringify({
+          email: parsedBody.data.email,
+          redirect_to: `${request.nextUrl.origin}/reset-password`,
+        }),
         cache: "no-store",
       });
 

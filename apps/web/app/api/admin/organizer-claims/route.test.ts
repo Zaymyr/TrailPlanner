@@ -280,7 +280,10 @@ describe("PATCH /api/admin/organizer-claims", () => {
 
     const inviteCall = mockFetch.mock.calls.find(([url]) => String(url).endsWith("/auth/v1/invite"));
     expect(inviteCall?.[1]?.method).toBe("POST");
-    expect(JSON.parse(inviteCall?.[1]?.body as string)).toEqual({ email: "nouveau@example.com" });
+    expect(JSON.parse(inviteCall?.[1]?.body as string)).toEqual({
+      email: "nouveau@example.com",
+      redirect_to: "http://localhost/reset-password",
+    });
   });
 
   it("approves an edition request by cloning source-year formats into the requested year", async () => {
