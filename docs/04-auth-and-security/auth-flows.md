@@ -1,14 +1,17 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
   - apps/web/app/sign-up/page.tsx
   - apps/web/app/auth/callback/page.tsx
+  - apps/web/app/reset-password/page.tsx
+  - apps/web/app/reset-password/page.test.ts
   - apps/web/app/sign-in/auth-errors.test.ts
   - apps/web/app/api/auth/signin/route.ts
+  - apps/web/app/api/auth/password-update/route.ts
   - apps/web/app/api/auth/session/route.ts
   - apps/web/app/api/resend/contact/route.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
@@ -74,6 +77,8 @@ A session-update event raised while a previous verification is still running que
 
 The organizer acquisition flow may send `next=/organizers` (event creation) or `next=/organizer` (the authenticated dashboard) through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only these exact internal pathnames. It retains only the five supported UTM parameters for `/organizers` and strips query parameters from `/organizer`; it falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation.
 
+An admin-created organizer account follows the Supabase invitation flow rather than receiving an application-generated password. The protected admin route passes `/reset-password` as the invitation redirect. That page accepts both `invite` and `recovery` token fragments, updates the password through the anon-key server route, verifies and persists the resulting session, then sends an invite flow to `/organizer`; ordinary password recovery still returns to `/race-planner`. The organizer membership is created before the e-mail is sent, so the first verified dashboard load is already authorized.
+
 ## Mobile Auth
 
 The authenticated onboarding catalog accepts source-backed formats whose D+ is still unpublished. It shows the missing value explicitly and does not allow that format to start plan calculation until the elevation is supplied; this does not alter authentication or onboarding-gate state.
@@ -130,6 +135,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Do not render Supabase Auth `msg` values directly; provider messages are not localized and can expose technical details.
 - Never pass an unvalidated `next` value to `router.push`, `router.replace`, or an OAuth callback URL.
 - Only `/organizer` and `/organizers` are valid organizer return destinations; do not expand this allowlist without a dedicated redirect-security review.
+- Keep the Supabase invitation redirect allowlist configured for the deployed `/reset-password` URL. If it is absent, Supabase silently falls back to the project Site URL and the invited organizer cannot reach the password-creation screen directly.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Guest feature prompts must route through the existing login/signup screens rather than implementing provider or password auth inside the gated screen.
 - Trial repair runs during session verification and must stay idempotent.

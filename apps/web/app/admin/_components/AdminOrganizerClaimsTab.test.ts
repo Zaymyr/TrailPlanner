@@ -58,6 +58,7 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("function AssignmentAutocomplete");
     expect(source).toContain('aria-autocomplete="list"');
     expect(source).toContain("emailSearch=");
+    expect(source).toContain('open && "z-50"');
     expect(source).toContain("Saisissez au moins 2 caractères pour rechercher un compte.");
     expect(source).toContain("Rechercher une course, un lieu ou une date");
     expect(source).not.toContain('<select\n                id="organizer-assignment-event"');

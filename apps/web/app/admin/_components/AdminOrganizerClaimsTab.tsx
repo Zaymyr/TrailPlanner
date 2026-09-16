@@ -222,7 +222,7 @@ function AssignmentAutocomplete({
   };
 
   return (
-    <div className="relative">
+    <div className={cn("relative", open && "z-50")}>
       <Input
         id={id}
         type={inputType}

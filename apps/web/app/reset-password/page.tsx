@@ -20,6 +20,7 @@ const createPasswordSchema = (message: string) =>
 type ResetTokens = {
   accessToken: string;
   refreshToken?: string;
+  flow: "invite" | "recovery";
 };
 
 const createResetSchema = (authCopy: Translations["auth"]) =>
@@ -51,7 +52,7 @@ const parseResetTokens = (): ResetTokens | null => {
   }
 
   window.history.replaceState(null, "", window.location.pathname);
-  return { accessToken, refreshToken };
+  return { accessToken, refreshToken, flow: isInviteLink ? "invite" : "recovery" };
 };
 
 export default function ResetPasswordPage() {
@@ -127,11 +128,12 @@ export default function ResetPasswordPage() {
       });
 
       setFormMessage(t.auth.passwordReset.success);
+      const destination = resetTokens.flow === "invite" ? "/organizer" : "/race-planner";
       if (typeof window !== "undefined") {
-        window.location.assign("/race-planner");
+        window.location.assign(destination);
         return;
       }
-      router.push("/race-planner");
+      router.push(destination);
       router.refresh();
     } catch (error) {
       console.error("Unable to reset password", error);
