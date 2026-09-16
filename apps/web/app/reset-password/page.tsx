@@ -11,6 +11,7 @@ import { Button } from "../../components/ui/button";
 import { Input } from "../../components/ui/input";
 import { Label } from "../../components/ui/label";
 import { persistSessionToStorage } from "../../lib/auth-storage";
+import { useVerifiedSession } from "../hooks/useVerifiedSession";
 import { useI18n } from "../i18n-provider";
 import type { Translations } from "../../locales/types";
 
@@ -57,6 +58,7 @@ const parseResetTokens = (): ResetTokens | null => {
 
 export default function ResetPasswordPage() {
   const router = useRouter();
+  const { refresh } = useVerifiedSession();
   const { t } = useI18n();
   const [formError, setFormError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
@@ -116,10 +118,15 @@ export default function ResetPasswordPage() {
       });
 
       const sessionData = (await sessionResponse.json().catch(() => null)) as {
-        user?: { email?: string };
+        user?: { id?: string; email?: string };
         access_token?: string;
         refresh_token?: string;
       } | null;
+
+      if (!sessionResponse.ok || !sessionData?.user?.id) {
+        setFormError(t.auth.passwordReset.error);
+        return;
+      }
 
       persistSessionToStorage({
         accessToken: sessionData?.access_token ?? resetTokens.accessToken,
@@ -127,14 +134,15 @@ export default function ResetPasswordPage() {
         email: sessionData?.user?.email,
       });
 
-      setFormMessage(t.auth.passwordReset.success);
-      const destination = resetTokens.flow === "invite" ? "/organizer" : "/race-planner";
-      if (typeof window !== "undefined") {
-        window.location.assign(destination);
+      const sessionReady = await refresh({ afterCurrent: true });
+      if (!sessionReady) {
+        setFormError(t.auth.passwordReset.error);
         return;
       }
-      router.push(destination);
-      router.refresh();
+
+      setFormMessage(t.auth.passwordReset.success);
+      const destination = resetTokens.flow === "invite" ? "/organizer" : "/race-planner";
+      router.replace(destination);
     } catch (error) {
       console.error("Unable to reset password", error);
       setFormError(t.auth.passwordReset.error);

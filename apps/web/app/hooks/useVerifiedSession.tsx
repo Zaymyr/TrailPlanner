@@ -39,7 +39,7 @@ type SessionResponse = {
 type VerifiedSessionContextValue = {
   session: VerifiedSession | null;
   isLoading: boolean;
-  refresh: () => Promise<boolean>;
+  refresh: (options?: RefreshOptions) => Promise<boolean>;
   clearSession: () => void;
   entitlements: UserEntitlements;
   isEntitlementsLoading: boolean;
@@ -121,7 +121,7 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
       if (refreshInFlight.current) return refreshInFlight.current;
     }
 
-    const task = (async () => {
+    const task = Promise.resolve().then(async () => {
       if (!hasInitialized.current) {
         setIsLoading(true);
       }
@@ -194,11 +194,18 @@ const useVerifiedSessionState = (): VerifiedSessionContextValue => {
         return false;
       } finally {
         hasInitialized.current = true;
-        refreshInFlight.current = null;
       }
-    })();
+    });
 
     refreshInFlight.current = task;
+    void task.then(
+      () => {
+        if (refreshInFlight.current === task) refreshInFlight.current = null;
+      },
+      () => {
+        if (refreshInFlight.current === task) refreshInFlight.current = null;
+      },
+    );
     return task;
   }, [clearSession, refreshEntitlements]);
 
