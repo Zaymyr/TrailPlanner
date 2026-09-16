@@ -99,7 +99,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 - `buildCommand: "npm run build"`
 - `installCommand: "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund"`, which installs only the web workspace dependency graph, preserves Vercel's restored `node_modules` cache, and avoids unrelated Expo/mobile packages and install-time audit requests
 - `outputDirectory: ".next"`
-- an ignored-build command that skips Vercel deployments when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged
+- an ignored-build command that skips `dependabot/*` Preview deployments, then skips other Vercel deployments when `apps/web`, shared packages, workspace manifests, the lockfile, Turbo configuration, and Vercel configuration are unchanged; the approved merge on `main` still produces the single production deployment
 - permanent redirects from `www.pace-yourself.com`, `trailplanner.app`, and `trail-planner.vercel.app` to `https://pace-yourself.com/:path*`
 
 The mobile app is configured for EAS in `apps/mobile/eas.json`:
@@ -158,6 +158,7 @@ When docs and code disagree, use this order:
 - Maestro is external test tooling and is not bundled into the application. Local runs require its CLI on `PATH`; the EAS workflow provides the cloud runner.
 - Android and the next iOS binary use EAS Update runtime `1.1.1`. Because the light iOS appearance is native configuration, ship that iOS binary before publishing a `1.1.1` OTA; existing iOS `1.1.0` installs stay in their prior compatibility group.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
+- Dependabot branches deliberately do not receive Vercel Preview builds. GitHub CI validates them before batching, and the merge commit on `main` remains the production deployment trigger.
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
 - `npm run verify` is the local/CI contract. Keep app-level scripts wired into Turbo instead of maintaining a separate undocumented command sequence.
