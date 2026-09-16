@@ -22,7 +22,6 @@ import { MobileAppPrompt } from "../components/MobileAppPrompt";
 import { GTagLoader } from "./gtag-loader";
 import { ThemeDebugPanel } from "../components/ThemeDebugPanel";
 import { SessionExpiredDialog } from "./session-expired-dialog";
-import { TrialWelcomeDialog } from "./trial-welcome-dialog";
 import { TrialExpiredNotice } from "./trial-expired-notice";
 import { VerifiedSessionProvider } from "./hooks/useVerifiedSession";
 import { PostHogProvider } from "./posthog-provider";
@@ -89,7 +88,6 @@ export default function RootLayout({
                 <LocalizedMetadata />
                 <AuthCallbackHandler />
                 <SessionExpiredDialog />
-                <TrialWelcomeDialog />
                 <TrialExpiredNotice />
                 <MobileAppPrompt />
                 <RootChrome>{children}</RootChrome>

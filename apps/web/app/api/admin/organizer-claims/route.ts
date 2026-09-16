@@ -4,6 +4,7 @@ import { z } from "zod";
 
 import { withSecurityHeaders } from "../../../../lib/http";
 import { buildSlug, jsonError, requireAdminAuth, serviceHeaders } from "../../../../lib/organizer";
+import { sendOrganizerAssignmentEmail } from "../../../../lib/resend";
 
 const claimRowSchema = z.object({
   id: z.string().uuid(),
@@ -834,7 +835,37 @@ export async function PATCH(request: NextRequest) {
       .array(membershipRowSchema.omit({ race_events: true }).passthrough())
       .parse(await membershipResponse.json())[0] ?? null;
 
-    return withSecurityHeaders(NextResponse.json({ membership, user: authUser, event, accountCreated }));
+    let notificationSent: boolean | null = null;
+    if (!accountCreated) {
+      try {
+        const organizerUrl = new URL("/organizer", request.nextUrl.origin);
+        organizerUrl.searchParams.set("eventId", event.id);
+        const notification = await sendOrganizerAssignmentEmail({
+          to: authUser.email,
+          eventName: event.name,
+          organizerUrl: organizerUrl.toString(),
+        });
+        notificationSent = notification.status === "sent";
+        if (!notificationSent) {
+          console.error("Unable to notify existing organizer account", {
+            userId: authUser.id,
+            eventId: event.id,
+            status: notification.status,
+          });
+        }
+      } catch (error) {
+        notificationSent = false;
+        console.error("Unable to notify existing organizer account", {
+          userId: authUser.id,
+          eventId: event.id,
+          error,
+        });
+      }
+    }
+
+    return withSecurityHeaders(
+      NextResponse.json({ membership, user: authUser, event, accountCreated, notificationSent })
+    );
   }
 
   if (parsedBody.data.action === "approveEditionRequest" || parsedBody.data.action === "rejectEditionRequest") {

@@ -2,15 +2,20 @@ import { z } from "zod";
 
 export type ResendConfig = {
   apiKey: string;
+  from: string;
 };
+
+const DEFAULT_RESEND_FROM = "Pace Yourself <hello@mail.pace-yourself.com>";
 
 const resendConfigSchema = z.object({
   apiKey: z.string().trim().min(1),
+  from: z.string().trim().min(1),
 });
 
 export const getResendConfig = (): ResendConfig | null => {
   const parsed = resendConfigSchema.safeParse({
     apiKey: process.env.RESEND_API_KEY,
+    from: process.env.RESEND_FROM ?? DEFAULT_RESEND_FROM,
   });
 
   if (!parsed.success) {
@@ -71,6 +76,11 @@ export type ResendIdentifiedUserSyncResult =
       statusCode?: number;
       message: string;
     };
+
+export type OrganizerAssignmentEmailResult =
+  | { status: "sent"; id?: string }
+  | { status: "skipped"; reason: "missing-config" }
+  | { status: "failed"; statusCode?: number; message: string };
 
 const resendContactResponseSchema = z
   .object({
@@ -204,6 +214,157 @@ const requestResend = async (
   }
 
   throw new Error("Unable to complete Resend request.");
+};
+
+const escapeHtml = (value: string): string =>
+  value.replace(/[&<>"']/g, (character) => {
+    const entities: Record<string, string> = {
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#39;",
+    };
+    return entities[character] ?? character;
+  });
+
+const buildOrganizerAssignmentHtml = (eventName: string, organizerUrl: string): string => `<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="x-apple-disable-message-reformatting">
+    <title>Une nouvelle course vous a été attribuée</title>
+    <style>
+      body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+      table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+      img { -ms-interpolation-mode: bicubic; border: 0; display: block; outline: none; text-decoration: none; }
+      body { margin: 0; padding: 0; width: 100% !important; background: #eceae3; }
+      a { color: #2d5016; }
+      @media screen and (max-width: 640px) {
+        .container { width: 100% !important; }
+        .mobile-px { padding-left: 22px !important; padding-right: 22px !important; }
+        .mobile-button { width: 100% !important; }
+        .mobile-title { font-size: 28px !important; line-height: 34px !important; }
+      }
+    </style>
+  </head>
+  <body style="margin:0; padding:0; background:#eceae3;">
+    <div style="display:none; max-height:0; overflow:hidden; opacity:0; color:transparent; line-height:1px;">
+      Vous pouvez maintenant gérer ${eventName} sur Pace Yourself.
+    </div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#eceae3;">
+      <tr>
+        <td align="center" style="padding:30px 14px;">
+          <table role="presentation" class="container" width="600" cellspacing="0" cellpadding="0" border="0" style="width:600px; max-width:600px;">
+            <tr>
+              <td style="padding:0 0 14px 0;">
+                <img src="https://pace-yourself.com/branding/logo-horizontal-v2.png" width="178" alt="Pace Yourself" style="width:178px; max-width:178px; height:auto;">
+              </td>
+            </tr>
+            <tr>
+              <td style="background:#ffffff; border-radius:16px; overflow:hidden; border:1px solid #e5e2d8;">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                  <tr>
+                    <td class="mobile-px" style="padding:36px 38px 20px 38px;">
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0">
+                        <tr>
+                          <td style="background:#f4f2ec; border:1px solid #e5e2d8; border-radius:999px; color:#5c6450; font-family:Arial, Helvetica, sans-serif; font-size:12px; font-weight:700; letter-spacing:.4px; padding:7px 12px;">
+                            Accès organisateur
+                          </td>
+                        </tr>
+                      </table>
+                      <h1 class="mobile-title" style="margin:22px 0 14px 0; color:#1f2410; font-family:Arial, Helvetica, sans-serif; font-size:34px; line-height:41px; font-weight:700; letter-spacing:-.3px;">
+                        Une nouvelle course vous a été attribuée.
+                      </h1>
+                      <p style="margin:0; color:#5c6450; font-family:Arial, Helvetica, sans-serif; font-size:16px; line-height:26px;">
+                        Bonjour,<br><br>Votre compte Pace Yourself a été rattaché à cette course en tant qu’organisateur.
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="mobile-px" style="padding:4px 38px 28px 38px;">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="background:#faf8f2; border:1px solid #e5e2d8; border-left:4px solid #2d5016; border-radius:12px;">
+                        <tr>
+                          <td style="padding:18px 20px;">
+                            <p style="margin:0 0 6px 0; color:#8a917e; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:18px; font-weight:700; letter-spacing:1.1px; text-transform:uppercase;">Course attribuée</p>
+                            <p style="margin:0; color:#1f2410; font-family:Arial, Helvetica, sans-serif; font-size:18px; line-height:25px; font-weight:700;">${eventName}</p>
+                          </td>
+                        </tr>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td align="center" class="mobile-px" style="padding:0 38px 32px 38px;">
+                      <table role="presentation" cellspacing="0" cellpadding="0" border="0" class="mobile-button">
+                        <tr>
+                          <td align="center" style="background:#2d5016; border-radius:12px;">
+                            <a href="${organizerUrl}" style="display:inline-block; padding:15px 28px; color:#ffffff; font-family:Arial, Helvetica, sans-serif; font-size:15px; line-height:20px; font-weight:700; text-decoration:none;">Gérer cette course</a>
+                          </td>
+                        </tr>
+                      </table>
+                      <p style="margin:14px 0 0 0; color:#8a917e; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:19px;">
+                        Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
+                        <a href="${organizerUrl}" style="color:#2d5016; word-break:break-all;">${organizerUrl}</a>
+                      </p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td class="mobile-px" style="padding:0 38px 34px 38px;">
+                      <p style="margin:0; color:#5c6450; font-family:Arial, Helvetica, sans-serif; font-size:14px; line-height:23px;">
+                        À bientôt,<br><strong style="color:#1f2410;">L’équipe Pace Yourself</strong>
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:22px 18px 0 18px;">
+                <p style="margin:0; color:#8a917e; font-family:Arial, Helvetica, sans-serif; font-size:12px; line-height:19px;">
+                  Cet e-mail confirme l’ajout d’un accès organisateur à votre compte sur <a href="https://pace-yourself.com" style="color:#2d5016;">pace-yourself.com</a>.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+export const sendOrganizerAssignmentEmail = async (input: {
+  to: string;
+  eventName: string;
+  organizerUrl: string;
+}): Promise<OrganizerAssignmentEmailResult> => {
+  const config = getResendConfig();
+  if (!config) return { status: "skipped", reason: "missing-config" };
+
+  const eventName = input.eventName.trim();
+  const escapedEventName = escapeHtml(eventName);
+  const escapedOrganizerUrl = escapeHtml(input.organizerUrl);
+  const { response, payload } = await requestResend(config, "/emails", {
+    method: "POST",
+    body: JSON.stringify({
+      from: config.from,
+      to: [input.to.trim().toLowerCase()],
+      subject: `Vous gérez maintenant ${eventName} sur Pace Yourself`,
+      html: buildOrganizerAssignmentHtml(escapedEventName, escapedOrganizerUrl),
+      text: `Bonjour,\n\nVous avez été rattaché à ${eventName} en tant qu’organisateur sur Pace Yourself.\n\nGérer cette course : ${input.organizerUrl}\n\nÀ bientôt,\nL’équipe Pace Yourself`,
+    }),
+  });
+
+  if (response.ok) {
+    const parsed = resendContactResponseSchema.safeParse(payload);
+    return { status: "sent", id: parsed.success ? parsed.data.id : undefined };
+  }
+
+  return {
+    status: "failed",
+    statusCode: response.status,
+    message: extractErrorMessage(payload, "Unable to send organizer assignment email."),
+  };
 };
 
 export const createResendContact = async (
