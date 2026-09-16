@@ -40,7 +40,7 @@ const request = (query = "") => new NextRequest(
   { headers: { authorization: "Bearer user-token" } },
 );
 
-const installSupabaseFetch = (options: { editionStatus?: number; racesStatus?: number } = {}) => vi
+const installSupabaseFetch = (options: { editionStatus?: number; racesStatus?: number; favoriteCount?: number; favoritesStatus?: number; omitFavoriteCount?: boolean } = {}) => vi
   .spyOn(global, "fetch")
   .mockImplementation(async (input) => {
     const url = String(input);
@@ -54,6 +54,10 @@ const installSupabaseFetch = (options: { editionStatus?: number; racesStatus?: n
       { status: options.editionStatus === 502 ? 500 : 200 },
     );
     if (url.includes("/races?")) return Response.json([{ id: raceId }], { status: options.racesStatus ?? 200 });
+    if (url.includes("/user_favorite_race_events?")) return Response.json([], {
+      status: options.favoritesStatus ?? 200,
+      headers: options.omitFavoriteCount ? undefined : { "content-range": `*/${options.favoriteCount ?? 7}` },
+    });
     throw new Error(`Unexpected fetch: ${url}`);
   });
 
@@ -134,6 +138,27 @@ describe("GET organizer edition analytics", () => {
       raceIds: [raceId],
       selectedRaceId: null,
     }));
+    expect(fetch).toHaveBeenCalledWith(
+      `https://db.example/rest/v1/user_favorite_race_events?event_id=eq.${eventId}&select=user_id&limit=1`,
+      expect.objectContaining({
+        headers: expect.objectContaining({ Prefer: "count=exact", Range: "0-0" }),
+      }),
+    );
+  });
+
+  it("returns zero favorites when no runner follows the event", async () => {
+    installSupabaseFetch({ favoriteCount: 0 });
+    const response = await GET(request(), { params: { id: editionId } });
+    expect(response.status).toBe(200);
+    expect((await response.json()).summary.favoriteCount).toBe(0);
+  });
+
+  it("fails safely when Supabase omits the exact favorite count", async () => {
+    installSupabaseFetch({ omitFavoriteCount: true });
+    const response = await GET(request(), { params: { id: editionId } });
+    expect(response.status).toBe(502);
+    expect(await response.json()).toEqual({ message: "Unable to load event favorites." });
+    expect(mocks.loadAnalytics).not.toHaveBeenCalled();
   });
 
   it("reports complimentary access and forwards valid filters", async () => {

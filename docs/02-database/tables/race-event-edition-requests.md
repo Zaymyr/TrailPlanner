@@ -50,6 +50,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - The runner-notification format selector reads live formats from the currently selected canonical edition; it does not create, reactivate, or consult legacy edition requests.
 - Deleting a previously sent organizer announcement is likewise event-membership scoped and does not read, restore, or mutate this retired table.
 - Direct admin assignment, including a newly invited Auth account confirmed through the admin access dialog, creates or reactivates only `race_event_organizers`; it does not create, reactivate, or review a legacy edition request.
+- Searching an e-mail or event in the direct-assignment comboboxes is read-only and likewise never creates, reactivates, or reviews an edition request.
 - Saving or publishing `race_event_edition_branding` targets an already-created canonical edition and never creates or reactivates this retired request type.
 
 ## Historical Columns

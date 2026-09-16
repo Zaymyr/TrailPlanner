@@ -21,9 +21,12 @@ type AnalyticsPayload = {
     totalOpens: number;
     averageActiveSeconds: number | null;
     engagementRate: number | null;
+    favoriteCount: number;
   };
   daily: Array<{ date: string; uniqueReaders: number; totalOpens: number }>;
 };
+
+type AnalyticsSummary = AnalyticsPayload["summary"];
 
 type Props = {
   editionId: string;
@@ -39,6 +42,18 @@ export function formatAnalyticsDuration(seconds: number | null) {
   const minutes = Math.floor(rounded / 60);
   const remainingSeconds = rounded % 60;
   return minutes > 0 ? `${minutes} min ${remainingSeconds.toString().padStart(2, "0")} s` : `${remainingSeconds} s`;
+}
+
+export function OrganizerAnalyticsSummaryCards({ summary }: { summary: AnalyticsSummary }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <MetricCard label="Lecteurs uniques estimés" value={summary.uniqueReaders.toLocaleString("fr-FR")} helper="Identifiants PostHog distincts" />
+      <MetricCard label="Ouvertures totales" value={summary.totalOpens.toLocaleString("fr-FR")} />
+      <MetricCard label="Durée active moyenne" value={formatAnalyticsDuration(summary.averageActiveSeconds)} helper="Sessions fermées correctement" />
+      <MetricCard label="Taux d’engagement" value={summary.engagementRate === null ? "—" : `${Math.round(summary.engagementRate * 100)} %`} helper="Sessions avec interaction mesurable" />
+      <MetricCard label="Ajouts aux favoris" value={summary.favoriteCount.toLocaleString("fr-FR")} helper="Coureurs suivant l’événement" />
+    </div>
+  );
 }
 
 export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races, onOpenPricing }: Props) {
@@ -77,7 +92,7 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
     return () => controller.abort();
   }, [access.allowed, accessToken, editionId, raceId, range]);
 
-  const hasData = useMemo(() => data !== null && (
+  const hasTrafficData = useMemo(() => data !== null && (
     data.summary.uniqueReaders > 0 || data.summary.totalOpens > 0 || data.daily.some((point) => point.uniqueReaders > 0 || point.totalOpens > 0)
   ), [data]);
 
@@ -125,30 +140,28 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
 
       {state === "loading" ? <p className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground" role="status">Chargement des statistiques…</p> : null}
       {state === "error" ? <p className="rounded-md border border-amber-300 bg-amber-50 p-4 text-sm text-amber-800" role="alert">Statistiques temporairement indisponibles. Réessayez dans quelques minutes.</p> : null}
-      {state === "idle" && data && !hasData ? <p className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">Aucune consultation sur cette période.</p> : null}
-      {state === "idle" && data && hasData ? (
+      {state === "idle" && data ? (
         <>
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-            <MetricCard label="Lecteurs uniques estimés" value={data.summary.uniqueReaders.toLocaleString("fr-FR")} helper="Identifiants PostHog distincts" />
-            <MetricCard label="Ouvertures totales" value={data.summary.totalOpens.toLocaleString("fr-FR")} />
-            <MetricCard label="Durée active moyenne" value={formatAnalyticsDuration(data.summary.averageActiveSeconds)} helper="Sessions fermées correctement" />
-            <MetricCard label="Taux d’engagement" value={data.summary.engagementRate === null ? "—" : `${Math.round(data.summary.engagementRate * 100)} %`} helper="Sessions avec interaction mesurable" />
-          </div>
-          <TimeSeriesLineChart
-            title="Consultations quotidiennes"
-            description="Lecteurs estimés et ouvertures du RaceBook."
-            points={data.daily.map((point) => ({
-              date: point.date,
-              values: { uniqueReaders: point.uniqueReaders, totalOpens: point.totalOpens },
-            }))}
-            series={[
-              { key: "uniqueReaders", label: "Lecteurs", color: "#f97316" },
-              { key: "totalOpens", label: "Ouvertures", color: "#2563eb" },
-            ]}
-            locale="fr-FR"
-            ariaLabel="Évolution quotidienne des lecteurs et des ouvertures"
-          />
-          <p className="text-xs text-muted-foreground">Les lecteurs sont des identifiants techniques estimés. La durée et l’engagement reposent sur les sessions correctement clôturées.</p>
+          <OrganizerAnalyticsSummaryCards summary={data.summary} />
+          {!hasTrafficData ? <p className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">Aucune consultation sur cette période.</p> : (
+            <>
+              <TimeSeriesLineChart
+                title="Consultations quotidiennes"
+                description="Lecteurs estimés et ouvertures du RaceBook."
+                points={data.daily.map((point) => ({
+                  date: point.date,
+                  values: { uniqueReaders: point.uniqueReaders, totalOpens: point.totalOpens },
+                }))}
+                series={[
+                  { key: "uniqueReaders", label: "Lecteurs", color: "#f97316" },
+                  { key: "totalOpens", label: "Ouvertures", color: "#2563eb" },
+                ]}
+                locale="fr-FR"
+                ariaLabel="Évolution quotidienne des lecteurs et des ouvertures"
+              />
+              <p className="text-xs text-muted-foreground">Les lecteurs sont des identifiants techniques estimés. La durée et l’engagement reposent sur les sessions correctement clôturées.</p>
+            </>
+          )}
         </>
       ) : null}
     </section>

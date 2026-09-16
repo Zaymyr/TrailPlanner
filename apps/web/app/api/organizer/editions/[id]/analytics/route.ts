@@ -35,6 +35,12 @@ const editionSchema = z.object({
 
 const raceSchema = z.object({ id: z.string().uuid() });
 
+const parseExactCount = (response: Response) => {
+  const contentRange = response.headers.get("content-range");
+  const total = contentRange?.match(/\/(\d+)$/)?.[1];
+  return total === undefined ? null : Number(total);
+};
+
 export async function GET(request: NextRequest, context: { params: { id?: string } }) {
   const parsedParams = uuidParamSchema.safeParse(context.params);
   if (!parsedParams.success) return jsonError("Invalid edition id.", 400);
@@ -68,12 +74,25 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if (organizer !== true) return organizer.error;
 
   try {
-    const [racesResponse, entitlement, grant] = await Promise.all([
+    const [racesResponse, favoritesResponse, entitlement, grant] = await Promise.all([
       fetch(
         `${auth.serviceConfig.supabaseUrl}/rest/v1/races?edition_id=eq.${encodeURIComponent(
           edition.id,
         )}&select=id&order=id.asc`,
         { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },
+      ),
+      fetch(
+        `${auth.serviceConfig.supabaseUrl}/rest/v1/user_favorite_race_events?event_id=eq.${encodeURIComponent(
+          edition.event_id,
+        )}&select=user_id&limit=1`,
+        {
+          headers: {
+            ...serviceHeaders(auth.serviceConfig, ""),
+            Prefer: "count=exact",
+            Range: "0-0",
+          },
+          cache: "no-store",
+        },
       ),
       loadOrganizerEditionEntitlement(auth.serviceConfig, edition.id),
       loadOrganizerEditionCapabilityGrant(auth.serviceConfig, edition.id, "racebook_analytics.view"),
@@ -82,6 +101,18 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     if (!racesResponse.ok) {
       console.error("Unable to load organizer analytics formats", await racesResponse.text());
       return jsonError("Unable to load edition formats.", 502);
+    }
+    if (!favoritesResponse.ok) {
+      console.error("Unable to load organizer analytics favorite count", await favoritesResponse.text());
+      return jsonError("Unable to load event favorites.", 502);
+    }
+
+    const favoriteCount = parseExactCount(favoritesResponse);
+    if (favoriteCount === null) {
+      console.error("Unable to parse organizer analytics favorite count", {
+        contentRange: favoritesResponse.headers.get("content-range"),
+      });
+      return jsonError("Unable to load event favorites.", 502);
     }
 
     const racesResult = z.array(raceSchema).safeParse(await racesResponse.json().catch(() => null));
@@ -121,6 +152,10 @@ export async function GET(request: NextRequest, context: { params: { id?: string
         cacheTtlSeconds: ORGANIZER_ANALYTICS_CACHE_TTL_SECONDS,
       },
       ...analytics,
+      summary: {
+        ...analytics.summary,
+        favoriteCount,
+      },
     }));
   } catch (error) {
     console.error("Unable to load organizer analytics", error);

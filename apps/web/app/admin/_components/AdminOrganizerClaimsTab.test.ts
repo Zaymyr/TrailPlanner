@@ -53,6 +53,16 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("event.editionId ?? event.id");
   });
 
+  it("uses searchable autocomplete fields for direct organizer assignment", () => {
+    const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
+    expect(source).toContain("function AssignmentAutocomplete");
+    expect(source).toContain('aria-autocomplete="list"');
+    expect(source).toContain("emailSearch=");
+    expect(source).toContain("Saisissez au moins 2 caractères pour rechercher un compte.");
+    expect(source).toContain("Rechercher une course, un lieu ou une date");
+    expect(source).not.toContain('<select\n                id="organizer-assignment-event"');
+  });
+
   it("keeps bank-transfer invoices VAT-exempt", () => {
     const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
     expect(source).toContain('tax: "0,00"');

@@ -392,6 +392,45 @@ describe("GET /api/admin/organizer-claims", () => {
     vi.restoreAllMocks();
   });
 
+  it("returns only matching Auth users for organizer e-mail autocomplete", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce(
+      buildJsonResponse({
+        users: [
+          { id: "33333333-3333-3333-3333-333333333333", email: "camille@example.com" },
+          { id: "44444444-4444-4444-4444-444444444444", email: "orga@example.com" },
+          { id: "55555555-5555-5555-5555-555555555555", email: "camille.pro@example.org" },
+        ],
+      })
+    );
+
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/organizer-claims?emailSearch=camille", {
+        headers: { authorization: "Bearer admin-token" },
+      })
+    );
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.users.map((user: { email: string }) => user.email)).toEqual([
+      "camille.pro@example.org",
+      "camille@example.com",
+    ]);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    expect(String(mockFetch.mock.calls[0]?.[0])).toContain("/auth/v1/admin/users?page=1&per_page=1000");
+  });
+
+  it("rejects organizer e-mail autocomplete searches shorter than two characters", async () => {
+    const response = await GET(
+      new NextRequest("http://localhost/api/admin/organizer-claims?emailSearch=c", {
+        headers: { authorization: "Bearer admin-token" },
+      })
+    );
+
+    expect(response.status).toBe(400);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+  });
+
   it("loads only pending claims and active memberships for the admin organizer tab", async () => {
     const mockFetch = vi.mocked(fetch);
 

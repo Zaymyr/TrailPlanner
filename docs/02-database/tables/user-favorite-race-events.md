@@ -1,12 +1,16 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
   - apps/web/app/api/race-favorites/route.ts
   - apps/web/app/api/race-favorites/route.test.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
+  - apps/web/app/organizer/_components/dashboard/analytics-panel.tsx
+  - apps/web/app/organizer/_components/dashboard/analytics-panel.test.ts
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
 related_tables:
@@ -67,6 +71,7 @@ Summary:
 - Anonymous users must not create favorites through the runner API. The mobile heart remains visible to them as an account-conversion entry point, but the prompt is shown before any optimistic state or API write.
 - Organizer notifications use the favorite rows as the fan-out audience source, but favorites themselves do not store notification history.
 - Choosing one format changes the announcement context and title; it does not replace the parent event's favorite list as the push audience.
+- The organizer Statistics KPI is the exact current event-wide row count. It is not restricted by edition, format, or analytics date range and exposes no follower identity.
 
 ## Common Queries
 
@@ -98,6 +103,7 @@ where event_id = '<event-id>';
 - A guest tap on the heart must route to the shared account prompt and must not create a row, reorder the catalog, or emit `race favorite updated`.
 - The FK targets `user_profiles(user_id)`, so profile bootstrap must exist before creating favorites.
 - Do not expose cross-user favorite lists to organizers directly; organizer UI should show only aggregate counts.
+- Do not present the organizer favorite total as a period conversion metric. It is the current event-scoped stock, even when shown beside date-filtered RaceBook traffic KPIs.
 - Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.
 - Only a confirmed addition should trigger the success toast and automatic scroll. Removing a favorite should preserve the current reading position, while a failed write restores the previous favorite order.
 - Only a server-confirmed state change emits `race favorite updated`; failed or optimistic toggles must not be counted as completed favorite mutations.

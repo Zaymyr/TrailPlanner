@@ -186,6 +186,46 @@ async function findAuthUserByEmail(
   throw new Error("Supabase Auth user search exceeded the supported pagination limit.");
 }
 
+async function searchAuthUsersByEmail(
+  serviceConfig: Parameters<typeof serviceHeaders>[0],
+  requestedSearch: string
+) {
+  const normalizedSearch = requestedSearch.trim().toLowerCase();
+  const matches: Array<z.infer<typeof adminUserRowSchema> & { email: string }> = [];
+
+  for (let page = 1; page <= MAX_AUTH_USER_PAGES; page += 1) {
+    const response = await fetch(
+      `${serviceConfig.supabaseUrl}/auth/v1/admin/users?page=${page}&per_page=${AUTH_USERS_PER_PAGE}`,
+      {
+        headers: serviceHeaders(serviceConfig, ""),
+        cache: "no-store",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Unable to search Supabase Auth users: ${await response.text()}`);
+    }
+
+    const users = adminUsersResponseSchema.parse(await response.json()).users;
+    for (const user of users) {
+      const email = user.email?.trim() ?? "";
+      if (email.toLowerCase().includes(normalizedSearch)) matches.push({ ...user, email });
+    }
+
+    if (users.length < AUTH_USERS_PER_PAGE) break;
+  }
+
+  return matches
+    .sort((left, right) => {
+      const leftEmail = left.email.toLowerCase();
+      const rightEmail = right.email.toLowerCase();
+      const leftRank = leftEmail === normalizedSearch ? 0 : leftEmail.startsWith(normalizedSearch) ? 1 : 2;
+      const rightRank = rightEmail === normalizedSearch ? 0 : rightEmail.startsWith(normalizedSearch) ? 1 : 2;
+      return leftRank - rightRank || leftEmail.localeCompare(rightEmail);
+    })
+    .slice(0, 8);
+}
+
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 const parseIsoDate = (value: string | null | undefined) => {
@@ -511,6 +551,21 @@ const actionSchema = z.discriminatedUnion("action", [
 export async function GET(request: NextRequest) {
   const auth = await requireAdminAuth(request);
   if ("error" in auth) return auth.error;
+
+  const emailSearch = request.nextUrl.searchParams.get("emailSearch")?.trim() ?? "";
+  if (emailSearch) {
+    if (emailSearch.length < 2 || emailSearch.length > 254) {
+      return jsonError("La recherche d'adresse e-mail doit contenir entre 2 et 254 caractères.", 400);
+    }
+
+    try {
+      const users = await searchAuthUsersByEmail(auth.serviceConfig, emailSearch);
+      return withSecurityHeaders(NextResponse.json({ users }));
+    } catch (error) {
+      console.error("Unable to autocomplete organizer e-mail", error);
+      return jsonError("Impossible de rechercher les comptes Supabase.", 502);
+    }
+  }
 
   const [claimsResponse, membershipsResponse, editionRequestsResponse, eventsResponse] = await Promise.all([
     fetch(
