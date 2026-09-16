@@ -748,12 +748,15 @@ export async function PATCH(request: NextRequest) {
 
     let accountCreated = false;
     if (!authUser) {
-      const inviteResponse = await fetch(`${auth.serviceConfig.supabaseUrl}/auth/v1/invite`, {
+      const inviteUrl = new URL(`${auth.serviceConfig.supabaseUrl}/auth/v1/invite`);
+      inviteUrl.searchParams.set("redirect_to", `${request.nextUrl.origin}/reset-password`);
+
+      const inviteResponse = await fetch(inviteUrl, {
         method: "POST",
         headers: serviceHeaders(auth.serviceConfig),
         body: JSON.stringify({
           email: parsedBody.data.email,
-          redirect_to: `${request.nextUrl.origin}/reset-password`,
+          data: { event_name: event.name },
         }),
         cache: "no-store",
       });
