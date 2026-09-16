@@ -100,6 +100,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - The login screen must remain scrollable with the keyboard visible and with enlarged Dynamic Type. A static centered form can hide the password, sign-in, or account-creation actions on compact iPhones.
 - Changing Expo `userInterfaceStyle` is native configuration. Validate the new status-bar contrast in a matching iOS binary; an OTA cannot retrofit the appearance setting to an older runtime.
 - Expo Doctor reports the deliberate Metro isolation and the separate React 18 web / React 19 mobile installs as monorepo warnings. Investigate new duplicate native-module warnings, but do not remove the mobile-first resolver without revalidating that Metro still resolves React 19 for React Native 0.81.
+- Run mobile lint after a clean dependency install when changing its tooling. The legacy Expo ESLint config resolves `eslint-plugin-react-hooks` from the mobile workspace, so that plugin stays an explicit mobile development dependency rather than relying on local hoisting.
 
 ## Related Docs
 
