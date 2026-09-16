@@ -3,6 +3,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { GET, PATCH } from "./route";
 
+const mocks = vi.hoisted(() => ({
+  sendOrganizerAssignmentEmail: vi.fn(),
+}));
+
 const buildJsonResponse = (payload: unknown, options: { status?: number } = {}) =>
   new Response(JSON.stringify(payload), {
     status: options.status ?? 200,
@@ -22,6 +26,8 @@ const adminRequest = (body: Record<string, unknown>) =>
 describe("PATCH /api/admin/organizer-claims", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
+    mocks.sendOrganizerAssignmentEmail.mockReset();
+    mocks.sendOrganizerAssignmentEmail.mockResolvedValue({ status: "sent", id: "email-1" });
   });
 
   afterEach(() => {
@@ -208,6 +214,12 @@ describe("PATCH /api/admin/organizer-claims", () => {
     expect(response.status).toBe(200);
     expect(payload.user).toEqual({ id: userId, email: "organisateur@example.com" });
     expect(payload.event.name).toBe("Trail des Crêtes");
+    expect(payload.notificationSent).toBe(true);
+    expect(mocks.sendOrganizerAssignmentEmail).toHaveBeenCalledWith({
+      to: "organisateur@example.com",
+      eventName: "Trail des Crêtes",
+      organizerUrl: `http://localhost/organizer?eventId=${eventId}`,
+    });
 
     const membershipCall = mockFetch.mock.calls.find(
       ([url, init]) => String(url).endsWith("/rest/v1/race_event_organizers") && init?.method === "POST"
@@ -276,7 +288,9 @@ describe("PATCH /api/admin/organizer-claims", () => {
 
     expect(response.status).toBe(200);
     expect(payload.accountCreated).toBe(true);
+    expect(payload.notificationSent).toBeNull();
     expect(payload.user).toEqual({ id: userId, email: "nouveau@example.com" });
+    expect(mocks.sendOrganizerAssignmentEmail).not.toHaveBeenCalled();
 
     const inviteCall = mockFetch.mock.calls.find(([url]) => new URL(String(url)).pathname === "/auth/v1/invite");
     const inviteUrl = new URL(String(inviteCall?.[0]));
@@ -638,4 +652,8 @@ vi.mock("../../../../lib/supabase", () => ({
       appMetadata: { role: "admin" },
     }),
   isAdminUser: () => true,
+}));
+
+vi.mock("../../../../lib/resend", () => ({
+  sendOrganizerAssignmentEmail: mocks.sendOrganizerAssignmentEmail,
 }));

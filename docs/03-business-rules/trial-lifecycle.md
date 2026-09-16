@@ -10,6 +10,7 @@ related_files:
   - apps/mobile/lib/fetchWithTimeout.ts
   - supabase/migrations/20260408100000_initialize_trial_profile_on_user_created.sql
   - apps/web/app/api/auth/session/route.ts
+  - apps/web/app/layout.tsx
 related_tables:
   - user_profiles
 ---
@@ -83,7 +84,7 @@ Profile timestamps:
 - `trial_welcome_seen_at`
 - `trial_expired_seen_at`
 
-Web server helpers mark these timestamps when UI flows acknowledge the notices.
+Web server helpers retain support for marking these timestamps when UI flows acknowledge the notices. The web root layout no longer mounts the trial-welcome popup, so new accounts can enter route-specific onboarding without a competing overlay; trial initialization and Premium entitlement remain unchanged. The expired-trial notice is still mounted.
 
 ## Business Invariants
 
