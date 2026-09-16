@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-09-11
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql

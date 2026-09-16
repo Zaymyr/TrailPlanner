@@ -74,7 +74,7 @@ begin
   -- Repeated requests must not rewrite the administrator or timestamp that
   -- actually performed the transition. Revoking a capability that has never
   -- been granted is likewise a no-op, rather than a fabricated audit event.
-  if found and grant_row.status = case when p_enabled then 'active' else 'revoked' end then
+  if found and grant_row.status = (case when p_enabled then 'active' else 'revoked' end) then
     return grant_row;
   end if;
 
