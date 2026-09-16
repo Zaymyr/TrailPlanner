@@ -161,6 +161,7 @@ When docs and code disagree, use this order:
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.
 - Keep large Organizer document uploads on the direct Storage TUS path; routing them through the Next.js deployment would reintroduce platform body-size limits.
 - `npm run verify` is the local/CI contract. Keep app-level scripts wired into Turbo instead of maintaining a separate undocumented command sequence.
+- Mobile lint plugins required by `eslint-config-expo` must be declared directly in the mobile workspace when the legacy ESLint resolver loads them from `apps/mobile`; a locally hoisted transitive plugin is not evidence that the clean CI install can resolve it.
 
 ## Related Docs
 

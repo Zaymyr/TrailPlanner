@@ -19,6 +19,7 @@ related_files:
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/lib/organizer-payments.ts
   - apps/web/lib/organizer-invoices.ts
+  - apps/web/lib/organizer-invoices.test.ts
   - apps/web/lib/organizer-invoice-document.ts
   - apps/web/lib/organizer-invoice-document.test.ts
   - supabase/migrations/20260911073318_add_organizer_manual_payments_and_invoices.sql
@@ -82,7 +83,7 @@ Current purchase kinds are `essential_direct`, `complete_direct`, `signature_dir
 
 ## RLS Policies
 
-RLS is enabled with service-role-only grants. Checkout, webhook, and authenticated admin payment routes are the only application writers. `issue_admin_organizer_invoice` is executable only by `service_role`. The private `organizer-invoices` bucket has no client policy; downloads are issued only as 60-second signed URLs after active event-membership verification.
+RLS is enabled with service-role-only grants. Checkout, webhook, and authenticated admin payment routes are the only application writers. `issue_admin_organizer_invoice` is executable only by `service_role`. The private `organizer-invoices` bucket has no client policy; downloads are issued only as 60-second signed URLs after active event-membership verification. Relative paths returned by Supabase signing are resolved under `/storage/v1`, not at the project origin.
 
 The atomic `record_admin_organizer_bank_transfer_invoice` wrapper is likewise executable only by `service_role`; browser roles cannot record or issue an invoice directly.
 
@@ -118,6 +119,7 @@ order by created_at desc;
 - A Checkout redirect is not a paid transaction.
 - Do not overwrite historical rows to represent another purchase; create another attempt.
 - Never return Stripe identifiers or private Storage paths in organizer DTOs.
+- A Supabase signed response beginning with `/object/sign/` is relative to the Storage API. Returning it as a project-root URL drops `/storage/v1` and produces `requested path is invalid`.
 - A standard PDF download is not by itself a French e-invoicing platform transmission. The application must still be connected to an approved platform when that obligation applies.
 - Never rebuild a historical invoice from the current pack price or a browser amount. Use the immutable payment row's stored subtotal, paid date, tier and currency.
 - Although the edition foreign key is historically `on delete cascade`, the issued-invoice protection trigger rejects that cascade for a numbered row. An edition with an issued invoice must therefore be retained.

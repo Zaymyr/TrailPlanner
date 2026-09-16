@@ -64,7 +64,9 @@ export async function createOrganizerInvoiceDownloadUrl(
   const data = await response.json() as { signedURL?: string; signedUrl?: string };
   const signedPath = data.signedURL ?? data.signedUrl;
   if (!signedPath) throw new Error("Supabase did not return a signed invoice URL.");
-  const url = new URL(signedPath, config.supabaseUrl);
+  const url = signedPath.startsWith("/storage/v1/")
+    ? new URL(signedPath, config.supabaseUrl)
+    : new URL(signedPath.replace(/^\/+/, ""), new URL("/storage/v1/", config.supabaseUrl));
   url.searchParams.set("download", fileName);
   return url.toString();
 }

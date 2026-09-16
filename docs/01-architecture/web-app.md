@@ -180,6 +180,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/invoices-dialog.tsx
   - apps/web/lib/organizer-payments.ts
   - apps/web/lib/organizer-invoices.ts
+  - apps/web/lib/organizer-invoices.test.ts
   - apps/web/lib/organizer-invoice-document.ts
   - apps/web/lib/organizer-invoice-document.test.ts
   - apps/web/app/api/organizer/edition-requests/route.ts
@@ -494,7 +495,7 @@ Stripe routes live under `apps/web/app/api/stripe`:
 - `webhook/route.ts`: verifies Stripe signatures and updates `subscriptions`.
 - `organizer/publication-checkout/route.ts`: creates one-time 99/199/349 € HT edition checkouts, plus 100/250/150 € HT upgrades, selected entirely by the server.
 
-The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, disputes, and the generated Invoice reference, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears. The same ledger stores admin-recorded EUR bank transfers plus generated invoice number and legal snapshot. Missing invoices on eligible historical virements are issued on demand through the service-only numbering function, without another payment insert. Organizer event/bootstrap DTOs expose only a sanitized purchase summary; the Factures action loads event-wide edition history, shows the invoice number, and obtains private-Storage or Stripe PDF URLs from membership-checked server routes.
+The Stripe webhook also updates `organizer_edition_payments` for immediate/deferred payment outcomes, expiry, refunds, disputes, and the generated Invoice reference, then recalculates the separate edition entitlement. Organizer success redirects poll the normal event detail until the webhook-confirmed tier appears. The same ledger stores admin-recorded EUR bank transfers plus generated invoice number and legal snapshot. Missing invoices on eligible historical virements are issued on demand through the service-only numbering function, without another payment insert. Organizer event/bootstrap DTOs expose only a sanitized purchase summary; the Factures action loads event-wide edition history, shows the invoice number, and obtains private-Storage or Stripe PDF URLs from membership-checked server routes. Supabase may return a signed path rooted at `/object/sign/...`; the server resolves that path against the Storage API base so the browser receives `/storage/v1/object/sign/...`.
 
 Generated bank-transfer invoices require the customer legal name and billing address. Customer SIREN is optional, validated as nine digits when present, and omitted from the shared preview/final PDF renderer when absent.
 
@@ -519,6 +520,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 
 - Keep the public legal identity synchronized with the current business registration and tax regime. Consumer mediation details must not be invented; add the selected mediator before treating the B2C legal surface as complete.
 - Admin publication management distinguishes operational Admin, payment Stripe, payment by bank transfer, and Offert. Stripe and bank-transfer origins remain derived from valid payment history; the organizer header renders Admin and Offert separately.
+- Never resolve Supabase's relative `/object/sign/...` response against the project origin directly: preserve the `/storage/v1` API prefix before returning the short-lived invoice URL.
 - Format-scoped publication authorizes the same two caller classes as the server route: an active event member or a trusted `app_metadata` admin. Database errors remain differentiated as access, readiness, hidden-edition, entitlement, or operational failures.
 
 - Keep `racebook_preview_is_visible` in both Organizer bootstrap and event-detail format projections. Omitting it makes a durably masked format render as private after an event reload. Masked and private states both persist `is_live = false`; preview selection distinguishes organizer-private access, while the publication RPC atomically restores all public flags.
