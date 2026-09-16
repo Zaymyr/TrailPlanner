@@ -316,7 +316,7 @@ export default function AdminSocialInstagramTemplatePanel({ draft, onDraftChange
       >
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Couleur d'accent</p>
+            <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Couleur d’accent</p>
             <div className="mt-3 flex flex-wrap gap-2">
               {accentSwatches.map((accent) => {
                 const isActive = draft.accentKey === accent.key;

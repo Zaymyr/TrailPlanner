@@ -5,12 +5,21 @@ on:
   push:
     branches: [main]
 
+concurrency:
+  group: web-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   web:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -20,6 +29,21 @@ jobs:
       - name: Install
         run: npm ci
 
+      - name: Check documentation protocol
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          PUSH_BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            npm run docs:check -- --base "$PR_BASE_SHA"
+          elif [ -n "$PUSH_BEFORE_SHA" ] && [ "$PUSH_BEFORE_SHA" != "0000000000000000000000000000000000000000" ]; then
+            npm run docs:check -- --base "$PUSH_BEFORE_SHA"
+          else
+            npm run docs:check
+          fi
+
       - name: Lint
         run: npm run lint
 
@@ -27,7 +51,7 @@ jobs:
         run: npm run typecheck
 
       - name: Test
-        run: npm run test --workspace apps/web -- --run
+        run: npm run test:web
 
       - name: Build
-        run: npm run build
+        run: npm run build:web

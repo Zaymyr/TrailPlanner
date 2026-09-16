@@ -2186,7 +2186,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                   <Input className="h-9 text-sm" {...editEventForm.register("location")} />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
-                  <Label className="text-xs">Date de l'événement</Label>
+                  <Label className="text-xs">Date de l’événement</Label>
                   <Input type="date" className="h-9 text-sm" {...editEventForm.register("race_date")} />
                 </div>
                 <div className="space-y-1 sm:col-span-2">
@@ -2215,10 +2215,10 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
             <hr className="border-slate-200 dark:border-slate-800" />
 
             <div className="space-y-2">
-              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Image de l'événement</p>
+              <p className="text-sm font-semibold text-slate-700 dark:text-slate-200">Image de l’événement</p>
               {editEvent?.thumbnail_url && !editEventImagePreview ? (
                 <div className="space-y-1">
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Image actuelle de l'événement</p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">Image actuelle de l’événement</p>
                   <Image
                     src={editEvent.thumbnail_url}
                     alt={editEvent.name}
@@ -2242,7 +2242,7 @@ export default function AdminRaceCatalogSection({ accessToken, t }: Props) {
                 </div>
               ) : null}
               <div className="space-y-1">
-                <Label className="text-xs">Remplacer l'image d'événement</Label>
+                <Label className="text-xs">Remplacer l’image d’événement</Label>
                 <Input
                   type="file"
                   accept="image/jpeg,image/png,image/webp,image/avif"

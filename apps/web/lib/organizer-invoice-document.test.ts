@@ -32,12 +32,22 @@ describe("organizer invoice document", () => {
     expect(snapshot.service.category).toBe("Prestations de services");
   });
 
+  it("accepts an organization without a SIREN", () => {
+    const customer = organizerInvoiceCustomerSchema.parse({
+      legalName: "Association non immatriculée",
+      billingAddress: "2 chemin des Sommets\n74000 Annecy",
+      siren: "",
+    });
+
+    expect(customer.siren).toBeNull();
+  });
+
   it("creates a one-page final PDF with stable invoice metadata", async () => {
     const snapshot = buildOrganizerInvoiceSnapshot({
       customer: organizerInvoiceCustomerSchema.parse({
         legalName: "Association des Crêtes",
         billingAddress: "1 rue du Trail\n69000 Lyon",
-        siren: "123456789",
+        siren: "",
       }),
       eventName: "Trail des Crêtes",
       editionYear: 2026,

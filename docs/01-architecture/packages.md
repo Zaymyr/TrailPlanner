@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-09-10
+last_verified: 2026-09-16
 ai_priority: medium
 related_files:
   - package.json
@@ -42,7 +42,7 @@ Exports from `packages/shared/src/index.ts`. Current shared logic includes alert
 - `getAlertsToFire`
 - related alert types
 
-This package is used for logic that should not depend on Next.js or Expo runtime APIs.
+This package contains runtime-neutral logic, but no current application import was found during the 2026-09-16 verification. Mobile intentionally imports its narrower local `apps/mobile/lib/shared.ts` implementation and tests that implementation directly. Treat consolidation as a deliberate compatibility change, not as a mechanical import rewrite.
 
 ### `@pace-yourself/design-system`
 
@@ -88,6 +88,8 @@ apps/mobile ┘
 
 Avoid importing app-specific code from packages. Packages should not depend on Next.js route handlers, Expo modules, local storage, or service-role configuration.
 
+The diagram is the target direction for genuinely shared behavior, not proof that every package currently has both consumers. `@pace-yourself/design-system` is shared by web and mobile today; `@trailplanner/shared` is not.
+
 ## When to Move Code Into a Package
 
 Move logic into `packages/shared` only when:
@@ -106,9 +108,11 @@ Keep logic inside an app when:
 
 - Keep the RaceBook branding resolver runtime-neutral: both Next.js and Expo import it, so it must not depend on DOM, Node, React, or React Native APIs.
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.
+- Alert scheduling currently has a broader package implementation and a time-only mobile implementation. Preserve their explicit tests and reconcile their product contract before removing either copy.
 - `apps/web/next.config.mjs` transpiles `@trailplanner/shared` and `@pace-yourself/design-system` and owns route-scoped response headers such as the English subtree's `Content-Language`. Preserve both responsibilities when editing the config; a new package that exports TS/TSX directly may need a matching transpile entry.
 - The local `@tanstack/react-query` package can mask assumptions about the upstream package. Inspect it before changing data-fetching code.
 - Keep the root `packageManager` field present when upgrading npm/Turbo; current Turbo versions refuse to resolve this workspace graph without it.
+- Keep root `build`, `test`, and `verify` scripts delegated through Turbo so new workspace scripts automatically join the repository gate.
 
 ## Related Docs
 

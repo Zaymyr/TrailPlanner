@@ -50,6 +50,15 @@ describe("POST /api/admin/organizer-payments/preview", () => {
     expect(new TextDecoder("ascii").decode(bytes.slice(0, 5))).toBe("%PDF-");
   });
 
+  it("returns a preview when the organization has no SIREN", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{ edition_year: 2026, race_events: { name: "Trail Test" } }]));
+
+    const response = await POST(request(""));
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("content-type")).toBe("application/pdf");
+  });
+
   it("rejects an invalid client SIREN before querying the edition", async () => {
     const response = await POST(request("123"));
     expect(response.status).toBe(400);

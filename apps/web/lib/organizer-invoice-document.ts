@@ -6,7 +6,11 @@ import { supportEmail } from "../app/support/copy";
 export const organizerInvoiceCustomerSchema = z.object({
   legalName: z.string().trim().min(2).max(160),
   billingAddress: z.string().trim().min(5).max(500),
-  siren: z.string().trim().transform((value) => value.replace(/\s/g, "")).pipe(z.string().regex(/^\d{9}$/)),
+  siren: z.preprocess((value) => {
+    if (value === null || value === undefined) return null;
+    if (typeof value !== "string") return value;
+    return value.trim().replace(/\s/g, "") || null;
+  }, z.string().regex(/^\d{9}$/).nullable()),
   vatNumber: z.string().trim().max(32).nullable().optional().transform((value) => value || null),
   purchaseOrderNumber: z.string().trim().max(80).nullable().optional().transform((value) => value || null),
 });
@@ -165,7 +169,8 @@ export async function generateOrganizerInvoicePdf(input: {
   page.drawText("ÉMETTEUR", { x: 62, y: 707, font: bold, size: 8, color: green });
   drawLines(page, [snapshot.seller.legalName, snapshot.seller.legalForm, snapshot.seller.tradingName, ...snapshot.seller.address.split("\n"), `SIREN ${snapshot.seller.siren} - SIRET ${snapshot.seller.siret}`, snapshot.seller.registration, snapshot.seller.email], { x: 62, y: 692, font: regular, size: 8.3, lineHeight: 12 });
   page.drawText("CLIENT", { x: 316, y: 707, font: bold, size: 8, color: green });
-  const customerLines = [snapshot.customer.legalName, ...snapshot.customer.billingAddress.split("\n"), `SIREN ${snapshot.customer.siren}`];
+  const customerLines = [snapshot.customer.legalName, ...snapshot.customer.billingAddress.split("\n")];
+  if (snapshot.customer.siren) customerLines.push(`SIREN ${snapshot.customer.siren}`);
   if (snapshot.customer.vatNumber) customerLines.push(`TVA intracommunautaire ${snapshot.customer.vatNumber}`);
   drawLines(page, customerLines.flatMap((line) => wrap(line, regular, 8.3, 214)), { x: 316, y: 692, font: regular, size: 8.3, lineHeight: 12 });
 

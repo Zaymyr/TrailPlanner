@@ -20,6 +20,7 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("Prévisualiser la facture PDF");
     expect(source).toContain("Générer une facture");
     expect(source).toContain("Générer et rendre disponible");
+    expect(source).toContain("SIREN (si l’organisation en possède un)");
     expect(source).toContain("Le paiement et les droits existants ne seront pas modifiés");
     expect(source).toContain("Pack actuellement actif");
     expect(source).toContain('["visibility", "essential", "complete", "signature"]');

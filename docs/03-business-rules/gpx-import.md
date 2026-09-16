@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-14
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -193,6 +193,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 
 ## Gotchas
 
+- Admin catalog copy may use typographic French apostrophes to remain JSX-lint safe; this presentation detail must not alter GPX parsing, upload, or publication behavior.
 - A legacy `elevation_gain_m` missing marker is cleared when the parsed trace contains elevation samples, even if the computed gain is zero; do not use a positive-gain test as a proxy for elevation availability.
 
 - Organizer official-product overlays are capability-gated separately from GPX/ravito import. Non-Pro formats keep their route and stations but expose no official-product overlay.

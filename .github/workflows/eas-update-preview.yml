@@ -7,13 +7,22 @@ on:
     paths:
       - 'apps/mobile/**'
       - 'packages/**'
+      - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/eas-update-preview.yml'
   workflow_dispatch:
 
+concurrency:
+  group: eas-update-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   update-preview:
     runs-on: ubuntu-latest
+    environment: preview
     env:
       npm_config_fetch_retries: "5"
       npm_config_fetch_retry_factor: "2"
@@ -49,7 +58,20 @@ jobs:
             sleep 15
           done
 
+      - name: Lint
+        run: npm run lint
+
+      - name: TypeScript check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Expo version check
+        run: npx expo install --check
+
       - name: Publish preview OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-        run: eas update --branch preview --environment preview --message "${{ github.event.head_commit.message || 'Preview OTA update' }}" --non-interactive
+          OTA_MESSAGE: ${{ github.event.head_commit.message || 'Preview OTA update' }}
+        run: eas update --branch preview --environment preview --message "$OTA_MESSAGE" --non-interactive

@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -10,6 +10,10 @@ related_files:
   - apps/mobile/locales/en.ts
   - apps/mobile/locales/types.ts
   - apps/mobile/package.json
+  - apps/mobile/vitest.config.ts
+  - apps/mobile/lib/shared.ts
+  - apps/mobile/lib/shared.test.ts
+  - apps/mobile/lib/racebookSponsorPresentation.test.ts
   - apps/mobile/.eslintrc.js
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
@@ -126,6 +130,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - `react-native-purchases ^9.15.1`
 - `posthog-react-native ^4.45.0`
 - `react-native-webview 13.15.0` for the interactive Racebook Leaflet map
+- `test` / `test:watch`, which run the fast Node-only Vitest suite for pure mobile logic
 - `test:e2e:ux`, which invokes the local Maestro UX journey without storing credentials in source control
 - `lint`, which runs the Expo-compatible ESLint rules while excluding generated export directories
 
@@ -287,6 +292,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 
 ## Gotchas
 
+- Keep the fast Vitest suite Node-only and focused on pure modules. Code that imports Expo or React Native runtime modules belongs behind adapters or in the Maestro/device path; do not make unit tests depend on a native simulator.
 - Do not make optional structured RaceBook modules part of the whole-screen failure boundary. A PostgREST `404` before the corresponding migration/Data API exposure is deployed must degrade SAS, awards or structured services to an empty collection instead of hiding historical organizer content.
 - Do not put mobile test credentials in Maestro YAML, screenshots, source files, or Expo public environment variables. Local runs may map the ignored `apps/web/.env.local` login keys into process-only `MAESTRO_*` variables; EAS runs must use secret variables in the `preview` environment.
 - A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.

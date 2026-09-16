@@ -1,18 +1,33 @@
 name: Supabase Schema Snapshot
+
 on:
   workflow_run:
-    workflows: [ "Supabase DB Migrate" ]   # must match the 'name:' of your migrate workflow
+    workflows: ["Supabase DB Migrate"]
     types:
       - completed
+
+concurrency:
+  group: supabase-schema-snapshot
+  cancel-in-progress: false
+
 permissions:
   contents: write
+
 jobs:
   run-if-success:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      ${{
+        github.event.workflow_run.conclusion == 'success' &&
+        github.event.workflow_run.head_branch == 'main' &&
+        github.event.workflow_run.head_repository.full_name == github.repository
+      }}
     runs-on: ubuntu-latest
     steps:
-      # ... same snapshot steps as before ...
-
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
 
       - name: Create docs folder
         run: mkdir -p docs/db
@@ -25,7 +40,12 @@ jobs:
             -e SUPABASE_DB_URL_SESSION="$SUPABASE_DB_URL_SESSION" \
             -v "$PWD:/work" -w /work \
             postgres:17-alpine \
-            sh -lc 'pg_dump "$SUPABASE_DB_URL_SESSION" --schema-only --no-owner --no-privileges -f docs/db/schema.sql'
+            sh -lc 'pg_dump "$SUPABASE_DB_URL_SESSION" --schema-only --no-owner -f docs/db/schema.sql'
+
+      - name: Validate schema dump
+        run: |
+          test -s docs/db/schema.sql
+          grep -Eq '^CREATE TABLE ' docs/db/schema.sql
 
       - name: Generate Markdown docs from schema.sql
         run: |
@@ -168,11 +188,13 @@ jobs:
 
       - name: Commit schema snapshot if changed
         run: |
+          set -euo pipefail
           if [[ -n "$(git status --porcelain docs/db)" ]]; then
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add docs/db
             git commit -m "chore(db): update schema snapshot"
+            git pull --rebase origin main
             git push
           else
             echo "No schema changes."
