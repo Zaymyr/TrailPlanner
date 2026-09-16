@@ -34,9 +34,14 @@ describe("organizer acquisition attribution", () => {
 });
 
 describe("organizer auth return path", () => {
-  it("accepts the organizer dashboard without query parameters", () => {
+  it("accepts the organizer dashboard and retains only a valid event id", () => {
     expect(normalizeInternalReturnPath("/organizer")).toBe("/organizer");
     expect(normalizeInternalReturnPath("/organizer?eventId=discarded")).toBe("/organizer");
+    expect(
+      normalizeInternalReturnPath(
+        "/organizer?eventId=4f4ab461-bbe0-4e03-851b-73a46751c16d&unknown=discarded",
+      ),
+    ).toBe("/organizer?eventId=4f4ab461-bbe0-4e03-851b-73a46751c16d");
   });
 
   it("accepts the organizer creation route and retains only supported UTM parameters", () => {
@@ -72,6 +77,9 @@ describe("organizer auth return path", () => {
     );
     expect(buildAuthCallbackPath("/organizer")).toBe(
       "/auth/callback?next=%2Forganizer",
+    );
+    expect(buildAuthHref("/sign-in", "/organizer?eventId=4f4ab461-bbe0-4e03-851b-73a46751c16d")).toBe(
+      "/sign-in?next=%2Forganizer%3FeventId%3D4f4ab461-bbe0-4e03-851b-73a46751c16d",
     );
   });
 });

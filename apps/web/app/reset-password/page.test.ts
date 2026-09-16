@@ -19,5 +19,8 @@ describe("Reset password destinations", () => {
 
     expect(source).toContain("const task = Promise.resolve().then(async () =>");
     expect(source).toContain("if (refreshInFlight.current === task) refreshInFlight.current = null");
+    expect(source).toContain("const SESSION_VERIFICATION_TIMEOUT_MS = 10_000");
+    expect(source).toContain("signal: controller.signal");
+    expect(source).toContain("window.clearTimeout(timeoutId)");
   });
 });
