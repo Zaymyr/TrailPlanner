@@ -1525,7 +1525,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         </DialogContent>
       </Dialog>
 
-      {organizerAdminTab === "access" ? <Card className="rounded-lg">
+      {organizerAdminTab === "access" ? <Card className="relative z-10 rounded-lg">
         <CardHeader>
           <CardTitle>Associer un organisateur</CardTitle>
           <CardDescription>
