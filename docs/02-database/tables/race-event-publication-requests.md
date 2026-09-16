@@ -90,7 +90,7 @@ This table is retained publication-review history. New organizer publication use
 
 - Current admin pack changes, Visibilité downgrades, and direct-virement recording do not create or reopen legacy publication-request rows.
 - The admin rights search, offer filter, and ten-event pagination are client-side presentation controls; they do not change or narrow the dedicated pending-request review queue.
-- The access-tab autocomplete listboxes use a foreground stacking layer so later admin cards do not cover their suggestions; this visual fix does not read or mutate publication requests.
+- The access-tab assignment card is positioned above the following active-access card because the shared blur creates a stacking context; its autocomplete listboxes therefore remain visible, and this visual fix does not read or mutate publication requests.
 - The separate access-tab e-mail/event autocompletes are also presentation and bounded lookup controls. They do not create, approve, reject, or narrow publication requests.
 - Canonical direct-virement pricing, article 293 B zero VAT, invoice preview/issuance (including customers without a SIREN), and same-day payment-date normalization occur in protected payment routes without touching this legacy request table.
 - On-demand issuance for an older paid virement reuses its stored ledger facts and changes no publication request, payment entitlement, or RaceBook visibility.
