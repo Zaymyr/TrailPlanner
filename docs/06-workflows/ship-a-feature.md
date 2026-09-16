@@ -66,7 +66,7 @@ The web CI workflow runs on pull requests and on `main`. It fetches Git history 
 
 Preview OTA publication runs only after the same mobile lint, typecheck, unit tests, and Expo dependency checks pass. Production OTA publication is never automatic on a push to `main`: dispatch it manually with the exact commit SHA already merged into `main`, confirm with `PROMOTE_TO_PRODUCTION`, and use the protected `production` GitHub environment for required reviewer approval. Promote only a commit already validated on preview.
 
-Files under GitHub workflows, Supabase, auth, and payment boundaries have targeted CODEOWNERS review. Dependabot opens grouped weekly npm updates and monthly GitHub Actions updates; dependency pull requests must pass the same verification gates as feature changes.
+Files under GitHub workflows, Supabase, auth, and payment boundaries have targeted CODEOWNERS review. Dependabot opens grouped monthly npm updates and one grouped monthly GitHub Actions update; dependency pull requests must pass the same verification gates as feature changes. Expo SDK and native React Native dependencies are excluded from isolated Dependabot bumps and must be upgraded together through `npx expo install`. The Supabase client is capped below the release that drops Node 20 support until the repository deliberately migrates its CI and runtimes to Node 22.
 
 The organizer payment journey is an explicit, destructive test-mode check: run `npm run test:e2e:organizer-payment -w @trailplanner/web` only with `RUN_ORGANIZER_PAYMENT_E2E=1`, `ORGANIZER_E2E_EMAIL`, `ORGANIZER_E2E_PASSWORD`, and an optional `ORGANIZER_E2E_BASE_URL`. It refuses non-`cs_test_` Stripe Checkout sessions and deletes its uniquely named `TEST` event both through the UI and a fallback API cleanup.
 

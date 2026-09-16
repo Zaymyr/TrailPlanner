@@ -134,7 +134,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - `test:e2e:ux`, which invokes the local Maestro UX journey without storing credentials in source control
 - `lint`, which runs the Expo-compatible ESLint rules while excluding generated export directories; `eslint-plugin-react-hooks` is a direct development dependency so clean workspace installs do not depend on npm hoisting it transitively
 
-The mobile Vitest configuration resolves React explicitly from `apps/mobile/node_modules`. This preserves the React 19 mobile runtime when tests traverse the source-exported design-system package instead of falling back to the root web runtime or constructing a non-existent `apps/mobile/react` path.
+The mobile Vitest configuration resolves React explicitly from `apps/mobile/node_modules`. It imports Node's `URL` implementation alongside `fileURLToPath` so the alias remains type-safe when DOM and Node URL declarations coexist. This preserves the React 19 mobile runtime when tests traverse the source-exported design-system package instead of falling back to the root web runtime or constructing a non-existent `apps/mobile/react` path.
 
 The root layout imports only the nine Bricolage Grotesque and JetBrains Mono weight subpaths registered in `useFonts`. Importing from each font package root makes Metro retain unused weights and italics in the production asset graph.
 
