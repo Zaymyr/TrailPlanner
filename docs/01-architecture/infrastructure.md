@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -196,7 +196,7 @@ Document variable names, not secret values. Important names visible in code incl
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
 - Keep every alternate production hostname on a permanent redirect to `https://pace-yourself.com`; temporary host redirects split canonical signals and should not be configured in the Vercel domain settings.
 - Keep the Vercel dependency install scoped to `@trailplanner/web`. Removing the workspace filter makes npm install every workspace, including the mobile Expo graph, even though Vercel builds only the web app. Do not replace it with `npm ci` without re-evaluating build timings because `npm ci` deletes the dependency tree restored from Vercel's cache.
-- The app sends events through the public Web and Expo PostHog keys. The admin dashboard still uses Supabase metrics only; the organizer statistics route separately reads one named PostHog Endpoint with a server-only `endpoint:read` key and a 15-minute Endpoint cache.
+- The app sends events through the public Web and Expo PostHog keys. The admin dashboard still uses Supabase metrics only; the organizer statistics route separately reads one named PostHog Endpoint with a server-only `endpoint:read` key and a 15-minute Endpoint cache, then enriches the response with an exact event-favorite count from Supabase.
 - Never reuse a `NEXT_PUBLIC_` or `EXPO_PUBLIC_` PostHog token as `POSTHOG_API_KEY` or `POSTHOG_PERSONAL_API_KEY`, and never expose the server key in a bootstrap or analytics response. The API host must be the HTTPS PostHog application origin without a path or embedded credentials.
 - The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.
 - Organizer checkout recomputes the persisted module requirement before creating Stripe state and stores the recommendation as metadata; the requested lower paid tier remains valid and public filtering keeps uncovered drafts private.

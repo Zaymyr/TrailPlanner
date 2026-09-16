@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../../../components/ui/card";
@@ -15,6 +15,7 @@ import {
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
 import { TabsList } from "../../../components/ui/tabs";
+import { cn } from "../../../components/utils";
 import { ORGANIZER_TIER_PRICE_EUR } from "../../../lib/organizer-modules";
 
 type OrganizerUserSummary = {
@@ -110,6 +111,17 @@ type RaceEventOption = {
   race_date?: string | null;
 };
 
+type AssignmentUserOption = {
+  id: string;
+  email: string;
+};
+
+type AssignmentAutocompleteOption = {
+  id: string;
+  label: string;
+  description?: string;
+};
+
 type RacebookPublicationEvent = RaceEventOption & {
   editionId: string | null;
   editionYear: number | null;
@@ -175,6 +187,111 @@ const normalizeSearchValue = (value: string) =>
     .replace(/[\u0300-\u036f]/g, "")
     .toLocaleLowerCase("fr");
 
+function AssignmentAutocomplete({
+  id,
+  value,
+  options,
+  placeholder,
+  emptyMessage,
+  inputType = "text",
+  selectOnFocus = false,
+  loading = false,
+  onChange,
+  onSelect,
+}: {
+  id: string;
+  value: string;
+  options: AssignmentAutocompleteOption[];
+  placeholder: string;
+  emptyMessage: string;
+  inputType?: "text" | "email";
+  selectOnFocus?: boolean;
+  loading?: boolean;
+  onChange: (value: string) => void;
+  onSelect: (option: AssignmentAutocompleteOption) => void;
+}) {
+  const generatedId = useId();
+  const listboxId = `${generatedId}-listbox`;
+  const [open, setOpen] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(0);
+
+  const selectOption = (option: AssignmentAutocompleteOption) => {
+    onSelect(option);
+    setOpen(false);
+    setHighlightedIndex(0);
+  };
+
+  return (
+    <div className="relative">
+      <Input
+        id={id}
+        type={inputType}
+        role="combobox"
+        autoComplete="off"
+        aria-autocomplete="list"
+        aria-expanded={open}
+        aria-controls={open ? listboxId : undefined}
+        aria-activedescendant={open && options[highlightedIndex] ? `${generatedId}-option-${highlightedIndex}` : undefined}
+        value={value}
+        placeholder={placeholder}
+        onFocus={(event) => {
+          if (selectOnFocus) event.currentTarget.select();
+          setOpen(true);
+        }}
+        onBlur={() => setOpen(false)}
+        onChange={(event) => {
+          onChange(event.target.value);
+          setHighlightedIndex(0);
+          setOpen(true);
+        }}
+        onKeyDown={(event) => {
+          if (event.key === "Escape") {
+            setOpen(false);
+            return;
+          }
+          if ((event.key === "ArrowDown" || event.key === "ArrowUp") && options.length > 0) {
+            event.preventDefault();
+            const direction = event.key === "ArrowDown" ? 1 : -1;
+            setHighlightedIndex((current) => (current + direction + options.length) % options.length);
+            setOpen(true);
+            return;
+          }
+          if (event.key === "Enter" && open && options[highlightedIndex]) {
+            event.preventDefault();
+            selectOption(options[highlightedIndex]);
+          }
+        }}
+        className="pr-9"
+      />
+      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true" className={cn("pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition", open && "rotate-180")}>
+        <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      {open ? (
+        <div id={listboxId} role="listbox" className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-40 max-h-64 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-xl">
+          {loading ? <p role="status" className="px-3 py-2 text-sm text-muted-foreground">Recherche…</p> : null}
+          {!loading && options.length === 0 ? <p className="px-3 py-2 text-sm text-muted-foreground">{emptyMessage}</p> : null}
+          {!loading ? options.map((option, index) => (
+            <button
+              key={option.id}
+              id={`${generatedId}-option-${index}`}
+              type="button"
+              role="option"
+              aria-selected={index === highlightedIndex}
+              onMouseDown={(event) => event.preventDefault()}
+              onMouseEnter={() => setHighlightedIndex(index)}
+              onClick={() => selectOption(option)}
+              className={cn("flex min-h-10 w-full flex-col items-start rounded px-3 py-2 text-left text-sm text-foreground", index === highlightedIndex ? "bg-brand-surface" : "hover:bg-muted/50")}
+            >
+              <span className="w-full truncate font-medium">{option.label}</span>
+              {option.description ? <span className="w-full truncate text-xs text-muted-foreground">{option.description}</span> : null}
+            </button>
+          )) : null}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 const getOrganizerPaymentAmounts = (
   tier: NonNullable<RacebookPublicationEvent["entitlement"]>["tier"]
 ) => {
@@ -223,7 +340,11 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
   const [invoiceFiles, setInvoiceFiles] = useState<Record<string, File | null>>({});
   const [assignmentEmail, setAssignmentEmail] = useState("");
+  const [assignmentUsers, setAssignmentUsers] = useState<AssignmentUserOption[]>([]);
+  const [assignmentUsersLoading, setAssignmentUsersLoading] = useState(false);
+  const [assignmentUsersError, setAssignmentUsersError] = useState(false);
   const [assignmentEventId, setAssignmentEventId] = useState("");
+  const [assignmentEventSearch, setAssignmentEventSearch] = useState("");
   const [assignmentSuccess, setAssignmentSuccess] = useState<string | null>(null);
   const [missingAccountAssignment, setMissingAccountAssignment] = useState<{
     email: string;
@@ -287,6 +408,11 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       const loadedEvents = data?.events ?? [];
       setEvents(loadedEvents);
       setAssignmentEventId((current) => current || loadedEvents[0]?.id || "");
+      setAssignmentEventSearch((current) => {
+        if (current) return current;
+        const selectedEvent = loadedEvents.find((event: RaceEventOption) => event.id === assignmentEventId) ?? loadedEvents[0];
+        return selectedEvent?.name ?? "";
+      });
       setPublicationRequests(publicationData?.publicationRequests ?? []);
       setPublicationEvents(publicationData?.events ?? []);
     } catch (caught) {
@@ -357,6 +483,63 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   useEffect(() => {
     void load();
   }, [accessToken]);
+
+  useEffect(() => {
+    const query = assignmentEmail.trim();
+    if (organizerAdminTab !== "access" || !accessToken || query.length < 2) {
+      setAssignmentUsers([]);
+      setAssignmentUsersLoading(false);
+      setAssignmentUsersError(false);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setAssignmentUsersLoading(true);
+      setAssignmentUsersError(false);
+      try {
+        const response = await fetch(`/api/admin/organizer-claims?emailSearch=${encodeURIComponent(query)}`, {
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = (await response.json().catch(() => null)) as { users?: AssignmentUserOption[] } | null;
+        if (!response.ok) throw new Error("Unable to autocomplete organizer accounts.");
+        setAssignmentUsers(data?.users ?? []);
+      } catch (caught) {
+        if (controller.signal.aborted) return;
+        console.error("Unable to autocomplete organizer accounts", caught);
+        setAssignmentUsers([]);
+        setAssignmentUsersError(true);
+      } finally {
+        if (!controller.signal.aborted) setAssignmentUsersLoading(false);
+      }
+    }, 250);
+
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [accessToken, assignmentEmail, organizerAdminTab]);
+
+  const assignmentEmailOptions = useMemo<AssignmentAutocompleteOption[]>(
+    () => assignmentUsers.map((user) => ({ id: user.id, label: user.email })),
+    [assignmentUsers]
+  );
+  const assignmentEventOptions = useMemo<AssignmentAutocompleteOption[]>(() => {
+    const normalizedQuery = normalizeSearchValue(assignmentEventSearch.trim());
+    return events
+      .filter((event) => {
+        if (!normalizedQuery || event.id === assignmentEventId) return true;
+        return normalizeSearchValue([event.name, event.location, event.race_date?.slice(0, 10)].filter(Boolean).join(" ")).includes(normalizedQuery);
+      })
+      .slice(0, 12)
+      .map((event) => ({
+        id: event.id,
+        label: event.name,
+        description: [event.location, event.race_date?.slice(0, 10)].filter(Boolean).join(" · "),
+      }));
+  }, [assignmentEventId, assignmentEventSearch, events]);
 
   const runAction = async (payload: Record<string, unknown>) => {
     if (!accessToken) return;
@@ -1353,30 +1536,42 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_auto] sm:items-end">
             <div className="space-y-1">
               <Label htmlFor="organizer-assignment-email">Adresse e-mail du compte</Label>
-              <Input
+              <AssignmentAutocomplete
                 id="organizer-assignment-email"
-                type="email"
-                autoComplete="email"
+                inputType="email"
                 value={assignmentEmail}
-                onChange={(event) => setAssignmentEmail(event.target.value)}
                 placeholder="organisateur@exemple.fr"
+                options={assignmentEmailOptions}
+                loading={assignmentUsersLoading}
+                emptyMessage={
+                  assignmentUsersError
+                    ? "Recherche temporairement indisponible. Vous pouvez saisir l’adresse manuellement."
+                    : assignmentEmail.trim().length < 2
+                      ? "Saisissez au moins 2 caractères pour rechercher un compte."
+                      : "Aucun compte existant trouvé. Cette adresse pourra être invitée."
+                }
+                onChange={setAssignmentEmail}
+                onSelect={(option) => setAssignmentEmail(option.label)}
               />
             </div>
             <div className="space-y-1">
               <Label htmlFor="organizer-assignment-event">Course</Label>
-              <select
+              <AssignmentAutocomplete
                 id="organizer-assignment-event"
-                className="flex h-10 w-full rounded-md border border-border bg-card px-3 py-2 text-sm text-card-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                value={assignmentEventId}
-                onChange={(event) => setAssignmentEventId(event.target.value)}
-              >
-                {events.length === 0 ? <option value="">Aucune course disponible</option> : null}
-                {events.map((event) => (
-                  <option key={event.id} value={event.id}>
-                    {event.name}{event.location ? ` — ${event.location}` : ""}{event.race_date ? ` — ${event.race_date.slice(0, 10)}` : ""}
-                  </option>
-                ))}
-              </select>
+                value={assignmentEventSearch}
+                placeholder="Rechercher une course, un lieu ou une date"
+                selectOnFocus
+                options={assignmentEventOptions}
+                emptyMessage={events.length === 0 ? "Aucune course disponible." : "Aucune course ne correspond à cette recherche."}
+                onChange={(value) => {
+                  setAssignmentEventSearch(value);
+                  setAssignmentEventId("");
+                }}
+                onSelect={(option) => {
+                  setAssignmentEventId(option.id);
+                  setAssignmentEventSearch(option.label);
+                }}
+              />
             </div>
             <Button
               type="button"

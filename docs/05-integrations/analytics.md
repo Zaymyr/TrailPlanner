@@ -1,13 +1,15 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/lib/posthog-organizer-analytics.test.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
+  - apps/web/app/organizer/_components/dashboard/analytics-panel.tsx
+  - apps/web/app/organizer/_components/dashboard/analytics-panel.test.ts
   - apps/web/components/ui/TimeSeriesLineChart.tsx
   - apps/web/app/admin/components/TimeSeriesLineChart.test.ts
   - apps/web/lib/posthog-config.ts
@@ -47,6 +49,7 @@ related_files:
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
 related_tables:
+  - user_favorite_race_events
   - race_event_edition_sponsors
   - race_event_edition_branding
   - organizer_edition_entitlements
@@ -192,7 +195,7 @@ Edition branding is presentation state only. Logo URLs, the temporary logo featu
 
 ### Organizer-facing RaceBook statistics
 
-`GET /api/organizer/editions/[id]/analytics` is the only application bridge from an organizer session to PostHog. It first verifies the Supabase bearer session, the edition's parent-event membership (trusted admins retain their existing bypass), the effective `racebook_analytics.view` capability, and an optional `raceId` against the edition. The browser never receives a PostHog API key and never calls PostHog directly.
+`GET /api/organizer/editions/[id]/analytics` is the only application bridge from an organizer session to PostHog. It first verifies the Supabase bearer session, the edition's parent-event membership (trusted admins retain their existing bypass), the effective `racebook_analytics.view` capability, and an optional `raceId` against the edition. The browser never receives a PostHog API key and never calls PostHog directly. The same authorized request also reads an exact Supabase count from `user_favorite_race_events` and adds `summary.favoriteCount`; this KPI is event-scoped, remains unchanged by the optional format or date-range filters, and never exposes follower identities.
 
 The route accepts `range=7d|30d|90d` (30 days by default) and an optional edition-owned `raceId`. It passes one named Endpoint the parent event id, edition id and dates, the complete allowlisted edition format ids, the optional selected format, and bounded UTC reporting dates. Filtering by the edition's format-id allowlist is mandatory because mobile RaceBook events carry `event_id` and `race_id`, but no `edition_id`; filtering on the event alone could mix yearly editions.
 
@@ -274,6 +277,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not interpret paywall or checkout events as revenue. For mobile conversion funnels, count only `premium purchase verified` with `environment: production`, then reconcile against RevenueCat/App Store transactions.
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
 - Do not reinterpret sponsor `click_count` as unique people or join it to runner analytics identities.
+- Keep the favorite KPI event-scoped and sourced from the current Supabase relationship count. It is a stock total, not a period flow or a format-specific metric.
 - Do not send edition logo URLs or arbitrary organizer colors as analytics properties.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
 - Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require event selection, format selection, and successful-open events; search is optional because the initial eligible-course list is directly selectable.

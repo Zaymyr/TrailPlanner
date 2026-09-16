@@ -1,8 +1,16 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 
-import { formatAnalyticsDuration, OrganizerAnalyticsPanel } from "./analytics-panel";
+import { formatAnalyticsDuration, OrganizerAnalyticsPanel, OrganizerAnalyticsSummaryCards } from "./analytics-panel";
+
+vi.mock("../../../../components/ui/MetricCard", async () => {
+  const { createElement: createMockElement } = await import("react");
+  return {
+    MetricCard: ({ label, value, helper }: { label: string; value: string; helper?: string }) =>
+      createMockElement("div", null, label, value, helper),
+  };
+});
 
 describe("organizer analytics presentation", () => {
   it("formats missing, short and minute-long active durations", () => {
@@ -13,6 +21,21 @@ describe("organizer analytics presentation", () => {
 
   it("does not expose negative durations", () => {
     expect(formatAnalyticsDuration(-4)).toBe("0 s");
+  });
+
+  it("shows the event favorite count with the analytics KPIs", () => {
+    const html = renderToStaticMarkup(createElement(OrganizerAnalyticsSummaryCards, {
+      summary: {
+        uniqueReaders: 12,
+        totalOpens: 20,
+        averageActiveSeconds: 75,
+        engagementRate: 0.6,
+        favoriteCount: 37,
+      },
+    }));
+    expect(html).toContain("Ajouts aux favoris");
+    expect(html).toContain("37");
+    expect(html).toContain("Coureurs suivant l’événement");
   });
 
   it("shows the Signature upgrade message when access is locked", () => {
