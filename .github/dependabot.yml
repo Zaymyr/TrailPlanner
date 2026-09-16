@@ -10,6 +10,11 @@ updates:
     # Expo SDK and native React Native packages must be upgraded together with
     # `npx expo install`, never as isolated Dependabot version bumps.
     ignore:
+      # Major application upgrades are planned and tested manually. Dependabot
+      # remains responsible for the grouped minor and patch maintenance below.
+      - dependency-name: "*"
+        update-types:
+          - "version-update:semver-major"
       - dependency-name: "expo"
       - dependency-name: "expo-*"
       - dependency-name: "@expo/*"
@@ -17,6 +22,7 @@ updates:
       - dependency-name: "react-native-*"
       - dependency-name: "@react-native*/*"
       - dependency-name: "babel-preset-expo"
+      - dependency-name: "eslint-config-expo"
       # supabase-js >=2.110 drops Node 20 support. Remove these bounds only
       # as part of the repository's future Node 22 migration.
       - dependency-name: "@supabase/supabase-js"

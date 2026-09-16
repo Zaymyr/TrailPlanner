@@ -4,7 +4,7 @@
   "buildCommand": "npm run build",
   "installCommand": "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund",
   "outputDirectory": ".next",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json",
+  "ignoreCommand": "node -e \"process.exit(process.env.VERCEL_GIT_COMMIT_REF?.startsWith('dependabot/') ? 0 : 1)\" || git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json",
   "redirects": [
     {
       "source": "/:path*",
