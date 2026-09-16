@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-09-12
+last_verified: 2026-09-15
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -24,7 +24,7 @@ This document records the lightweight mapping setup used for organizer GPX route
 
 - `leaflet` provides the interactive map runtime.
 - `react-leaflet` provides the React bindings and must stay on the React 18-compatible 4.x line while `apps/web` is still on React 18.
-- The current web dependency audit retains that 4.x map binding; the added `tus-js-client` dependency is isolated to Organizer document uploads and does not enter the GPX map runtime.
+- The current web dependency audit retains that 4.x map binding; `tus-js-client` and the server-only `pdf-lib` invoice renderer are isolated from the GPX map runtime.
 - `leaflet/dist/leaflet.css` is loaded from `apps/web/app/layout.tsx`; the same static root layout also supplies default social metadata without introducing request-bound rendering.
 - Base tiles come from `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`.
 

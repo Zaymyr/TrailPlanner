@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -26,6 +26,7 @@ related_files:
   - apps/mobile/app/(auth)/signup.tsx
   - apps/mobile/hooks/useAppleAuth.ts
   - apps/mobile/hooks/useGoogleAuth.ts
+  - apps/mobile/hooks/useGuestAccountPrompt.ts
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/onboardingGate.ts
@@ -90,6 +91,7 @@ The authenticated onboarding catalog accepts source-backed formats whose D+ is s
 The root keeps auth navigation and analytics identity. `useSessionSideEffects` encapsulates only idempotent trial, Resend, and pending account/guest conversion maintenance.
 
 Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mobile/app/(auth)/signup.tsx`, and the guest onboarding account choice in `apps/mobile/app/(app)/onboarding.tsx`.
+Guest-only feature gates reuse `apps/mobile/hooks/useGuestAccountPrompt.ts`. It presents separate account-creation and existing-account sign-in choices, then routes through those same auth screens so guest conversion/merge behavior remains centralized. The race-favorite and additional-plan gates invoke it before optimistic UI or persistence.
 The onboarding route injects the guest account controls into its extracted presentational overview component. Apple/Google callbacks, loading state, guest continuation, and auth errors remain owned by the route so the component split does not create a second authentication lifecycle.
 The password-login inputs and submit action expose stable `auth-login-*` test ids and localized accessibility labels. The Maestro UX journey uses those hooks so translations can change without breaking authentication tests. Credentials enter the process through ignored local environment files or secret EAS `preview` variables; they are never embedded in the app bundle or flow YAML.
 Login uses the same scrollable keyboard-avoidance layout as signup, so account actions remain reachable when the iOS keyboard is open or Dynamic Type enlarges the form.
@@ -129,6 +131,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Never pass an unvalidated `next` value to `router.push`, `router.replace`, or an OAuth callback URL.
 - Only `/organizer` and `/organizers` are valid organizer return destinations; do not expand this allowlist without a dedicated redirect-security review.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
+- Guest feature prompts must route through the existing login/signup screens rather than implementing provider or password auth inside the gated screen.
 - Trial repair runs during session verification and must stay idempotent.
 - Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.
 - Do not key the mobile onboarding gate off a single nullable profile field. Returning users can have partial profiles, and reopening onboarding with empty local state risks resaving nulls over durable defaults.

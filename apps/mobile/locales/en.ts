@@ -717,6 +717,9 @@ export const en: MobileTranslations = {
     noCatalogTitle: 'No races available',
     noCatalogSubtitle: 'The catalog will be enriched soon.',
     loadError: 'Unable to load races',
+    favoriteAccountTitle: 'Create your account to follow this race',
+    favoriteAccountMessage:
+      'Add this race to your favorites, receive organizer updates, and keep your followed races across devices.',
   },
   nutrition: {
     favoritesLimitBanner: '{count} free favorites. Premium unlocks unlimited favorites.',

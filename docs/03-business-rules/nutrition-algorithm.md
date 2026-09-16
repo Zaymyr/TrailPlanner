@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -297,6 +297,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 ## Gotchas
 
 - Guided Plan onboarding uses the ordinary Nutrition favorites surface before standard plan creation. It does not introduce a second product-allocation algorithm or require a favorite before continuing.
+- The guest account prompt shown at the plan-count limit runs before plan creation and does not alter nutrition defaults, catalog hydration, or allocation behavior.
 
 - Official organizer ravito-product overlays are available only when the source edition is Pro. A downgrade removes the live overlay without rewriting the runner's stored plan snapshot.
 

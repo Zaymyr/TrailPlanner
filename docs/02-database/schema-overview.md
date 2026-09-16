@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -29,6 +29,10 @@ related_files:
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
   - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/tests/organizer_edition_capability_grants_checks.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -76,6 +80,7 @@ related_tables:
   - race_event_edition_branding
   - organizer_edition_entitlements
   - organizer_edition_payments
+  - organizer_edition_capability_grants
   - race_event_claims
   - race_event_edition_requests
   - race_event_publication_requests
@@ -133,7 +138,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - Entitlement source: subscription, trial, or premium grant.
 - Organizer edition entitlement: permanent Visibilité/Essential/Complete/Signature capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
-- Manual organizer bank transfer tax: the canonical pack subtotal is server-owned; a validated admin choice records either 20% VAT or zero VAT while preserving the same service-only payment ledger and entitlement derivation.
+- Organizer edition capability grant: service-only active/revoked complimentary module projection that supplements an edition pack without changing it; V1 supports `racebook_analytics.view`.
+- Organizer bank-transfer invoicing: the canonical pack subtotal is server-owned and currently VAT-exempt under article 293 B CGI. Issuance stores a chronological number and immutable legal snapshot on the service-only payment ledger, while the PDF remains in private Storage.
 
 ## Tables
 
@@ -152,7 +158,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_aid_station_products` | Products an organizer says are available at source race aid stations. |
 | `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
 | `organizer_edition_entitlements` | Current commercial tier for one organizer event edition. |
-| `organizer_edition_payments` | Stripe and paid-bank-transfer history, invoice references, and ledger used to derive organizer edition rights. |
+| `organizer_edition_capability_grants` | Current complimentary module access and grant/revoke audit for one organizer event edition. |
+| `organizer_edition_payments` | Stripe and paid-bank-transfer history, generated invoice identities/legal snapshots, private PDF references, and ledger used to derive organizer edition rights. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_relay_points` | Ordered relay handover points, optionally linked to source aid stations. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
@@ -219,6 +226,7 @@ erDiagram
   RACE_EVENT_EDITIONS ||--o{ RACE_EVENT_EDITION_SPONSORS : promotes
   RACE_EVENT_EDITIONS ||--o{ ORGANIZER_IMPORT_SESSIONS : scopes
   RACE_EVENT_EDITIONS ||--|| ORGANIZER_EDITION_ENTITLEMENTS : entitled_by
+  RACE_EVENT_EDITIONS ||--o{ ORGANIZER_EDITION_CAPABILITY_GRANTS : supplemented_by
   RACE_EVENT_EDITIONS ||--o{ ORGANIZER_EDITION_PAYMENTS : purchased_for
   RACE_EVENTS ||--o{ RACE_EVENT_CLAIMS : claimed_by
   RACE_EVENTS ||--o{ RACE_EVENT_EDITION_REQUESTS : renewed_by
@@ -248,6 +256,7 @@ erDiagram
 - [race_event_edition_sponsors](tables/race-event-edition-sponsors.md)
 - [race_event_edition_branding](tables/race-event-edition-branding.md)
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
+- [organizer_edition_capability_grants](tables/organizer-edition-capability-grants.md)
 - [organizer_edition_payments](tables/organizer-edition-payments.md)
 - [race_event_claims](tables/race-event-claims.md)
 - [race_event_edition_requests](tables/race-event-edition-requests.md)
@@ -279,7 +288,7 @@ erDiagram
 - Hiding the repeated multi-format helper sentence on Courses event cards is a presentation-only option on the shared summary card; onboarding may still show it, and neither path changes catalog queries.
 - Event favorites, announcement history, and read state remain separate: `user_favorite_race_events` defines audience membership, `race_event_updates` stores messages and optional format scope, and `race_event_update_reads` stores per-user visibility state. Organizer-confirmed announcement deletion removes the history row and cascades its receipts without changing favorites or previous push-delivery logs.
 - Organizer follower totals are computed by the Data API with an exact aggregate count and a one-row response range; the dashboard route must not download cross-user favorite rows to count them in application memory.
-- The mobile toast, scroll, and `race favorite updated` event happen only after the favorite API confirms the persisted id; they add no table fields or relationships.
+- The mobile toast, scroll, and `race favorite updated` event happen only after the favorite API confirms the persisted id; they add no table fields or relationships. Guest heart taps open the account prompt before persistence and therefore do not alter `user_favorite_race_events`.
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.

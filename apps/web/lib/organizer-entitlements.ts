@@ -17,6 +17,7 @@ export const organizerCapabilitySchema = z.enum([
   "sponsors.manage",
   "branding.manage",
   "assisted_import.request",
+  "racebook_analytics.view",
 ]);
 export type OrganizerCapability = z.infer<typeof organizerCapabilitySchema>;
 
@@ -43,8 +44,12 @@ export const ORGANIZER_TIER_CAPABILITIES: Record<OrganizerTier, readonly Organiz
     "sponsors.manage",
     "branding.manage",
     "assisted_import.request",
+    "racebook_analytics.view",
   ],
 };
+
+export const complimentaryOrganizerCapabilitySchema = z.enum(["racebook_analytics.view"]);
+export type ComplimentaryOrganizerCapability = z.infer<typeof complimentaryOrganizerCapabilitySchema>;
 
 export type OrganizerEditionEntitlement = {
   id: string;
@@ -56,6 +61,22 @@ export type OrganizerEditionEntitlement = {
   revokedAt: string | null;
 };
 
+export type OrganizerEditionCapabilityGrant = {
+  id: string;
+  editionId: string;
+  capabilityKey: ComplimentaryOrganizerCapability;
+  status: "active" | "revoked";
+  grantedBy: string | null;
+  grantedAt: string | null;
+  revokedBy: string | null;
+  revokedAt: string | null;
+};
+
+export type OrganizerCapabilityAccess = {
+  allowed: boolean;
+  source: "tier" | "complimentary" | null;
+};
+
 const entitlementRowSchema = z.object({
   id: z.string().uuid(),
   edition_id: z.string().uuid(),
@@ -63,6 +84,17 @@ const entitlementRowSchema = z.object({
   source: z.enum(["system", "stripe", "manual_payment", "admin", "complimentary", "legacy_admin"]),
   status: z.enum(["active", "revoked"]),
   activated_at: z.string().nullable().optional(),
+  revoked_at: z.string().nullable().optional(),
+});
+
+const capabilityGrantRowSchema = z.object({
+  id: z.string().uuid(),
+  edition_id: z.string().uuid(),
+  capability_key: complimentaryOrganizerCapabilitySchema,
+  status: z.enum(["active", "revoked"]),
+  granted_by: z.string().uuid().nullable().optional(),
+  granted_at: z.string().nullable().optional(),
+  revoked_by: z.string().uuid().nullable().optional(),
   revoked_at: z.string().nullable().optional(),
 });
 
@@ -82,11 +114,50 @@ const mapEntitlement = (row: z.infer<typeof entitlementRowSchema>): OrganizerEdi
   revokedAt: row.revoked_at ?? null,
 });
 
+const mapCapabilityGrant = (
+  row: z.infer<typeof capabilityGrantRowSchema>
+): OrganizerEditionCapabilityGrant => ({
+  id: row.id,
+  editionId: row.edition_id,
+  capabilityKey: row.capability_key,
+  status: row.status,
+  grantedBy: row.granted_by ?? null,
+  grantedAt: row.granted_at ?? null,
+  revokedBy: row.revoked_by ?? null,
+  revokedAt: row.revoked_at ?? null,
+});
+
 export const hasOrganizerCapability = (
   entitlement: Pick<OrganizerEditionEntitlement, "tier" | "status"> | null | undefined,
   capability: OrganizerCapability
 ) =>
   entitlement?.status === "active" && ORGANIZER_TIER_CAPABILITIES[entitlement.tier].includes(capability);
+
+export const resolveOrganizerCapabilityAccess = (
+  entitlement: Pick<OrganizerEditionEntitlement, "tier" | "status"> | null | undefined,
+  grants: readonly Pick<OrganizerEditionCapabilityGrant, "capabilityKey" | "status">[] | null | undefined,
+  capability: OrganizerCapability
+): OrganizerCapabilityAccess => {
+  if (hasOrganizerCapability(entitlement, capability)) return { allowed: true, source: "tier" };
+
+  const complimentaryCapability = complimentaryOrganizerCapabilitySchema.safeParse(capability);
+  if (
+    complimentaryCapability.success &&
+    grants?.some(
+      (grant) => grant.capabilityKey === complimentaryCapability.data && grant.status === "active"
+    )
+  ) {
+    return { allowed: true, source: "complimentary" };
+  }
+
+  return { allowed: false, source: null };
+};
+
+export const hasEffectiveOrganizerCapability = (
+  entitlement: Pick<OrganizerEditionEntitlement, "tier" | "status"> | null | undefined,
+  grants: readonly Pick<OrganizerEditionCapabilityGrant, "capabilityKey" | "status">[] | null | undefined,
+  capability: OrganizerCapability
+) => resolveOrganizerCapabilityAccess(entitlement, grants, capability).allowed;
 
 export async function loadOrganizerEditionEntitlement(
   config: SupabaseServiceConfig,
@@ -128,13 +199,65 @@ export async function loadOrganizerEditionEntitlements(
   );
 }
 
+export async function loadOrganizerEditionCapabilityGrant(
+  config: SupabaseServiceConfig,
+  editionId: string,
+  capability: ComplimentaryOrganizerCapability
+): Promise<OrganizerEditionCapabilityGrant | null> {
+  const response = await fetch(
+    `${config.supabaseUrl}/rest/v1/organizer_edition_capability_grants?edition_id=eq.${encodeURIComponent(
+      editionId
+    )}&capability_key=eq.${encodeURIComponent(
+      capability
+    )}&select=id,edition_id,capability_key,status,granted_by,granted_at,revoked_by,revoked_at&limit=1`,
+    { headers: serviceHeaders(config), cache: "no-store" }
+  );
+
+  if (!response.ok) throw new Error(`Unable to load organizer edition capability grant: ${await response.text()}`);
+  const row = z.array(capabilityGrantRowSchema).parse(await response.json())[0] ?? null;
+  return row ? mapCapabilityGrant(row) : null;
+}
+
+export async function loadOrganizerEditionCapabilityGrants(
+  config: SupabaseServiceConfig,
+  editionIds: string[]
+): Promise<Record<string, OrganizerEditionCapabilityGrant[]>> {
+  const uniqueIds = Array.from(new Set(editionIds.filter(Boolean)));
+  if (uniqueIds.length === 0) return {};
+
+  const response = await fetch(
+    `${config.supabaseUrl}/rest/v1/organizer_edition_capability_grants?edition_id=in.(${uniqueIds.join(
+      ","
+    )})&select=id,edition_id,capability_key,status,granted_by,granted_at,revoked_by,revoked_at`,
+    { headers: serviceHeaders(config), cache: "no-store" }
+  );
+  if (!response.ok) {
+    throw new Error(`Unable to load organizer edition capability grants: ${await response.text()}`);
+  }
+
+  return z
+    .array(capabilityGrantRowSchema)
+    .parse(await response.json())
+    .reduce<Record<string, OrganizerEditionCapabilityGrant[]>>((result, row) => {
+      (result[row.edition_id] ??= []).push(mapCapabilityGrant(row));
+      return result;
+    }, {});
+}
+
 export async function requireOrganizerEditionCapability(
   config: SupabaseServiceConfig,
   editionId: string | null | undefined,
   capability: OrganizerCapability
 ): Promise<boolean> {
   if (!editionId) return false;
-  return hasOrganizerCapability(await loadOrganizerEditionEntitlement(config, editionId), capability);
+  const entitlement = await loadOrganizerEditionEntitlement(config, editionId);
+  if (hasOrganizerCapability(entitlement, capability)) return true;
+
+  const complimentaryCapability = complimentaryOrganizerCapabilitySchema.safeParse(capability);
+  if (!complimentaryCapability.success) return false;
+
+  const grant = await loadOrganizerEditionCapabilityGrant(config, editionId, complimentaryCapability.data);
+  return hasEffectiveOrganizerCapability(entitlement, grant ? [grant] : [], capability);
 }
 
 export async function requireOrganizerRaceCapability(

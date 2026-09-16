@@ -110,6 +110,7 @@ import {
 } from "./dashboard/organizer-import-documents";
 import { shouldOpenOrganizerOnboarding } from "./dashboard/onboarding";
 import { OrganizerInvoicesDialog } from "./dashboard/invoices-dialog";
+import { OrganizerAnalyticsPanel } from "./dashboard/analytics-panel";
 import {
   buildInitialWebsiteImportFieldSelections,
   buildInitialWebsiteImportFormatDecisions,
@@ -333,6 +334,7 @@ export function OrganizerDashboard({
   const [eventUpdatesDialogOpen, setEventUpdatesDialogOpen] = useState(false);
   const [invoicesDialogOpen, setInvoicesDialogOpen] = useState(false);
   const [pricingDialogOpen, setPricingDialogOpen] = useState(false);
+  const [dashboardView, setDashboardView] = useState<"content" | "analytics">("content");
   const [pricingIntent, setPricingIntent] = useState<OrganizerPricingIntent>("upgrade");
   const [moduleSettingsOpen, setModuleSettingsOpen] = useState(false);
   const [organizerOnboardingOpen, setOrganizerOnboardingOpen] = useState(false);
@@ -3097,6 +3099,7 @@ export function OrganizerDashboard({
         onSelectedEventChange={(eventId) => {
           saveCurrentScopeInBackground();
           setSelectedEventId(eventId);
+          setDashboardView("content");
           setActiveTab(EVENT_TAB_ID);
           setActiveModule("event");
         }}
@@ -3151,6 +3154,29 @@ export function OrganizerDashboard({
       />
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
+
+      <nav className="flex gap-1 border-b border-border" aria-label="Espace RaceBook">
+        {([
+          ["content", "Contenu"],
+          ["analytics", "Statistiques"],
+        ] as const).map(([view, label]) => (
+          <button
+            key={view}
+            type="button"
+            className={`border-b-2 px-4 py-2.5 text-sm font-semibold transition ${dashboardView === view ? "border-brand text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}
+            aria-current={dashboardView === view ? "page" : undefined}
+            onClick={() => {
+              if (view === dashboardView) return;
+              if (view === "analytics") saveCurrentScopeInBackground();
+              setDashboardView(view);
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </nav>
+
+      {dashboardView === "content" ? <>
 
       {completion ? (
         <div className="space-y-3">
@@ -3688,6 +3714,18 @@ export function OrganizerDashboard({
         }}
         disabled={status === "saving"}
       />
+
+      </> : activeEdition?.id && accessToken ? (
+        <OrganizerAnalyticsPanel
+          editionId={activeEdition.id}
+          accessToken={accessToken}
+          access={activeEdition.analyticsAccess ?? { allowed: activeTier === "signature", source: activeTier === "signature" ? "tier" : null }}
+          races={websiteImportExistingRaces}
+          onOpenPricing={() => openPricingDialog("upgrade")}
+        />
+      ) : (
+        <p className="rounded-md border border-border bg-muted/30 p-4 text-sm text-muted-foreground">Sélectionnez une édition pour afficher ses statistiques.</p>
+      )}
 
       <Dialog
         open={pricingDialogOpen}

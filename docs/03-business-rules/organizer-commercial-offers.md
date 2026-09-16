@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-12
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -13,11 +13,13 @@ related_files:
   - apps/web/app/api/organizer/publication-checkout/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
   - apps/web/app/api/admin/organizer-payments/route.ts
+  - apps/web/app/api/admin/organizer-payments/preview/route.ts
   - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.ts
   - apps/web/app/api/organizer/invoices/route.ts
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/lib/organizer-payments.ts
   - apps/web/lib/organizer-invoices.ts
+  - apps/web/lib/organizer-invoice-document.ts
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/app/organizer/_components/completion.ts
   - apps/web/app/organizer/_components/dashboard/shell.tsx
@@ -35,12 +37,17 @@ related_files:
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_racebook_module_settings_checks.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/tests/organizer_edition_capability_grants_checks.sql
 related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
   - organizer_racebook_module_settings
+  - organizer_edition_capability_grants
   - race_event_editions
 ---
 
@@ -59,7 +66,7 @@ The public `/organisateurs` page presents these edition offers alongside a separ
 | Visibilité | Free | Public catalog only. |
 | Essentiel | 99 € | RaceBook publication, basic equipment/bib/access, simple aid stations. |
 | Complet | 199 € | Essential plus advanced fields and per-format overrides, SAS, detailed aid stations, services, awards, notifications and duplication. |
-| Signature | 349 € | Complete plus relay, official products, sponsors/clicks, branding and assisted import. |
+| Signature | 349 € | Complete plus relay, official products, sponsors/clicks, branding, assisted import and RaceBook analytics. |
 
 Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100 €, Essential→Signature 250 € and Complete→Signature 150 €.
 
@@ -75,6 +82,8 @@ The states are:
 
 `apps/web/lib/organizer-entitlements.ts` is the publication/operation capability authority and `apps/web/lib/organizer-modules.ts` is the shared minimum-tier catalog. Organizer content routes use membership plus the selected module for authoring. Public reads and costly actions continue to require their effective capability. Draft access never creates an entitlement.
 
+`racebook_analytics.view` is included in Signature and may be offered independently for one edition. An active `organizer_edition_capability_grants` row supplements the current pack without changing its tier or payment origin. Revocation keeps its audit row, and later pack changes preserve the complimentary setting until an admin explicitly changes it. The admin rights screen exposes every edition separately (current, upcoming, or historical), so pack and complimentary-module changes always target the selected edition rather than implicitly targeting only the current one.
+
 The web section chooser separates edition-common modules from per-format modules before batching local switch drafts into one typed module-settings PATCH. On the event tab, format-scoped changes target all existing formats and mixed values are labelled; on a format tab they target only the active format. Until the PATCH succeeds, the active dashboard navigation and completion use the last persisted configuration; failures keep the draft available for retry, and closing a modified regular chooser requires explicit discard confirmation.
 
 Completion percentages count required modules only. Recommended and optional tiles keep their own empty/incomplete/complete status without lowering the bars. Event equipment is optional; inherited format equipment is optional too. Checking a format-specific equipment override makes that format tile required until its list contains at least one item, while free-text notes never satisfy that conditional requirement.
@@ -83,9 +92,9 @@ Completion percentages count required modules only. Recommended and optional til
 
 The server chooses one of six explicit one-time EUR Price IDs and validates active status, exact amount, non-recurring mode and exclusive tax behavior. Checkout enables automatic tax, billing address, tax-ID collection and invoice creation. A success redirect is not authorization; the webhook settles the payment, retains the Stripe Invoice id, and recalculates rights.
 
-A trusted admin can choose the effective publication origin shown for an edition: operational `admin`, `complimentary` (Offert), ledger-backed `stripe`, or ledger-backed `manual_payment` (virement). Admin and Offert grants may be created or changed directly. Stripe can only be selected when a matching valid payment path exists. Selecting a new virement is itself the payment-ledger write: the server derives the canonical direct price (99/199/349 € HT), applies 20% VAT only when the admin keeps the VAT checkbox selected, records the selected calendar date at the start of that UTC day, calculates the total, optionally stores its PDF invoice, then grants the purchased tier atomically. Using midnight prevents a same-day payment from being rejected as future before noon UTC. Future dates, duplicate paid tiers, paid-ledger downgrades, and invented paid origins are rejected. An existing `admin`, `complimentary`, or `legacy_admin` grant can be replaced by a real bank-transfer purchase, including a lower paid tier chosen deliberately by the admin.
+A trusted admin can choose the effective publication origin shown for an edition: operational `admin`, `complimentary` (Offert), ledger-backed `stripe`, or ledger-backed `manual_payment` (virement). Admin and Offert grants may be created or changed directly. Stripe can only be selected when a matching valid payment path exists. Selecting a new virement is itself the payment-ledger write: the server derives the canonical direct price (99/199/349 € HT), records zero VAT because the declared issuer uses article 293 B CGI, validates the customer billing name/address/SIREN, records the selected calendar date at the start of that UTC day, and grants the purchased tier atomically. It then allocates a chronological `PY-YYYY-NNNNNN` invoice number, freezes the legal snapshot, renders the PDF with `pdf-lib`, and stores it privately. Using midnight prevents a same-day payment from being rejected as future before noon UTC. Future dates, incomplete billing identity, duplicate paid tiers, paid-ledger downgrades, and invented paid origins are rejected. An existing `admin`, `complimentary`, or `legacy_admin` grant can be replaced by a real bank-transfer purchase, including a lower paid tier chosen deliberately by the admin.
 
-The organizer bootstrap exposes the effective pack, payment channel, date, amounts, and invoice availability. `Actions > Factures` lists paid/refunded/disputed history for every edition of the selected event. Every active event member may request a download; manual PDFs use a short private Storage URL, while old Stripe rows resolve their Invoice from Checkout on first download. DTOs never expose provider ids or private object paths.
+The admin dialog can preview the exact server-rendered PDF without allocating a number or writing data. The organizer bootstrap exposes the effective pack, payment channel, date, amounts, invoice number, and availability. `Actions > Factures` lists paid/refunded/disputed history for every edition of the selected event. Every active event member may request a download; generated and legacy manual PDFs use a short private Storage URL, while old Stripe rows resolve their Invoice from Checkout on first download. DTOs never expose provider ids or private object paths.
 
 The free Visibility tier may expose an event and its preview-selected private course formats in the runner catalog for plan creation; it does not expose their RaceBooks. The dashboard recommends the highest tier used by selected, populated sections. Its publication dialog states which content will publish and which will remain private for a lower choice. Checkout and RaceBook publication independently recompute the persisted requirement; choosing a lower valid paid offer never deletes excluded drafts. Each format now has one three-state selector backed by the existing booleans: `Masqué` clears preview and live, `Privé` enables preview and clears live, and `Public` enables both only after the server verifies readiness and the edition entitlement. Selecting `Public` while the edition still has the free Visibility tier opens the publication-offer dialog immediately instead of attempting a known-to-fail write; a server `403` opens that dialog only while the displayed tier is also Visibility. With Essential, Complete, or Signature already active, single-format and bulk publication share the same membership/admin, readiness, visible-edition, and active-entitlement contract; the unitary RPC isolates its trusted Auth admin lookup in a private service-only helper because `service_role` cannot read `auth.users` directly. Neither path opens an upsell for an already active paid tier, and operational failures stay visible as errors. Selected content above the active tier remains private through the effective-module filter. A publication checkout carries the initial publication intent through the webhook-confirmed return. The opt-in Playwright payment journey uses Stripe test mode only, waits for webhook-confirmed Essential access, and deletes its uniquely named `TEST` event in a `finally` cleanup.
 
@@ -97,12 +106,15 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 - Code-splitting optional Organizer editors is only a bundle optimization. A dynamically loaded editor never grants public visibility or a paid operation.
 
 - Never delete module content on disable or downgrade.
+- Never infer complimentary analytics access from the pack source. Resolve the Signature tier and the active edition capability grant independently.
 - Never expose `organizer_racebook_module_settings` directly to clients; mobile receives only an effective boolean map.
 - Missing module configuration during rolling deployment uses the historical mobile behavior.
 - Automatic Tax still requires the production Stripe account to have the appropriate tax registrations.
 - Old clients saving a full `organizer_details` object must not erase protected subtrees.
 - The dashboard keeps publication primary, groups rare actions in one menu, and starts detailed visibility collapsed. The guide may expand it temporarily to expose the real controls, then restores the collapsed state. Expansion is presentation-only; choosing a format state is a deliberate persisted action and must never grant an entitlement client-side.
-- The admin publication dialog identifies the active pack and origin, exposes Visibilité as an explicit downgrade, and uses full-row radio targets for pack selection. It lets a trusted admin switch paid packs between Admin, Paiement Stripe, Paiement par virement, and Offert. For a new virement, HT remains the canonical selected-pack price and a checked-by-default control chooses between 20% VAT and zero VAT; both displayed amounts are read-only, and the protected route recalculates them instead of trusting browser amounts. Stripe remains ledger-backed; a new bank transfer creates its own ledger row and right in one action. Bank-transfer failures remain visible inside the dialog, while an already paid same-tier purchase remains a duplicate.
+- The admin publication dialog identifies the active pack and origin, exposes Visibilité as an explicit downgrade, and uses full-row radio targets for pack selection. It lets a trusted admin switch paid packs between Admin, Paiement Stripe, Paiement par virement, and Offert. For a new virement, HT remains the canonical selected-pack price and TVA is fixed to zero under article 293 B CGI; client identity is mandatory, and preview uses the same PDF renderer as issuance. Stripe remains ledger-backed; a new bank transfer creates its own ledger row, immutable invoice record, and right in one action. Bank-transfer failures remain visible inside the dialog, while an already paid same-tier purchase remains a duplicate.
+- The generated PDF contains the required billing data, but a downloadable PDF is not itself transmission through a French approved e-invoicing platform. Do not describe this Storage flow as satisfying that separate delivery obligation.
+- A numbered invoice blocks payment-row deletion, including an edition cascade. Keep the edition as financial history instead of bypassing the protection trigger.
 - Searching or paginating the admin publication-rights list is presentation-only. Search and offer filters are applied before ten-event pagination and never alter an edition entitlement, payment, or pending publication request.
 - The workspace status labels are presentation-only: masked formats stay explicitly hidden from the mobile app, private formats remain runner-visible for plan creation but show `RaceBook privé`, and public formats show their public state. Keeping a masked format editable for authorized organizers/admins does not grant an offer or expose it to runners.
 - Offer and visibility consequences use contextual hover/focus help beside short controls. Hiding that explanatory copy visually does not weaken server-side readiness or entitlement checks, and errors remain visible inline.
@@ -114,4 +126,5 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 - [Stripe](../05-integrations/stripe.md)
 - [organizer_racebook_module_settings](../02-database/tables/organizer-racebook-module-settings.md)
 - [organizer_edition_entitlements](../02-database/tables/organizer-edition-entitlements.md)
+- [organizer_edition_capability_grants](../02-database/tables/organizer-edition-capability-grants.md)
 - [organizer_edition_payments](../02-database/tables/organizer-edition-payments.md)

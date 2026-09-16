@@ -6,6 +6,9 @@ import { GET } from "./route";
 const authState = vi.hoisted(() => ({
   admin: false,
   requireOrganizerAuth: vi.fn(),
+  loadEntitlements: vi.fn(),
+  loadCapabilityGrants: vi.fn(),
+  resolveCapabilityAccess: vi.fn(),
 }));
 
 const userId = "00000000-0000-0000-0000-000000000001";
@@ -81,6 +84,9 @@ describe("/api/organizer/bootstrap", () => {
         supabaseServiceRoleKey: "service-key",
       },
     });
+    authState.loadEntitlements.mockReset().mockResolvedValue({});
+    authState.loadCapabilityGrants.mockReset().mockResolvedValue({});
+    authState.resolveCapabilityAccess.mockReset().mockReturnValue({ allowed: false, source: null });
   });
 
   afterEach(() => {
@@ -221,6 +227,7 @@ describe("/api/organizer/bootstrap", () => {
       sponsorClicks: 7,
       brandingConfigured: true,
       brandingUnpublished: false,
+      analyticsAccess: { allowed: false, source: null },
     });
     expect(payload.event.races[0]).toMatchObject({ aidStationCount: 1, startWaveCount: 1, awardCount: 1 });
   });
@@ -244,7 +251,9 @@ vi.mock("../../../../lib/supabase", () => ({
 }));
 
 vi.mock("../../../../lib/organizer-entitlements", () => ({
-  loadOrganizerEditionEntitlements: () => Promise.resolve({}),
+  loadOrganizerEditionEntitlements: authState.loadEntitlements,
+  loadOrganizerEditionCapabilityGrants: authState.loadCapabilityGrants,
+  resolveOrganizerCapabilityAccess: authState.resolveCapabilityAccess,
 }));
 
 vi.mock("../../../../lib/organizer-payments", () => ({

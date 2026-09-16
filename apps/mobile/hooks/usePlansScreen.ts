@@ -239,7 +239,7 @@ export function usePlansScreen() {
   }, [router]);
 
   const handleOpenGuestAccountUpgrade = useCallback(() => {
-    router.push('/(auth)/login');
+    router.push('/(auth)/signup');
   }, [router]);
 
   const handleEditRace = useCallback(

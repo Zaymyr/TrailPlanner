@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -48,6 +48,10 @@ related_files:
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/tests/organizer_edition_capability_grants_checks.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
@@ -83,6 +87,7 @@ related_tables:
   - premium_grants
   - organizer_edition_entitlements
   - organizer_edition_payments
+  - organizer_edition_capability_grants
 ---
 
 # Migrations
@@ -300,6 +305,10 @@ The manual RLS SQL check file was expanded accordingly so organizer relationship
 
 `supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql` is an idempotent data correction for the paid Essential bank transfer of Trail Ton Château 2026. It changes the known 20% tax amount to zero and recomputes the total from HT, without changing the payment status, entitlement, invoice metadata, grants, functions, or RLS.
 
+`supabase/migrations/20260915100443_add_generated_organizer_invoices.sql` adds chronological generated-invoice metadata to the service-only organizer payment ledger. A service-role-only invoker wrapper records the VAT-exempt bank transfer, recalculates its entitlement, then serializes yearly number allocation and stores the legal snapshot in the same transaction. A trigger prevents later mutation or deletion of issued financial/legal facts while allowing private PDF attachment repair. Existing attached PDFs are marked `uploaded`; no client table or Storage privilege is added. `supabase/tests/organizer_generated_invoice_checks.sql` covers numbering, wrapper privileges, mutation rejection, and deletion rejection.
+
+`supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql` adds the service-only, edition-scoped complimentary module projection. V1 allowlists `racebook_analytics.view`; one current row per edition/capability retains grant/revoke actors and timestamps independently from commercial pack changes. Its grant/revoke RPC is security-invoker and service-role-only. `supabase/tests/organizer_edition_capability_grants_checks.sql` covers RLS, privileges, lifecycle, tier independence and invalid input.
+
 `supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql` repairs the service-only single-format publication RPC. The service role cannot read `auth.users` directly, so a private fixed-output security-definer helper now performs only the trusted `raw_app_meta_data` admin lookup; the mutating RPC remains security-invoker and service-role-only. Active organizers and trusted admins can publish one complete format under a visible, entitled edition without broadening Auth-table grants.
 
 `supabase/migrations/20260820164141_target_racebook_publication_requests.sql` adds nullable legacy-compatible `race_id` targeting to publication requests, changes pending uniqueness from event scope to format scope, binds organizer inserts to a race under the same managed event, and makes first approval publish only that requested format and its own edition. The admin event-wide switch remains current-edition scoped and closes only matching pending requests.
@@ -421,6 +430,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Keep the `Trail TST` seed ids and Storage paths stable. Re-running the migration updates the showcase rows in place; changing ids or paths would create duplicate catalog entries or broken map/profile assets.
 - Keep sponsor schema and showcase seed migrations separate: the first establishes security/invariants, while the idempotent TST data migration assumes the fixed demo edition already exists.
 - Organizer collection RPCs must remain `SECURITY INVOKER`, service-role-only and parent-locked. Moving validation back into route-side write loops would reintroduce partial saves and N+1 mutations.
+- Complimentary capability grants supplement rather than mutate `organizer_edition_entitlements`; never erase them while recalculating or changing a pack.
 - Never deploy course-slug edits before the redirect migration. Review the GET-only slug audit first, then use the service-only RPC for approved rows so the old URL and canonical target change in one transaction.
 
 ## Related Docs

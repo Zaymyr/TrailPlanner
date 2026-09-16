@@ -692,6 +692,8 @@ export type MobileTranslations = {
     noCatalogTitle: string;
     noCatalogSubtitle: string;
     loadError: string;
+    favoriteAccountTitle: string;
+    favoriteAccountMessage: string;
   };
   nutrition: {
     favoritesLimitBanner: string;

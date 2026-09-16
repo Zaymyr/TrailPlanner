@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -27,6 +27,10 @@ related_files:
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
+  - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
+  - supabase/tests/organizer_generated_invoice_checks.sql
+  - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/tests/organizer_edition_capability_grants_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -60,6 +64,7 @@ related_tables:
   - race_event_editions
   - race_event_edition_sponsors
   - race_event_edition_branding
+  - organizer_edition_capability_grants
   - race_event_publication_requests
   - race_event_organizers
   - race_event_publication_requests
@@ -254,7 +259,9 @@ Manual permission, constraint, draft-transition, and RPC checks live in `supabas
 
 ### Organizer Commercial Rights
 
-`organizer_edition_entitlements` and `organizer_edition_payments` are RLS-enabled service-only tables with explicit client revokes. The bank-transfer RPC is `SECURITY INVOKER`, executable only by `service_role`, and is reached only after trusted admin authorization. The `organizer-invoices` bucket is private and has no client Storage policy; organizers receive only short signed URLs after active event-membership verification. A fixed-search-path private function returns only whether an edition is Pro so public relay/product child policies can enforce the commercial gate without exposing payment or grant rows.
+`organizer_edition_entitlements` and `organizer_edition_payments` are RLS-enabled service-only tables with explicit client revokes. The bank-transfer and invoice-issuance RPCs are `SECURITY INVOKER`, executable only by `service_role`, and are reached only after trusted admin authorization. Issuance serializes number allocation and an internal trigger prevents later deletion or mutation of numbered invoice facts. The `organizer-invoices` bucket is private and has no client Storage policy; organizers receive only short signed URLs after active event-membership verification. A fixed-search-path private function returns only whether an edition is Pro so public relay/product child policies can enforce the commercial gate without exposing payment or grant rows.
+
+`organizer_edition_capability_grants` is a separate RLS-enabled service-only projection with no client policies or privileges. Its `SECURITY INVOKER` grant/revoke RPC accepts only `racebook_analytics.view`, is executable only by `service_role`, and retains actor/timestamp audit fields. Organizer and admin APIs must authorize the caller before reading the projection or invoking the RPC.
 
 ### Event Favorites and Organizer Updates
 
@@ -411,6 +418,8 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Public slug resolution needs both a table `SELECT` grant and the parent-gated RLS policy. Never grant client mutation or RPC execution, and never rely on a redirect row alone to expose a hidden course.
 - RaceBook sponsor presentation and redirects must remain server-mediated. Do not grant public table reads merely because logos and names eventually appear on a live RaceBook.
 - Parent-locked Organizer RPCs preserve atomicity, not authorization. Keep every route-level membership and capability check before invoking them and never grant their execution to browser roles.
+- Generated organizer invoice issuance stays behind `service_role`: neither `issue_admin_organizer_invoice` nor the atomic `record_admin_organizer_bank_transfer_invoice` wrapper is executable by `anon` or `authenticated`.
+- Complimentary organizer capabilities stay behind `service_role`; do not add a client policy simply to render an access badge or analytics tab.
 
 ## Related Docs
 

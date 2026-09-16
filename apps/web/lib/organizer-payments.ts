@@ -23,6 +23,8 @@ export const organizerPaymentRowSchema = z.object({
   stripe_invoice_id: z.string().nullable().optional(),
   invoice_storage_path: z.string().nullable().optional(),
   invoice_original_name: z.string().nullable().optional(),
+  invoice_number: z.string().nullable().optional(),
+  invoice_issued_at: z.string().nullable().optional(),
 });
 
 export type OrganizerPaymentRow = z.infer<typeof organizerPaymentRowSchema>;
@@ -46,6 +48,8 @@ export type OrganizerPurchaseSummary = {
   paidAt: string | null;
   hasInvoice: boolean;
   invoiceFileName: string | null;
+  invoiceNumber: string | null;
+  invoiceIssuedAt: string | null;
 };
 
 export const selectEffectiveOrganizerPurchase = (
@@ -73,6 +77,8 @@ export const toOrganizerPurchaseSummary = (row: OrganizerPaymentRow): OrganizerP
       ? Boolean(row.stripe_invoice_id || row.stripe_checkout_session_id)
       : Boolean(row.invoice_storage_path),
     invoiceFileName: row.invoice_original_name ?? null,
+    invoiceNumber: row.invoice_number ?? null,
+    invoiceIssuedAt: row.invoice_issued_at ?? null,
   };
 };
 
@@ -88,7 +94,7 @@ export async function loadOrganizerEditionPayments(
   const uniqueIds = Array.from(new Set(editionIds.filter(Boolean)));
   if (uniqueIds.length === 0) return {};
   const response = await fetch(
-    `${config.supabaseUrl}/rest/v1/organizer_edition_payments?edition_id=in.(${uniqueIds.join(",")})&select=id,edition_id,purchase_kind,to_tier,status,payment_channel,amount_subtotal,amount_tax,amount_total,currency,paid_at,created_at,stripe_checkout_session_id,stripe_invoice_id,invoice_storage_path,invoice_original_name&status=in.(paid,refunded,disputed)&order=paid_at.desc.nullslast,created_at.desc`,
+    `${config.supabaseUrl}/rest/v1/organizer_edition_payments?edition_id=in.(${uniqueIds.join(",")})&select=id,edition_id,purchase_kind,to_tier,status,payment_channel,amount_subtotal,amount_tax,amount_total,currency,paid_at,created_at,stripe_checkout_session_id,stripe_invoice_id,invoice_storage_path,invoice_original_name,invoice_number,invoice_issued_at&status=in.(paid,refunded,disputed)&order=paid_at.desc.nullslast,created_at.desc`,
     { headers: serviceHeaders(config), cache: "no-store" }
   );
   if (!response.ok) throw new Error(`Unable to load organizer edition payments: ${await response.text()}`);

@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -58,6 +58,9 @@ related_files:
   - apps/mobile/hooks/usePremium.ts
   - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/hooks/useProfileScreen.ts
+  - apps/mobile/hooks/useGuestAccountPrompt.ts
+  - apps/mobile/hooks/usePlansScreen.ts
+  - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/race-import.ts
   - apps/mobile/lib/racebookOnboarding.ts
@@ -105,7 +108,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - Web API bridge: mobile calls selected Next.js API routes for operations that need server keys.
 - Resend contact sync: mobile calls the web API bridge after identified, non-anonymous sessions; the Resend key remains server-side.
 - Plan share links: mobile sends an authenticated recap snapshot to the web API, which creates the public crew URL server-side.
-- Event favorites: authenticated runners can favorite `race_events`, pin them to the top of the Courses tab, and receive organizer update pushes for those events.
+- Event favorites: identified runners can favorite `race_events`, pin them to the top of the Courses tab, and receive organizer update pushes for those events. Guest runners keep the visible heart affordance, but pressing it opens the shared account creation/sign-in prompt without writing a favorite.
 
 ## Framework Setup
 
@@ -307,7 +310,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - The mobile Racebook uses a compact identity card for event/format identity, event date range, optional distinct format date, location, and runner information; distance, D+, D-, and start-time metric pills are intentionally omitted from this synthesis. Its flexible metadata row uses calendar/location icons, dot separators, and compact `Solo` and/or `Relais` badges, with mixed formats rendered as two separate badges. Its four permanent read-only tabs are `Matériel`, `Dossard`, `Course`, and `Accès`, plus a fifth `Services` tab only when event service details exist. `Course` owns the start time in a light-green important-information row and finish-cutoff constraints in a critical row, then separates its longer content into `Tracé` (interactive GPX map plus elevation profile), `Ravitos`, and a conditional `Relais` sub-tab. The ravito list is a single-open accordion: every collapsed row retains the station name, distance, available-service icons, segment D+/D-, and optional cutoff, while expansion reveals the labeled service controls, full metric column, organizer products, and notes. `Accès` orders access notes and road restrictions in an amber `À retenir` block, then locations/maps, then a `Venir sur place` card whose parking and shuttle rows start collapsed with two-line summaries; expanding the shuttle row separates its schedule in a clock treatment. Parking, shuttles, road restrictions, and map content are runner-visible only while their corresponding format-level access flag is enabled, even if a saved value still exists. When published, the official website, Instagram, and Facebook links appear as a compact icon-only outlined group beside the race identity, with Instagram and Facebook below the website icon; accessibility labels retain their meaning without visible text. A divider separates the emergency contact, which keeps `Urgence - nom - téléphone` on one line alongside a localized outlined call action; the full row opens the platform phone app through `tel:`. The native header keeps feedback only. Pulling down anywhere on the screen reloads the Racebook, profile, and route data while preserving the last successful content if that refresh fails.
 - Guided onboarding must reuse the real Courses, Nutrition, plan, and RaceBook routes. Keep its contextual behavior behind the `onboarding` route parameter so ordinary navigation remains unchanged.
 - Keep onboarding skip durable in the per-tour status columns. `onboarding_completed_at` remains a legacy Plan-completion marker and must not be used to treat a skipped new tour as completed.
-- Favorite toggles are available only for identified, non-anonymous sessions. Anonymous users should still browse the catalog without write affordances or favorite API calls.
+- Favorite writes are available only for identified, non-anonymous sessions. Anonymous users can still browse the catalog and see the heart; pressing it opens the shared account prompt with separate create-account and existing-account actions, without calling the favorite API.
 - The success toast and automatic list repositioning apply only when adding a favorite after the API confirms the write. Removing a favorite keeps the runner's current reading position, and failed writes restore the previous order before showing the existing error alert.
 - Organizer update history in the event sheet is intentionally manual-announcement history only. Do not turn every organizer save into a runner-visible update.
 - Keep French inactivity and unfinished-plan reminder punctuation aligned between the mobile locale and the Supabase Edge Function so authenticated and anonymous users receive the same copy.

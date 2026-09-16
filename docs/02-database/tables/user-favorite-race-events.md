@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -64,7 +64,7 @@ Summary:
 
 - Favorites are event-scoped, not format-scoped and not plan-scoped.
 - One user can favorite an event only once.
-- Anonymous users must not create favorites through the runner API.
+- Anonymous users must not create favorites through the runner API. The mobile heart remains visible to them as an account-conversion entry point, but the prompt is shown before any optimistic state or API write.
 - Organizer notifications use the favorite rows as the fan-out audience source, but favorites themselves do not store notification history.
 - Choosing one format changes the announcement context and title; it does not replace the parent event's favorite list as the push audience.
 
@@ -95,6 +95,7 @@ where event_id = '<event-id>';
 - Guided RaceBook results require a search and hide the favorite/create-plan detours, but this presentation rule never creates or removes an event favorite.
 
 - Keep this table tied to `race_events`, not `races`; the mobile UX follows the whole event card.
+- A guest tap on the heart must route to the shared account prompt and must not create a row, reorder the catalog, or emit `race favorite updated`.
 - The FK targets `user_profiles(user_id)`, so profile bootstrap must exist before creating favorites.
 - Do not expose cross-user favorite lists to organizers directly; organizer UI should show only aggregate counts.
 - Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.

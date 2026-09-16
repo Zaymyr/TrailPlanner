@@ -119,6 +119,10 @@ export type RaceEventEdition = {
   sponsorClicks?: number;
   brandingConfigured?: boolean;
   brandingUnpublished?: boolean;
+  analyticsAccess?: {
+    allowed: boolean;
+    source: "tier" | "complimentary" | null;
+  };
 };
 
 export type GpxDetectedAidStation = {

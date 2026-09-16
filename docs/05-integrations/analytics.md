@@ -1,9 +1,15 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: medium
 related_files:
+  - apps/web/lib/posthog-organizer-analytics.ts
+  - apps/web/lib/posthog-organizer-analytics.test.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.test.ts
+  - apps/web/components/ui/TimeSeriesLineChart.tsx
+  - apps/web/app/admin/components/TimeSeriesLineChart.test.ts
   - apps/web/lib/posthog-config.ts
   - apps/web/lib/posthog-browser.ts
   - apps/web/app/posthog-provider.tsx
@@ -32,6 +38,7 @@ related_files:
   - apps/mobile/hooks/useRevenueCatBilling.ts
   - apps/mobile/components/premium/PremiumUpsellModal.tsx
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/hooks/useGuestAccountPrompt.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
@@ -118,7 +125,7 @@ Opening, replaying, stepping through, or closing the Organizer spotlight guide e
 - `plan exported` records GPX download or assistance-print initiation, with saved/draft state;
 - public crew links emit `plan crew link opened` and `plan crew state updated` with aggregate checkpoint counts and a bounded action. They never include the secret URL token, plan name, or another direct identifier.
 
-Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. Notification hrefs and message bodies are excluded.
+Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. Guest account gates emit `guest account prompt viewed` with a bounded `race_favorite` or `plan_limit` source, then `guest account conversion started` only when the runner chooses account creation or existing-account sign-in. Notification hrefs, message bodies, and guest-prompt copy are excluded.
 
 ## Mobile PostHog
 
@@ -182,6 +189,28 @@ Sponsor presentation and clicks are intentionally excluded from these person-lev
 The two-line visual truncation of a bib-pickup address is presentation-only: opening the link still emits the existing Maps action with the same bounded context and never sends the full address.
 
 Edition branding is presentation state only. Logo URLs, the temporary logo feature flag, custom color values, and derived accent-surface usage are not attached to identified RaceBook analytics events; existing race/event identifiers remain the comparison dimensions across default and customized editions.
+
+### Organizer-facing RaceBook statistics
+
+`GET /api/organizer/editions/[id]/analytics` is the only application bridge from an organizer session to PostHog. It first verifies the Supabase bearer session, the edition's parent-event membership (trusted admins retain their existing bypass), the effective `racebook_analytics.view` capability, and an optional `raceId` against the edition. The browser never receives a PostHog API key and never calls PostHog directly.
+
+The route accepts `range=7d|30d|90d` (30 days by default) and an optional edition-owned `raceId`. It passes one named Endpoint the parent event id, edition id and dates, the complete allowlisted edition format ids, the optional selected format, and bounded UTC reporting dates. Filtering by the edition's format-id allowlist is mandatory because mobile RaceBook events carry `event_id` and `race_id`, but no `edition_id`; filtering on the event alone could mix yearly editions.
+
+The named Endpoint is `organizer-racebook-analytics` by default and must return object rows with this stable contract:
+
+- exactly one `kind = summary` row containing non-negative `unique_readers` and `total_opens`, plus nullable `average_active_seconds` and `engagement_rate` (0–1);
+- zero or more `kind = daily` rows containing `YYYY-MM-DD` `date`, non-negative `unique_readers`, and non-negative `total_opens`;
+- the standard PostHog Endpoint envelope with `results` as object rows.
+
+The exact copy-pasteable HogQL source of truth is `ORGANIZER_RACEBOOK_ANALYTICS_HOGQL` in `apps/web/lib/posthog-organizer-analytics.ts`. Create a SQL Endpoint with that query and define all eight variables as required Strings: `event_id`, `edition_id`, `edition_start_date`, `edition_end_date`, `race_ids_csv`, `race_id`, `date_from`, and `date_to`. The route always sends every variable and uses an empty string for the optional `race_id`. Publish it under `organizer-racebook-analytics`, set **Data freshness** to **900 seconds**, keep it active, and validate both an all-format request and a selected-format request in the Endpoint Playground. Do not edit a separate dashboard query: the checked-in constant is the reviewed deployment definition.
+
+The same query with representative variables substituted as literals was executed read-only against the connected project on 2026-09-15. PostHog accepted its `UNION ALL`, array allowlist, optional format filter, UTC date conversion, current-person exclusion, conditional aggregates, duration average, and engagement ratio, and returned the documented summary/daily row shape. PostHog does not support `grouping()` for a rollup discriminator, so preserve the validated `UNION ALL` form.
+
+Unique readers and daily trends use `racebook opened`. Duration and engagement use `racebook closed`, so both are nullable when no completed close summary exists and remain estimates when the app is force-closed. The Endpoint must exclude current persons marked `$internal_or_test_user = true`, constrain `race_id` to the supplied edition allowlist, apply the selected race when non-empty, and constrain event timestamps to the supplied reporting dates. Its data freshness is 900 seconds; the application requests `refresh: cache` and exposes that TTL in the response.
+
+The server uses `POSTHOG_API_KEY` with only `endpoint:read`, `POSTHOG_PROJECT_ID`, and the API origin in `POSTHOG_API_HOST`; `POSTHOG_ORGANIZER_ANALYTICS_ENDPOINT` optionally overrides the default endpoint name. `POSTHOG_API_HOST` is the private API application origin such as `https://eu.posthog.com`, not the public ingestion host ending in `.i.posthog.com`. Missing configuration, non-2xx responses, network failures, and malformed rows all become a generic 502 without returning upstream bodies or credentials.
+
+The connected project observed during implementation was id `176628`, named only `Default project`, with no existing Endpoints. That identity is not sufficient to prove it is the production project, so the repository change deliberately does not provision or overwrite an external Endpoint. Confirm the target project, publish and validate the Endpoint in its Playground, then configure the server-only key before enabling the organizer module.
 
 ## Admin Growth Dashboard
 

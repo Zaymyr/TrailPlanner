@@ -112,10 +112,17 @@ type RaceEventOption = {
 
 type RacebookPublicationEvent = RaceEventOption & {
   editionId: string | null;
+  editionYear: number | null;
+  isCurrentEdition: boolean;
   entitlement: {
     edition_id: string;
     tier: "visibility" | "essential" | "complete" | "signature";
     source: "system" | "stripe" | "manual_payment" | "admin" | "complimentary" | "legacy_admin";
+    status: "active" | "revoked";
+  } | null;
+  analyticsCapabilityGrant: {
+    edition_id: string;
+    capability_key: "racebook_analytics.view";
     status: "active" | "revoked";
   } | null;
   payments: Array<{
@@ -130,6 +137,8 @@ type RacebookPublicationEvent = RaceEventOption & {
     paid_at?: string | null;
     invoice_storage_path?: string | null;
     invoice_original_name?: string | null;
+    invoice_number?: string | null;
+    invoice_source?: "generated" | "uploaded" | null;
     created_at: string;
   }>;
   races: Array<{
@@ -157,7 +166,6 @@ const organizerTierLabel: Record<NonNullable<RacebookPublicationEvent["entitleme
 type PublicationOrigin = "admin" | "stripe" | "manual_payment" | "complimentary";
 type PaidPublicationTier = Exclude<NonNullable<RacebookPublicationEvent["entitlement"]>["tier"], "visibility">;
 
-const ORGANIZER_VAT_RATE = 0.2;
 const PUBLICATION_EVENTS_PER_PAGE = 10;
 
 const normalizeSearchValue = (value: string) =>
@@ -167,14 +175,13 @@ const normalizeSearchValue = (value: string) =>
     .toLocaleLowerCase("fr");
 
 const getOrganizerPaymentAmounts = (
-  tier: NonNullable<RacebookPublicationEvent["entitlement"]>["tier"],
-  applyVat = true
+  tier: NonNullable<RacebookPublicationEvent["entitlement"]>["tier"]
 ) => {
   if (tier === "visibility") return { subtotal: "", tax: "" };
   const subtotal = ORGANIZER_TIER_PRICE_EUR[tier as PaidPublicationTier];
   return {
     subtotal: subtotal.toFixed(2).replace(".", ","),
-    tax: (applyVat ? subtotal * ORGANIZER_VAT_RATE : 0).toFixed(2).replace(".", ","),
+    tax: "0,00",
   };
 };
 
@@ -201,11 +208,17 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [purchaseEvent, setPurchaseEvent] = useState<RacebookPublicationEvent | null>(null);
   const [purchaseTier, setPurchaseTier] = useState<"visibility" | "essential" | "complete" | "signature">("essential");
   const [purchaseOrigin, setPurchaseOrigin] = useState<PublicationOrigin>("admin");
+  const [analyticsGrantEnabled, setAnalyticsGrantEnabled] = useState(false);
+  const [initialAnalyticsGrantEnabled, setInitialAnalyticsGrantEnabled] = useState(false);
   const [purchaseDate, setPurchaseDate] = useState(currentParisDate);
   const [purchaseSubtotal, setPurchaseSubtotal] = useState("");
   const [purchaseTax, setPurchaseTax] = useState("");
-  const [purchaseApplyVat, setPurchaseApplyVat] = useState(true);
-  const [purchaseInvoice, setPurchaseInvoice] = useState<File | null>(null);
+  const [invoiceCustomerLegalName, setInvoiceCustomerLegalName] = useState("");
+  const [invoiceCustomerAddress, setInvoiceCustomerAddress] = useState("");
+  const [invoiceCustomerSiren, setInvoiceCustomerSiren] = useState("");
+  const [invoiceCustomerVatNumber, setInvoiceCustomerVatNumber] = useState("");
+  const [invoicePurchaseOrderNumber, setInvoicePurchaseOrderNumber] = useState("");
+  const [invoicePreviewUrl, setInvoicePreviewUrl] = useState<string | null>(null);
   const [invoiceFiles, setInvoiceFiles] = useState<Record<string, File | null>>({});
   const [assignmentEmail, setAssignmentEmail] = useState("");
   const [assignmentEventId, setAssignmentEventId] = useState("");
@@ -219,8 +232,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [notesByEditionRequest, setNotesByEditionRequest] = useState<Record<string, string>>({});
   const [notesByPublicationRequest, setNotesByPublicationRequest] = useState<Record<string, string>>({});
   const [revokeReasonByMembership, setRevokeReasonByMembership] = useState<Record<string, string>>({});
-  const [status, setStatus] = useState<"idle" | "loading" | "saving">("idle");
+  const [status, setStatus] = useState<"idle" | "loading" | "saving" | "previewing">("idle");
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => () => {
+    if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+  }, [invoicePreviewUrl]);
 
   const claimStatusLabel: Record<OrganizerClaim["status"], string> = {
     pending: "En attente",
@@ -407,8 +424,11 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         formData.set("editionId", purchaseEvent.editionId);
         formData.set("tier", purchaseTier);
         formData.set("paidDate", purchaseDate);
-        formData.set("applyVat", String(purchaseApplyVat));
-        if (purchaseInvoice) formData.set("invoice", purchaseInvoice);
+        formData.set("customerLegalName", invoiceCustomerLegalName);
+        formData.set("customerBillingAddress", invoiceCustomerAddress);
+        formData.set("customerSiren", invoiceCustomerSiren);
+        formData.set("customerVatNumber", invoiceCustomerVatNumber);
+        formData.set("purchaseOrderNumber", invoicePurchaseOrderNumber);
         response = await fetch("/api/admin/organizer-payments", {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
@@ -426,20 +446,74 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           }),
         });
       }
-      const data = (await response.json().catch(() => null)) as { message?: string } | null;
+      const data = (await response.json().catch(() => null)) as { message?: string; warning?: string } | null;
       if (!response.ok) {
         setError(data?.message ?? "Impossible de modifier le droit de publication.");
         return;
       }
+      if (analyticsGrantEnabled !== initialAnalyticsGrantEnabled) {
+        const capabilityResponse = await fetch("/api/admin/event-publication-requests", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({
+            action: "setEditionCapabilityGrant",
+            editionId: purchaseEvent.editionId,
+            capabilityKey: "racebook_analytics.view",
+            enabled: analyticsGrantEnabled,
+          }),
+        });
+        const capabilityData = await capabilityResponse.json().catch(() => null) as { message?: string } | null;
+        if (!capabilityResponse.ok) {
+          setError(capabilityData?.message ?? "Le pack a été enregistré, mais le module Statistiques n’a pas pu être mis à jour.");
+          await load();
+          return;
+        }
+      }
       setPurchaseEvent(null);
-      setPurchaseInvoice(null);
+      if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+      setInvoicePreviewUrl(null);
       setPurchaseSubtotal("");
       setPurchaseTax("");
-      setPurchaseApplyVat(true);
       await load();
+      if (data?.warning) setError(data.warning);
     } catch (caught) {
       console.error("Unable to update organizer publication right", caught);
       setError("Impossible de modifier le droit de publication. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const previewInvoice = async () => {
+    if (!accessToken || !purchaseEvent?.editionId || purchaseTier === "visibility") return;
+    setStatus("previewing");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/organizer-payments/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          editionId: purchaseEvent.editionId,
+          tier: purchaseTier,
+          paidDate: purchaseDate,
+          customer: {
+            legalName: invoiceCustomerLegalName,
+            billingAddress: invoiceCustomerAddress,
+            siren: invoiceCustomerSiren,
+            vatNumber: invoiceCustomerVatNumber,
+            purchaseOrderNumber: invoicePurchaseOrderNumber,
+          },
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { message?: string } | null;
+        throw new Error(data?.message ?? "Impossible de prévisualiser la facture.");
+      }
+      const nextUrl = URL.createObjectURL(await response.blob());
+      if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+      setInvoicePreviewUrl(nextUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Impossible de prévisualiser la facture.");
     } finally {
       setStatus("idle");
     }
@@ -470,6 +544,26 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
+  const regenerateInvoice = async (paymentId: string) => {
+    if (!accessToken) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/organizer-payments/${paymentId}/invoice`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const data = await response.json().catch(() => null) as { message?: string } | null;
+      if (!response.ok) {
+        setError(data?.message ?? "Impossible de régénérer cette facture.");
+        return;
+      }
+      await load();
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   const openPurchaseDialog = (event: RacebookPublicationEvent) => {
     const currentTier = event.entitlement?.status === "active" ? event.entitlement.tier : "visibility";
     const currentSource = event.entitlement?.source;
@@ -480,12 +574,20 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
         ? currentSource
         : "admin"
     );
+    const analyticsGrantIsActive = event.analyticsCapabilityGrant?.status === "active";
+    setAnalyticsGrantEnabled(analyticsGrantIsActive);
+    setInitialAnalyticsGrantEnabled(analyticsGrantIsActive);
     setPurchaseDate(currentParisDate());
-    setPurchaseApplyVat(true);
-    const amounts = getOrganizerPaymentAmounts(currentTier, true);
+    const amounts = getOrganizerPaymentAmounts(currentTier);
     setPurchaseSubtotal(amounts.subtotal);
     setPurchaseTax(amounts.tax);
-    setPurchaseInvoice(null);
+    setInvoiceCustomerLegalName("");
+    setInvoiceCustomerAddress("");
+    setInvoiceCustomerSiren("");
+    setInvoiceCustomerVatNumber("");
+    setInvoicePurchaseOrderNumber("");
+    if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+    setInvoicePreviewUrl(null);
     setPurchaseEvent(event);
   };
 
@@ -501,6 +603,9 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     && payment.to_tier === purchaseTier
   )) ?? false;
   const needsBankTransferDetails = purchaseTier !== "visibility" && purchaseOrigin === "manual_payment" && !hasSelectedBankTransfer;
+  const invoiceCustomerComplete = invoiceCustomerLegalName.trim().length >= 2
+    && invoiceCustomerAddress.trim().length >= 5
+    && /^\d{9}$/.test(invoiceCustomerSiren.replace(/\s/g, ""));
   const filteredPublicationEvents = useMemo(() => {
     const normalizedSearch = normalizeSearchValue(publicationSearch.trim());
     return publicationEvents.filter((event) => {
@@ -509,6 +614,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       if (!normalizedSearch) return true;
       return normalizeSearchValue([
         event.name,
+        event.editionYear ? String(event.editionYear) : "",
         event.location ?? "",
         ...event.races.map((race) => race.name),
       ].join(" ")).includes(normalizedSearch);
@@ -770,7 +876,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             <p className="text-sm text-muted-foreground">Aucune course ne correspond à votre recherche.</p>
           ) : (
             paginatedPublicationEvents.map((event) => {
-              const pendingRequest = publicationRequests.find((request) => request.event_id === event.id) ?? null;
+              const pendingRequest = publicationRequests.find((request) => (
+                request.event_id === event.id
+                && (request.race_id
+                  ? event.races.some((race) => race.id === request.race_id)
+                  : event.isCurrentEdition)
+              )) ?? null;
               const publishedCount = event.races.filter((race) => race.racebook_is_live).length;
               const approvedCount = event.races.filter((race) => race.racebook_publication_approved_at).length;
               const completeCount = event.races.filter((race) => race.data_status !== "draft").length;
@@ -778,10 +889,13 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               const latestPayment = event.payments[0] ?? null;
 
               return (
-                <div key={event.id} className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 md:flex-row md:items-center md:justify-between">
+                <div key={event.editionId ?? event.id} className="flex flex-col gap-3 rounded-md border border-border bg-background p-4 md:flex-row md:items-center md:justify-between">
                   <div className="min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <p className="font-semibold text-foreground">{event.name}</p>
+                      <p className="font-semibold text-foreground">
+                        {event.name}{event.editionYear ? ` · édition ${event.editionYear}` : ""}
+                      </p>
+                      {event.isCurrentEdition ? <span className="rounded-full border border-border bg-muted px-2 py-1 text-xs text-muted-foreground">Édition actuelle</span> : null}
                       {pendingRequest ? (
                         <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
                           Demande en cours
@@ -805,21 +919,33 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       Origine : {event.entitlement?.source ? publicationOriginLabel[event.entitlement.source] : "Aucune activation"}
                       {latestPayment ? ` · dernier paiement ${latestPayment.payment_channel === "bank_transfer" ? "virement" : "Stripe"} (${latestPayment.status})` : ""}
                     </p>
+                    <p className="text-xs text-muted-foreground">
+                      Statistiques : {tier === "signature"
+                        ? "Inclus dans Signature"
+                        : event.analyticsCapabilityGrant?.status === "active"
+                          ? "Offert manuellement"
+                          : "Non disponible"}
+                    </p>
                     {event.races.length > 0 ? (
                       <p className="truncate text-xs text-muted-foreground">{event.races.map((race) => race.name).join(" · ")}</p>
                     ) : null}
                   </div>
                   <div className="min-w-[18rem] space-y-3">
                     <Button type="button" disabled={status === "saving" || !event.editionId} onClick={() => openPurchaseDialog(event)}>
-                      Gérer le droit de publication
+                      Gérer le pack et les accès
                     </Button>
                     {event.payments.filter((payment) => payment.payment_channel === "bank_transfer" && payment.status === "paid").map((payment) => (
                       <div key={payment.id} className="rounded-md border border-border p-2 text-xs">
                         <p className="font-medium text-foreground">
                           {payment.to_tier} · {payment.paid_at ? new Date(payment.paid_at).toLocaleDateString("fr-FR") : "date inconnue"}
                         </p>
-                        <p className="text-muted-foreground">{payment.invoice_original_name ?? "Facture en attente"}</p>
-                        <div className="mt-2 flex items-center gap-2">
+                        <p className="text-muted-foreground">{payment.invoice_number ? `Facture ${payment.invoice_number}` : payment.invoice_original_name ?? "Facture en attente"}</p>
+                        {payment.invoice_source === "generated" && !payment.invoice_storage_path ? (
+                          <Button type="button" variant="outline" className="mt-2" disabled={status !== "idle"} onClick={() => void regenerateInvoice(payment.id)}>
+                            Régénérer le PDF
+                          </Button>
+                        ) : null}
+                        {payment.invoice_source !== "generated" ? <div className="mt-2 flex items-center gap-2">
                           <Input
                             type="file"
                             accept="application/pdf,.pdf"
@@ -829,7 +955,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                           <Button type="button" variant="outline" disabled={!invoiceFiles[payment.id] || status === "saving"} onClick={() => void attachInvoice(payment.id)}>
                             {payment.invoice_storage_path ? "Remplacer" : "Ajouter"}
                           </Button>
-                        </div>
+                        </div> : null}
                       </div>
                     ))}
                   </div>
@@ -840,7 +966,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
           {filteredPublicationEvents.length > 0 ? (
             <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
               <p className="text-sm text-muted-foreground">
-                {filteredPublicationEvents.length} course(s) · page {publicationPage} sur {publicationTotalPages}
+                {filteredPublicationEvents.length} édition(s) · page {publicationPage} sur {publicationTotalPages}
               </p>
               {publicationTotalPages > 1 ? (
                 <nav className="flex flex-wrap items-center gap-1" aria-label="Pagination des courses organisateurs">
@@ -890,11 +1016,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
       </Card> : null}
 
       <Dialog open={Boolean(purchaseEvent)} onOpenChange={(open) => { if (!open) setPurchaseEvent(null); }}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>Gérer le droit de publication</DialogTitle>
+            <DialogTitle>Gérer le pack et les accès</DialogTitle>
             <DialogDescription>
-              Modifiez le pack et son origine pour {purchaseEvent?.name ?? "cet événement"}.
+              Modifiez le pack et son origine pour {purchaseEvent?.name ?? "cet événement"}
+              {purchaseEvent?.editionYear ? ` · édition ${purchaseEvent.editionYear}` : ""}.
               {purchaseEvent?.entitlement?.status === "active"
                 ? ` Pack actuellement actif : ${organizerTierLabel[purchaseEvent.entitlement.tier]} — ${publicationOriginLabel[purchaseEvent.entitlement.source]}.`
                 : ""}
@@ -924,7 +1051,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       value={tier}
                       checked={purchaseTier === tier}
                       onChange={() => {
-                        const amounts = getOrganizerPaymentAmounts(tier, purchaseApplyVat);
+                        const amounts = getOrganizerPaymentAmounts(tier);
                         setPurchaseTier(tier);
                         setPurchaseSubtotal(amounts.subtotal);
                         setPurchaseTax(amounts.tax);
@@ -962,6 +1089,29 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                 Le virement déjà enregistré pour ce pack sera utilisé.
               </p>
             ) : null}
+            <fieldset className="space-y-2 rounded-lg border border-border bg-muted/20 p-4 sm:col-span-2">
+              <legend className="px-1 text-sm font-semibold text-foreground">Modules offerts hors pack</legend>
+              <label className={`flex items-start gap-3 ${purchaseTier === "signature" ? "cursor-default" : "cursor-pointer"}`}>
+                <input
+                  type="checkbox"
+                  className="mt-1 h-4 w-4 shrink-0"
+                  checked={purchaseTier === "signature" || analyticsGrantEnabled}
+                  disabled={purchaseTier === "signature"}
+                  onChange={(event) => setAnalyticsGrantEnabled(event.target.checked)}
+                />
+                <span>
+                  <span className="block text-sm font-medium text-foreground">Statistiques RaceBook</span>
+                  <span className="block text-xs text-muted-foreground">
+                    {purchaseTier === "signature"
+                      ? "Inclus dans Signature"
+                      : analyticsGrantEnabled
+                        ? "Offert manuellement pour cette édition"
+                        : "Non disponible avec ce pack"}
+                  </span>
+                </span>
+              </label>
+              <p className="text-xs text-muted-foreground">La dérogation reste mémorisée lors d’un changement de pack jusqu’à sa révocation explicite.</p>
+            </fieldset>
             {needsBankTransferDetails ? <>
             <div className="space-y-1.5">
               <Label htmlFor="organizer-purchase-date">Date du paiement</Label>
@@ -971,42 +1121,55 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
               <Label htmlFor="organizer-purchase-subtotal">Montant HT (€)</Label>
               <Input id="organizer-purchase-subtotal" inputMode="decimal" value={purchaseSubtotal} readOnly />
             </div>
-            <label className="flex items-center gap-2 sm:col-span-2">
-              <input
-                type="checkbox"
-                checked={purchaseApplyVat}
-                onChange={(event) => {
-                  const applyVat = event.target.checked;
-                  setPurchaseApplyVat(applyVat);
-                  setPurchaseTax(getOrganizerPaymentAmounts(purchaseTier, applyVat).tax);
-                }}
-                className="h-4 w-4 rounded border-input"
-              />
-              <span className="text-sm font-medium">Ajouter la TVA (20 %)</span>
-            </label>
             <div className="space-y-1.5">
               <Label htmlFor="organizer-purchase-tax">TVA (€)</Label>
               <Input id="organizer-purchase-tax" inputMode="decimal" value={purchaseTax} readOnly />
+              <p className="text-xs text-muted-foreground">TVA non applicable, art. 293 B du CGI.</p>
             </div>
             <div className="space-y-1.5 sm:col-span-2">
-              <Label htmlFor="organizer-purchase-invoice">Facture PDF facultative</Label>
-              <Input id="organizer-purchase-invoice" type="file" accept="application/pdf,.pdf" onChange={(event) => setPurchaseInvoice(event.target.files?.[0] ?? null)} />
-              <p className="text-xs text-muted-foreground">10 Mo maximum. La facture pourra être ajoutée ou remplacée plus tard.</p>
+              <p className="text-sm font-semibold text-foreground">Destinataire de la facture</p>
+              <p className="text-xs text-muted-foreground">Ces données sont figées dans la facture au moment de son émission.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-invoice-customer-name">Raison sociale</Label>
+              <Input id="organizer-invoice-customer-name" value={invoiceCustomerLegalName} onChange={(event) => setInvoiceCustomerLegalName(event.target.value)} maxLength={160} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-invoice-customer-siren">SIREN</Label>
+              <Input id="organizer-invoice-customer-siren" inputMode="numeric" value={invoiceCustomerSiren} onChange={(event) => setInvoiceCustomerSiren(event.target.value)} placeholder="123 456 789" required />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="organizer-invoice-customer-address">Adresse de facturation</Label>
+              <textarea id="organizer-invoice-customer-address" value={invoiceCustomerAddress} onChange={(event) => setInvoiceCustomerAddress(event.target.value)} maxLength={500} rows={3} required className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-invoice-customer-vat">N° TVA intracommunautaire (si applicable)</Label>
+              <Input id="organizer-invoice-customer-vat" value={invoiceCustomerVatNumber} onChange={(event) => setInvoiceCustomerVatNumber(event.target.value)} maxLength={32} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="organizer-invoice-order-number">Bon de commande (si établi)</Label>
+              <Input id="organizer-invoice-order-number" value={invoicePurchaseOrderNumber} onChange={(event) => setInvoicePurchaseOrderNumber(event.target.value)} maxLength={80} />
             </div>
             <p className="sm:col-span-2 text-sm font-medium">
               Total à payer : {purchaseTotal === null ? "—" : purchaseTotal.toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
             </p>
+            <div className="sm:col-span-2">
+              <Button type="button" variant="outline" disabled={status !== "idle" || !purchaseDate || !invoiceCustomerComplete} onClick={() => void previewInvoice()}>
+                {status === "previewing" ? "Préparation…" : "Prévisualiser la facture PDF"}
+              </Button>
+            </div>
+            {invoicePreviewUrl ? <iframe title="Prévisualisation de la facture" src={invoicePreviewUrl} className="h-[32rem] w-full rounded-md border border-border sm:col-span-2" /> : null}
             </> : null}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setPurchaseEvent(null)}>Annuler</Button>
-            <Button type="button" disabled={status === "saving" || (needsBankTransferDetails && (!purchaseDate || !purchaseSubtotal || !purchaseTax))} onClick={() => void recordPurchase()}>
+            <Button type="button" disabled={status !== "idle" || (needsBankTransferDetails && (!purchaseDate || !purchaseSubtotal || !purchaseTax || !invoiceCustomerComplete))} onClick={() => void recordPurchase()}>
               {status === "saving"
                 ? "Enregistrement…"
                 : purchaseTier === "visibility"
                   ? "Repasser à Visibilité"
                   : needsBankTransferDetails
-                    ? "Enregistrer le virement et accorder le droit"
+                    ? "Émettre la facture et enregistrer le virement"
                     : "Enregistrer"}
             </Button>
           </DialogFooter>

@@ -6,26 +6,34 @@ import { describe, expect, it } from "vitest";
 describe("Admin Organizer publication grants", () => {
   it("lets admins select the grant origin and keeps bank-transfer details", () => {
     const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
-    expect(source).toContain("Gérer le droit de publication");
+    expect(source).toContain("Gérer le pack et les accès");
     expect(source).toContain("Paiement Stripe");
     expect(source).toContain("Paiement par virement");
     expect(source).toContain("Offert");
     expect(source).toContain('action: "setEditionGrant"');
     expect(source).toContain("Montant HT");
-    expect(source).toContain("Ajouter la TVA (20 %)");
     expect(source).toContain("ORGANIZER_TIER_PRICE_EUR");
     expect(source).toContain("€ HT");
     expect(source).toContain("readOnly");
     expect(source).toContain("Total à payer");
-    expect(source).toContain("Facture PDF facultative");
+    expect(source).toContain("TVA non applicable, art. 293 B du CGI");
+    expect(source).toContain("Prévisualiser la facture PDF");
     expect(source).toContain("Pack actuellement actif");
     expect(source).toContain('["visibility", "essential", "complete", "signature"]');
     expect(source).toContain("Repasser à Visibilité");
-    expect(source).toContain("Enregistrer le virement et accorder le droit");
+    expect(source).toContain("Émettre la facture et enregistrer le virement");
     expect(source).toContain("min-h-12 cursor-pointer");
     expect(source).toContain('role="alert"');
     expect(source).not.toContain("<LiveToggle");
     expect(source).not.toContain('action: "setRacebookVisibility"');
+    expect(source).toContain("Modules offerts hors pack");
+    expect(source).toContain("Statistiques RaceBook");
+    expect(source).toContain('action: "setEditionCapabilityGrant"');
+    expect(source).toContain('capabilityKey: "racebook_analytics.view"');
+    expect(source).toContain("Inclus dans Signature");
+    expect(source).toContain("Offert manuellement pour cette édition");
+    expect(source).toContain("analyticsGrantEnabled !== initialAnalyticsGrantEnabled");
+    expect(source).toContain("setInitialAnalyticsGrantEnabled(analyticsGrantIsActive)");
   });
 
   it("lets admins search and paginate the organizer publication events", () => {
@@ -37,12 +45,14 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain('aria-label="Pagination des courses organisateurs"');
     expect(source).toContain("Précédente");
     expect(source).toContain("Suivante");
+    expect(source).toContain("event.editionYear");
+    expect(source).toContain("event.editionId ?? event.id");
   });
 
-  it("lets admins omit VAT from a new bank transfer", () => {
+  it("keeps bank-transfer invoices VAT-exempt", () => {
     const source = readFileSync(resolve(process.cwd(), "app/admin/_components/AdminOrganizerClaimsTab.tsx"), "utf8");
-    expect(source).toContain("Ajouter la TVA (20 %)");
-    expect(source).toContain('formData.set("applyVat", String(purchaseApplyVat))');
-    expect(source).toContain("applyVat ? subtotal * ORGANIZER_VAT_RATE : 0");
+    expect(source).toContain('tax: "0,00"');
+    expect(source).toContain("TVA non applicable, art. 293 B du CGI");
+    expect(source).not.toContain('formData.set("applyVat"');
   });
 });

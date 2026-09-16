@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { deleteOrganizerInvoice } from "../../../../../../lib/organizer-invoices";
-import { PUT } from "./route";
+import { deleteOrganizerInvoice, uploadOrganizerInvoice } from "../../../../../../lib/organizer-invoices";
+import { POST, PUT } from "./route";
 
 const paymentId = "11111111-1111-1111-1111-111111111111";
 const editionId = "22222222-2222-2222-2222-222222222222";
@@ -49,6 +49,58 @@ describe("PUT /api/admin/organizer-payments/[paymentId]/invoice", () => {
     }]));
     const response = await PUT(createRequest(), { params: { paymentId } });
     expect(response.status).toBe(404);
+  });
+
+  it("rejects manual replacement of an issued generated invoice", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(Response.json([{
+      id: paymentId,
+      edition_id: editionId,
+      payment_channel: "bank_transfer",
+      invoice_storage_path: "issued/invoice.pdf",
+      invoice_number: "PY-2026-000001",
+      invoice_source: "generated",
+    }]));
+
+    const response = await PUT(createRequest(), { params: { paymentId } });
+
+    expect(response.status).toBe(409);
+    expect(uploadOrganizerInvoice).not.toHaveBeenCalled();
+  });
+
+  it("regenerates a missing automatic PDF from its immutable snapshot", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([{
+        id: paymentId,
+        edition_id: editionId,
+        payment_channel: "bank_transfer",
+        invoice_storage_path: null,
+        invoice_number: "PY-2026-000001",
+        invoice_issued_at: "2026-09-15T08:00:00.000Z",
+        invoice_source: "generated",
+        invoice_legal_snapshot: {
+          seller: {
+            legalName: "Faustin Bertrand", tradingName: "Pace Yourself", legalForm: "Entrepreneur individuel - micro-entreprise",
+            address: "10 avenue Félix Faure\n69580 Sathonay-Camp, France", siren: "109 903 757", siret: "109 903 757 00010",
+            registration: "RCS Lyon n° 109 903 757", email: "faustin@pace-yourself.com", vatStatement: "TVA non applicable, art. 293 B du CGI",
+          },
+          customer: { legalName: "Trail Test", billingAddress: "1 rue du Trail", siren: "123456789", vatNumber: null, purchaseOrderNumber: null },
+          service: { description: "Pack Essentiel", category: "Prestations de services", serviceDate: "2026-09-10" },
+          amounts: { subtotalCents: 9900, taxCents: 0, totalCents: 9900, currency: "EUR" },
+          payment: { channel: "Virement bancaire", paidDate: "2026-09-10" },
+        },
+      }]))
+      .mockResolvedValueOnce(Response.json([{ id: paymentId }]));
+
+    const response = await POST(new NextRequest(`http://localhost/api/admin/organizer-payments/${paymentId}/invoice`, {
+      method: "POST",
+      headers: { authorization: "Bearer admin-token" },
+    }), { params: { paymentId } });
+
+    expect(response.status).toBe(200);
+    expect(uploadOrganizerInvoice).toHaveBeenCalledOnce();
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[1]?.[1]?.body))).toMatchObject({
+      invoice_original_name: "facture-PY-2026-000001.pdf",
+    });
   });
 });
 

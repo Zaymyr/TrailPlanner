@@ -1,9 +1,11 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-09-14
+last_verified: 2026-09-15
 ai_priority: high
 related_files:
+  - apps/web/lib/posthog-organizer-analytics.ts
+  - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - vercel.json
   - apps/mobile/eas.json
   - apps/mobile/react-native.config.js
@@ -64,7 +66,7 @@ It also redirects:
 - `trailplanner.app/*` to `https://pace-yourself.com/*`
 - `trail-planner.vercel.app/*` to `https://pace-yourself.com/*`
 
-Because the Vercel project root is `apps/web`, the build command maps to the web workspace's `build` script and runs `next build`. npm still discovers the workspace root from that directory, so the install command explicitly selects `@trailplanner/web` while avoiding the unrelated Expo/mobile dependency graph. `npm install` is intentional here: unlike `npm ci`, it preserves a `node_modules` tree restored by Vercel's build cache; `--prefer-offline` prioritizes cached package data, while audit and funding requests are disabled during deployment.
+Because the Vercel project root is `apps/web`, the build command maps to the web workspace's `build` script and runs `next build`. npm still discovers the workspace root from that directory, so the install command explicitly selects `@trailplanner/web` while avoiding the unrelated Expo/mobile dependency graph. `npm install` is intentional here: unlike `npm ci`, it preserves a `node_modules` tree restored by Vercel's build cache; `--prefer-offline` prioritizes cached package data, while audit and funding requests are disabled during deployment. Server-only dependencies such as `pdf-lib` for organizer invoice rendering are included by this workspace-scoped install.
 
 The ignored-build command compares the current commit with its parent and skips the web deployment when none of these inputs changed:
 
@@ -170,6 +172,10 @@ Document variable names, not secret values. Important names visible in code incl
 - `NEXT_PUBLIC_POSTHOG_KEY`
 - `NEXT_PUBLIC_POSTHOG_TOKEN`
 - `NEXT_PUBLIC_POSTHOG_HOST`
+- `POSTHOG_API_KEY` (server-only, scoped to `endpoint:read`)
+- `POSTHOG_PROJECT_ID`
+- `POSTHOG_API_HOST` (private API application origin, not an ingestion host)
+- `POSTHOG_ORGANIZER_ANALYTICS_ENDPOINT` (optional; defaults to `organizer-racebook-analytics`)
 - `EXPO_PUBLIC_POSTHOG_KEY`
 - `EXPO_PUBLIC_POSTHOG_TOKEN`
 - `EXPO_PUBLIC_POSTHOG_HOST`
@@ -190,7 +196,8 @@ Document variable names, not secret values. Important names visible in code incl
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
 - Keep every alternate production hostname on a permanent redirect to `https://pace-yourself.com`; temporary host redirects split canonical signals and should not be configured in the Vercel domain settings.
 - Keep the Vercel dependency install scoped to `@trailplanner/web`. Removing the workspace filter makes npm install every workspace, including the mobile Expo graph, even though Vercel builds only the web app. Do not replace it with `npm ci` without re-evaluating build timings because `npm ci` deletes the dependency tree restored from Vercel's cache.
-- The app only sends analytics through the public Web and Expo PostHog keys. The admin dashboard does not query PostHog and uses Supabase metrics only.
+- The app sends events through the public Web and Expo PostHog keys. The admin dashboard still uses Supabase metrics only; the organizer statistics route separately reads one named PostHog Endpoint with a server-only `endpoint:read` key and a 15-minute Endpoint cache.
+- Never reuse a `NEXT_PUBLIC_` or `EXPO_PUBLIC_` PostHog token as `POSTHOG_API_KEY`, and never expose the server key in a bootstrap or analytics response. The API host must be the HTTPS PostHog application origin without a path or embedded credentials.
 - The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.
 - Organizer checkout recomputes the persisted module requirement before creating Stripe state and stores the recommendation as metadata; the requested lower paid tier remains valid and public filtering keeps uncovered drafts private.
 - Publication presence probes must select a real column from each Supabase table. Edition branding is keyed by `edition_id`, not a generic `id`; a bad projection fails before Stripe Checkout is created.
