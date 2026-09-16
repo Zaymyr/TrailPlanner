@@ -18,6 +18,9 @@ describe("Admin Organizer publication grants", () => {
     expect(source).toContain("Total à payer");
     expect(source).toContain("TVA non applicable, art. 293 B du CGI");
     expect(source).toContain("Prévisualiser la facture PDF");
+    expect(source).toContain("Générer une facture");
+    expect(source).toContain("Générer et rendre disponible");
+    expect(source).toContain("Le paiement et les droits existants ne seront pas modifiés");
     expect(source).toContain("Pack actuellement actif");
     expect(source).toContain('["visibility", "essential", "complete", "signature"]');
     expect(source).toContain("Repasser à Visibilité");

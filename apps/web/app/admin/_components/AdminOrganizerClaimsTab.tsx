@@ -165,6 +165,7 @@ const organizerTierLabel: Record<NonNullable<RacebookPublicationEvent["entitleme
 
 type PublicationOrigin = "admin" | "stripe" | "manual_payment" | "complimentary";
 type PaidPublicationTier = Exclude<NonNullable<RacebookPublicationEvent["entitlement"]>["tier"], "visibility">;
+type OrganizerPayment = RacebookPublicationEvent["payments"][number];
 
 const PUBLICATION_EVENTS_PER_PAGE = 10;
 
@@ -206,6 +207,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
   const [publicationSearch, setPublicationSearch] = useState("");
   const [publicationPage, setPublicationPage] = useState(1);
   const [purchaseEvent, setPurchaseEvent] = useState<RacebookPublicationEvent | null>(null);
+  const [invoicePayment, setInvoicePayment] = useState<{ event: RacebookPublicationEvent; payment: OrganizerPayment } | null>(null);
   const [purchaseTier, setPurchaseTier] = useState<"visibility" | "essential" | "complete" | "signature">("essential");
   const [purchaseOrigin, setPurchaseOrigin] = useState<PublicationOrigin>("admin");
   const [analyticsGrantEnabled, setAnalyticsGrantEnabled] = useState(false);
@@ -519,6 +521,39 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     }
   };
 
+  const previewHistoricalInvoice = async () => {
+    if (!accessToken || !invoicePayment) return;
+    setStatus("previewing");
+    setError(null);
+    try {
+      const response = await fetch("/api/admin/organizer-payments/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          paymentId: invoicePayment.payment.id,
+          customer: {
+            legalName: invoiceCustomerLegalName,
+            billingAddress: invoiceCustomerAddress,
+            siren: invoiceCustomerSiren,
+            vatNumber: invoiceCustomerVatNumber,
+            purchaseOrderNumber: invoicePurchaseOrderNumber,
+          },
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null) as { message?: string } | null;
+        throw new Error(data?.message ?? "Impossible de prévisualiser la facture.");
+      }
+      const nextUrl = URL.createObjectURL(await response.blob());
+      if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+      setInvoicePreviewUrl(nextUrl);
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Impossible de prévisualiser la facture.");
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   const attachInvoice = async (paymentId: string) => {
     const invoice = invoiceFiles[paymentId];
     if (!accessToken || !invoice) return;
@@ -562,6 +597,54 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     } finally {
       setStatus("idle");
     }
+  };
+
+  const issueHistoricalInvoice = async () => {
+    if (!accessToken || !invoicePayment) return;
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/admin/organizer-payments/${invoicePayment.payment.id}/invoice`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({
+          customer: {
+            legalName: invoiceCustomerLegalName,
+            billingAddress: invoiceCustomerAddress,
+            siren: invoiceCustomerSiren,
+            vatNumber: invoiceCustomerVatNumber,
+            purchaseOrderNumber: invoicePurchaseOrderNumber,
+          },
+        }),
+      });
+      const data = await response.json().catch(() => null) as { message?: string; warning?: string } | null;
+      if (!response.ok) {
+        setError(data?.message ?? "Impossible de générer cette facture.");
+        return;
+      }
+      if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+      setInvoicePreviewUrl(null);
+      setInvoicePayment(null);
+      await load();
+      if (data?.warning) setError(data.warning);
+    } catch (caught) {
+      console.error("Unable to issue historical organizer invoice", caught);
+      setError("Impossible de générer cette facture. Vérifiez votre connexion puis réessayez.");
+    } finally {
+      setStatus("idle");
+    }
+  };
+
+  const openHistoricalInvoiceDialog = (event: RacebookPublicationEvent, payment: OrganizerPayment) => {
+    setInvoiceCustomerLegalName("");
+    setInvoiceCustomerAddress("");
+    setInvoiceCustomerSiren("");
+    setInvoiceCustomerVatNumber("");
+    setInvoicePurchaseOrderNumber("");
+    if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+    setInvoicePreviewUrl(null);
+    setError(null);
+    setInvoicePayment({ event, payment });
   };
 
   const openPurchaseDialog = (event: RacebookPublicationEvent) => {
@@ -945,7 +1028,12 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                             Régénérer le PDF
                           </Button>
                         ) : null}
-                        {payment.invoice_source !== "generated" ? <div className="mt-2 flex items-center gap-2">
+                        {!payment.invoice_source && !payment.invoice_storage_path ? (
+                          <Button type="button" variant="outline" className="mt-2" disabled={status !== "idle"} onClick={() => openHistoricalInvoiceDialog(event, payment)}>
+                            Générer une facture
+                          </Button>
+                        ) : null}
+                        {payment.invoice_source === "uploaded" || (!payment.invoice_source && payment.invoice_storage_path) ? <div className="mt-2 flex items-center gap-2">
                           <Input
                             type="file"
                             accept="application/pdf,.pdf"
@@ -1171,6 +1259,85 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                   : needsBankTransferDetails
                     ? "Émettre la facture et enregistrer le virement"
                     : "Enregistrer"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(invoicePayment)} onOpenChange={(open) => {
+        if (!open) {
+          if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+          setInvoicePreviewUrl(null);
+          setInvoicePayment(null);
+          setError(null);
+        }
+      }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+          <DialogHeader>
+            <DialogTitle>Générer une facture</DialogTitle>
+            <DialogDescription>
+              Émettez la facture du virement déjà enregistré pour {invoicePayment?.event.name ?? "cet événement"}
+              {invoicePayment?.event.editionYear ? ` · édition ${invoicePayment.event.editionYear}` : ""}.
+              Le paiement et les droits existants ne seront pas modifiés.
+            </DialogDescription>
+          </DialogHeader>
+          {error ? (
+            <p role="alert" className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </p>
+          ) : null}
+          <div className="grid gap-4 py-2 sm:grid-cols-2">
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-sm sm:col-span-2">
+              <p className="font-medium text-foreground">
+                Pack {invoicePayment?.payment.to_tier ?? "—"} · {invoicePayment?.payment.paid_at
+                  ? new Date(invoicePayment.payment.paid_at).toLocaleDateString("fr-FR")
+                  : "date inconnue"}
+              </p>
+              <p className="text-muted-foreground">
+                Montant HT : {((invoicePayment?.payment.amount_subtotal ?? 0) / 100).toLocaleString("fr-FR", { style: "currency", currency: "EUR" })}
+                {" · "}TVA : 0,00 € · facture acquittée
+              </p>
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <p className="text-sm font-semibold text-foreground">Destinataire de la facture</p>
+              <p className="text-xs text-muted-foreground">Ces données seront figées avec le montant et la date du virement historique.</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="historical-invoice-customer-name">Raison sociale</Label>
+              <Input id="historical-invoice-customer-name" value={invoiceCustomerLegalName} onChange={(event) => setInvoiceCustomerLegalName(event.target.value)} maxLength={160} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="historical-invoice-customer-siren">SIREN</Label>
+              <Input id="historical-invoice-customer-siren" inputMode="numeric" value={invoiceCustomerSiren} onChange={(event) => setInvoiceCustomerSiren(event.target.value)} placeholder="123 456 789" required />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label htmlFor="historical-invoice-customer-address">Adresse de facturation</Label>
+              <textarea id="historical-invoice-customer-address" value={invoiceCustomerAddress} onChange={(event) => setInvoiceCustomerAddress(event.target.value)} maxLength={500} rows={3} required className="w-full rounded-md border border-input bg-card px-3 py-2 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="historical-invoice-customer-vat">N° TVA intracommunautaire (si applicable)</Label>
+              <Input id="historical-invoice-customer-vat" value={invoiceCustomerVatNumber} onChange={(event) => setInvoiceCustomerVatNumber(event.target.value)} maxLength={32} />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="historical-invoice-order-number">Bon de commande (si établi)</Label>
+              <Input id="historical-invoice-order-number" value={invoicePurchaseOrderNumber} onChange={(event) => setInvoicePurchaseOrderNumber(event.target.value)} maxLength={80} />
+            </div>
+            <div className="sm:col-span-2">
+              <Button type="button" variant="outline" disabled={status !== "idle" || !invoiceCustomerComplete} onClick={() => void previewHistoricalInvoice()}>
+                {status === "previewing" ? "Préparation…" : "Prévisualiser la facture PDF"}
+              </Button>
+            </div>
+            {invoicePreviewUrl ? <iframe title="Prévisualisation de la facture historique" src={invoicePreviewUrl} className="h-[32rem] w-full rounded-md border border-border sm:col-span-2" /> : null}
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={() => {
+              if (invoicePreviewUrl) URL.revokeObjectURL(invoicePreviewUrl);
+              setInvoicePreviewUrl(null);
+              setInvoicePayment(null);
+              setError(null);
+            }}>Annuler</Button>
+            <Button type="button" disabled={status !== "idle" || !invoiceCustomerComplete} onClick={() => void issueHistoricalInvoice()}>
+              {status === "saving" ? "Génération…" : "Générer et rendre disponible"}
             </Button>
           </DialogFooter>
         </DialogContent>

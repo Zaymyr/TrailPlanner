@@ -17,7 +17,11 @@ import {
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
 } from "../../../../../lib/organizer-dashboard-details";
-import { loadOrganizerEditionEntitlements } from "../../../../../lib/organizer-entitlements";
+import {
+  loadOrganizerEditionCapabilityGrants,
+  loadOrganizerEditionEntitlements,
+  resolveOrganizerCapabilityAccess,
+} from "../../../../../lib/organizer-entitlements";
 import { loadOrganizerEditionPayments, selectEffectiveOrganizerPurchase } from "../../../../../lib/organizer-payments";
 import { isOrganizerEditionModuleSelected } from "../../../../../lib/organizer-module-settings";
 import { racebookBrandingRowSchema, toOrganizerBranding } from "../../../../../lib/racebook-branding";
@@ -135,6 +139,7 @@ const deleteStorageObject = async (
 const mapEventDetail = (
   event: z.infer<typeof eventDetailSchema>,
   entitlements: Awaited<ReturnType<typeof loadOrganizerEditionEntitlements>> = {},
+  capabilityGrants: Awaited<ReturnType<typeof loadOrganizerEditionCapabilityGrants>> = {},
   payments: Awaited<ReturnType<typeof loadOrganizerEditionPayments>> = {}
 ) => ({
   ...event,
@@ -157,6 +162,11 @@ const mapEventDetail = (
         brandingConfigured: Boolean(branding.publishedAt),
         brandingUnpublished: branding.hasUnpublishedChanges,
         entitlement,
+        analyticsAccess: resolveOrganizerCapabilityAccess(
+          entitlement,
+          capabilityGrants[edition.id] ?? [],
+          "racebook_analytics.view"
+        ),
         purchase: selectEffectiveOrganizerPurchase(payments[edition.id], entitlement?.tier),
       };
     }),
@@ -200,12 +210,15 @@ export async function GET(request: NextRequest, context: { params: { id?: string
   if (!event) return jsonError("Event not found.", 404);
 
   const editionIds = (event.race_event_editions ?? []).map((edition) => edition.id);
-  const [entitlements, payments] = await Promise.all([
+  const [entitlements, capabilityGrants, payments] = await Promise.all([
     loadOrganizerEditionEntitlements(auth.serviceConfig, editionIds),
+    loadOrganizerEditionCapabilityGrants(auth.serviceConfig, editionIds),
     loadOrganizerEditionPayments(auth.serviceConfig, editionIds),
   ]);
 
-  return withSecurityHeaders(NextResponse.json({ event: mapEventDetail(event, entitlements, payments) }));
+  return withSecurityHeaders(
+    NextResponse.json({ event: mapEventDetail(event, entitlements, capabilityGrants, payments) })
+  );
 }
 
 export async function PATCH(request: NextRequest, context: { params: { id?: string } }) {

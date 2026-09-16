@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -113,7 +113,7 @@ Summary:
 
 - Approved organizer writes must check an active membership for the parent event.
 - A membership grants access to all formats under the event.
-- The membership-gated bootstrap/event detail reads may aggregate narrow persisted ravito, SAS, podium, service, sponsor and branding summaries for completion display; this does not widen access beyond the managed event or expose editable child collections.
+- The membership-gated bootstrap/event detail reads may aggregate narrow persisted ravito, SAS, podium, service, sponsor and branding summaries plus the selected edition's effective Analytics decision; this does not widen access beyond the managed event, expose editable child collections, or expose PostHog data.
 - A membership grants access to source ravito service flags (`water_available`, `solid_available`, `assistance_allowed`) for all formats under the event.
 - A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos. Event JSONB stores common defaults, the event end date, official website, Instagram and Facebook URLs, display-normalized emergency contact phone, additive geocoded location metadata, and event-level bib pickup as several locations with independent dated time slots. Valid domain links pasted without a protocol are normalized to HTTPS before persistence; invalid and non-HTTP(S) values are rejected. Race JSONB stores active-format differences or additions, including the current access-section toggles and geocoded format/access location metadata used by the organizer dashboard.
 - A membership grants service-route access to upload the event PNG thumbnail, upload a format thumbnail, preview/replace format GPX files, and delete a format for every race under the event.
@@ -163,6 +163,7 @@ order by created_at asc;
 - The consolidated RaceBook endpoint may use service credentials only after applying the public publication/content gate or an authenticated active-organizer check. Organizer preview responses are always `private, no-store`.
 
 - Membership is event-scoped, but commercial rights are edition-scoped. Every active member shares the selected edition's entitlement; membership alone does not unlock paid capabilities.
+- Bootstrap and event-detail reloads must resolve edition capabilities identically. A complimentary module belongs to the edition and must survive event selection or mutation reloads for every active event member.
 - Module mutation also requires the edition/format setting to be effective. Full legacy JSON saves preserve subtrees whose module is inactive or locked.
 
 - Do not authorize organizer edits with `races.created_by`; claimed catalog races deliberately avoid user ownership.

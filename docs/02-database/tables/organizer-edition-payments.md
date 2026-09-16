@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -14,6 +14,7 @@ related_files:
   - apps/web/app/api/admin/organizer-payments/preview/route.ts
   - apps/web/app/api/admin/organizer-payments/preview/route.test.ts
   - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.ts
+  - apps/web/app/api/admin/organizer-payments/[paymentId]/invoice/route.test.ts
   - apps/web/app/api/organizer/invoices/route.ts
   - apps/web/app/api/organizer/invoices/[paymentId]/download/route.ts
   - apps/web/lib/organizer-payments.ts
@@ -37,7 +38,7 @@ related_tables:
 
 ## Purpose
 
-Stores Stripe attempts and paid bank transfers, with their settlement values and invoice references, separately from the effective edition right. New admin-recorded bank transfers generate a VAT-exempt Pace Yourself invoice; earlier manually uploaded PDFs remain valid historical attachments.
+Stores Stripe attempts and paid bank transfers, with their settlement values and invoice references, separately from the effective edition right. New admin-recorded bank transfers generate a VAT-exempt Pace Yourself invoice; an older paid zero-VAT bank transfer without an invoice can receive one later from the admin action, while earlier manually uploaded PDFs remain valid historical attachments.
 
 ## Key Concepts
 
@@ -96,6 +97,7 @@ The atomic `record_admin_organizer_bank_transfer_invoice` wrapper is likewise ex
 - A bank transfer cannot duplicate or downgrade a ledger-backed paid tier. An `admin`, `complimentary`, or `legacy_admin` override is not payment history: a newly received transfer may replace it with the selected paid tier, even when that paid tier is lower than the temporary grant.
 - Never trust browser-supplied settlement amounts for a direct pack. The admin route is the canonical pricing boundary and recomputes the VAT-exempt total from the pack before invoking service-role-only functions.
 - Preview uses the same server-side PDF renderer but has no invoice number and does not write. Issuance atomically allocates the yearly number and legal snapshot, then stores the rendered PDF and its audit metadata. Once numbered, financial and legal facts cannot be updated and the row cannot be deleted; only the private PDF attachment metadata may be repaired.
+- For a historical paid bank transfer with no invoice metadata, the admin `Générer une facture` action reads the existing tier, amount and paid date from this ledger. It previews without writing, then calls `issue_admin_organizer_invoice` on the same row; it never inserts another payment or recalculates the edition entitlement. Only EUR rows with zero tax and a total equal to the stored subtotal are eligible.
 - The Trail Ton Château Essential transfer dated 2026-09-11 is corrected to zero VAT by `20260912172228_remove_trail_ton_chateau_vat.sql`; its HT amount, paid state, entitlement, and invoice metadata are unchanged.
 - Choosing Stripe or virement as the admin-visible publication origin never creates synthetic payment history; the requested tier and channel must already resolve from valid paid ledger rows.
 - Replacing a manual invoice changes only its file metadata. The transaction remains historical; the old object is removed after the new ledger reference is stored.
@@ -116,6 +118,7 @@ order by created_at desc;
 - Do not overwrite historical rows to represent another purchase; create another attempt.
 - Never return Stripe identifiers or private Storage paths in organizer DTOs.
 - A standard PDF download is not by itself a French e-invoicing platform transmission. The application must still be connected to an approved platform when that obligation applies.
+- Never rebuild a historical invoice from the current pack price or a browser amount. Use the immutable payment row's stored subtotal, paid date, tier and currency.
 - Although the edition foreign key is historically `on delete cascade`, the issued-invoice protection trigger rejects that cascade for a numbered row. An edition with an issued invoice must therefore be retained.
 
 ## Related Docs

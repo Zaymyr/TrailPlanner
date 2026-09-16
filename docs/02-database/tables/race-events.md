@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -182,7 +182,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Organizer runner notifications are manual. Saves and publication review must not auto-create announcements.
 - Mobile Courses now preloads only a short organizer-update preview per event from the `race_event_updates` relation so the sheet can open without a second visible loading pass. After every format row, one light-green panel shows only the newest or targeted announcement while collapsed; tapping `View more` reveals the other messages and loads the longer history from the dedicated updates route when needed.
 - Organizer event details are saved through `/api/organizer/events/[id]` after active membership checks and selected-module checks, not paid-tier checks. This permits private drafts for services and other higher-tier sections; public/mobile serializers still apply the effective entitlement. The JSON includes structured geocoded location metadata, official/social links, emergency contact, and the progressive module subtrees.
-- The organizer bootstrap/event detail reads embed only child ids or narrow status columns needed to derive completion summaries: per-format ravito/SAS/podium counts and per-edition service/sponsor/branding state. Raw nested rows are removed from the API response, so opening a lazy editor is not required to refresh a tile and editable collection payloads remain module-scoped.
+- The organizer bootstrap/event detail reads embed only child ids or narrow status columns needed to derive completion summaries: per-format ravito/SAS/podium counts and per-edition service/sponsor/branding state. They also resolve the same bounded per-edition Analytics access decision from the commercial tier plus an optional active grant. Raw nested rows are removed from the API response, so opening a lazy editor is not required to refresh a tile and editable collection payloads remain module-scoped.
 - Those authorized reads also attach one sanitized effective-purchase summary per edition. Whole-event deletion gathers manual invoice paths before the database cascade and removes their private Storage objects only after the event deletion succeeds.
 - Generic discovery may use a newer regulation to reject old-edition candidates and may consolidate detections only from compatible normalized identity evidence. Explicit format headings on the main page are eligible candidates, including KMS-style event-prefixed labels; repeated registration links do not demote a page that exposes several named distances. Up to two same-origin PDF links explicitly identified as PDFs may join the evidence set after bounded text extraction, without becoming database writes by themselves. Additional official URLs are classified by role and remain evidence sources rather than asserted formats; ambiguous event JSON-LD cannot collapse named page-specific identities. Anonymous same-distance detections stay separate for admin confirmation. Missing values such as D+ remain explicit and do not invalidate confirmed format existence.
 - Import field provenance and confidence are represented as transient source claims. Current values and previous-edition context are claims too, but historical claims remain reference-only. Only explicitly selected applicable claim ids, including an optional `officialWebsiteUrl`, may enter the row.
@@ -268,6 +268,7 @@ where is_live = true
 - The admin publication response may project generated invoice number/source beside an edition payment. Those fields come from the service-only payment ledger and do not add invoice or billing columns to `race_events`.
 
 - Organizer bootstrap and event-detail reads must include all three nested format visibility flags. Masked/private formats use `is_live = false`; preview false/true distinguishes a format absent from the mobile app from a runner-visible course format. Private formats support plan creation for runners, while only active organizers receive the dimmed functional RaceBook preview. Both remain editable in the authorized web workspace.
+- Organizer bootstrap and event-detail reads must also include the same edition-level effective Analytics decision. An event reload replaces the prior snapshot and must not reduce a complimentary grant to a tier-only fallback.
 - Organizer payment invalidation must hide attached RaceBooks through edition rights without setting `race_events.is_live = false`; the event remains in free catalog discovery.
 - Public RaceBook snapshots are tagged by event as well as race and edition. Event metadata/image/live-state changes invalidate that event tag after the write, while private organizer previews remain uncached.
 

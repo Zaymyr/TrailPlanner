@@ -6,6 +6,17 @@ import { POST, PUT } from "./route";
 
 const paymentId = "11111111-1111-1111-1111-111111111111";
 const editionId = "22222222-2222-2222-2222-222222222222";
+const generatedSnapshot = {
+  seller: {
+    legalName: "Faustin Bertrand", tradingName: "Pace Yourself", legalForm: "Entrepreneur individuel - micro-entreprise",
+    address: "10 avenue Félix Faure\n69580 Sathonay-Camp, France", siren: "109 903 757", siret: "109 903 757 00010",
+    registration: "RCS Lyon n° 109 903 757", email: "faustin@pace-yourself.com", vatStatement: "TVA non applicable, art. 293 B du CGI",
+  },
+  customer: { legalName: "Trail Test", billingAddress: "1 rue du Trail", siren: "123456789", vatNumber: null, purchaseOrderNumber: null },
+  service: { description: "Pack Essentiel", category: "Prestations de services", serviceDate: "2026-09-10" },
+  amounts: { subtotalCents: 9900, taxCents: 0, totalCents: 9900, currency: "EUR" },
+  payment: { channel: "Virement bancaire", paidDate: "2026-09-10" },
+};
 
 const createRequest = () => {
   const data = new FormData();
@@ -67,6 +78,54 @@ describe("PUT /api/admin/organizer-payments/[paymentId]/invoice", () => {
     expect(uploadOrganizerInvoice).not.toHaveBeenCalled();
   });
 
+  it("issues and stores an invoice for an older paid bank transfer", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([{
+        id: paymentId,
+        edition_id: editionId,
+        payment_channel: "bank_transfer",
+        status: "paid",
+        to_tier: "essential",
+        amount_subtotal: 9900,
+        amount_tax: 0,
+        amount_total: 9900,
+        currency: "eur",
+        paid_at: "2026-09-11T00:00:00.000Z",
+        invoice_storage_path: null,
+        invoice_number: null,
+        invoice_source: null,
+      }]))
+      .mockResolvedValueOnce(Response.json([{ edition_year: 2026, race_events: { name: "Trail Mon Château" } }]))
+      .mockResolvedValueOnce(Response.json({
+        id: paymentId,
+        edition_id: editionId,
+        payment_channel: "bank_transfer",
+        invoice_storage_path: null,
+        invoice_number: "PY-2026-000002",
+        invoice_issued_at: "2026-09-16T08:00:00.000Z",
+        invoice_source: "generated",
+        invoice_legal_snapshot: generatedSnapshot,
+      }))
+      .mockResolvedValueOnce(Response.json([{ id: paymentId }]));
+
+    const response = await POST(new NextRequest(`http://localhost/api/admin/organizer-payments/${paymentId}/invoice`, {
+      method: "POST",
+      headers: { authorization: "Bearer admin-token", "content-type": "application/json" },
+      body: JSON.stringify({ customer: generatedSnapshot.customer }),
+    }), { params: { paymentId } });
+
+    expect(response.status).toBe(200);
+    expect(String(vi.mocked(fetch).mock.calls[2]?.[0])).toContain("/rpc/issue_admin_organizer_invoice");
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[2]?.[1]?.body))).toMatchObject({
+      p_payment_id: paymentId,
+      p_invoice_legal_snapshot: {
+        customer: { legalName: "Trail Test" },
+        amounts: { subtotalCents: 9900, taxCents: 0, totalCents: 9900 },
+      },
+    });
+    expect(uploadOrganizerInvoice).toHaveBeenCalledOnce();
+  });
+
   it("regenerates a missing automatic PDF from its immutable snapshot", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(Response.json([{
@@ -77,17 +136,7 @@ describe("PUT /api/admin/organizer-payments/[paymentId]/invoice", () => {
         invoice_number: "PY-2026-000001",
         invoice_issued_at: "2026-09-15T08:00:00.000Z",
         invoice_source: "generated",
-        invoice_legal_snapshot: {
-          seller: {
-            legalName: "Faustin Bertrand", tradingName: "Pace Yourself", legalForm: "Entrepreneur individuel - micro-entreprise",
-            address: "10 avenue Félix Faure\n69580 Sathonay-Camp, France", siren: "109 903 757", siret: "109 903 757 00010",
-            registration: "RCS Lyon n° 109 903 757", email: "faustin@pace-yourself.com", vatStatement: "TVA non applicable, art. 293 B du CGI",
-          },
-          customer: { legalName: "Trail Test", billingAddress: "1 rue du Trail", siren: "123456789", vatNumber: null, purchaseOrderNumber: null },
-          service: { description: "Pack Essentiel", category: "Prestations de services", serviceDate: "2026-09-10" },
-          amounts: { subtotalCents: 9900, taxCents: 0, totalCents: 9900, currency: "EUR" },
-          payment: { channel: "Virement bancaire", paidDate: "2026-09-10" },
-        },
+        invoice_legal_snapshot: generatedSnapshot,
       }]))
       .mockResolvedValueOnce(Response.json([{ id: paymentId }]));
 
