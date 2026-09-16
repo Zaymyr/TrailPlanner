@@ -278,11 +278,13 @@ describe("PATCH /api/admin/organizer-claims", () => {
     expect(payload.accountCreated).toBe(true);
     expect(payload.user).toEqual({ id: userId, email: "nouveau@example.com" });
 
-    const inviteCall = mockFetch.mock.calls.find(([url]) => String(url).endsWith("/auth/v1/invite"));
+    const inviteCall = mockFetch.mock.calls.find(([url]) => new URL(String(url)).pathname === "/auth/v1/invite");
+    const inviteUrl = new URL(String(inviteCall?.[0]));
     expect(inviteCall?.[1]?.method).toBe("POST");
+    expect(inviteUrl.searchParams.get("redirect_to")).toBe("http://localhost/reset-password");
     expect(JSON.parse(inviteCall?.[1]?.body as string)).toEqual({
       email: "nouveau@example.com",
-      redirect_to: "http://localhost/reset-password",
+      data: { event_name: "Trail des Crêtes" },
     });
   });
 
