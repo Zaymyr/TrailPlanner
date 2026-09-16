@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql

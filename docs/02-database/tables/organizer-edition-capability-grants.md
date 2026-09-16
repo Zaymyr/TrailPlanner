@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_capability_grants
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
@@ -72,6 +72,7 @@ where edition_id = :edition_id;
 - Do not expose this table directly to organizers. Server routes combine it with the pack entitlement and return a bounded effective-capability DTO.
 - Revocation is an update to `status`, not deletion.
 - Adding another capability requires coordinated SQL allowlist, TypeScript schema, tests, and offer documentation changes.
+- Keep the RPC's target-status `CASE` parenthesized inside its PL/pgSQL `IF` condition; otherwise PostgreSQL can parse the inner `THEN` as the procedural delimiter.
 
 ## Related Docs
 

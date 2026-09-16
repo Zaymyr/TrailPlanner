@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-16
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -431,6 +431,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Keep sponsor schema and showcase seed migrations separate: the first establishes security/invariants, while the idempotent TST data migration assumes the fixed demo edition already exists.
 - Organizer collection RPCs must remain `SECURITY INVOKER`, service-role-only and parent-locked. Moving validation back into route-side write loops would reintroduce partial saves and N+1 mutations.
 - Complimentary capability grants supplement rather than mutate `organizer_edition_entitlements`; never erase them while recalculating or changing a pack.
+- Parenthesize a SQL `CASE` expression used inside a PL/pgSQL `IF` condition so its internal `THEN` cannot terminate the procedural condition during migration parsing.
 - Never deploy course-slug edits before the redirect migration. Review the GET-only slug audit first, then use the service-only RPC for approved rows so the old URL and canonical target change in one transaction.
 
 ## Related Docs
