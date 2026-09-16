@@ -1,11 +1,17 @@
 version: 2
-updates:
-  - package-ecosystem: npm
-    directory: "/"
+multi-ecosystem-groups:
+  monthly-maintenance:
     schedule:
       interval: monthly
       timezone: Europe/Paris
-    open-pull-requests-limit: 5
+
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    patterns:
+      - "*"
+    multi-ecosystem-group: monthly-maintenance
+    open-pull-requests-limit: 1
     versioning-strategy: increase-if-necessary
     # Expo SDK and native React Native packages must be upgraded together with
     # `npx expo install`, never as isolated Dependabot version bumps.
@@ -31,28 +37,13 @@ updates:
       - dependency-name: "@supabase/ssr"
         versions:
           - ">=0.12.0"
-    groups:
-      production-minor-and-patch:
-        dependency-type: production
-        update-types:
-          - minor
-          - patch
-      development-minor-and-patch:
-        dependency-type: development
-        update-types:
-          - minor
-          - patch
-
   - package-ecosystem: github-actions
     directory: "/"
-    schedule:
-      interval: monthly
-    open-pull-requests-limit: 3
+    patterns:
+      - "*"
+    multi-ecosystem-group: monthly-maintenance
+    open-pull-requests-limit: 1
     ignore:
       - dependency-name: "*"
         update-types:
           - "version-update:semver-major"
-    groups:
-      github-actions:
-        patterns:
-          - "*"
