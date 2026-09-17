@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-16
+last_verified: 2026-09-17
 ai_priority: medium
 related_files:
   - package.json
@@ -35,17 +35,25 @@ Use this workflow as a repo-level checklist for implementing and validating a fe
 
 ## Steps
 
-1. Read `docs/AGENTS.md` and route yourself to the relevant domain docs.
-2. Search the existing implementation before adding new patterns:
+1. Start every new task from a new branch based on the latest remote `main`:
+
+```bash
+git fetch origin
+git switch -c dev/<task-name> origin/main
+```
+
+   Never reuse a branch from an already merged or closed pull request, and never place new work on a branch from a previous task. After the pull request is merged, delete its local and remote branches.
+2. Read `docs/AGENTS.md` and route yourself to the relevant domain docs.
+3. Search the existing implementation before adding new patterns:
 
 ```bash
 rg -n "<feature keyword>" apps packages supabase
 ```
 
-3. Make the smallest code/schema change that fits existing patterns.
-4. Update docs for any changed business rule, table, auth flow, integration, or workflow.
-5. Run targeted tests.
-6. Run the repository verification gate before opening a pull request:
+4. Make the smallest code/schema change that fits existing patterns.
+5. Update docs for any changed business rule, table, auth flow, integration, or workflow.
+6. Run targeted tests.
+7. Run the repository verification gate before opening a pull request:
 
 ```bash
 npm run verify
@@ -53,14 +61,14 @@ npm run verify
 
    `verify` first checks the `related_files` documentation protocol, then runs lint, TypeScript checks, the non-watch web and mobile unit suites, and the production build. Use `npm run verify:web` when iterating on a web-only change; the pull-request CI still runs the complete web gate as separate, visible steps.
 
-7. For web UI changes, run/build the web app.
-8. For mobile native changes, use the EAS/dev-client path.
-9. For Supabase changes, verify RLS and service-role behavior separately.
-10. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
+8. For web UI changes, run/build the web app.
+9. For mobile native changes, use the EAS/dev-client path.
+10. For Supabase changes, verify RLS and service-role behavior separately.
+11. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
     Run `npx expo-doctor apps/mobile` after installation and distinguish intentional monorepo Metro isolation warnings from actual SDK version mismatches.
     Run `npm run lint -w @trailplanner/mobile` after TypeScript or JavaScript changes.
     Keep Expo ESLint plugins used by the legacy config explicit in `apps/mobile/devDependencies`; do not rely on a plugin being transitively hoisted in an existing local `node_modules` tree.
-11. For mobile navigation, authentication, or visual changes, run the Maestro shell journey and review its screenshots against [Mobile UX Audit](mobile-ux-audit.md). Treat the automated pass as functional evidence, not as proof that the composition is harmonious.
+12. For mobile navigation, authentication, or visual changes, run the Maestro shell journey and review its screenshots against [Mobile UX Audit](mobile-ux-audit.md). Treat the automated pass as functional evidence, not as proof that the composition is harmonious.
 
 The web CI workflow runs on pull requests and on `main`. It fetches Git history and runs `npm run docs:check` against the pull-request base commit or the previous `main` commit, then runs lint, typecheck, the complete web Vitest suite, and the production build. The mobile pre-check runs on pull requests and on `main` when mobile code, shared packages, workspace manifests, the lockfile, Turbo configuration, or its workflow changes. It blocks on mobile lint, typecheck, unit tests, and Expo dependency compatibility. Keep targeted local tests for fast feedback, but do not remove these full gates from CI.
 
@@ -78,6 +86,7 @@ The root `packageManager` pin is required by Turbo workspace discovery. Update i
 
 ## Do Not
 
+- Do not start a new task from an existing feature branch or reuse a branch whose pull request was merged or closed.
 - Do not invent schema fields; verify migrations or live schema.
 - Do not edit `_archive` as current docs.
 - Do not add generic SaaS prose to project docs.
