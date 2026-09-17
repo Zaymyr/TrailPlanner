@@ -35,13 +35,16 @@ export async function POST(request: NextRequest) {
 
   try {
     const redirectTo = `${request.nextUrl.origin}/reset-password`;
-    const response = await fetch(`${supabaseConfig.supabaseUrl}/auth/v1/recover`, {
+    const recoveryUrl = new URL(`${supabaseConfig.supabaseUrl}/auth/v1/recover`);
+    recoveryUrl.searchParams.set("redirect_to", redirectTo);
+
+    const response = await fetch(recoveryUrl.toString(), {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         apikey: supabaseConfig.supabaseAnonKey,
       },
-      body: JSON.stringify({ email: parsedBody.data.email, redirect_to: redirectTo }),
+      body: JSON.stringify({ email: parsedBody.data.email }),
       cache: "no-store",
     });
 
