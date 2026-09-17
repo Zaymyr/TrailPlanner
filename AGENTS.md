@@ -17,7 +17,7 @@ Before doing ANY task in this repo, read in this order:
 
 3. **Never invent** — file paths, schema fields, business rules. If unsure, search the code or add `<!-- TODO: verify with maintainer -->` markers.
 
-4. **Branch discipline** — feature work goes on `dev/*` branches, never directly on `main`.
+4. **Branch discipline** — every new task MUST start on a new `dev/*` branch created from the latest `origin/main` (`git fetch origin` then `git switch -c dev/<task-name> origin/main`). Never work directly on `main`, reuse a branch from an already merged or closed pull request, or continue new work on a previous task branch.
 
 5. **Supabase auth** — admin role is in `auth.users.raw_app_meta_data` (JWT claims), NOT in `user_profiles.role`. RLS policies reference `app_metadata`, not `user_metadata`.
 
