@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-16
+last_verified: 2026-09-17
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -77,7 +77,7 @@ A session-update event raised while a previous verification is still running que
 
 The organizer acquisition flow may send `next=/organizers` (event creation) or `next=/organizer` (the authenticated dashboard) through password sign-in, immediate sign-up, or the OAuth callback. `apps/web/lib/organizer-acquisition.ts` accepts only these exact internal pathnames. It retains only the five supported UTM parameters for `/organizers`; for `/organizer`, it retains only one syntactically valid UUID `eventId` so an existing-account assignment e-mail can authenticate first and return to the selected event. It falls back to `/race-planner` for missing, external, protocol-relative, backslash-based, malformed, or unsupported destinations. OAuth providers receive the validated destination nested in the existing `/auth/callback` URL; the callback validates it again before navigation.
 
-An admin-created organizer account follows the Supabase invitation flow rather than receiving an application-generated password. The protected admin route passes `/reset-password` through GoTrue's `redirect_to` query parameter and includes the canonical race name as `user_metadata.event_name` (`{{ .Data.event_name }}` in the Supabase invite template). That metadata is display-only and must never authorize access. The password page accepts both `invite` and `recovery` token fragments, updates the password through the anon-key server route, rejects an unsuccessful session response, persists the verified tokens, then waits for the shared session provider to verify that exact stored session before using client-side navigation. An invite flow opens `/organizer`; ordinary password recovery returns to `/race-planner`. The organizer membership is created before the e-mail is sent, so the first verified dashboard load is already authorized without depending on a full-page reload.
+An admin-created organizer account follows the Supabase invitation flow rather than receiving an application-generated password. The protected admin route passes `/reset-password` through GoTrue's `redirect_to` query parameter and includes the canonical race name as `user_metadata.event_name` (`{{ .Data.event_name }}` in the Supabase invite template). That metadata is display-only and must never authorize access. The password page accepts both `invite` and `recovery` token fragments, updates the password through the anon-key server route, rejects an unsuccessful session response, persists the verified tokens, then waits for the shared session provider to verify that exact stored session before using client-side navigation. When either kind of link is missing, invalid, or expired, the page exposes a prominent action to the existing public password-recovery form; that form collects the address again and lets Supabase Auth send a fresh recovery e-mail without revealing whether the account exists. An invite flow opens `/organizer`; ordinary password recovery returns to `/race-planner`. The organizer membership is created before the e-mail is sent, so the first verified dashboard load is already authorized without depending on a full-page reload.
 
 ## Mobile Auth
 
@@ -136,6 +136,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Never pass an unvalidated `next` value to `router.push`, `router.replace`, or an OAuth callback URL.
 - Only `/organizer` and `/organizers` are valid organizer return destinations; do not expand this allowlist without a dedicated redirect-security review.
 - Keep the Supabase invitation redirect allowlist configured for the deployed `/reset-password` URL, and pass that URL as the invite endpoint's `redirect_to` query parameter rather than a JSON-body field. If either condition is missed, Supabase falls back to the project Site URL and the invited organizer cannot reach the password-creation screen directly.
+- Do not recover the invite recipient from an expired URL or expose an Auth-directory lookup. The invalid-link action must collect the address again through the existing password-recovery form, whose response remains account-enumeration safe.
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Guest feature prompts must route through the existing login/signup screens rather than implementing provider or password auth inside the gated screen.
 - Trial repair runs during session verification and must stay idempotent.

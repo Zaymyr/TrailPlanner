@@ -157,8 +157,16 @@ export default function ResetPasswordPage() {
       </div>
 
       {linkError ? (
-        <div className="flex flex-col gap-3">
-          <p className="text-sm text-amber-400">{linkError}</p>
+        <div className="flex flex-col gap-4 rounded-lg border border-amber-400/50 bg-amber-400/10 p-4">
+          <p className="text-sm font-medium text-amber-300">{linkError}</p>
+          <Button
+            type="button"
+            className="h-12 w-full justify-center text-base"
+            data-testid="request-new-password-link"
+            onClick={() => router.push("/forgot-password")}
+          >
+            {t.auth.passwordResetRequest.title}
+          </Button>
           <Link href="/sign-in" className="text-sm text-emerald-300 hover:text-emerald-200">
             {t.auth.passwordReset.backToSignIn}
           </Link>

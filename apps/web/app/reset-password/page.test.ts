@@ -23,4 +23,12 @@ describe("Reset password destinations", () => {
     expect(source).toContain("signal: controller.signal");
     expect(source).toContain("window.clearTimeout(timeoutId)");
   });
+
+  it("offers a prominent recovery path when an invite or reset link is invalid", () => {
+    const source = readFileSync(resolve(process.cwd(), "app/reset-password/page.tsx"), "utf8");
+
+    expect(source).toContain('data-testid="request-new-password-link"');
+    expect(source).toContain('router.push("/forgot-password")');
+    expect(source).toContain("t.auth.passwordResetRequest.title");
+  });
 });
