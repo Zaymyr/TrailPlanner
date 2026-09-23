@@ -285,10 +285,16 @@ export function buildPlanSummary(
 ): PlanSummary {
   const values = normalizeStoredPlanValues(plan);
   const sections = buildLiveRaceSections(plan, productMap);
-  const sectionsByIndex = new Map(sections.map((section) => [section.sectionIndex, section] as const));
+  const arrivalMinutesByCheckpointIndex = new Map<number, number>([[0, 0]]);
+  let totalDurationMin = 0;
+
+  sections.forEach((section) => {
+    totalDurationMin += section.durationMin;
+    arrivalMinutesByCheckpointIndex.set(section.sectionIndex + 1, totalDurationMin);
+  });
+
   const checkpoints = values.aidStations.map<PlanSummaryCheckpoint>((station, index) => {
-    const previousSection = index > 0 ? sectionsByIndex.get(index - 1) : null;
-    const arrivalMinute = index === 0 ? 0 : previousSection?.endMinute ?? 0;
+    const arrivalMinute = arrivalMinutesByCheckpointIndex.get(index) ?? 0;
     const supplies = groupSupplies(getStationSupplies(values, station, index), productMap);
 
     return {
@@ -309,7 +315,6 @@ export function buildPlanSummary(
   const totalProductUnits = productTotals.reduce((sum, product) => sum + product.quantity, 0);
   const totalCarbsG = productTotals.reduce((sum, product) => sum + product.carbsG, 0);
   const totalSodiumMg = productTotals.reduce((sum, product) => sum + product.sodiumMg, 0);
-  const lastSection = sections[sections.length - 1];
 
   return {
     id: plan.id,
@@ -320,7 +325,7 @@ export function buildPlanSummary(
     targetCarbsPerHour: values.targetIntakePerHour,
     targetWaterPerHour: values.waterIntakePerHour,
     targetSodiumPerHour: values.sodiumIntakePerHour,
-    totalDurationMin: lastSection?.endMinute ?? 0,
+    totalDurationMin,
     totalProductUnits,
     totalCarbsG,
     totalSodiumMg,
@@ -335,6 +340,23 @@ export function addMinutes(date: Date, minutes: number) {
 
 export function formatClock(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+}
+
+export function getPlanSummaryDepartureTimeStorageKey(planId: string) {
+  return `paceyourself.plan-summary.departure-time:${planId}`;
+}
+
+export function applyStoredDepartureTime(value: string | null, baseDate = new Date()) {
+  const match = /^(\d{2}):(\d{2})$/.exec(value ?? '');
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+  if (hours > 23 || minutes > 59) return null;
+
+  const departureTime = new Date(baseDate);
+  departureTime.setHours(hours, minutes, 0, 0);
+  return departureTime;
 }
 
 export function formatDuration(totalMinutes: number) {

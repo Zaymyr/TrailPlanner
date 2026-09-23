@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-15
+last_verified: 2026-09-23
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -79,7 +79,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - RaceBook edition branding travels in that same additive response. Resolve it through `packages/design-system/src/branding.ts`; its temporary shared logo flag must be honored before any prefetch or render. Use primary-derived surfaces for structured race cards and the accent for route/profile graphics plus related non-semantic tinted surfaces, while keeping semantic red/orange/blue states and native navigation outside organizer control.
 - Relay segments belong in the conditional `Relais` sub-tab of the existing Racebook `Course` tab. Derive them from published relay points instead of creating another route or treating handovers as nutrition stations.
 - In the Racebook `Services` tab, keep each populated category in its own titled card and render its content as plain text without list bullets.
-- Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and reload it whenever the recap screen regains focus after an edit. Use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code. Preserve per-checkpoint assistance availability in the generated snapshot so recap screens can highlight crew handoff points, mute no-assistance points, and avoid showing a product handoff block where the crew cannot be present.
+- Plan recap/share screens should live under the existing hidden `plan` route group, read the saved plan, and reload it whenever the recap screen regains focus after an edit. Regenerated totals and checkpoint times must use the plan editor's exact section durations, while a manually selected departure time remains a per-plan local preference and must not be reset by the reload. Use native sharing for external team handoffs. For shareable recap links, call the authenticated web API bridge from `apps/mobile/lib/planShareLinks.ts`; do not put service-role behavior in mobile code. Preserve per-checkpoint assistance availability in the generated snapshot so recap screens can highlight crew handoff points, mute no-assistance points, and avoid showing a product handoff block where the crew cannot be present.
 - Dense setup screens can collapse secondary controls by default when the collapsed state still shows the key values needed to understand the current configuration.
 - Keep free-training setup/session orchestration in its route, while the active-session rendering stays in `components/race/TrainingLiveSession.tsx`; that presentation component consumes computed live state and must not duplicate nutrition or alert scheduling rules.
 - Keep only Plan profile setup inside the hidden onboarding shell. Course, product, plan, and RaceBook guidance must route through their real screens with the localized `OnboardingGuideCard` and ordinary tab navigation.

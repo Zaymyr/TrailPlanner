@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
   KeyboardAvoidingView,
@@ -22,6 +23,7 @@ import type { PlanProduct } from '../../../../components/plan-form/contracts';
 import { Colors } from '../../../../constants/colors';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
 import {
+  applyStoredDepartureTime,
   buildPlanSummary,
   buildProductMap,
   buildStoredRacePlanFromRow,
@@ -30,6 +32,7 @@ import {
   formatClock,
   formatDuration,
   formatKm,
+  getPlanSummaryDepartureTimeStorageKey,
   type PlanSummary,
   type PlanSummaryCheckpoint,
   type PlanSummaryProduct,
@@ -211,6 +214,7 @@ export default function PlanSummaryScreen() {
   const [loadingProgress, setLoadingProgress] = useState(0.08);
   const [error, setError] = useState<string | null>(null);
   const [departureTime, setDepartureTime] = useState(() => new Date());
+  const [departureTimeReady, setDepartureTimeReady] = useState(false);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [pickerHour, setPickerHour] = useState(() => String(new Date().getHours()).padStart(2, '0'));
   const [pickerMinute, setPickerMinute] = useState(() => String(new Date().getMinutes()).padStart(2, '0'));
@@ -220,6 +224,36 @@ export default function PlanSummaryScreen() {
     if (!summary) return '';
     return `${Math.round(summary.targetCarbsPerHour)} g/h - ${Math.round(summary.targetWaterPerHour)} ml/h - ${Math.round(summary.targetSodiumPerHour)} mg/h`;
   }, [summary]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const fallbackDepartureTime = new Date();
+
+    setDepartureTimeReady(false);
+    if (!id) {
+      setDepartureTime(fallbackDepartureTime);
+      setDepartureTimeReady(true);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(id))
+      .then((storedValue) => {
+        if (cancelled) return;
+        setDepartureTime(applyStoredDepartureTime(storedValue, fallbackDepartureTime) ?? fallbackDepartureTime);
+      })
+      .catch(() => {
+        if (!cancelled) setDepartureTime(fallbackDepartureTime);
+      })
+      .finally(() => {
+        if (!cancelled) setDepartureTimeReady(true);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
 
   const loadSummary = useCallback(async () => {
     if (!id || premiumLoading) return;
@@ -340,12 +374,15 @@ export default function PlanSummaryScreen() {
     nextDate.setHours(safeHour, safeMinute, 0, 0);
 
     setDepartureTime(nextDate);
+    if (id) {
+      void AsyncStorage.setItem(getPlanSummaryDepartureTimeStorageKey(id), formatClock(nextDate)).catch(() => undefined);
+    }
     setPickerHour(String(safeHour).padStart(2, '0'));
     setPickerMinute(String(safeMinute).padStart(2, '0'));
     setTimePickerVisible(false);
-  }, [departureTime, pickerHour, pickerMinute]);
+  }, [departureTime, id, pickerHour, pickerMinute]);
 
-  if (loading || premiumLoading) {
+  if (loading || premiumLoading || !departureTimeReady) {
     return (
       <PlanLoadingScreen
         planName={loadingPlanName}
