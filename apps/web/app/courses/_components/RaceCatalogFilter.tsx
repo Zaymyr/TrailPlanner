@@ -3,7 +3,7 @@ import Link from "next/link";
 
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import type { PublicRaceGroup } from "../../../lib/race-discovery";
-import type { PublicRace } from "../../../lib/public-races";
+import { getPublicRaceRegistrationUrl, type PublicRace } from "../../../lib/public-races";
 import { getCatalogHref, type CatalogView } from "../catalog-query";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -39,6 +39,7 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
   const editionYear = getEditionYear(races);
   const headingId = `event-${group.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`;
   const imageUrl = races.find((race) => isHttpUrl(race.eventThumbnailUrl))?.eventThumbnailUrl ?? null;
+  const registrationUrl = races.map(getPublicRaceRegistrationUrl).find(Boolean) ?? null;
 
   return (
     <section aria-labelledby={headingId}>
@@ -59,7 +60,19 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
                   <span>{sharedLocation ?? "Lieu selon le format"}</span>
                 </div>
               </div>
-              <p className="text-sm font-medium text-muted-foreground">{races.length} format{races.length > 1 ? "s" : ""}</p>
+              <div className="flex flex-wrap items-center gap-3 sm:justify-end">
+                <p className="text-sm font-medium text-muted-foreground">{races.length} format{races.length > 1 ? "s" : ""}</p>
+                {registrationUrl ? (
+                  <a
+                    href={registrationUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-4 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
+                  >
+                    S’inscrire
+                  </a>
+                ) : null}
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <ul className="divide-y divide-border">
@@ -95,6 +108,7 @@ function EventRaceGroup({ group }: { group: PublicRaceGroup }) {
 
 function StandaloneRaceCard({ race }: { race: PublicRace }) {
   const imageUrl = isHttpUrl(race.raceThumbnailUrl) ? race.raceThumbnailUrl : null;
+  const registrationUrl = getPublicRaceRegistrationUrl(race);
   return (
     <Card className="flex h-full flex-col overflow-hidden">
       {imageUrl ? <img src={imageUrl} alt={race.name} loading="lazy" className="h-44 w-full object-cover" /> : null}
@@ -108,7 +122,10 @@ function StandaloneRaceCard({ race }: { race: PublicRace }) {
           <div><dt className="text-muted-foreground">Dénivelé</dt><dd className="font-semibold text-foreground">{race.elevationGainM !== null ? `${Math.round(race.elevationGainM)} m D+` : "À confirmer"}</dd></div>
         </dl>
         <div className="mt-auto space-y-1 text-sm text-muted-foreground"><p>{formatDate(race.date)}</p><p>{race.location ?? "Lieu à confirmer"}</p></div>
-        <Link href={`/courses/${race.slug}` as Route} className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground transition hover:bg-brand-light">Voir la fiche course</Link>
+        <div className={`grid gap-2 ${registrationUrl ? "sm:grid-cols-2" : ""}`}>
+          <Link href={`/courses/${race.slug}` as Route} className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface">Voir la fiche</Link>
+          {registrationUrl ? <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-3 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light">S’inscrire</a> : null}
+        </div>
       </CardContent>
     </Card>
   );

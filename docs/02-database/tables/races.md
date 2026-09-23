@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -63,6 +63,7 @@ related_tables:
 ## Key Concepts
 
 - Format row: one distance/course under a parent `race_events` event.
+- Registration source: public catalog actions prefer the parent event's canonical `race_events.website_url`; a standalone format may fall back to its HTTP(S) `external_site_url`.
 - Edition membership: `edition_id` identifies the yearly event edition; `edition_group_id` groups the same format across years.
 - Catalog visibility: `is_live` and `is_public` retain the published course/RaceBook state. Organizer-private formats deliberately keep `is_live = false`, but a preview-selected row under a visible event/edition remains discoverable by runners for plan creation.
 - Organizer visibility is a three-state contract: masked = course/preview/RaceBook false, private = course false/preview true/RaceBook false, and public = all three true. Public publication requires an active paid or complimentary edition offer.

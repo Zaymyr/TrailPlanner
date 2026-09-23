@@ -21,6 +21,7 @@ const baseRace: PublicRace = {
   eventThumbnailUrl: "https://images.example/event.png",
   thumbnailUrl: "https://images.example/race.png",
   externalSiteUrl: "https://format.example",
+  eventWebsiteUrl: "https://event.example",
   updatedAt: "2026-09-09T12:00:00.000Z",
 };
 

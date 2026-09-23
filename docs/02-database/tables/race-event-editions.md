@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -65,6 +65,7 @@ related_tables:
 - At most one edition is current per event; legacy event-date reads and the admin event-wide switch target it, while a format-specific publication request targets the requested race's own edition.
 - Each edition has an independent catalog visibility state. Hiding one edition hides every attached course format and Racebook without hiding other years of the same event.
 - Public web discovery reads the visible edition id/event-id projection with service credentials and fails closed when an attached edition is absent, hidden, or belongs to a different event; it does not rely only on the denormalizing visibility trigger.
+- The lightweight public DTO may also read the parent event's canonical website through the normal anon event projection; the edition validation projection remains limited to `id` and `event_id` and exposes no edition row to clients.
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 - One permanent commercial entitlement covers every current and future format attached to the edition.

@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -22,6 +22,7 @@ related_files:
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
+  - supabase/migrations/20260923064926_backfill_public_race_event_website_urls.sql
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
@@ -130,6 +131,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer format visibility: masked stores course/preview/RaceBook false; private stores course false, preview true, and RaceBook false; public stores all three true. Mobile removes masked rows from the application, exposes private rows to every runner for plan creation when the parent event/edition is visible, and gives only active organizers their dimmed functional RaceBook preview. Both the format-scoped and bulk service-only publication actions restore public state atomically under an active Essential, Complete or Signature entitlement. Format publication accepts an active event organizer or trusted app-metadata admin; its private boolean helper performs the Auth app-metadata lookup without granting `service_role` direct `auth.users` reads. Bulk publication selects complete public-source preview formats without requiring them to be live already. First publication stores durable provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Normalized event geography: nullable city/department/region/country names and stable codes plus a paired anchor coordinate on `race_events`; all 96 current live events have a verified country, the 46 French events have full commune-level geography, and free-text format routes remain in `races.location_text`.
+- Public event website coverage: `race_events.website_url` is the canonical narrow registration-link source for the public web catalog. The 23 September 2026 idempotent backfill fills the 13 live public events that lacked it without changing schema, visibility, ownership, grants, or RLS.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Final roadbook synchronization: the Les Amaz’Eaunes 2026 data-only migration corrects the canonical edition/format dates and organizer JSON while preserving unconfirmed course metrics and omitting unspecified ravito rows.
 - Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.

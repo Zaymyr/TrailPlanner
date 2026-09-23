@@ -30,6 +30,7 @@ const eventSchema = z.object({
   location_country: z.string().nullable().optional(),
   race_date: z.string().nullable(),
   thumbnail_url: z.string().nullable(),
+  website_url: z.string().nullable(),
   updated_at: z.string().nullable().optional(),
 });
 
@@ -58,6 +59,7 @@ export type PublicRace = {
   eventThumbnailUrl: string | null;
   thumbnailUrl: string | null;
   externalSiteUrl: string | null;
+  eventWebsiteUrl: string | null;
   updatedAt: string | null;
 };
 
@@ -94,6 +96,7 @@ const eventSelect = [
   "location_country",
   "race_date",
   "thumbnail_url",
+  "website_url",
   "updated_at",
 ].join(",");
 
@@ -195,11 +198,17 @@ const toPublicRace = (
   eventThumbnailUrl: event?.thumbnail_url ?? null,
   thumbnailUrl: race.thumbnail_url ?? event?.thumbnail_url ?? null,
   externalSiteUrl: race.external_site_url,
+  eventWebsiteUrl: event?.website_url ?? null,
   updatedAt: [race.updated_at, event?.updated_at]
     .filter((value): value is string => Boolean(value))
     .sort()
     .at(-1) ?? null,
 });
+
+export const getPublicRaceRegistrationUrl = (race: PublicRace) => {
+  const candidates = [race.eventWebsiteUrl, race.externalSiteUrl];
+  return candidates.find((value): value is string => Boolean(value && /^https?:\/\//i.test(value))) ?? null;
+};
 
 export async function getPublicRaces(): Promise<PublicRace[]> {
   const [races, events, visibleEditions] = await Promise.all([

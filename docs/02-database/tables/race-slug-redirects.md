@@ -1,7 +1,7 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-09-13
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -65,6 +65,7 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - `rename_race_slug` normalizes trim/case, validates the allowed slug format, locks the race row, updates it, and lets the trigger record the redirect atomically.
 - The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract. Metadata for an old slug is already canonicalized to the current page and uses the same bounded helper, whose distance/year suffix and middle truncation retain the distinguishing end of long format names.
 - Canonical and redirected catalog reads share the same explicit parent-event projection and service-side visible-edition projection. Adding searchable city, department, region, and country labels does not change redirect visibility or expose organizer JSON, codes, or coordinates.
+- The parent-event projection now also allowlists `website_url` for the registration CTA after canonical resolution. It remains presentation metadata and does not participate in redirect visibility or slug identity.
 
 ## Common Queries
 

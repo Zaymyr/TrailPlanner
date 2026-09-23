@@ -17,6 +17,7 @@ const race = {
   eventThumbnailUrl: null,
   thumbnailUrl: null,
   externalSiteUrl: "https://www.trail-glazig.com/trail-5k",
+  eventWebsiteUrl: "https://www.trail-glazig.com/",
   updatedAt: "2026-09-09T12:00:00.000Z",
   elevationLossM: null,
   minAltitudeM: null,
