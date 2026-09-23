@@ -17,6 +17,7 @@ import { addSuppliesToInventory, consumeInventoryForTargets, type CarryoverProdu
 import { buildPlanForTarget, getEffectiveSodiumTarget, injectSystemStations } from './helpers';
 import { getGaugeTolerance } from './metrics';
 import type { ElevationPoint } from './profile-utils';
+import type { AutoFillResult, AutoFillShortage } from '../../lib/autoFillPreview';
 
 type Args = {
   values: PlanFormValues;
@@ -37,12 +38,6 @@ type PoolProduct = FavProduct & {
 export type AutoFillProductLimit = {
   productId: string;
   maxQuantity: number | null;
-};
-
-type AutoFillShortage = {
-  sectionLabel: string;
-  carbsG: number;
-  sodiumMg: number;
 };
 
 function isFluidFuelType(fuelType: string | null | undefined) {
@@ -364,8 +359,8 @@ export function usePlanSupplies({
       name: `Ravito ${intermediates.length + 1}`,
       distanceKm: newKm > 0 ? newKm : 10,
       waterRefill: true,
-      solidRefill: true,
-      assistanceAllowed: true,
+      solidRefill: false,
+      assistanceAllowed: false,
       pauseMinutes: 0,
       supplies: [],
     };
@@ -386,6 +381,8 @@ export function usePlanSupplies({
       const sanitizedStation: AidStationFormItem = {
         ...station,
         waterRefill: station.waterRefill ?? true,
+        // Preserve legacy stations where missing flags historically meant available.
+        // New station entry points pass explicit safe defaults.
         solidRefill: station.solidRefill !== false,
         assistanceAllowed: station.assistanceAllowed !== false,
         pauseMinutes: station.pauseMinutes ?? 0,
@@ -427,8 +424,8 @@ export function usePlanSupplies({
       name: `Ravito ${index + 1}`,
       distanceKm: Math.round((index + 1) * interval * 10) / 10,
       waterRefill: true,
-      solidRefill: true,
-      assistanceAllowed: true,
+      solidRefill: false,
+      assistanceAllowed: false,
       pauseMinutes: 0,
       supplies: [],
     }));
@@ -446,10 +443,10 @@ export function usePlanSupplies({
     );
   }, [replaceAidStations, values.raceDistanceKm]);
 
-  const fillSuppliesAuto = useCallback(async (productLimits?: AutoFillProductLimit[]) => {
+  const fillSuppliesAuto = useCallback(async (productLimits?: AutoFillProductLimit[]): Promise<AutoFillResult | null> => {
     if (!isPremium) {
       onRequirePremium();
-      return;
+      return null;
     }
 
     let latestFavoriteIds = favoriteProductIds;
@@ -463,7 +460,7 @@ export function usePlanSupplies({
         .select('product_id')
         .eq('user_id', user.id);
       if (favoriteRows) {
-        latestFavoriteIds = new Set((favoriteRows as Array<{ product_id: string }>).map((row) => row.product_id));
+        latestFavoriteIds = new Set((favoriteRows as { product_id: string }[]).map((row) => row.product_id));
         setFavoriteProductIds(latestFavoriteIds);
       }
     }
@@ -482,7 +479,7 @@ export function usePlanSupplies({
           "Ajoutez des produits a vos favoris dans l'onglet Nutrition pour utiliser le remplissage automatique.",
         );
       }
-      return;
+      return null;
     }
 
     const poolAsFavorites: PoolProduct[] = favoriteUsableProducts.map((product) => ({
@@ -613,28 +610,11 @@ export function usePlanSupplies({
         supplies: station.assistanceAllowed === false ? [] : sectionSupplyMap.get(index + 1) ?? [],
       }));
 
-    setValues((prev) => ({
-      ...prev,
+    return {
       startSupplies: newStartSupplies,
       aidStations: injectSystemStations(updatedIntermediates, values.raceDistanceKm),
-    }));
-
-    if (unresolvedShortages.length > 0) {
-      const worstShortage = unresolvedShortages.reduce((worst, shortage) => {
-        const worstScore = worst.carbsG + worst.sodiumMg / 10;
-        const shortageScore = shortage.carbsG + shortage.sodiumMg / 10;
-        return shortageScore > worstScore ? shortage : worst;
-      });
-      const missingParts = [
-        worstShortage.carbsG > 0 ? `${worstShortage.carbsG} g glucides` : null,
-        worstShortage.sodiumMg > 0 ? `${worstShortage.sodiumMg} mg sodium` : null,
-      ].filter(Boolean);
-
-      Alert.alert(
-        'Stock insuffisant',
-        `Avec les limites indiquees, le plan ne couvre pas completement ${worstShortage.sectionLabel}. Il manque encore environ ${missingParts.join(' et ')}. Ajoute des favoris ou augmente les quantites disponibles.`,
-      );
-    }
+      unresolvedShortages,
+    };
   }, [
     allProducts,
     elevationProfile,
@@ -643,7 +623,6 @@ export function usePlanSupplies({
     onMissingFavoriteProducts,
     onRequirePremium,
     setFavoriteProductIds,
-    setValues,
     values,
   ]);
 

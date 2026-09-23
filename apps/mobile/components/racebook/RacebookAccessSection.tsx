@@ -137,10 +137,14 @@ function LocationsCard({
             onOpenMap('general');
             onOpenUrl(generalMapUrl);
           }}
-          style={({ pressed }) => [styles.generalMapAction, { backgroundColor: theme.primaryColor }, pressed ? styles.actionPressed : null]}
+          style={({ pressed }) => [
+            styles.generalMapAction,
+            { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor },
+            pressed ? styles.actionPressed : null,
+          ]}
         >
-          <Ionicons name="map-outline" size={17} color={theme.onPrimaryColor} />
-          <Text style={[styles.generalMapActionText, { color: theme.onPrimaryColor }]}>{openGeneralMapLabel}</Text>
+          <Ionicons name="map-outline" size={17} color={theme.primaryColor} />
+          <Text style={[styles.generalMapActionText, { color: theme.primaryColor }]}>{openGeneralMapLabel}</Text>
         </Pressable>
       ) : null}
     </SectionCard>
@@ -282,9 +286,9 @@ const styles = StyleSheet.create({
   locationContent: { flex: 1, gap: 4 },
   locationLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   locationValue: { color: Colors.textPrimary, fontSize: 15, fontWeight: '600', lineHeight: 21 },
-  mapAction: { minHeight: 34, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, paddingHorizontal: 10, borderRadius: 17, backgroundColor: Colors.brandSurface },
+  mapAction: { minHeight: 44, alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 3, paddingHorizontal: 12, borderRadius: 22, backgroundColor: Colors.brandSurface },
   mapActionText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '800' },
-  generalMapAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, backgroundColor: Colors.brandPrimary },
+  generalMapAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 12, borderWidth: 1, backgroundColor: Colors.brandSurface },
   generalMapActionText: { color: Colors.textOnBrand, fontSize: 14, fontWeight: '800' },
   actionPressed: { opacity: 0.72 },
   transportList: { gap: 0 },

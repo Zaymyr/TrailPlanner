@@ -1,4 +1,5 @@
-import { Image, Pressable, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { AccessibilityInfo, Animated, Image, Pressable, StyleSheet, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
@@ -31,6 +32,7 @@ type RaceEventSummaryCardProps<T extends RaceEventSummaryRace> = {
   favoriteLabel?: string;
   unfavoriteLabel?: string;
   isFavorite?: boolean;
+  allowOptimisticFavoriteToggle?: boolean;
   hasNewUpdate?: boolean;
   onToggleFavorite?: () => void;
   onOpenFormats: () => void;
@@ -88,10 +90,14 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   favoriteLabel = 'Ajouter aux favoris',
   unfavoriteLabel = 'Retirer des favoris',
   isFavorite = false,
+  allowOptimisticFavoriteToggle = false,
   hasNewUpdate = false,
   onToggleFavorite,
   onOpenFormats,
 }: RaceEventSummaryCardProps<T>) {
+  const favoriteScale = useRef(new Animated.Value(1)).current;
+  const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
+  const [displayedFavorite, setDisplayedFavorite] = useState(isFavorite);
   const eventImageUrl = getEventImageUrl(event);
   const dateStr = formatEventDate(event.race_date, locale);
   const headerMeta = [event.location, dateStr].filter(Boolean).join(' • ');
@@ -102,13 +108,67 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
       ? singleFormatLabel
       : multipleFormatsLabel.replace('{count}', String(event.races.length));
 
+  useEffect(() => {
+    let mounted = true;
+    void AccessibilityInfo.isReduceMotionEnabled().then((enabled) => {
+      if (mounted) setReduceMotionEnabled(enabled);
+    });
+    const subscription = AccessibilityInfo.addEventListener(
+      'reduceMotionChanged',
+      setReduceMotionEnabled,
+    );
+    return () => {
+      mounted = false;
+      subscription.remove();
+    };
+  }, []);
+
+  useEffect(() => {
+    setDisplayedFavorite(isFavorite);
+  }, [isFavorite]);
+
+  const handleFavoritePress = () => {
+    if (allowOptimisticFavoriteToggle) {
+      setDisplayedFavorite((current) => !current);
+    }
+    if (!reduceMotionEnabled) {
+      favoriteScale.stopAnimation();
+      Animated.sequence([
+        Animated.spring(favoriteScale, {
+          toValue: 1.28,
+          speed: 28,
+          bounciness: 8,
+          useNativeDriver: true,
+        }),
+        Animated.spring(favoriteScale, {
+          toValue: 1,
+          speed: 24,
+          bounciness: 6,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+    onToggleFavorite?.();
+  };
+
   return (
-    <View style={styles.card}>
-      <View style={styles.header}>
-        <View style={styles.badge}>
-          <Ionicons name="flag-outline" size={18} color={Colors.brandPrimary} />
-        </View>
-        <View style={styles.headerText}>
+    <Pressable
+      accessibilityLabel={`${event.name}. ${viewFormatsLabel}`}
+      accessibilityRole="button"
+      onPress={onOpenFormats}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
+      <View style={styles.imageRail}>
+        {eventImageUrl ? (
+          <Image source={{ uri: eventImageUrl }} style={styles.railImage} resizeMode="cover" />
+        ) : (
+          <Ionicons color={Colors.textMuted} name="image-outline" size={22} />
+        )}
+      </View>
+
+      <View style={styles.cardContent}>
+        <View style={styles.header}>
+          <View style={styles.headerText}>
           <View style={styles.nameRow}>
             <Text numberOfLines={2} style={styles.name}>
               {event.name}
@@ -120,31 +180,30 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
             ) : null}
           </View>
           {headerMeta ? <Text style={styles.meta}>{headerMeta}</Text> : null}
+          </View>
+          {onToggleFavorite ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={displayedFavorite ? unfavoriteLabel : favoriteLabel}
+              hitSlop={6}
+              onPress={(pressEvent) => {
+                pressEvent.stopPropagation();
+                handleFavoritePress();
+              }}
+              style={[styles.favoriteButton, displayedFavorite && styles.favoriteButtonActive]}
+            >
+              <Animated.View style={{ transform: [{ scale: favoriteScale }] }}>
+                <Ionicons
+                  name={displayedFavorite ? 'heart' : 'heart-outline'}
+                  size={21}
+                  color={displayedFavorite ? Colors.textOnBrand : Colors.brandPrimary}
+                />
+              </Animated.View>
+            </Pressable>
+          ) : null}
         </View>
-        {eventImageUrl ? (
-          <Image source={{ uri: eventImageUrl }} style={styles.thumbnail} resizeMode="cover" />
-        ) : null}
-        {onToggleFavorite ? (
-          <Pressable
-            accessibilityRole="button"
-            accessibilityLabel={isFavorite ? unfavoriteLabel : favoriteLabel}
-            hitSlop={10}
-            onPress={(pressEvent) => {
-              pressEvent.stopPropagation();
-              onToggleFavorite();
-            }}
-            style={[styles.favoriteButton, isFavorite && styles.favoriteButtonActive]}
-          >
-            <Ionicons
-              name={isFavorite ? 'heart' : 'heart-outline'}
-              size={18}
-              color={isFavorite ? Colors.textOnBrand : Colors.brandPrimary}
-            />
-          </Pressable>
-        ) : null}
-      </View>
 
-      <TouchableOpacity activeOpacity={0.84} onPress={onOpenFormats}>
+      <View>
         <View style={styles.summaryRow}>
           <View style={styles.summaryPill}>
             <Text style={styles.summaryPillText}>{formatsLabel}</Text>
@@ -154,6 +213,10 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
               <Text style={styles.summaryPillText}>{distanceRange}</Text>
             </View>
           ) : null}
+          <View style={styles.primaryAction}>
+            <Text style={styles.primaryActionText}>{viewFormatsLabel}</Text>
+            <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={16} />
+          </View>
         </View>
 
         {primaryRace && (event.races.length === 1 || showChooseFormatHint) ? (
@@ -164,35 +227,34 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
           </Text>
         ) : null}
 
-        <View style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>{viewFormatsLabel}</Text>
         </View>
-      </TouchableOpacity>
-    </View>
+      </View>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    gap: 14,
-    padding: 16,
-    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    overflow: 'hidden',
+    borderRadius: 18,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,
+  },
+  cardPressed: {
+    opacity: 0.82,
+  },
+  cardContent: {
+    flex: 1,
+    gap: 10,
+    padding: 14,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  badge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
   },
   headerText: {
     flex: 1,
@@ -225,18 +287,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
   },
-  thumbnail: {
-    width: 52,
-    height: 52,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
+  imageRail: {
+    width: 58,
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
     backgroundColor: Colors.surfaceSecondary,
+    borderRightWidth: 1,
+    borderRightColor: Colors.border,
+  },
+  railImage: {
+    ...StyleSheet.absoluteFillObject,
   },
   favoriteButton: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.brandSurface,
@@ -249,12 +316,13 @@ const styles = StyleSheet.create({
   },
   summaryRow: {
     flexDirection: 'row',
+    alignItems: 'center',
     gap: 8,
     flexWrap: 'wrap',
   },
   summaryPill: {
     paddingHorizontal: 10,
-    paddingVertical: 7,
+    paddingVertical: 5,
     borderRadius: 999,
     backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
@@ -267,22 +335,21 @@ const styles = StyleSheet.create({
   },
   supportText: {
     color: Colors.textSecondary,
-    fontSize: 14,
-    lineHeight: 19,
-    marginTop: 14,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 8,
   },
-  primaryButton: {
-    minHeight: 48,
-    borderRadius: 12,
-    backgroundColor: Colors.brandPrimary,
+  primaryAction: {
+    minHeight: 28,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginTop: 14,
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginLeft: 'auto',
   },
-  primaryButtonText: {
-    color: Colors.textOnBrand,
-    fontSize: 15,
+  primaryActionText: {
+    color: Colors.brandPrimary,
+    fontSize: 14,
     fontWeight: '700',
   },
 });

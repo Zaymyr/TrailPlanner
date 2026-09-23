@@ -692,6 +692,8 @@ export function AidStationsSectionV3({
         card = (
           <Pressable
             key={stationKey}
+            accessibilityLabel={`${station.name}, ${station.distanceKm} km, ${isExpanded ? 'réduire' : 'développer'}`}
+            accessibilityRole="button"
             onPress={() => toggleStation(stationKey)}
             style={[
               styles.stationCard,
@@ -800,6 +802,8 @@ export function AidStationsSectionV3({
               </Heading>
               {renderPauseBadge(station.pauseMinutes)}
               <TouchableOpacity
+                accessibilityLabel={`Modifier ${station.name}`}
+                accessibilityRole="button"
                 style={styles.headerIconBtn}
                 onPress={() =>
                   setEditingStation({
@@ -818,6 +822,8 @@ export function AidStationsSectionV3({
                 <Ionicons name="create-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
               <TouchableOpacity
+                accessibilityLabel={`Supprimer ${station.name}`}
+                accessibilityRole="button"
                 style={styles.headerIconBtn}
                 onPress={() => removeAidStation(index)}
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
@@ -1299,6 +1305,9 @@ export function AidStationsSectionV3({
       >
         <View style={styles.toggleRow}>
           <TouchableOpacity
+            accessibilityLabel="Ravitos"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: selectedViewMode === 'stations' }}
             style={[styles.toggleBtn, selectedViewMode === 'stations' && styles.toggleBtnActive]}
             onPress={() => switchViewMode('stations')}
             activeOpacity={0.8}
@@ -1308,21 +1317,27 @@ export function AidStationsSectionV3({
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityLabel="Chronologie"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: selectedViewMode === 'sections' }}
             style={[styles.toggleBtn, selectedViewMode === 'sections' && styles.toggleBtnActive]}
             onPress={() => switchViewMode('sections')}
             activeOpacity={0.8}
           >
             <Text style={[styles.toggleBtnText, selectedViewMode === 'sections' && styles.toggleBtnTextActive]}>
-              Sections
+              Chronologie
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
+            accessibilityLabel="Allures"
+            accessibilityRole="tab"
+            accessibilityState={{ selected: selectedViewMode === 'profile' }}
             style={[styles.toggleBtn, selectedViewMode === 'profile' && styles.toggleBtnActive]}
             onPress={() => switchViewMode('profile')}
             activeOpacity={0.8}
           >
             <Text style={[styles.toggleBtnText, selectedViewMode === 'profile' && styles.toggleBtnTextActive]}>
-              Profil
+              Allures
             </Text>
           </TouchableOpacity>
         </View>

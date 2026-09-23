@@ -122,6 +122,19 @@ export const createRaceFormFromFormatDefaults = (race: RaceFormat, raceForm: Rac
 
 export const formatDate = (value?: string | null) => (value ? value.slice(0, 10) : "");
 
+export const normalizeClockInputValue = (value?: string | null) => {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+
+  const match = trimmed.match(/^(\d{1,2})(?:(?::|h)(\d{0,2}))?(?::\d{2})?$/i);
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return null;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+};
+
 export const getRaceEditionYearLabel = (value?: string | null) => {
   const date = formatDate(value);
   return date ? date.slice(0, 4) : "Sans date";
@@ -357,20 +370,31 @@ export const eventToForm = (event: OrganizerEventDetail, edition?: RaceEventEdit
   organizerDetails: cloneJson(event.organizerDetails ?? defaultOrganizerEventDetails),
 });
 
-export const raceToForm = (race: RaceFormat): RaceFormValues => ({
-  seriesName: race.series_name ?? "",
-  name: race.name,
-  distanceKm: race.distance_km,
-  elevationGainM: race.elevation_gain_m ?? 0,
-  elevationLossM: race.elevation_loss_m?.toString() ?? "",
-  externalSiteUrl: race.external_site_url ?? "",
-  locationText: race.location_text ?? "",
-  raceDate: formatDate(race.race_date),
-  thumbnailUrl: race.thumbnail_url ?? "",
-  isLive: race.is_live,
-  participationMode: race.participation_mode ?? "",
-  organizerDetails: cloneJson(race.organizerDetails ?? defaultOrganizerRaceDetails),
-});
+export const raceToForm = (race: RaceFormat): RaceFormValues => {
+  const organizerDetails = cloneJson(race.organizerDetails ?? defaultOrganizerRaceDetails);
+  const normalizedStartTime = normalizeClockInputValue(organizerDetails.schedule.startTime);
+
+  return {
+    seriesName: race.series_name ?? "",
+    name: race.name,
+    distanceKm: race.distance_km,
+    elevationGainM: race.elevation_gain_m ?? 0,
+    elevationLossM: race.elevation_loss_m?.toString() ?? "",
+    externalSiteUrl: race.external_site_url ?? "",
+    locationText: race.location_text ?? "",
+    raceDate: formatDate(race.race_date),
+    thumbnailUrl: race.thumbnail_url ?? "",
+    isLive: race.is_live,
+    participationMode: race.participation_mode ?? "",
+    organizerDetails: {
+      ...organizerDetails,
+      schedule: {
+        ...organizerDetails.schedule,
+        startTime: normalizedStartTime ?? organizerDetails.schedule.startTime,
+      },
+    },
+  };
+};
 
 export const applyGpxStatsToRaceForm = (
   form: RaceFormValues,

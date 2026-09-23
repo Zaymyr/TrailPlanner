@@ -1,7 +1,7 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -34,7 +34,7 @@ Public/preview read and mutation rules are identical to other RaceBook content: 
 
 The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table. Published primary surfaces may style SAS cards and accent-tinted positive information rows may highlight the schedule, but neither changes time authority or ordering.
 
-The typed `RacebookStructuredCourseSections` component owns only SAS-card presentation; the route keeps tab availability and the normalized ordered collection.
+The typed `RacebookStructuredCourseSections` component owns only SAS-card presentation; the route keeps tab availability and the normalized ordered collection. Mobile renders the ordered rows directly below the shared compact Course timing summary, with an `S1`, `S2`, etc. marker, name, start time, and eligibility criterion; the presentation adds no stored sequence or derived schedule authority.
 
 The two-line clamp for bib-pickup address links is isolated from SAS rendering and does not change start-wave data or ordering.
 

@@ -1,7 +1,7 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql

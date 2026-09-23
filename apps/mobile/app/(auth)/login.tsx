@@ -190,7 +190,7 @@ export default function LoginScreen() {
           <>
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>or</Text>
+              <Text style={styles.dividerText}>{t.auth.alternativeDivider}</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -256,9 +256,9 @@ const styles = StyleSheet.create({
   },
   inner: {
     flexGrow: 1,
-    justifyContent: 'center',
     paddingHorizontal: 24,
-    paddingVertical: 48,
+    paddingTop: 96,
+    paddingBottom: 32,
   },
   title: {
     fontSize: 32,
@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: Colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 32,
+    marginBottom: 20,
   },
   infoCard: {
     backgroundColor: Colors.surface,
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   infoTitle: {
     color: Colors.textPrimary,
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
   signupRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginTop: 24,
+    marginTop: 20,
   },
   signupText: {
     color: Colors.textSecondary,

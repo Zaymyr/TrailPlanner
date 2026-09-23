@@ -1,7 +1,7 @@
 ---
 title: Debug Supabase Auth
 scope: workflow
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - apps/web/app/api/auth/session/route.ts
@@ -13,6 +13,7 @@ related_files:
   - apps/mobile/app/_layout.tsx
   - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/lib/resendContactSync.ts
+  - apps/mobile/lib/resendContactSync.test.ts
 related_tables:
   - user_profiles
   - subscriptions
@@ -46,10 +47,10 @@ Use this workflow when a user cannot sign in, a session is stale, trial state is
 8. If service routes work but client queries fail, inspect policies and grants.
 9. If mobile differs, inspect `apps/mobile/app/_layout.tsx` for listener/navigation behavior and `apps/mobile/hooks/useSessionSideEffects.ts` for trial, Resend, and pending-conversion maintenance.
    For PostHog internal-user classification, confirm admin roles come from `session.user.app_metadata.role` / `roles` and that the owner email is normalized before comparison.
-10. If the issue is Resend contact sync, confirm the session is not anonymous and then inspect `POST /api/resend/contact`.
+10. If the issue is Resend contact sync, confirm the session is not anonymous and then inspect `POST /api/resend/contact`. On mobile, an `Invalid key provided to SecureStore` error means the local idempotency marker regressed: its key must remain the safe `resend-contact-synced.<user-id>.<sha256-email>` form and must never contain the raw address or colon separators.
 11. If the symptom is only bottom-tab availability during onboarding, inspect route options in `apps/mobile/app/(app)/_layout.tsx`; that is navigation-shell configuration, not an auth/session failure.
 12. If a completed session opens the wrong root tab, verify that `getPostAuthRoute` and the tab navigator both use `catalog`; this is routing behavior, not an auth failure.
-13. If a RaceBook cannot return to course search or a header exposes a route template, inspect the nested race stack and the explicit hidden-screen options in `apps/mobile/app/(app)/_layout.tsx`; these are navigation-shell issues, not session failures.
+13. If a RaceBook cannot return to its previous screen or course search, or a header exposes a route template, inspect the nested race stack and the explicit hidden-screen options in `apps/mobile/app/(app)/_layout.tsx`; the header should use history when available and replace with Courses otherwise. These are navigation-shell issues, not session failures.
 14. If login controls are obscured only with the iOS keyboard or enlarged text, inspect the login `ScrollView`/`KeyboardAvoidingView` layout; that is a presentation issue, not failed authentication.
 
 ## Useful Searches

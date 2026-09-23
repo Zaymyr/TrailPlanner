@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -112,7 +112,7 @@ Summary:
 - The responsive section chooser may stage several module switches before one save, but the eventual PATCH still requires the same active membership; pending browser drafts never grant claim or module authorization.
 - Grouping that chooser into edition-common and format-specific sections is presentation-only. It does not broaden a claim, and the server still authorizes the edition plus every targeted race id.
 - Inside a relay-capable format's `Ravito / relais` editor, the local `Ravitos` / `Relais` views remain presentation-only, with `Ravitos` selected by default on entry and after a format or participation-mode change. The title-aligned contextual add action, compact derived-leg row, and reduced handover fields do not change the membership boundary or grant a separate mutation path; the existing organizer routes continue to authorize every save.
-- Moving the common departure/arrival cards above the SAS, ravito and relay views does not change authorization. SAS replacement remains membership-checked; its earliest time takes precedence over the disabled common departure input.
+- Moving the common departure/arrival cards above the SAS, ravito and relay views does not change authorization. The native departure-time input and safe legacy-clock normalization are presentation/form-shaping only; they still persist through the membership-checked race-details route. SAS replacement remains membership-checked, and its earliest time takes precedence over the disabled common departure input.
 - Inside that approved-only dashboard, the event equipment editor is allowed to fan out shared-item updates to every format, and a format equipment save may shrink the event-level shared subset when an item is no longer present on all races.
 - Completion percentages and initial tile summaries remain presentation data inside that approved dashboard: they do not grant membership, and the lightweight bootstrap aggregates stay behind the same claim-to-membership authorization boundary.
 - Inside that approved-only dashboard, editing the event's official website, Instagram URL, or Facebook URL remains an ordinary membership-checked event-details write; it does not create or approve a claim.

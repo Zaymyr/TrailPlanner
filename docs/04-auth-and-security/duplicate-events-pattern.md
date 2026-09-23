@@ -71,6 +71,7 @@ Repeated PostHog identification is also safe: it refreshes the same person's pro
 Presentation-only route configuration in the layout, such as hiding the bottom tab bar for required onboarding, is not part of this duplicate-event guard pattern.
 Likewise, the layout's light-system appearance and dark status-bar presentation are device UI configuration only; they must not be coupled to session listeners or auth-event guards.
 Likewise, routing returning sessions to the Courses catalog without a Plans preload does not alter the session-event guards.
+The full-screen onboarding-to-plan loading transition is also presentation-only: changing its copy, animation, or determinate/indeterminate indicator must not add another auth listener, repeat plan creation, or alter the guarded transition state.
 
 ## Gotchas
 

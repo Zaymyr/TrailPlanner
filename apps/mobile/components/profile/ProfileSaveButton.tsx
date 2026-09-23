@@ -18,6 +18,8 @@ function ProfileSaveButtonComponent({
 }: ProfileSaveButtonProps) {
   return (
     <TouchableOpacity
+      accessibilityRole="button"
+      accessibilityState={{ disabled: disabled || loading }}
       style={[styles.button, (disabled || loading) && styles.buttonDisabled]}
       onPress={onPress}
       disabled={disabled || loading}
@@ -25,7 +27,7 @@ function ProfileSaveButtonComponent({
       {loading ? (
         <ActivityIndicator color={Colors.textOnBrand} />
       ) : (
-        <Text style={styles.buttonText}>{label}</Text>
+        <Text style={[styles.buttonText, disabled && styles.buttonTextDisabled]}>{label}</Text>
       )}
     </TouchableOpacity>
   );
@@ -49,11 +51,16 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   buttonDisabled: {
-    opacity: 0.7,
+    backgroundColor: Colors.surfaceSecondary,
+    elevation: 0,
+    shadowOpacity: 0,
   },
   buttonText: {
     color: Colors.textOnBrand,
     fontSize: 16,
     fontWeight: '700',
+  },
+  buttonTextDisabled: {
+    color: Colors.textMuted,
   },
 });

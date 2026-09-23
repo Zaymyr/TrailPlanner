@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   Alert,
@@ -22,6 +22,12 @@ import { Text } from '../../../../components/themed/Text';
 import type { PlanProduct } from '../../../../components/plan-form/contracts';
 import { Colors } from '../../../../constants/colors';
 import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
+import {
+  buildLocalDepartureAt,
+  buildRaceDateBase,
+  normalizePlanClock,
+  readOrganizerStartTime,
+} from '../../../../lib/planDeparture';
 import {
   applyStoredDepartureTime,
   buildPlanSummary,
@@ -203,7 +209,7 @@ function CheckpointCard({
 }
 
 export default function PlanSummaryScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, share } = useLocalSearchParams<{ id: string; share?: string }>();
   const router = useRouter();
   const { locale, t } = useI18n();
   const insets = useSafeAreaInsets();
@@ -219,6 +225,7 @@ export default function PlanSummaryScreen() {
   const [pickerHour, setPickerHour] = useState(() => String(new Date().getHours()).padStart(2, '0'));
   const [pickerMinute, setPickerMinute] = useState(() => String(new Date().getMinutes()).padStart(2, '0'));
   const [sharing, setSharing] = useState(false);
+  const automaticShareTriggeredRef = useRef(false);
 
   const targetSummary = useMemo(() => {
     if (!summary) return '';
@@ -238,10 +245,43 @@ export default function PlanSummaryScreen() {
       };
     }
 
-    AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(id))
-      .then((storedValue) => {
+    Promise.all([
+      AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(id)),
+      supabase
+        .from('race_plans')
+        .select('race_id,races(race_date,organizer_details)')
+        .eq('id', id)
+        .single(),
+    ])
+      .then(async ([storedValue, planResult]) => {
         if (cancelled) return;
-        setDepartureTime(applyStoredDepartureTime(storedValue, fallbackDepartureTime) ?? fallbackDepartureTime);
+        const planData = planResult.data as {
+          race_id?: string | null;
+          races?: { race_date?: string | null; organizer_details?: unknown } | null;
+        } | null;
+        const raceDate = planData?.races?.race_date;
+        const raceDateBase = buildRaceDateBase(raceDate, fallbackDepartureTime);
+        const manualDeparture = applyStoredDepartureTime(storedValue, raceDateBase);
+        if (manualDeparture) {
+          setDepartureTime(manualDeparture);
+          return;
+        }
+
+        let organizerStartTime = readOrganizerStartTime(planData?.races?.organizer_details);
+        if (!organizerStartTime && planData?.race_id) {
+          const { data: firstWave } = await supabase
+            .from('race_start_waves')
+            .select('start_time')
+            .eq('race_id', planData.race_id)
+            .order('order_index', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          organizerStartTime = normalizePlanClock(firstWave?.start_time);
+        }
+        if (cancelled) return;
+
+        const organizerDeparture = buildLocalDepartureAt(raceDate, organizerStartTime);
+        setDepartureTime(organizerDeparture ? new Date(organizerDeparture) : fallbackDepartureTime);
       })
       .catch(() => {
         if (!cancelled) setDepartureTime(fallbackDepartureTime);
@@ -359,6 +399,24 @@ export default function PlanSummaryScreen() {
     t.planSummary.shareLinkIntro,
   ]);
 
+  useEffect(() => {
+    automaticShareTriggeredRef.current = false;
+  }, [id, share]);
+
+  useEffect(() => {
+    if (
+      share !== '1' ||
+      !summary ||
+      !departureTimeReady ||
+      automaticShareTriggeredRef.current
+    ) {
+      return;
+    }
+
+    automaticShareTriggeredRef.current = true;
+    void handleShare();
+  }, [departureTimeReady, handleShare, share, summary]);
+
   const openTimePicker = useCallback(() => {
     setPickerHour(String(departureTime.getHours()).padStart(2, '0'));
     setPickerMinute(String(departureTime.getMinutes()).padStart(2, '0'));
@@ -382,21 +440,61 @@ export default function PlanSummaryScreen() {
     setTimePickerVisible(false);
   }, [departureTime, id, pickerHour, pickerMinute]);
 
+  const handleBack = useCallback(() => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(app)/plans');
+  }, [router]);
+
   if (loading || premiumLoading || !departureTimeReady) {
     return (
-      <PlanLoadingScreen
-        planName={loadingPlanName}
-        progress={loadingProgress}
-        stage={t.plans.planLoadingStage}
-        title={loadingPlanName ? t.plans.planLoadingNamed.replace('{name}', loadingPlanName) : t.plans.planLoadingGeneric}
-      />
+      <>
+        <Stack.Screen
+          options={{
+            title: t.planSummary.title,
+            headerLeft: () => (
+              <TouchableOpacity
+                accessibilityLabel={t.common.back}
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={handleBack}
+                style={styles.headerBackButton}
+              >
+                <Ionicons color={Colors.textPrimary} name="chevron-back" size={28} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <PlanLoadingScreen
+          planName={loadingPlanName}
+          progress={loadingProgress}
+          variant="summary"
+        />
+      </>
     );
   }
 
   if (error || !summary) {
     return (
       <View style={styles.center}>
-        <Stack.Screen options={{ title: t.planSummary.title }} />
+        <Stack.Screen
+          options={{
+            title: t.planSummary.title,
+            headerLeft: () => (
+              <TouchableOpacity
+                accessibilityLabel={t.common.back}
+                accessibilityRole="button"
+                hitSlop={8}
+                onPress={handleBack}
+                style={styles.headerBackButton}
+              >
+                <Ionicons color={Colors.textPrimary} name="chevron-back" size={28} />
+              </TouchableOpacity>
+            ),
+          }}
+        />
         <Text selectable style={styles.errorText}>
           {error ?? t.common.error}
         </Text>
@@ -412,6 +510,17 @@ export default function PlanSummaryScreen() {
       <Stack.Screen
         options={{
           title: t.planSummary.title,
+          headerLeft: () => (
+            <TouchableOpacity
+              accessibilityLabel={t.common.back}
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={handleBack}
+              style={styles.headerBackButton}
+            >
+              <Ionicons color={Colors.textPrimary} name="chevron-back" size={28} />
+            </TouchableOpacity>
+          ),
           headerRight: () => null,
         }}
       />
@@ -868,6 +977,12 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(26, 26, 26, 0.42)',
+  },
+  headerBackButton: {
+    alignItems: 'center',
+    height: 40,
+    justifyContent: 'center',
+    width: 40,
   },
   timeModalScrollContent: {
     flexGrow: 1,

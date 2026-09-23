@@ -63,10 +63,17 @@ export function AidStationProfileSegmentCard({
         <View style={styles.profilePaceWrap}>
           <Text style={styles.profilePaceLabel}>Allure</Text>
           <View style={styles.profilePaceControlRow}>
-            <TouchableOpacity style={styles.profilePaceStepBtn} onPress={onDecreasePace} activeOpacity={0.8}>
+            <TouchableOpacity
+              accessibilityLabel="Accélérer l’allure"
+              accessibilityRole="button"
+              style={styles.profilePaceStepBtn}
+              onPress={onDecreasePace}
+              activeOpacity={0.8}
+            >
               <Text style={styles.profilePaceStepBtnText}>-</Text>
             </TouchableOpacity>
             <TextInput
+              accessibilityLabel={`Allure ${title}`}
               style={styles.profilePaceInput}
               value={paceValue}
               onChangeText={onPaceChange}
@@ -78,7 +85,13 @@ export function AidStationProfileSegmentCard({
               autoCapitalize="none"
               autoCorrect={false}
             />
-            <TouchableOpacity style={styles.profilePaceStepBtn} onPress={onIncreasePace} activeOpacity={0.8}>
+            <TouchableOpacity
+              accessibilityLabel="Ralentir l’allure"
+              accessibilityRole="button"
+              style={styles.profilePaceStepBtn}
+              onPress={onIncreasePace}
+              activeOpacity={0.8}
+            >
               <Text style={styles.profilePaceStepBtnText}>+</Text>
             </TouchableOpacity>
           </View>
@@ -113,6 +126,8 @@ export function AidStationProfileSegmentCard({
       <View style={styles.profileSegmentControls}>
         <View style={styles.profileSegmentActions}>
           <TouchableOpacity
+            accessibilityLabel={canSplit ? `Découper ${title}` : `Découpage indisponible pour ${title}`}
+            accessibilityRole="button"
             style={[styles.profileActionBtn, !canSplit && styles.profileActionBtnDisabled]}
             onPress={onSplit}
             activeOpacity={0.8}
@@ -125,6 +140,8 @@ export function AidStationProfileSegmentCard({
 
           {canRemove ? (
             <TouchableOpacity
+              accessibilityLabel={`Supprimer ${title} et fusionner`}
+              accessibilityRole="button"
               style={[styles.profileActionBtn, styles.profileDeleteBtn]}
               onPress={onRemove}
               activeOpacity={0.8}

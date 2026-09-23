@@ -27,7 +27,6 @@ type RacebookStructuredCourseSectionsProps = {
     relayLeg: string;
     relayHandoverTime: string;
     aidCutoffTime: string;
-    startWavesTitle: string;
     waveBibNumbers: string;
     waveAll: string;
     awardsTitle: string;
@@ -85,9 +84,8 @@ export function RacebookStructuredCourseSections({
       ) : null}
 
       {activeTab === ('start-waves' satisfies StructuredCourseTab) ? (
-        <SectionCard title={copy.startWavesTitle}>
-          <View style={styles.list}>
-            {startWaves.map((wave) => {
+        <View style={styles.list}>
+          {startWaves.map((wave, index) => {
               const criterion = wave.eligibilityType === 'bib_range'
                 ? `${copy.waveBibNumbers} ${wave.bibNumberMin}–${wave.bibNumberMax}`
                 : wave.eligibilityType === 'estimated_finish_time'
@@ -98,17 +96,37 @@ export function RacebookStructuredCourseSections({
                       ? wave.eligibilityNote
                       : copy.waveAll;
               return (
-                <View key={wave.id} style={[styles.card, { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor }]}>
-                  <View style={styles.header}>
-                    <Text style={styles.title}>{wave.name}</Text>
-                    <DataText style={[styles.distance, { color: theme.primaryColor }]}>{wave.startTime}</DataText>
+                <View
+                  accessible
+                  accessibilityLabel={[`S${index + 1}`, wave.name, wave.startTime, criterion]
+                    .filter(Boolean)
+                    .join(', ')}
+                  key={wave.id}
+                  style={styles.startWaveCard}
+                >
+                  <View style={styles.startWaveHeader}>
+                    <View
+                      style={[
+                        styles.startWaveIndex,
+                        { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor },
+                      ]}
+                    >
+                      <DataText style={[styles.startWaveIndexText, { color: theme.primaryColor }]}>
+                        {`S${index + 1}`}
+                      </DataText>
+                    </View>
+                    <Text numberOfLines={1} style={[styles.title, styles.startWaveTitle]}>
+                      {wave.name}
+                    </Text>
+                    <DataText style={[styles.startWaveTime, { color: theme.primaryColor }]}>
+                      {wave.startTime}
+                    </DataText>
                   </View>
-                  {criterion ? <Text style={styles.note}>{criterion}</Text> : null}
+                  {criterion ? <Text style={styles.startWaveCriterion}>{criterion}</Text> : null}
                 </View>
               );
-            })}
-          </View>
-        </SectionCard>
+          })}
+        </View>
       ) : null}
 
       {activeTab === ('awards' satisfies StructuredCourseTab) ? (
@@ -146,4 +164,37 @@ const styles = StyleSheet.create({
   title: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   meta: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
   note: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  startWaveCard: {
+    gap: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  startWaveHeader: {
+    minHeight: 34,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  startWaveIndex: {
+    minWidth: 36,
+    height: 34,
+    paddingHorizontal: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  startWaveIndexText: { fontSize: 12, fontWeight: '800' },
+  startWaveTitle: { flex: 1 },
+  startWaveTime: { fontSize: 17, fontWeight: '800' },
+  startWaveCriterion: {
+    marginLeft: 46,
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
 });

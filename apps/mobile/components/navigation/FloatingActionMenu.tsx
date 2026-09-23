@@ -99,8 +99,8 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     alignItems: 'flex-end',
     justifyContent: 'flex-end',
-    paddingBottom: 16,
-    paddingRight: 18,
+    paddingBottom: 12,
+    paddingRight: 14,
     zIndex: 20,
   },
   dismissLayer: {
@@ -146,9 +146,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.textPrimary,
   },
   fab: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.textPrimary,

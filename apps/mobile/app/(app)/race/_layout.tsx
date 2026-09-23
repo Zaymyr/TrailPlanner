@@ -10,6 +10,13 @@ import { useI18n } from '../../../lib/i18n';
 export default function RaceLayout() {
   const router = useRouter();
   const { locale, t } = useI18n();
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(app)/catalog');
+  };
 
   const getHeaderTitle = (routeName: string) =>
     routeName === 'new'
@@ -43,7 +50,7 @@ export default function RaceLayout() {
                   accessibilityLabel={t.common.back}
                   accessibilityRole="button"
                   hitSlop={8}
-                  onPress={() => router.dismissTo('/(app)/catalog')}
+                  onPress={handleBack}
                   style={{ width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
                   testID="racebook-back-to-catalog"
                 >

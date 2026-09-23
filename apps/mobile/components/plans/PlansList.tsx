@@ -1,14 +1,19 @@
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
   RefreshControl,
   SectionList,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { getIntermediateAidStationCount } from '../../lib/planPersistence';
 import {
-  AidStationIcon,
   EmptyPlanIcon,
   SummitIcon,
   TrailIcon,
@@ -21,7 +26,7 @@ import { Card } from '../themed/Card';
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
-import { estimateDuration, formatPlanDate } from './plansHelpers';
+import { estimateDuration, getPlanCardTitle } from './plansHelpers';
 import type { PlanRow, RaceSection } from './types';
 
 type PlansListProps = {
@@ -32,11 +37,17 @@ type PlansListProps = {
   isPremium: boolean;
   locale: 'fr' | 'en';
   refreshing: boolean;
+  sharingPlanId: string | null;
   editRaceLabel: string;
   noRaceWarningLabel: string;
   liveLabel: string;
   inProgressLabel: string;
   startButtonLabel: string;
+  recapButtonLabel: string;
+  shareButtonLabel: string;
+  saveButtonLabel: string;
+  savingLabel: string;
+  deleteButtonLabel: string;
   emptyTitle: string;
   emptySubtitle: string;
   createFirstLabel: string;
@@ -44,8 +55,11 @@ type PlansListProps = {
   onToggleSection: (key: string) => void;
   onEditRace: (raceId: string) => void;
   onDeletePlan: (planId: string) => void;
+  onRenamePlan: (planId: string, name: string) => Promise<boolean>;
   onOpenEditPlan: (planId: string) => void;
   onOpenRacePlan: (planId: string) => void;
+  onOpenSummary: (planId: string) => void;
+  onSharePlan: (planId: string) => void;
   onOpenLockedPlan: () => void;
   onCreateFirstPlan: () => void;
 };
@@ -58,11 +72,17 @@ export const PlansList = memo(function PlansList({
   isPremium,
   locale,
   refreshing,
+  sharingPlanId,
   editRaceLabel,
   noRaceWarningLabel,
   liveLabel,
   inProgressLabel,
   startButtonLabel,
+  recapButtonLabel,
+  shareButtonLabel,
+  saveButtonLabel,
+  savingLabel,
+  deleteButtonLabel,
   emptyTitle,
   emptySubtitle,
   createFirstLabel,
@@ -70,13 +90,44 @@ export const PlansList = memo(function PlansList({
   onToggleSection,
   onEditRace,
   onDeletePlan,
+  onRenamePlan,
   onOpenEditPlan,
   onOpenRacePlan,
+  onOpenSummary,
+  onSharePlan,
   onOpenLockedPlan,
   onCreateFirstPlan,
 }: PlansListProps) {
+  const [managedPlan, setManagedPlan] = useState<PlanRow | null>(null);
+  const [managedPlanName, setManagedPlanName] = useState('');
+  const [renamingPlan, setRenamingPlan] = useState(false);
+  const [nowMs, setNowMs] = useState(Date.now());
   const localizedEmptyTitle =
     locale === 'fr' ? "Aucun plan à l'horizon" : 'The trail starts here';
+
+  useEffect(() => {
+    const hasUpcomingDeparture = sections.some((section) =>
+      section.data.some((plan) => {
+        const departureMs = plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN;
+        return Number.isFinite(departureMs) && departureMs > Date.now();
+      }),
+    );
+    if (!hasUpcomingDeparture) return undefined;
+    const timer = setInterval(() => setNowMs(Date.now()), 1_000);
+    return () => clearInterval(timer);
+  }, [sections]);
+
+  const closeManagePlan = () => {
+    if (!renamingPlan) setManagedPlan(null);
+  };
+
+  const submitPlanName = async () => {
+    if (!managedPlan || !managedPlanName.trim() || renamingPlan) return;
+    setRenamingPlan(true);
+    const renamed = await onRenamePlan(managedPlan.id, managedPlanName.trim());
+    setRenamingPlan(false);
+    if (renamed) setManagedPlan(null);
+  };
 
   return (
     <View style={styles.screen}>
@@ -91,38 +142,46 @@ export const PlansList = memo(function PlansList({
           />
         }
         renderItem={({ item, section }) => {
-          const key = section.raceId ?? '__orphan__';
+          const key = section.sectionKey;
           if (collapsedSections.has(key)) return null;
 
-          const duration = estimateDuration(item.planner_values);
+          const duration = estimateDuration(item);
           const isActivePlan = activePlanId === item.id;
           const isAccessible =
             isPremium || accessiblePlanIds === null || accessiblePlanIds.has(item.id);
 
           return (
             <PlanCard
+              displayName={getPlanCardTitle(item, section.eventName, locale)}
               duration={duration}
-              editButtonVisible={!isActivePlan && isAccessible}
               isAccessible={isAccessible}
               isActivePlan={isActivePlan}
+              isSharing={sharingPlanId === item.id}
               item={item}
               liveLabel={liveLabel}
               locale={locale}
-              onDelete={() => onDeletePlan(item.id)}
-              onEdit={() => onOpenEditPlan(item.id)}
+              nowMs={nowMs}
               onLockedPress={onOpenLockedPlan}
+              onManage={() => {
+                setManagedPlan(item);
+                setManagedPlanName(item.name);
+              }}
               onOpenMain={() => (isActivePlan ? onOpenRacePlan(item.id) : onOpenEditPlan(item.id))}
+              onOpenSummary={() => onOpenSummary(item.id)}
+              onShare={() => onSharePlan(item.id)}
               onStart={() => onOpenRacePlan(item.id)}
+              recapButtonLabel={recapButtonLabel}
+              shareButtonLabel={shareButtonLabel}
               startButtonLabel={startButtonLabel}
               inProgressLabel={inProgressLabel}
             />
           );
         }}
         renderSectionFooter={({ section }) => {
-          const key = section.raceId ?? '__orphan__';
+          const key = section.sectionKey;
           const isCollapsed = collapsedSections.has(key);
           if (isCollapsed || section.data.length === 0) return null;
-          if (section.raceId === null) {
+          if (section.sectionKey === '__orphan__') {
             return (
               <Text tone="secondary" size="xs" style={styles.orphanWarning}>
                 {noRaceWarningLabel}
@@ -132,31 +191,29 @@ export const PlansList = memo(function PlansList({
           return null;
         }}
         renderSectionHeader={({ section }) => {
-          const key = section.raceId ?? '__orphan__';
+          const key = section.sectionKey;
           const isCollapsed = collapsedSections.has(key);
 
           return (
             <TouchableOpacity
+              accessibilityRole="button"
+              accessibilityState={{ expanded: !isCollapsed }}
               activeOpacity={0.72}
               onPress={() => onToggleSection(key)}
               style={styles.sectionHeader}
             >
-              <Text tone="brand" size="sm" weight="bold" style={styles.sectionCollapseIcon}>
-                {isCollapsed ? '+' : '-'}
-              </Text>
               <View style={styles.sectionTitleWrap}>
                 <View style={styles.sectionTitleRow}>
                   <TrailIcon color={colors.brand.forest} size={20} strokeWidth={2.2} />
                   <Heading numberOfLines={1} variant="h3" style={styles.sectionTitle}>
-                    {section.raceName}
+                    {section.eventName}
                   </Heading>
+                  <Ionicons
+                    color={colors.brand.forest}
+                    name={isCollapsed ? 'chevron-forward' : 'chevron-down'}
+                    size={18}
+                  />
                 </View>
-              </View>
-              <View style={styles.sectionCountBadge}>
-                <AidStationIcon color={colors.brand.forest} size={15} strokeWidth={2.1} />
-                <DataText tone="brand" size="xs" weight="semibold">
-                  {section.data.length}
-                </DataText>
               </View>
               {section.isOwned && section.raceId ? (
                 <TouchableOpacity
@@ -171,7 +228,7 @@ export const PlansList = memo(function PlansList({
             </TouchableOpacity>
           );
         }}
-        sections={sections.map((section) => ({ ...section, key: section.raceId ?? '__orphan__' }))}
+        sections={sections.map((section) => ({ ...section, key: section.sectionKey }))}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
@@ -191,162 +248,283 @@ export const PlansList = memo(function PlansList({
           </View>
         }
       />
+
+      <Modal
+        animationType="slide"
+        onRequestClose={closeManagePlan}
+        transparent
+        visible={managedPlan !== null}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalWrapper}
+        >
+          <Pressable accessible={false} onPress={closeManagePlan} style={styles.modalOverlay} />
+          <View accessibilityViewIsModal style={styles.manageSheet}>
+            <View style={styles.sheetHandle} />
+            <View style={styles.manageHeader}>
+              <Heading accessibilityRole="header" variant="h2">
+                {locale === 'fr' ? 'G\u00e9rer le plan' : 'Manage plan'}
+              </Heading>
+              <TouchableOpacity
+                accessibilityLabel={locale === 'fr' ? 'Fermer' : 'Close'}
+                accessibilityRole="button"
+                disabled={renamingPlan}
+                hitSlop={8}
+                onPress={closeManagePlan}
+                style={styles.closeButton}
+              >
+                <Ionicons color={colors.text.secondary} name="close" size={20} />
+              </TouchableOpacity>
+            </View>
+            <Text tone="secondary" size="sm" style={styles.inputLabel}>
+              {locale === 'fr' ? 'Nom du plan' : 'Plan name'}
+            </Text>
+            <TextInput
+              accessibilityLabel={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
+              autoCapitalize="sentences"
+              autoFocus
+              editable={!renamingPlan}
+              maxLength={120}
+              onChangeText={setManagedPlanName}
+              onSubmitEditing={() => void submitPlanName()}
+              placeholder={locale === 'fr' ? 'Nom du plan' : 'Plan name'}
+              placeholderTextColor={colors.text.tertiary}
+              returnKeyType="done"
+              selectTextOnFocus
+              style={styles.nameInput}
+              value={managedPlanName}
+            />
+            <Button
+              disabled={!managedPlanName.trim() || renamingPlan}
+              fullWidth
+              onPress={() => void submitPlanName()}
+              style={styles.saveButton}
+            >
+              {renamingPlan ? savingLabel : saveButtonLabel}
+            </Button>
+            <TouchableOpacity
+              accessibilityRole="button"
+              disabled={renamingPlan}
+              onPress={() => {
+                const planId = managedPlan?.id;
+                setManagedPlan(null);
+                if (planId) onDeletePlan(planId);
+              }}
+              style={styles.deleteButton}
+            >
+              <Ionicons color={colors.accent.terracotta} name="trash-outline" size={18} />
+              <Text size="sm" weight="bold" style={styles.deleteButtonText}>
+                {deleteButtonLabel}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 });
 
 type PlanCardProps = {
   item: PlanRow;
+  displayName: string;
   duration: string | null;
   locale: 'fr' | 'en';
   isAccessible: boolean;
   isActivePlan: boolean;
-  editButtonVisible: boolean;
+  isSharing: boolean;
+  nowMs: number;
   liveLabel: string;
   startButtonLabel: string;
+  recapButtonLabel: string;
+  shareButtonLabel: string;
   inProgressLabel: string;
-  onEdit: () => void;
-  onDelete: () => void;
+  onManage: () => void;
   onOpenMain: () => void;
+  onOpenSummary: () => void;
+  onShare: () => void;
   onStart: () => void;
   onLockedPress: () => void;
 };
 
+function formatDepartureCountdown(
+  departureAt: string | null | undefined,
+  nowMs: number,
+  locale: 'fr' | 'en',
+) {
+  if (!departureAt) return locale === 'fr' ? 'À renseigner' : 'Not set';
+  const departureMs = new Date(departureAt).getTime();
+  if (!Number.isFinite(departureMs)) return locale === 'fr' ? 'À renseigner' : 'Not set';
+  const remainingSeconds = Math.floor((departureMs - nowMs) / 1_000);
+  if (remainingSeconds <= 0) return locale === 'fr' ? 'Départ passé' : 'Started';
+
+  const days = Math.floor(remainingSeconds / 86_400);
+  const hours = Math.floor((remainingSeconds % 86_400) / 3_600);
+  const minutes = Math.floor((remainingSeconds % 3_600) / 60);
+  const seconds = remainingSeconds % 60;
+  return `${days}J ${String(hours).padStart(2, '0')}H ${String(minutes).padStart(2, '0')}Min ${String(seconds).padStart(2, '0')}S`;
+}
+
 function PlanCard({
   item,
+  displayName,
   duration,
   locale,
   isAccessible,
   isActivePlan,
-  editButtonVisible,
+  isSharing,
+  nowMs,
   liveLabel,
   startButtonLabel,
+  recapButtonLabel,
+  shareButtonLabel,
   inProgressLabel,
-  onEdit,
-  onDelete,
+  onManage,
   onOpenMain,
+  onOpenSummary,
+  onShare,
   onStart,
   onLockedPress,
 }: PlanCardProps) {
-  const aidStationCount = item.planner_values?.aidStations?.length ?? 0;
+  const aidStationCount = getIntermediateAidStationCount(item.planner_values?.aidStations);
+  const countdown = formatDepartureCountdown(item.departureAt, nowMs, locale);
 
   return (
     <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]}>
-      {isActivePlan ? (
-        <View style={[styles.cardActionsLeft, styles.cardActionsActive]}>
-          <TrailIcon color={colors.accent.amber} size={20} strokeWidth={2.2} />
-          <Text tone="brand" size="xs" weight="bold" style={styles.cardActionsActiveText}>
-            {liveLabel}
-          </Text>
-        </View>
-      ) : (
-        <View style={styles.cardActionsLeft}>
-          {editButtonVisible ? (
-            <TouchableOpacity
-              accessibilityLabel={locale === 'fr' ? `Modifier ${item.name}` : `Edit ${item.name}`}
-              accessibilityRole="button"
-              activeOpacity={0.8}
-              onPress={onEdit}
-              style={styles.iconBtn}
-            >
-              <Ionicons color={colors.text.secondary} name="create-outline" size={16} />
-            </TouchableOpacity>
-          ) : (
-            <View style={[styles.iconBtn, styles.iconBtnLocked]}>
-              <Ionicons color={colors.accent.amber} name="lock-closed-outline" size={16} />
+      <View style={styles.cardMainArea}>
+        <TouchableOpacity
+          accessibilityActions={[
+            { name: 'activate', label: locale === 'fr' ? 'Ouvrir le plan' : 'Open plan' },
+            {
+              name: 'longpress',
+              label: locale === 'fr' ? 'Afficher les actions du plan' : 'Show plan actions',
+            },
+          ]}
+          accessibilityHint={
+            locale === 'fr'
+              ? 'Touchez deux fois pour ouvrir. Maintenez pour modifier le nom ou supprimer.'
+              : 'Double tap to open. Long press to edit the name or delete.'
+          }
+          accessibilityLabel={item.name}
+          accessibilityRole="button"
+          activeOpacity={0.8}
+          delayLongPress={550}
+          onAccessibilityAction={(event) => {
+            if (event.nativeEvent.actionName === 'longpress') {
+              onManage();
+            } else if (event.nativeEvent.actionName === 'activate') {
+              if (isAccessible) {
+                onOpenMain();
+              } else {
+                onLockedPress();
+              }
+            }
+          }}
+          onLongPress={onManage}
+          onPress={isAccessible ? onOpenMain : onLockedPress}
+          style={styles.cardMainButton}
+        >
+          <View style={styles.cardContent}>
+            <View style={styles.planTitleRow}>
+              <Heading variant="h2" numberOfLines={2} style={styles.planName}>
+                {displayName}
+              </Heading>
+              {isActivePlan ? (
+                <View style={styles.liveBadge}>
+                  <Text tone="brand" size="xs" weight="bold" style={styles.liveBadgeText}>
+                    {liveLabel}
+                  </Text>
+                </View>
+              ) : null}
             </View>
-          )}
-          <TouchableOpacity
-            accessibilityLabel={locale === 'fr' ? `Supprimer ${item.name}` : `Delete ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.8}
-            onPress={onDelete}
-            style={styles.iconBtn}
-          >
-            <Ionicons color={colors.accent.terracotta} name="trash-outline" size={16} />
-          </TouchableOpacity>
-        </View>
-      )}
-
-      <TouchableOpacity
-        activeOpacity={0.8}
-        onPress={isAccessible ? onOpenMain : onLockedPress}
-        style={styles.cardMainButton}
-      >
-        <View style={styles.cardContent}>
-          <View style={styles.planTitleRow}>
-            <TrailIcon color={colors.brand.forest} size={18} strokeWidth={2} />
-            <Heading variant="h2" numberOfLines={2} style={styles.planName}>
-              {item.name}
-            </Heading>
-          </View>
-          <View style={styles.meta}>
-            {item.planner_values?.raceDistanceKm != null ? (
-              <DataText tone="secondary" size="xs" weight="medium">
-                {item.planner_values.raceDistanceKm} km
-              </DataText>
-            ) : null}
-            {item.planner_values?.elevationGain != null ? (
-              <View style={styles.metaInline}>
-                <SummitIcon color={colors.brand.forest} size={14} strokeWidth={2.1} />
+            <View style={styles.meta}>
+              {item.planner_values?.raceDistanceKm != null ? (
                 <DataText tone="secondary" size="xs" weight="medium">
-                  D+ {item.planner_values.elevationGain}m
+                  {item.planner_values.raceDistanceKm} km
+                </DataText>
+              ) : null}
+              {item.planner_values?.elevationGain != null ? (
+                <View style={styles.metaInline}>
+                  <SummitIcon color={colors.brand.forest} size={14} strokeWidth={2.1} />
+                  <DataText tone="secondary" size="xs" weight="medium">
+                    D+ {item.planner_values.elevationGain}m
+                  </DataText>
+                </View>
+              ) : null}
+            </View>
+            <View style={styles.planInsights}>
+              <View style={[styles.planInsight, styles.planInsightDuration]}>
+                <Text tone="secondary" size="xs" weight="semibold">
+                  {locale === 'fr' ? 'Temps total' : 'Total time'}
+                </Text>
+                <DataText tone="brand" size="sm" weight="bold">
+                  {duration ?? '—'}
                 </DataText>
               </View>
-            ) : null}
-            {duration ? (
-              <DataText tone="secondary" size="xs" weight="medium">
-                {duration}
-              </DataText>
-            ) : null}
-            {aidStationCount > 0 ? (
-              <View style={styles.metaInline}>
-                <AidStationIcon color={colors.brand.forest} size={14} strokeWidth={2.1} />
-                <DataText tone="brand" size="xs" weight="semibold">
+              <View style={[styles.planInsight, styles.planInsightRavitos, styles.planInsightDivider]}>
+                <Text tone="secondary" size="xs" weight="semibold">
+                  {locale === 'fr' ? 'Ravitos' : 'Aid stops'}
+                </Text>
+                <DataText tone="brand" size="sm" weight="bold">
                   {aidStationCount}
                 </DataText>
               </View>
-            ) : null}
-            <DataText tone="tertiary" size="xs">
-              {formatPlanDate(item.updated_at, locale)}
-            </DataText>
+              <View style={[styles.planInsight, styles.planInsightDivider]}>
+                <Text tone="secondary" size="xs" weight="semibold">
+                  {locale === 'fr' ? 'Départ dans' : 'Starts in'}
+                </Text>
+                <DataText numberOfLines={1} tone="brand" size="xs" weight="bold">
+                  {countdown}
+                </DataText>
+              </View>
+            </View>
           </View>
-        </View>
-      </TouchableOpacity>
+        </TouchableOpacity>
+      </View>
 
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={isAccessible ? onStart : onLockedPress}
-        style={[
-          styles.startButton,
-          isActivePlan ? styles.startButtonActive : null,
-          !isAccessible ? styles.startButtonLocked : null,
-        ]}
-      >
-        {!isAccessible ? (
-          <Ionicons color={colors.accent.amber} name="lock-closed" size={18} />
-        ) : (
-          <>
+      <View style={styles.cardActionsRight}>
+          <TouchableOpacity
+            accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
+            accessibilityRole="button"
+            activeOpacity={0.8}
+            onPress={isAccessible ? onOpenSummary : onLockedPress}
+            style={styles.iconBtn}
+          >
+            <Ionicons color={colors.brand.forest} name="document-text-outline" size={18} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
+            accessibilityRole="button"
+            activeOpacity={0.8}
+            disabled={isSharing}
+            onPress={isAccessible ? onShare : onLockedPress}
+            style={styles.iconBtn}
+          >
             <Ionicons
-              color={colors.text.inverse}
-              name={isActivePlan ? 'radio-button-on' : 'play'}
-              size={15}
+              color={colors.brand.forest}
+              name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
+              size={18}
             />
-            <Text
-              adjustsFontSizeToFit
-              lineHeight="tight"
-              minimumFontScale={0.82}
-              numberOfLines={1}
-              tone="inverse"
-              size="xs"
-              weight="bold"
-              style={styles.startButtonText}
-            >
-              {isActivePlan ? inProgressLabel : startButtonLabel}
-            </Text>
-          </>
-        )}
-      </TouchableOpacity>
+          </TouchableOpacity>
+          <TouchableOpacity
+            accessibilityLabel={`${isActivePlan ? inProgressLabel : startButtonLabel} — ${item.name}`}
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            onPress={isAccessible ? onStart : onLockedPress}
+            style={[
+              styles.iconBtn,
+              styles.startIconBtn,
+              isActivePlan ? styles.startIconBtnActive : null,
+              !isAccessible ? styles.iconBtnLocked : null,
+            ]}
+          >
+            <Ionicons
+              color={isAccessible ? colors.text.inverse : colors.accent.amber}
+              name={!isAccessible ? 'lock-closed' : isActivePlan ? 'radio-button-on' : 'play'}
+              size={18}
+            />
+          </TouchableOpacity>
+      </View>
     </Card>
   );
 }
@@ -358,7 +536,7 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: spacing[4],
-    gap: spacing[2],
+    gap: 0,
     paddingBottom: 120,
   },
   listEmpty: {
@@ -373,10 +551,6 @@ const styles = StyleSheet.create({
     marginTop: spacing[2],
     backgroundColor: colors.surface.sand,
   },
-  sectionCollapseIcon: {
-    width: 18,
-    textAlign: 'center',
-  },
   sectionTitleWrap: {
     flex: 1,
   },
@@ -388,17 +562,8 @@ const styles = StyleSheet.create({
   sectionTitle: {
     flex: 1,
     color: colors.brand.forest,
-  },
-  sectionCountBadge: {
-    minHeight: 28,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[1],
-    borderRadius: radius.full,
-    borderWidth: 1,
-    borderColor: colors.border.subtle,
-    backgroundColor: colors.surface.cream,
-    paddingHorizontal: spacing[2],
+    fontSize: 21,
+    lineHeight: 25,
   },
   editRaceText: {
     textDecorationLine: 'underline',
@@ -410,51 +575,47 @@ const styles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'stretch',
-    marginBottom: spacing[3],
-    marginLeft: spacing[6],
+    marginBottom: spacing[2],
+    marginLeft: spacing[3],
     overflow: 'hidden',
   },
   cardActive: {
     borderColor: colors.border.brand,
   },
-  cardActionsLeft: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing[2],
-    paddingHorizontal: spacing[3],
-    paddingVertical: spacing[3],
-    borderRightWidth: 1,
-    borderRightColor: colors.border.subtle,
-    backgroundColor: colors.surface.cream,
-  },
-  cardActionsActive: {
-    minWidth: 58,
-    gap: spacing[1.5],
-    backgroundColor: colors.surface.sandLight,
-  },
-  cardActionsActiveText: {
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
-  },
   cardMainButton: {
+    flex: 1,
+  },
+  cardMainArea: {
     flex: 1,
   },
   cardContent: {
     flex: 1,
     justifyContent: 'center',
     paddingHorizontal: spacing[4],
-    paddingVertical: spacing[4],
+    paddingVertical: spacing[3],
   },
   planTitleRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: spacing[2],
     marginBottom: spacing[2],
   },
   planName: {
     flex: 1,
-    fontSize: 19,
-    lineHeight: 23,
+    fontSize: 17,
+    lineHeight: 21,
+  },
+  liveBadge: {
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.accent.amber,
+    backgroundColor: colors.surface.sandLight,
+    paddingHorizontal: spacing[2],
+    paddingVertical: spacing[1],
+  },
+  liveBadgeText: {
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   meta: {
     flexDirection: 'row',
@@ -467,9 +628,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing[0.5],
   },
+  planInsights: {
+    flexDirection: 'row',
+    marginTop: spacing[3],
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface.cream,
+    overflow: 'hidden',
+  },
+  planInsight: {
+    flex: 1,
+    minWidth: 0,
+    gap: spacing[0.5],
+    paddingHorizontal: spacing[3],
+    paddingVertical: spacing[2],
+  },
+  planInsightDuration: {
+    flex: 0.7,
+  },
+  planInsightRavitos: {
+    flex: 0.46,
+    paddingHorizontal: spacing[2],
+  },
+  planInsightDivider: {
+    borderLeftWidth: 1,
+    borderLeftColor: colors.border.subtle,
+  },
   iconBtn: {
-    width: 44,
-    height: 44,
+    width: 40,
+    height: 40,
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -481,29 +667,90 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface.cream,
     borderColor: colors.accent.amber,
   },
-  startButton: {
-    width: 88,
-    minHeight: 76,
+  cardActionsRight: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[1],
+    gap: spacing[1.5],
     paddingHorizontal: spacing[2],
     paddingVertical: spacing[2],
-    backgroundColor: colors.brand.forest,
     borderLeftWidth: 1,
-    borderLeftColor: colors.brand.forestLight,
-  },
-  startButtonActive: {
-    backgroundColor: colors.brand.forestLight,
-    borderLeftColor: colors.brand.forestDark,
-  },
-  startButtonLocked: {
+    borderLeftColor: colors.border.subtle,
     backgroundColor: colors.surface.cream,
-    borderLeftColor: colors.accent.amber,
   },
-  startButtonText: {
-    textAlign: 'center',
-    maxWidth: 72,
+  startIconBtn: {
+    backgroundColor: colors.brand.forest,
+    borderColor: colors.brand.forest,
+  },
+  startIconBtnActive: {
+    backgroundColor: colors.brand.forestLight,
+    borderColor: colors.brand.forestLight,
+  },
+  modalWrapper: {
+    flex: 1,
+    justifyContent: 'flex-end',
+  },
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+  },
+  manageSheet: {
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    backgroundColor: colors.surface.white,
+    paddingHorizontal: spacing[5],
+    paddingTop: spacing[2],
+    paddingBottom: spacing[8],
+  },
+  sheetHandle: {
+    alignSelf: 'center',
+    width: 44,
+    height: 5,
+    borderRadius: radius.full,
+    backgroundColor: colors.border.subtle,
+    marginBottom: spacing[4],
+  },
+  manageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: spacing[3],
+  },
+  closeButton: {
+    width: 44,
+    height: 44,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surface.cream,
+  },
+  inputLabel: {
+    marginTop: spacing[5],
+    marginBottom: spacing[2],
+  },
+  nameInput: {
+    minHeight: 52,
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: radius.lg,
+    backgroundColor: colors.surface.cream,
+    color: colors.text.primary,
+    fontSize: 17,
+    paddingHorizontal: spacing[4],
+    paddingVertical: spacing[3],
+  },
+  saveButton: {
+    marginTop: spacing[4],
+  },
+  deleteButton: {
+    minHeight: 48,
+    marginTop: spacing[2],
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing[2],
+  },
+  deleteButtonText: {
+    color: colors.accent.terracotta,
   },
   emptyContainer: {
     flex: 1,

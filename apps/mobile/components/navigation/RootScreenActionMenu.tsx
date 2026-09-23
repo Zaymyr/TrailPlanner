@@ -90,6 +90,7 @@ export function RootScreenActionMenu({
               <FloatingActionMenu
                 accessibilityLabel={openLabel}
                 actions={buildActions(openFeedback, openRaceRequest)}
+                closedIcon="ellipsis-horizontal"
                 dismissAccessibilityLabel={closeLabel}
               />
             )}
@@ -105,6 +106,7 @@ export function RootScreenActionMenu({
         <FloatingActionMenu
           accessibilityLabel={openLabel}
           actions={buildActions(openFeedback)}
+          closedIcon="ellipsis-horizontal"
           dismissAccessibilityLabel={closeLabel}
         />
       )}

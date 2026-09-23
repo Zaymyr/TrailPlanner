@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: medium
 related_files:
   - package.json
@@ -19,6 +19,7 @@ related_files:
   - apps/mobile/app/_layout.tsx
   - apps/mobile/hooks/useSessionSideEffects.ts
   - apps/mobile/lib/resendContactSync.ts
+  - apps/mobile/lib/resendContactSync.test.ts
   - apps/web/app/api/auth/session/route.ts
 related_tables:
   - user_profiles
@@ -64,6 +65,7 @@ The per-user contact route:
 - is called by `apps/web/app/hooks/useVerifiedSession.tsx` after web session verification;
 - runs independently from the background entitlement refresh and does not extend the verified-session loading state;
 - is called by `apps/mobile/lib/resendContactSync.ts` from `apps/mobile/hooks/useSessionSideEffects.ts` after a mobile non-anonymous session is active.
+- stores its successful mobile idempotency marker under a SecureStore-safe key made from the user id and a SHA-256 digest of the normalized email; an email change therefore triggers a new sync without putting the address itself in the key.
 
 `apps/mobile/app/_layout.tsx` also owns navigation-shell route options, including hiding the bottom tab bar during required onboarding and the light-system/dark-status-bar presentation. Keep those device presentation changes independent from the Resend sync trigger.
 Its normal post-auth destination is the Courses catalog; changing that destination must not move or delay the identified-user contact sync.
@@ -128,7 +130,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - The production-launch template is marketing/product-announcement copy. Use it only for contacts with the appropriate consent/subscription status and keep the `{{{RESEND_UNSUBSCRIBE_URL}}}` link.
 - For French or other non-ASCII Broadcast copy, upload with UTF-8-safe tooling such as Node `JSON.stringify`; avoid Windows PowerShell `ConvertTo-Json` for long email bodies.
 - Email images should be public HTTPS PNG/JPG assets or Resend CID attachments for API sends. Avoid local file paths, SVGs, and large base64 data URIs in Broadcast HTML.
-- Web and mobile keep a local "already synced" marker, but Resend upsert behavior must remain idempotent because sessions can refresh or clients can retry.
+- Web and mobile keep a local "already synced" marker, but Resend upsert behavior must remain idempotent because sessions can refresh or clients can retry. Mobile marker keys may contain only alphanumeric characters, `.`, `-`, and `_`.
 - A login-time session update may deliberately perform a second verification after an older request. Resend contact sync remains fire-and-forget and protected by the same per-user/e-mail marker.
 - Invitation password creation waits for the shared verified-session refresh before entering `/organizer`; any resulting Resend contact sync remains fire-and-forget and cannot hold that navigation or session readiness open.
 - Keep web contact sync fire-and-forget after session verification; neither contact sync nor the independent entitlement refresh should delay verified-session readiness.

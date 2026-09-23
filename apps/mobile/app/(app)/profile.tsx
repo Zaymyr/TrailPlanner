@@ -83,6 +83,7 @@ export default function ProfileScreen() {
     profileTabs,
     birthDateHelpText,
     saveButtonLabel,
+    isProfileDirty,
     carbEstimatorOptions,
     hydrationEstimatorOptions,
     sodiumEstimatorOptions,
@@ -287,11 +288,6 @@ export default function ProfileScreen() {
               onChangeWeightKg={handleChangeWeightKg}
               onChangeHeightCm={handleChangeHeightCm}
             />
-            <ProfileOnboardingSection
-              copy={t.onboarding.tours}
-              statuses={onboardingStatuses}
-              onLaunch={(kind) => void launchOnboarding(kind)}
-            />
           </TutorialTarget>
         ) : null}
 
@@ -336,6 +332,12 @@ export default function ProfileScreen() {
 
         {activeProfileTab === 'settings' ? (
           <>
+            <ProfileOnboardingSection
+              copy={t.onboarding.tours}
+              statuses={onboardingStatuses}
+              onLaunch={(kind) => void launchOnboarding(kind)}
+            />
+
             <TutorialTarget onMeasure={registerTutorialTarget} targetKey="premium">
               <ProfilePremiumSection
                 subscriptionLabel={t.profile.subscriptionLabel}
@@ -426,7 +428,12 @@ export default function ProfileScreen() {
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         <TutorialTarget onMeasure={registerTutorialTarget} targetKey="save">
-          <ProfileSaveButton label={saveButtonLabel} loading={saving} onPress={handleSave} />
+          <ProfileSaveButton
+            disabled={!isProfileDirty}
+            label={saveButtonLabel}
+            loading={saving}
+            onPress={handleSave}
+          />
         </TutorialTarget>
       </ScrollView>
 

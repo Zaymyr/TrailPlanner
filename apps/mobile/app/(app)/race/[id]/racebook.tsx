@@ -37,6 +37,13 @@ import {
   type RacebookAccessTransport,
 } from '../../../../components/racebook/RacebookAccessSection';
 import { RacebookAidStationsSection } from '../../../../components/racebook/RacebookAidStationsSection';
+import {
+  RacebookBibSection,
+  type RacebookBibPickupDayGroup,
+  type RacebookBibPickupLocationGroup,
+} from '../../../../components/racebook/RacebookBibSection';
+import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
+import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { Colors } from '../../../../constants/colors';
@@ -75,19 +82,6 @@ type LabeledItem = {
 };
 
 type BibPickupSlot = RacebookScreenData['runnerDetails']['bibPickup']['locations'][number]['slots'][number];
-
-type BibPickupDayGroup = {
-  key: string;
-  label: string;
-  timeRanges: string[];
-};
-
-type BibPickupLocationGroup = {
-  key: string;
-  location: string;
-  actionUrl: string | null;
-  days: BibPickupDayGroup[];
-};
 
 const DAY_MS = 24 * 60 * 60 * 1_000;
 const DEFAULT_RACEBOOK_THEME = resolveRacebookTheme(null);
@@ -130,16 +124,6 @@ function buildRacebookAnalyticsProperties(data: RacebookScreenData, entryPoint: 
     race_timing_window: getRaceTimingWindow(daysBeforeRace),
     entry_point: entryPoint,
   };
-}
-
-function sortGearItems(items: RacebookScreenData['runnerDetails']['equipmentStatus']['items']) {
-  return [...items].sort((left, right) => {
-    const leftGroup = !left.active ? 2 : left.required ? 0 : 1;
-    const rightGroup = !right.active ? 2 : right.required ? 0 : 1;
-
-    if (leftGroup !== rightGroup) return leftGroup - rightGroup;
-    return 0;
-  });
 }
 
 function formatDate(value: string | null, locale: 'fr' | 'en'): string | null {
@@ -197,8 +181,8 @@ function groupBibPickupSlots(
   slots: BibPickupSlot[],
   locale: 'fr' | 'en',
   fallbackDayLabel: string,
-): BibPickupDayGroup[] {
-  const groups = new Map<string, BibPickupDayGroup>();
+): RacebookBibPickupDayGroup[] {
+  const groups = new Map<string, RacebookBibPickupDayGroup>();
 
   slots.forEach((slot, slotIndex) => {
     const dateKey = slot.date ?? `undated-${slotIndex}`;
@@ -399,145 +383,11 @@ function LabeledInfoList({ items, emphasis = false, onOpenUrl }: {
   );
 }
 
-function BibPickupLocationList({
-  groups,
-  locationLabel,
-  onOpenMap,
-  onOpenUrl,
-}: {
-  groups: BibPickupLocationGroup[];
-  locationLabel: string;
-  onOpenMap: (location: string) => void;
-  onOpenUrl: (url: string) => void;
-}) {
-  const brandTheme = useRacebookBrandTheme();
-  return (
-    <View style={styles.bibLocationList}>
-      {groups.map((group) => (
-        <View key={group.key} style={styles.bibLocationCard}>
-          <View style={styles.bibLocationHeader}>
-            <View style={[styles.bibLocationIcon, { backgroundColor: brandTheme.primarySurfaceColor, borderColor: brandTheme.primaryBorderColor }]}>
-              <Ionicons name="location-outline" size={18} color={brandTheme.primaryColor} />
-            </View>
-            <View style={styles.bibLocationTextWrap}>
-              {group.actionUrl ? (
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={`${locationLabel}: ${group.location}`}
-                  onPress={() => {
-                    onOpenMap(group.key);
-                    onOpenUrl(group.actionUrl!);
-                  }}
-                  style={styles.bibLocationAction}
-                >
-                  <Text
-                    numberOfLines={2}
-                    ellipsizeMode="tail"
-                    style={[styles.bibLocationValue, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}
-                  >
-                    {group.location}
-                  </Text>
-                </Pressable>
-              ) : (
-                <Text numberOfLines={2} ellipsizeMode="tail" style={styles.bibLocationValue}>
-                  {group.location}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          {group.days.length > 0 ? (
-            <View style={styles.bibDayList}>
-              {group.days.map((day) => (
-                <View key={`${group.key}-${day.key}`} style={styles.bibDayRow}>
-                  <Text style={styles.bibDayLabel}>{day.label}</Text>
-                  {day.timeRanges.length > 0 ? (
-                    <View style={styles.bibTimeList}>
-                      {day.timeRanges.map((timeRange, timeIndex) => (
-                        <DataText key={`${day.key}-${timeRange}-${timeIndex}`} style={styles.bibTimeValue}>
-                          {timeRange}
-                        </DataText>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              ))}
-            </View>
-          ) : null}
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function HeroDetailGroup({ title, values }: { title: string; values: string[] }) {
   return (
     <View style={styles.heroDetailGroup}>
       <Text style={styles.heroDetailTitle}>{title}</Text>
       <InfoList values={values} />
-    </View>
-  );
-}
-
-function GearList({
-  items,
-  requiredLabel,
-  recommendedLabel,
-  coldWeatherLabel,
-  hotWeatherLabel,
-}: {
-  items: RacebookScreenData['runnerDetails']['equipmentStatus']['items'];
-  requiredLabel: string;
-  recommendedLabel: string;
-  coldWeatherLabel: string;
-  hotWeatherLabel: string;
-}) {
-  const sortedItems = sortGearItems(items);
-
-  return (
-    <View style={styles.listGroup}>
-      {sortedItems.map((item) => (
-        <View key={`${item.id ?? item.label}-${item.required ? 'required' : 'recommended'}`} style={styles.gearRow}>
-          <View style={styles.gearInlineRow}>
-            <Text style={[styles.gearLabel, !item.active ? styles.gearLabelMuted : null]}>{item.label}</Text>
-            {item.cold || item.heat ? (
-              <View style={styles.weatherIconRow}>
-                {item.cold ? (
-                  <View
-                    accessible
-                    accessibilityRole="image"
-                    accessibilityLabel={coldWeatherLabel}
-                    style={[styles.weatherIconBadge, styles.weatherIconBadgeCold, !item.active ? styles.weatherIconBadgeMuted : null]}
-                  >
-                    <Ionicons name="snow-outline" size={12} color="#2563EB" />
-                  </View>
-                ) : null}
-                {item.heat ? (
-                  <View
-                    accessible
-                    accessibilityRole="image"
-                    accessibilityLabel={hotWeatherLabel}
-                    style={[styles.weatherIconBadge, styles.weatherIconBadgeHeat, !item.active ? styles.weatherIconBadgeMuted : null]}
-                  >
-                    <Ionicons name="thermometer-outline" size={12} color={Colors.warning} />
-                  </View>
-                ) : null}
-              </View>
-            ) : null}
-            <View
-              style={[
-                styles.statusBadge,
-                item.required ? styles.statusBadgeRequired : styles.statusBadgeRecommended,
-                !item.active ? styles.statusBadgeMuted : null,
-              ]}
-            >
-              <Text style={[styles.statusBadgeText, item.required ? styles.statusBadgeTextRequired : styles.statusBadgeTextRecommended]}>
-                {item.required ? requiredLabel : recommendedLabel}
-              </Text>
-            </View>
-          </View>
-        </View>
-      ))}
     </View>
   );
 }
@@ -551,6 +401,7 @@ export default function RaceRacebookScreen() {
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
   const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>('route');
   const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(null);
+  const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -849,7 +700,7 @@ export default function RaceRacebookScreen() {
           ? [{ location: bibPickup.location, locationDetails: bibPickup.locationDetails, slots: [] }]
           : [];
     return pickupLocations
-      .map((pickupLocation, locationIndex): BibPickupLocationGroup | null => {
+      .map((pickupLocation, locationIndex): RacebookBibPickupLocationGroup | null => {
         if (!pickupLocation.location) return null;
 
         return {
@@ -859,24 +710,8 @@ export default function RaceRacebookScreen() {
           days: groupBibPickupSlots(pickupLocation.slots, locale, t.catalog.racebookFieldBibWindow),
         };
       })
-      .filter((value): value is BibPickupLocationGroup => Boolean(value));
+      .filter((value): value is RacebookBibPickupLocationGroup => Boolean(value));
   }, [data, locale, t.catalog.racebookFieldBibWindow]);
-
-  const bibItems = useMemo(() => {
-    if (!data) return [];
-
-    const bibPickup = data.runnerDetails.bibPickup;
-    const items: Array<LabeledItem | null> = [
-      bibPickup.schedule
-        ? { label: t.catalog.racebookFieldBibWindow, value: bibPickup.schedule, actionUrl: null }
-        : null,
-      bibPickup.requiredDocuments
-        ? { label: t.catalog.racebookFieldBibDocuments, value: bibPickup.requiredDocuments, actionUrl: null }
-        : null,
-    ];
-
-    return items.filter((value): value is LabeledItem => Boolean(value));
-  }, [data, t.catalog.racebookFieldBibDocuments, t.catalog.racebookFieldBibWindow]);
 
   const bibLines = useMemo(() => {
     if (!data) return [];
@@ -1056,8 +891,6 @@ export default function RaceRacebookScreen() {
   const recommendedEquipment = equipmentItems.filter((item) => item.active && !item.required);
   const conditionalEquipment = equipmentItems.filter((item) => !item.active);
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
-  const bibPrimaryItems = bibItems.filter((item) => item.label !== t.catalog.racebookFieldBibDocuments);
-  const bibSecondaryItems = bibItems.filter((item) => item.label === t.catalog.racebookFieldBibDocuments);
   const brandTheme = useMemo(
     () => resolveRacebookTheme(sponsorPresentation.branding),
     [sponsorPresentation.branding],
@@ -1410,104 +1243,50 @@ export default function RaceRacebookScreen() {
 
           <View style={styles.contentWrap}>
             {activeTab === 'gear' ? (
-              equipmentItems.length === 0 && equipmentNotes.length === 0 ? (
-                <SectionCard title={t.catalog.racebookTabGear}>
-                  <EmptyState message={t.catalog.racebookEmptyGear} />
-                </SectionCard>
-              ) : (
-                <>
-                  {requiredEquipment.length > 0 ? (
-                    <SectionCard title={t.catalog.racebookSectionGearRequired}>
-                      <GearList
-                        items={requiredEquipment}
-                        requiredLabel={t.catalog.racebookGearRequired}
-                        recommendedLabel={t.catalog.racebookGearRecommended}
-                        coldWeatherLabel={t.catalog.racebookGearColdWeather}
-                        hotWeatherLabel={t.catalog.racebookGearHotWeather}
-                      />
-                    </SectionCard>
-                  ) : null}
-                  {recommendedEquipment.length > 0 ? (
-                    <SectionCard title={t.catalog.racebookSectionGearRecommended}>
-                      <GearList
-                        items={recommendedEquipment}
-                        requiredLabel={t.catalog.racebookGearRequired}
-                        recommendedLabel={t.catalog.racebookGearRecommended}
-                        coldWeatherLabel={t.catalog.racebookGearColdWeather}
-                        hotWeatherLabel={t.catalog.racebookGearHotWeather}
-                      />
-                    </SectionCard>
-                  ) : null}
-                  {conditionalEquipment.length > 0 ? (
-                    <SectionCard title={t.catalog.racebookSectionGearConditional}>
-                      <GearList
-                        items={conditionalEquipment}
-                        requiredLabel={t.catalog.racebookGearRequired}
-                        recommendedLabel={t.catalog.racebookGearRecommended}
-                        coldWeatherLabel={t.catalog.racebookGearColdWeather}
-                        hotWeatherLabel={t.catalog.racebookGearHotWeather}
-                      />
-                    </SectionCard>
-                  ) : null}
-                  {equipmentNotes.length > 0 ? (
-                    <SectionCard title={t.catalog.racebookSectionAdditionalInfo}>
-                      <InfoList values={equipmentNotes} />
-                    </SectionCard>
-                  ) : null}
-                </>
-              )
+              <RacebookGearSection
+                requiredItems={requiredEquipment}
+                recommendedItems={recommendedEquipment}
+                weatherItems={conditionalEquipment}
+                notes={equipmentNotes}
+                theme={brandTheme}
+                copy={{
+                  requiredTitle: t.catalog.racebookSectionGearRequired,
+                  recommendedTitle: t.catalog.racebookSectionGearRecommended,
+                  weatherTitle: t.catalog.racebookSectionGearConditional,
+                  emptyMessage: t.catalog.racebookEmptyGear,
+                  coldWeather: t.catalog.racebookGearColdWeather,
+                  hotWeather: t.catalog.racebookGearHotWeather,
+                }}
+              />
             ) : null}
 
             {activeTab === 'bib' ? (
-              <SectionCard title={t.catalog.racebookSectionBib}>
-                {bibLocationGroups.length === 0 && bibItems.length === 0 && bibLines.length === 0 ? (
-                  <EmptyState message={t.catalog.racebookEmptyBib} />
-                ) : (
-                  <>
-                    {bibLocationGroups.length > 0 ? (
-                      <BibPickupLocationList
-                        groups={bibLocationGroups}
-                        locationLabel={t.catalog.racebookFieldBibLocation}
-                        onOpenUrl={openExternalUrl}
-                        onOpenMap={(location) => {
-                          captureRacebookInteraction('racebook action clicked', {
-                            action: 'map_opened',
-                            action_context: `bib_${location}`,
-                          });
-                        }}
-                      />
-                    ) : null}
-                    {bibLocationGroups.length > 0 && (bibPrimaryItems.length > 0 || bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
-                      <View style={styles.sectionDivider} />
-                    ) : null}
-                    {bibPrimaryItems.length > 0 ? <LabeledInfoList items={bibPrimaryItems} emphasis onOpenUrl={openExternalUrl} /> : null}
-                    {bibPrimaryItems.length > 0 && (bibSecondaryItems.length > 0 || bibLines.length > 0) ? (
-                      <View style={styles.sectionDivider} />
-                    ) : null}
-                    {bibSecondaryItems.length > 0 ? <LabeledInfoList items={bibSecondaryItems} onOpenUrl={openExternalUrl} /> : null}
-                    {bibLines.length > 0 ? <InfoList values={bibLines} /> : null}
-                  </>
-                )}
-              </SectionCard>
+              <RacebookBibSection
+                locationGroups={bibLocationGroups}
+                fallbackSchedule={data.runnerDetails.bibPickup.schedule}
+                requiredDocuments={data.runnerDetails.bibPickup.requiredDocuments}
+                rules={bibLines}
+                theme={brandTheme}
+                onOpenUrl={openExternalUrl}
+                onOpenMap={(location) => {
+                  captureRacebookInteraction('racebook action clicked', {
+                    action: 'map_opened',
+                    action_context: `bib_${location}`,
+                  });
+                }}
+                copy={{
+                  whereAndWhenTitle: locale === 'fr' ? 'Où et quand' : 'Where and when',
+                  documentsTitle: t.catalog.racebookFieldBibDocuments,
+                  rulesTitle: t.catalog.racebookSectionAdditionalInfo,
+                  emptyMessage: t.catalog.racebookEmptyBib,
+                  openMapsLabel: t.catalog.racebookAccessOpenMaps,
+                  scheduleLabel: t.catalog.racebookFieldBibWindow,
+                }}
+              />
             ) : null}
 
             {activeTab === 'course' ? (
               <>
-                {courseItems.length > 0 || courseConstraintLines.length > 0 ? (
-                  <SectionCard title={t.catalog.racebookSectionCourseEssentials}>
-                    {courseItems.length > 0 ? <LabeledInfoList items={courseItems} emphasis onOpenUrl={openExternalUrl} /> : null}
-                    {courseItems.length > 0 && courseConstraintLines.length > 0 ? (
-                      <View style={styles.sectionDivider} />
-                    ) : null}
-                    {courseConstraintLines.length > 0 ? (
-                      <View style={styles.inlineBlock}>
-                        <Text style={styles.inlineBlockTitle}>{t.catalog.racebookSectionCourseConstraints}</Text>
-                        <InfoList values={courseConstraintLines} />
-                      </View>
-                    ) : null}
-                  </SectionCard>
-                ) : null}
-
                 <View style={styles.courseTabsWrap} accessibilityRole="tablist">
                   {courseTabs.map((tab) => {
                     const active = activeCourseTab === tab.key;
@@ -1527,6 +1306,81 @@ export default function RaceRacebookScreen() {
                     );
                   })}
                 </View>
+
+                {(['route', 'start-waves', 'aid-stations'] as CourseTabKey[]).includes(activeCourseTab) &&
+                (courseItems.length > 0 || courseConstraintLines.length > 0) ? (
+                  <View style={styles.courseEssentials}>
+                    {courseItems.length > 0 ? (
+                      <View style={styles.courseEssentialMetrics}>
+                        {courseItems.map((item) => (
+                          <View
+                            accessible
+                            accessibilityLabel={`${item.label}: ${item.value}`}
+                            key={`${item.label}:${item.value}`}
+                            style={styles.courseEssentialMetric}
+                          >
+                            <Text numberOfLines={1} style={styles.courseEssentialLabel}>
+                              {item.tone === 'positive'
+                                ? t.catalog.racebookMapStart
+                                : t.catalog.racebookMapFinish}
+                            </Text>
+                            <DataText
+                              numberOfLines={1}
+                              style={[
+                                styles.courseEssentialValue,
+                                item.tone === 'critical' ? styles.courseEssentialValueCritical : null,
+                                item.tone === 'positive' ? { color: brandTheme.primaryColor } : null,
+                              ]}
+                            >
+                              {item.value}
+                            </DataText>
+                          </View>
+                        ))}
+                      </View>
+                    ) : null}
+
+                    {courseConstraintLines.length > 0 ? (
+                      <>
+                        <Pressable
+                          accessibilityRole="button"
+                          accessibilityState={{ expanded: courseConstraintsExpanded }}
+                          onPress={() => setCourseConstraintsExpanded((current) => !current)}
+                          style={styles.courseConstraintsButton}
+                        >
+                          <Ionicons color={Colors.warning} name="alert-circle-outline" size={18} />
+                          <Text style={styles.courseConstraintsLabel}>
+                            {locale === 'fr'
+                              ? `${courseConstraintLines.length} consigne${courseConstraintLines.length > 1 ? 's' : ''}`
+                              : `${courseConstraintLines.length} instruction${courseConstraintLines.length > 1 ? 's' : ''}`}
+                          </Text>
+                          <Ionicons
+                            color={Colors.textSecondary}
+                            name={courseConstraintsExpanded ? 'chevron-up' : 'chevron-down'}
+                            size={17}
+                          />
+                        </Pressable>
+                        {courseConstraintsExpanded ? (
+                          <View style={styles.courseConstraintsContent}>
+                            <InfoList values={courseConstraintLines} />
+                          </View>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </View>
+                ) : courseItems.length > 0 || courseConstraintLines.length > 0 ? (
+                  <SectionCard title={t.catalog.racebookSectionCourseEssentials}>
+                    {courseItems.length > 0 ? <LabeledInfoList items={courseItems} emphasis onOpenUrl={openExternalUrl} /> : null}
+                    {courseItems.length > 0 && courseConstraintLines.length > 0 ? (
+                      <View style={styles.sectionDivider} />
+                    ) : null}
+                    {courseConstraintLines.length > 0 ? (
+                      <View style={styles.inlineBlock}>
+                        <Text style={styles.inlineBlockTitle}>{t.catalog.racebookSectionCourseConstraints}</Text>
+                        <InfoList values={courseConstraintLines} />
+                      </View>
+                    ) : null}
+                  </SectionCard>
+                ) : null}
 
                 {activeCourseTab === 'route' ? (
                   routePreviewPoints.length >= 2 || elevationProfile.length >= 2 ? (
@@ -1565,7 +1419,6 @@ export default function RaceRacebookScreen() {
                     relayLeg: t.catalog.racebookRelayLeg,
                     relayHandoverTime: t.catalog.racebookRelayHandoverTime,
                     aidCutoffTime: t.catalog.racebookAidCutoffTime,
-                    startWavesTitle: t.catalog.racebookSectionStartWaves,
                     waveBibNumbers: t.catalog.racebookWaveBibNumbers,
                     waveAll: t.catalog.racebookWaveAll,
                     awardsTitle: t.catalog.racebookSectionAwards,
@@ -1603,6 +1456,8 @@ export default function RaceRacebookScreen() {
                       aidElevationGain: t.catalog.racebookAidElevationGain,
                       aidElevationLoss: t.catalog.racebookAidElevationLoss,
                       aidCutoffTime: t.catalog.racebookAidCutoffTime,
+                      aidFromStart: locale === 'fr' ? 'Depuis le départ' : 'From the start',
+                      aidFromPrevious: locale === 'fr' ? 'Depuis {name}' : 'From {name}',
                     }}
                   />
                 ) : null}
@@ -1644,28 +1499,47 @@ export default function RaceRacebookScreen() {
             ) : null}
 
             {activeTab === 'services' ? (
-              <>
-              {structuredServices.map((service) => (
-                <SectionCard key={service.id} title={service.name}>
-                  {service.address ? <Pressable disabled={!service.directionsUrl} onPress={() => service.directionsUrl && openTrackedUrl(service.directionsUrl, 'service_directions', service.serviceType)}><Text style={styles.serviceText}>{service.address}{service.distanceKm != null ? ` · ${service.distanceKm.toFixed(1)} km` : ''}</Text></Pressable> : null}
-                  {service.description ? <Text style={styles.serviceText}>{service.description}</Text> : null}
-                  {service.websiteUrl ? <Pressable onPress={() => openTrackedUrl(service.websiteUrl!, 'service_website', service.serviceType)}><Text style={styles.serviceText}>{t.catalog.racebookServiceWebsite}</Text></Pressable> : null}
-                  {service.phone && buildTelephoneUrl(service.phone) ? (
-                    <Pressable
-                      accessibilityRole="link"
-                      accessibilityLabel={`${t.catalog.racebookCallAction}: ${service.name}`}
-                      onPress={() => openTrackedUrl(buildTelephoneUrl(service.phone!)!, 'service_phone', service.serviceType)}
-                    >
-                      <Text style={styles.serviceText}>{service.phone}</Text>
-                    </Pressable>
-                  ) : null}
-                </SectionCard>
-              ))}
-              {serviceSections.map((section) => (
-                <SectionCard key={section.title} title={section.title}>
-                  <Text style={styles.serviceText}>{section.value}</Text>
-                </SectionCard>
-              ))}</>
+              <RacebookServicesSection
+                services={structuredServices.map((service) => ({
+                  id: service.id,
+                  category: service.serviceType,
+                  name: service.name,
+                  description: service.description,
+                  address: service.address,
+                  distanceKm: service.distanceKm,
+                  directionsUrl: service.directionsUrl,
+                  websiteUrl: service.websiteUrl,
+                  phoneUrl: service.phone ? buildTelephoneUrl(service.phone) : null,
+                }))}
+                legacySections={serviceSections.map((section) => ({
+                  key: section.title,
+                  title: section.title,
+                  value: section.value,
+                }))}
+                theme={brandTheme}
+                onOpenUrl={(url, action, service) => {
+                  const trackedAction = action === 'directions'
+                    ? 'service_directions'
+                    : action === 'website'
+                      ? 'service_website'
+                      : 'service_phone';
+                  openTrackedUrl(url, trackedAction, service.category);
+                }}
+                copy={{
+                  emptyMessage: locale === 'fr'
+                    ? 'Aucun service publié pour cette édition.'
+                    : 'No services have been published for this edition.',
+                  directionsLabel: t.catalog.racebookAccessOpenMaps,
+                  websiteLabel: t.catalog.racebookServiceWebsite,
+                  callLabel: t.catalog.racebookCallAction,
+                  categoryTitles: {
+                    restaurant: t.catalog.racebookServiceRestaurants,
+                    accommodation: t.catalog.racebookServiceAccommodations,
+                    recovery: t.catalog.racebookServiceRecovery,
+                    other: locale === 'fr' ? 'Autres services' : 'Other services',
+                  },
+                }}
+              />
             ) : null}
           </View>
         </>
@@ -1990,7 +1864,7 @@ const styles = StyleSheet.create({
   },
   courseTabButton: {
     flex: 1,
-    minHeight: 36,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 8,
@@ -2008,6 +1882,57 @@ const styles = StyleSheet.create({
   },
   courseTabButtonTextActive: {
     color: Colors.brandPrimary,
+  },
+  courseEssentials: {
+    overflow: 'hidden',
+    borderRadius: 16,
+    backgroundColor: Colors.surface,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  courseEssentialMetrics: {
+    minHeight: 62,
+    flexDirection: 'row',
+  },
+  courseEssentialMetric: {
+    flex: 1,
+    minWidth: 0,
+    justifyContent: 'center',
+    gap: 3,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  courseEssentialLabel: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  courseEssentialValue: {
+    color: Colors.textPrimary,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  courseEssentialValueCritical: {
+    color: Colors.danger,
+  },
+  courseConstraintsButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 14,
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  courseConstraintsLabel: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  courseConstraintsContent: {
+    paddingHorizontal: 14,
+    paddingBottom: 14,
   },
   sectionCard: {
     gap: 12,

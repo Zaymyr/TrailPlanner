@@ -8,7 +8,6 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent
 } from 'react-native';
-import { Colors } from '../constants/colors';
 import {
   FloatingActionMenu,
   type FloatingActionMenuItem,
@@ -60,6 +59,12 @@ import type {
 } from './plan-form/profile-utils';
 import { buildContinuousIntakeTimeline, buildContinuousSections, buildSectionTimelineFromContinuous } from '../lib/continuousNutrition';
 import type { PlanEditTutorialTargetKey } from '../hooks/usePlanEditTutorial';
+import { Text } from './themed/Text';
+import {
+  buildAutoFillPreview,
+  type AutoFillPreview,
+  type AutoFillResult,
+} from '../lib/autoFillPreview';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };
 export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset };
@@ -89,12 +94,7 @@ type Props = {
 };
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
-const AUTO_FILL_LOADING_MESSAGES = [
-  'Analyse du parcours...',
-  'Dosage des ravitos...',
-  'Optimisation gourmande...',
-] as const;
-const AUTO_FILL_MIN_LOADING_MS = 2400;
+const AUTO_FILL_LOADING_MESSAGE = 'Calcul en cours';
 
 function getTargetCacheKey(target: PlanTarget) {
   return target === 'start' ? 'start' : String(target);
@@ -141,12 +141,13 @@ export default function PlanForm({
   const [isAutoFilling, setIsAutoFilling] = useState(false);
   const [autoFillLimitsVisible, setAutoFillLimitsVisible] = useState(false);
   const [autoFillProductLimits, setAutoFillProductLimits] = useState<AutoFillProductLimit[]>([]);
-  const [autoFillLoadingMessage, setAutoFillLoadingMessage] = useState<string>(AUTO_FILL_LOADING_MESSAGES[0]);
+  const [autoFillResult, setAutoFillResult] = useState<AutoFillResult | null>(null);
+  const [autoFillUndo, setAutoFillUndo] = useState<Pick<PlanFormValues, 'startSupplies' | 'aidStations'> | null>(null);
   const mainScrollRef = useRef<ScrollView>(null);
   const mainScrollYRef = useRef(0);
   const aidStationsSectionYRef = useRef(0);
   const lastAidStationsAlignAtRef = useRef(0);
-  const autoFillMessageIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setValues(buildInitialPlanValues(initialValues));
@@ -164,21 +165,22 @@ export default function PlanForm({
     setIsAutoFilling(false);
     setAutoFillLimitsVisible(false);
     setAutoFillProductLimits([]);
-    setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[0]);
+    setAutoFillResult(null);
+    setAutoFillUndo(null);
   }, [compactBasicsByDefault, initialValues]);
 
-  const clearAutoFillLoadingInterval = useCallback(() => {
-    if (autoFillMessageIntervalRef.current) {
-      clearInterval(autoFillMessageIntervalRef.current);
-      autoFillMessageIntervalRef.current = null;
+  const clearAutoFillUndoTimer = useCallback(() => {
+    if (autoFillUndoTimerRef.current) {
+      clearTimeout(autoFillUndoTimerRef.current);
+      autoFillUndoTimerRef.current = null;
     }
   }, []);
 
   useEffect(() => {
     return () => {
-      clearAutoFillLoadingInterval();
+      clearAutoFillUndoTimer();
     };
-  }, [clearAutoFillLoadingInterval]);
+  }, [clearAutoFillUndoTimer]);
 
   const openPremiumUpsell = useCallback(() => {
     setShowPremiumUpsell(true);
@@ -261,23 +263,13 @@ export default function PlanForm({
   );
 
   const basePaceMinutesPerKm = 60 / baseSpeedKph;
-  const aidStationsSummaryKey = useMemo(
-    () =>
-      values.aidStations
-        .map(
-          (station) =>
-            `${station.id ?? ''}|${station.distanceKm}|${station.pauseMinutes ?? 0}|${station.name}|${station.waterRefill !== false}|${station.solidRefill !== false}|${station.assistanceAllowed !== false}`,
-        )
-        .join(';'),
-    [values.aidStations],
-  );
   const liveSectionSummaries = useMemo(
     () =>
       values.aidStations
         .slice(0, -1)
         .map((_, index) => buildSectionSummary(index === 0 ? 'start' : index))
         .filter((summary): summary is NonNullable<typeof summary> => summary !== null),
-    [buildSectionSummary, aidStationsSummaryKey],
+    [buildSectionSummary, values.aidStations],
   );
   const liveSectionSummaryMap = useMemo(() => {
     const map = new Map<number, (typeof liveSectionSummaries)[number]>();
@@ -584,16 +576,33 @@ export default function PlanForm({
       return;
     }
 
-    updateAidStation(editingStation.index, {
-      name: nextName,
-      distanceKm: nextDistanceKm,
-      waterRefill: editingStation.waterRefill,
-      solidRefill: editingStation.solidRefill,
-      assistanceAllowed: editingStation.assistanceAllowed,
-      pauseMinutes: nextPauseMinutes,
-      ...(editingStation.assistanceAllowed ? {} : { supplies: [] }),
-    });
-    setEditingStation(null);
+    const saveStation = () => {
+      updateAidStation(editingStation.index, {
+        name: nextName,
+        distanceKm: nextDistanceKm,
+        waterRefill: editingStation.waterRefill,
+        solidRefill: editingStation.solidRefill,
+        assistanceAllowed: editingStation.assistanceAllowed,
+        pauseMinutes: nextPauseMinutes,
+        ...(editingStation.assistanceAllowed ? {} : { supplies: [] }),
+      });
+      setEditingStation(null);
+    };
+
+    const currentStation = values.aidStations[editingStation.index];
+    if (
+      currentStation?.assistanceAllowed !== false
+      && !editingStation.assistanceAllowed
+      && (currentStation.supplies?.length ?? 0) > 0
+    ) {
+      Alert.alert('Retirer les produits ?', undefined, [
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Retirer', style: 'destructive', onPress: saveStation },
+      ]);
+      return;
+    }
+
+    saveStation();
   };
 
   const handleAddAidStationPress = useCallback(() => {
@@ -613,40 +622,25 @@ export default function PlanForm({
       km: suggestedKm > 0 ? String(suggestedKm) : '10',
       pauseMinutes: '0',
       waterRefill: true,
-      solidRefill: true,
-      assistanceAllowed: true,
+      solidRefill: false,
+      assistanceAllowed: false,
     });
   }, [values.aidStations, values.raceDistanceKm]);
 
   const runFillSuppliesAuto = useCallback(async (productLimits?: AutoFillProductLimit[]) => {
     if (!isPremium) {
-      await Promise.resolve(fillSuppliesAuto(productLimits));
-      return;
+      return Promise.resolve(fillSuppliesAuto(productLimits));
     }
 
-    if (isAutoFilling) return;
-
-    let messageIndex = 0;
-    setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[messageIndex]);
+    if (isAutoFilling) return null;
     setIsAutoFilling(true);
-    clearAutoFillLoadingInterval();
-
-    autoFillMessageIntervalRef.current = setInterval(() => {
-      messageIndex = (messageIndex + 1) % AUTO_FILL_LOADING_MESSAGES.length;
-      setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[messageIndex]);
-    }, 850);
 
     try {
-      await Promise.all([
-        Promise.resolve(fillSuppliesAuto(productLimits)),
-        new Promise((resolve) => setTimeout(resolve, AUTO_FILL_MIN_LOADING_MS)),
-      ]);
+      return await Promise.resolve(fillSuppliesAuto(productLimits));
     } finally {
-      clearAutoFillLoadingInterval();
       setIsAutoFilling(false);
-      setAutoFillLoadingMessage(AUTO_FILL_LOADING_MESSAGES[0]);
     }
-  }, [clearAutoFillLoadingInterval, fillSuppliesAuto, isAutoFilling, isPremium]);
+  }, [fillSuppliesAuto, isAutoFilling, isPremium]);
 
   const handleFillSuppliesAuto = useCallback(() => {
     if (!isPremium) {
@@ -655,14 +649,47 @@ export default function PlanForm({
     }
 
     if (isAutoFilling) return;
+    setAutoFillResult(null);
     setAutoFillLimitsVisible(true);
   }, [isAutoFilling, isPremium, runFillSuppliesAuto]);
 
-  const handleApplyAutoFillLimits = useCallback((productLimits: AutoFillProductLimit[]) => {
+  const handlePreviewAutoFill = useCallback(async (productLimits: AutoFillProductLimit[]) => {
     setAutoFillProductLimits(productLimits);
-    setAutoFillLimitsVisible(false);
-    void runFillSuppliesAuto(productLimits);
+    const result = await runFillSuppliesAuto(productLimits);
+    if (result) setAutoFillResult(result);
   }, [runFillSuppliesAuto]);
+
+  const autoFillPreview = useMemo<AutoFillPreview | null>(
+    () => autoFillResult
+      ? buildAutoFillPreview(autoFillResult, values.startSupplies ?? [], values.aidStations)
+      : null,
+    [autoFillResult, values.aidStations, values.startSupplies],
+  );
+
+  const handleConfirmAutoFill = useCallback(() => {
+    if (!autoFillResult) return;
+
+    clearAutoFillUndoTimer();
+    setAutoFillUndo({
+      startSupplies: values.startSupplies ?? [],
+      aidStations: values.aidStations,
+    });
+    setValues((prev) => ({
+      ...prev,
+      startSupplies: autoFillResult.startSupplies,
+      aidStations: autoFillResult.aidStations,
+    }));
+    setAutoFillLimitsVisible(false);
+    setAutoFillResult(null);
+    autoFillUndoTimerRef.current = setTimeout(() => setAutoFillUndo(null), 8000);
+  }, [autoFillResult, clearAutoFillUndoTimer, values.aidStations, values.startSupplies]);
+
+  const handleUndoAutoFill = useCallback(() => {
+    if (!autoFillUndo) return;
+    clearAutoFillUndoTimer();
+    setValues((prev) => ({ ...prev, ...autoFillUndo }));
+    setAutoFillUndo(null);
+  }, [autoFillUndo, clearAutoFillUndoTimer]);
 
   const buildSubmittableValues = useCallback(() => {
     if (!values.name.trim()) {
@@ -831,7 +858,7 @@ export default function PlanForm({
             addAidStation={handleAddAidStationPress}
             fillSuppliesAuto={handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
-            autoFillLoadingMessage={autoFillLoadingMessage}
+            autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
             isPremium={isPremium}
             intermediateCount={highlights.intermediateCount}
             getSupplies={getSupplies}
@@ -866,6 +893,15 @@ export default function PlanForm({
         <View style={styles.saveSpacer} />
       </ScrollView>
 
+      {autoFillUndo ? (
+        <View accessibilityRole="alert" style={styles.autoFillUndoBanner}>
+          <Text style={styles.autoFillUndoText}>Remplissage appliqué</Text>
+          <TouchableOpacity accessibilityRole="button" onPress={handleUndoAutoFill}>
+            <Text style={styles.autoFillUndoAction}>Annuler</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
       <FloatingActionMenu
         accessibilityLabel={t.planSummary.openActions}
         actions={planActions}
@@ -894,8 +930,15 @@ export default function PlanForm({
         productsLoading={productsLoading}
         initialLimits={autoFillProductLimits}
         fuelLabels={FUEL_LABELS}
-        onClose={() => setAutoFillLimitsVisible(false)}
-        onApply={handleApplyAutoFillLimits}
+        preview={autoFillPreview}
+        previewLoading={isAutoFilling}
+        onClose={() => {
+          setAutoFillLimitsVisible(false);
+          setAutoFillResult(null);
+        }}
+        onPreview={handlePreviewAutoFill}
+        onBack={() => setAutoFillResult(null)}
+        onConfirm={handleConfirmAutoFill}
       />
 
       <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} />

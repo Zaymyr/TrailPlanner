@@ -950,15 +950,7 @@ function RootLayoutContent() {
             <PlanLoadingScreen
               planName={displayedOnboardingTransition.planName}
               progress={displayedOnboardingTransition.progress}
-              stage={t.plans.planLoadingStage}
-              title={
-                displayedOnboardingTransition.planName
-                  ? t.plans.planLoadingNamed.replace(
-                      '{name}',
-                      displayedOnboardingTransition.planName,
-                    )
-                  : t.plans.planLoadingGeneric
-              }
+              variant="create"
               isFinishing={onboardingTransitionExiting}
             />
           </View>

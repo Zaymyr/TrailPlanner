@@ -1,14 +1,25 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, Share } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 
 import type { PlanRow, RaceSection } from '../components/plans/types';
+import type { PlanProduct } from '../components/plan-form/contracts';
 import { usePremium } from '../hooks/usePremium';
 import { maybePromptForAppReview } from '../lib/appReview';
 import { useI18n } from '../lib/i18n';
 import { FREE_PLAN_LIMIT, getAccessiblePlanIds } from '../lib/planAccess';
+import { clearPlanEditDraft } from '../lib/planEditSession';
+import {
+  buildPlanSummary,
+  buildProductMap,
+  buildStoredRacePlanFromRow,
+  collectPlanProductIds,
+  type PlanSummaryRow,
+} from '../lib/planSummary';
+import { createPlanShareLink } from '../lib/planShareLinks';
 import { fetchPlansScreenBootstrap, readPlansScreenBootstrap } from '../lib/plansScreenBootstrap';
+import { captureAnalyticsEvent } from '../lib/posthog';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import { getSession } from '../lib/raceLiveSession';
 import { clearUnfinishedPlanReminder, syncLatestUnfinishedPlanReminder } from '../lib/reminderNotifications';
@@ -30,6 +41,7 @@ export function usePlansScreen() {
   const [error, setError] = useState<string | null>(null);
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
+  const [sharingPlanId, setSharingPlanId] = useState<string | null>(null);
   const [premiumModalCopy, setPremiumModalCopy] = useState<{
     title: string;
     message: string;
@@ -174,7 +186,12 @@ export function usePlansScreen() {
   const sections = useMemo<RaceSection[]>(() => {
     const grouped: Record<string, PlanRow[]> = {};
     for (const plan of plans) {
-      const key = plan.race_id ?? '__orphan__';
+      const eventId = plan.races?.race_events?.id;
+      const key = eventId
+        ? `event:${eventId}`
+        : plan.race_id
+          ? `race:${plan.race_id}`
+          : '__orphan__';
       if (!grouped[key]) grouped[key] = [];
       grouped[key].push(plan);
     }
@@ -184,13 +201,18 @@ export function usePlansScreen() {
     for (const [key, planList] of Object.entries(grouped)) {
       if (key === '__orphan__') continue;
 
-      const raceName = planList[0]?.races?.name ?? t.plans.noCatalogRace;
-      const createdBy = raceOwnership[key] ?? null;
+      const eventName =
+        planList[0]?.races?.race_events?.name ??
+        planList[0]?.races?.name ??
+        t.plans.noCatalogRace;
+      const raceIds = [...new Set(planList.map((plan) => plan.race_id).filter(Boolean))] as string[];
+      const editableRaceId = raceIds.length === 1 ? raceIds[0] : null;
+      const createdBy = editableRaceId ? raceOwnership[editableRaceId] ?? null : null;
       result.push({
-        raceId: key,
-        raceName,
+        sectionKey: key,
+        raceId: editableRaceId,
+        eventName,
         isOwned: createdBy === userId,
-        isAdmin: !createdBy,
         data: planList,
       });
     }
@@ -198,16 +220,16 @@ export function usePlansScreen() {
     result.sort((left, right) => {
       if (left.isOwned && !right.isOwned) return -1;
       if (!left.isOwned && right.isOwned) return 1;
-      return left.raceName.localeCompare(right.raceName);
+      return left.eventName.localeCompare(right.eventName);
     });
 
     const orphanPlans = grouped.__orphan__ ?? [];
     if (orphanPlans.length > 0) {
       result.push({
+        sectionKey: '__orphan__',
         raceId: null,
-        raceName: t.plans.noRace,
+        eventName: t.plans.noRace,
         isOwned: false,
-        isAdmin: false,
         data: orphanPlans,
       });
     }
@@ -263,6 +285,129 @@ export function usePlansScreen() {
     [router],
   );
 
+  const handleRenamePlan = useCallback(
+    async (planId: string, name: string) => {
+      const nextName = name.trim();
+      if (!nextName) return false;
+
+      const updatedAt = new Date().toISOString();
+      const { error: renameError } = await supabase
+        .from('race_plans')
+        .update({ name: nextName, updated_at: updatedAt })
+        .eq('id', planId);
+
+      if (renameError) {
+        Alert.alert(t.common.error, renameError.message);
+        return false;
+      }
+
+      clearPlanEditDraft(planId);
+      setPlans((current) => {
+        const nextPlans = current.map((plan) =>
+          plan.id === planId ? { ...plan, name: nextName, updated_at: updatedAt } : plan,
+        );
+        if (isAnonymous) {
+          void syncLatestUnfinishedPlanReminder(nextPlans, {
+            title: t.reminders.unfinishedPlanTitle,
+            buildBody: (planName) => t.reminders.unfinishedPlanBody.replace('{name}', planName),
+            hrefForPlan: (nextPlanId) => `/(app)/plan/${nextPlanId}/edit`,
+          });
+        }
+        return nextPlans;
+      });
+      return true;
+    },
+    [
+      isAnonymous,
+      t.common.error,
+      t.reminders.unfinishedPlanBody,
+      t.reminders.unfinishedPlanTitle,
+    ],
+  );
+
+  const handleOpenPlanSummary = useCallback(
+    (planId: string) => {
+      router.push(`/(app)/plan/${planId}/summary` as any);
+    },
+    [router],
+  );
+
+  const handleSharePlan = useCallback(
+    async (planId: string) => {
+      if (sharingPlanId) return;
+
+      const targetPlan = plans.find((plan) => plan.id === planId);
+      const departureTime = targetPlan?.departureAt ? new Date(targetPlan.departureAt) : null;
+      if (!departureTime || !Number.isFinite(departureTime.getTime())) {
+        Alert.alert(
+          locale === 'fr' ? 'Heure de départ manquante' : 'Start time missing',
+          locale === 'fr'
+            ? "Renseigne d'abord ton heure de départ dans le récapitulatif pour partager un planning fiable avec ton équipe."
+            : 'Set your start time in the recap first so your crew receives a reliable schedule.',
+          [
+            { text: t.common.cancel, style: 'cancel' },
+            {
+              text: locale === 'fr' ? 'Renseigner' : 'Set time',
+              onPress: () => handleOpenPlanSummary(planId),
+            },
+          ],
+        );
+        return;
+      }
+
+      setSharingPlanId(planId);
+      try {
+        const { data, error: planError } = await supabase
+          .from('race_plans')
+          .select('id, name, updated_at, planner_values, elevation_profile')
+          .eq('id', planId)
+          .single();
+
+        if (planError) throw planError;
+        if (!data) throw new Error('Plan not found.');
+
+        const storedPlan = buildStoredRacePlanFromRow(data as PlanSummaryRow);
+        const productIds = collectPlanProductIds(storedPlan);
+        let productMap: Record<string, PlanProduct> = {};
+
+        if (productIds.length > 0) {
+          const { data: products, error: productsError } = await supabase
+            .from('products')
+            .select('id, name, brand, fuel_type, carbs_g, sodium_mg, calories_kcal')
+            .in('id', productIds);
+          if (productsError) throw productsError;
+          productMap = buildProductMap((products ?? []) as PlanProduct[]);
+        }
+
+        const summary = buildPlanSummary(storedPlan, productMap);
+        const shareUrl = await createPlanShareLink({ summary, departureTime, locale });
+        await Share.share({
+          message: `${t.planSummary.shareLinkIntro.replace('{name}', summary.name)}\n${shareUrl}`,
+          url: shareUrl,
+        });
+        captureAnalyticsEvent('plan recap link shared', {
+          aid_station_count: summary.checkpoints.length,
+          product_count: summary.totalProductUnits,
+          source: 'plans_list',
+        });
+      } catch {
+        Alert.alert(t.common.error, t.planSummary.shareFailed);
+      } finally {
+        setSharingPlanId(null);
+      }
+    },
+    [
+      handleOpenPlanSummary,
+      locale,
+      plans,
+      sharingPlanId,
+      t.common.cancel,
+      t.common.error,
+      t.planSummary.shareFailed,
+      t.planSummary.shareLinkIntro,
+    ],
+  );
+
   const handleOpenLockedPlan = useCallback(() => {
     openPremiumModal(
       t.plans.freeAccessTitle,
@@ -281,6 +426,7 @@ export function usePlansScreen() {
     sections,
     collapsedSections,
     activePlanId,
+    sharingPlanId,
     isAnonymous,
     accessiblePlanIds,
     premiumModalCopy,
@@ -293,7 +439,10 @@ export function usePlansScreen() {
     handleOpenGuestAccountUpgrade,
     handleEditRace,
     handleOpenEditPlan,
+    handleRenamePlan,
     handleOpenRacePlan,
+    handleOpenPlanSummary,
+    handleSharePlan,
     handleOpenLockedPlan,
     closePremiumModal,
   };

@@ -954,6 +954,39 @@ export function useProfileScreen() {
     () => (saved ? t.profile.saved : t.common.save),
     [saved, t.common.save, t.profile.saved],
   );
+  const isProfileDirty = useMemo(() => {
+    const storedPace = splitPaceMinutesPerKm(profile?.comfortable_flat_pace_min_per_km ?? null);
+    const storedInteger = (value: number | null | undefined) =>
+      typeof value === 'number' && Number.isFinite(value) ? String(Math.round(value)) : '';
+
+    return Boolean(userId) && (
+      fullName.trim() !== (profile?.full_name ?? '') ||
+      birthDateInput.trim() !== formatBirthDateInput(profile?.birth_date ?? null) ||
+      weightKg !== storedInteger(profile?.weight_kg) ||
+      heightCm !== storedInteger(profile?.height_cm) ||
+      waterBagLiters !== (profile?.water_bag_liters ?? 1.5) ||
+      utmbIndex !== storedInteger(profile?.utmb_index) ||
+      comfortableFlatPaceMinutes !== storedPace.minutes ||
+      comfortableFlatPaceSeconds !== storedPace.seconds ||
+      defaultCarbsPerHour !== storedInteger(profile?.default_carbs_g_per_hour) ||
+      defaultWaterPerHour !== storedInteger(profile?.default_water_ml_per_hour) ||
+      defaultSodiumPerHour !== storedInteger(profile?.default_sodium_mg_per_hour)
+    );
+  }, [
+    birthDateInput,
+    comfortableFlatPaceMinutes,
+    comfortableFlatPaceSeconds,
+    defaultCarbsPerHour,
+    defaultSodiumPerHour,
+    defaultWaterPerHour,
+    fullName,
+    heightCm,
+    profile,
+    userId,
+    utmbIndex,
+    waterBagLiters,
+    weightKg,
+  ]);
 
   const premiumBadges = useMemo(
     () =>
@@ -1178,6 +1211,7 @@ export function useProfileScreen() {
     profileTabs,
     birthDateHelpText,
     saveButtonLabel,
+    isProfileDirty,
     carbEstimatorOptions,
     hydrationEstimatorOptions,
     sodiumEstimatorOptions,

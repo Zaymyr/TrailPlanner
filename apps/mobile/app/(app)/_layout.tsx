@@ -148,25 +148,7 @@ export default function AppLayout() {
         };
         }}
       >
-      {/* Far left: Profile */}
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t.profile.title,
-          tabBarLabel: t.profile.title,
-          tabBarButtonTestID: 'nav-tab-profile',
-          tabBarIcon: ({ color, size }) => (
-            <View style={styles.profileIconWrap}>
-              <Ionicons name="person" size={size} color={color} />
-              {showProfileOnboardingDot ? (
-                <View accessibilityLabel={t.onboarding.tours.profileDotLabel} style={styles.onboardingDot} />
-              ) : null}
-            </View>
-          ),
-        }}
-      />
-
-      {/* Left of center: Courses catalog */}
+      {/* Far left: Courses catalog */}
       <Tabs.Screen
         name="catalog"
         options={{
@@ -179,7 +161,7 @@ export default function AppLayout() {
         }}
       />
 
-      {/* Center: My Plans — big green standout button */}
+      {/* Left of center: My Plans */}
       <Tabs.Screen
         name="plans"
         listeners={() => ({
@@ -201,7 +183,7 @@ export default function AppLayout() {
         }}
       />
 
-      {/* Right: Nutrition */}
+      {/* Right of center: Nutrition */}
       <Tabs.Screen
         name="nutrition"
         options={{
@@ -210,6 +192,24 @@ export default function AppLayout() {
           tabBarButtonTestID: 'nav-tab-nutrition',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="nutrition" size={size} color={color} />
+          ),
+        }}
+      />
+
+      {/* Far right: Profile */}
+      <Tabs.Screen
+        name="profile"
+        options={{
+          title: t.profile.title,
+          tabBarLabel: t.profile.title,
+          tabBarButtonTestID: 'nav-tab-profile',
+          tabBarIcon: ({ color, size }) => (
+            <View style={styles.profileIconWrap}>
+              <Ionicons name="person" size={size} color={color} />
+              {showProfileOnboardingDot ? (
+                <View accessibilityLabel={t.onboarding.tours.profileDotLabel} style={styles.onboardingDot} />
+              ) : null}
+            </View>
           ),
         }}
       />
@@ -228,7 +228,13 @@ export default function AppLayout() {
               accessibilityLabel={t.common.back}
               accessibilityRole="button"
               hitSlop={8}
-              onPress={() => router.dismissTo('/(app)/catalog')}
+              onPress={() => {
+                if (router.canGoBack()) {
+                  router.back();
+                  return;
+                }
+                router.replace('/(app)/catalog');
+              }}
               style={styles.headerBackButton}
               testID="racebook-back-to-catalog"
             >

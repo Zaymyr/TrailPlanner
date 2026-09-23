@@ -18,6 +18,8 @@ related_tables: []
 
 # Mobile UX Audit
 
+Plan-flow loading audits should flag determinate percentages unless the underlying operation reports real byte/task completion. The shared plan loader intentionally treats its internal progress values only as copy milestones, keeps the indicator indeterminate, and adds a neutral delayed reassurance for slow requests. Verify creation, editor, recap, onboarding handoff, and live preparation in both normal and reduced-motion modes.
+
 ## Purpose
 
 Use one reproducible runner journey to catch broken navigation and produce comparable screenshots, then review those artifacts for hierarchy, density, consistency, clarity, and accessibility. An automated Maestro pass proves that the journey remains operable; it does not decide whether a screen is visually balanced.
@@ -36,9 +38,10 @@ Use one reproducible runner journey to catch broken navigation and produce compa
 1. Keep `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` outside Git. For EAS, create them as secret variables in the `preview` environment. For a local run, export those variables; the ignored `EMAIL_DE_CONNEXION` and `MDP_Compte` keys in `apps/web/.env.local` are also mapped by the local runner.
 2. Install the `e2e-test` build on the target emulator or device. Native modules make a real development/EAS build preferable to Expo Go.
    The interactive development client is a separate `Pace Yourself Dev` application with identifier `com.paceyourself.app.dev`; set `APP_VARIANT=development` when starting its local Expo server. The `e2e-test` profile keeps the base application identifier expected by the checked-in Maestro flow.
+   The flow defaults to `com.paceyourself.app`, clears state, restarts the target and opens the login deep link. A physical-device audit of the development client must instead target its login route explicitly through ADB, then pass `APP_ID=com.paceyourself.app.dev`, `CLEAR_STATE=false`, and `SKIP_DEEP_LINK=true`; this preserves the active Metro connection and prevents state clearing or ambiguous shared-scheme routing from touching the installed production app. After a development-only integration error has been recorded, a capture-only rerun may additionally pass `SKIP_LOGIN=true` and `DISMISS_LOGBOX=true` to retain the authenticated session and close LogBox between screens without hiding the underlying defect in application code.
 3. From the repository root, run `npm run test:e2e:ux -w @trailplanner/mobile`. The local runner fails without printing credentials when Maestro or the secrets are unavailable.
 4. For the cloud matrix, first confirm that the Expo account includes hosted Maestro jobs. The current project plan does not. After a plan upgrade, change to `apps/mobile` and run `eas workflow:run .eas/workflows/mobile-ux-audit.yml`. Android and iOS then build and test in parallel; the jobs record video, retry one failure, and retain the nine named screenshots.
-5. Compare the login, Courses, Plans, Nutrition, and Profile captures. Review both the initial viewport and the post-scroll viewport; on iOS also confirm the dark status-bar content remains legible over the light palette.
+5. Compare the login, Courses, Plans, Nutrition, and Profile captures in the established bottom-tab order Courses → Plans → Nutrition → Profile. Review both the initial viewport and the post-scroll viewport; on iOS also confirm the dark status-bar content remains legible over the light palette.
 6. Record every finding using the rubric below. Link the platform, screenshot, affected user goal, severity, and proposed correction.
 7. After a correction, rerun the same flow and compare the same named artifact. Add a focused Maestro flow only when a new critical interaction cannot be represented safely in the shell journey.
 8. On iOS, focus at least one numeric or decimal field and confirm the shared `Terminé` accessory dismisses the keyboard without closing the form or discarding its value.
@@ -87,6 +90,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - Do not rely only on visible French or English text when a stable `testID` can identify the action.
 - Do not auto-run the cross-platform EAS workflow on every commit without an explicit cost/latency decision.
 - Do not mutate plans, favorites, purchases, or organizer data in the shell audit. Put destructive scenarios in isolated test-account flows with cleanup.
+- Do not run a development-client audit without explicitly passing `APP_ID=com.paceyourself.app.dev`; both production and Dev may be installed on the same phone.
 - Do not add an authentication or onboarding bypass to the production app for E2E convenience.
 
 ## Gotchas

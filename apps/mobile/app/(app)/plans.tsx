@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '@pace-yourself/design-system';
-import { ActivityIndicator, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
+import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import { PlansList } from '../../components/plans/PlansList';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 import { Button } from '../../components/themed/Button';
@@ -28,6 +29,7 @@ export default function PlansScreen() {
     sections,
     collapsedSections,
     activePlanId,
+    sharingPlanId,
     isAnonymous,
     accessiblePlanIds,
     premiumModalCopy,
@@ -40,7 +42,10 @@ export default function PlansScreen() {
     handleOpenGuestAccountUpgrade,
     handleEditRace,
     handleOpenEditPlan,
+    handleRenamePlan,
     handleOpenRacePlan,
+    handleOpenPlanSummary,
+    handleSharePlan,
     handleOpenLockedPlan,
     closePremiumModal,
   } = usePlansScreen();
@@ -69,21 +74,17 @@ export default function PlansScreen() {
       locale === 'fr'
         ? {
             title: t.plans.title,
-            body: "Retrouve tes plans par course, relance un plan en cours, ou cr\u00e9e un nouveau plan depuis le menu. Les ic\u00f4nes de carte ouvrent l'\u00e9dition, le live ou les actions de suppression.",
+            body: "Retrouve tes plans par course avec leur temps prévu et le compte à rebours avant le départ. Touche une carte pour l'ouvrir et maintiens-la appuyée pour modifier son nom ou la supprimer. À droite, les icônes ouvrent le récapitulatif, partagent directement le plan et lancent le live.",
           }
         : {
             title: t.plans.title,
-            body: 'Find your plans grouped by race, resume an active plan, or create a new plan from the menu. The card icons open editing, live mode, or delete actions.',
+            body: 'Find plans grouped by race with their expected time and start countdown. Tap a card to open it and hold it to edit its name or delete it. The icons on the right open the recap, share the plan directly, and start live mode.',
           },
     [locale, t.plans.title],
   );
 
   if (loading || premiumLoading) {
-    return (
-      <Screen style={styles.center}>
-        <ActivityIndicator color={colors.brand.forest} size="large" />
-      </Screen>
-    );
+    return <PlanLoadingScreen progress={0.2} variant="list" />;
   }
 
   if (error) {
@@ -147,15 +148,24 @@ export default function PlansScreen() {
         noRaceWarningLabel={t.plans.noRaceWarning}
         onCreateFirstPlan={handleCreateFirstPlan}
         onDeletePlan={handleDelete}
+        onRenamePlan={handleRenamePlan}
         onEditRace={handleEditRace}
         onOpenEditPlan={handleOpenEditPlan}
         onOpenLockedPlan={handleOpenLockedPlan}
         onOpenRacePlan={handleOpenRacePlan}
+        onOpenSummary={handleOpenPlanSummary}
+        onSharePlan={handleSharePlan}
         onRefresh={handleRefresh}
         onToggleSection={toggleSection}
         refreshing={refreshing}
+        sharingPlanId={sharingPlanId}
         sections={sections}
         startButtonLabel={t.plans.startButton}
+        recapButtonLabel={t.planSummary.openRecap}
+        shareButtonLabel={t.planSummary.share}
+        saveButtonLabel={t.common.save}
+        savingLabel={t.common.saving}
+        deleteButtonLabel={t.common.delete}
       />
 
       <PremiumUpsellModal
@@ -185,13 +195,13 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   trainingCta: {
-    minHeight: 70,
+    minHeight: 58,
     marginHorizontal: 16,
-    marginTop: 12,
+    marginTop: 8,
     marginBottom: 4,
     paddingHorizontal: 14,
-    paddingVertical: 12,
-    borderRadius: 18,
+    paddingVertical: 8,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: colors.border.brand,
     backgroundColor: colors.surface.white,
@@ -200,9 +210,9 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   trainingCtaIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: colors.brand.forest,

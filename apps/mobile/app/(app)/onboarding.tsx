@@ -1366,16 +1366,11 @@ export default function OnboardingScreen() {
 
   if (saving) {
     const visiblePlanName = loadingPlanName ?? selectedRace?.name ?? null;
-    const loadingTitle = visiblePlanName
-      ? t.plans.planLoadingNamed.replace('{name}', visiblePlanName)
-      : t.plans.planLoadingGeneric;
-
     return (
       <PlanLoadingScreen
         planName={visiblePlanName}
         progress={loadingProgress}
-        stage={t.plans.planLoadingStage}
-        title={loadingTitle}
+        variant="create"
       />
     );
   }
