@@ -58,6 +58,12 @@ import {
   getPlanSummaryDepartureTimeStorageKey,
 } from '../../../../lib/planSummary';
 import { createPlanShareLink } from '../../../../lib/planShareLinks';
+import {
+  buildPersistedPlannerValues,
+  createPlanPersistenceSnapshot,
+  getIntermediateAidStationCount,
+  normalizePlanValuesForPersistence,
+} from '../../../../lib/planPersistence';
 
 type RacePlanRow = {
   id: string;
@@ -127,7 +133,7 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
 }
 
 function serializePlanValues(values: PlanFormValues): string {
-  return JSON.stringify(values);
+  return createPlanPersistenceSnapshot(values);
 }
 
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
@@ -153,6 +159,10 @@ export default function EditPlanScreen() {
   const initialWarmStartDraft = id ? getPlanEditDraft(id) : null;
   const initialWarmStartProductData = id ? getPlanEditProductsBootstrap(id) : null;
   const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
+  const initialWarmStartIsSaved = Boolean(
+    initialWarmStartDraft &&
+      serializePlanValues(initialWarmStartDraft.values) === initialWarmStartDraft.lastSavedSnapshot,
+  );
   const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
     () => [
       {
@@ -217,6 +227,9 @@ export default function EditPlanScreen() {
   const [loading, setLoading] = useState(() => !hasInitialWarmStart);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
+    initialWarmStartIsSaved ? 'saved' : 'idle',
+  );
   const [draftSnapshot, setDraftSnapshot] = useState<string | null>(() =>
     initialWarmStartDraft ? serializePlanValues(initialWarmStartDraft.values) : null,
   );
@@ -305,6 +318,11 @@ export default function EditPlanScreen() {
     activeSavePromiseRef.current = null;
     setError(null);
     setSaving(false);
+    setSaveStatus(
+      cachedDraft && serializePlanValues(cachedDraft.values) === cachedDraft.lastSavedSnapshot
+        ? 'saved'
+        : 'idle',
+    );
     setActivePlanEditSession(id);
 
     if (cachedDraft && cachedProductData) {
@@ -412,6 +430,7 @@ export default function EditPlanScreen() {
         setLoadedPlanId(null);
         setLoadingProgress(1);
         setLoading(false);
+        setSaveStatus('error');
         return;
       }
 
@@ -450,6 +469,12 @@ export default function EditPlanScreen() {
     setLoadingProgress(1);
 
     setLoading(false);
+    const currentDraft = latestDraftRef.current;
+    setSaveStatus(
+      currentDraft && serializePlanValues(currentDraft) === lastSavedSnapshotRef.current
+        ? 'saved'
+        : 'idle',
+    );
   }, [id, isPremium, router, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
 
   const persistPlan = useCallback(
@@ -458,43 +483,17 @@ export default function EditPlanScreen() {
       if (activeSavePromiseRef.current) return activeSavePromiseRef.current;
 
       isSavingRef.current = true;
+      setSaveStatus('saving');
       if (!silent) setSaving(true);
       const savedSnapshot = serializePlanValues(values);
-
-      const plannerValues = {
-        raceDistanceKm: values.raceDistanceKm,
-        elevationGain: values.elevationGain,
-        fatigueLevel: values.fatigueLevel,
-        paceType: values.paceType,
-        paceMinutes: values.paceMinutes,
-        paceSeconds: values.paceSeconds,
-        speedKph: values.speedKph,
-        targetIntakePerHour: values.targetIntakePerHour,
-        waterIntakePerHour: values.waterIntakePerHour,
-        sodiumIntakePerHour: values.sodiumIntakePerHour,
-        waterBagLiters: values.waterBagLiters,
-        startSupplies: (values.startSupplies ?? []).map((s) => ({ productId: s.productId, quantity: s.quantity })),
-        segments: values.sectionSegments,
-        sectionSegments: values.sectionSegments,
-        aidStations: values.aidStations.map((s) => ({
-          name: s.name,
-          distanceKm: s.distanceKm,
-          waterRefill: s.waterRefill !== false,
-          solidRefill: s.solidRefill !== false,
-          assistanceAllowed: s.assistanceAllowed !== false,
-          pauseMinutes: s.pauseMinutes ?? 0,
-          supplies:
-            s.assistanceAllowed === false
-              ? []
-              : (s.supplies ?? []).map((sup) => ({ productId: sup.productId, quantity: sup.quantity })),
-        })),
-      };
+      const normalizedValues = normalizePlanValuesForPersistence(values);
+      const plannerValues = buildPersistedPlannerValues(normalizedValues);
 
       const savePromise = (async () => {
         const { error: err } = await supabase
           .from('race_plans')
           .update({
-            name: values.name,
+            name: normalizedValues.name,
             planner_values: plannerValues,
             elevation_profile: elevationProfileRef.current,
             updated_at: new Date().toISOString(),
@@ -508,36 +507,48 @@ export default function EditPlanScreen() {
           const latestSnapshot = latestDraft ? serializePlanValues(latestDraft) : null;
 
           if (latestSnapshot === savedSnapshot) {
-            setPlanName(values.name);
+            setPlanName(normalizedValues.name);
             clearPlanEditDraft(id);
           } else if (latestDraft) {
             setPlanEditDraft(id, {
               elevationProfile: elevationProfileRef.current,
               lastSavedSnapshot: savedSnapshot,
-              planName: latestDraft.name || values.name,
+              planName: latestDraft.name || normalizedValues.name,
               values: latestDraft,
             });
           }
 
-          const sessionData = await supabase.auth.getSession();
-          if (isAnonymousSession(sessionData.data?.session)) {
-            await syncUnfinishedPlanReminder({
-              planId: id,
-              plannerValues,
-              title: t.reminders.unfinishedPlanTitle,
-              body: t.reminders.unfinishedPlanBody.replace('{name}', values.name),
-              href: `/(app)/plan/${id}/edit`,
-              requestIfNeeded: !silent,
-            });
-          } else {
-            await clearUnfinishedPlanReminder(id);
+          try {
+            const sessionData = await supabase.auth.getSession();
+            if (isAnonymousSession(sessionData.data?.session)) {
+              await syncUnfinishedPlanReminder({
+                planId: id,
+                plannerValues,
+                title: t.reminders.unfinishedPlanTitle,
+                body: t.reminders.unfinishedPlanBody.replace('{name}', normalizedValues.name),
+                href: `/(app)/plan/${id}/edit`,
+                requestIfNeeded: !silent,
+              });
+            } else {
+              await clearUnfinishedPlanReminder(id);
+            }
+          } catch {
+            // The durable plan save succeeded; reminder scheduling is best effort.
           }
 
+          const currentSnapshot = latestDraftRef.current
+            ? serializePlanValues(latestDraftRef.current)
+            : savedSnapshot;
+          setSaveStatus(currentSnapshot === savedSnapshot ? 'saved' : 'idle');
           return true;
         }
 
+        setSaveStatus('error');
         return false;
-      })().finally(() => {
+      })().catch(() => {
+        setSaveStatus('error');
+        return false;
+      }).finally(() => {
         isSavingRef.current = false;
         if (!silent) setSaving(false);
         activeSavePromiseRef.current = null;
@@ -635,7 +646,7 @@ export default function EditPlanScreen() {
     if (saved) {
       await noteReviewPlanSaved();
       captureAnalyticsEvent('plan saved', {
-        aid_station_count: draft.aidStations.length,
+        aid_station_count: getIntermediateAidStationCount(draft.aidStations),
         segment_count: draft.sectionSegments?.length ?? 0,
       });
       clearActivePlanEditSession(id);
@@ -689,23 +700,25 @@ export default function EditPlanScreen() {
   }, [hasUnsavedChanges, leaveToPlans, promptUnsavedChanges, saveLatestDraft]);
 
   async function handleSave(values: PlanFormValues) {
-    latestDraftRef.current = values;
-    setDraftSnapshot(serializePlanValues(values));
+    const normalizedValues = normalizePlanValuesForPersistence(values);
+    latestDraftRef.current = normalizedValues;
+    setDraftSnapshot(serializePlanValues(normalizedValues));
     await saveAndLeaveToPlans();
   }
 
   const stageDraftForAction = useCallback(
     (values: PlanFormValues) => {
-      latestDraftRef.current = values;
-      const nextSnapshot = serializePlanValues(values);
+      const normalizedValues = normalizePlanValuesForPersistence(values);
+      latestDraftRef.current = normalizedValues;
+      const nextSnapshot = serializePlanValues(normalizedValues);
       setDraftSnapshot(nextSnapshot);
 
       if (id) {
         setPlanEditDraft(id, {
           elevationProfile: elevationProfileRef.current,
           lastSavedSnapshot: lastSavedSnapshotRef.current,
-          planName: values.name || planName,
-          values,
+          planName: normalizedValues.name || planName,
+          values: normalizedValues,
         });
       }
     },
@@ -725,7 +738,7 @@ export default function EditPlanScreen() {
       }
 
       captureAnalyticsEvent('plan recap opened', {
-        aid_station_count: values.aidStations.length,
+        aid_station_count: getIntermediateAidStationCount(values.aidStations),
       });
       router.push(`/(app)/plan/${id}/summary` as any);
     },
@@ -744,10 +757,11 @@ export default function EditPlanScreen() {
           return;
         }
 
-        const productMap = await loadProductMapForPlanValues(values);
+        const normalizedValues = normalizePlanValuesForPersistence(values);
+        const productMap = await loadProductMapForPlanValues(normalizedValues);
         const plan = buildStoredRacePlanFromValues({
           id,
-          values,
+          values: normalizedValues,
           elevationProfile: elevationProfileRef.current,
         });
         const summary = buildPlanSummary(plan, productMap);
@@ -766,7 +780,7 @@ export default function EditPlanScreen() {
           url: shareUrl,
         });
         captureAnalyticsEvent('plan recap link shared', {
-          aid_station_count: values.aidStations.length,
+          aid_station_count: getIntermediateAidStationCount(normalizedValues.aidStations),
           product_count: summary.totalProductUnits,
         });
       } catch {
@@ -803,17 +817,24 @@ export default function EditPlanScreen() {
     const currentLoadingPlanName = loadingPlanNameId === id ? loadingPlanName : null;
     const visiblePlanName =
       currentLoadingPlanName ?? (loadedPlanId === id ? planName || initialValues?.name || null : null);
-    const loadingTitle = visiblePlanName
-      ? t.plans.planLoadingNamed.replace('{name}', visiblePlanName)
-      : t.plans.planLoadingGeneric;
-
     return (
-      <PlanLoadingScreen
-        planName={visiblePlanName}
-        progress={loadingProgress}
-        stage={t.plans.planLoadingStage}
-        title={loadingTitle}
-      />
+      <>
+        <Stack.Screen
+          options={{
+            headerTitleAlign: 'left',
+            headerTitle: () => (
+              <AppHeaderTitle
+                title={visiblePlanName ? `Modifier : ${visiblePlanName}` : locale === 'fr' ? 'Modifier le plan' : 'Edit plan'}
+              />
+            ),
+          }}
+        />
+        <PlanLoadingScreen
+          planName={visiblePlanName}
+          progress={loadingProgress}
+          variant="edit"
+        />
+      </>
     );
   }
 
@@ -840,7 +861,38 @@ export default function EditPlanScreen() {
       <Stack.Screen
         options={{
           headerTitleAlign: 'left',
-          headerTitle: () => <AppHeaderTitle title={`Modifier : ${planName}`} />,
+          headerTitle: () => (
+            <View style={styles.headerTitleWrap}>
+              <AppHeaderTitle title={`Modifier : ${planName}`} />
+              {saveStatus !== 'idle' ? (
+                <View accessibilityLiveRegion="polite" style={styles.saveStatus}>
+                  <Ionicons
+                    color={saveStatus === 'error' ? Colors.danger : Colors.textSecondary}
+                    name={
+                      saveStatus === 'saving'
+                        ? 'sync-outline'
+                        : saveStatus === 'saved'
+                          ? 'checkmark-circle-outline'
+                          : 'alert-circle-outline'
+                    }
+                    size={12}
+                  />
+                  <Text
+                    style={[
+                      styles.saveStatusText,
+                      saveStatus === 'error' ? styles.saveStatusError : null,
+                    ]}
+                  >
+                    {saveStatus === 'saving'
+                      ? t.common.saving
+                      : saveStatus === 'saved'
+                        ? locale === 'fr' ? 'Enregistré' : 'Saved'
+                        : locale === 'fr' ? 'Erreur' : 'Error'}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ),
           headerLeft: () => (
             <TouchableOpacity
               accessibilityLabel={t.common.back}
@@ -871,6 +923,9 @@ export default function EditPlanScreen() {
           latestDraftRef.current = values;
           const nextSnapshot = serializePlanValues(values);
           setDraftSnapshot(nextSnapshot);
+          if (nextSnapshot !== lastSavedSnapshotRef.current) {
+            setSaveStatus('idle');
+          }
           if (id) {
             setPlanEditDraft(id, {
               elevationProfile: elevationProfileRef.current,
@@ -935,5 +990,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
+  },
+  headerTitleWrap: {
+    minWidth: 0,
+  },
+  saveStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  saveStatusText: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 13,
+  },
+  saveStatusError: {
+    color: Colors.danger,
   },
 });

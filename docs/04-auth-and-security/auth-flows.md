@@ -36,6 +36,7 @@ related_files:
   - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/onboardingGate.ts
   - apps/mobile/lib/resendContactSync.ts
+  - apps/mobile/lib/resendContactSync.test.ts
   - apps/mobile/lib/trial.ts
 related_tables:
   - user_profiles
@@ -101,7 +102,7 @@ Mobile account entry points live in `apps/mobile/app/(auth)/login.tsx`, `apps/mo
 Guest-only feature gates reuse `apps/mobile/hooks/useGuestAccountPrompt.ts`. It presents separate account-creation and existing-account sign-in choices, then routes through those same auth screens so guest conversion/merge behavior remains centralized. The race-favorite and additional-plan gates invoke it before optimistic UI or persistence.
 The onboarding route injects the guest account controls into its extracted presentational overview component. Apple/Google callbacks, loading state, guest continuation, and auth errors remain owned by the route so the component split does not create a second authentication lifecycle.
 The password-login inputs and submit action expose stable `auth-login-*` test ids and localized accessibility labels. The Maestro UX journey uses those hooks so translations can change without breaking authentication tests. Credentials enter the process through ignored local environment files or secret EAS `preview` variables; they are never embedded in the app bundle or flow YAML.
-Login uses the same scrollable keyboard-avoidance layout as signup, so account actions remain reachable when the iOS keyboard is open or Dynamic Type enlarges the form.
+Login uses the same scrollable keyboard-avoidance layout as signup, so account actions remain reachable when the iOS keyboard is open or Dynamic Type enlarges the form. Its content starts near the top instead of vertically centering a long guest notice, and the social-auth separator is localized.
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 
 Non-auth onboarding steps, such as the extracted race/catalog and nutrition-product presentation components, must not add separate session side effects; their callbacks remain owned by the onboarding route, while session, analytics identity, push registration, and Resend sync behavior stay in `_layout.tsx` or the existing dedicated helpers.
@@ -143,7 +144,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Guest accounts cannot start Stripe checkout; checkout rejects anonymous Supabase users.
 - Guest feature prompts must route through the existing login/signup screens rather than implementing provider or password auth inside the gated screen.
 - Trial repair runs during session verification and must stay idempotent.
-- Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile.
+- Resend contact sync is a session side effect only for identified users; anonymous sessions must continue to be skipped on both web and mobile. The mobile idempotency marker hashes the normalized email and uses only SecureStore-compatible characters.
 - Do not key the mobile onboarding gate off a single nullable profile field. Returning users can have partial profiles, and reopening onboarding with empty local state risks resaving nulls over durable defaults.
 - A skip action must persist the relevant per-tour status before navigation. AsyncStorage is only a resume cursor, never the durable completion source.
 - Do not render Google sign-in on iOS builds; App Review devices should only see the Apple social login path.

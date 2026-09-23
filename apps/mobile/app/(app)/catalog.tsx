@@ -349,6 +349,26 @@ async function fetchRaceEventUpdates(eventId: string) {
   return payload.updates;
 }
 
+type QuickCatalogFilter = 'all' | 'favorites' | 'short' | 'trail' | 'ultra';
+
+function matchesQuickDistance(distanceKm: number, filter: QuickCatalogFilter) {
+  if (filter === 'short') return distanceKm < 30;
+  if (filter === 'trail') return distanceKm >= 30 && distanceKm < 60;
+  if (filter === 'ultra') return distanceKm >= 60;
+  return true;
+}
+
+const QUICK_CATALOG_FILTERS: {
+  key: Exclude<QuickCatalogFilter, 'all'>;
+  fr: string;
+  en: string;
+}[] = [
+  { key: 'favorites', fr: 'Favoris', en: 'Favorites' },
+  { key: 'short', fr: '< 30 km', en: '< 30 km' },
+  { key: 'trail', fr: '30–60 km', en: '30–60 km' },
+  { key: 'ultra', fr: '60+ km', en: '60+ km' },
+];
+
 async function fetchReadRaceEventUpdateIds(userId: string) {
   const { data, error } = await supabase
     .from('race_event_update_reads')
@@ -397,6 +417,7 @@ export default function CatalogScreen() {
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
   const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
+  const [favoriteSortIds, setFavoriteSortIds] = useState<string[]>([]);
   const [canFavoriteEvents, setCanFavoriteEvents] = useState(false);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [organizerEventIds, setOrganizerEventIds] = useState<Set<string>>(() => new Set());
@@ -412,14 +433,12 @@ export default function CatalogScreen() {
   const [distanceMaxFilter, setDistanceMaxFilter] = useState('');
   const [dateMinFilter, setDateMinFilter] = useState('');
   const [dateMaxFilter, setDateMaxFilter] = useState('');
+  const [quickFilter, setQuickFilter] = useState<QuickCatalogFilter>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [favoriteToast, setFavoriteToast] = useState<string | null>(null);
   const openingEventFromParamRef = useRef<string | null>(null);
-  const listRef = useRef<FlatList<EventGroup>>(null);
-  const favoriteToastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastTrackedRacebookSearchRef = useRef<string | null>(null);
 
   async function handleCreatePlan(catalogRaceId: string) {
@@ -572,6 +591,7 @@ export default function CatalogScreen() {
         setEventGroups(groups);
         setPersonalRaces(sortRaces((personalResult.data ?? []) as Race[]));
         setFavoriteEventIds(favoriteIds);
+        setFavoriteSortIds(favoriteIds);
         setCurrentUserId(canUseFavorites ? userId : null);
         setOrganizerEventIds(new Set(managedEventIds));
         setReadUpdateIds(new Set(readUpdateIdsResult));
@@ -598,15 +618,6 @@ export default function CatalogScreen() {
     return fetchEvents();
   }, [t.catalog.otherRaces, t.common.error]);
 
-  useEffect(
-    () => () => {
-      if (favoriteToastTimeoutRef.current) {
-        clearTimeout(favoriteToastTimeoutRef.current);
-      }
-    },
-    [],
-  );
-
   const filteredEventGroups = useMemo(() => {
     const normalizedName = nameFilter.trim().toLowerCase();
 
@@ -615,7 +626,8 @@ export default function CatalogScreen() {
         .filter(
         (event) =>
           isUpcomingOrUndated(event.race_date) &&
-          matchesDateRange(event.race_date, dateMinFilter, dateMaxFilter),
+          matchesDateRange(event.race_date, dateMinFilter, dateMaxFilter) &&
+          (quickFilter !== 'favorites' || favoriteEventIds.includes(event.id)),
         )
         .map((event) => {
           const eventMatchesName =
@@ -632,6 +644,7 @@ export default function CatalogScreen() {
 
               return (
                 raceMatchesName &&
+                matchesQuickDistance(race.distance_km, quickFilter) &&
                 matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&
                 matchesDateRange(race.race_date ?? event.race_date, dateMinFilter, dateMaxFilter)
               );
@@ -641,9 +654,9 @@ export default function CatalogScreen() {
           return { ...event, races };
         })
         .filter((event) => event.races.length > 0),
-      favoriteEventIds
+      favoriteSortIds
     );
-  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, eventGroups, favoriteEventIds, nameFilter]);
+  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, eventGroups, favoriteEventIds, favoriteSortIds, nameFilter, quickFilter]);
 
   const filteredPersonalRaces = useMemo(() => {
     const normalizedName = nameFilter.trim().toLowerCase();
@@ -653,13 +666,15 @@ export default function CatalogScreen() {
         normalizedName.length === 0 || race.name.toLowerCase().includes(normalizedName);
 
       return (
+        quickFilter !== 'favorites' &&
         isUpcomingOrUndated(race.race_date) &&
         raceMatchesName &&
+        matchesQuickDistance(race.distance_km, quickFilter) &&
         matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&
         matchesDateRange(race.race_date, dateMinFilter, dateMaxFilter)
       );
     });
-  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, nameFilter, personalRaces]);
+  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, nameFilter, personalRaces, quickFilter]);
 
   const racebookOnboardingEventGroups = useMemo(
     () => getRacebookOnboardingResults<Race, EventGroup>(
@@ -723,8 +738,8 @@ export default function CatalogScreen() {
     () =>
       [distanceMinFilter, distanceMaxFilter, dateMinFilter, dateMaxFilter].filter(
         (value) => value.trim().length > 0,
-      ).length,
-    [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter],
+      ).length + (quickFilter === 'all' ? 0 : 1),
+    [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, quickFilter],
   );
   const listContentStyle = useMemo(
     () => [
@@ -788,6 +803,7 @@ export default function CatalogScreen() {
     setDistanceMaxFilter('');
     setDateMinFilter('');
     setDateMaxFilter('');
+    setQuickFilter('all');
   }
 
   async function handleToggleFavorite(eventId: string) {
@@ -807,12 +823,10 @@ export default function CatalogScreen() {
       : [eventId, ...favoriteEventIds];
 
     setFavoriteEventIds(nextFavoriteIds);
-    setEventGroups((current) => sortEvents(current, nextFavoriteIds));
 
     try {
       const savedFavoriteIds = await saveRaceFavoriteEventIds(nextFavoriteIds);
       setFavoriteEventIds(savedFavoriteIds);
-      setEventGroups((current) => sortEvents(current, savedFavoriteIds));
 
       const isNowFavorite = savedFavoriteIds.includes(eventId);
       if (isNowFavorite !== wasFavorite) {
@@ -824,26 +838,10 @@ export default function CatalogScreen() {
       }
 
       if (!wasFavorite && isNowFavorite) {
-        const eventName = eventGroups.find((event) => event.id === eventId)?.name;
         setSelectedEvent((current) => (current?.id === eventId ? null : current));
-        setFavoriteToast(
-          locale === 'fr'
-            ? `${eventName ?? 'La course'} a été ajoutée aux favoris`
-            : `${eventName ?? 'The race'} was added to favorites`,
-        );
-
-        if (favoriteToastTimeoutRef.current) {
-          clearTimeout(favoriteToastTimeoutRef.current);
-        }
-        favoriteToastTimeoutRef.current = setTimeout(() => setFavoriteToast(null), 2600);
-
-        requestAnimationFrame(() => {
-          listRef.current?.scrollToIndex({ index: 0, animated: true, viewPosition: 0 });
-        });
       }
     } catch (caught) {
       setFavoriteEventIds(previousFavoriteIds);
-      setEventGroups((current) => sortEvents(current, previousFavoriteIds));
       Alert.alert(
         locale === 'fr' ? 'Impossible de mettre à jour le favori' : 'Unable to update favorite',
         caught instanceof Error ? caught.message : t.common.error,
@@ -993,13 +991,9 @@ export default function CatalogScreen() {
   return (
     <>
       <FlatList
-        ref={listRef}
         data={visibleEventGroups}
         keyExtractor={(item) => item.id}
         contentContainerStyle={listContentStyle}
-        onScrollToIndexFailed={() => {
-          listRef.current?.scrollToOffset({ offset: 0, animated: true });
-        }}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -1035,7 +1029,28 @@ export default function CatalogScreen() {
                       : t.catalog.filters}
                   </Text>
                 </TouchableOpacity>
-                <Text style={styles.filterHint}>{t.catalog.futureOnly}</Text>
+                <ScrollView
+                  horizontal
+                  contentContainerStyle={styles.quickFiltersContent}
+                  showsHorizontalScrollIndicator={false}
+                  style={styles.quickFilters}
+                >
+                  {QUICK_CATALOG_FILTERS.map((filter) => {
+                    const active = quickFilter === filter.key;
+                    return (
+                      <TouchableOpacity
+                        key={filter.key}
+                        activeOpacity={0.78}
+                        onPress={() => setQuickFilter(active ? 'all' : filter.key)}
+                        style={[styles.quickFilterChip, active && styles.quickFilterChipActive]}
+                      >
+                        <Text style={[styles.quickFilterText, active && styles.quickFilterTextActive]}>
+                          {locale === 'fr' ? filter.fr : filter.en}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
               </View> : null}
             </View>
 
@@ -1094,6 +1109,7 @@ export default function CatalogScreen() {
             favoriteLabel={locale === 'fr' ? 'Ajouter cette course aux favoris' : 'Add this race to favorites'}
             unfavoriteLabel={locale === 'fr' ? 'Retirer cette course des favoris' : 'Remove this race from favorites'}
             isFavorite={favoriteEventIds.includes(event.id)}
+            allowOptimisticFavoriteToggle={canFavoriteEvents}
             hasNewUpdate={eventsWithUnreadUpdates.has(event.id)}
             onToggleFavorite={() => {
               void handleToggleFavorite(event.id);
@@ -1116,17 +1132,6 @@ export default function CatalogScreen() {
         )}
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
       />
-
-      {favoriteToast ? (
-        <View
-          accessibilityLiveRegion="polite"
-          pointerEvents="none"
-          style={[styles.favoriteToast, { top: Math.max(insets.top + 12, 24) }]}
-        >
-          <Ionicons name="checkmark-circle" size={20} color={Colors.textOnBrand} />
-          <Text style={styles.favoriteToastText}>{favoriteToast}</Text>
-        </View>
-      ) : null}
 
       <RootScreenActionMenu
         actions={actionItems}
@@ -1406,30 +1411,6 @@ const styles = StyleSheet.create({
   listFooterSpacing: {
     height: 8,
   },
-  favoriteToast: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    zIndex: 30,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 14,
-    backgroundColor: Colors.success,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.18,
-    shadowRadius: 8,
-    elevation: 5,
-  },
-  favoriteToastText: {
-    flex: 1,
-    color: Colors.textOnBrand,
-    fontSize: 14,
-    fontWeight: '700',
-  },
   filtersCard: {
     backgroundColor: Colors.surface,
     borderRadius: 16,
@@ -1451,8 +1432,7 @@ const styles = StyleSheet.create({
   filterActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
   },
   filterButton: {
     flexDirection: 'row',
@@ -1470,11 +1450,33 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
-  filterHint: {
-    fontSize: 12,
+  quickFilters: {
+    flex: 1,
+  },
+  quickFiltersContent: {
+    gap: 7,
+    paddingRight: 4,
+  },
+  quickFilterChip: {
+    minHeight: 38,
+    justifyContent: 'center',
+    paddingHorizontal: 12,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
+  },
+  quickFilterChipActive: {
+    borderColor: Colors.brandPrimary,
+    backgroundColor: Colors.brandPrimary,
+  },
+  quickFilterText: {
     color: Colors.textSecondary,
-    flexShrink: 1,
-    textAlign: 'right',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  quickFilterTextActive: {
+    color: Colors.textOnBrand,
   },
   listEmpty: {
     flex: 1,

@@ -1,7 +1,7 @@
 ---
 title: race_edition_services Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -13,6 +13,7 @@ related_files:
   - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/fetchWithTimeout.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookServicesSection.tsx
 related_tables:
   - race_edition_services
   - race_event_editions
@@ -48,7 +49,7 @@ The structured collection is additive on mobile. A temporary Data API/table-unav
 
 The two-line clamp applied to bib-pickup address text is isolated from service-card rendering and does not change service addresses or links.
 
-The extracted mobile access and ravito sections do not consume edition-service rows; structured service normalization and rendering remain in the RaceBook route.
+The RaceBook route keeps structured service normalization, distance approximation, link construction and analytics callbacks. `RacebookServicesSection` owns only the grouped mobile presentation and receives normalized rows, resolved theme, explicit copy and URL callbacks.
 
 The format access override that hides saved runner information is likewise independent from edition service rows and their visibility.
 

@@ -379,17 +379,24 @@ export default function NewPlanScreen() {
 
   if (loading || premiumLoading) {
     const visiblePlanName = loadingPlanName ?? selectedRace?.name ?? null;
-    const loadingTitle = visiblePlanName
-      ? t.plans.planLoadingNamed.replace('{name}', visiblePlanName)
-      : t.plans.planLoadingGeneric;
 
     return (
-      <PlanLoadingScreen
-        planName={visiblePlanName}
-        progress={loadingProgress}
-        stage={t.plans.planLoadingStage}
-        title={loadingTitle}
-      />
+      <>
+        <Stack.Screen
+          options={{
+            headerStyle: { backgroundColor: Colors.background },
+            headerTintColor: Colors.textPrimary,
+            headerShadowVisible: false,
+            headerTitleAlign: 'left',
+            headerTitle: () => <AppHeaderTitle title={t.plans.newPlan} />,
+          }}
+        />
+        <PlanLoadingScreen
+          planName={visiblePlanName}
+          progress={loadingProgress}
+          variant="create"
+        />
+      </>
     );
   }
 

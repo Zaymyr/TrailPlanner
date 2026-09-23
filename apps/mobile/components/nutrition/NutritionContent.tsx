@@ -34,6 +34,7 @@ type CatalogListRow =
       count: number;
       expanded: boolean;
       hasVerifiedProduct: boolean;
+      brandImageUrl: string | null;
     }
   | {
       type: 'product';
@@ -41,7 +42,7 @@ type CatalogListRow =
       product: Product;
     };
 
-const KNOWN_BRAND_PREFIXES: Array<{ match: string; label: string }> = [
+const KNOWN_BRAND_PREFIXES: { match: string; label: string }[] = [
   { match: 'precision fuel & hydration', label: 'Precision Fuel & Hydration' },
   { match: 'precision fuel', label: 'Precision Fuel & Hydration' },
   { match: 'science in sport', label: 'SiS' },
@@ -51,9 +52,18 @@ const KNOWN_BRAND_PREFIXES: Array<{ match: string; label: string }> = [
   { match: 'maurten', label: 'Maurten' },
   { match: 'neversecond', label: 'Neversecond' },
   { match: 'overstims', label: 'Overstims' },
+  { match: 'overstim', label: 'Overstims' },
   { match: 'powerbar', label: 'Powerbar' },
   { match: 'tailwind', label: 'Tailwind' },
+  { match: 'meltonic', label: 'Meltonic' },
+  { match: 'mulebar', label: 'Mulebar' },
+  { match: 'andros', label: 'Andros' },
+  { match: 'baouw', label: 'Baouw' },
+  { match: 'decat', label: 'Decathlon' },
+  { match: 'decathlon', label: 'Decathlon' },
   { match: 'aptonia', label: 'Aptonia' },
+  { match: 'nduranz', label: 'Nduranz' },
+  { match: 'nrgy', label: 'NRGY' },
   { match: 'clif', label: 'Clif' },
   { match: 'high5', label: 'HIGH5' },
   { match: 'sis', label: 'SiS' },
@@ -62,8 +72,12 @@ const KNOWN_BRAND_PREFIXES: Array<{ match: string; label: string }> = [
 
 const GENERIC_BRAND_TOKENS = new Set([
   'bar',
+  'barre',
+  'boisson',
   'capsule',
   'capsules',
+  'compote',
+  'concentre',
   'decathlon',
   'drink',
   'electrolyte',
@@ -72,9 +86,13 @@ const GENERIC_BRAND_TOKENS = new Set([
   'fuel',
   'gel',
   'gels',
+  'iso',
+  'lait',
   'mix',
   'nutrition',
+  'oats',
   'other',
+  'pate',
   'product',
 ]);
 
@@ -86,33 +104,47 @@ function normalizeBrandSource(value: string) {
     .trim();
 }
 
+function findKnownNutritionBrand(value: string) {
+  const normalizedSource = normalizeBrandSource(value);
+
+  for (const brand of KNOWN_BRAND_PREFIXES) {
+    if (
+      normalizedSource === brand.match.trim() ||
+      normalizedSource.startsWith(`${brand.match} `) ||
+      normalizedSource.includes(` ${brand.match} `) ||
+      normalizedSource.endsWith(` ${brand.match}`)
+    ) {
+      return brand.label;
+    }
+  }
+
+  return null;
+}
+
 function inferNutritionBrand(product: Pick<Product, 'name' | 'brand'>, fallbackLabel: string) {
   const explicitBrand = product.brand?.trim();
   if (explicitBrand) {
-    return explicitBrand;
+    const knownBrand = findKnownNutritionBrand(explicitBrand);
+    if (knownBrand) {
+      return knownBrand;
+    }
+
+    const explicitTokens = normalizeBrandSource(explicitBrand).split(/\s+/).filter(Boolean);
+    const looksLikeProductName =
+      explicitTokens.length > 3 ||
+      explicitTokens.some(
+        (token) => GENERIC_BRAND_TOKENS.has(token) || /^\d/.test(token),
+      );
+
+    if (!looksLikeProductName) {
+      return explicitBrand;
+    }
   }
 
   const productName = product.name;
   const fromDelimiter = productName.split(' - ')[0]?.trim();
   const source = fromDelimiter || productName.trim();
-  const normalizedSource = normalizeBrandSource(source);
-
-  for (const brand of KNOWN_BRAND_PREFIXES) {
-    if (normalizedSource.startsWith(brand.match)) {
-      return brand.label;
-    }
-  }
-
-  const firstToken = source
-    .split(/\s+/)
-    .map((part) => part.replace(/^[^A-Za-z0-9]+|[^A-Za-z0-9]+$/g, ''))
-    .find(Boolean);
-
-  if (firstToken && GENERIC_BRAND_TOKENS.has(normalizeBrandSource(firstToken))) {
-    return fallbackLabel;
-  }
-
-  return firstToken || fallbackLabel;
+  return findKnownNutritionBrand(source) ?? fallbackLabel;
 }
 
 function groupItemsByBrand<T>(
@@ -156,6 +188,9 @@ function buildCatalogRows(
       count: group.items.length,
       expanded,
       hasVerifiedProduct: group.items.some(isVerifiedProduct),
+      brandImageUrl:
+        group.items.find((product) => isVerifiedProduct(product) && product.image_url)?.image_url ??
+        null,
     });
 
     if (expanded) {
@@ -173,6 +208,7 @@ function buildCatalogRows(
 }
 
 type NutritionContentProps = {
+  locale: 'fr' | 'en';
   isPremium: boolean;
   isAdmin: boolean;
   favoritesExpanded: boolean;
@@ -221,6 +257,7 @@ type NutritionContentProps = {
 };
 
 export const NutritionContent = memo(function NutritionContent({
+  locale,
   isPremium,
   isAdmin,
   favoritesExpanded,
@@ -432,17 +469,30 @@ export const NutritionContent = memo(function NutritionContent({
             style={[styles.brandHeaderButton, item.expanded && styles.brandHeaderButtonExpanded]}
           >
             <View style={styles.brandTitleRow}>
-              <Text
-                numberOfLines={1}
-                style={[styles.brandTitle, item.hasVerifiedProduct && styles.brandTitleOfficial]}
-              >
-                {item.brandLabel}
-              </Text>
+              {item.brandImageUrl ? (
+                <Image source={{ uri: item.brandImageUrl }} style={styles.brandImage} />
+              ) : (
+                <View style={styles.brandImageFallback}>
+                  <Ionicons color={Colors.brandPrimary} name="pricetag-outline" size={18} />
+                </View>
+              )}
+              <View style={styles.brandTitleText}>
+                <Text style={styles.brandEyebrow}>{locale === 'fr' ? 'MARQUE' : 'BRAND'}</Text>
+                <Text
+                  numberOfLines={1}
+                  style={[styles.brandTitle, item.hasVerifiedProduct && styles.brandTitleOfficial]}
+                >
+                  {item.brandLabel}
+                </Text>
+              </View>
             </View>
             <View style={styles.brandHeaderActions}>
-              <View style={styles.brandCountPill}>
-                <DataText style={styles.brandCountText}>{item.count}</DataText>
-              </View>
+              <DataText style={styles.brandCountText}>
+                {item.count}{' '}
+                {locale === 'fr'
+                  ? item.count > 1 ? 'produits' : 'produit'
+                  : item.count > 1 ? 'products' : 'product'}
+              </DataText>
               <Ionicons
                 color={Colors.brandPrimary}
                 name={item.expanded ? 'chevron-up' : 'chevron-down'}
@@ -460,12 +510,14 @@ export const NutritionContent = memo(function NutritionContent({
           onPress={() => onOpenProductDetail(item.product)}
           onToggleFavorite={() => onToggleFavorite(item.product.id)}
           product={item.product}
+          nested
         />
       );
     },
     [
       catalogSearchActive,
       favoriteIds,
+      locale,
       onOpenProductDetail,
       onToggleFavorite,
       toggleCatalogBrand,
@@ -557,17 +609,28 @@ function ProductCard({
   isOwnedByUser,
   onPress,
   onToggleFavorite,
+  nested = false,
 }: {
   product: Product;
   isFavorite: boolean;
   isOwnedByUser: boolean;
   onPress: () => void;
   onToggleFavorite: () => void;
+  nested?: boolean;
 }) {
   const isVerified = isVerifiedProduct(product);
+  const nutritionStats = [
+    product.carbs_g != null ? `${product.carbs_g}g glucides` : null,
+    product.sodium_mg != null ? `${product.sodium_mg}mg sodium` : null,
+    product.calories_kcal != null ? `${product.calories_kcal} kcal` : null,
+  ].filter((value): value is string => value !== null);
 
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={styles.productCard}>
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={[styles.productCard, nested && styles.productCardNested]}
+    >
       <View style={styles.productMedia}>
         {product.image_url ? (
           <Image source={{ uri: product.image_url }} style={styles.productImage} />
@@ -592,13 +655,11 @@ function ProductCard({
           {FUEL_TYPE_LABELS[product.fuel_type] ?? product.fuel_type}
           {isOwnedByUser ? <Text style={styles.myProductTag}> · Mon produit</Text> : null}
         </Text>
-        <View style={styles.productStats}>
-          {product.carbs_g != null ? <DataText style={styles.statText}>{product.carbs_g}g glucides</DataText> : null}
-          {product.sodium_mg != null ? <DataText style={styles.statText}> · {product.sodium_mg}mg sodium</DataText> : null}
-          {!isFavorite && product.calories_kcal != null ? (
-            <DataText style={styles.statText}> · {product.calories_kcal} kcal</DataText>
-          ) : null}
-        </View>
+        {nutritionStats.length > 0 ? (
+          <DataText numberOfLines={1} style={styles.statText}>
+            {nutritionStats.join(' · ')}
+          </DataText>
+        ) : null}
       </View>
 
       <TouchableOpacity
@@ -614,8 +675,8 @@ function ProductCard({
       >
         <Ionicons
           color={isFavorite ? Colors.textOnBrand : Colors.brandPrimary}
-          name={isFavorite ? 'star' : 'star-outline'}
-          size={18}
+          name={isFavorite ? 'heart' : 'heart-outline'}
+          size={20}
         />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -745,7 +806,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   brandHeaderButton: {
-    minHeight: 48,
+    minHeight: 64,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -755,7 +816,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 8,
     marginBottom: 8,
   },
   brandHeaderButtonExpanded: {
@@ -773,6 +834,33 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  brandTitleText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  brandImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 11,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.surfaceSecondary,
+    resizeMode: 'contain',
+  },
+  brandImageFallback: {
+    width: 48,
+    height: 48,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.brandSurface,
+  },
+  brandEyebrow: {
+    color: Colors.textMuted,
+    fontSize: 9,
+    fontWeight: '800',
+    letterSpacing: 0.9,
   },
   brandTitle: {
     flex: 1,
@@ -802,6 +890,7 @@ const styles = StyleSheet.create({
     color: Colors.textSecondary,
   },
   productCard: {
+    position: 'relative',
     backgroundColor: Colors.surface,
     borderRadius: 12,
     borderWidth: 1,
@@ -815,6 +904,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06,
     shadowRadius: 4,
     elevation: 2,
+  },
+  productCardNested: {
+    marginLeft: 12,
+    borderLeftWidth: 3,
+    borderLeftColor: Colors.brandBorder,
   },
   productMedia: {
     position: 'relative',
@@ -838,7 +932,8 @@ const styles = StyleSheet.create({
   },
   productInfo: {
     flex: 1,
-    marginRight: 12,
+    minWidth: 0,
+    marginRight: 48,
   },
   productNameRow: {
     flexDirection: 'row',
@@ -886,21 +981,20 @@ const styles = StyleSheet.create({
     textTransform: 'none',
     letterSpacing: 0,
   },
-  productStats: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-  },
   statText: {
-    fontSize: 13,
+    fontSize: 11,
     color: Colors.textSecondary,
   },
   favButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'transparent',
-    borderWidth: 1.5,
-    borderColor: 'transparent',
+    position: 'absolute',
+    right: 12,
+    top: 12,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.brandSurface,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
     justifyContent: 'center',
     alignItems: 'center',
   },

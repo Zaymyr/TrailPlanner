@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql

@@ -13,6 +13,7 @@ import {
   getOrganizerDirtyScopeKey,
   getRaceEditionYear,
   isOrganizerScopeSavePending,
+  normalizeClockInputValue,
   shouldOpenPublicationOffer,
   shouldSaveActiveRaceBeforeRacebookChange,
   syncAidStationsWithGpxPreview,
@@ -47,6 +48,14 @@ const buildStation = (distanceKm: number): AidStationDraft => ({
 });
 
 describe("organizer dashboard helpers", () => {
+  it("normalizes unambiguous legacy departure times for native time inputs", () => {
+    expect(normalizeClockInputValue("9h")).toBe("09:00");
+    expect(normalizeClockInputValue("10h15")).toBe("10:15");
+    expect(normalizeClockInputValue("11:10:00")).toBe("11:10");
+    expect(normalizeClockInputValue("09:25 · 09:50")).toBeNull();
+    expect(normalizeClockInputValue("Rassemblement 19h15 — Départ 19h30")).toBeNull();
+  });
+
   it("persists race schedule details together with aid-station edits", () => {
     expect(buildOrganizerFormatSavePlan(new Set(["aidStations"]))).toEqual({
       saveRaceDetails: true,

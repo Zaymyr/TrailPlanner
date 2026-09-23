@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -30,7 +30,7 @@ related_tables:
 - Event favorite: one runner follows one `race_events` row.
 - Owner row: favorites are readable and mutable only by the owning user.
 - Catalog pinning: mobile uses these rows to pin favorite events above the normal catalog sort.
-- Catalog feedback: after the API confirms a new favorite, mobile shows a brief localized success toast and scrolls to the event's pinned position.
+- Catalog feedback: for identified runners, mobile updates a card-local heart state in the same interaction frame with a reduced-motion-aware pulse, then resynchronizes it with the parent/server result while preserving the current list order and viewport. Guest hearts do not flip before the account prompt.
 - The shared event card preserves favorite behavior when a format has no published D+; it labels the metric as unavailable instead of rendering a false zero.
 - Notification audience: organizer update pushes target users who favorited the event.
 
@@ -104,8 +104,8 @@ where event_id = '<event-id>';
 - The FK targets `user_profiles(user_id)`, so profile bootstrap must exist before creating favorites.
 - Do not expose cross-user favorite lists to organizers directly; organizer UI should show only aggregate counts.
 - Do not present the organizer favorite total as a period conversion metric. It is the current event-scoped stock, even when shown beside date-filtered RaceBook traffic KPIs.
-- Mobile catalog sorting should treat favorites as a pinning hint first, then keep the usual date/name ordering inside each group.
-- Only a confirmed addition should trigger the success toast and automatic scroll. Removing a favorite should preserve the current reading position, while a failed write restores the previous favorite order.
+- Mobile catalog sorting should treat the favorite snapshot loaded from the server as a pinning hint first, then keep the usual date/name ordering inside each group. A successful toggle does not reorder the current view; the next load or refresh uses the new snapshot.
+- Adding or removing a favorite preserves the current reading position and does not show a success toast. A failed write restores the previous heart state without changing the visible order.
 - Only a server-confirmed state change emits `race favorite updated`; failed or optimistic toggles must not be counted as completed favorite mutations.
 - Favoriting affects ordering only; it must not change the compact organizer-update preview contract or trigger a separate history load by itself.
 - Moving or expanding the post-format organizer-announcement panel, or deleting an announcement from organizer history, must not add or remove event favorites.
@@ -113,7 +113,7 @@ where event_id = '<event-id>';
 - Favorites follow the catalog event independently from Racebook publication; hiding every Racebook must not delete or hide the event favorite.
 - Organizer-only preview access is derived from `race_event_organizers`, not favorites; it must not pin the event or change notification audience membership.
 - Hiding or deleting one edition must not remove the event favorite. The event appears in the mobile catalog only while at least one live format remains after the explicit embedded-relation filter.
-- The Courses card may hide its repeated multi-format helper sentence to reduce density; the favorite control, pinning order, and event scope remain unchanged.
+- The Courses card may hide its repeated multi-format helper sentence and decorative flag, align its compact action with the format/distance pills, fill the left rail with the race image, place the independent animated heart in the trailing header position, and make the remaining card surface open format selection to reduce density. Quick favorite/distance chips filter the loaded rows only; pinning persistence and event scope remain unchanged.
 - Sponsor warmup from the RaceBook action is independent from favorites and must not write, reorder, or infer notification audience membership.
 
 ## Related Docs

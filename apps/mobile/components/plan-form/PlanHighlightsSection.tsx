@@ -35,7 +35,9 @@ export const PlanHighlightsSection = React.memo(function PlanHighlightsSection({
           <Text style={styles.planSummaryMetricLabelAccent}>Allure moyenne</Text>
         </View>
       </View>
-      <Text style={styles.planSummarySecondaryMeta}>{intermediateCount} ravitos planifiés</Text>
+      <Text style={styles.planSummarySecondaryMeta}>
+        {intermediateCount} {intermediateCount === 1 ? 'ravito planifié' : 'ravitos planifiés'}
+      </Text>
     </View>
   );
 });

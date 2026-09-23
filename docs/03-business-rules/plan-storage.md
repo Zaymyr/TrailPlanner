@@ -26,6 +26,10 @@ related_files:
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/lib/planSummary.ts
   - apps/mobile/lib/planSummary.test.ts
+  - apps/mobile/lib/planDeparture.ts
+  - apps/mobile/lib/planDeparture.test.ts
+  - apps/mobile/lib/planPersistence.ts
+  - apps/mobile/lib/planPersistence.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
@@ -104,8 +108,8 @@ Catalog imports copy source `race_aid_stations` service flags into `planner_valu
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans. On GET, plans with `race_id` receive the current `race_aid_station_products` mapped into `planner_values.organizerAidStationProducts` in the response only. This read-time overlay does not update the database row.
 
-Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`, and the recap reloads that saved source whenever the screen regains focus after editing. Its total duration and checkpoint passage times sum the same unrounded section durations as the plan editor; the five-minute nutrition timeline rounding is not a second source for the displayed estimate.
-The manually selected in-app recap departure time is stored locally per plan and restored when the recap screen is recreated. Regenerating the recap after a plan edit refreshes the plan-derived duration, checkpoints, and products without replacing that manual departure time. This local preference is separate from `race_plans.planner_values` and from the departure time copied into a public share link.
+Mobile plan editing keeps a local draft and autosaves after edits. Every mobile persistence exit (debounced autosave, backgrounding, explicit save, back navigation, recap, and share) uses the same canonical planner payload: `Départ` and `Arrivée` are editor-only system stations and only intermediate ravitos are stored in `planner_values.aidStations`. The compact header status reflects the durable write (`Enregistrement…`, `Enregistré`, or `Erreur`) without adding another save path. The Plans list groups linked plans under their parent `race_events` event, with a race-level fallback for legacy/private formats that have no event; default format names remove the repeated event name in either position, exact duplicates use a neutral localized plan label, and custom runner names are preserved. Each plan card exposes compact icon-only Recap, Share, and Start actions in a right-side rail, while the main content divides Total time, Ravitos, and the departure countdown into three cells. Its ravito count uses the same canonical intermediate-station filter, including for legacy rows that accidentally contain system stations. The list selects `elevation_profile` and derives Total time from the same saved-plan summary sections as recap/live, including terrain, fatigue, stored segment adjustments, and pauses; it must not fall back to a separate flat `distance / speed` estimate. A long press opens a dedicated name/delete sheet; renaming updates `race_plans.name` and `updated_at`, clears the stale local edit draft, and leaves `planner_values` untouched, while deletion still requires confirmation. Share builds the saved recap directly from the list, creates or refreshes the crew link, and invokes the native share sheet without navigating through the recap. If no dated departure can be resolved, sharing instead explains what is missing and offers to open the recap to set it. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`, and the recap reloads that saved source whenever the screen regains focus after editing. Its total duration and checkpoint passage times sum the same unrounded section durations as the plan editor; the five-minute nutrition timeline rounding is not a second source for the displayed estimate.
+The manually selected in-app recap departure time is stored locally per plan and restored when the recap screen is recreated. On the plan list, that runner override has priority over a single parseable `races.organizer_details.schedule.startTime`, which itself has priority over the first ordered `race_start_waves.start_time`; legacy values such as `9h`, `10h15`, and `11:10:00` normalize to `HH:mm`, but multi-time prose is rejected rather than silently choosing one value. The selected clock is combined with `races.race_date` for countdown and sharing. Regenerating the recap after a plan edit refreshes the plan-derived duration, checkpoints, and products without replacing that manual departure time. This local preference is separate from `race_plans.planner_values` and from the departure time copied into a public share link.
 Numeric fields in mobile editors and recap-time controls attach to the shared iOS keyboard accessory. Their audited modals also move above the keyboard, provide a bounded scroll area on compact screens, retain intended taps, respect safe-area insets where needed, and expose modal controls to VoiceOver. Dismissing the keyboard, scrolling, closing a modal, or using the native modal-close request does not save, discard, or otherwise change the durable planner state.
 
 Successful Web persistence emits the consent-gated `plan created` or `plan saved` event only after the server response has been parsed. GPX download and assistance printing emit `plan exported`; these analytics events carry aggregate shape/source fields and never become a second persistence source of truth.
@@ -136,6 +140,7 @@ It:
 
 - Onboarding state stays local until signup.
 - After signup, `race_plans.planner_values` is the durable planner JSON.
+- `planner_values.aidStations` contains intermediate ravitos only; mobile injects the system start and finish stations after hydration.
 - `elevation_profile` is stored outside `planner_values`.
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
@@ -151,6 +156,7 @@ It:
 
 - Do not save twice on Supabase email confirmation or duplicate session events.
 - Do not assume every saved plan has current planner JSON shape.
+- Legacy mobile rows may contain `Départ` or `Arrivée`; normalize them on the next write and exclude them from intermediate-ravito counts meanwhile.
 - Treat missing `solidRefill`, `waterRefill`, and `assistanceAllowed` values as enabled on intermediate aid stations.
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.

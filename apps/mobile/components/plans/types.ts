@@ -13,17 +13,31 @@ export type PlanRow = {
     paceType?: 'pace' | 'speed';
     startSupplies?: Array<{ productId: string; quantity: number }>;
     aidStations?: Array<{
+      id?: string;
+      name?: string;
+      distanceKm?: number;
       supplies?: Array<{ productId: string; quantity: number }>;
     }>;
   };
-  races?: { name: string } | null;
+  elevation_profile?: unknown;
+  departureAt?: string | null;
+  departureSource?: 'runner' | 'organizer' | null;
+  races?: {
+    name: string;
+    race_date?: string | null;
+    organizer_details?: unknown;
+    race_events?: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
 };
 
 export type RaceSection = {
+  sectionKey: string;
   raceId: string | null;
-  raceName: string;
+  eventName: string;
   isOwned: boolean;
-  isAdmin: boolean;
   data: PlanRow[];
 };
 

@@ -77,7 +77,7 @@ Important behavior:
 - active `premium_grants`;
 - RevenueCat customer info.
 
-`apps/mobile/hooks/useProfileScreen.ts` consumes this resolved entitlement only for Profile presentation and billing actions; its extracted profile diagnostic helpers do not alter purchase verification or entitlement resolution.
+`apps/mobile/hooks/useProfileScreen.ts` consumes this resolved entitlement only for Profile presentation and billing actions; its extracted profile diagnostic helpers do not alter purchase verification or entitlement resolution. The same hook compares editable profile fields with their last persisted values so the save action can remain disabled while the form is unchanged; that dirty-state presentation does not affect Premium resolution.
 
 If RevenueCat reports an active entitlement but the server row is not synced, mobile calls the web RevenueCat sync endpoint.
 

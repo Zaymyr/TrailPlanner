@@ -153,6 +153,7 @@ export default function NutritionScreen() {
   return (
     <View style={screenStyle}>
       <NutritionContent
+        locale={locale}
         catalogSearch={catalogSearch}
         creating={creating}
         deletingProduct={deletingProduct}

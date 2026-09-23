@@ -1,35 +1,78 @@
-appId: com.paceyourself.app
+appId: ${APP_ID || "com.paceyourself.app"}
 name: Audit UX - navigation authentifiée
 tags:
   - smoke
   - ux-audit
 ---
-- launchApp:
-    clearState: true
-    permissions:
-      notifications: deny
-- openLink: paceyourself://login
-- extendedWaitUntil:
-    visible:
-      id: auth-login-email
-    timeout: 30000
-- takeScreenshot: 01-login
-- tapOn:
-    id: auth-login-email
-- inputText: ${MAESTRO_E2E_EMAIL}
-- tapOn:
-    id: auth-login-password
-- inputText: ${MAESTRO_E2E_PASSWORD}
-- hideKeyboard
-- tapOn:
-    id: auth-login-submit
+- runFlow:
+    when:
+      true: ${CLEAR_STATE !== "false"}
+    commands:
+      - launchApp:
+          clearState: true
+          permissions:
+            notifications: deny
+- runFlow:
+    when:
+      true: ${CLEAR_STATE === "false"}
+    commands:
+      - launchApp:
+          stopApp: false
+          permissions:
+            notifications: deny
+- runFlow:
+    when:
+      true: ${SKIP_DEEP_LINK !== "true"}
+    commands:
+      - openLink: paceyourself://login
+- runFlow:
+    when:
+      true: ${SKIP_LOGIN !== "true"}
+    commands:
+      - extendedWaitUntil:
+          visible:
+            id: auth-login-email
+          timeout: 30000
+      - takeScreenshot: 01-login
+      - tapOn:
+          id: auth-login-email
+      - inputText: ${MAESTRO_E2E_EMAIL}
+      - tapOn:
+          id: auth-login-password
+      - inputText: ${MAESTRO_E2E_PASSWORD}
+      - hideKeyboard
+      - tapOn:
+          id: auth-login-submit
 - extendedWaitUntil:
     visible:
       id: nav-tab-catalog
     timeout: 60000
+- runFlow:
+    when:
+      true: ${DISMISS_LOGBOX === "true"}
+    commands:
+      - tapOn:
+          text: Dismiss
+          optional: true
+      - tapOn:
+          text: Dismiss
+          optional: true
+      - tapOn:
+          text: Dismiss
+          optional: true
 - tapOn:
     id: nav-tab-catalog
 - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${DISMISS_LOGBOX === "true"}
+    commands:
+      - tapOn:
+          text: Dismiss
+          optional: true
+      - tapOn:
+          text: Dismiss
+          optional: true
 - takeScreenshot: 02-courses-top
 - swipe:
     direction: UP
@@ -38,6 +81,16 @@ tags:
 - tapOn:
     id: nav-tab-plans
 - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${DISMISS_LOGBOX === "true"}
+    commands:
+      - tapOn:
+          text: Dismiss
+          optional: true
+      - tapOn:
+          text: Dismiss
+          optional: true
 - takeScreenshot: 04-plans-top
 - swipe:
     direction: UP
@@ -46,6 +99,16 @@ tags:
 - tapOn:
     id: nav-tab-nutrition
 - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${DISMISS_LOGBOX === "true"}
+    commands:
+      - tapOn:
+          text: Dismiss
+          optional: true
+      - tapOn:
+          text: Dismiss
+          optional: true
 - takeScreenshot: 06-nutrition-top
 - swipe:
     direction: UP
@@ -54,6 +117,16 @@ tags:
 - tapOn:
     id: nav-tab-profile
 - waitForAnimationToEnd
+- runFlow:
+    when:
+      true: ${DISMISS_LOGBOX === "true"}
+    commands:
+      - tapOn:
+          text: Dismiss
+          optional: true
+      - tapOn:
+          text: Dismiss
+          optional: true
 - takeScreenshot: 08-profile-top
 - swipe:
     direction: UP

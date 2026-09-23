@@ -15,6 +15,7 @@ import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import type { PlanProduct } from './contracts';
 import type { AutoFillProductLimit } from './usePlanSupplies';
+import type { AutoFillPreview } from '../../lib/autoFillPreview';
 import { styles } from './styles';
 
 type LimitDraft = Record<string, { limited: boolean; quantity: string }>;
@@ -25,8 +26,12 @@ type Props = {
   productsLoading: boolean;
   initialLimits: AutoFillProductLimit[];
   fuelLabels: Record<string, string>;
+  preview: AutoFillPreview | null;
+  previewLoading: boolean;
   onClose: () => void;
-  onApply: (limits: AutoFillProductLimit[]) => void;
+  onPreview: (limits: AutoFillProductLimit[]) => void;
+  onBack: () => void;
+  onConfirm: () => void;
 };
 
 function buildInitialDraft(products: PlanProduct[], initialLimits: AutoFillProductLimit[] = []): LimitDraft {
@@ -62,8 +67,12 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
   productsLoading,
   initialLimits,
   fuelLabels,
+  preview,
+  previewLoading,
   onClose,
-  onApply,
+  onPreview,
+  onBack,
+  onConfirm,
 }: Props) {
   const usableProducts = useMemo(
     () => products.filter((product) => (product.carbs_g ?? 0) > 0 || (product.sodium_mg ?? 0) > 0),
@@ -111,7 +120,7 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
       return [{ productId: product.id, maxQuantity }];
     });
 
-    onApply(limits);
+    onPreview(limits);
   };
 
   return (
@@ -122,9 +131,8 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
           <View style={styles.settingsSheetHandle} />
           <View style={styles.autoFillLimitsHeader}>
             <View style={styles.autoFillLimitsHeaderCopy}>
-              <Text accessibilityRole="header" style={styles.autoFillLimitsTitle}>Stock disponible</Text>
-              <Text style={styles.autoFillLimitsSubtitle}>
-                Limite les favoris que le calcul auto peut utiliser. Sans limite, le produit reste illimite.
+              <Text accessibilityRole="header" style={styles.autoFillLimitsTitle}>
+                {preview ? 'Aperçu' : 'Stock disponible'}
               </Text>
             </View>
             <TouchableOpacity accessibilityLabel="Fermer" accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
@@ -132,8 +140,51 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
             </TouchableOpacity>
           </View>
 
-          {productsLoading ? (
+          {previewLoading || productsLoading ? (
             <ActivityIndicator color={Colors.brandPrimary} style={styles.autoFillLimitsLoading} />
+          ) : preview ? (
+            <View style={styles.autoFillPreview}>
+              <View style={styles.autoFillPreviewMetrics}>
+                <View style={styles.autoFillPreviewMetric}>
+                  <Text style={styles.autoFillPreviewValue}>{preview.totalUnits}</Text>
+                  <Text style={styles.autoFillPreviewLabel}>unités</Text>
+                </View>
+                <View style={styles.autoFillPreviewMetric}>
+                  <Text style={styles.autoFillPreviewValue}>{preview.productCount}</Text>
+                  <Text style={styles.autoFillPreviewLabel}>produits</Text>
+                </View>
+                <View style={styles.autoFillPreviewMetric}>
+                  <Text style={styles.autoFillPreviewValue}>{preview.locationCount}</Text>
+                  <Text style={styles.autoFillPreviewLabel}>points</Text>
+                </View>
+              </View>
+              <View style={styles.autoFillPreviewChange}>
+                <Ionicons color={Colors.brandPrimary} name="swap-horizontal" size={18} />
+                <Text style={styles.autoFillPreviewChangeText}>
+                  {preview.changedLocationCount} point{preview.changedLocationCount > 1 ? 's' : ''} modifié{preview.changedLocationCount > 1 ? 's' : ''}
+                </Text>
+              </View>
+              {preview.worstShortage ? (
+                <View style={styles.autoFillPreviewWarning}>
+                  <Ionicons color={Colors.warning} name="warning-outline" size={18} />
+                  <View style={styles.autoFillPreviewWarningCopy}>
+                    <Text numberOfLines={1} style={styles.autoFillPreviewWarningTitle}>
+                      {preview.worstShortage.sectionLabel}
+                    </Text>
+                    <Text style={styles.autoFillPreviewWarningText}>
+                      {preview.worstShortage.carbsG > 0 ? `−${preview.worstShortage.carbsG} g` : ''}
+                      {preview.worstShortage.carbsG > 0 && preview.worstShortage.sodiumMg > 0 ? ' · ' : ''}
+                      {preview.worstShortage.sodiumMg > 0 ? `−${preview.worstShortage.sodiumMg} mg` : ''}
+                    </Text>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.autoFillPreviewOk}>
+                  <Ionicons color={Colors.success} name="checkmark-circle" size={18} />
+                  <Text style={styles.autoFillPreviewOkText}>Besoins couverts</Text>
+                </View>
+              )}
+            </View>
           ) : (
             <ScrollView
               contentContainerStyle={styles.autoFillLimitsList}
@@ -151,7 +202,9 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
                   return (
                     <View key={product.id} style={styles.autoFillLimitRow}>
                       <TouchableOpacity
-                        accessibilityLabel={row.limited ? 'Retirer la limite' : 'Limiter ce produit'}
+                        accessibilityLabel={`${row.limited ? 'Ne plus limiter' : 'Limiter'} ${product.name}`}
+                        accessibilityRole="checkbox"
+                        accessibilityState={{ checked: row.limited }}
                         onPress={() => toggleLimited(product.id)}
                         style={styles.autoFillLimitCheckbox}
                       >
@@ -162,9 +215,12 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
                         />
                       </TouchableOpacity>
                       <View style={styles.autoFillLimitInfo}>
-                        <Text style={styles.autoFillLimitName} numberOfLines={1}>
-                          {product.name}
-                        </Text>
+                        <View style={styles.autoFillLimitNameRow}>
+                          <Text style={styles.autoFillLimitName} numberOfLines={1}>{product.name}</Text>
+                          <Text style={[styles.autoFillLimitBadge, row.limited && styles.autoFillLimitBadgeActive]}>
+                            Limiter
+                          </Text>
+                        </View>
                         <Text style={styles.autoFillLimitMeta} numberOfLines={1}>
                           {fuelLabels[product.fuel_type] ?? product.fuel_type.toUpperCase()} - {carbs}g glucides - {sodium}mg sodium
                         </Text>
@@ -188,11 +244,15 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
           )}
 
           <View style={styles.autoFillLimitsActions}>
-            <TouchableOpacity onPress={onClose} style={styles.autoFillLimitsSecondaryButton}>
-              <Text style={styles.autoFillLimitsSecondaryText}>Annuler</Text>
+            <TouchableOpacity onPress={preview ? onBack : onClose} style={styles.autoFillLimitsSecondaryButton}>
+              <Text style={styles.autoFillLimitsSecondaryText}>{preview ? 'Retour' : 'Annuler'}</Text>
             </TouchableOpacity>
-            <TouchableOpacity onPress={applyLimits} style={styles.autoFillLimitsPrimaryButton}>
-              <Text style={styles.autoFillLimitsPrimaryText}>Lancer le calcul</Text>
+            <TouchableOpacity
+              disabled={previewLoading || productsLoading}
+              onPress={preview ? onConfirm : applyLimits}
+              style={[styles.autoFillLimitsPrimaryButton, (previewLoading || productsLoading) && styles.autoFillLimitsPrimaryButtonDisabled]}
+            >
+              <Text style={styles.autoFillLimitsPrimaryText}>{preview ? 'Appliquer' : 'Aperçu'}</Text>
             </TouchableOpacity>
           </View>
         </View>

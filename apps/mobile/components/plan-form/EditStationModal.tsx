@@ -53,18 +53,15 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
         onPress={() => updateService(field)}
         activeOpacity={0.86}
       >
-        <View style={styles.stationServiceCheck}>
-          <Ionicons
-            name={checked ? 'checkbox' : 'square-outline'}
-            size={20}
-            color={checked ? Colors.brandPrimary : Colors.textMuted}
-          />
-        </View>
         <Ionicons name={icon} size={19} color={checked ? Colors.brandPrimary : Colors.textMuted} />
-        <View style={styles.stationServiceText}>
-          <Text style={styles.stationServiceLabel}>{label}</Text>
-          <Text style={styles.stationServiceDescription}>{description}</Text>
-        </View>
+        <Text numberOfLines={2} style={[styles.stationServiceLabel, checked && styles.stationServiceLabelActive]}>
+          {label}
+        </Text>
+        <Ionicons
+          name={checked ? 'checkmark-circle' : 'ellipse-outline'}
+          size={16}
+          color={checked ? Colors.brandPrimary : Colors.textMuted}
+        />
       </TouchableOpacity>
     );
   };
@@ -138,9 +135,9 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
             />
             <Text style={styles.label}>Services disponibles</Text>
             <View style={styles.stationServiceOptions}>
-              {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou poche.', 'water-outline')}
-              {renderServiceOption('solidRefill', 'Ravito solide', "Produits fournis par l'organisation.", 'nutrition-outline')}
-              {renderServiceOption('assistanceAllowed', 'Assistance', "Ton equipe peut donner tes produits favoris.", 'people-outline')}
+              {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou de la poche', 'water-outline')}
+              {renderServiceOption('solidRefill', 'Solide', "Produits fournis par l'organisation", 'nutrition-outline')}
+              {renderServiceOption('assistanceAllowed', 'Assistance', "Remise de tes produits par l'équipe", 'people-outline')}
             </View>
             <TouchableOpacity style={styles.saveButton} onPress={onSave}>
               <Text style={styles.saveButtonText}>

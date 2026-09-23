@@ -8,11 +8,13 @@ import {
   Alert,
   ActivityIndicator
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Text } from '../../../../components/themed/Text';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { supabase } from '../../../../lib/supabase';
 import { WEB_API_BASE_URL } from '../../../../lib/webApi';
 import { useI18n } from '../../../../lib/i18n';
+import { Colors } from '../../../../constants/colors';
 
 export default function EditRaceScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -27,6 +29,14 @@ export default function EditRaceScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+
+  const handleBack = () => {
+    if (router.canGoBack()) {
+      router.back();
+      return;
+    }
+    router.replace('/(app)/catalog');
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -114,13 +124,16 @@ export default function EditRaceScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
+        <Stack.Screen options={{ headerLeft: () => <BackButton onPress={handleBack} /> }} />
         <ActivityIndicator color="#22c55e" size="large" />
       </View>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <>
+      <Stack.Screen options={{ headerLeft: () => <BackButton onPress={handleBack} /> }} />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.sectionTitle}>{t.races.editTitle}</Text>
 
       <Text style={styles.label}>{t.races.nameLabel}</Text>
@@ -201,7 +214,24 @@ export default function EditRaceScreen() {
           <Text style={styles.saveButtonText}>{t.common.save}</Text>
         )}
       </TouchableOpacity>
-    </ScrollView>
+      </ScrollView>
+    </>
+  );
+}
+
+function BackButton({ onPress }: { onPress: () => void }) {
+  const { t } = useI18n();
+
+  return (
+    <TouchableOpacity
+      accessibilityLabel={t.common.back}
+      accessibilityRole="button"
+      hitSlop={8}
+      onPress={onPress}
+      style={styles.headerBackButton}
+    >
+      <Ionicons color={Colors.textPrimary} name="chevron-back" size={28} />
+    </TouchableOpacity>
   );
 }
 
@@ -232,4 +262,5 @@ const styles = StyleSheet.create({
   },
   saveButtonDisabled: { opacity: 0.6 },
   saveButtonText: { color: '#0f172a', fontSize: 16, fontWeight: '700' },
+  headerBackButton: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 });

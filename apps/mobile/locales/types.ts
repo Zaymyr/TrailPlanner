@@ -19,6 +19,17 @@ export type MobileTranslations = {
     search: string;
     required: string;
   };
+  planLoading: {
+    listTitle: string;
+    createTitle: string;
+    editTitle: string;
+    summaryTitle: string;
+    liveTitle: string;
+    starting: string;
+    preparing: string;
+    finalizing: string;
+    slowHint: string;
+  };
   appUpdate: {
     startupTitle: string;
     startupSubtitle: string;
@@ -83,9 +94,6 @@ export type MobileTranslations = {
     editUnsavedMessage: string;
     editUnsavedDiscard: string;
     editUnsavedSaveAndLeave: string;
-    planLoadingGeneric: string;
-    planLoadingNamed: string;
-    planLoadingStage: string;
     fatigueLabel: string;
     fatigueHint: string;
     fatigueLow: string;
@@ -229,9 +237,6 @@ export type MobileTranslations = {
     updateFailed: string;
     deleteFailed: string;
     noGpx: string;
-    planLoadingGeneric: string;
-    planLoadingNamed: string;
-    planLoadingStage: string;
     fatigueLabel: string;
     fatigueHint: string;
     fatigueLow: string;
@@ -409,6 +414,7 @@ export type MobileTranslations = {
     passwordPlaceholder: string;
     loginCta: string;
     loggingIn: string;
+    alternativeDivider: string;
     googleCta: string;
     googleSignUpCta: string;
     googleError: string;

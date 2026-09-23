@@ -1,22 +1,16 @@
 import type { PickerEventGroup, PlanRow } from './types';
+import {
+  buildPlanSummary,
+  buildStoredRacePlanFromRow,
+  formatDuration,
+  type PlanSummaryRow,
+} from '../../lib/planSummary';
 
-export function estimateDuration(plannerValues: PlanRow['planner_values']): string | null {
-  const distanceKm = plannerValues.raceDistanceKm;
-  if (!distanceKm) return null;
+export function estimateDuration(plan: PlanRow): string | null {
+  if (!plan.planner_values.raceDistanceKm) return null;
 
-  let totalMinutes: number;
-  if (plannerValues.paceType === 'speed' && plannerValues.speedKph && plannerValues.speedKph > 0) {
-    totalMinutes = (distanceKm / plannerValues.speedKph) * 60;
-  } else if (plannerValues.paceMinutes != null) {
-    const secondsPerKm = (plannerValues.paceMinutes ?? 0) * 60 + (plannerValues.paceSeconds ?? 0);
-    totalMinutes = (secondsPerKm * distanceKm) / 60;
-  } else {
-    return null;
-  }
-
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = Math.round(totalMinutes % 60);
-  return hours > 0 ? `${hours}h${minutes.toString().padStart(2, '0')}` : `${minutes}min`;
+  const storedPlan = buildStoredRacePlanFromRow(plan as PlanSummaryRow);
+  return formatDuration(buildPlanSummary(storedPlan, {}).totalDurationMin);
 }
 
 export function formatPlanDate(iso: string, locale: 'fr' | 'en'): string {
@@ -39,6 +33,26 @@ export function formatEventDate(isoDate: string | null, locale: 'fr' | 'en'): st
 export function getRacePickerLabel(raceName: string, eventName: string): string {
   const cleaned = raceName.replace(eventName, '').replace(/[\s\-–—·]+/g, ' ').trim();
   return cleaned.length > 2 ? cleaned : raceName;
+}
+
+export function getPlanCardTitle(
+  plan: PlanRow,
+  eventName: string,
+  locale: 'fr' | 'en',
+): string {
+  const planName = plan.name.trim();
+  const raceName = plan.races?.name?.trim() ?? '';
+  if (!raceName || planName.localeCompare(raceName, undefined, { sensitivity: 'base' }) !== 0) {
+    return planName;
+  }
+
+  const escapedEventName = eventName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const formatName = raceName
+    .replace(new RegExp(escapedEventName, 'gi'), '')
+    .replace(/^[\s\-–—·:]+|[\s\-–—·:]+$/g, '')
+    .trim();
+
+  return formatName.length > 2 ? formatName : locale === 'fr' ? 'Plan de course' : 'Race plan';
 }
 
 export function getPickerEventImageUrl(

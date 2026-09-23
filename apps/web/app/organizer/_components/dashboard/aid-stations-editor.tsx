@@ -7,7 +7,7 @@ import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
-import { formatKm } from "./helpers";
+import { formatKm, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
 import type {
   AidStationDraft,
@@ -121,6 +121,7 @@ export function AidStationsEditor({
           label={startWaveCount > 0 ? "Départ défini par les SAS" : "Heure de départ"}
           onChange={onStartTimeChange}
           disabled={startWaveCount > 0}
+          timeInput
         />
         <FixedCourseCard
           title="Arrivée"
@@ -346,6 +347,7 @@ function FixedCourseCard({
   label,
   onChange,
   disabled = false,
+  timeInput = false,
 }: {
   title: string;
   subtitle: string;
@@ -353,7 +355,11 @@ function FixedCourseCard({
   label: string;
   onChange: (value: string) => void;
   disabled?: boolean;
+  timeInput?: boolean;
 }) {
+  const normalizedTimeValue = timeInput ? normalizeClockInputValue(value) : null;
+  const hasUnconvertibleLegacyValue = timeInput && Boolean(value.trim()) && normalizedTimeValue === null;
+
   return (
     <section className="rounded-[1.5rem] border border-border bg-background p-4 shadow-sm">
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -362,7 +368,19 @@ function FixedCourseCard({
           <ContextualHelp text={subtitle} />
         </div>
         <div className="w-full md:max-w-sm">
-          <TextField label={label} value={value} onChange={onChange} disabled={disabled} />
+          <TextField
+            label={label}
+            value={timeInput ? normalizedTimeValue ?? "" : value}
+            onChange={onChange}
+            disabled={disabled}
+            type={timeInput ? "time" : "text"}
+            step={timeInput ? "60" : undefined}
+          />
+          {hasUnconvertibleLegacyValue ? (
+            <p className="mt-2 text-xs font-medium text-amber-700">
+              Ancienne valeur conservée : {value}. Choisis une heure précise ou configure les départs dans l’onglet SAS.
+            </p>
+          ) : null}
         </div>
       </div>
     </section>
