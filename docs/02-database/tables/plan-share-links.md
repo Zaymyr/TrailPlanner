@@ -1,7 +1,7 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
@@ -83,6 +83,7 @@ Summary:
 - Store only `token_hash`; never persist the raw public token.
 - The public page displays `snapshot`, not live editable planner state.
 - The in-app recap may reload the editable plan when its screen regains focus, but the public page continues to display only the deliberately shared `snapshot`.
+- The in-app recap preserves its manually selected departure time as a device-local, per-plan preference when the live plan-derived recap regenerates. That preference is copied to `plan_share_links.departure_time` only when the runner explicitly shares; merely changing it in the in-app modal does not write this table.
 - The recap's editable departure-time fields use the shared iOS numeric-keyboard dismissal accessory. Their modal also moves above the keyboard, remains scrollable inside the device safe area, exposes its title and fields to VoiceOver, and closes through the native modal request. These protections are presentation-only and do not change `departure_time` validation, `crew_state`, or snapshot persistence.
 - Checkpoint snapshots expose `assistanceState` so crew viewers can distinguish points where they can hand over products from points where the runner must carry inventory from the previous crew point.
 - Public recap rendering uses `assistanceState` as a visual hierarchy: crew-access checkpoints are highlighted, no-crew checkpoints are muted, and no-crew checkpoints omit the product handoff block.
@@ -104,6 +105,7 @@ Summary:
 - Analytics on the public page must remain aggregate-only and must not turn the secret-link token into an analytics identifier.
 - Do not implement crew tracking reset by changing `snapshot`; it should only update the mutable crew-state fields.
 - Keep the in-app departure-time modal keyboard-aware and safe-area-aware. A compact iPhone or enlarged text must not hide Confirm/Cancel, but dismissing or scrolling the modal must never write `plan_share_links` by itself.
+- Do not use `plan_share_links.departure_time` as the editable in-app recap preference. Public link departure time remains snapshot/tracking state and changes only through an explicit share or the narrow crew-state route.
 
 ## Related Docs
 

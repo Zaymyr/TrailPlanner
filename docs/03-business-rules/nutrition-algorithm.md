@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-09-15
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -60,6 +60,7 @@ related_files:
   - apps/mobile/lib/raceLiveSession.ts
   - apps/mobile/components/race/TrainingLiveSession.tsx
   - apps/mobile/lib/planSummary.ts
+  - apps/mobile/lib/planSummary.test.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/app/(app)/training-live.tsx
   - apps/mobile/lib/onboardingDemoPlan.ts
@@ -181,7 +182,7 @@ Mobile implementation:
 - On iOS, the ravito view switcher reserves the left screen edge for the native back gesture and enables its own edge paging from the right. The fatigue slider waits for a deliberate horizontal movement before taking gesture ownership so vertical planner scrolling remains available. Neither gesture rule changes the selected fatigue value formula, aid-station order, supplies, or saved planner shape.
 - Mobile quantity steppers and modal close actions use accessible labels and at least 44-point touch targets where these controls were audited. These are interaction-surface changes only and do not change product quantities unless the runner activates the same increment/decrement action.
 - Mobile auto-fill can receive optional per-product stock limits from the favorites stock modal. A missing limit means unlimited for that run; a present limit caps total planned units across the whole race, including supplies grouped onto previous assistance checkpoints for no-assistance sections. The mobile plan form keeps the latest entered limits in screen memory while the current plan editor stays open, but does not persist them into saved plan data. The optimizer favors less-used products over time and applies a small duplicate-unit penalty inside one section so similar products are varied when coverage remains acceptable. When limits leave an unresolved cumulative carb or sodium deficit beyond gauge tolerance, mobile shows a shortage alert instead of silently overusing a product.
-- `apps/mobile/lib/planSummary.ts` builds the runner pack list, ravito checklist, and native share text from stored plan values. It reuses the live-section timing model rather than introducing a separate nutrition allocation rule. The mobile recap screen reloads those stored values when it regains focus after plan edits.
+- `apps/mobile/lib/planSummary.ts` builds the runner pack list, ravito checklist, and native share text from stored plan values. It reuses the live-section timing model rather than introducing a separate nutrition allocation rule. Recap totals and checkpoint passages accumulate the exact section durations used by the plan highlights instead of the five-minute-rounded reminder timeline. The mobile recap screen reloads stored plan values when it regains focus after edits while preserving the departure time manually selected for that plan.
 
 Water remains separate from product inventory. The planner carries forward remaining water capacity between sections; a station with `waterRefill === false` does not refill the bag, so the outgoing section starts with whatever water remains from the previous section.
 
@@ -318,6 +319,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Organizer ravito suggestions are presentation, explicit-selection, and web opt-in auto-fill data. For plans with `race_id`, suggestions are refreshed from the source race on `/api/plans` GET and the stored JSON is only a fallback snapshot. Do not let non-live organizer products enter the default auto-fill pool; only include them when the runner has favorited/selected them or has enabled the ravito-products auto-fill option. Persist selected official ravito products with `source: "organizer"` so no-assistance filtering removes personal supplies without removing products offered by the race.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
 - Mobile plan recap/share should derive from the same saved supplies and live-section timing used by the planner/live screen. Public crew links may persist that derived recap as a bounded `plan_share_links.snapshot`, but the snapshot must not feed back into nutrition allocation. No-assistance checkpoints should stay visually muted in recaps and should not display a product handoff block.
+- Five-minute reminder scheduling is presentation/runtime rounding, not the displayed race-duration contract. Do not use rounded reminder section boundaries for recap totals or checkpoint passage times.
 - Mobile favorite toggles are presentation only. Inactive product rows show an unfilled star without a filled brand circle; only active favorites use the filled brand circle.
 - Collapsed mobile brand headers depend on the same catalog row builder as virtualization; keep verified-header metadata in that single builder when resolving merges.
 - The mobile ravito section header is presentation only, but on narrow iPhones it should keep the title on one truncated line rather than wrapping into the action buttons. Do not reintroduce multi-line `Ravitaillements` headers that collide with the auto-fill or add buttons.
