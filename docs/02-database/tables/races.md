@@ -65,6 +65,7 @@ related_tables:
 ## Key Concepts
 
 - Format row: one distance/course under a parent `race_events` event.
+- Registration source: public catalog actions prefer the parent event's canonical `race_events.website_url`; a standalone format may fall back to its HTTP(S) `external_site_url`.
 - Edition membership: `edition_id` identifies the yearly event edition; `edition_group_id` groups the same format across years.
 - Visibility contracts: `web_catalog_is_live` plus `is_public` controls web catalog/SEO pages; `is_live`, `racebook_preview_is_visible`, and edition visibility control mobile course discovery; `racebook_is_live` protects the runner RaceBook content.
 - Organizer visibility is a three-state contract: masked = course/preview/RaceBook false, private = course false/preview true/RaceBook false, and public = all three true. Public publication requires an active paid or complimentary edition offer.

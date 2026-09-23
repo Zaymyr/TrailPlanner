@@ -66,6 +66,7 @@ related_tables:
 - At most one edition is current per event; legacy event-date reads and the admin event-wide switch target it, while a format-specific publication request targets the requested race's own edition.
 - Each edition has an independent mobile catalog visibility state. Hiding one edition hides every attached mobile course format and Racebook without removing already published factual web pages.
 - Public web discovery uses `races.web_catalog_is_live` plus the parent event gate and does not consult `race_event_editions.is_visible`; the edition remains the canonical date-range source for web detail enrichment.
+- The lightweight public DTO may also read the parent event's canonical website through the same service-only, explicit-column event projection. Web catalog resolution does not query or expose edition rows to clients.
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 - One permanent commercial entitlement covers every current and future format attached to the edition.

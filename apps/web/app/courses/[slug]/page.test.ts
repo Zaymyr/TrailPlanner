@@ -37,6 +37,7 @@ const canonicalRace = {
   eventThumbnailUrl: null,
   thumbnailUrl: null,
   externalSiteUrl: null,
+  eventWebsiteUrl: "https://event.example.com",
   updatedAt: "2026-09-09T12:00:00.000Z",
 };
 
@@ -229,5 +230,15 @@ describe("public race legacy slug page", () => {
     const page = await RacePage({ params: { slug: canonicalRace.slug } });
 
     expect(hasHref(page, `/race-planner?catalogRaceId=${canonicalRace.id}`)).toBe(true);
+  });
+
+  it("links the registration action to the event website", async () => {
+    resolvePublicRaceSlug.mockResolvedValue({ race: canonicalRace, shouldRedirect: false });
+    getPublicRaceDetail.mockResolvedValue(detailedRace);
+    getPublicRaces.mockResolvedValue([canonicalRace]);
+
+    const page = await RacePage({ params: { slug: canonicalRace.slug } });
+
+    expect(hasHref(page, canonicalRace.eventWebsiteUrl)).toBe(true);
   });
 });

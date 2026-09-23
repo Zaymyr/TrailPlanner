@@ -1,7 +1,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import type { PublicRace } from "../../../lib/public-races";
+import { getPublicRaceRegistrationUrl, type PublicRace } from "../../../lib/public-races";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 
 const dateFormatter = new Intl.DateTimeFormat("fr-FR", {
@@ -20,8 +20,10 @@ const formatDate = (date: string | null) => {
 export function PublicRaceLinks({ races }: { races: PublicRace[] }) {
   return (
     <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-      {races.map((race) => (
-        <Card key={race.id} className="h-full overflow-hidden">
+      {races.map((race) => {
+        const registrationUrl = getPublicRaceRegistrationUrl(race);
+        return (
+          <Card key={race.id} className="flex h-full flex-col overflow-hidden">
           {race.thumbnailUrl && /^https?:\/\//i.test(race.thumbnailUrl) ? (
             <img src={race.thumbnailUrl} alt={race.name} loading="lazy" className="h-40 w-full object-cover" />
           ) : null}
@@ -35,16 +37,21 @@ export function PublicRaceLinks({ races }: { races: PublicRace[] }) {
               </Link>
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
+          <CardContent className="flex flex-1 flex-col gap-2 text-sm text-muted-foreground">
             <p>
               {race.distanceKm !== null ? `${race.distanceKm} km` : "Distance à confirmer"}
               {race.elevationGainM !== null ? ` · ${Math.round(race.elevationGainM)} m D+` : ""}
             </p>
             <p>{formatDate(race.date)}</p>
             {race.location ? <p>{race.location}</p> : null}
+            <div className={`mt-auto grid gap-2 pt-3 ${registrationUrl ? "sm:grid-cols-2" : ""}`}>
+              <Link href={`/courses/${race.slug}` as Route} className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-3 font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface">Voir la fiche</Link>
+              {registrationUrl ? <a href={registrationUrl} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-3 font-semibold text-brand-foreground transition hover:bg-brand-light">S’inscrire</a> : null}
+            </div>
           </CardContent>
-        </Card>
-      ))}
+          </Card>
+        );
+      })}
     </div>
   );
 }

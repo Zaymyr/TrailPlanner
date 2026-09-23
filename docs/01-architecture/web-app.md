@@ -506,6 +506,10 @@ RevenueCat routes live under `apps/web/app/api/revenuecat`. They synchronize mob
 
 Resend contact sync lives under `apps/web/app/api/resend/contact/route.ts`. It validates the current Supabase bearer token, skips anonymous users, rate-limits by user id, and upserts a Resend contact using the server-only `RESEND_API_KEY`. The same server-only REST helper sends the existing-account organizer-assignment notice after membership persistence; it uses the verified `mail.pace-yourself.com` sender and escapes database display text before inserting it into HTML.
 
+### Public course registration links
+
+The public catalog allowlists `race_events.website_url` in the lightweight race DTO and uses it for a prominent external `S’inscrire` action on event cards, distance cards, and the course hero. Standalone formats fall back to their validated `races.external_site_url`. Invalid or non-HTTP(S) values produce no outbound action, and the hero keeps planning as the secondary internal action when registration is available.
+
 ## Security Posture
 
 Server routes generally use:

@@ -24,6 +24,7 @@ related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
+  - supabase/migrations/20260923064926_backfill_public_race_event_website_urls.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
@@ -103,6 +104,7 @@ related_tables:
 - Edition liveness: `race_event_editions.is_visible` can hide one year by forcing only that edition's formats and Racebooks off while leaving the parent event and other years unchanged.
 - Organizer event: created catalog-visible, while its Racebook formats remain hidden until approved.
 - Organizer dashboard details: nullable JSONB for event end date, official website, Instagram URL, Facebook URL, structured emergency contact name/phone, common equipment, common bib pickup locations and dated time slots, access, services, partners, and runner notes.
+- Canonical event website: nullable `website_url` is the narrow public catalog source for the registration CTA. A data-only backfill fills the 13 live public events that lacked it on 23 September 2026, mirrors it into an empty `organizer_details.officialWebsiteUrl`, and preserves any newer non-empty value.
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can concern the whole event or one child format and are pushed to event followers.
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details`, `races.racebook_preview_is_visible`, and `races.racebook_is_live`. Ordinary runners require a live format plus RaceBook publication. Active `race_event_organizers` membership keeps managed private formats in Courses, grants an unpublished preview only when preview selection is true, and dims that private RaceBook action. Masked formats are removed from the mobile catalog for every role.
@@ -129,6 +131,7 @@ related_tables:
 | `location` | `text` | nullable in API schemas | Event location. |
 | `race_date` | `text` or date-like | nullable in API schemas | Compatibility mirror of the current edition start date for catalog/mobile reads. |
 | `thumbnail_url` | `text` | nullable, added by migration | Shared event thumbnail URL. |
+| `website_url` | `text` | nullable, verified from the live schema | Canonical public event website used by catalog registration actions. |
 | `is_live` | `boolean` | nullable/boolean in API schemas | Visibility flag used by onboarding/profile routes. |
 | `organizer_details` | `jsonb` | nullable, added by `20260618160000_add_organizer_dashboard_details.sql` | Organizer-managed progressive common dashboard details. |
 | `location_city`, `location_city_code` | nullable `text` | city code is a stable locality identifier; French rows use INSEE | Normalized anchor city for exact city filters. |

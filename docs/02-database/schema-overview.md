@@ -22,6 +22,7 @@ related_files:
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910144806_seed_trail_ton_chateau_2026.sql
+  - supabase/migrations/20260923064926_backfill_public_race_event_website_urls.sql
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
@@ -133,6 +134,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Web course visibility: first public/mobile publication promotes `races.web_catalog_is_live`; later mobile private/masked or edition-hidden transitions preserve it so indexed factual pages remain stable. `is_public = false` clears it. Server-only explicit-column web reads use that branch without broadening client `races_select` or redirect policies.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Normalized event geography: nullable city/department/region/country names and stable codes plus a paired anchor coordinate on `race_events`; all 96 current live events have a verified country, the 46 French events have full commune-level geography, and free-text format routes remain in `races.location_text`.
+- Public event website coverage: `race_events.website_url` is the canonical narrow registration-link source for the public web catalog. The 23 September 2026 idempotent backfill fills the 13 live public events that lacked it without changing schema, visibility, ownership, grants, or RLS.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
 - Final roadbook synchronization: the Les Amaz’Eaunes 2026 data-only migration corrects the canonical edition/format dates and organizer JSON while preserving unconfirmed course metrics and omitting unspecified ravito rows.
 - Organizer import session: temporary service-only evidence and confirmed-format state for the two-pass admin import.

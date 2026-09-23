@@ -2,7 +2,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-import { getPublicRaces, PUBLIC_RACES_REVALIDATE_SECONDS, resolvePublicRaceSlug } from "./public-races";
+import {
+  getPublicRaceRegistrationUrl,
+  getPublicRaces,
+  PUBLIC_RACES_REVALIDATE_SECONDS,
+  resolvePublicRaceSlug,
+  type PublicRace,
+} from "./public-races";
 
 const race = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -49,6 +55,7 @@ describe("public race slug resolution", () => {
             location_country: "France",
             race_date: "2026-09-12",
             thumbnail_url: "https://images.example/event.png",
+            website_url: "https://event.example/",
           },
         ]);
       }
@@ -73,6 +80,7 @@ describe("public race slug resolution", () => {
         locationDepartment: "Haute-Savoie",
         locationRegion: "Auvergne-Rhône-Alpes",
         locationCountry: "France",
+        eventWebsiteUrl: "https://event.example/",
         searchTerms: ["Annecy", "Haute-Savoie", "Auvergne-Rhône-Alpes", "France"],
       }),
     ]);
@@ -91,6 +99,7 @@ describe("public race slug resolution", () => {
           location: "Annecy",
           race_date: "2026-09-12",
           thumbnail_url: null,
+          website_url: null,
         }]);
       }
       return jsonResponse([
@@ -123,6 +132,7 @@ describe("public race slug resolution", () => {
         location: "Annecy",
         race_date: "2026-09-12",
         thumbnail_url: null,
+        website_url: null,
       }]));
     vi.stubGlobal("fetch", fetchMock);
 
@@ -186,5 +196,18 @@ describe("public race slug resolution", () => {
     await expect(resolvePublicRaceSlug("ancien-trail")).resolves.toBeNull();
     expect(fetchMock.mock.calls[3]?.[0]).toContain("race_events?");
     expect(fetchMock.mock.calls[3]?.[0]).toContain("is_live=eq.true");
+  });
+
+  it("uses the event website for registration and rejects unsafe or missing links", () => {
+    const publicRace = {
+      eventWebsiteUrl: "https://event.example/",
+      externalSiteUrl: "https://event.example/format",
+    } as PublicRace;
+
+    expect(getPublicRaceRegistrationUrl(publicRace)).toBe("https://event.example/");
+    expect(getPublicRaceRegistrationUrl({ ...publicRace, eventWebsiteUrl: "javascript:alert(1)" })).toBe(
+      "https://event.example/format",
+    );
+    expect(getPublicRaceRegistrationUrl({ ...publicRace, eventWebsiteUrl: null, externalSiteUrl: null })).toBeNull();
   });
 });

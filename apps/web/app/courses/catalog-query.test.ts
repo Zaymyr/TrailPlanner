@@ -29,6 +29,7 @@ const makeRace = (index: number, overrides: Partial<PublicRace> = {}): PublicRac
   eventThumbnailUrl: null,
   thumbnailUrl: null,
   externalSiteUrl: null,
+  eventWebsiteUrl: null,
   updatedAt: null,
   ...overrides,
 });

@@ -171,7 +171,11 @@ export default async function RacePage({ params }: PageProps) {
   const otherFormats = getOtherEventFormats(race, races);
   const similarRaces = getSimilarRaces(race, races);
   const officialUrls = Array.from(
-    new Set([race.externalSiteUrl, race.officialWebsiteUrl].filter((value): value is string => Boolean(value))),
+    new Set(
+      [race.externalSiteUrl, race.eventWebsiteUrl, race.officialWebsiteUrl].filter(
+        (value): value is string => Boolean(value),
+      ),
+    ),
   );
   const structuredData = buildRaceStructuredData(race, canonicalUrl);
   const breadcrumbData = {
