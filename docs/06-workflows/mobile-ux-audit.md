@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -35,6 +35,7 @@ Use one reproducible runner journey to catch broken navigation and produce compa
 
 1. Keep `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` outside Git. For EAS, create them as secret variables in the `preview` environment. For a local run, export those variables; the ignored `EMAIL_DE_CONNEXION` and `MDP_Compte` keys in `apps/web/.env.local` are also mapped by the local runner.
 2. Install the `e2e-test` build on the target emulator or device. Native modules make a real development/EAS build preferable to Expo Go.
+   The interactive development client is a separate `Pace Yourself Dev` application with identifier `com.paceyourself.app.dev`; set `APP_VARIANT=development` when starting its local Expo server. The `e2e-test` profile keeps the base application identifier expected by the checked-in Maestro flow.
 3. From the repository root, run `npm run test:e2e:ux -w @trailplanner/mobile`. The local runner fails without printing credentials when Maestro or the secrets are unavailable.
 4. For the cloud matrix, first confirm that the Expo account includes hosted Maestro jobs. The current project plan does not. After a plan upgrade, change to `apps/mobile` and run `eas workflow:run .eas/workflows/mobile-ux-audit.yml`. Android and iOS then build and test in parallel; the jobs record video, retry one failure, and retain the nine named screenshots.
 5. Compare the login, Courses, Plans, Nutrition, and Profile captures. Review both the initial viewport and the post-scroll viewport; on iOS also confirm the dark status-bar content remains legible over the light palette.

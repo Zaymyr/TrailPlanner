@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - package.json
@@ -104,7 +104,7 @@ The web app is configured for Vercel in `vercel.json`. It declares:
 
 The mobile app is configured for EAS in `apps/mobile/eas.json`:
 
-- `development`: internal distribution with `developmentClient: true`
+- `development`: internal distribution with `developmentClient: true`; `APP_VARIANT=development` resolves the distinct `Pace Yourself Dev` name and `com.paceyourself.app.dev` Android/iOS identifier
 - `preview`: internal distribution, Android APK, iOS Release build
 - `e2e-test`: Android APK and iOS Simulator binaries for the authenticated Maestro UX audit
 - `production`: Android app bundle, iOS Release build, remote app version source
@@ -155,6 +155,7 @@ When docs and code disagree, use this order:
 - `docs/_archive/db/schema.sql` is not the current schema source of truth. It still uses old `race_catalog` names.
 - Several code paths reference `race_events` and newer race columns that are not fully backed by visible migrations in this repo. Those are documented with conflict markers in database docs.
 - The mobile app is configured for a development client profile; avoid documenting Expo Go as the primary dev path unless the feature being tested has no native dependency.
+- Start local Expo sessions for the installed development client with `APP_VARIANT=development`; otherwise local config resolves the production name and application identifier even though the EAS development binary was built as `com.paceyourself.app.dev`.
 - Maestro is external test tooling and is not bundled into the application. Local runs require its CLI on `PATH`; the EAS workflow provides the cloud runner.
 - Android and the next iOS binary use EAS Update runtime `1.1.1`. Because the light iOS appearance is native configuration, ship that iOS binary before publishing a `1.1.1` OTA; existing iOS `1.1.0` installs stay in their prior compatibility group.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.

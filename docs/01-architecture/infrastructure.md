@@ -1,7 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -86,7 +86,7 @@ If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds
 
 `apps/mobile/eas.json` defines four build profiles:
 
-- development: internal distribution with a development client.
+- development: internal distribution with a development client and `APP_VARIANT=development`; dynamic app config gives it the `Pace Yourself Dev` name and `com.paceyourself.app.dev` Android/iOS identifier so it can coexist with production.
 - preview: internal distribution with APK for Android.
 - e2e-test: credential-free Android APK and iOS Simulator build for Maestro.
 - production: store-oriented Android app bundle and iOS Release builds with remote app version source and automatic build-number incrementing.
@@ -191,12 +191,16 @@ Document variable names, not secret values. Important names visible in code incl
 - `REVENUECAT_*`
 - `EXPO_PUBLIC_REVENUECAT_*`
 - `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID`
+- `GOOGLE_SERVICES_JSON_DEV` / `EXPO_ANDROID_GOOGLE_SERVICES_FILE_DEV` (optional development-variant Firebase configuration for `com.paceyourself.app.dev`)
+- `GOOGLE_SERVICE_INFO_PLIST_DEV` / `EXPO_IOS_GOOGLE_SERVICES_FILE_DEV` (optional development-variant Firebase configuration for `com.paceyourself.app.dev`)
+- `APP_VARIANT` (non-secret build-time selector; `development` enables the separately installable Dev application identifier)
 - `MAESTRO_E2E_EMAIL` (secret test-runner variable, never an Expo public value)
 - `MAESTRO_E2E_PASSWORD` (secret test-runner variable, never an Expo public value)
 
 ## Gotchas
 
 - Never commit actual environment values into docs.
+- Keep the development profile's `APP_VARIANT` value aligned with local Expo startup. Firebase/Google configuration injected into that profile must use the dedicated `*_DEV` variables and register `com.paceyourself.app.dev`; files containing only the production client are not interchangeable. When those optional Dev files are absent, the app config omits them rather than embedding production configuration, so Dev push/Google features remain unavailable until the separate Firebase clients exist.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.
 - Keep the `dependabot/**` Git deployment exclusion and its ignored-build fallback limited to that branch prefix. The merge commit on `main` must continue to trigger the single production deployment after a dependency batch is approved.

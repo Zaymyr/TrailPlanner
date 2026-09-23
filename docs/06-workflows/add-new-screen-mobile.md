@@ -124,7 +124,7 @@ npm run typecheck
 npm run test
 ```
 
-For native behavior, build/run with the development client profile from `apps/mobile/eas.json`.
+For native behavior, build/run with the development client profile from `apps/mobile/eas.json`. That profile sets `APP_VARIANT=development` and installs as `Pace Yourself Dev` (`com.paceyourself.app.dev`) beside production. Set the same variable before starting Expo locally; in PowerShell, run `$env:APP_VARIANT = "development"` before `npm run dev:mobile`.
 
 For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobile-ux-audit.md). Run `npm run test:e2e:ux -w @trailplanner/mobile` locally when Maestro and an installed build are available, or launch the manual EAS workflow.
 

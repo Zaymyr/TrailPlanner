@@ -141,10 +141,11 @@ The root layout imports only the nine Bricolage Grotesque and JetBrains Mono wei
 
 The app config in `apps/mobile/app.config.ts` declares:
 
-- app name `Pace Yourself`;
+- production app name `Pace Yourself` and development-variant name `Pace Yourself Dev`;
 - slug `pace-yourself-app`;
 - owner `pace-yourself`;
 - scheme `paceyourself`;
+- production Android/iOS identifier `com.paceyourself.app` and development identifier `com.paceyourself.app.dev`, selected by `APP_VARIANT=development`;
 - app version `1.1.1`;
 - shared iOS/Android runtime version `1.1.1` for the current native release line;
 - light system appearance, matching the app's light palette and dark status-bar content;
@@ -159,7 +160,7 @@ Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36
 
 `apps/mobile/eas.json` defines:
 
-- `development`: internal distribution and `developmentClient: true`.
+- `development`: internal distribution, `developmentClient: true`, and `APP_VARIANT=development`, so it installs as `Pace Yourself Dev` beside production.
 - `preview`: internal distribution, Android APK, iOS Release.
 - `e2e-test`: unsigned Android APK and iOS Simulator build used only by Maestro.
 - `production`: Android app bundle, iOS Release, auto-increment enabled.
@@ -296,6 +297,8 @@ Do not copy actual keys into docs. Use environment variable names only.
 ## Gotchas
 
 - Keep the fast Vitest suite Node-only and focused on pure modules. Code that imports Expo or React Native runtime modules belongs behind adapters or in the Maestro/device path; do not make unit tests depend on a native simulator.
+- Keep `APP_VARIANT=development` aligned between the EAS development profile and local Expo startup. The Dev binary uses `com.paceyourself.app.dev`, while preview, E2E, and production retain `com.paceyourself.app`. The shared `paceyourself` scheme remains intentional because account-conversion redirects currently reference it explicitly; co-installed builds can therefore compete for deep links even though their application identifiers differ.
+- A Firebase/Google services file is application-id-specific. The development variant reads only the dedicated `GOOGLE_SERVICES_JSON_DEV` / `EXPO_ANDROID_GOOGLE_SERVICES_FILE_DEV` and `GOOGLE_SERVICE_INFO_PLIST_DEV` / `EXPO_IOS_GOOGLE_SERVICES_FILE_DEV` variables. Without those optional files, Dev push/Google features remain unavailable; production files are deliberately not reused because they contain the wrong application identifier.
 - Do not make optional structured RaceBook modules part of the whole-screen failure boundary. A PostgREST `404` before the corresponding migration/Data API exposure is deployed must degrade SAS, awards or structured services to an empty collection instead of hiding historical organizer content.
 - Do not put mobile test credentials in Maestro YAML, screenshots, source files, or Expo public environment variables. Local runs may map the ignored `apps/web/.env.local` login keys into process-only `MAESTRO_*` variables; EAS runs must use secret variables in the `preview` environment.
 - A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.

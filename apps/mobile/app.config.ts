@@ -1,16 +1,24 @@
 import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
-  const androidGoogleServicesFile =
-    process.env.GOOGLE_SERVICES_JSON?.trim() ??
-    process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE?.trim();
-  const iosGoogleServicesFile =
-    process.env.GOOGLE_SERVICE_INFO_PLIST?.trim() ??
-    process.env.EXPO_IOS_GOOGLE_SERVICES_FILE?.trim();
+  const isDevelopment = process.env.APP_VARIANT?.trim() === 'development';
+  const applicationId = isDevelopment
+    ? 'com.paceyourself.app.dev'
+    : 'com.paceyourself.app';
+  const androidGoogleServicesFile = isDevelopment
+    ? process.env.GOOGLE_SERVICES_JSON_DEV?.trim() ??
+      process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE_DEV?.trim()
+    : process.env.GOOGLE_SERVICES_JSON?.trim() ??
+      process.env.EXPO_ANDROID_GOOGLE_SERVICES_FILE?.trim();
+  const iosGoogleServicesFile = isDevelopment
+    ? process.env.GOOGLE_SERVICE_INFO_PLIST_DEV?.trim() ??
+      process.env.EXPO_IOS_GOOGLE_SERVICES_FILE_DEV?.trim()
+    : process.env.GOOGLE_SERVICE_INFO_PLIST?.trim() ??
+      process.env.EXPO_IOS_GOOGLE_SERVICES_FILE?.trim();
 
   return {
     ...config,
-    name: 'Pace Yourself',
+    name: isDevelopment ? 'Pace Yourself Dev' : 'Pace Yourself',
     slug: 'pace-yourself-app',
     owner: 'pace-yourself',
     scheme: 'paceyourself',
@@ -30,7 +38,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     ios: {
       supportsTablet: false,
-      bundleIdentifier: 'com.paceyourself.app',
+      bundleIdentifier: applicationId,
       ...(iosGoogleServicesFile ? { googleServicesFile: iosGoogleServicesFile } : {}),
       usesAppleSignIn: true,
       infoPlist: {
@@ -48,7 +56,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: '#f7efe8',
       },
       ...(androidGoogleServicesFile ? { googleServicesFile: androidGoogleServicesFile } : {}),
-      package: 'com.paceyourself.app',
+      package: applicationId,
       blockedPermissions: [
         'android.permission.ACCESS_COARSE_LOCATION',
         'android.permission.ACCESS_FINE_LOCATION',
