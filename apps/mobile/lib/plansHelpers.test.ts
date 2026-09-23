@@ -37,9 +37,22 @@ describe('estimateDuration', () => {
       ],
     } as unknown as PlanRow;
     const canonicalSummary = buildPlanSummary(buildStoredRacePlanFromRow(plan), {});
+    const aidStations = plan.planner_values.aidStations ?? [];
+    const planWithoutPause = {
+      ...plan,
+      planner_values: {
+        ...plan.planner_values,
+        aidStations: aidStations.map((station) => ({
+          ...station,
+          pauseMinutes: 0,
+        })),
+      },
+    } as PlanRow;
+    const summaryWithoutPause = buildPlanSummary(buildStoredRacePlanFromRow(planWithoutPause), {});
 
     expect(estimateDuration(plan)).toBe(formatDuration(canonicalSummary.totalDurationMin));
-    expect(canonicalSummary.totalDurationMin).toBeGreaterThan(132);
+    expect(canonicalSummary.totalPauseMinutes).toBe(12);
+    expect(canonicalSummary.totalDurationMin - summaryWithoutPause.totalDurationMin).toBeCloseTo(12);
   });
 });
 

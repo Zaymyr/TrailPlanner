@@ -49,6 +49,55 @@ describe('buildPlanSummary', () => {
     expect(summary.totalDurationMin).toBeCloseTo(expectedDuration);
     expect(summary.checkpoints.at(-1)?.arrivalMinute).toBeCloseTo(expectedDuration);
   });
+
+  it('adds every intermediate aid-station pause to recap and finish times', () => {
+    const buildPlan = (pauseMinutes: number[]) =>
+      buildStoredRacePlanFromValues({
+        id: 'plan-with-pauses',
+        values: {
+          ...DEFAULT_PLAN_VALUES,
+          name: 'Trail avec pauses',
+          raceDistanceKm: 30,
+          elevationGain: 0,
+          paceMinutes: 6,
+          paceSeconds: 0,
+          aidStations: [
+            {
+              id: 'aid-1',
+              name: 'Ravito 1',
+              distanceKm: 10,
+              waterRefill: true,
+              pauseMinutes: pauseMinutes[0],
+            },
+            {
+              id: 'aid-2',
+              name: 'Ravito 2',
+              distanceKm: 20,
+              waterRefill: true,
+              pauseMinutes: pauseMinutes[1],
+            },
+          ],
+        },
+      });
+
+    const withoutPauses = buildPlanSummary(buildPlan([0, 0]), {});
+    const withPauses = buildPlanSummary(buildPlan([7, 11]), {});
+
+    expect(withPauses.movingDurationMin).toBeCloseTo(withoutPauses.movingDurationMin);
+    expect(withPauses.totalPauseMinutes).toBe(18);
+    expect(withPauses.totalDurationMin - withoutPauses.totalDurationMin).toBeCloseTo(18);
+    expect(withPauses.checkpoints[1]?.arrivalMinute).toBeCloseTo(
+      withoutPauses.checkpoints[1]?.arrivalMinute ?? 0,
+    );
+    expect(
+      (withPauses.checkpoints[2]?.arrivalMinute ?? 0) -
+        (withoutPauses.checkpoints[2]?.arrivalMinute ?? 0),
+    ).toBeCloseTo(7);
+    expect(
+      (withPauses.checkpoints.at(-1)?.arrivalMinute ?? 0) -
+        (withoutPauses.checkpoints.at(-1)?.arrivalMinute ?? 0),
+    ).toBeCloseTo(18);
+  });
 });
 
 describe('applyStoredDepartureTime', () => {

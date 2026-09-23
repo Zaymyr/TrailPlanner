@@ -45,6 +45,8 @@ export type PlanSummary = {
   targetCarbsPerHour: number;
   targetWaterPerHour: number;
   targetSodiumPerHour: number;
+  movingDurationMin: number;
+  totalPauseMinutes: number;
   totalDurationMin: number;
   totalProductUnits: number;
   totalCarbsG: number;
@@ -286,11 +288,19 @@ export function buildPlanSummary(
   const values = normalizeStoredPlanValues(plan);
   const sections = buildLiveRaceSections(plan, productMap);
   const arrivalMinutesByCheckpointIndex = new Map<number, number>([[0, 0]]);
-  let totalDurationMin = 0;
+  let movingDurationMin = 0;
+  let elapsedDurationMin = 0;
 
   sections.forEach((section) => {
-    totalDurationMin += section.durationMin;
-    arrivalMinutesByCheckpointIndex.set(section.sectionIndex + 1, totalDurationMin);
+    const sectionMovingDurationMin = Math.max(0, section.durationMin - section.pauseMinutes);
+    movingDurationMin += sectionMovingDurationMin;
+    elapsedDurationMin += sectionMovingDurationMin;
+    arrivalMinutesByCheckpointIndex.set(section.sectionIndex + 1, elapsedDurationMin);
+
+    const arrivalStation = values.aidStations[section.sectionIndex + 1];
+    if (arrivalStation?.id !== ARRIVEE_ID) {
+      elapsedDurationMin += safeNumber(arrivalStation?.pauseMinutes);
+    }
   });
 
   const checkpoints = values.aidStations.map<PlanSummaryCheckpoint>((station, index) => {
@@ -315,6 +325,12 @@ export function buildPlanSummary(
   const totalProductUnits = productTotals.reduce((sum, product) => sum + product.quantity, 0);
   const totalCarbsG = productTotals.reduce((sum, product) => sum + product.carbsG, 0);
   const totalSodiumMg = productTotals.reduce((sum, product) => sum + product.sodiumMg, 0);
+  const totalPauseMinutes = checkpoints.reduce(
+    (total, checkpoint) =>
+      checkpoint.isStart || checkpoint.isFinish ? total : total + checkpoint.pauseMinutes,
+    0,
+  );
+  const totalDurationMin = movingDurationMin + totalPauseMinutes;
 
   return {
     id: plan.id,
@@ -325,6 +341,8 @@ export function buildPlanSummary(
     targetCarbsPerHour: values.targetIntakePerHour,
     targetWaterPerHour: values.waterIntakePerHour,
     targetSodiumPerHour: values.sodiumIntakePerHour,
+    movingDurationMin,
+    totalPauseMinutes,
     totalDurationMin,
     totalProductUnits,
     totalCarbsG,
