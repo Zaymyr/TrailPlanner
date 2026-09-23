@@ -129,6 +129,7 @@ export function normalizeStoredPlanValues(plan: StoredRacePlan): PlanFormValues 
     name: plan.name,
     raceDistanceKm: plannerValues.raceDistanceKm ?? plan.raceDistanceKm ?? DEFAULT_PLAN_VALUES.raceDistanceKm,
     elevationGain: plannerValues.elevationGain ?? plan.elevationGainM ?? DEFAULT_PLAN_VALUES.elevationGain,
+    fatigueLevel: plannerValues.fatigueLevel ?? DEFAULT_PLAN_VALUES.fatigueLevel,
     paceType: plannerValues.paceType ?? DEFAULT_PLAN_VALUES.paceType,
     paceMinutes: plannerValues.paceMinutes ?? DEFAULT_PLAN_VALUES.paceMinutes,
     paceSeconds: plannerValues.paceSeconds ?? DEFAULT_PLAN_VALUES.paceSeconds,

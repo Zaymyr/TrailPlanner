@@ -98,6 +98,31 @@ describe('buildPlanSummary', () => {
         (withoutPauses.checkpoints.at(-1)?.arrivalMinute ?? 0),
     ).toBeCloseTo(18);
   });
+
+  it('keeps the saved fatigue level when rebuilding card and recap durations', () => {
+    const buildPlan = (fatigueLevel: number) =>
+      buildStoredRacePlanFromValues({
+        id: `plan-fatigue-${fatigueLevel}`,
+        values: {
+          ...DEFAULT_PLAN_VALUES,
+          name: 'Ultra test',
+          raceDistanceKm: 100,
+          elevationGain: 0,
+          fatigueLevel,
+          paceMinutes: 7,
+          paceSeconds: 0,
+          aidStations: [],
+        },
+      });
+
+    const lowFatiguePlan = buildPlan(0);
+    const highFatiguePlan = buildPlan(1);
+
+    expect(normalizeStoredPlanValues(highFatiguePlan).fatigueLevel).toBe(1);
+    expect(buildPlanSummary(highFatiguePlan, {}).totalDurationMin).toBeGreaterThan(
+      buildPlanSummary(lowFatiguePlan, {}).totalDurationMin,
+    );
+  });
 });
 
 describe('applyStoredDepartureTime', () => {
