@@ -14,6 +14,16 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
         .filter((value): value is string => Boolean(value)),
     ),
   );
+  const postalAddress = {
+    "@type": "PostalAddress",
+    streetAddress: race.practical.access.startAddress ?? undefined,
+    addressLocality: race.locationCity ?? undefined,
+    addressRegion: race.locationRegion ?? race.locationDepartment ?? undefined,
+    addressCountry: race.locationCountry ?? undefined,
+  };
+  const hasStructuredAddress = Object.values(postalAddress).some(
+    (value) => value !== "PostalAddress" && value !== undefined,
+  );
 
   return {
     "@context": "https://schema.org",
@@ -23,6 +33,7 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
     url: canonicalUrl,
     mainEntityOfPage: canonicalUrl,
     startDate: race.date,
+    ...(race.eventEndDate === race.date ? { endDate: race.eventEndDate } : {}),
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     sport: "Course à pied",
     image: heroImage ? [heroImage] : undefined,
@@ -30,10 +41,9 @@ export const buildRaceStructuredData = (race: PublicRaceDetail, canonicalUrl: st
       ? {
           "@type": "Place",
           name: race.location,
-          address: {
-            "@type": "PostalAddress",
-            name: race.location,
-          },
+          address: hasStructuredAddress
+            ? postalAddress
+            : { "@type": "PostalAddress", name: race.location },
         }
       : undefined,
     description: buildRaceMetadataDescription(race),

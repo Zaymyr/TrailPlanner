@@ -1,8 +1,8 @@
 import type { Route } from "next";
 import Link from "next/link";
 
-import type { PublicRace } from "../../../lib/public-races";
 import type { PublicRaceDetail } from "../../../lib/public-race-detail";
+import { getPublicRaceRegistrationUrl, type PublicRace } from "../../../lib/public-races";
 import { PublicRaceShare } from "./PublicRaceShare";
 
 export function RaceHeroSummary({
@@ -19,6 +19,7 @@ export function RaceHeroSummary({
   otherFormats: PublicRace[];
 }) {
   const heroImage = race.raceThumbnailUrl ?? race.eventThumbnailUrl;
+  const registrationUrl = getPublicRaceRegistrationUrl(race);
   const dateAndLocation =
     [formattedDate && formattedEndDate ? `Du ${formattedDate} au ${formattedEndDate}` : formattedDate, race.location]
       .filter(Boolean)
@@ -70,9 +71,19 @@ export function RaceHeroSummary({
         </dl>
 
         <div className="flex flex-wrap items-center gap-3">
+          {registrationUrl ? (
+            <a
+              href={registrationUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
+            >
+              S’inscrire
+            </a>
+          ) : null}
           <Link
             href={`/race-planner?catalogRaceId=${race.id}` as Route}
-            className="inline-flex min-h-11 items-center justify-center rounded-md bg-brand px-5 text-sm font-semibold text-brand-foreground transition hover:bg-brand-light"
+            className="inline-flex min-h-11 items-center justify-center rounded-md border border-border px-5 text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface"
           >
             Planifier cette course
           </Link>

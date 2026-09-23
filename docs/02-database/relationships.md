@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -32,6 +32,7 @@ related_files:
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
 related_tables:
   - race_plans
@@ -68,6 +69,8 @@ related_tables:
 `race_event_editions` has many `race_edition_services`. `races` has many `race_start_waves` and `race_awards`. All three foreign keys use `ON DELETE CASCADE` and have explicit indexes for parent lookups.
 
 The RLS repair changes no foreign key: service rows still belong directly to an edition, while their client-readable publication/organizer predicate reaches the edition indirectly through a format's existing `races.edition_id` relationship.
+
+The independent web/mobile visibility migration also changes no foreign key. `races.web_catalog_is_live` is a durable web publication attribute on the existing format row; `is_live`, preview state, and the existing edition relationship remain the mobile catalog contract.
 
 ## Purpose
 

@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -36,6 +36,7 @@ related_files:
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260910210621_align_organizer_format_visibility_states.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-races.test.ts
@@ -63,8 +64,9 @@ related_tables:
 - One event can have many yearly editions.
 - One edition owns one inclusive start/end date range.
 - At most one edition is current per event; legacy event-date reads and the admin event-wide switch target it, while a format-specific publication request targets the requested race's own edition.
-- Each edition has an independent catalog visibility state. Hiding one edition hides every attached course format and Racebook without hiding other years of the same event.
-- Public web discovery reads the visible edition id/event-id projection with service credentials and fails closed when an attached edition is absent, hidden, or belongs to a different event; it does not rely only on the denormalizing visibility trigger.
+- Each edition has an independent mobile catalog visibility state. Hiding one edition hides every attached mobile course format and Racebook without removing already published factual web pages.
+- Public web discovery uses `races.web_catalog_is_live` plus the parent event gate and does not consult `race_event_editions.is_visible`; the edition remains the canonical date-range source for web detail enrichment.
+- The lightweight public DTO may also read the parent event's canonical website through the same service-only, explicit-column event projection. Web catalog resolution does not query or expose edition rows to clients.
 - A format belongs to an edition through `races.edition_id`. Its `race_date` is only a format-specific start date and must remain inside the edition range.
 - `races.edition_group_id` still groups the same format series across years; it is independent from `edition_id`.
 - One permanent commercial entitlement covers every current and future format attached to the edition.
@@ -83,7 +85,7 @@ related_tables:
 | `start_date` | `date` | non-null | Canonical first day of the edition. |
 | `end_date` | `date` | non-null, not before start | Canonical last day of the edition. |
 | `is_current` | `boolean` | one true row per event at most | Edition mirrored to legacy event date fields and used by event-wide admin publication controls. |
-| `is_visible` | `boolean` | non-null, default `true` | Whether complete attached formats may remain visible in course discovery. |
+| `is_visible` | `boolean` | non-null, default `true` | Whether attached formats may remain visible in mobile course/RaceBook discovery. |
 | `module_setup_completed_at` | `timestamptz` | nullable | Completion or skip time for the module setup assistant. |
 
 `races.edition_id` is nullable only for legacy or undated rows. New organizer formats must provide it.
@@ -124,7 +126,7 @@ RLS is enabled and direct `anon` / `authenticated` privileges are revoked. Only 
 - The organizer-source March–May 2027 batch similarly clears each affected current marker before upserting the verified 2027 range for Trail du Petit Ballon, Grand Trail des Cadourques, and Volvic Volcanic Experience. The pre-existing 2026 Volvic format remains attached to its historical edition.
 - Format-specific publication readiness and first approval follow `race_event_publication_requests.race_id -> races.edition_id`, even when that edition is not current.
 - Organizer creation may make the new current edition empty, or optionally clone the selected source edition's formats into it. An empty edition remains a valid canonical date range but cannot pass publication readiness until it has a complete format.
-- Editions start visible by default. Setting `is_visible = false` forces `is_live = false` and `racebook_is_live = false` on every attached format, including later writes. Setting it true restores catalog visibility only for complete formats and deliberately leaves Racebooks hidden for explicit republication.
+- Editions start visible by default. Setting `is_visible = false` forces `is_live = false` and `racebook_is_live = false` on every attached format, including later writes, while preserving `web_catalog_is_live`. Setting it true does not republish mobile courses or Racebooks; each format must return to Public explicitly.
 - `delete_race_event_edition(uuid)` is a `SECURITY INVOKER`, service-role-only transaction boundary. It cascades the edition's formats, import sessions, and targeted publication requests, then returns the replacement edition selected by the organizer UI.
 - Project default ACLs grant function execution directly to API roles, so the follow-up repair migration explicitly revokes `anon` and `authenticated` from all three new functions; revoking only `PUBLIC` is insufficient in this project.
 - An admin-only website-import preview that falls back to supplied roadbook documents remains review-only; LLM reconciliation can recommend format matches but cannot create or update an edition. Apply requires an unexpired signed proposal snapshot and an explicit target format inside the selected edition. Those 25 MB-per-file temporary Storage objects are deleted after extraction, and an edition changes only after explicit admin confirmation.

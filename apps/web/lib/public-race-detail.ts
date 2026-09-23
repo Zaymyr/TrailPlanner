@@ -39,7 +39,6 @@ const detailEditionSchema = z.object({
   id: z.string().uuid(),
   event_id: z.string().uuid(),
   end_date: z.string(),
-  is_visible: z.boolean(),
 });
 
 const aidStationSchema = z.object({
@@ -259,7 +258,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
   try {
     const rows = await fetchServiceRows(
       config,
-      `races?id=eq.${encodeURIComponent(race.id)}&is_live=eq.true&is_public=eq.true&select=id,event_id,edition_id,elevation_loss_m,min_alt_m,max_alt_m,gpx_storage_path,participation_mode,organizer_details,racebook_is_live&limit=1`,
+      `races?id=eq.${encodeURIComponent(race.id)}&web_catalog_is_live=eq.true&is_public=eq.true&select=id,event_id,edition_id,elevation_loss_m,min_alt_m,max_alt_m,gpx_storage_path,participation_mode,organizer_details,racebook_is_live&limit=1`,
       detailRaceSchema,
     );
     const sourceRace = rows[0];
@@ -277,7 +276,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
     const editions = sourceRace.edition_id
       ? await fetchServiceRows(
           config,
-          `race_event_editions?id=eq.${encodeURIComponent(sourceRace.edition_id)}&is_visible=eq.true&select=id,event_id,end_date,is_visible&limit=1`,
+          `race_event_editions?id=eq.${encodeURIComponent(sourceRace.edition_id)}&select=id,event_id,end_date&limit=1`,
           detailEditionSchema,
         )
       : [];

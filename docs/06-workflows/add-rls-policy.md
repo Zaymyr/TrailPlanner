@@ -1,7 +1,7 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -14,10 +14,12 @@ related_files:
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_capability_grants_checks.sql
@@ -79,6 +81,7 @@ rollback;
 Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example for relationship-based policy checks. It also covers owner-scoped favorites, format/event consistency on updates, live-event visibility, and owner-only read receipts.
 Use `supabase/tests/organizer_import_sessions_checks.sql` when the intended design is a service-only table with RLS enabled, no client policy, revoked client grants, and narrowly granted invoker RPCs.
 Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping needs explicit anon/authenticated select grants, parent-visibility RLS, and service-only mutation functions.
+Use `supabase/tests/web_race_visibility_checks.sql` when a new publication column deliberately leaves client RLS unchanged; verify the server-visible state, direct-client denial for a masked row, and the application filter that must continue excluding it from mobile.
 Use `supabase/tests/organizer_edition_entitlements_checks.sql` with organizer offer route tests when a public child read depends on a service-only commercial entitlement.
 Use `supabase/tests/organizer_racebook_module_settings_checks.sql` to keep service-only publication functions restricted while verifying that trusted admins are resolved from app metadata, never user metadata, and that a service-role invoker RPC does not query `auth.users` directly.
 Use `supabase/tests/privileged_database_access_checks.sql` for global privileged-RPC grants, legacy profile-role self-promotion, and trusted admin metadata.

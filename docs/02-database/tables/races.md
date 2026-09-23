@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -28,11 +28,13 @@ related_files:
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/privileged_database_access_checks.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/races/route.test.ts
   - apps/mobile/components/RaceSelector.tsx
@@ -63,8 +65,9 @@ related_tables:
 ## Key Concepts
 
 - Format row: one distance/course under a parent `race_events` event.
+- Registration source: public catalog actions prefer the parent event's canonical `race_events.website_url`; a standalone format may fall back to its HTTP(S) `external_site_url`.
 - Edition membership: `edition_id` identifies the yearly event edition; `edition_group_id` groups the same format across years.
-- Catalog visibility: `is_live` and `is_public` retain the published course/RaceBook state. Organizer-private formats deliberately keep `is_live = false`, but a preview-selected row under a visible event/edition remains discoverable by runners for plan creation.
+- Visibility contracts: `web_catalog_is_live` plus `is_public` controls web catalog/SEO pages; `is_live`, `racebook_preview_is_visible`, and edition visibility control mobile course discovery; `racebook_is_live` protects the runner RaceBook content.
 - Organizer visibility is a three-state contract: masked = course/preview/RaceBook false, private = course false/preview true/RaceBook false, and public = all three true. Public publication requires an active paid or complimentary edition offer.
 - Import completeness: `data_status` and `missing_required_fields` distinguish incomplete formats from real zero values.
 
@@ -83,6 +86,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 | altitude/start/bounds columns | nullable numeric | GPX-derived geographic summary. |
 | `organizer_details` | nullable `jsonb` | Progressive format schedule, logistics, equipment override, and notes. |
 | `is_live`, `is_public` | boolean | Course catalog state. |
+| `web_catalog_is_live` | boolean | Durable web catalog/SEO visibility. First public mobile publication promotes it; later mobile hiding preserves it, while `is_public = false` clears it. |
 | `racebook_preview_is_visible` | boolean | Mobile course-catalog inclusion for a non-live organizer format and organizer RaceBook preview selection; false masks it and excludes it from edition publication. |
 | `racebook_is_live`, approval columns | boolean/timestamps/FK | Runner Racebook state and trusted approval provenance. |
 | `participation_mode` | nullable text | `solo`, `relay`, or `solo_and_relay`; null means an unconfirmed historical format. |
@@ -137,7 +141,7 @@ An authenticated non-admin may insert, update, or delete only a standalone race 
 - The organizer-source March–May 2027 batch publishes 15 additional formats across Rouffach, Cahors, and Volvic. Exact dates, locations, distances, and source URLs come from organizer pages; D+ stays null for Volvic formats whose 2027 elevation is not yet published. The existing 2026 XGTV format retains its measured metrics and receives only its verified route label/source fallback.
 - The normalized-geography migration refreshes eleven Search Console-priority `location`/`location_text` labels with source-backed city, route endpoint and administrative-area wording. Exact region/department filters belong to the parent `race_events` normalized fields rather than parsed format text.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
-- Public catalog, slug, and SEO detail reads revalidate `is_live = true` and `is_public = true`; attached events and editions must also remain visible, and an attached edition must belong to the same event. Service credentials are required before reading edition visibility, `organizer_details`, ravitos, or private `gpx_storage_path`. Catalog, sitemap, detail, and GPX preview share a 15-minute revalidation window. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
+- Web catalog, slug, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail, and GPX preview share a 15-minute revalidation window. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 
 ## Common Queries
@@ -157,7 +161,7 @@ Select publishable course formats:
 ```sql
 select id, name, distance_km, elevation_gain_m
 from public.races
-where is_live = true
+where web_catalog_is_live = true
   and is_public = true
   and data_status = 'complete';
 ```
