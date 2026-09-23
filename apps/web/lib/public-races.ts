@@ -2,7 +2,7 @@ import "server-only";
 
 import { z } from "zod";
 
-import { getSupabaseAnonConfig, getSupabaseServiceConfig } from "./supabase";
+import { getSupabaseServiceConfig } from "./supabase";
 
 const raceSchema = z.object({
   id: z.string().uuid(),
@@ -33,11 +33,6 @@ const eventSchema = z.object({
   updated_at: z.string().nullable().optional(),
 });
 
-const editionSchema = z.object({
-  id: z.string().uuid(),
-  event_id: z.string().uuid(),
-});
-
 const raceSlugRedirectSchema = z.object({
   race_id: z.string().uuid(),
 });
@@ -51,6 +46,10 @@ export type PublicRace = {
   eventName: string | null;
   date: string | null;
   location: string | null;
+  locationCity: string | null;
+  locationDepartment: string | null;
+  locationRegion: string | null;
+  locationCountry: string | null;
   searchTerms: string[];
   distanceKm: number | null;
   elevationGainM: number | null;
@@ -98,14 +97,14 @@ const eventSelect = [
 ].join(",");
 
 const fetchPublicRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T[]> => {
-  const config = getSupabaseAnonConfig();
+  const config = getSupabaseServiceConfig();
   if (!config) return [];
 
   try {
     const response = await fetch(`${config.supabaseUrl}/rest/v1/${path}`, {
       headers: {
-        apikey: config.supabaseAnonKey,
-        Authorization: `Bearer ${config.supabaseAnonKey}`,
+        apikey: config.supabaseServiceRoleKey,
+        Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
       },
       next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
     });
@@ -128,42 +127,6 @@ const fetchPublicRows = async <T>(path: string, schema: z.ZodType<T>): Promise<T
   }
 };
 
-const fetchVisibleEditionRows = async (editionId?: string): Promise<z.infer<typeof editionSchema>[]> => {
-  const config = getSupabaseServiceConfig();
-  if (!config) return [];
-
-  try {
-    const response = await fetch(
-      `${config.supabaseUrl}/rest/v1/race_event_editions?select=id,event_id&is_visible=eq.true${
-        editionId ? `&id=eq.${encodeURIComponent(editionId)}&limit=1` : ""
-      }`,
-      {
-        headers: {
-          apikey: config.supabaseServiceRoleKey,
-          Authorization: `Bearer ${config.supabaseServiceRoleKey}`,
-        },
-        next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
-      },
-    );
-
-    if (!response.ok) {
-      console.error("Unable to load visible race editions", response.status, await response.text());
-      return [];
-    }
-
-    const parsed = z.array(editionSchema).safeParse(await response.json());
-    if (!parsed.success) {
-      console.error("Unable to parse visible race editions", parsed.error.flatten());
-      return [];
-    }
-
-    return parsed.data;
-  } catch (error) {
-    console.error("Unexpected error while loading visible race editions", error);
-    return [];
-  }
-};
-
 const toPublicRace = (
   race: z.infer<typeof raceSchema>,
   event: z.infer<typeof eventSchema> | undefined,
@@ -176,6 +139,10 @@ const toPublicRace = (
   eventName: event?.name ?? null,
   date: race.race_date ?? event?.race_date ?? null,
   location: race.location_text ?? race.location ?? event?.location ?? null,
+  locationCity: event?.location_city ?? null,
+  locationDepartment: event?.location_department ?? null,
+  locationRegion: event?.location_region ?? null,
+  locationCountry: event?.location_country ?? null,
   searchTerms: Array.from(
     new Set(
       [
@@ -202,31 +169,24 @@ const toPublicRace = (
 });
 
 export async function getPublicRaces(): Promise<PublicRace[]> {
-  const [races, events, visibleEditions] = await Promise.all([
+  const [races, events] = await Promise.all([
     fetchPublicRows(
-      `races?select=${raceSelect}&is_live=eq.true&is_public=eq.true&order=race_date.asc.nullslast,name.asc`,
+      `races?select=${raceSelect}&web_catalog_is_live=eq.true&is_public=eq.true&order=race_date.asc.nullslast,name.asc`,
       raceSchema,
     ),
     fetchPublicRows(`race_events?select=${eventSelect}&is_live=eq.true`, eventSchema),
-    fetchVisibleEditionRows(),
   ]);
   const eventsById = new Map(events.map((event) => [event.id, event]));
-  const visibleEditionsById = new Map(visibleEditions.map((edition) => [edition.id, edition]));
 
   return races
     .filter((race) => !race.event_id || eventsById.has(race.event_id))
-    .filter((race) => {
-      if (!race.edition_id) return true;
-      const edition = visibleEditionsById.get(race.edition_id);
-      return Boolean(edition && edition.event_id === race.event_id);
-    })
     .map((race) => toPublicRace(race, race.event_id ? eventsById.get(race.event_id) : undefined));
 }
 
 export async function getPublicRace(slug: string): Promise<PublicRace | null> {
   const encodedSlug = encodeURIComponent(slug);
   const races = await fetchPublicRows(
-    `races?select=${raceSelect}&slug=eq.${encodedSlug}&is_live=eq.true&is_public=eq.true&limit=1`,
+    `races?select=${raceSelect}&slug=eq.${encodedSlug}&web_catalog_is_live=eq.true&is_public=eq.true&limit=1`,
     raceSchema,
   );
   return loadPublicRace(races[0]);
@@ -248,12 +208,6 @@ const loadPublicRace = async (
   // because its own flags are still live.
   if (race.event_id && !events[0]) return null;
 
-  if (race.edition_id) {
-    const visibleEditions = await fetchVisibleEditionRows(race.edition_id);
-    const edition = visibleEditions[0];
-    if (!edition || edition.event_id !== race.event_id) return null;
-  }
-
   return toPublicRace(race, events[0]);
 };
 
@@ -270,7 +224,7 @@ export async function resolvePublicRaceSlug(slug: string): Promise<PublicRaceSlu
   if (!redirect) return null;
 
   const races = await fetchPublicRows(
-    `races?select=${raceSelect}&id=eq.${encodeURIComponent(redirect.race_id)}&is_live=eq.true&is_public=eq.true&limit=1`,
+    `races?select=${raceSelect}&id=eq.${encodeURIComponent(redirect.race_id)}&web_catalog_is_live=eq.true&is_public=eq.true&limit=1`,
     raceSchema,
   );
   const canonicalRace = await loadPublicRace(races[0]);

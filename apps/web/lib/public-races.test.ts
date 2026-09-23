@@ -25,7 +25,6 @@ const jsonResponse = (body: unknown) =>
 describe("public race slug resolution", () => {
   beforeEach(() => {
     vi.stubEnv("SUPABASE_URL", "https://example.supabase.co");
-    vi.stubEnv("SUPABASE_ANON_KEY", "anon-key");
     vi.stubEnv("SUPABASE_SERVICE_ROLE_KEY", "service-key");
   });
 
@@ -38,7 +37,6 @@ describe("public race slug resolution", () => {
     const visibleEventId = "22222222-2222-4222-8222-222222222222";
     const hiddenEventId = "33333333-3333-4333-8333-333333333333";
     const fetchMock = vi.fn().mockImplementation((url: string) => {
-      if (url.includes("race_event_editions?")) return jsonResponse([]);
       if (url.includes("race_events?")) {
         return jsonResponse([
           {
@@ -71,19 +69,21 @@ describe("public race slug resolution", () => {
         raceThumbnailUrl: null,
         eventThumbnailUrl: "https://images.example/event.png",
         thumbnailUrl: "https://images.example/event.png",
+        locationCity: "Annecy",
+        locationDepartment: "Haute-Savoie",
+        locationRegion: "Auvergne-Rhône-Alpes",
+        locationCountry: "France",
         searchTerms: ["Annecy", "Haute-Savoie", "Auvergne-Rhône-Alpes", "France"],
       }),
     ]);
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("web_catalog_is_live=eq.true");
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("race_event_editions?"))).toBe(false);
   });
 
-  it("excludes a live race whose edition is hidden and uses one cache contract", async () => {
+  it("keeps web courses when their edition is hidden from the mobile catalogue", async () => {
     const eventId = "22222222-2222-4222-8222-222222222222";
-    const visibleEditionId = "33333333-3333-4333-8333-333333333333";
     const hiddenEditionId = "44444444-4444-4444-8444-444444444444";
     const fetchMock = vi.fn().mockImplementation((url: string) => {
-      if (url.includes("race_event_editions?")) {
-        return jsonResponse([{ id: visibleEditionId, event_id: eventId }]);
-      }
       if (url.includes("race_events?")) {
         return jsonResponse([{
           id: eventId,
@@ -94,24 +94,22 @@ describe("public race slug resolution", () => {
         }]);
       }
       return jsonResponse([
-        { ...race, event_id: eventId, edition_id: visibleEditionId, slug: "edition-visible" },
         { ...race, id: "55555555-5555-4555-8555-555555555555", event_id: eventId, edition_id: hiddenEditionId, slug: "edition-cachee" },
       ]);
     });
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(getPublicRaces()).resolves.toEqual([
-      expect.objectContaining({ slug: "edition-visible", editionId: visibleEditionId }),
+      expect.objectContaining({ slug: "edition-cachee", editionId: hiddenEditionId }),
     ]);
-    const editionCall = fetchMock.mock.calls.find(([url]) => String(url).includes("race_event_editions?"));
-    expect(editionCall?.[0]).toContain("is_visible=eq.true");
-    expect(editionCall?.[1]).toEqual(expect.objectContaining({
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("web_catalog_is_live=eq.true");
+    expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
     }));
-    expect(editionCall?.[1]?.headers).toEqual(expect.objectContaining({ apikey: "service-key" }));
+    expect(fetchMock.mock.calls[0]?.[1]?.headers).toEqual(expect.objectContaining({ apikey: "service-key" }));
   });
 
-  it("rejects a canonical race attached to an invisible edition", async () => {
+  it("keeps a canonical web race without consulting mobile edition visibility", async () => {
     const eventRace = {
       ...race,
       event_id: "22222222-2222-4222-8222-222222222222",
@@ -125,14 +123,15 @@ describe("public race slug resolution", () => {
         location: "Annecy",
         race_date: "2026-09-12",
         thumbnail_url: null,
-      }]))
-      .mockResolvedValueOnce(jsonResponse([]))
-      .mockResolvedValueOnce(jsonResponse([]));
+      }]));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(resolvePublicRaceSlug(eventRace.slug)).resolves.toBeNull();
-    expect(fetchMock.mock.calls[2]?.[0]).toContain("is_visible=eq.true");
-    expect(fetchMock.mock.calls[2]?.[0]).toContain(`id=eq.${eventRace.edition_id}`);
+    await expect(resolvePublicRaceSlug(eventRace.slug)).resolves.toEqual({
+      race: expect.objectContaining({ slug: eventRace.slug }),
+      shouldRedirect: false,
+    });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.some(([url]) => String(url).includes("race_event_editions?"))).toBe(false);
   });
 
   it("keeps a canonical public slug without consulting redirects", async () => {
@@ -147,7 +146,7 @@ describe("public race slug resolution", () => {
     expect(fetchMock.mock.calls[0]?.[0]).toContain("slug=eq.trail-canonique");
   });
 
-  it("resolves an old slug to its canonical live public race", async () => {
+  it("resolves an old slug to its canonical web-public race", async () => {
     const fetchMock = vi
       .fn()
       .mockResolvedValueOnce(jsonResponse([]))
@@ -160,7 +159,7 @@ describe("public race slug resolution", () => {
       shouldRedirect: true,
     });
     expect(fetchMock.mock.calls[1]?.[0]).toContain("race_slug_redirects?select=race_id&old_slug=eq.ancien-trail");
-    expect(fetchMock.mock.calls[2]?.[0]).toContain(`id=eq.${race.id}&is_live=eq.true&is_public=eq.true`);
+    expect(fetchMock.mock.calls[2]?.[0]).toContain(`id=eq.${race.id}&web_catalog_is_live=eq.true&is_public=eq.true`);
   });
 
   it("preserves not-found behavior when the mapped race is no longer public", async () => {

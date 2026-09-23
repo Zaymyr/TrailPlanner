@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
@@ -13,6 +13,8 @@ related_files:
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - docs/02-database/schema-overview.md
   - docs/02-database/rls-policies.md
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -36,7 +38,7 @@ For column-only migrations on existing tables, use the relevant table doc plus [
 
 Data-only catalog/showcase/roadbook migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document any external Storage assets, and update the migration documentation. The Les Amaz’Eaunes 2026 final-roadbook synchronization is the current data-correction example and adds no table.
 
-A policy-only migration is outside this workflow too. For example, the visible-course-catalog helper added by `20260911114106_expose_private_formats_in_visible_catalog.sql` changes `races` read eligibility without introducing a table; follow the RLS workflow and update the existing table documentation instead.
+A column-and-trigger migration on an existing table is outside this workflow too. For example, `20260923070437_separate_web_and_mobile_race_visibility.sql` adds a `races` visibility column while deliberately preserving existing client policies; verify that RLS decision, update the existing table documentation, and add a focused rollback SQL check instead.
 
 A function-only authorization repair, such as `20260911120508_fix_single_format_publication_admin_check.sql`, also belongs to the RLS workflow rather than this table workflow.
 

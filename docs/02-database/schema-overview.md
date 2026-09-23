@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -26,6 +26,7 @@ related_files:
   - supabase/migrations/20260911091935_fix_bulk_organizer_racebook_publication.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
   - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
@@ -47,6 +48,7 @@ related_files:
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
@@ -128,6 +130,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Event edition request: retired audit row from the former yearly-edition review workflow.
 - Event publication request: retained legacy audit row from the former admin-approval workflow; current paid publication does not enqueue a request.
 - Organizer format visibility: masked stores course/preview/RaceBook false; private stores course false, preview true, and RaceBook false; public stores all three true. Mobile removes masked rows from the application, exposes private rows to every runner for plan creation when the parent event/edition is visible, and gives only active organizers their dimmed functional RaceBook preview. Both the format-scoped and bulk service-only publication actions restore public state atomically under an active Essential, Complete or Signature entitlement. Format publication accepts an active event organizer or trusted app-metadata admin; its private boolean helper performs the Auth app-metadata lookup without granting `service_role` direct `auth.users` reads. Bulk publication selects complete public-source preview formats without requiring them to be live already. First publication stores durable provenance in `racebook_publication_approved_at` / `racebook_publication_approved_by`.
+- Web course visibility: first public/mobile publication promotes `races.web_catalog_is_live`; later mobile private/masked or edition-hidden transitions preserve it so indexed factual pages remain stable. `is_public = false` clears it. Server-only explicit-column web reads use that branch without broadening client `races_select` or redirect policies.
 - Organizer details: nullable JSONB on `race_events`, `races`, and `race_aid_stations` for progressive dashboard fields managed through organizer service routes.
 - Normalized event geography: nullable city/department/region/country names and stable codes plus a paired anchor coordinate on `race_events`; all 96 current live events have a verified country, the 46 French events have full commune-level geography, and free-text format routes remain in `races.location_text`.
 - Racebook showcase fixture: the public `Trail TST` 2026 event exercises event/format organizer details, ravitos, official product suggestions, GPX map/profile assets, and mixed solo/relay presentation without adding schema; the TST 82 keeps its schedule times but omits fictional free-text course constraints.
@@ -169,7 +172,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_event_update_reads` | Owner-scoped receipts recording which organizer announcements a runner has seen. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension and explicit normalized geography supports future catalog filters. |
-| `race_event_editions` | Canonical yearly start/end date ranges and catalog visibility for organizer events, with one current edition per event. |
+| `race_event_editions` | Canonical yearly start/end date ranges and mobile catalog visibility for organizer events, with one current edition per event. |
 | `race_event_edition_sponsors` | Ordered edition-scoped RaceBook loading/banner sponsors and aggregate redirect counts. |
 | `race_event_edition_branding` | Edition-scoped RaceBook identity with separate organizer draft and runner-visible published values. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
@@ -294,7 +297,7 @@ erDiagram
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.
 - Every `races` insertion path, including standalone private races and admin catalog imports, must initialize the required `edition_group_id` / `series_name` pair; for a new standalone series these default to the new race id and race name.
 - Dated event formats cannot remain orphaned from `race_event_editions`: an idempotent backfill repairs existing rows and an invoker trigger atomically assigns future service-side inserts that omit `edition_id`.
-- Edition visibility is a parent invariant: a hidden edition forces all attached formats and Racebooks hidden. Confirmed edition deletion cascades its formats while saved plans retain snapshots with a null source link.
+- Edition visibility is a mobile parent invariant: a hidden edition forces attached mobile course and RaceBook flags off but preserves durable web visibility. Confirmed edition deletion still cascades its formats while saved plans retain snapshots with a null source link.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
 - Organizer yearly editions may be created manually without payment; cloning is a Pro capability. Historical publication requests remain audit data, while a paid/admin edition entitlement authorizes RaceBook publication directly.
 - Do not conflate runner catalog state with the organizer's mobile view. Ordinary discovery still requires live event/course rows; the membership-bounded organizer companion read deliberately ignores those runner-facing filters and never mutates them. Masked/private/public format state remains false/false/false, false/true/false, or true/true/true for course live / preview / RaceBook live.

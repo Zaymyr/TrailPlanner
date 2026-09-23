@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
@@ -64,6 +64,8 @@ related_files:
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
 related_tables:
@@ -390,7 +392,13 @@ The aggregate migration adds no table or client-facing policy. App routes must a
 
 `supabase/migrations/20260828161008_add_race_slug_redirects.sql` adds the durable `race_slug_redirects` mapping, a parent-visibility-gated public select policy, and explicit Data API grants. Its invoker-security trigger reserves every former slug during a race rename and rejects reuse on insert/update; the service-role-only `rename_race_slug(uuid, text)` RPC performs reviewed renames atomically.
 
-`supabase/tests/race_slug_redirects_checks.sql` is the rollback-only manual verification for grants, RLS, invoker security, repeated renames, anon visibility, hidden targets, and reserved-slug rejection. This change does not apply the migration or rename catalog rows automatically.
+`supabase/tests/race_slug_redirects_checks.sql` is the rollback-only manual verification for grants, RLS, invoker security, repeated renames, web visibility, non-public targets, and reserved-slug rejection. This change does not apply the migration or rename catalog rows automatically.
+
+### Independent Web and Mobile Course Visibility
+
+`supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql` adds the durable `races.web_catalog_is_live` flag. It backfills current public/mobile courses and previously approved organizer publications, promotes future public mobile publications through an invoker trigger, preserves web visibility when mobile format or edition state is hidden, and clears it whenever `is_public` becomes false. It deliberately leaves client RLS unchanged; server-rendered web loaders use service role with explicit safe columns. A partial `(race_date, name)` index supports the web catalog order.
+
+`supabase/tests/web_race_visibility_checks.sql` verifies the column default, trigger security and execute revocations, service visibility for a web-public/mobile-hidden row, continued client denial for a masked row, the `is_live` mobile filter, and non-public clearing.
 
 ### Plan Recap Sharing
 

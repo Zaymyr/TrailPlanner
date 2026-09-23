@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -25,9 +25,11 @@ related_files:
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260910083131_correct_translantau_country_code.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - apps/web/app/api/race-catalog/route.ts
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
@@ -104,7 +106,7 @@ related_tables:
 - Event favorite target: runners follow the whole event, not an individual race format.
 - Organizer announcement source: manual `race_event_updates` rows can concern the whole event or one child format and are pushed to event followers.
 - Mobile Racebook contract: the mobile Courses tab reads `organizer_details`, `races.racebook_preview_is_visible`, and `races.racebook_is_live`. Ordinary runners require a live format plus RaceBook publication. Active `race_event_organizers` membership keeps managed private formats in Courses, grants an unpublished preview only when preview selection is true, and dims that private RaceBook action. Masked formats are removed from the mobile catalog for every role.
-- Public web catalog contract: `/courses` reads only explicit safe columns from live public race formats and their live parent events through the anon Data API, then validates every attached edition against a service-side projection of visible edition id/event pairs. Missing, hidden, or event-mismatched editions fail closed; legacy formats without an edition remain supported. Its server search projection includes public format/event locations plus normalized city, department, region, and country names, but excludes codes, coordinates, organizer JSON, and operational fields; each response serializes at most 12 grouped event editions plus any formats inside those groups. The richer server-only detail read rechecks race/event/edition visibility before loading organizer JSON or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, reserves a distance/year suffix, preserves the distinguishing end of long format names, and uses the shared social image only when neither format nor event supplies one.
+- Public web catalog contract: `/courses` uses a server-only service read with explicit safe columns from `web_catalog_is_live` public race formats and their live parent events. Mobile edition visibility does not remove already published web formats, and the service boundary avoids exposing masked rows through direct client RLS. Its server search projection includes public format/event locations plus normalized city, department, region, and country names, but excludes codes, coordinates, organizer JSON, and operational fields; each response serializes at most 12 grouped event editions plus any formats inside those groups. The richer server-only detail read repeats the web race/event gates before loading organizer JSON, canonical edition dates, or private GPX, then returns only allowlisted runner-facing values. Its metadata helper limits titles to 60 characters and descriptions to 160, reserves a distance/year suffix, preserves the distinguishing end of long format names, and uses the shared social image only when neither format nor event supplies one.
 - Public web grouping: `/courses` groups current formats by stable `races.event_id + races.edition_id`, with an `event_id` fallback only for historical rows without an edition; event names are presentation labels and never grouping keys.
 - Curated SEO seeds create or refresh a canonical visible edition per verified upcoming event, publish only source-backed formats, and may enrich existing event rows without duplicating their formats.
 - The second curated batch adds four verified event identities, refreshes the existing Foulée des Ducs edition, and enriches Nice UTMB and Terres de Saône event provenance while preserving existing format metrics.
@@ -167,7 +169,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Geographic catalog filtering must use the explicit normalized columns. The plain `location` label remains display text and `organizer_details.eventLocation` remains runner-navigation metadata.
 - Latitude/longitude identify an event anchor city, not every point crossed by a route. Multi-city formats keep their sourced departure-arrival wording in `races.location_text`.
 - Changing `race_events.location` without updating the normalized geography in the same statement clears all normalized fields through `clear_stale_race_event_geography()`, preventing stale regional filters.
-- Public web pages must require `races.is_live = true` and `races.is_public = true`; related event enrichment must also require `race_events.is_live = true`.
+- Public web pages must require `races.web_catalog_is_live = true` and `races.is_public = true`; related event enrichment must also require `race_events.is_live = true`. `races.is_live` remains the mobile course-publication flag.
 - Public web details deliberately exclude `organizer_details.emergencyContact`, `services.lastMinuteMessage`, and both raw organizer JSON objects even though the mobile Racebook contract may expose emergency calling.
 - Former course slugs use the same rule: `race_slug_redirects` is readable and the canonical race is returned only while the optional parent event remains live.
 - Event rows can also be created by `POST /api/organizer/events`; those rows are inserted with `is_live = true`, then linked to their creator through an active owner membership. Their Racebooks stay separately hidden.

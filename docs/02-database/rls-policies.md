@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -26,6 +26,7 @@ related_files:
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
@@ -45,6 +46,7 @@ related_files:
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - apps/web/lib/supabase.ts
   - apps/web/lib/http.ts
   - apps/web/app/api/plan-shares/route.ts
@@ -163,6 +165,7 @@ Re-sharing uses the same owner policy shape: the route verifies bearer-token ide
 Declared through old `race_catalog` policies and renamed/refined in `20260324000000_refactor_race_catalog_to_races.sql`.
 
 - Public-source races are readable by everyone while `is_live = true`; a preview-selected private format is also readable when its parent event and optional edition are visible, so runners can discover the event and create a plan without receiving a RaceBook.
+- Web-only source races are intentionally not added to the client policy. The server-rendered catalog uses a service-only explicit-column read for `web_catalog_is_live = true` and `is_public = true`; direct mobile/client queries keep their existing `is_live`/preview contract and cannot read a masked row merely because its factual web page persists.
 - Private races are readable by their creator.
 - Non-live organizer formats with `racebook_preview_is_visible = true` are readable by runners only under a visible parent event/edition. Masked rows remain limited to their creator, an active parent-event organizer, or a trusted admin.
 - Admins can manage catalog races.
@@ -342,7 +345,7 @@ Declared in `20260504120000_add_push_notifications.sql`.
 
 ### Other Tables
 
-- `race_slug_redirects`: `anon` and `authenticated` can select only mappings whose target race is live/public and whose optional parent event is live. All mutations and the invoker-security rename RPC are service-role-only.
+- `race_slug_redirects`: `anon` and `authenticated` keep the historical live/public parent gate. The server-rendered web resolver uses service role and revalidates the current target against `web_catalog_is_live`, `is_public`, and optional parent-event liveness. All mutations and the invoker-security rename RPC are service-role-only.
 - `affiliate_offers`: service role manages; authenticated users read active offers attached to live products.
 - `app_feedback`: authenticated users can insert after later migration.
 - `app_changelog`: authenticated users can view.
@@ -416,6 +419,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Import sessions deliberately have no authenticated policy. Keep both JSON RPCs invoker-security and service-role-only; route-level admin validation does not justify direct browser grants.
 - The cleanup cron must call the protected web route so Storage objects are removed before session rows. Never grant a database cleanup function direct delete access to `storage.objects`.
 - Public slug resolution needs both a table `SELECT` grant and the parent-gated RLS policy. Never grant client mutation or RPC execution, and never rely on a redirect row alone to expose a hidden course.
+- `sync_race_web_catalog_visibility` is an invoker trigger with fixed empty search path and no client execution. It promotes public live rows, preserves the web flag during mobile hiding, and forces it false with `is_public = false`; it adds no client RLS branch.
 - RaceBook sponsor presentation and redirects must remain server-mediated. Do not grant public table reads merely because logos and names eventually appear on a live RaceBook.
 - Parent-locked Organizer RPCs preserve atomicity, not authorization. Keep every route-level membership and capability check before invoking them and never grant their execution to browser roles.
 - Generated organizer invoice issuance stays behind `service_role`: neither `issue_admin_organizer_invoice` nor the atomic `record_admin_organizer_bank_transfer_invoice` wrapper is executable by `anon` or `authenticated`.

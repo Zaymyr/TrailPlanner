@@ -14,6 +14,10 @@ const baseRace: PublicRace = {
   eventName: "Festival public",
   date: "2026-09-12",
   location: "Annecy",
+  locationCity: "Annecy",
+  locationDepartment: "Haute-Savoie",
+  locationRegion: "Auvergne-Rhône-Alpes",
+  locationCountry: "France",
   searchTerms: ["Annecy", "Haute-Savoie", "Auvergne-Rhône-Alpes", "France"],
   distanceKm: 42,
   elevationGainM: 2100,
@@ -75,7 +79,6 @@ describe("public race detail", () => {
           id: baseRace.editionId,
           event_id: baseRace.eventId,
           end_date: "2026-09-13",
-          is_visible: true,
         }]);
       }
       if (url.includes("/rest/v1/organizer_racebook_module_settings?")) {
@@ -123,7 +126,8 @@ describe("public race detail", () => {
     expect(detail?.practical.services.supporters).toBe("Zone supporters");
     expect(JSON.stringify(detail)).not.toContain("0612345678");
     expect(JSON.stringify(detail)).not.toContain("message privé");
-    expect(fetchMock.mock.calls[0]?.[0]).toContain("is_live=eq.true&is_public=eq.true");
+    expect(fetchMock.mock.calls[0]?.[0]).toContain("web_catalog_is_live=eq.true&is_public=eq.true");
+    expect(fetchMock.mock.calls.find(([url]) => String(url).includes("race_event_editions?"))?.[0]).not.toContain("is_visible=eq.true");
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
     }));
@@ -162,7 +166,6 @@ describe("public race detail", () => {
         id: baseRace.editionId,
         event_id: baseRace.eventId,
         end_date: "2026-09-13",
-        is_visible: true,
       }]);
       if (url.includes("/rest/v1/organizer_racebook_module_settings?")) return jsonResponse([{
         id: "55555555-5555-4555-8555-555555555553",
