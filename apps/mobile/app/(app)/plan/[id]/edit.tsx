@@ -132,8 +132,17 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
   };
 }
 
-function serializePlanValues(values: PlanFormValues): string {
-  return createPlanPersistenceSnapshot(values);
+function serializePlanValues(values: PlanFormValues, elevationProfile: readonly ElevationPoint[]): string {
+  return createPlanPersistenceSnapshot(values, elevationProfile);
+}
+
+function getUnsavedPlanEditDraft(planId: string) {
+  const draft = getPlanEditDraft(planId);
+  if (!draft) return null;
+
+  return serializePlanValues(draft.values, draft.elevationProfile) === draft.lastSavedSnapshot
+    ? null
+    : draft;
 }
 
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
@@ -156,13 +165,9 @@ export default function EditPlanScreen() {
   const { id, showHelp } = useLocalSearchParams<{ id: string; showHelp?: string }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { locale, t } = useI18n();
-  const initialWarmStartDraft = id ? getPlanEditDraft(id) : null;
+  const initialWarmStartDraft = id ? getUnsavedPlanEditDraft(id) : null;
   const initialWarmStartProductData = id ? getPlanEditProductsBootstrap(id) : null;
   const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
-  const initialWarmStartIsSaved = Boolean(
-    initialWarmStartDraft &&
-      serializePlanValues(initialWarmStartDraft.values) === initialWarmStartDraft.lastSavedSnapshot,
-  );
   const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
     () => [
       {
@@ -227,11 +232,11 @@ export default function EditPlanScreen() {
   const [loading, setLoading] = useState(() => !hasInitialWarmStart);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>(
-    initialWarmStartIsSaved ? 'saved' : 'idle',
-  );
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [draftSnapshot, setDraftSnapshot] = useState<string | null>(() =>
-    initialWarmStartDraft ? serializePlanValues(initialWarmStartDraft.values) : null,
+    initialWarmStartDraft
+      ? serializePlanValues(initialWarmStartDraft.values, initialWarmStartDraft.elevationProfile)
+      : null,
   );
   const [planProductData, setPlanProductData] = useState<PlanProductsBootstrap | null>(
     () => initialWarmStartProductData ?? null,
@@ -270,7 +275,25 @@ export default function EditPlanScreen() {
 
   useEffect(() => {
     elevationProfileRef.current = elevationProfile;
-  }, [elevationProfile]);
+    const currentDraft = latestDraftRef.current;
+    if (!currentDraft) return;
+
+    const nextSnapshot = serializePlanValues(currentDraft, elevationProfile);
+    setDraftSnapshot(nextSnapshot);
+
+    if (!id) return;
+    if (nextSnapshot === lastSavedSnapshotRef.current) {
+      clearPlanEditDraft(id);
+      return;
+    }
+
+    setPlanEditDraft(id, {
+      elevationProfile,
+      lastSavedSnapshot: lastSavedSnapshotRef.current,
+      planName: currentDraft.name || planName,
+      values: currentDraft,
+    });
+  }, [elevationProfile, id, planName]);
 
   useEffect(() => {
     const shouldAutoOpenHelp =
@@ -306,7 +329,7 @@ export default function EditPlanScreen() {
   useEffect(() => {
     if (!id) return;
 
-    const cachedDraft = getPlanEditDraft(id);
+    const cachedDraft = getUnsavedPlanEditDraft(id);
     const cachedProductData = getPlanEditProductsBootstrap(id);
 
     activeRouteIdRef.current = id;
@@ -318,11 +341,7 @@ export default function EditPlanScreen() {
     activeSavePromiseRef.current = null;
     setError(null);
     setSaving(false);
-    setSaveStatus(
-      cachedDraft && serializePlanValues(cachedDraft.values) === cachedDraft.lastSavedSnapshot
-        ? 'saved'
-        : 'idle',
-    );
+    setSaveStatus('idle');
     setActivePlanEditSession(id);
 
     if (cachedDraft && cachedProductData) {
@@ -337,7 +356,7 @@ export default function EditPlanScreen() {
       setLoadingPlanNameId(id);
       setLoadingProgress(1);
       setLoading(false);
-      setDraftSnapshot(serializePlanValues(cachedDraft.values));
+      setDraftSnapshot(serializePlanValues(cachedDraft.values, cachedDraft.elevationProfile));
       setPlanProductData(cachedProductData);
       setElevationProfile(cachedDraft.elevationProfile);
       clearPlanEditProductsBootstrap(id);
@@ -395,7 +414,7 @@ export default function EditPlanScreen() {
       return;
     }
 
-    const cachedDraft = getPlanEditDraft(id);
+    const cachedDraft = getUnsavedPlanEditDraft(id);
     const sessionData = await supabase.auth.getSession();
     if (isStaleLoad()) return;
 
@@ -411,7 +430,7 @@ export default function EditPlanScreen() {
       setElevationProfile(cachedDraft.elevationProfile);
       latestDraftRef.current = cachedDraft.values;
       lastSavedSnapshotRef.current = cachedDraft.lastSavedSnapshot;
-      setDraftSnapshot(serializePlanValues(cachedDraft.values));
+      setDraftSnapshot(serializePlanValues(cachedDraft.values, cachedDraft.elevationProfile));
     } else {
       setLoadingProgress(0.38);
       const planResult = await supabase
@@ -454,8 +473,8 @@ export default function EditPlanScreen() {
         setInitialValues(nextValues);
         setElevationProfile(nextElevationProfile);
         latestDraftRef.current = nextValues;
-        lastSavedSnapshotRef.current = serializePlanValues(nextValues);
-        setDraftSnapshot(serializePlanValues(nextValues));
+        lastSavedSnapshotRef.current = serializePlanValues(nextValues, storedPlanElevationProfile);
+        setDraftSnapshot(serializePlanValues(nextValues, nextElevationProfile));
       }
     }
 
@@ -471,7 +490,8 @@ export default function EditPlanScreen() {
     setLoading(false);
     const currentDraft = latestDraftRef.current;
     setSaveStatus(
-      currentDraft && serializePlanValues(currentDraft) === lastSavedSnapshotRef.current
+      currentDraft &&
+        serializePlanValues(currentDraft, elevationProfileRef.current) === lastSavedSnapshotRef.current
         ? 'saved'
         : 'idle',
     );
@@ -485,12 +505,12 @@ export default function EditPlanScreen() {
       isSavingRef.current = true;
       setSaveStatus('saving');
       if (!silent) setSaving(true);
-      const savedSnapshot = serializePlanValues(values);
+      const savedSnapshot = serializePlanValues(values, elevationProfileRef.current);
       const normalizedValues = normalizePlanValuesForPersistence(values);
       const plannerValues = buildPersistedPlannerValues(normalizedValues);
 
       const savePromise = (async () => {
-        const { error: err } = await supabase
+        const { data: updatedPlan, error: err } = await supabase
           .from('race_plans')
           .update({
             name: normalizedValues.name,
@@ -498,13 +518,17 @@ export default function EditPlanScreen() {
             elevation_profile: elevationProfileRef.current,
             updated_at: new Date().toISOString(),
           })
-          .eq('id', id);
+          .eq('id', id)
+          .select('id')
+          .maybeSingle();
 
-        if (!err) {
+        if (!err && updatedPlan?.id === id) {
           lastSavedSnapshotRef.current = savedSnapshot;
 
           const latestDraft = latestDraftRef.current;
-          const latestSnapshot = latestDraft ? serializePlanValues(latestDraft) : null;
+          const latestSnapshot = latestDraft
+            ? serializePlanValues(latestDraft, elevationProfileRef.current)
+            : null;
 
           if (latestSnapshot === savedSnapshot) {
             setPlanName(normalizedValues.name);
@@ -537,7 +561,7 @@ export default function EditPlanScreen() {
           }
 
           const currentSnapshot = latestDraftRef.current
-            ? serializePlanValues(latestDraftRef.current)
+            ? serializePlanValues(latestDraftRef.current, elevationProfileRef.current)
             : savedSnapshot;
           setSaveStatus(currentSnapshot === savedSnapshot ? 'saved' : 'idle');
           return true;
@@ -564,7 +588,7 @@ export default function EditPlanScreen() {
     async (silent = false) => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const draft = latestDraftRef.current;
-        const snapshot = draft ? serializePlanValues(draft) : null;
+        const snapshot = draft ? serializePlanValues(draft, elevationProfileRef.current) : null;
 
         if (!draft || snapshot === lastSavedSnapshotRef.current) {
           return true;
@@ -577,7 +601,9 @@ export default function EditPlanScreen() {
       }
 
       const finalDraft = latestDraftRef.current;
-      const finalSnapshot = finalDraft ? serializePlanValues(finalDraft) : null;
+      const finalSnapshot = finalDraft
+        ? serializePlanValues(finalDraft, elevationProfileRef.current)
+        : null;
       return finalSnapshot === lastSavedSnapshotRef.current;
     },
     [persistPlan],
@@ -624,7 +650,9 @@ export default function EditPlanScreen() {
 
   const hasUnsavedChanges = useCallback(() => {
     const draft = latestDraftRef.current;
-    const currentSnapshot = draft ? serializePlanValues(draft) : null;
+    const currentSnapshot = draft
+      ? serializePlanValues(draft, elevationProfileRef.current)
+      : null;
 
     return (
       Boolean(draft) &&
@@ -702,7 +730,7 @@ export default function EditPlanScreen() {
   async function handleSave(values: PlanFormValues) {
     const normalizedValues = normalizePlanValuesForPersistence(values);
     latestDraftRef.current = normalizedValues;
-    setDraftSnapshot(serializePlanValues(normalizedValues));
+    setDraftSnapshot(serializePlanValues(normalizedValues, elevationProfileRef.current));
     await saveAndLeaveToPlans();
   }
 
@@ -710,7 +738,7 @@ export default function EditPlanScreen() {
     (values: PlanFormValues) => {
       const normalizedValues = normalizePlanValuesForPersistence(values);
       latestDraftRef.current = normalizedValues;
-      const nextSnapshot = serializePlanValues(normalizedValues);
+      const nextSnapshot = serializePlanValues(normalizedValues, elevationProfileRef.current);
       setDraftSnapshot(nextSnapshot);
 
       if (id) {
@@ -921,12 +949,16 @@ export default function EditPlanScreen() {
         isPremium={isPremium}
         onValuesChange={(values) => {
           latestDraftRef.current = values;
-          const nextSnapshot = serializePlanValues(values);
+          const nextSnapshot = serializePlanValues(values, elevationProfileRef.current);
           setDraftSnapshot(nextSnapshot);
           if (nextSnapshot !== lastSavedSnapshotRef.current) {
             setSaveStatus('idle');
           }
           if (id) {
+            if (nextSnapshot === lastSavedSnapshotRef.current) {
+              clearPlanEditDraft(id);
+              return;
+            }
             setPlanEditDraft(id, {
               elevationProfile: elevationProfileRef.current,
               lastSavedSnapshot: lastSavedSnapshotRef.current,

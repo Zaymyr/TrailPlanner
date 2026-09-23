@@ -79,4 +79,21 @@ describe('plan persistence', () => {
 
     expect(createPlanPersistenceSnapshot(editor)).toBe(createPlanPersistenceSnapshot(stored));
   });
+
+  it('treats a changed elevation profile as an unsaved plan change', () => {
+    const values = makeValues([{ name: 'Ravito 1', distanceKm: 12, waterRefill: true }]);
+    const storedProfile = [
+      { distanceKm: 0, elevationM: 200 },
+      { distanceKm: 42, elevationM: 500 },
+    ];
+    const updatedProfile = [
+      { distanceKm: 0, elevationM: 200 },
+      { distanceKm: 21, elevationM: 900 },
+      { distanceKm: 42, elevationM: 500 },
+    ];
+
+    expect(createPlanPersistenceSnapshot(values, updatedProfile)).not.toBe(
+      createPlanPersistenceSnapshot(values, storedProfile),
+    );
+  });
 });

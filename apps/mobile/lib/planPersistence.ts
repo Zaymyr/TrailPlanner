@@ -5,6 +5,7 @@ import {
   type PlanFormValues,
   type Supply,
 } from '../components/plan-form/contracts';
+import type { ElevationPoint } from '../components/plan-form/profile-utils';
 
 function normalizeStationName(name: string) {
   return name
@@ -82,9 +83,16 @@ export function buildPersistedPlannerValues(values: PlanFormValues) {
   };
 }
 
-export function createPlanPersistenceSnapshot(values: PlanFormValues) {
+export function createPlanPersistenceSnapshot(
+  values: PlanFormValues,
+  elevationProfile: readonly ElevationPoint[] = [],
+) {
   return JSON.stringify({
     name: values.name,
     plannerValues: buildPersistedPlannerValues(values),
+    elevationProfile: elevationProfile.map((point) => ({
+      distanceKm: point.distanceKm,
+      elevationM: point.elevationM,
+    })),
   });
 }
