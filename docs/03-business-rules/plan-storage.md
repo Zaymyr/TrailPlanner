@@ -23,6 +23,7 @@ related_files:
   - apps/mobile/app/(app)/plan/[id]/edit.tsx
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/lib/planShareLinks.ts
+  - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/lib/planSummary.ts
   - apps/mobile/lib/planSummary.test.ts
@@ -118,7 +119,7 @@ The mobile Plan onboarding now uses the ordinary Courses and Nutrition screens, 
 
 When a guest reaches the one-plan limit, mobile opens the shared account prompt with separate account-creation and existing-account sign-in actions. The prompt runs before another insert and therefore does not create a duplicate or inaccessible `race_plans` row.
 
-When a runner shares externally, the mobile app sends the generated recap snapshot to `apps/web/app/api/plan-shares/route.ts`. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token so re-sharing the same plan updates the existing stable snapshot and returns the same URL. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot is separate from the editable plan state and is updated only when the runner deliberately shares again.
+When the in-app recap opens, mobile sends the regenerated recap snapshot to `apps/web/app/api/plan-shares/route.ts`; an explicit share reuses the same synchronization result. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token. Later recap refreshes update the existing snapshot and return the same URL, so previously distributed links immediately resolve to the latest regenerated values instead of becoming stale or requiring redirects. The mobile synchronizer deduplicates an in-flight or already completed request for an unchanged recap and retries after failure. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot remains separate from editable plan state and changes only when the authenticated recap is opened/refreshed or deliberately shared.
 
 The public shared page can persist limited crew-side tracking data through `apps/web/app/api/plan-shares/crew-state/route.ts`. That route validates the secret URL token, hashes it server-side, and updates only `plan_share_links.departure_time` plus `plan_share_links.crew_state`. The crew marks assistance points as done; the page records the current clock time, recalculates the next crew point from that confirmed passage, and treats no-assistance checkpoints as planned-time passages by default. If the crew validates too early, the tracking card can clear confirmed passages and return calculations to the planned snapshot values while keeping the entered departure time.
 
@@ -147,7 +148,7 @@ It:
 - Source organizer edits after import do not mutate existing saved plans.
 - Source station service-flag, GPX, pacing, and distance edits affect only future catalog imports, not already-saved plan JSON.
 - Source station-product link edits are the exception: `/api/plans` overlays current official ravito product suggestions at read time for plans with `race_id`, with the stored planner JSON as fallback.
-- Public crew recap links are snapshots. Re-share the plan after meaningful changes so the reusable crew URL receives the latest snapshot.
+- Public crew recap links are snapshots. Opening the in-app recap after meaningful changes recalculates the plan and refreshes the reusable crew URL; an explicit share uses that same synchronized snapshot.
 - Public crew tracking state is intentionally separate from the plan snapshot. It may persist confirmed assistance passages and corrected departure time, but it must not feed back into `race_plans.planner_values`.
 
 ## Gotchas
@@ -162,7 +163,7 @@ It:
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions. Older plans may not have this field, and plans without `sourceAidStationId` must keep matching official products by the legacy `name|km` key.
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
-- The in-app recap must reload the saved plan when it regains focus; the public share snapshot remains unchanged until an intentional re-share.
+- The in-app recap must reload the saved plan when it regains focus, then synchronize the recalculated public snapshot while keeping the stable share URL.
 - Do not derive recap totals or checkpoint passage times from the five-minute-rounded nutrition reminder timeline; use the exact section durations shared with the plan editor.
 - Do not reset a manually selected in-app departure time when the recap regenerates. Its per-plan local value remains separate from editable plan JSON and public crew tracking state.
 - Public crew recap URLs should use the canonical site domain. Configure `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored and the helper falls back to `https://pace-yourself.com`.

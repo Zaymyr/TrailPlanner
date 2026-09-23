@@ -1,9 +1,10 @@
 import type { Locale } from '../locales/types';
-import { formatClock, type PlanSummary } from './planSummary';
+import type { PlanSummary } from './planSummary';
+import { formatClock } from './planSummary';
 import { supabase } from './supabase';
 import { WEB_API_BASE_URL } from './webApi';
 
-type CreatePlanShareLinkArgs = {
+export type CreatePlanShareLinkArgs = {
   summary: PlanSummary;
   departureTime: Date;
   locale: Locale;
@@ -47,4 +48,59 @@ export async function createPlanShareLink({
   }
 
   return shareUrl;
+}
+
+export function buildPlanShareSnapshotKey({
+  summary,
+  departureTime,
+  locale,
+}: CreatePlanShareLinkArgs) {
+  return JSON.stringify({
+    summary,
+    departureTime: formatClock(departureTime),
+    locale,
+  });
+}
+
+export function createPlanShareLinkSynchronizer(
+  createLink: (args: CreatePlanShareLinkArgs) => Promise<string> = createPlanShareLink,
+) {
+  let syncedKey: string | null = null;
+  let syncedUrl: string | null = null;
+  let pendingKey: string | null = null;
+  let pendingRequest: Promise<string> | null = null;
+
+  const synchronize = async (args: CreatePlanShareLinkArgs): Promise<string> => {
+    const key = buildPlanShareSnapshotKey(args);
+
+    if (syncedKey === key && syncedUrl) return syncedUrl;
+    if (pendingRequest) {
+      if (pendingKey === key) return pendingRequest;
+
+      try {
+        await pendingRequest;
+      } catch {
+        // A newer snapshot still needs its own synchronization after a failed request.
+      }
+      return synchronize(args);
+    }
+
+    pendingKey = key;
+    pendingRequest = createLink(args)
+      .then((shareUrl) => {
+        syncedKey = key;
+        syncedUrl = shareUrl;
+        return shareUrl;
+      })
+      .finally(() => {
+        if (pendingKey === key) {
+          pendingKey = null;
+          pendingRequest = null;
+        }
+      });
+
+    return pendingRequest;
+  };
+
+  return synchronize;
 }

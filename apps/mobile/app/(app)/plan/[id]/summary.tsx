@@ -44,7 +44,7 @@ import {
   type PlanSummaryProduct,
   type PlanSummaryRow,
 } from '../../../../lib/planSummary';
-import { createPlanShareLink } from '../../../../lib/planShareLinks';
+import { createPlanShareLinkSynchronizer } from '../../../../lib/planShareLinks';
 import { useI18n } from '../../../../lib/i18n';
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
 import { supabase } from '../../../../lib/supabase';
@@ -226,6 +226,7 @@ export default function PlanSummaryScreen() {
   const [pickerMinute, setPickerMinute] = useState(() => String(new Date().getMinutes()).padStart(2, '0'));
   const [sharing, setSharing] = useState(false);
   const automaticShareTriggeredRef = useRef(false);
+  const synchronizeShareLinkRef = useRef(createPlanShareLinkSynchronizer());
 
   const targetSummary = useMemo(() => {
     if (!summary) return '';
@@ -370,12 +371,23 @@ export default function PlanSummaryScreen() {
     }, [loadSummary]),
   );
 
+  const synchronizeShareLink = useCallback(() => {
+    if (!summary || !departureTimeReady) return Promise.resolve<string | null>(null);
+    return synchronizeShareLinkRef.current({ summary, departureTime, locale });
+  }, [departureTime, departureTimeReady, locale, summary]);
+
+  useEffect(() => {
+    if (!summary || !departureTimeReady) return;
+    void synchronizeShareLink().catch(() => undefined);
+  }, [departureTimeReady, summary, synchronizeShareLink]);
+
   const handleShare = useCallback(async () => {
     if (!summary || sharing) return;
 
     setSharing(true);
     try {
-      const shareUrl = await createPlanShareLink({ summary, departureTime, locale });
+      const shareUrl = await synchronizeShareLink();
+      if (!shareUrl) throw new Error('Share link is not ready.');
       await Share.share({
         message: `${t.planSummary.shareLinkIntro.replace('{name}', summary.name)}\n${shareUrl}`,
         url: shareUrl,
@@ -390,10 +402,9 @@ export default function PlanSummaryScreen() {
       setSharing(false);
     }
   }, [
-    departureTime,
-    locale,
     sharing,
     summary,
+    synchronizeShareLink,
     t.common.error,
     t.planSummary.shareFailed,
     t.planSummary.shareLinkIntro,

@@ -85,6 +85,7 @@ related_files:
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/resendContactSync.test.ts
   - apps/mobile/lib/planShareLinks.ts
+  - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/lib/planDeparture.ts
   - apps/mobile/lib/planDeparture.test.ts
   - apps/mobile/lib/webApi.ts
@@ -299,7 +300,7 @@ The same lightweight server bootstrap returns an effective boolean map for editi
 
 ## Plan Share Links
 
-`apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. The mobile app never generates database rows directly for public links and never handles service-role keys.
+`apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. Its screen-scoped synchronizer deduplicates identical background/share requests, refreshes the stable public snapshot when the recap opens or changes, and lets the explicit native-share action reuse the returned URL. The mobile app never generates database rows directly for public links and never handles service-role keys.
 
 ## Analytics
 

@@ -12,6 +12,7 @@ related_files:
   - apps/web/app/share/plan/[token]/PlanShareCrewTimeline.tsx
   - apps/web/lib/plan-share.ts
   - apps/mobile/lib/planShareLinks.ts
+  - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
 related_tables:
   - plan_share_links
@@ -28,7 +29,7 @@ related_tables:
 
 - Public token: the URL token sent to the crew. Legacy links used random tokens; reusable links use a stable server-derived token. Raw tokens are never stored in the database.
 - `token_hash`: SHA-256 hex hash of the public token, used for lookup by the server page.
-- Snapshot: JSONB recap payload generated from the mobile plan summary at share time, including each checkpoint's assistance availability.
+- Snapshot: JSONB recap payload generated from the latest mobile plan summary when the recap opens or is shared, including each checkpoint's assistance availability.
 - Crew state: bounded JSONB state entered from the public link, currently start/passages confirmation data that should survive page reloads.
 - Owner access: authenticated users can manage only links tied to their own plan.
 - Public access: anonymous viewers resolve a link through the Next.js server page, which uses service role after hashing the token.
@@ -82,13 +83,13 @@ Summary:
 
 - Store only `token_hash`; never persist the raw public token.
 - The public page displays `snapshot`, not live editable planner state.
-- The in-app recap may reload the editable plan when its screen regains focus, but the public page continues to display only the deliberately shared `snapshot`.
-- The in-app recap preserves its manually selected departure time as a device-local, per-plan preference when the live plan-derived recap regenerates. That preference is copied to `plan_share_links.departure_time` only when the runner explicitly shares; merely changing it in the in-app modal does not write this table.
+- The in-app recap reloads the editable plan when its screen regains focus and synchronizes the recalculated snapshot through the authenticated API. The public page continues to display only that stored `snapshot`, never the editable plan row directly.
+- The in-app recap preserves its manually selected departure time as a device-local, per-plan preference when the live plan-derived recap regenerates. Once the recap is ready, that preference is copied to `plan_share_links.departure_time` with the synchronized snapshot; changing it in the recap triggers the same deduplicated refresh.
 - The recap's editable departure-time fields use the shared iOS numeric-keyboard dismissal accessory. Their modal also moves above the keyboard, remains scrollable inside the device safe area, exposes its title and fields to VoiceOver, and closes through the native modal request. These protections are presentation-only and do not change `departure_time` validation, `crew_state`, or snapshot persistence.
-- The Plans-card Share shortcut is still an explicit runner action: it opens the recap with a one-shot share intent and calls the existing authenticated share handler only after recap data and the device-local departure time are ready. It does not create a second persistence path.
+- The Plans-card Share shortcut remains an explicit native-share action: it opens the recap with a one-shot share intent only after recap data and the device-local departure time are ready. The recap's background refresh and the share action use one deduplicated link synchronizer, so they cannot create parallel persistence paths for the same snapshot.
 - Checkpoint snapshots expose `assistanceState` so crew viewers can distinguish points where they can hand over products from points where the runner must carry inventory from the previous crew point.
 - Public recap rendering uses `assistanceState` as a visual hierarchy: crew-access checkpoints are highlighted, no-crew checkpoints are muted, and no-crew checkpoints omit the product handoff block.
-- Re-sharing a plan updates the stable link snapshot. Later plan edits do not mutate the shared snapshot until the runner shares again.
+- Opening a plan recap recalculates it and updates the stable link snapshot. If no reusable link exists yet, the API creates one; otherwise it retains the same URL and replaces the stored snapshot. Later plan edits remain private until the recap is opened or the runner shares again.
 - Crew-confirmed passages are stored separately in `crew_state`; no-assistance checkpoints are treated by the public page as planned-time passages and do not need stored confirmations.
 - Resetting public tracking clears `crew_state.passages` through the same secret-link route so the page returns to planned snapshot timing without mutating `snapshot`.
 - `snapshot_schema_version` must be bumped before storing a breaking public snapshot shape.
@@ -105,8 +106,8 @@ Summary:
 - The public crew-state route is unauthenticated by design because the URL token is the secret. Keep the payload narrow and rate-limited, and do not add broad public mutation fields to `plan_share_links`.
 - Analytics on the public page must remain aggregate-only and must not turn the secret-link token into an analytics identifier.
 - Do not implement crew tracking reset by changing `snapshot`; it should only update the mutable crew-state fields.
-- Keep the in-app departure-time modal keyboard-aware and safe-area-aware. A compact iPhone or enlarged text must not hide Confirm/Cancel, but dismissing or scrolling the modal must never write `plan_share_links` by itself.
-- Do not use `plan_share_links.departure_time` as the editable in-app recap preference. Public link departure time remains snapshot/tracking state and changes only through an explicit share or the narrow crew-state route.
+- Keep the in-app departure-time modal keyboard-aware and safe-area-aware. A compact iPhone or enlarged text must not hide Confirm/Cancel. Dismissing or scrolling the modal must not write `plan_share_links`; confirming a changed time updates the recap preference and then triggers the normal snapshot synchronization.
+- Do not use `plan_share_links.departure_time` as the editable in-app recap preference. Public link departure time remains snapshot/tracking state and changes only through authenticated recap synchronization (including explicit share) or the narrow crew-state route.
 
 ## Related Docs
 
