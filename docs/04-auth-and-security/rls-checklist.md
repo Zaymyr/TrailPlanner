@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -36,6 +36,7 @@ related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
   - supabase/migrations/20260910103118_enrich_catalog_through_may_2027.sql
@@ -45,6 +46,7 @@ related_files:
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - supabase/tests/race_slug_redirects_checks.sql
+  - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
@@ -152,6 +154,7 @@ Use:
 - `supabase/tests/organizer_rls_checks.sql` for event membership, race-event favorites, format-scoped updates, and owner-only update read receipts;
 - `supabase/tests/organizer_import_sessions_checks.sql` for service-only session grants, invoker RPC privileges, strict JSON payloads, and draft constraints;
 - `supabase/tests/race_slug_redirects_checks.sql` for public parent-gated redirect reads, service-only mutations/RPC execution, invoker security, and reserved-slug behavior;
+- `supabase/tests/web_race_visibility_checks.sql` for web/mobile separation, masked-row client denial, trigger security, and forced clearing of non-public web state;
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click increments;
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
@@ -172,6 +175,7 @@ Use:
 - The remaining admin growth KPI function is a justified `SECURITY DEFINER` exception because it reads `auth.users` and cross-owner rows. Keep its empty search path, service-role-only execute grant, bounded date range, and route-level trusted-admin authorization together. The retired affiliate reporting function and its event tables must not be recreated for application-side engagement reporting.
 - `assign_race_event_edition()` remains `SECURITY INVOKER`, receives no client table privileges, and has explicit `PUBLIC`/`anon`/`authenticated` execute revocations; it is a service-write consistency trigger, not an authorization bypass.
 - Public child mappings such as `race_slug_redirects` need an explicit client `SELECT` grant plus an RLS `exists` check against every parent visibility gate. Keep all writes and the rename RPC service-role-only.
+- Web and mobile race visibility are separate application contracts, not separate client policy branches. Keep web-only rows behind server service-role reads with explicit safe columns, preserve existing mobile `is_live`/preview RLS and query filters, and repeat the parent-event gate in web loaders.
 
 - Service role bypasses RLS, so passing a service-route test does not prove client RLS works.
 - Owner access to a row does not imply authority over every column. Trial/sign-in fields and race publication/event attachment fields remain server-managed.

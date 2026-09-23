@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-16
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -30,6 +30,7 @@ related_files:
   - apps/mobile/components/catalog/CatalogPresentation.tsx
   - apps/web/lib/mobile-racebook-onboarding.test.ts
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - apps/mobile/app/(app)/profile.tsx
   - apps/mobile/app/(app)/onboarding.tsx
   - apps/mobile/components/onboarding/OnboardingIntroSteps.tsx
@@ -311,6 +312,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Keep the tab navigator on history-based back behavior. Switching it back to `initialRoute` makes Android hardware back jump to `catalog` from hidden plan/race detail screens instead of popping to the real previous screen.
 - Keep the visible tab bar height and bottom padding derived from the bottom safe-area inset. A fixed height can place the tab actions underneath Android's three-button system navigation area.
 - The mobile catalog has separate course and RaceBook contracts. A runner may see a preview-selected private format and create a plan from it, but `apps/mobile/lib/racebook.ts` still requires both course `is_live` and `racebook_is_live` before exposing its RaceBook action. An active event organizer resolved through `race_event_organizers` may preview that RaceBook before publication, but nobody receives a mobile entry for a format explicitly masked from preview. Meaningful non-ravito organizer content remains required; aid stations alone are not enough.
+- Mobile visibility remains independent from web SEO visibility. `is_live`, `racebook_preview_is_visible`, and `race_event_editions.is_visible` continue to filter Courses/RaceBook in the app; a preserved `web_catalog_is_live` page must never be treated as mobile catalogue authorization.
 - The mobile Racebook also parses additive geocoded organizer metadata for event/format, every structured bib-pickup location, and start/finish access. Published access locations expose an explicit Maps action; identical normalized start/finish addresses collapse into one row, and the optional general map is a labeled button rather than a raw URL. A format date distinct from the event start date is emphasized in the identity card as a localized `Jour de course :` / `Race day:` calendar row. The `Dossard` tab groups pickup information by location, then by day; each address is shown directly without a redundant `Pickup location`/`Lieu de retrait` heading, and its visible text is capped at two lines with a trailing ellipsis while the full value remains the accessible Maps-link label. Multiple time ranges on the same day are stacked below one localized short weekday/day/month label with locale-specific hour formatting (`Ven. 4 sept.` and `10h00 – 12h00` in French). Legacy single-location/free-text schedules remain readable.
 - Format-specific runner information is visible only when `access.overrideEnabled` and `access.enabledSections.runnerInfo` are both true; disabling either flag preserves the saved JSON while removing the identity-card block.
 - The conditional mobile Racebook `Services` tab renders each populated category in its own titled card and displays organizer content as plain text without list bullets.

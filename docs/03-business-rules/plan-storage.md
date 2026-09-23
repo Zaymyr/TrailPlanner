@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-09-15
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -25,6 +25,7 @@ related_files:
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/lib/planSummary.ts
+  - apps/mobile/lib/planSummary.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/onboardingDemoPlan.ts
 related_tables:
@@ -103,7 +104,8 @@ Catalog imports copy source `race_aid_stations` service flags into `planner_valu
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans. On GET, plans with `race_id` receive the current `race_aid_station_products` mapped into `planner_values.organizerAidStationProducts` in the response only. This read-time overlay does not update the database row.
 
-Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`, and the recap reloads that saved source whenever the screen regains focus after editing.
+Mobile plan editing keeps a local draft and autosaves after edits. The plan action menu can open the recap screen or share the current plan. Recap generation still derives from `race_plans.planner_values` plus `elevation_profile`, and the recap reloads that saved source whenever the screen regains focus after editing. Its total duration and checkpoint passage times sum the same unrounded section durations as the plan editor; the five-minute nutrition timeline rounding is not a second source for the displayed estimate.
+The manually selected in-app recap departure time is stored locally per plan and restored when the recap screen is recreated. Regenerating the recap after a plan edit refreshes the plan-derived duration, checkpoints, and products without replacing that manual departure time. This local preference is separate from `race_plans.planner_values` and from the departure time copied into a public share link.
 Numeric fields in mobile editors and recap-time controls attach to the shared iOS keyboard accessory. Their audited modals also move above the keyboard, provide a bounded scroll area on compact screens, retain intended taps, respect safe-area insets where needed, and expose modal controls to VoiceOver. Dismissing the keyboard, scrolling, closing a modal, or using the native modal-close request does not save, discard, or otherwise change the durable planner state.
 
 Successful Web persistence emits the consent-gated `plan created` or `plan saved` event only after the server response has been parsed. GPX download and assistance printing emit `plan exported`; these analytics events carry aggregate shape/source fields and never become a second persistence source of truth.
@@ -155,6 +157,8 @@ It:
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions. Older plans may not have this field, and plans without `sourceAidStationId` must keep matching official products by the legacy `name|km` key.
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
 - The in-app recap must reload the saved plan when it regains focus; the public share snapshot remains unchanged until an intentional re-share.
+- Do not derive recap totals or checkpoint passage times from the five-minute-rounded nutrition reminder timeline; use the exact section durations shared with the plan editor.
+- Do not reset a manually selected in-app departure time when the recap regenerates. Its per-plan local value remains separate from editable plan JSON and public crew tracking state.
 - Public crew recap URLs should use the canonical site domain. Configure `PLAN_SHARE_BASE_URL`, `NEXT_PUBLIC_SITE_URL`, or `APP_URL`; `.vercel.app` values are ignored and the helper falls back to `https://pace-yourself.com`.
 - Legacy random-token share links remain readable, but the next re-share creates a new stable reusable URL because the old raw token cannot be reconstructed from `token_hash`.
 - Crew start-time and passage confirmations persist on the share row as `departure_time` and `crew_state`. Resetting the public tracking state should clear only crew confirmations and should not alter `snapshot`. These mutations should stay narrow public-link mutations and never become a general plan editing API.

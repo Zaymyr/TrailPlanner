@@ -18,6 +18,10 @@ const makeRace = (index: number, overrides: Partial<PublicRace> = {}): PublicRac
   eventName: `Event ${index}`,
   date: "2027-01-01",
   location: "France",
+  locationCity: null,
+  locationDepartment: null,
+  locationRegion: null,
+  locationCountry: "France",
   searchTerms: ["France"],
   distanceKm: 42,
   elevationGainM: 1_000,
@@ -25,6 +29,7 @@ const makeRace = (index: number, overrides: Partial<PublicRace> = {}): PublicRac
   eventThumbnailUrl: null,
   thumbnailUrl: null,
   externalSiteUrl: null,
+  eventWebsiteUrl: null,
   updatedAt: null,
   ...overrides,
 });

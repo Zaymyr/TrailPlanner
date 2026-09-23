@@ -5,6 +5,7 @@ import {
   useRef,
   useState
 } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   StyleSheet,
@@ -49,10 +50,12 @@ import {
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 import {
+  applyStoredDepartureTime,
   buildPlanSummary,
   buildProductMap as buildSummaryProductMap,
   buildStoredRacePlanFromValues,
   collectPlanProductIdsFromValues,
+  getPlanSummaryDepartureTimeStorageKey,
 } from '../../../../lib/planSummary';
 import { createPlanShareLink } from '../../../../lib/planShareLinks';
 
@@ -748,9 +751,13 @@ export default function EditPlanScreen() {
           elevationProfile: elevationProfileRef.current,
         });
         const summary = buildPlanSummary(plan, productMap);
+        const fallbackDepartureTime = new Date();
+        const departureTime = await AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(id))
+          .then((storedValue) => applyStoredDepartureTime(storedValue, fallbackDepartureTime) ?? fallbackDepartureTime)
+          .catch(() => fallbackDepartureTime);
         const shareUrl = await createPlanShareLink({
           summary,
-          departureTime: new Date(),
+          departureTime,
           locale,
         });
 

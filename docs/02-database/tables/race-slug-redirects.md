@@ -1,10 +1,11 @@
 ---
 title: race_slug_redirects Table
 scope: database
-last_verified: 2026-09-13
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
+  - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/tests/race_slug_redirects_checks.sql
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-races.test.ts
@@ -30,7 +31,7 @@ related_tables:
 - Former slug: a previously canonical course slug stored once in `old_slug`.
 - Stable target: `race_id` points to the race row, not another redirect, so repeated renames do not create redirect chains.
 - Reserved slug: a former slug cannot later be assigned to any race.
-- Public resolution: clients can read a mapping only while its race remains live/public, its optional parent event remains live, and its optional attached edition is visible and belongs to that event.
+- Public resolution: direct clients keep the historical live/public parent gate. The server-rendered web route uses its service-only explicit-column lookup and separately revalidates `web_catalog_is_live`, `is_public`, and optional parent-event liveness, so mobile hiding does not remove an indexed redirect.
 
 ## Columns
 
@@ -53,7 +54,7 @@ Deleting the target race removes mappings that can no longer resolve. Renaming t
 
 ## RLS Policies
 
-RLS is enabled. `anon` and `authenticated` have `SELECT` only, with an `exists` policy requiring `races.is_live = true`, `races.is_public = true`, and a live parent `race_events` row when `event_id` is non-null. `service_role` alone receives mutation privileges and can execute `rename_race_slug(uuid, text)`.
+RLS is enabled. `anon` and `authenticated` retain `SELECT` only under the historical `races.is_live = true`, `races.is_public = true`, and live optional parent-event gate. The web route resolves web-only redirects server-side with service role and repeats its stricter current-target checks. `service_role` alone receives mutation privileges and can execute `rename_race_slug(uuid, text)`.
 
 Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and revoke execution from `PUBLIC`, `anon`, and `authenticated`.
 
@@ -64,7 +65,8 @@ Both mutation functions are `SECURITY INVOKER`, use an empty `search_path`, and 
 - Transaction advisory locks serialize reservations for the old and new names; the existing unique race-slug constraint remains the canonical-name collision guard.
 - `rename_race_slug` normalizes trim/case, validates the allowed slug format, locks the race row, updates it, and lets the trigger record the redirect atomically.
 - The public web route returns a permanent redirect only after reloading the target through the current public visibility gates, and it redirects before loading the richer organizer/GPX detail contract. Metadata for an old slug is already canonicalized to the current page and uses the same bounded helper, whose distance/year suffix and middle truncation retain the distinguishing end of long format names.
-- Canonical and redirected catalog reads share the same explicit parent-event projection and service-side visible-edition projection. Adding searchable city, department, region, and country labels does not change redirect visibility or expose organizer JSON, codes, or coordinates.
+- Canonical and redirected web reads share the same service-only durable web flag and explicit parent-event projection. Adding searchable city, department, region, and country labels does not change direct-client RLS or expose organizer JSON, codes, or coordinates.
+- The parent-event projection now also allowlists `website_url` for the registration CTA after canonical resolution. It remains presentation metadata and does not participate in redirect visibility or slug identity.
 
 ## Common Queries
 
@@ -86,8 +88,7 @@ from public.rename_race_slug(:race_id, :new_slug);
 ## Gotchas
 
 - Do not update `races.slug` in bulk from the browser. Review `scripts/audit-public-race-slugs.mjs` output, then invoke the service-only RPC for approved rows.
-- Do not expose redirects for hidden/private races; the page must remain not found until the target is public again.
-- Do not let a stale or mismatched `edition_id` bypass redirect visibility; attached editions fail closed unless their id/event pair is currently visible.
+- Do not return a server-resolved web redirect after `is_public`, `web_catalog_is_live`, or the parent-event gate is cleared. Mobile/private or edition-hidden states alone deliberately keep the indexed web redirect resolvable.
 - Do not point one redirect at another slug. Always resolve through `race_id` to the current canonical slug.
 - The migration is versioned locally but has not been applied to a remote database by this change.
 
