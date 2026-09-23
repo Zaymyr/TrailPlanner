@@ -11,6 +11,10 @@ const race = {
   eventName: "Trail Glazig",
   date: "2027-02-06",
   location: "Plourhan, Côtes-d'Armor",
+  locationCity: "Plourhan",
+  locationDepartment: "Côtes-d'Armor",
+  locationRegion: "Bretagne",
+  locationCountry: "France",
   distanceKm: 5,
   elevationGainM: 47,
   raceThumbnailUrl: null,
@@ -46,10 +50,32 @@ describe("race SEO content", () => {
     expect(data.location).toEqual({
       "@type": "Place",
       name: race.location,
-      address: { "@type": "PostalAddress", name: race.location },
+      address: {
+        "@type": "PostalAddress",
+        addressLocality: "Plourhan",
+        addressRegion: "Bretagne",
+        addressCountry: "France",
+      },
     });
     expect(data).not.toHaveProperty("endDate");
     expect(data.sameAs).toEqual([race.externalSiteUrl, race.officialWebsiteUrl]);
+  });
+
+  it("publishes a factual end date only for a single-day race edition", () => {
+    const data = buildRaceStructuredData(
+      {
+        ...race,
+        eventEndDate: race.date,
+        practical: {
+          ...race.practical,
+          access: { ...race.practical.access, startAddress: "Place de l'Église" },
+        },
+      },
+      "https://pace-yourself.com/courses/course-un-jour",
+    );
+
+    expect(data?.endDate).toBe(race.date);
+    expect(data?.location?.address).toEqual(expect.objectContaining({ streetAddress: "Place de l'Église" }));
   });
 
   it("omits SportsEvent when its required start date is missing or invalid", () => {
