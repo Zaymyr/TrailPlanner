@@ -1,7 +1,7 @@
 ---
 title: Supabase Edge Functions
 scope: integration
-last_verified: 2026-08-24
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/functions/push-register/index.ts
@@ -95,6 +95,7 @@ Important names:
 - Cron auth depends on Supabase Vault setup, not just SQL files.
 - Push dedupe behavior depends on `push_notification_events`; do not remove logging as "noise."
 - Keep French reminder copy and punctuation aligned with `apps/mobile/locales/fr.ts`; authenticated users receive the Edge Function copy while the mobile client schedules the local fallback.
+- The 2026-09-24 RaceBook finish-cutoff label update does not change either reminder string; both shared reminder titles and their typographic apostrophes were re-verified.
 - The two cron migrations are related; the later one repairs auth behavior.
 
 ## Related Docs
