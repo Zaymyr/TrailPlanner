@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -166,6 +166,8 @@ order by created_at asc;
 - Claim approval alone does not unlock edition branding; membership and the active Pro entitlement are checked independently.
 
 ## Related Docs
+
+The GPX route/profile switches are ordinary format-detail edits available only after membership handoff; they neither create nor approve a claim.
 
 - [race_event_organizers](race-event-organizers.md)
 - [race_events](race-events.md)

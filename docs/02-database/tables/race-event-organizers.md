@@ -190,6 +190,8 @@ order by created_at asc;
 
 ## Related Docs
 
+Changing `races.organizer_details.gpxDisplay` uses the existing membership-checked race-details save path; it grants no additional access and does not alter GPX Storage authorization.
+
 - [race_event_claims](race-event-claims.md)
 - [race_events](race-events.md)
 - [Relationships](../relationships.md)

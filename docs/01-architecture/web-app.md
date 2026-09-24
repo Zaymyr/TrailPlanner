@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -289,6 +289,8 @@ The dashboard uses progressive disclosure for secondary guidance: controls keep 
 Organizer RaceBook statistics are also lazy. Bootstrap and the normal event-detail reload expose the same edition-level effective-access source, so selecting an event or reloading it after a mutation cannot discard a complimentary grant. The dedicated authenticated route verifies membership, capability, and format ownership before making one server-to-server PostHog Endpoint request. Its client normalizes both positional SQL Endpoint rows and equivalent object rows. Four traffic KPIs and the daily series are bounded to 7, 30, or 90 UTC calendar days; a fifth card shows the exact current event-wide favorite count from Supabase and remains independent of the period and format filters. PostHog credentials remain server-only and upstream failures render as a temporary-unavailability state rather than an empty successful series.
 
 The event information editor uses five ordered visual sections instead of one flat grid: primary identity, online presence, edition dates, emergency contact, and cover image. The emergency block has a restrained warning surface, while the image preview and picker share one bounded row so neither creates unused page width.
+
+The format GPX side rail keeps two independent, accessible RaceBook display switches: route map and elevation profile. They persist in `races.organizer_details.gpxDisplay`, default to visible for historical payloads, and do not affect the Organizer's own GPX validation previews. A confirmed source-delete action clears GPX-only race metadata and the private object, disables both switches, and preserves course metrics, aid stations, and saved-plan snapshots.
 
 The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. Edition-logo upload infrastructure and stored values remain intact, but the shared kill switch currently hides its controls and prevents public resolution. Non-Pro organizers receive an upsell instead of draft data.
 

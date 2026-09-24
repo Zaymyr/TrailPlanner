@@ -306,6 +306,7 @@ where is_live = true
 - Event deletion must collect edition sponsor logo paths before the edition cascade, then remove those `race-images` objects after the database delete succeeds.
 - Event deletion must also collect draft and published edition-branding logo paths before the cascade and remove each distinct unreferenced object afterward.
 - Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.
+- GPX route/profile display preferences are also format-scoped in `races.organizer_details.gpxDisplay`; do not copy them onto `race_events` or treat them as event visibility.
 - Stored format `runnerInfo` values remain in `races.organizer_details`, but mobile exposes them only while the format access override and runner-info section flag are both enabled.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Do not infer city, department or region from `location` at read time. Unnormalized rows stay outside exact geographic filters until a trusted source populates their explicit fields.

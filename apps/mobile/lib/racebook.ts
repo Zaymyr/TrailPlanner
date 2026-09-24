@@ -110,6 +110,10 @@ type OrganizerEventDetails = {
 
 type OrganizerRaceDetails = {
   raceLocation: OrganizerLocationDetails;
+  gpxDisplay: {
+    showRoute: boolean;
+    showElevationProfile: boolean;
+  };
   schedule: {
     startTime: string | null;
     finishCutoffTime: string | null;
@@ -312,6 +316,10 @@ const DEFAULT_EVENT_DETAILS: OrganizerEventDetails = {
 
 const DEFAULT_RACE_DETAILS: OrganizerRaceDetails = {
   raceLocation: DEFAULT_LOCATION_DETAILS,
+  gpxDisplay: {
+    showRoute: true,
+    showElevationProfile: true,
+  },
   schedule: {
     startTime: null,
     finishCutoffTime: null,
@@ -552,6 +560,7 @@ function parseRaceDetails(value: unknown): OrganizerRaceDetails {
 
   return {
     raceLocation: parseLocationDetails(record.raceLocation),
+    gpxDisplay: resolveRacebookGpxDisplay(record.gpxDisplay),
     schedule: {
       startTime: readText(schedule.startTime),
       finishCutoffTime: readText(schedule.finishCutoffTime),
@@ -566,6 +575,14 @@ function parseRaceDetails(value: unknown): OrganizerRaceDetails {
       shuttleSchedule,
     },
     runnerInfo: parseRunnerInfoDetails(record.runnerInfo),
+  };
+}
+
+export function resolveRacebookGpxDisplay(value: unknown): OrganizerRaceDetails['gpxDisplay'] {
+  const record = readRecord(value);
+  return {
+    showRoute: readBoolean(record.showRoute, true),
+    showElevationProfile: readBoolean(record.showElevationProfile, true),
   };
 }
 

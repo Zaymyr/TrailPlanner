@@ -295,6 +295,8 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.
 
+Likewise, hiding the GPX map or elevation profile is format presentation state only; do not attach these organizer choices to identified RaceBook analytics events.
+
 - [Mobile App](../01-architecture/mobile-app.md)
 - [Web App](../01-architecture/web-app.md)
 - [Infrastructure](../01-architecture/infrastructure.md)

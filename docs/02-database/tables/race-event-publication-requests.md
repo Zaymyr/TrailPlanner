@@ -72,6 +72,7 @@ This table is retained publication-review history. New organizer publication use
 - Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - Organizer GPX replacement persists parsed distance and elevation on `races` and immediately mirrors those exact values into the active form, so readiness shown before a publication request matches the stored format row.
+- Organizer GPX deletion clears only the source and GPX-only metadata, turns off both RaceBook GPX visuals, and preserves distance/D+/D-; it does not create or mutate a publication-request row.
 - Organizer Ravitos saves persist start/finish times through the race details route before saving `race_aid_stations`, so navigating away cannot leave the client schedule ahead of the stored draft.
 - Starting checkout always saves any dirty foreground scope before the server readiness check runs.
 - The checkout popup captures and displays the selected event and canonical edition when it opens. It never substitutes a transient year string for the billed `edition_id`.

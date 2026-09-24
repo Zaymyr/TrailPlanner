@@ -1428,9 +1428,12 @@ export default function RaceRacebookScreen() {
                 ) : null}
 
                 {activeCourseTab === 'route' ? (
-                  routePreviewPoints.length >= 2 || elevationProfile.length >= 2 ? (
+                  !data.race.organizerDetails.gpxDisplay.showRoute &&
+                  !data.race.organizerDetails.gpxDisplay.showElevationProfile ? null :
+                  (data.race.organizerDetails.gpxDisplay.showRoute && routePreviewPoints.length >= 2) ||
+                  (data.race.organizerDetails.gpxDisplay.showElevationProfile && elevationProfile.length >= 2) ? (
                     <>
-                      {routePreviewPoints.length >= 2 ? (
+                      {data.race.organizerDetails.gpxDisplay.showRoute && routePreviewPoints.length >= 2 ? (
                         <CourseMapCard
                           title={t.catalog.racebookSectionCourseMap}
                           points={routePreviewPoints}
@@ -1438,7 +1441,7 @@ export default function RaceRacebookScreen() {
                         />
                       ) : null}
 
-                      {elevationProfile.length >= 2 ? (
+                      {data.race.organizerDetails.gpxDisplay.showElevationProfile && elevationProfile.length >= 2 ? (
                         <CourseProfileCard
                           title={t.catalog.racebookSectionCourseProfile}
                           points={elevationProfile}

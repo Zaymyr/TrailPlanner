@@ -114,6 +114,8 @@ where edition_id = :edition_id;
 
 ## Related Docs
 
+Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.
+
 - [race_event_editions](race-event-editions.md)
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

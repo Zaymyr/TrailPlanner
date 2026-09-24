@@ -164,6 +164,8 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.
 
+RaceBook GPX cards must also honor normalized `gpxDisplay` route/profile choices independently, with both visuals visible when the historical payload omits the preference object.
+
 - [Mobile App](../01-architecture/mobile-app.md)
 - [Premium Entitlement](../03-business-rules/premium-entitlement.md)
 - [Analytics](../05-integrations/analytics.md)

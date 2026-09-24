@@ -99,6 +99,8 @@ Masking a format from the private RaceBook demo suppresses its complete mobile R
 
 Derived relay cards now use published accent surfaces and contrast-safe accent text. This remains presentation-only and independent from the runner-owned Material checklist.
 
+Per-format GPX map/profile choices affect only the sibling `Tracé` content and never remove relay points or the conditional `Relais` sub-tab.
+
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)
 - [Relationships](../relationships.md)

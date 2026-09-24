@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { GET, PUT } from "./route";
+import { DELETE, GET, PUT } from "./route";
 
 const raceId = "11111111-1111-1111-1111-111111111111";
 const eventId = "22222222-2222-2222-2222-222222222222";
@@ -49,6 +49,12 @@ const putRequest = () => {
   });
 };
 
+const deleteRequest = () =>
+  new NextRequest(`http://localhost/api/organizer/races/${raceId}/gpx`, {
+    method: "DELETE",
+    headers: { authorization: "Bearer user-token" },
+  });
+
 describe("/api/organizer/races/[id]/gpx", () => {
   beforeEach(() => {
     vi.stubGlobal("fetch", vi.fn());
@@ -81,6 +87,76 @@ describe("/api/organizer/races/[id]/gpx", () => {
       cumulativeLossM: payload.stats.lossM,
     });
     expect(payload.detectedAidStations[0]).toMatchObject({ name: "Ravito 1" });
+  });
+
+  it("deletes the GPX source while preserving race metrics and aid stations", async () => {
+    organizerMocks.loadRaceForOrganizer.mockResolvedValueOnce({
+      id: raceId,
+      event_id: eventId,
+      organizer_details: {
+        gpxDisplay: { showRoute: true, showElevationProfile: true },
+      },
+    });
+    const mockFetch = vi.mocked(fetch);
+    mockFetch
+      .mockResolvedValueOnce(buildJsonResponse([{ id: raceId, gpx_storage_path: "organizer/race.gpx" }]))
+      .mockResolvedValueOnce(
+        buildJsonResponse([
+          {
+            id: raceId,
+            gpx_storage_path: null,
+            distance_km: 42,
+            elevation_gain_m: 1800,
+            organizer_details: {
+              gpxDisplay: { showRoute: false, showElevationProfile: false },
+            },
+          },
+        ])
+      )
+      .mockResolvedValueOnce(new Response(null, { status: 200 }));
+
+    const response = (await DELETE(deleteRequest(), { params: { id: raceId } })) as Response;
+    const payload = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(payload.race).toMatchObject({
+      gpx_storage_path: null,
+      distance_km: 42,
+      elevation_gain_m: 1800,
+      organizerDetails: {
+        gpxDisplay: { showRoute: false, showElevationProfile: false },
+      },
+    });
+
+    const updateBody = JSON.parse(String(mockFetch.mock.calls[1]?.[1]?.body));
+    expect(updateBody).toMatchObject({
+      gpx_path: null,
+      gpx_hash: null,
+      gpx_storage_path: null,
+      gpx_sha256: null,
+      organizer_details: {
+        gpxDisplay: { showRoute: false, showElevationProfile: false },
+      },
+    });
+    expect(updateBody).not.toHaveProperty("distance_km");
+    expect(updateBody).not.toHaveProperty("elevation_gain_m");
+    expect(
+      mockFetch.mock.calls.some(([url]) => String(url).includes("/rest/v1/race_aid_stations"))
+    ).toBe(false);
+    expect(mockFetch.mock.calls[2]).toMatchObject([
+      "https://supabase.example/storage/v1/object/race-gpx/organizer/race.gpx",
+      { method: "DELETE" },
+    ]);
+  });
+
+  it("refuses GPX deletion when the race has no source file", async () => {
+    const mockFetch = vi.mocked(fetch);
+    mockFetch.mockResolvedValueOnce(buildJsonResponse([{ id: raceId, gpx_storage_path: null }]));
+
+    const response = (await DELETE(deleteRequest(), { params: { id: raceId } })) as Response;
+
+    expect(response.status).toBe(409);
+    expect(mockFetch).toHaveBeenCalledTimes(1);
   });
 
   it("creates waypoint aid stations only when none exist", async () => {

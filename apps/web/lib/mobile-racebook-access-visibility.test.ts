@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { canShowRacebook, isRunnerInfoVisible } from "../../mobile/lib/racebook";
+import { canShowRacebook, isRunnerInfoVisible, resolveRacebookGpxDisplay } from "../../mobile/lib/racebook";
 
 const accessFields = [
   ["officialParkings", "Parking de la mairie"],
@@ -10,6 +10,17 @@ const accessFields = [
 ] as const;
 
 describe("mobile Racebook access visibility", () => {
+  it("keeps both GPX visuals visible for historical formats and honors explicit choices", () => {
+    expect(resolveRacebookGpxDisplay(undefined)).toEqual({
+      showRoute: true,
+      showElevationProfile: true,
+    });
+    expect(resolveRacebookGpxDisplay({ showRoute: false, showElevationProfile: true })).toEqual({
+      showRoute: false,
+      showElevationProfile: true,
+    });
+  });
+
   it("keeps saved runner information hidden until the format access override is enabled", () => {
     const access = {
       overrideEnabled: false,

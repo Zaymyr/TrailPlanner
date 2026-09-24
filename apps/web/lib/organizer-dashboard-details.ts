@@ -257,6 +257,15 @@ export const organizerEventDetailsSchema = z.object({
 
 export const organizerRaceDetailsSchema = z.object({
   raceLocation: organizerLocationSchema,
+  gpxDisplay: z
+    .object({
+      showRoute: z.boolean().default(true),
+      showElevationProfile: z.boolean().default(true),
+    })
+    .default({
+      showRoute: true,
+      showElevationProfile: true,
+    }),
   schedule: z
     .object({
       startTime: nullableText,

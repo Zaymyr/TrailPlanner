@@ -53,3 +53,5 @@ The contextual RaceBook bottom bar changes only primary-section navigation. SAS 
 The hero, contextual Courses action, and Android hardware back replace the active RaceBook with Courses; this stack behavior does not alter SAS visibility, ordering, or time authority.
 
 Mobile SAS index and time treatments now use published accent variants. Source wave rows and ordering remain unchanged, and personal equipment checks stay in their separate owner-scoped table.
+
+Per-format GPX map/profile choices affect only the `Tracé` cards and do not alter SAS rows, ordering, or start-time authority.

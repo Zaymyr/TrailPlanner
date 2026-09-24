@@ -61,6 +61,8 @@ After import, manual format-specific bib-pickup, equipment, and access overrides
 
 The ordinary format editor's visible official-source field and inherited-location snapshot are also outside LLM reconciliation. Manual saves use the normal organizer route and do not create or select import claims.
 
+Manual GPX replacement, RaceBook GPX display switches, and confirmed GPX source deletion are also outside reconciliation. Deleting a GPX never changes the signed import snapshot or asks the model to remove related metrics or ravitaillements.
+
 Edition branding is also outside import reconciliation. The import model cannot propose logo URLs or colors, save a branding draft, or publish a visual identity; those actions remain in the explicit Pro editor.
 
 ## Environment Variables

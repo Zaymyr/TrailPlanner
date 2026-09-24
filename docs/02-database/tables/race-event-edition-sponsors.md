@@ -123,6 +123,8 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 
 ## Related Docs
 
+Format-owned GPX route/profile choices do not change sponsor loading, placement, redirect counting, or edition scope.
+
 - [race_event_editions](race-event-editions.md)
 - [RLS Policies](../rls-policies.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

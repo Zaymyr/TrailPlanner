@@ -1712,6 +1712,55 @@ export function OrganizerDashboard({
     }
   };
 
+  const deleteGpx = async () => {
+    if (!activeRace || !selectedEventId || !accessToken) return;
+    if (!window.confirm("Supprimer ce GPX source ? Les ravitaillements et les métriques du format seront conservés.")) return;
+
+    setStatus("saving");
+    setError(null);
+    try {
+      const response = await fetch(`/api/organizer/races/${activeRace.id}/gpx`, {
+        method: "DELETE",
+        headers: authHeaders,
+      });
+      const data = (await response.json().catch(() => null)) as { race?: RaceFormat; message?: string } | null;
+      if (!response.ok) {
+        showToast("error", data?.message ?? "Impossible de supprimer le GPX.");
+        return;
+      }
+
+      const organizerDetails = {
+        ...raceForm.organizerDetails,
+        gpxDisplay: { showRoute: false, showElevationProfile: false },
+      };
+      setRaceForm((current) => ({ ...current, organizerDetails }));
+      setEventDetail((current) =>
+        current?.id === selectedEventId
+          ? {
+              ...current,
+              races: current.races.map((race) =>
+                race.id === activeRace.id
+                  ? {
+                      ...race,
+                      ...(data?.race ?? {}),
+                      gpx_storage_path: null,
+                      aidStationCount: race.aidStationCount,
+                      organizerDetails,
+                    }
+                  : race
+              ),
+            }
+          : current
+      );
+      setGpxPreview(null);
+      setGpxLoadedRaceKey(null);
+      invalidateOrganizerGpxPreviewCache(activeRace.id);
+      showToast("success", "GPX supprimé. Les ravitaillements et les métriques ont été conservés.");
+    } finally {
+      setStatus("idle");
+    }
+  };
+
   const uploadEventImage = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0] ?? null;
     if (!file || !accessToken || !selectedEventId) return;
@@ -3467,6 +3516,9 @@ export function OrganizerDashboard({
                 onSelectNewRaceImage={selectNewRaceImage}
                 onSelectNewRaceGpx={selectNewRaceGpx}
                 onUploadGpx={uploadGpx}
+                onDeleteGpx={() => {
+                  void deleteGpx();
+                }}
                 gpxPreview={gpxPreview}
                 status={status}
                 editionStartDate={eventForm.editionStartDate}

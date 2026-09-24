@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -160,6 +160,8 @@ Route geometry remains usable when elevation tags are absent, but the elevation 
 
 `GET` on the same route requires the same organizer access, reads the existing private source GPX, reparses it, and returns the same preview payload without adding a `races.elevation_profile` column.
 
+`DELETE` requires the same organizer access and an existing source path. It first clears the GPX path/hash, bounds, start coordinate, and altitude extrema on the race, disables both RaceBook GPX visuals, invalidates the RaceBook cache, then removes the private `race-gpx` object. It deliberately preserves distance, D+/D-, existing `race_aid_stations`, and saved-plan snapshots. A Storage cleanup failure is logged after the database reference has been removed so an orphaned private object can never keep the deleted GPX visible to runners.
+
 Existing saved plans are not rewritten after organizer GPX replacement. They keep their copied `plan-gpx` object, `elevation_profile`, `planner_values`, and `plan_aid_stations`.
 
 For a brand-new organizer format, the add-format dashboard also uses the shared parser client-side as soon as a GPX file is selected. That preview step pre-fills distance, elevation gain, and elevation loss before the race row exists, while the format date inherits the selected canonical edition and the effective event location is persisted unless an explicit override is enabled. The visible official-source field is independent from GPX and is required by the catalog minimum. After the format is created with its `edition_id`, the pending file is uploaded through the existing GPX route so the same stats are persisted and eligible waypoint ravitos can be created.
@@ -177,6 +179,10 @@ Uploading a GPX later through Organizer can fill distance and elevation from par
 The preview hash includes the SHA-256 digest of each recoverable GPX payload, not only its URL or parsed metrics. Apply can therefore accept a GPX only through its selected claim/proposal in the reviewed snapshot. Existing GPX files remain untouched unless that exact field is selected.
 
 The organizer-side runner preview has been removed, but the GPX map and elevation profile remain inside the always-expanded `Course` editor because they validate the uploaded source file and drive ravito interpolation.
+
+The same editor stores `organizer_details.gpxDisplay.showRoute` and `showElevationProfile` per format. Both are backward-compatible `true` defaults. These switches independently hide the mobile RaceBook map and elevation profile without deleting the source GPX, changing parsed metrics, or hiding the Organizer validation previews.
+
+When a source GPX exists, the editor also exposes a confirmed delete action. Successful deletion removes the Organizer map/profile previews immediately and turns both RaceBook display preferences off; importing a later GPX remains an explicit organizer action.
 
 Published RaceBook branding may recolor the mobile route and elevation-profile strokes through validated design-system colors. It never rewrites GPX content, computed metrics, Storage paths, or organizer import previews.
 
@@ -209,6 +215,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - The mobile parser now exposes preview points for UI route sketches. Keep those points aligned with the same parsed distance accumulation used for distance, D+, and D- so the preview does not disagree with the imported stats.
 - Keep GPX preview accessibility presentation-only. Modal focus semantics, headings, touch targets, and dismissal behavior must not parse again, mutate preview points, upload a file, or confirm an import.
 - Organizer GPX preview sampling now drives ravito cumulative D+ / D- autofill. If the sampling contract changes, keep the client interpolation logic aligned so organizer km edits still recompute stable cumulative values.
+- RaceBook GPX display preferences are presentation-only. Never use them to skip parsing, erase Storage objects, clear course metrics, or disable ravito interpolation.
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.
 - The shared organizer dashboard helper also normalizes unambiguous legacy departure clocks for the native time input. That form-only normalization must not alter GPX metrics, preview geometry, station interpolation, or save ordering.
 - Drafting several section switches in the Organizer chooser does not parse, upload, or reload GPX data; only the single successful module-settings save changes whether GPX-adjacent module UI is shown.
