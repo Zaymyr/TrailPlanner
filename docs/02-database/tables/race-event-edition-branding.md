@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -42,7 +42,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 - Runner and mobile preview payloads expose only published color values, and return no RaceBook payload for a format explicitly masked from the organizer demo. `RACEBOOK_EDITION_LOGO_ENABLED` currently forces the resolved logo to `null` without deleting stored draft or published URLs.
 - Editing the draft requires active event membership and a selected `branding` module. Copying the draft to the published snapshot requires the Signature `branding.manage` capability and an effectively active module. A downgrade masks the published identity without deleting either snapshot.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, and semantic danger/warning/info colors.
-- Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves.
+- Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves. The ravito chronology uses the resolved accent only for its non-semantic rail and segment surfaces, while cutoff warnings retain the app-owned danger color.
 - Branding can recolor the linked bib address, but its two-line clamp and complete accessibility label remain app-owned presentation behavior.
 
 ## Columns

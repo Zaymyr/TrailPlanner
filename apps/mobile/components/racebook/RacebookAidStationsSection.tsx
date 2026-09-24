@@ -79,7 +79,6 @@ function ServiceIcon({ icon, label, theme }: {
 
 function AidStationCard({
   station,
-  previousStation,
   position,
   copy,
   expanded,
@@ -87,7 +86,6 @@ function AidStationCard({
   theme,
 }: {
   station: RacebookAidStation;
-  previousStation?: RacebookAidStation;
   position: number;
   expanded: boolean;
   onToggle: () => void;
@@ -103,37 +101,14 @@ function AidStationCard({
       : null,
   ].filter((value): value is NonNullable<typeof value> => Boolean(value));
 
-  const segmentGain = (() => {
-    if (station.organizerDetails.cumulativeElevationGainM === null) return null;
-    if (!previousStation || previousStation.organizerDetails.cumulativeElevationGainM === null) {
-      return Math.round(station.organizerDetails.cumulativeElevationGainM);
-    }
-    return Math.round(
-      station.organizerDetails.cumulativeElevationGainM -
-        previousStation.organizerDetails.cumulativeElevationGainM,
-    );
-  })();
-
-  const segmentLoss = (() => {
-    if (station.organizerDetails.cumulativeElevationLossM === null) return null;
-    if (!previousStation || previousStation.organizerDetails.cumulativeElevationLossM === null) {
-      return Math.round(station.organizerDetails.cumulativeElevationLossM);
-    }
-    return Math.round(
-      station.organizerDetails.cumulativeElevationLossM -
-        previousStation.organizerDetails.cumulativeElevationLossM,
-    );
-  })();
-
-  const segmentDistance = Math.max(0, station.km - (previousStation?.km ?? 0));
-  const segmentLabel = previousStation
-    ? copy.aidFromPrevious.replace('{name}', previousStation.name)
-    : copy.aidFromStart;
+  const hasExpandedDetails = station.products.length > 0 || Boolean(
+    station.organizerDetails.organizerNote || station.notes,
+  );
 
   return (
     <View style={styles.aidStationCard}>
       <Pressable
-        accessibilityRole="button"
+        accessibilityRole={hasExpandedDetails ? 'button' : undefined}
         accessibilityLabel={[
           `R${position}`,
           station.name,
@@ -145,8 +120,8 @@ function AidStationCard({
         ]
           .filter(Boolean)
           .join(', ')}
-        accessibilityState={{ expanded }}
-        onPress={onToggle}
+        accessibilityState={hasExpandedDetails ? { expanded } : undefined}
+        onPress={hasExpandedDetails ? onToggle : undefined}
         style={({ pressed }) => [
           styles.aidStationSummary,
           pressed ? { backgroundColor: theme.primarySurfaceColor } : null,
@@ -154,17 +129,6 @@ function AidStationCard({
       >
         <View style={styles.aidStationSummaryMain}>
           <View style={styles.aidStationTitleRow}>
-            <View
-              style={[
-                styles.stationIndex,
-                {
-                  backgroundColor: theme.primarySurfaceColor,
-                  borderColor: theme.primaryBorderColor,
-                },
-              ]}
-            >
-              <DataText style={[styles.stationIndexText, { color: theme.primaryColor }]}>R{position}</DataText>
-            </View>
             <Text numberOfLines={1} style={styles.aidStationName}>
               {station.name}
             </Text>
@@ -201,35 +165,18 @@ function AidStationCard({
           <DataText style={styles.aidStationSummaryDistance}>
             {formatStationDistance(station.km)}
           </DataText>
-          <Ionicons
-            color={Colors.textSecondary}
-            name={expanded ? 'chevron-up' : 'chevron-down'}
-            size={18}
-          />
+          {hasExpandedDetails ? (
+            <Ionicons
+              color={Colors.textSecondary}
+              name={expanded ? 'chevron-up' : 'chevron-down'}
+              size={18}
+            />
+          ) : null}
         </View>
       </Pressable>
 
-      {expanded ? (
+      {expanded && hasExpandedDetails ? (
         <View style={styles.aidStationExpandedContent}>
-          <View style={styles.segmentSummary}>
-            <Text numberOfLines={1} style={styles.segmentLabel}>
-              {segmentLabel}
-            </Text>
-            <View style={styles.segmentMetrics}>
-              <DataText style={styles.segmentMetric}>{formatStationDistance(segmentDistance)}</DataText>
-              {segmentGain !== null ? (
-                <DataText style={styles.segmentMetric}>
-                  {copy.aidElevationGain} {segmentGain} m
-                </DataText>
-              ) : null}
-              {segmentLoss !== null ? (
-                <DataText style={styles.segmentMetric}>
-                  {copy.aidElevationLoss} {segmentLoss} m
-                </DataText>
-              ) : null}
-            </View>
-          </View>
-
           {station.products.length > 0 ? (
             <View style={styles.inlineBlock}>
               <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
@@ -258,6 +205,120 @@ function AidStationCard({
   );
 }
 
+function getSegmentElevation(
+  currentValue: number | null,
+  previousValue: number | null | undefined,
+) {
+  if (currentValue === null) return null;
+  return Math.max(0, Math.round(currentValue - (previousValue ?? 0)));
+}
+
+function SegmentConnector({
+  station,
+  previousStation,
+  copy,
+  theme,
+}: {
+  station: RacebookAidStation;
+  previousStation?: RacebookAidStation;
+  copy: Omit<RacebookAidStationCopy, 'sectionTitle' | 'emptyMessage'>;
+  theme: ResolvedRacebookTheme;
+}) {
+  const segmentDistance = Math.max(0, station.km - (previousStation?.km ?? 0));
+  const segmentGain = getSegmentElevation(
+    station.organizerDetails.cumulativeElevationGainM,
+    previousStation?.organizerDetails.cumulativeElevationGainM,
+  );
+  const segmentLoss = getSegmentElevation(
+    station.organizerDetails.cumulativeElevationLossM,
+    previousStation?.organizerDetails.cumulativeElevationLossM,
+  );
+  const segmentLabel = previousStation
+    ? copy.aidFromPrevious.replace('{name}', previousStation.name)
+    : copy.aidFromStart;
+
+  return (
+    <View
+      accessible
+      accessibilityLabel={[
+        segmentLabel,
+        formatStationDistance(segmentDistance),
+        segmentGain !== null ? `${copy.aidElevationGain} ${segmentGain} m` : null,
+        segmentLoss !== null ? `${copy.aidElevationLoss} ${segmentLoss} m` : null,
+      ].filter(Boolean).join(', ')}
+      style={styles.segmentRow}
+    >
+      <View style={styles.segmentRail}>
+        <View
+          style={[
+            styles.timelineLine,
+            styles.timelineLineFull,
+            { backgroundColor: theme.accentBorderColor },
+          ]}
+        />
+        {!previousStation ? (
+          <View
+            style={[
+              styles.startMarker,
+              {
+                backgroundColor: theme.accentColor,
+                borderColor: theme.accentSurfaceColor,
+              },
+            ]}
+          />
+        ) : null}
+        <View
+          style={[
+            styles.directionMarker,
+            {
+              backgroundColor: theme.accentSurfaceColor,
+              borderColor: theme.accentBorderColor,
+            },
+          ]}
+        >
+          <Ionicons color={theme.accentColor} name="arrow-down" size={13} />
+        </View>
+      </View>
+
+      <View
+        style={[
+          styles.segmentSummary,
+          {
+            backgroundColor: theme.accentSurfaceColor,
+            borderColor: theme.accentBorderColor,
+          },
+        ]}
+      >
+        <Text numberOfLines={1} style={[styles.segmentLabel, { color: theme.accentColor }]}>
+          {segmentLabel}
+        </Text>
+        <View style={styles.segmentMetrics}>
+          <View style={styles.segmentMetricItem}>
+            <Ionicons color={Colors.textSecondary} name="resize-outline" size={13} />
+            <DataText style={styles.segmentMetric}>{formatStationDistance(segmentDistance)}</DataText>
+          </View>
+          {segmentGain !== null ? (
+            <View style={styles.segmentMetricItem}>
+              <Ionicons color={Colors.textSecondary} name="trending-up-outline" size={13} />
+              <DataText style={styles.segmentMetric}>
+                {copy.aidElevationGain} {segmentGain} m
+              </DataText>
+            </View>
+          ) : null}
+          {segmentLoss !== null ? (
+            <View style={styles.segmentMetricItem}>
+              <Ionicons color={Colors.textSecondary} name="trending-down-outline" size={13} />
+              <DataText style={styles.segmentMetric}>
+                {copy.aidElevationLoss} {segmentLoss} m
+              </DataText>
+            </View>
+          ) : null}
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export function RacebookAidStationsSection({
   stations,
   expandedStationId,
@@ -276,18 +337,53 @@ export function RacebookAidStationsSection({
 
   return (
     <View style={styles.aidStationsWrap}>
-      {stations.map((station, index) => (
-        <AidStationCard
-          key={station.id}
-          station={showOfficialProducts ? station : { ...station, products: [] }}
-          previousStation={index > 0 ? stations[index - 1] : undefined}
-          position={index + 1}
-          expanded={expandedStationId === station.id}
-          onToggle={() => onToggleStation(station)}
-          theme={theme}
-          copy={copy}
-        />
-      ))}
+      {stations.map((station, index) => {
+        const previousStation = index > 0 ? stations[index - 1] : undefined;
+        const isLastStation = index === stations.length - 1;
+
+        return (
+          <View key={station.id}>
+            <SegmentConnector
+              station={station}
+              previousStation={previousStation}
+              copy={copy}
+              theme={theme}
+            />
+            <View style={styles.timelineStationRow}>
+              <View style={styles.stationRail}>
+                <View
+                  style={[
+                    styles.timelineLine,
+                    isLastStation ? styles.timelineLineLast : styles.timelineLineFull,
+                    { backgroundColor: theme.accentBorderColor },
+                  ]}
+                />
+                <View
+                  style={[
+                    styles.stationIndex,
+                    {
+                      backgroundColor: theme.primarySurfaceColor,
+                      borderColor: theme.primaryBorderColor,
+                    },
+                  ]}
+                >
+                  <DataText style={[styles.stationIndexText, { color: theme.primaryColor }]}>R{index + 1}</DataText>
+                </View>
+              </View>
+              <View style={styles.timelineCard}>
+                <AidStationCard
+                  station={showOfficialProducts ? station : { ...station, products: [] }}
+                  position={index + 1}
+                  expanded={expandedStationId === station.id}
+                  onToggle={() => onToggleStation(station)}
+                  theme={theme}
+                  copy={copy}
+                />
+              </View>
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -301,7 +397,37 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   emptyText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  aidStationsWrap: { gap: 10 },
+  aidStationsWrap: { gap: 0 },
+  timelineStationRow: { flexDirection: 'row', alignItems: 'stretch' },
+  timelineCard: { flex: 1, paddingBottom: 4 },
+  stationRail: {
+    width: 42,
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    paddingTop: 20,
+  },
+  segmentRow: { flexDirection: 'row', alignItems: 'stretch', minHeight: 62 },
+  segmentRail: { width: 42, alignItems: 'center', justifyContent: 'center' },
+  timelineLine: { position: 'absolute', left: 20, width: 2 },
+  timelineLineFull: { top: 0, bottom: 0 },
+  timelineLineLast: { top: 0, height: 37 },
+  directionMarker: {
+    width: 24,
+    height: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  startMarker: {
+    position: 'absolute',
+    top: 0,
+    left: 15,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 2,
+  },
   aidStationCard: {
     overflow: 'hidden',
     borderRadius: 16,
@@ -320,13 +446,12 @@ const styles = StyleSheet.create({
   aidStationSummaryMain: { flex: 1, gap: 7 },
   aidStationTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   stationIndex: {
-    minWidth: 32,
-    height: 26,
-    paddingHorizontal: 7,
+    width: 34,
+    height: 34,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 13,
-    borderWidth: 1,
+    borderRadius: 17,
+    borderWidth: 2,
   },
   stationIndexText: { fontSize: 11, fontWeight: '800' },
   aidStationName: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
@@ -356,13 +481,16 @@ const styles = StyleSheet.create({
     borderTopColor: Colors.border,
   },
   segmentSummary: {
+    flex: 1,
+    alignSelf: 'center',
     gap: 8,
     padding: 11,
     borderRadius: 12,
-    backgroundColor: Colors.surfaceSecondary,
+    borderWidth: 1,
   },
   segmentLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
-  segmentMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 12 },
+  segmentMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  segmentMetricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   segmentMetric: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
   inlineBlock: { gap: 8 },
   inlineBlockTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },

@@ -673,7 +673,7 @@ export const fr: MobileTranslations = {
     racebookRelayHandoverTime: 'Passage prévu',
     racebookFieldStartLocation: 'Lieu de départ',
     racebookFieldFinishLocation: 'Lieu d’arrivée',
-    racebookFieldFinishCutoff: 'Barrière d’arrivée',
+    racebookFieldFinishCutoff: 'Barrière horaire d’arrivée',
     racebookFieldBibLocation: 'Lieu de retrait',
     racebookFieldBibWindow: 'Plage horaire',
     racebookFieldBibDocuments: 'Documents à avoir',

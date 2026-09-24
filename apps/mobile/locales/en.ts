@@ -671,7 +671,7 @@ export const en: MobileTranslations = {
     racebookRelayHandoverTime: 'Expected handover',
     racebookFieldStartLocation: 'Start location',
     racebookFieldFinishLocation: 'Finish location',
-    racebookFieldFinishCutoff: 'Finish cutoff',
+    racebookFieldFinishCutoff: 'Finish cutoff time',
     racebookFieldBibLocation: 'Pickup location',
     racebookFieldBibWindow: 'Time window',
     racebookFieldBibDocuments: 'Required documents',

@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-16
+last_verified: 2026-09-24
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -187,6 +187,8 @@ The mobile RaceBook emits `racebook opened` only after an accessible RaceBook ha
 The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, and emergency-call actions. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
 
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
+
+The always-visible ravito segment chronology and its distance/elevation connectors are presentation-only. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; connector visibility adds no new analytics event or property.
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 
