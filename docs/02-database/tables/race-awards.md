@@ -35,7 +35,7 @@ The collection is additive on mobile: a temporary Data API/table-unavailable err
 
 The typed `RacebookStructuredCourseSections` component owns only podium-card presentation; the route continues to group awards by time and enforce the active module/tab contract.
 
-The image-backed identity hero, edition logo, and sponsor surfaces are presentation-only and do not change award ordering, visibility, or the conditional Podiums tab.
+The image-backed identity hero, edition logo, compact tiered sponsor rows, and Ravitos endpoint timing layout are presentation-only and do not change award ordering, visibility, or the conditional Podiums tab.
 
 The two-line clamp applied to bib-pickup address text is isolated from podium rendering and does not change award data or visibility.
 
