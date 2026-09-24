@@ -3,6 +3,7 @@ import {
   Alert,
   Animated,
   AppState,
+  BackHandler,
   Image,
   Linking,
   Pressable,
@@ -442,6 +443,7 @@ export default function RaceRacebookScreen() {
   const activeCourseTabRef = useRef<CourseTabKey>('route');
   const unavailableTrackedRaceIdRef = useRef<string | null>(null);
   const sponsorViewRef = useRef<{ raceId: string | null; viewId: string } | null>(null);
+  const exitingToCatalogRef = useRef(false);
   const activeRaceIdRef = useRef(id);
   activeRaceIdRef.current = id;
 
@@ -1109,6 +1111,13 @@ export default function RaceRacebookScreen() {
     openExternalUrl(url);
   }, [captureRacebookInteraction, openExternalUrl]);
 
+  const exitRacebookToCatalog = useCallback(() => {
+    if (exitingToCatalogRef.current) return;
+    exitingToCatalogRef.current = true;
+    captureRacebookInteraction('racebook action clicked', { action: 'exit_to_catalog' });
+    router.dismissTo('/(app)/catalog');
+  }, [captureRacebookInteraction, router]);
+
   const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {
     if (!id) return;
     void reportRacebookSponsorImpression(id, sponsorViewId, impression);
@@ -1120,12 +1129,26 @@ export default function RaceRacebookScreen() {
   }, [navigation, showLoading]);
 
   useFocusEffect(useCallback(() => {
+    exitingToCatalogRef.current = false;
     scrollRef.current?.scrollTo({ y: 0, animated: false });
     scrollY.setValue(0);
     const tabsNavigation = navigation.getParent();
     tabsNavigation?.setOptions({ tabBarStyle: { display: 'none' } });
-    return () => tabsNavigation?.setOptions({ tabBarStyle: undefined });
-  }, [navigation, scrollY]));
+    const unsubscribeBeforeRemove = navigation.addListener('beforeRemove', (event) => {
+      if (exitingToCatalogRef.current) return;
+      event.preventDefault();
+      exitRacebookToCatalog();
+    });
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      exitRacebookToCatalog();
+      return true;
+    });
+    return () => {
+      backSubscription.remove();
+      unsubscribeBeforeRemove();
+      tabsNavigation?.setOptions({ tabBarStyle: undefined });
+    };
+  }, [exitRacebookToCatalog, navigation, scrollY]));
 
   async function finishRacebookOnboarding(completed: boolean) {
     setOnboardingBusy(true);
@@ -1173,10 +1196,7 @@ export default function RaceRacebookScreen() {
             ...(instagramUrl ? [{ accessibilityLabel: 'Instagram', action: 'instagram_opened', icon: 'logo-instagram' as const, url: instagramUrl }] : []),
             ...(facebookUrl ? [{ accessibilityLabel: 'Facebook', action: 'facebook_opened', icon: 'logo-facebook' as const, url: facebookUrl }] : []),
           ]}
-          onBack={() => {
-            if (router.canGoBack()) router.back();
-            else router.replace('/(app)/catalog');
-          }}
+          onBack={exitRacebookToCatalog}
           onCallEmergency={emergencyTelephoneUrl ? () => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started') : undefined}
           onOpenLocation={headerLocationUrl ? () => openTrackedUrl(headerLocationUrl, 'map_opened', 'header_location') : undefined}
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
@@ -1620,10 +1640,7 @@ export default function RaceRacebookScreen() {
           exitAction={{
             label: locale === 'fr' ? 'Courses' : 'Races',
             accessibilityLabel: locale === 'fr' ? 'Quitter le RaceBook et revenir aux courses' : 'Leave the RaceBook and return to races',
-            onPress: () => {
-              captureRacebookInteraction('racebook action clicked', { action: 'exit_to_catalog' });
-              router.replace('/(app)/catalog');
-            },
+            onPress: exitRacebookToCatalog,
           }}
           theme={brandTheme}
         />

@@ -43,6 +43,7 @@ related_tables:
 - Organizer equipment changes do not rewrite runner rows. The UI counts only keys that still match currently published items, so removed items become harmless dormant rows.
 - Items with a persisted organizer id use it. Legacy items without an id use a deterministic normalized-label key scoped by required/recommended/weather group.
 - Toggling is optimistic in the app and rolls back visibly if the owner-scoped database write fails.
+- Leaving a RaceBook dismisses to Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
 
 ## Related Docs
 

@@ -47,6 +47,6 @@ Published rows travel in the consolidated RaceBook CDN snapshot. A successful at
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; award rows, ordering, visibility, and read/write contracts remain unchanged.
 
-The RaceBook contextual bottom navigation exposes only primary sections and mirrors the global bar's color-only active treatment. Podiums remains a conditional Course sub-tab, so the hero's emergency action, focus-time scroll reset, and navigation presentation do not alter award visibility or persistence.
+The RaceBook contextual bottom navigation exposes only primary sections and mirrors the global bar's color-only active treatment. Podiums remains a conditional Course sub-tab, so the hero's emergency action, focus-time scroll reset, deterministic Courses exit, and navigation presentation do not alter award visibility or persistence.
 
 Award cards now use the published accent surface and contrast-safe accent text. This is presentation-only; personal equipment checks live separately in `racebook_gear_checks` and do not alter award rows.

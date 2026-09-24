@@ -50,4 +50,6 @@ The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and mo
 
 The contextual RaceBook bottom bar changes only primary-section navigation. SAS remains a conditional Course sub-tab and the common start-time synchronization contract is unchanged.
 
+The hero, contextual Courses action, and Android hardware back dismiss the active RaceBook to Courses; this stack behavior does not alter SAS visibility, ordering, or time authority.
+
 Mobile SAS index and time treatments now use published accent variants. Source wave rows and ordering remain unchanged, and personal equipment checks stay in their separate owner-scoped table.
