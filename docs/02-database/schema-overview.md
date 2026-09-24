@@ -290,6 +290,7 @@ erDiagram
 - The 2026-09-14 iOS accessibility pass changes keyboard, gesture, motion, safe-area, and touch-target presentation only; it adds no schema field, relationship, RLS policy, or client database access.
 - Do not use `docs/_archive/db/schema.sql` as current truth.
 - RLS is enabled on the main app tables; tests and server routes must be explicit about role context.
+- Sponsor impression SQL checks select a race whose event, catalog visibility, RaceBook publication, and preview visibility are already live; schema triggers remain authoritative and are not bypassed by fixture updates.
 - Historical migrations contain unsafe administrator branches, but the final hardening migration replaces active privileged policies with trusted `app_metadata` checks. Never authorize from `user_profiles.role` or `user_metadata`.
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
 - Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.

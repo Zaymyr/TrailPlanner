@@ -414,6 +414,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - For product catalog UX, do not derive "official/shared" from `created_by is null`. Ownership and catalog curation are separate concerns.
 - Data-only official product imports do not require new policies when they only set catalog metadata and live visibility on the existing `products` table.
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
+- The sponsor SQL fixture must exercise impression visibility against an already-live event and an already-published, preview-visible RaceBook. Directly forcing an arbitrary race live is not a valid RLS fixture because catalog-completeness and edition-visibility triggers may keep it private.
 - Data-only final-roadbook corrections on existing `race_events`, `race_event_editions`, and `races` rows reuse their current policies and grants; the Les Amaz’Eaunes 2026 synchronization adds no client access or policy branch.
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.

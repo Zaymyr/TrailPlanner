@@ -489,6 +489,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Generating a missing historical invoice is not a new purchase action. Keep it on the existing paid bank-transfer row and reject non-EUR, taxed, inconsistent, or already-invoiced rows instead of rewriting their history.
 - A successful organizer membership check and URL signature are not enough if the relative signed path is rooted at the project host. Keep `/storage/v1` when returning Supabase's `/object/sign/...` response or the browser receives `requested path is invalid`.
 - Keep the route and format-publication RPC authorization aligned: active event membership or trusted Auth `app_metadata` admin. Never require an artificial membership row solely for an admin format toggle.
+- Sponsor impression regression checks use an existing format whose event and RaceBook are already published and whose preview is visible. Do not make an arbitrary format public inside the fixture: publication completeness and edition visibility remain organizer-domain invariants enforced by triggers.
 
 - Publication checkout inspects populated module tables before contacting Stripe. Branding presence is checked through the real `edition_id` key; do not assume every Organizer content table exposes an `id` column.
 - Keep branding draft and publication separate: saving or uploading must not change runner output until the organizer presses `Publier la DA`.
