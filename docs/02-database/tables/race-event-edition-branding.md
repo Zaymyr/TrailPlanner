@@ -109,7 +109,7 @@ where edition_id = :edition_id;
 - Sponsor logos and organizer-branding logos use separate Storage prefixes. Keep edition-logo rendering behind the shared `RACEBOOK_EDITION_LOGO_ENABLED` release switch so it can be disabled without deleting stored URLs.
 - Invalid/missing branding and image load failures must fall back silently to the Pace Yourself theme.
 - Mobile waits for the edition bootstrap before revealing RaceBook content; do not reintroduce a short presentation timeout that permanently replaces a valid slow response with default colors.
-- Hero, contextual, and Android back actions dismiss to Courses rather than an earlier RaceBook; this navigation rule does not change the published branding payload or resolver.
+- Hero, contextual, and Android back actions replace the active route with Courses rather than exposing an earlier RaceBook; this navigation rule does not change the published branding payload or resolver.
 - Branding draft mutation does not require a paid entitlement. Publication does require active Signature; inactive or draft-only branding remains stored while runner bootstrap returns Pace Yourself defaults.
 
 ## Related Docs

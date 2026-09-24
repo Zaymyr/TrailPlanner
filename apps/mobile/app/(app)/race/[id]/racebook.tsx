@@ -1115,7 +1115,7 @@ export default function RaceRacebookScreen() {
     if (exitingToCatalogRef.current) return;
     exitingToCatalogRef.current = true;
     captureRacebookInteraction('racebook action clicked', { action: 'exit_to_catalog' });
-    router.dismissTo('/(app)/catalog');
+    router.replace('/(app)/catalog');
   }, [captureRacebookInteraction, router]);
 
   const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {

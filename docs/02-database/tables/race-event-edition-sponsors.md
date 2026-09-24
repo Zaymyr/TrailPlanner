@@ -115,7 +115,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - Keep `contextualSponsors` fallback-compatible with `bannerSponsors`; a partner configured only for a contextual surface must not disappear for clients that receive the new collection.
 - Keep impression placement exact: `hero` maps to `show_in_banner`; contextual values must equal `contextual_placement`; `loading` maps only to `show_on_loading`.
 - The RaceBook contextual bottom bar and hero social rail are app navigation/contact surfaces, not sponsor placements. They do not emit sponsor impressions or alter the stable hero partner block.
-- Dismissing a RaceBook to Courses, including through Android hardware back, closes the current reader session but does not create a sponsor click or impression.
+- Replacing a RaceBook with Courses, including through Android hardware back, closes the current reader session but does not create a sponsor click or impression.
 - The emergency number/action added to the expanded hero and its compact telephone icon are event contact surfaces, not sponsor placements. They neither affect viewability measurement nor share sponsor click/impression reporting.
 - Official partners use compact three-column cards in the stable partner block. This density change does not alter ordering, tier eligibility, click redirects, viewability thresholds, or aggregate impression counting.
 - The loading runner has no opaque backing tile: it moves directly above the progress track, including for a customized edition theme. This polish change does not affect the sponsor gate or impression timing.

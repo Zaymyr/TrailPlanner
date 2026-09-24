@@ -61,6 +61,6 @@ Published rows travel in the consolidated RaceBook CDN snapshot. A successful se
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; structured service rows, links, visibility, and API/RLS contracts remain unchanged.
 
-When effective service content exists, Services appears directly in the RaceBook contextual bottom bar. Its filled icon and color-only active state align with the global navigation; the hero's emergency presentation, focus-time scroll reset, and deterministic Courses exit remain independent, and the same edition-scoped visibility, fallback, and action contracts apply.
+When effective service content exists, Services appears directly in the RaceBook contextual bottom bar. Its filled icon and color-only active state align with the global navigation; the hero's emergency presentation, focus-time scroll reset, and route-replacing Courses exit remain independent, and the same edition-scoped visibility, fallback, and action contracts apply.
 
 Service-category and external-action icons now use the published accent surface/graphic variants. This changes no service field, visibility rule, or URL, and personal equipment checks remain isolated in `racebook_gear_checks`.
