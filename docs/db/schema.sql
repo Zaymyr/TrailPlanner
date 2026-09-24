@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict m2YkbBoMiam3GIlvoWmThOhdxT5aVU4Fg9CqxUKrWPCYMlECVbgjKb4SnLzklzy
+\restrict oLMiu8EU402qgYpbz1ujDKP8LqRs9MEMrXTGYKwbYyW7cwUdYIuPgzPySyFN2ru
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -2860,6 +2860,57 @@ COMMENT ON FUNCTION public.increment_racebook_sponsor_click(p_sponsor_id uuid, p
 
 
 --
+-- Name: increment_racebook_sponsor_impression(uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.increment_racebook_sponsor_impression(p_sponsor_id uuid, p_race_id uuid, p_placement text) RETURNS bigint
+    LANGUAGE plpgsql
+    SET search_path TO ''
+    AS $$
+declare
+  updated_count bigint;
+begin
+  if p_placement not in ('loading', 'hero', 'aid_stations', 'equipment', 'access', 'services') then
+    raise exception 'Invalid sponsor impression placement.' using errcode = '22023';
+  end if;
+
+  update public.race_event_edition_sponsors as sponsor
+  set impression_count = sponsor.impression_count + 1
+  from public.races as race,
+       public.race_events as event_row
+  where sponsor.id = p_sponsor_id
+    and sponsor.is_active
+    and race.id = p_race_id
+    and race.edition_id = sponsor.edition_id
+    and race.event_id = event_row.id
+    and race.is_live
+    and race.racebook_is_live
+    and coalesce(race.racebook_preview_is_visible, true)
+    and event_row.is_live
+    and (
+      (p_placement = 'loading' and sponsor.show_on_loading)
+      or (p_placement = 'hero' and sponsor.show_in_banner)
+      or sponsor.contextual_placement = p_placement
+    )
+  returning sponsor.impression_count into updated_count;
+
+  if updated_count is null then
+    raise exception 'Sponsor impression target not found.' using errcode = 'P0002';
+  end if;
+
+  return updated_count;
+end;
+$$;
+
+
+--
+-- Name: FUNCTION increment_racebook_sponsor_impression(p_sponsor_id uuid, p_race_id uuid, p_placement text); Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON FUNCTION public.increment_racebook_sponsor_impression(p_sponsor_id uuid, p_race_id uuid, p_placement text) IS 'Atomically counts one eligible sponsor impression for a published RaceBook and validated placement.';
+
+
+--
 -- Name: increment_user_sign_in(uuid, timestamp with time zone); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -3984,10 +4035,18 @@ CREATE TABLE public.race_event_edition_sponsors (
     show_in_banner boolean DEFAULT true NOT NULL,
     "position" smallint DEFAULT 0 NOT NULL,
     click_count bigint DEFAULT 0 NOT NULL,
-    CONSTRAINT race_event_edition_sponsors_active_placement_check CHECK (((NOT is_active) OR show_on_loading OR show_in_banner)),
+    partnership_level text DEFAULT 'official'::text NOT NULL,
+    category text,
+    contextual_placement text DEFAULT 'none'::text NOT NULL,
+    impression_count bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT race_event_edition_sponsors_active_placement_check CHECK (((NOT is_active) OR show_on_loading OR show_in_banner OR (contextual_placement <> 'none'::text))),
+    CONSTRAINT race_event_edition_sponsors_category_check CHECK (((category IS NULL) OR ((category = btrim(category)) AND ((char_length(category) >= 1) AND (char_length(category) <= 60))))),
     CONSTRAINT race_event_edition_sponsors_click_count_check CHECK ((click_count >= 0)),
+    CONSTRAINT race_event_edition_sponsors_contextual_placement_check CHECK ((contextual_placement = ANY (ARRAY['none'::text, 'aid_stations'::text, 'equipment'::text, 'access'::text, 'services'::text]))),
+    CONSTRAINT race_event_edition_sponsors_impression_count_check CHECK ((impression_count >= 0)),
     CONSTRAINT race_event_edition_sponsors_logo_url_check CHECK ((logo_url ~* '^https?://'::text)),
     CONSTRAINT race_event_edition_sponsors_name_check CHECK (((char_length(btrim(name)) >= 1) AND (char_length(btrim(name)) <= 80))),
+    CONSTRAINT race_event_edition_sponsors_partnership_level_check CHECK ((partnership_level = ANY (ARRAY['principal'::text, 'official'::text, 'service'::text]))),
     CONSTRAINT race_event_edition_sponsors_position_check CHECK ((("position" >= 0) AND ("position" <= 9))),
     CONSTRAINT race_event_edition_sponsors_website_url_check CHECK (((website_url IS NULL) OR (website_url ~* '^https?://'::text)))
 );
@@ -4005,6 +4064,34 @@ COMMENT ON TABLE public.race_event_edition_sponsors IS 'Edition-scoped sponsor p
 --
 
 COMMENT ON COLUMN public.race_event_edition_sponsors.click_count IS 'Aggregate redirect count only; no runner identity or impression history is stored.';
+
+
+--
+-- Name: COLUMN race_event_edition_sponsors.partnership_level; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_edition_sponsors.partnership_level IS 'Presentation hierarchy: principal, official, or service.';
+
+
+--
+-- Name: COLUMN race_event_edition_sponsors.category; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_edition_sponsors.category IS 'Optional short organizer-authored partner category shown with the sponsor.';
+
+
+--
+-- Name: COLUMN race_event_edition_sponsors.contextual_placement; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_edition_sponsors.contextual_placement IS 'Optional RaceBook section where the sponsor may be presented contextually.';
+
+
+--
+-- Name: COLUMN race_event_edition_sponsors.impression_count; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_edition_sponsors.impression_count IS 'Aggregate count of accepted viewable presentations; no runner identity or individual history is stored.';
 
 
 --
@@ -9933,6 +10020,19 @@ COMMENT ON COLUMN public.race_slug_redirects.old_slug IS 'Former canonical slug.
 
 
 --
+-- Name: racebook_gear_checks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.racebook_gear_checks (
+    user_id uuid NOT NULL,
+    race_id uuid NOT NULL,
+    item_key text NOT NULL,
+    checked_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    CONSTRAINT racebook_gear_checks_item_key_check CHECK (((char_length(item_key) >= 1) AND (char_length(item_key) <= 320)))
+);
+
+
+--
 -- Name: rate_limit_entries; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10979,6 +11079,14 @@ ALTER TABLE ONLY public.race_slug_redirects
 
 ALTER TABLE ONLY public.race_start_waves
     ADD CONSTRAINT race_start_waves_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: racebook_gear_checks racebook_gear_checks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_gear_checks
+    ADD CONSTRAINT racebook_gear_checks_pkey PRIMARY KEY (user_id, race_id, item_key);
 
 
 --
@@ -12257,6 +12365,13 @@ CREATE INDEX race_start_waves_race_order_idx ON public.race_start_waves USING bt
 
 
 --
+-- Name: racebook_gear_checks_race_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX racebook_gear_checks_race_idx ON public.racebook_gear_checks USING btree (race_id);
+
+
+--
 -- Name: races_edition_id_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -13478,6 +13593,22 @@ ALTER TABLE ONLY public.race_start_waves
 
 
 --
+-- Name: racebook_gear_checks racebook_gear_checks_race_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_gear_checks
+    ADD CONSTRAINT racebook_gear_checks_race_id_fkey FOREIGN KEY (race_id) REFERENCES public.races(id) ON DELETE CASCADE;
+
+
+--
+-- Name: racebook_gear_checks racebook_gear_checks_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.racebook_gear_checks
+    ADD CONSTRAINT racebook_gear_checks_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.user_profiles(user_id) ON DELETE CASCADE;
+
+
+--
 -- Name: races races_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -13887,6 +14018,13 @@ CREATE POLICY "Service role or admins can manage premium grants" ON public.premi
 
 
 --
+-- Name: racebook_gear_checks Users can add own RaceBook gear checks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can add own RaceBook gear checks" ON public.racebook_gear_checks FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
 -- Name: user_favorite_race_events Users can add own favorite race events; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -14033,6 +14171,13 @@ CREATE POLICY "Users can read their subscription" ON public.subscriptions FOR SE
 
 
 --
+-- Name: racebook_gear_checks Users can remove own RaceBook gear checks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can remove own RaceBook gear checks" ON public.racebook_gear_checks FOR DELETE TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
 -- Name: plan_share_links Users can update own plan share links; Type: POLICY; Schema: public; Owner: -
 --
 
@@ -14078,6 +14223,13 @@ CREATE POLICY "Users can update their race plans" ON public.race_plans FOR UPDAT
 --
 
 CREATE POLICY "Users can upsert their profile" ON public.user_profiles FOR INSERT TO authenticated WITH CHECK ((( SELECT auth.uid() AS uid) = user_id));
+
+
+--
+-- Name: racebook_gear_checks Users can view own RaceBook gear checks; Type: POLICY; Schema: public; Owner: -
+--
+
+CREATE POLICY "Users can view own RaceBook gear checks" ON public.racebook_gear_checks FOR SELECT TO authenticated USING ((( SELECT auth.uid() AS uid) = user_id));
 
 
 --
@@ -14453,6 +14605,12 @@ ALTER TABLE public.race_slug_redirects ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.race_start_waves ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: racebook_gear_checks; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.racebook_gear_checks ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: races; Type: ROW SECURITY; Schema: public; Owner: -
@@ -15904,6 +16062,14 @@ GRANT ALL ON FUNCTION public.increment_racebook_sponsor_click(p_sponsor_id uuid,
 
 
 --
+-- Name: FUNCTION increment_racebook_sponsor_impression(p_sponsor_id uuid, p_race_id uuid, p_placement text); Type: ACL; Schema: public; Owner: -
+--
+
+REVOKE ALL ON FUNCTION public.increment_racebook_sponsor_impression(p_sponsor_id uuid, p_race_id uuid, p_placement text) FROM PUBLIC;
+GRANT ALL ON FUNCTION public.increment_racebook_sponsor_impression(p_sponsor_id uuid, p_race_id uuid, p_placement text) TO service_role;
+
+
+--
 -- Name: FUNCTION increment_user_sign_in(p_user_id uuid, p_signed_in_at timestamp with time zone); Type: ACL; Schema: public; Owner: -
 --
 
@@ -17179,6 +17345,14 @@ GRANT SELECT ON TABLE public.race_slug_redirects TO authenticated;
 
 
 --
+-- Name: TABLE racebook_gear_checks; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.racebook_gear_checks TO service_role;
+GRANT SELECT,INSERT,DELETE ON TABLE public.racebook_gear_checks TO authenticated;
+
+
+--
 -- Name: TABLE rate_limit_entries; Type: ACL; Schema: public; Owner: -
 --
 
@@ -17227,7 +17401,8 @@ GRANT ALL ON TABLE public.user_profiles TO service_role;
 -- Name: TABLE messages; Type: ACL; Schema: realtime; Owner: -
 --
 
-GRANT ALL ON TABLE realtime.messages TO postgres;
+GRANT REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLE realtime.messages TO postgres;
+GRANT SELECT,INSERT ON TABLE realtime.messages TO postgres WITH GRANT OPTION;
 GRANT ALL ON TABLE realtime.messages TO dashboard_user;
 GRANT SELECT,INSERT,UPDATE ON TABLE realtime.messages TO anon;
 GRANT SELECT,INSERT,UPDATE ON TABLE realtime.messages TO authenticated;
@@ -17559,7 +17734,8 @@ ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON
 -- Name: DEFAULT PRIVILEGES FOR TABLES; Type: DEFAULT ACL; Schema: realtime; Owner: -
 --
 
-ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON TABLES TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT REFERENCES,DELETE,TRIGGER,TRUNCATE,MAINTAIN,UPDATE ON TABLES TO postgres;
+ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT SELECT,INSERT ON TABLES TO postgres WITH GRANT OPTION;
 ALTER DEFAULT PRIVILEGES FOR ROLE supabase_admin IN SCHEMA realtime GRANT ALL ON TABLES TO dashboard_user;
 
 
@@ -17649,5 +17825,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict m2YkbBoMiam3GIlvoWmThOhdxT5aVU4Fg9CqxUKrWPCYMlECVbgjKb4SnLzklzy
+\unrestrict oLMiu8EU402qgYpbz1ujDKP8LqRs9MEMrXTGYKwbYyW7cwUdYIuPgzPySyFN2ru
 

@@ -1383,6 +1383,10 @@
 | `show_in_banner` | `b` | ✅ | `` |
 | `position` | `s` | ✅ | `` |
 | `click_count` | `b` | ✅ | `` |
+| `partnership_level` | `t` | ✅ | `` |
+| `category` | `t` | ❌ | `` |
+| `contextual_placement` | `t` | ✅ | `` |
+| `impression_count` | `b` | ✅ | `` |
 
 **Primary keys**
 - `race_event_edition_sponsors_pkey` on (id)
@@ -1690,6 +1694,28 @@
 
 **Foreign keys**
 - `race_start_waves_race_id_fkey`: (race_id) → public.races(id)
+
+**RLS**: ❌ disabled
+
+---
+
+### Table `public.racebook_gear_checks`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `user_id` | `u` | ✅ | `` |
+| `race_id` | `u` | ✅ | `` |
+| `item_key` | `t` | ✅ | `` |
+| `checked_at` | `t` | ✅ | `` |
+
+**Primary keys**
+- `racebook_gear_checks_pkey` on (user_id, race_id, item_key)
+
+**Foreign keys**
+- `racebook_gear_checks_race_id_fkey`: (race_id) → public.races(id)
+- `racebook_gear_checks_user_id_fkey`: (user_id) → public.user_profiles(user_id)
 
 **RLS**: ❌ disabled
 
