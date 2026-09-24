@@ -5,6 +5,8 @@ coverage
 .next
 tsconfig.tsbuildinfo
 tmp/
+.turbo/
+.worktrees/
 # Expo
 .expo/
 apps/mobile/.expo/
