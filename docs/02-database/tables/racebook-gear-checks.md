@@ -44,6 +44,7 @@ related_tables:
 - Items with a persisted organizer id use it. Legacy items without an id use a deterministic normalized-label key scoped by required/recommended/weather group.
 - Toggling is optimistic in the app and rolls back visibly if the owner-scoped database write fails.
 - Leaving a RaceBook replaces it with Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
+- Compact sponsor rows and the Ravitos endpoint timing/spacing presentation do not read or mutate equipment-check rows.
 
 ## Related Docs
 

@@ -51,7 +51,7 @@ The two-line clamp applied to bib-pickup address text is isolated from service-c
 
 The RaceBook route keeps structured service normalization, distance approximation, link construction and analytics callbacks. `RacebookServicesSection` owns only the grouped mobile presentation and receives normalized rows, resolved theme, explicit copy and URL callbacks.
 
-A sponsor configured for the `services` contextual placement renders after this section. That aggregate presentation and its impression counter do not change service rows, categories, links, or visibility.
+A sponsor configured for the `services` contextual placement renders after this section in the shared compact, unframed tiered-row surface. That aggregate presentation and its impression counter do not change service rows, categories, links, or visibility.
 
 The format access override that hides saved runner information is likewise independent from edition service rows and their visibility.
 

@@ -191,9 +191,9 @@ The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid
 
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
-The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, and right-indented distance/elevation connectors are presentation-only. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint and connector visibility add no new analytics event or property.
+The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, endpoint-integrated start/finish times, and equally spaced right-indented distance/elevation connectors are presentation-only. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint and connector visibility add no new analytics event or property.
 
-Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
+Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Compacting the stable surface into unframed tiered rows changes neither viewability measurement nor placement names. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 
 The two-line visual truncation of a bib-pickup address is presentation-only: opening the link still emits the existing Maps action with the same bounded context and never sends the full address.
 

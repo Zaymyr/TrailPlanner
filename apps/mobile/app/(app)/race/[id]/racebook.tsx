@@ -1355,9 +1355,9 @@ export default function RaceRacebookScreen() {
                 </View>
 
                 {(['route', 'start-waves', 'aid-stations'] as CourseTabKey[]).includes(activeCourseTab) &&
-                (courseItems.length > 0 || courseConstraintLines.length > 0) ? (
+                ((activeCourseTab !== 'aid-stations' && courseItems.length > 0) || courseConstraintLines.length > 0) ? (
                   <View style={styles.courseEssentials}>
-                    {courseItems.length > 0 ? (
+                    {courseItems.length > 0 && activeCourseTab !== 'aid-stations' ? (
                       <View style={styles.courseEssentialMetrics}>
                         {courseItems.map((item) => (
                           <View
@@ -1412,7 +1412,8 @@ export default function RaceRacebookScreen() {
                       </>
                     ) : null}
                   </View>
-                ) : courseItems.length > 0 || courseConstraintLines.length > 0 ? (
+                ) : !(['route', 'start-waves', 'aid-stations'] as CourseTabKey[]).includes(activeCourseTab) &&
+                  (courseItems.length > 0 || courseConstraintLines.length > 0) ? (
                   <SectionCard title={t.catalog.racebookSectionCourseEssentials}>
                     {courseItems.length > 0 ? <LabeledInfoList items={courseItems} emphasis onOpenUrl={openExternalUrl} /> : null}
                     {courseItems.length > 0 && courseConstraintLines.length > 0 ? (
@@ -1480,6 +1481,7 @@ export default function RaceRacebookScreen() {
                   <>
                   <RacebookAidStationsSection
                     stations={data.aidStations}
+                    startTime={data.runnerDetails.schedule.startTime}
                     finish={{
                       label: t.catalog.racebookMapFinish,
                       distanceKm: data.race.distanceKm,
@@ -1514,6 +1516,7 @@ export default function RaceRacebookScreen() {
                       aidCutoffTime: t.catalog.racebookAidCutoffTime,
                       aidFromStart: locale === 'fr' ? 'Depuis le départ' : 'From the start',
                       aidFromPrevious: locale === 'fr' ? 'Depuis {name}' : 'From {name}',
+                      startTimeLabel: t.catalog.racebookFieldStartTime,
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
                     }}
