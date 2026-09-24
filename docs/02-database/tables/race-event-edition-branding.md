@@ -117,6 +117,8 @@ where edition_id = :edition_id;
 
 Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.
 
+The same resolved accent colors decorate fullscreen route/profile visuals and ravito point markers. Marker details and incomplete-GPX warnings keep application-owned semantic and accessibility behavior and add no branding state.
+
 - [race_event_editions](race-event-editions.md)
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

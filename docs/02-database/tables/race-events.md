@@ -325,6 +325,7 @@ where is_live = true
 - Mobile may render validated event website/social links and the validated emergency contact in the image-backed RaceBook hero. The expanded hero displays the emergency number and call action; its compact safe-area state keeps a telephone icon before social links and clips long titles before those actions. This is presentation-only, and the values remain event-scoped validated links/contact data that never affect catalog or publication state.
 - RaceBook exits replace the active route with Courses instead of reopening a previously viewed format. This route-stack behavior does not change event visibility, ownership, or publication state.
 - Decorative location and access actions now use published edition accent variants. Personal Material completion is stored by exact `race_id` in `racebook_gear_checks`; neither change mutates event organizer metadata.
+- Interactive ravito points and fullscreen map/profile presentation are derived from format-scoped GPX and station data. They do not use the event anchor coordinates as route geometry and do not mutate event metadata.
 
 ## Related Docs
 

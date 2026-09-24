@@ -44,6 +44,9 @@ related_files:
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
+  - apps/mobile/components/racebook/RacebookElevationProfile.tsx
+  - apps/mobile/lib/racebookCourseVisuals.ts
+  - apps/mobile/lib/racebookCourseVisuals.test.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
@@ -238,7 +241,7 @@ The combined format module is **Départ, ravitos & relais**. Its common departur
 
 The section chooser presents edition-common modules separately from format-owned modules. Branding, sponsors, services, equipment, bib pickup, and access use one edition setting shared by every attached format. Race modules retain per-format values; the event view can apply one choice to all existing formats and explicitly reports mixed values, while a format tab edits only its active race.
 
-Each format also owns two GPX presentation preferences in `races.organizer_details.gpxDisplay`: `showRoute` and `showElevationProfile`. Both default to `true` for historical rows. The Organizer exposes them beside the GPX upload, while its own map/profile previews remain visible for source validation; mobile independently omits the map, the profile, or both from the RaceBook `Tracé` view.
+Each format also owns two GPX presentation preferences in `races.organizer_details.gpxDisplay`: `showRoute` and `showElevationProfile`. Both default to `true` for historical rows. The Organizer exposes them beside the GPX upload, while its own map/profile previews remain visible for source validation; mobile independently omits the map, the profile, or both from the RaceBook `Tracé` view. On mobile, the remaining visuals can open fullscreen independently. Ravitos are projected from their published cumulative kilometers onto the measured route/profile and reveal organizer details after direct selection or when the moving profile cursor reaches their hit area; a station outside an incomplete GPX extent is omitted from that visual instead of being moved to its endpoint. Away from ravitos, three cards below the mobile profile show free press-and-slide inspection of measured cumulative distance, D+ and D-. These interactions do not change the organizer's stored station/course totals or GPX source.
 
 Legacy service text is never parsed or deleted automatically. While SAS exist, their earliest time is authoritative: it is mirrored to `schedule.startTime`, displayed in the common departure card, and disables manual departure editing. Removing the final SAS preserves that stored value and re-enables the common field.
 
@@ -511,7 +514,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Keep organizer website and social-link normalization inside the shared details schema: valid domain links may gain an `https://` prefix, while arbitrary text and non-HTTP(S) protocols must still fail validation.
 - Do not let ordinary runner access bypass the mobile Racebook's three-part gate: catalog-live format, `racebook_is_live = true`, and meaningful organizer content. The only preview exception is an authenticated active organizer for a preview-selected format; masked formats and unrelated users must see the unavailable state.
 - Keep masked formats absent from the mobile application for runners and organizers, while preserving them in the authorized web workspace so they can be reactivated. Private formats remain visible to runners for plan creation; only active organizers receive their enabled but lightly grey RaceBook preview action.
-- Do not make the new route sketch or elevation-profile blocks part of the availability gate. They are best-effort visuals and must stay optional when stored GPX/elevation data is missing.
+- Do not make the new route sketch or elevation-profile blocks part of the availability gate. They are best-effort visuals and must stay optional when stored GPX/elevation data is missing. If a measured GPX/profile is materially shorter than `races.distance_km`, mobile must disclose the covered and advertised distances rather than stretching the profile, scaling the interactive cursor totals to the full race, or implying complete coverage.
 - Do not treat the per-format GPX display switches as GPX deletion or publication gates. They preserve the stored source file and only control the corresponding RaceBook visuals.
 - New organizer formats start private (`is_live = false`, `racebook_preview_is_visible = true`, `racebook_is_live = false`); first entitled publication makes both course and RaceBook public and records the durable unlock timestamp.
 - The two-pass import keeps a newly confirmed incomplete format at `data_status = draft` and `is_live = false` until its date, location, positive distance, and source are known. D+ and GPX remain optional; completion makes the format eligible for publication but leaves it private.

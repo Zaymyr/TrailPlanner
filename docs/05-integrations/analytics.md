@@ -44,6 +44,7 @@ related_files:
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
+  - apps/mobile/components/racebook/RacebookElevationProfile.tsx
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
   - apps/web/app/api/racebook-sponsors/impression/route.ts
@@ -192,6 +193,8 @@ The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
 The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, endpoint-integrated start/finish times, and equally spaced right-indented distance/elevation connectors are presentation-only. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint and connector visibility add no new analytics event or property.
+
+Ravito points on the map/profile, their local detail selection or cursor-hover state, the below-chart cumulative distance/D+/D- cards, the map/profile fullscreen controls, the taller rotated landscape profile, and incomplete-GPX coverage warnings are presentation-only. They add no station name, note, cutoff, geometry, cursor position/totals, fullscreen state, or GPX completeness property to identified analytics events.
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Compacting the stable surface into unframed tiered rows changes neither viewability measurement nor placement names. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 

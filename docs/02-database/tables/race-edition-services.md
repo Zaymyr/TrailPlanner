@@ -66,3 +66,5 @@ When effective service content exists, Services appears directly in the RaceBook
 Service-category and external-action icons now use the published accent surface/graphic variants. This changes no service field, visibility rule, or URL, and personal equipment checks remain isolated in `racebook_gear_checks`.
 
 Per-format GPX map/profile choices affect only the `Tracé` cards and do not change edition-scoped services or their conditional tab.
+
+Fullscreen course visuals and tappable ravito markers do not read, reorder, or replace edition-scoped nearby services.

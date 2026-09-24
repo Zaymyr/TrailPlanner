@@ -126,6 +126,8 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 
 Format-owned GPX route/profile choices do not change sponsor loading, placement, redirect counting, or edition scope.
 
+Opening a course visual fullscreen or selecting a ravito marker is not a sponsor presentation, click, or impression and does not restart the sponsor gate.
+
 - [race_event_editions](race-event-editions.md)
 - [RLS Policies](../rls-policies.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

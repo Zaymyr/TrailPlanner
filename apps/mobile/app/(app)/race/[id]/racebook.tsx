@@ -6,6 +6,7 @@ import {
   BackHandler,
   Image,
   Linking,
+  Modal,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -22,7 +23,6 @@ import {
   type ResolvedRacebookTheme,
 } from '@pace-yourself/design-system';
 
-import { ProfileMiniChart } from '../../../../components/plan-form/ProfileMiniChart';
 import { RacebookLeafletMap } from '../../../../components/race/RacebookLeafletMap';
 import { Card } from '../../../../components/themed/Card';
 import { DataText } from '../../../../components/themed/DataText';
@@ -52,10 +52,12 @@ import { RacebookGearSection } from '../../../../components/racebook/RacebookGea
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
+import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
-import { clearRaceProfileRequestCache, fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../../../lib/raceProfile';
+import { clearRaceProfileRequestCache, fetchRaceElevationProfile, fetchRaceRoutePreviewPoints, pickBestElevationProfile } from '../../../../lib/raceProfile';
+import { elevationProfileFromRoute } from '../../../../lib/racebookCourseVisuals';
 import { approximateDistanceKm, fetchRaceRacebookData, type RacebookScreenData } from '../../../../lib/racebook';
 import {
   createRacebookSponsorViewId,
@@ -255,26 +257,98 @@ function CourseProfileCard({
   title,
   points,
   emptyMessage,
+  aidStations,
+  officialDistanceKm,
+  locale,
 }: {
   title: string;
   points: ElevationPoint[];
   emptyMessage: string;
+  aidStations: RacebookScreenData['aidStations'];
+  officialDistanceKm: number;
+  locale: 'fr' | 'en';
 }) {
   const brandTheme = useRacebookBrandTheme();
+  const [fullscreen, setFullscreen] = useState(false);
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const landscapeWidth = Math.max(viewportWidth, viewportHeight);
+  const landscapeHeight = Math.min(viewportWidth, viewportHeight);
   return (
-    <SectionCard title={title} accent>
-      {points.length >= 2 ? (
-        <View style={styles.courseProfileWrap}>
-          <ProfileMiniChart points={points} accentColor={brandTheme.accentGraphicColor} />
-          <View style={styles.courseProfileMetaRow}>
-            <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[0]?.distanceKm ?? 0)} km`}</DataText>
-            <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[points.length - 1]?.distanceKm ?? 0)} km`}</DataText>
-          </View>
+    <Card style={[styles.sectionCard, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
+      <View style={styles.courseVisualHeader}>
+        <View style={styles.courseVisualTitleWrap}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <Text style={styles.courseVisualHint}>{locale === 'fr' ? 'Glissez sur la courbe · touchez un ravito' : 'Slide on the profile · tap an aid station'}</Text>
         </View>
+        <Pressable
+          style={[styles.expandButton, { borderColor: brandTheme.accentBorderColor }]}
+          onPress={() => setFullscreen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={locale === 'fr' ? 'Agrandir le profil en plein écran' : 'Expand profile full screen'}
+        >
+          <Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />
+        </Pressable>
+      </View>
+      {points.length >= 2 ? (
+        <RacebookElevationProfile
+          points={points}
+          aidStations={aidStations}
+          accentColor={brandTheme.accentGraphicColor}
+          officialDistanceKm={officialDistanceKm}
+          locale={locale}
+        />
       ) : (
         <EmptyState message={emptyMessage} />
       )}
-    </SectionCard>
+      <Modal
+        visible={fullscreen}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setFullscreen(false)}
+      >
+        <View style={styles.fullscreenSurface}>
+          <View
+            style={[
+              styles.landscapeCanvas,
+              {
+                width: landscapeWidth,
+                height: landscapeHeight,
+                left: (viewportWidth - landscapeWidth) / 2,
+                top: (viewportHeight - landscapeHeight) / 2,
+              },
+            ]}
+          >
+            <View style={styles.fullscreenHeader}>
+              <View style={styles.courseVisualTitleWrap}>
+                <Text style={styles.fullscreenTitle}>{title}</Text>
+                <Text style={styles.fullscreenSubtitle}>{locale === 'fr' ? 'Tournez le téléphone · glissez sur la courbe' : 'Turn your phone · slide on the profile'}</Text>
+              </View>
+              <Pressable
+                style={styles.fullscreenClose}
+                onPress={() => setFullscreen(false)}
+                accessibilityRole="button"
+                accessibilityLabel={locale === 'fr' ? 'Fermer le plein écran' : 'Close full screen'}
+              >
+                <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+            <View style={styles.fullscreenProfileBody}>
+              <RacebookElevationProfile
+                points={points}
+                aidStations={aidStations}
+                accentColor={brandTheme.accentGraphicColor}
+                officialDistanceKm={officialDistanceKm}
+                locale={locale}
+                expanded
+                profileHeight={Math.max(250, landscapeHeight - 155)}
+              />
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </Card>
   );
 }
 
@@ -282,20 +356,76 @@ function CourseMapCard({
   title,
   points,
   emptyMessage,
+  aidStations,
+  locale,
 }: {
   title: string;
   points: MobileGpxPreviewPoint[];
   emptyMessage: string;
+  aidStations: RacebookScreenData['aidStations'];
+  locale: 'fr' | 'en';
 }) {
   const brandTheme = useRacebookBrandTheme();
+  const [fullscreen, setFullscreen] = useState(false);
+  const { height: viewportHeight } = useWindowDimensions();
+  const modalInsets = useSafeAreaInsets();
   return (
-    <SectionCard title={title} accent>
+    <Card style={[styles.sectionCard, { backgroundColor: brandTheme.accentSurfaceColor, borderColor: brandTheme.accentBorderColor }]}>
+      <View style={styles.courseVisualHeader}>
+        <View style={styles.courseVisualTitleWrap}>
+          <Text style={styles.sectionTitle}>{title}</Text>
+          <Text style={styles.courseVisualHint}>{locale === 'fr' ? 'Touchez un point pour ouvrir le ravito' : 'Tap a point to open the aid station'}</Text>
+        </View>
+        <Pressable
+          style={[styles.expandButton, { borderColor: brandTheme.accentBorderColor }]}
+          onPress={() => setFullscreen(true)}
+          accessibilityRole="button"
+          accessibilityLabel={locale === 'fr' ? 'Agrandir la carte en plein écran' : 'Expand map full screen'}
+        >
+          <Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />
+        </Pressable>
+      </View>
       {points.length >= 2 ? (
-        <RacebookLeafletMap points={points} routeColor={brandTheme.accentGraphicColor} />
+        <RacebookLeafletMap points={points} aidStations={aidStations} routeColor={brandTheme.accentGraphicColor} locale={locale} />
       ) : (
         <EmptyState message={emptyMessage} />
       )}
-    </SectionCard>
+      <Modal
+        visible={fullscreen}
+        animationType="fade"
+        presentationStyle="fullScreen"
+        statusBarTranslucent
+        navigationBarTranslucent
+        onRequestClose={() => setFullscreen(false)}
+      >
+        <View style={styles.fullscreenSurface}>
+          <View style={[styles.fullscreenMapTopBar, { paddingTop: modalInsets.top + 8 }]}>
+            <View style={styles.courseVisualTitleWrap}>
+              <Text style={styles.fullscreenTitle}>{title}</Text>
+              <Text style={styles.fullscreenSubtitle}>{locale === 'fr' ? 'Touchez un point ravito pour le détail' : 'Tap an aid-station point for details'}</Text>
+            </View>
+            <Pressable
+              style={styles.fullscreenClose}
+              onPress={() => setFullscreen(false)}
+              accessibilityRole="button"
+              accessibilityLabel={locale === 'fr' ? 'Fermer le plein écran' : 'Close full screen'}
+            >
+              <Ionicons name="close" size={22} color={Colors.textPrimary} />
+            </Pressable>
+          </View>
+          <View style={styles.fullscreenMapBody}>
+            <RacebookLeafletMap
+              points={points}
+              aidStations={aidStations}
+              routeColor={brandTheme.accentGraphicColor}
+              locale={locale}
+              height={Math.max(320, viewportHeight - modalInsets.top - 68)}
+              fullscreen
+            />
+          </View>
+        </View>
+      </Modal>
+    </Card>
   );
 }
 
@@ -561,7 +691,10 @@ export default function RaceRacebookScreen() {
       .then(([result, profilePoints, routePoints]: [RacebookScreenData | null, ElevationPoint[], MobileGpxPreviewPoint[]]) => {
         if (!cancelled) {
           setData(result);
-          setElevationProfile(profilePoints);
+          setElevationProfile(pickBestElevationProfile(
+            [profilePoints, elevationProfileFromRoute(routePoints)],
+            result?.race.distanceKm,
+          ));
           setRoutePreviewPoints(routePoints);
         }
       })
@@ -638,7 +771,10 @@ export default function RaceRacebookScreen() {
       ]);
 
       setData(result);
-      setElevationProfile(profilePoints);
+      setElevationProfile(pickBestElevationProfile(
+        [profilePoints, elevationProfileFromRoute(routePoints)],
+        result?.race.distanceKm,
+      ));
       setRoutePreviewPoints(routePoints);
 
       const analyticsSession = analyticsSessionRef.current;
@@ -1439,6 +1575,8 @@ export default function RaceRacebookScreen() {
                           title={t.catalog.racebookSectionCourseMap}
                           points={routePreviewPoints}
                           emptyMessage={t.catalog.racebookEmptyCourseMap}
+                          aidStations={data.aidStations}
+                          locale={locale}
                         />
                       ) : null}
 
@@ -1447,6 +1585,9 @@ export default function RaceRacebookScreen() {
                           title={t.catalog.racebookSectionCourseProfile}
                           points={elevationProfile}
                           emptyMessage={t.catalog.racebookEmptyCourseProfile}
+                          aidStations={data.aidStations}
+                          officialDistanceKm={data.race.distanceKm}
+                          locale={locale}
                         />
                       ) : null}
                     </>
@@ -2122,18 +2263,87 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     fontWeight: '700',
   },
-  courseProfileWrap: {
+  courseVisualHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 10,
   },
-  courseProfileMetaRow: {
+  courseVisualTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
+  },
+  courseVisualHint: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  expandButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.72)',
+  },
+  fullscreenSurface: {
+    flex: 1,
+    overflow: 'hidden',
+    backgroundColor: Colors.background,
+  },
+  fullscreenMapTopBar: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.surface,
+  },
+  fullscreenMapBody: {
+    flex: 1,
+    overflow: 'hidden',
+  },
+  fullscreenClose: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.96)',
+    shadowColor: '#000000',
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  fullscreenTitle: {
+    color: Colors.textPrimary,
+    fontSize: 17,
+    lineHeight: 21,
+    fontWeight: '800',
+  },
+  fullscreenSubtitle: {
+    color: Colors.textSecondary,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  landscapeCanvas: {
+    position: 'absolute',
+    paddingHorizontal: 54,
+    paddingVertical: 12,
+    backgroundColor: Colors.background,
+    transform: [{ rotate: '90deg' }],
+  },
+  fullscreenHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  courseProfileMetaText: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: '700',
+  fullscreenProfileBody: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingTop: 6,
   },
   inlineBlock: {
     gap: 8,
