@@ -1,6 +1,6 @@
 export const DEFAULT_RACEBOOK_PRIMARY_COLOR = "#2D5016";
 export const DEFAULT_RACEBOOK_ACCENT_COLOR = "#B45309";
-export const RACEBOOK_EDITION_LOGO_ENABLED = false;
+export const RACEBOOK_EDITION_LOGO_ENABLED = true;
 
 export type RacebookBranding = {
   logoUrl: string | null;
@@ -10,8 +10,13 @@ export type RacebookBranding = {
 
 export type ResolvedRacebookTheme = RacebookBranding & {
   onPrimaryColor: "#FFFFFF" | "#1A1A1A";
+  onAccentColor: "#FFFFFF" | "#1A1A1A";
+  primaryForegroundColor: string;
+  primaryGraphicColor: string;
   primarySurfaceColor: string;
   primaryBorderColor: string;
+  accentForegroundColor: string;
+  accentGraphicColor: string;
   accentSurfaceColor: string;
   accentBorderColor: string;
 };
@@ -46,6 +51,13 @@ function mixWithWhite(value: string, colorWeight: number) {
   return `#${toHex(mix(red))}${toHex(mix(green))}${toHex(mix(blue))}`;
 }
 
+function mixColors(value: string, target: string, targetWeight: number) {
+  const sourceRgb = hexToRgb(value);
+  const targetRgb = hexToRgb(target);
+  const mix = (source: number, destination: number) => source * (1 - targetWeight) + destination * targetWeight;
+  return `#${toHex(mix(sourceRgb.red, targetRgb.red))}${toHex(mix(sourceRgb.green, targetRgb.green))}${toHex(mix(sourceRgb.blue, targetRgb.blue))}`;
+}
+
 function relativeLuminance(value: string) {
   const { red, green, blue } = hexToRgb(value);
   const linearize = (channel: number) => {
@@ -61,22 +73,48 @@ function contrastRatio(left: string, right: string) {
   return (Math.max(first, second) + 0.05) / (Math.min(first, second) + 0.05);
 }
 
+function strongestContrastText(background: string): "#FFFFFF" | "#1A1A1A" {
+  return contrastRatio(background, "#FFFFFF") >= contrastRatio(background, "#1A1A1A") ? "#FFFFFF" : "#1A1A1A";
+}
+
+function ensureContrast(value: string, background: string, minimumRatio: number) {
+  if (contrastRatio(value, background) >= minimumRatio) return value;
+
+  const target = contrastRatio("#000000", background) >= contrastRatio("#FFFFFF", background)
+    ? "#000000"
+    : "#FFFFFF";
+  let low = 0;
+  let high = 1;
+
+  for (let iteration = 0; iteration < 16; iteration += 1) {
+    const midpoint = (low + high) / 2;
+    if (contrastRatio(mixColors(value, target, midpoint), background) >= minimumRatio) high = midpoint;
+    else low = midpoint;
+  }
+
+  return mixColors(value, target, high);
+}
+
 export function resolveRacebookTheme(input?: Partial<RacebookBranding> | null): ResolvedRacebookTheme {
   const primaryColor = normalizeHexColor(input?.primaryColor, DEFAULT_RACEBOOK_PRIMARY_COLOR);
   const accentColor = normalizeHexColor(input?.accentColor, DEFAULT_RACEBOOK_ACCENT_COLOR);
-  const whiteContrast = contrastRatio(primaryColor, "#FFFFFF");
-  const darkContrast = contrastRatio(primaryColor, "#1A1A1A");
+  const logoUrl = typeof input?.logoUrl === "string" ? input.logoUrl.trim() : "";
 
   return {
     logoUrl:
-      RACEBOOK_EDITION_LOGO_ENABLED && typeof input?.logoUrl === "string" && /^https:\/\//i.test(input.logoUrl)
-        ? input.logoUrl
+      RACEBOOK_EDITION_LOGO_ENABLED && /^https:\/\//i.test(logoUrl)
+        ? logoUrl
         : null,
     primaryColor,
     accentColor,
-    onPrimaryColor: whiteContrast >= darkContrast ? "#FFFFFF" : "#1A1A1A",
+    onPrimaryColor: strongestContrastText(primaryColor),
+    onAccentColor: strongestContrastText(accentColor),
+    primaryForegroundColor: ensureContrast(primaryColor, "#FFFFFF", 4.5),
+    primaryGraphicColor: ensureContrast(primaryColor, "#FFFFFF", 3),
     primarySurfaceColor: mixWithWhite(primaryColor, 0.12),
     primaryBorderColor: mixWithWhite(primaryColor, 0.35),
+    accentForegroundColor: ensureContrast(accentColor, "#FFFFFF", 4.5),
+    accentGraphicColor: ensureContrast(accentColor, "#FFFFFF", 3),
     accentSurfaceColor: mixWithWhite(accentColor, 0.12),
     accentBorderColor: mixWithWhite(accentColor, 0.35),
   };

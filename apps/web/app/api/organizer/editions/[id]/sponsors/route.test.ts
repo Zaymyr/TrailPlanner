@@ -48,6 +48,10 @@ const sponsorRow = (index: number, loading = false) => ({
   show_in_banner: true,
   position: index,
   click_count: 0,
+  impression_count: 0,
+  partnership_level: "official",
+  category: null,
+  contextual_placement: "none",
 });
 
 const sponsorForm = (loading = false) => {
@@ -55,6 +59,9 @@ const sponsorForm = (loading = false) => {
   formData.set("name", "New sponsor");
   formData.set("showOnLoading", String(loading));
   formData.set("showInBanner", "true");
+  formData.set("tier", "principal");
+  formData.set("category", "Équipement outdoor");
+  formData.set("contextualPlacement", "equipment");
   formData.set("image", new File(["png"], "logo.png", { type: "image/png" }));
   return formData;
 };
@@ -142,6 +149,46 @@ describe("organizer edition sponsor routes", () => {
     }), { params: { id: editionId } });
     expect(response.status).toBe(409);
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("persists sponsor hierarchy and contextual presentation metadata", async () => {
+    mocks.requireOrganizerAuth.mockResolvedValue({
+      user: { id: "user-1" },
+      serviceConfig: { supabaseUrl: "https://db.example.com", supabaseServiceRoleKey: "service" },
+    });
+    mocks.requireEventOrganizer.mockResolvedValue(true);
+    const created = {
+      ...sponsorRow(1),
+      name: "New sponsor",
+      partnership_level: "principal",
+      category: "Équipement outdoor",
+      contextual_placement: "equipment",
+    };
+    const fetchMock = vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([created]), { status: 201 }));
+
+    const response = await POST(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/sponsors`, {
+      method: "POST",
+      body: sponsorForm(),
+    }), { params: { id: editionId } });
+
+    expect(response.status).toBe(201);
+    expect(JSON.parse(String(fetchMock.mock.calls[3]?.[1]?.body))).toMatchObject({
+      partnership_level: "principal",
+      category: "Équipement outdoor",
+      contextual_placement: "equipment",
+    });
+    expect(await response.json()).toMatchObject({
+      sponsor: {
+        tier: "principal",
+        category: "Équipement outdoor",
+        contextualPlacement: "equipment",
+        impressionCount: 0,
+      },
+    });
   });
 
   it("reorders sponsors through one atomic batch RPC", async () => {

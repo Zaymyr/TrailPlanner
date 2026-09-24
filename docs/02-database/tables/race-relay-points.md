@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -32,15 +32,15 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 - Copied `name` and `km` values form the durable relay snapshot; deleting a linked ravito only clears the optional link.
 - Legs are derived from start, ordered points, and finish rather than stored as rows, then rendered only in the mobile Racebook `Course` tab's conditional `Relais` sub-tab.
 - The route still derives those legs; `RacebookStructuredCourseSections` only renders the typed result and never feeds it into nutrition or persistence.
-- Relay cards remain isolated from the event-level `Services` tab, the flag-filtered optional content and route-local transport expansion state in `Accès`, the single-open ravito accordion state, and the Racebook identity card's compact icon-only website/social actions, emergency action, flexible icon-and-separator metadata row, participation badges, and emphasized race-day row. Mixed formats show separate `Solo` and `Relais` badges in the metadata row.
+- Relay cards remain isolated from the event-level `Services` tab, flag-filtered optional content, route-local transport expansion state in `Accès`, and the single-open ravito accordion state. The image-backed identity hero may show a `Relais` participation badge, but it does not change relay rows or derived legs.
 
 ## Racebook Identity Presentation
 
-Relay participation badges stay in the compact metadata row beside the course-date and location information. The identity card does not display the event date range or the emergency phone number; the number remains available only through the localized call action.
+Relay participation badges stay in the identity hero beside the course-date, location and format metrics. The hero does not display the emergency phone number; the number remains available only through the localized call action in the neutral details card.
 
 The compact runner-progress and unified sponsor loading composition is presentation-only and remains independent from relay-point reads and derived legs.
 
-The post-load automatic sponsor carousel likewise remains independent from relay ordering and the conditional `Relais` sub-tab.
+The stable post-load sponsor surface and contextual sponsor placements likewise remain independent from relay ordering and the conditional `Relais` sub-tab.
 
 The two-line clamp for bib-pickup address links likewise remains independent from relay ordering, rows, and derived legs.
 
@@ -86,6 +86,7 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 - RaceBook tab analytics may report that the Relay view was selected, but must not emit relay notes or other organizer-authored content as analytics properties.
 - Do not use organizer branding colors to reinterpret relay cutoff or warning semantics.
 - Published primary surfaces may decorate relay segment cards, but handover/cutoff meaning, ordering, and warning treatment remain unchanged.
+- Solo/Relais is rendered as icon-led expanded-hero metadata rather than badges and disappears with the detailed metadata when the hero compacts; emergency/social actions remain visible independently. The conditional Relais view remains a Course sub-tab and still depends on effective module visibility plus published relay points.
 
 - A handover is not necessarily a ravito, and a ravito is not necessarily a handover.
 - Do not copy relay points into `plan_aid_stations` or nutrition calculations in this first version.
@@ -94,6 +95,8 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 ## Related Docs
 
 Masking a format from the private RaceBook demo suppresses its complete mobile RaceBook entry point without deleting relay points.
+
+Derived relay cards now use published accent surfaces and contrast-safe accent text. This remains presentation-only and independent from the runner-owned Material checklist.
 
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)

@@ -13,7 +13,24 @@ const toPatch = (sponsor: OrganizerSponsor) => ({
   showOnLoading: sponsor.showOnLoading,
   showInBanner: sponsor.showInBanner,
   position: sponsor.position,
+  tier: sponsor.tier,
+  category: sponsor.category,
+  contextualPlacement: sponsor.contextualPlacement,
 });
+
+const tierLabels: Record<OrganizerSponsor["tier"], string> = {
+  principal: "Partenaire principal",
+  official: "Partenaire officiel",
+  service: "Partenaire de service",
+};
+
+const placementLabels: Record<OrganizerSponsor["contextualPlacement"], string> = {
+  none: "Aucun emplacement contextuel",
+  aid_stations: "Ravitos",
+  equipment: "Matériel",
+  access: "Accès",
+  services: "Services",
+};
 
 export function SponsorsEditor({
   editionId,
@@ -34,6 +51,9 @@ export function SponsorsEditor({
   const [newImage, setNewImage] = useState<File | null>(null);
   const [newShowOnLoading, setNewShowOnLoading] = useState(false);
   const [newShowInBanner, setNewShowInBanner] = useState(true);
+  const [newTier, setNewTier] = useState<OrganizerSponsor["tier"]>("official");
+  const [newCategory, setNewCategory] = useState("");
+  const [newContextualPlacement, setNewContextualPlacement] = useState<OrganizerSponsor["contextualPlacement"]>("none");
   const [dirtySponsorIds, setDirtySponsorIds] = useState<Set<string>>(() => new Set());
   const formId = useId();
 
@@ -143,6 +163,9 @@ export function SponsorsEditor({
       formData.set("isActive", "true");
       formData.set("showOnLoading", String(newShowOnLoading));
       formData.set("showInBanner", String(newShowInBanner));
+      formData.set("tier", newTier);
+      formData.set("category", newCategory);
+      formData.set("contextualPlacement", newContextualPlacement);
       formData.set("image", newImage);
       const response = await fetch(`/api/organizer/editions/${editionId}/sponsors`, { method: "POST", headers: authHeaders, body: formData });
       const data = (await response.json().catch(() => null)) as { sponsor?: OrganizerSponsor; message?: string } | null;
@@ -155,6 +178,9 @@ export function SponsorsEditor({
       setNewImage(null);
       setNewShowOnLoading(false);
       setNewShowInBanner(true);
+      setNewTier("official");
+      setNewCategory("");
+      setNewContextualPlacement("none");
       onToast("success", "Sponsor ajouté.");
     } catch (error) {
       onToast("error", error instanceof Error ? error.message : "Impossible d'ajouter le sponsor.");
@@ -247,7 +273,7 @@ export function SponsorsEditor({
   return (
     <div className="space-y-5">
       <div className="rounded-md border border-border bg-background p-4 text-sm text-muted-foreground">
-        Jusqu&apos;à 10 sponsors par édition, dont 2 maximum sur l&apos;écran de chargement. Les changements de placement sont enregistrés immédiatement.
+        Jusqu&apos;à 10 sponsors par édition, dont 2 maximum sur l&apos;écran de chargement. Le niveau détermine leur importance dans le bloc partenaires ; le placement contextuel les rapproche du contenu pertinent.
       </div>
       {sponsors.map((sponsor, index) => {
         const loadingDisabled = !sponsor.showOnLoading && loadingSponsorCount >= 2;
@@ -263,10 +289,23 @@ export function SponsorsEditor({
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1"><Label htmlFor={`${formId}-${sponsor.id}-name`}>Nom</Label><Input id={`${formId}-${sponsor.id}-name`} value={sponsor.name} maxLength={80} onChange={(event) => changeSponsor(sponsor.id, { name: event.target.value })} onBlur={() => sponsor.name.trim() && void persistSponsor(sponsor)} /></div>
               <div className="space-y-1"><Label htmlFor={`${formId}-${sponsor.id}-website`}>Site web</Label><Input id={`${formId}-${sponsor.id}-website`} type="url" value={sponsor.websiteUrl ?? ""} onChange={(event) => changeSponsor(sponsor.id, { websiteUrl: event.target.value || null })} onBlur={() => void persistSponsor(sponsor)} placeholder="https://..." /></div>
+              <div className="space-y-1">
+                <Label htmlFor={`${formId}-${sponsor.id}-tier`}>Niveau</Label>
+                <select id={`${formId}-${sponsor.id}-tier`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={sponsor.tier} onChange={(event) => void toggleSponsor(sponsor, { tier: event.target.value as OrganizerSponsor["tier"] })}>
+                  {Object.entries(tierLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1">
+                <Label htmlFor={`${formId}-${sponsor.id}-placement`}>Placement contextuel</Label>
+                <select id={`${formId}-${sponsor.id}-placement`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={sponsor.contextualPlacement} onChange={(event) => void toggleSponsor(sponsor, { contextualPlacement: event.target.value as OrganizerSponsor["contextualPlacement"] })}>
+                  {Object.entries(placementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+                </select>
+              </div>
+              <div className="space-y-1 sm:col-span-2"><Label htmlFor={`${formId}-${sponsor.id}-category`}>Catégorie ou rôle</Label><Input id={`${formId}-${sponsor.id}-category`} value={sponsor.category ?? ""} maxLength={60} onChange={(event) => changeSponsor(sponsor.id, { category: event.target.value || null })} onBlur={() => void persistSponsor(sponsor)} placeholder="Ex. équipementier officiel, hébergement partenaire" /></div>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.isActive} disabled={activationDisabled} onChange={(event) => void toggleSponsor(sponsor, { isActive: event.target.checked })} /> Actif</label>
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.showOnLoading} disabled={loadingDisabled} onChange={(event) => void toggleSponsor(sponsor, { showOnLoading: event.target.checked })} /> Écran de chargement</label>
-              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.showInBanner} onChange={(event) => void toggleSponsor(sponsor, { showInBanner: event.target.checked })} /> Bandeau RaceBook</label>
-              <p className="text-sm font-semibold text-foreground">{sponsor.clickCount} clic{sponsor.clickCount > 1 ? "s" : ""}</p>
+              <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={sponsor.showInBanner} onChange={(event) => void toggleSponsor(sponsor, { showInBanner: event.target.checked })} /> Bloc partenaires</label>
+              <p className="text-sm font-semibold text-foreground">{sponsor.impressionCount} vue{sponsor.impressionCount > 1 ? "s" : ""} · {sponsor.clickCount} clic{sponsor.clickCount > 1 ? "s" : ""}</p>
             </div>
             <div className="flex flex-row gap-2 lg:flex-col">
               <Button type="button" variant="outline" onClick={() => void persistSponsor(sponsor, "Sponsor enregistré.")} disabled={busyId === sponsor.id}>Enregistrer</Button>
@@ -283,7 +322,10 @@ export function SponsorsEditor({
             <div className="space-y-1"><Label htmlFor={`${formId}-new-name`}>Nom</Label><Input id={`${formId}-new-name`} required maxLength={80} value={newName} onChange={(event) => setNewName(event.target.value)} /></div>
             <div className="space-y-1"><Label htmlFor={`${formId}-new-website`}>Site web optionnel</Label><Input id={`${formId}-new-website`} type="url" value={newWebsiteUrl} onChange={(event) => setNewWebsiteUrl(event.target.value)} /></div>
             <div className="space-y-1"><Label htmlFor={`${formId}-new-logo`}>Logo</Label><Input id={`${formId}-new-logo`} required type="file" accept="image/png,image/jpeg,image/webp,image/avif" onChange={(event) => setNewImage(event.target.files?.[0] ?? null)} /></div>
-            <div className="flex flex-wrap items-end gap-4 pb-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onChange={(event) => setNewShowOnLoading(event.target.checked)} /> Chargement</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowInBanner} onChange={(event) => setNewShowInBanner(event.target.checked)} /> Bandeau</label></div>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-tier`}>Niveau</Label><select id={`${formId}-new-tier`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={newTier} onChange={(event) => setNewTier(event.target.value as OrganizerSponsor["tier"])}>{Object.entries(tierLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className="space-y-1"><Label htmlFor={`${formId}-new-placement`}>Placement contextuel</Label><select id={`${formId}-new-placement`} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={newContextualPlacement} onChange={(event) => setNewContextualPlacement(event.target.value as OrganizerSponsor["contextualPlacement"])}>{Object.entries(placementLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className="space-y-1 md:col-span-2"><Label htmlFor={`${formId}-new-category`}>Catégorie ou rôle</Label><Input id={`${formId}-new-category`} maxLength={60} value={newCategory} onChange={(event) => setNewCategory(event.target.value)} placeholder="Ex. équipementier officiel" /></div>
+            <div className="flex flex-wrap items-end gap-4 pb-2 md:col-span-2"><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowOnLoading} disabled={loadingSponsorCount >= 2} onChange={(event) => setNewShowOnLoading(event.target.checked)} /> Chargement</label><label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={newShowInBanner} onChange={(event) => setNewShowInBanner(event.target.checked)} /> Bloc partenaires</label></div>
           </div>
           <Button type="submit" disabled={busyId === "new"}>{busyId === "new" ? "Ajout..." : "Ajouter le sponsor"}</Button>
         </form>

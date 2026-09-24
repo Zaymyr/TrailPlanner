@@ -59,6 +59,10 @@ const sponsor = (id: string, loading: boolean, banner: boolean) => ({
   show_in_banner: banner,
   position: 0,
   click_count: 0,
+  impression_count: 0,
+  partnership_level: "official",
+  category: null,
+  contextual_placement: "none",
 });
 
 const branding = [{
@@ -92,7 +96,12 @@ describe("GET /api/racebook-sponsors", () => {
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(true)), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify([
-        sponsor("44444444-4444-4444-8444-444444444444", true, true),
+        {
+          ...sponsor("44444444-4444-4444-8444-444444444444", true, true),
+          partnership_level: "principal",
+          category: "Équipement outdoor",
+          contextual_placement: "equipment",
+        },
         sponsor("55555555-5555-4555-8555-555555555555", false, true),
       ]), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify(branding), { status: 200 }));
@@ -103,9 +112,16 @@ describe("GET /api/racebook-sponsors", () => {
     expect(response.status).toBe(200);
     expect(payload.loadingSponsors).toHaveLength(1);
     expect(payload.bannerSponsors).toHaveLength(2);
+    expect(payload.contextualSponsors).toHaveLength(1);
+    expect(payload.contextualSponsors[0]).toMatchObject({
+      tier: "principal",
+      category: "Équipement outdoor",
+      contextualPlacement: "equipment",
+    });
     expect(payload.loadingSponsors[0].clickUrl).toContain(`/api/racebook-sponsors/44444444-4444-4444-8444-444444444444/click`);
     expect(payload.loadingSponsors[0]).not.toHaveProperty("websiteUrl");
-    expect(payload.branding).toEqual({ logoUrl: null, primaryColor: "#123456", accentColor: "#ABCDEF" });
+    expect(payload.loadingSponsors[0]).not.toHaveProperty("impressionCount");
+    expect(payload.branding).toEqual({ logoUrl: "https://example.com/published.png", primaryColor: "#123456", accentColor: "#ABCDEF" });
     expect(JSON.stringify(payload)).not.toContain("draft.png");
     expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("max-age=300");
     expect(response.headers.get("Vercel-Cache-Tag")).toContain(`racebook:race:${raceId}`);

@@ -31,6 +31,9 @@ const publicSponsor = (request: NextRequest, raceId: string, sponsor: z.infer<ty
   id: sponsor.id,
   name: sponsor.name,
   logoUrl: sponsor.logo_url,
+  tier: sponsor.partnership_level,
+  category: sponsor.category,
+  contextualPlacement: sponsor.contextual_placement,
   clickUrl: sponsor.website_url
     ? new URL(`/api/racebook-sponsors/${sponsor.id}/click?raceId=${encodeURIComponent(raceId)}`, request.nextUrl.origin).toString()
     : null,
@@ -56,6 +59,7 @@ export async function GET(request: NextRequest) {
   if (!race?.edition_id || !race.event_id) return withSecurityHeaders(NextResponse.json({
     loadingSponsors: [],
     bannerSponsors: [],
+    contextualSponsors: [],
     branding: toPublishedBranding(null),
     modules: null,
   }));
@@ -113,6 +117,9 @@ export async function GET(request: NextRequest) {
   const response = withSecurityHeaders(NextResponse.json({
     loadingSponsors: sponsors.filter((sponsor) => sponsor.show_on_loading).slice(0, 2).map((sponsor) => publicSponsor(request, race.id, sponsor)),
     bannerSponsors: sponsors.filter((sponsor) => sponsor.show_in_banner).map((sponsor) => publicSponsor(request, race.id, sponsor)),
+    contextualSponsors: sponsors
+      .filter((sponsor) => sponsor.contextual_placement !== "none")
+      .map((sponsor) => publicSponsor(request, race.id, sponsor)),
     branding,
     modules,
   }));

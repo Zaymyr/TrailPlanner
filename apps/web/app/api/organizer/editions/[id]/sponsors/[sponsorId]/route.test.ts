@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { DELETE, PUT } from "./route";
+import { DELETE, PATCH, PUT } from "./route";
 
 const mocks = vi.hoisted(() => ({
   requireEventOrganizer: vi.fn(),
@@ -39,6 +39,10 @@ const sponsor = (logoUrl = oldLogo) => ({
   show_in_banner: true,
   position: 0,
   click_count: 4,
+  impression_count: 12,
+  partnership_level: "official",
+  category: null,
+  contextual_placement: "none",
 });
 
 afterEach(() => {
@@ -96,6 +100,46 @@ describe("organizer sponsor mutation route", () => {
     });
     expect(response.status).toBe(200);
     expect(fetchMock.mock.calls[4]?.[0]).toContain("organizer-sponsors/33333333-3333-4333-8333-333333333333/old.png");
+  });
+
+  it("updates sponsor hierarchy and contextual presentation metadata", async () => {
+    prepareAuthorization();
+    const updated = {
+      ...sponsor(),
+      partnership_level: "service",
+      category: "Hébergement",
+      contextual_placement: "services",
+    };
+    const fetchMock = vi.spyOn(global, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify([{ event_id: eventId }]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([sponsor()]), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify([updated]), { status: 200 }));
+
+    const response = await PATCH(new NextRequest("http://localhost/sponsor", {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        name: "Sponsor",
+        websiteUrl: "https://example.com",
+        isActive: true,
+        showOnLoading: false,
+        showInBanner: true,
+        position: 0,
+        tier: "service",
+        category: "Hébergement",
+        contextualPlacement: "services",
+      }),
+    }), { params: { id: editionId, sponsorId } });
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String(fetchMock.mock.calls[2]?.[1]?.body))).toMatchObject({
+      partnership_level: "service",
+      category: "Hébergement",
+      contextual_placement: "services",
+    });
+    expect(await response.json()).toMatchObject({
+      sponsor: { tier: "service", contextualPlacement: "services", impressionCount: 12 },
+    });
   });
 
   it("deletes the row before cleaning its logo", async () => {

@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -100,6 +100,7 @@ related_tables:
 
 - Event grouping: multiple `races` can belong to one event.
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
+- RaceBook identity hero: mobile prefers the format thumbnail and falls back to this event thumbnail beneath the published primary-color gradient; this display choice does not alter image ownership or visibility.
 - Event liveness: mobile and onboarding use event/race live state for course catalog visibility; it no longer determines Racebook visibility.
 - Edition liveness: `race_event_editions.is_visible` can hide one year by forcing only that edition's formats and Racebooks off while leaving the parent event and other years unchanged.
 - Organizer event: created catalog-visible, while its Racebook formats remain hidden until approved.
@@ -320,6 +321,8 @@ where is_live = true
 - Expired import sessions cascade with event deletion, but normal cleanup must remove their temporary Storage objects before deleting session rows.
 
 - The membership rule has one server-verified admin exception. Do not turn the complete Organizer selector into an unfiltered authenticated or public `race_events` read.
+- Mobile may render validated event website/social links and the validated emergency contact in the image-backed RaceBook hero. The expanded hero displays the emergency number and call action; its compact safe-area state keeps a telephone icon before social links and clips long titles before those actions. This is presentation-only, and the values remain event-scoped validated links/contact data that never affect catalog or publication state.
+- Decorative location and access actions now use published edition accent variants. Personal Material completion is stored by exact `race_id` in `racebook_gear_checks`; neither change mutates event organizer metadata.
 
 ## Related Docs
 

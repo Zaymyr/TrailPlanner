@@ -1,7 +1,7 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -35,6 +35,8 @@ The collection is additive on mobile: a temporary Data API/table-unavailable err
 
 The typed `RacebookStructuredCourseSections` component owns only podium-card presentation; the route continues to group awards by time and enforce the active module/tab contract.
 
+The image-backed identity hero, edition logo, and sponsor surfaces are presentation-only and do not change award ordering, visibility, or the conditional Podiums tab.
+
 The two-line clamp applied to bib-pickup address text is isolated from podium rendering and does not change award data or visibility.
 
 The format access override that hides saved runner information is likewise independent from award rows and their visibility.
@@ -44,3 +46,7 @@ The Organizer editor serializes revisioned autosaves: a response for an older re
 Published rows travel in the consolidated RaceBook CDN snapshot. A successful atomic awards replacement invalidates the parent race tag after persistence.
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; award rows, ordering, visibility, and read/write contracts remain unchanged.
+
+The RaceBook contextual bottom navigation exposes only primary sections and mirrors the global bar's color-only active treatment. Podiums remains a conditional Course sub-tab, so the hero's emergency action, focus-time scroll reset, and navigation presentation do not alter award visibility or persistence.
+
+Award cards now use the published accent surface and contrast-safe accent text. This is presentation-only; personal equipment checks live separately in `racebook_gear_checks` and do not alter award rows.

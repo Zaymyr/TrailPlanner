@@ -1,7 +1,7 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -36,6 +36,8 @@ The collection is additive on mobile: a temporary Data API/table-unavailable err
 
 The typed `RacebookStructuredCourseSections` component owns only SAS-card presentation; the route keeps tab availability and the normalized ordered collection. Mobile renders the ordered rows directly below the shared compact Course timing summary, with an `S1`, `S2`, etc. marker, name, start time, and eligibility criterion; the presentation adds no stored sequence or derived schedule authority.
 
+The expanded identity hero displays course-level date, distance and elevation metrics but not a derived SAS departure; its compact sticky state keeps course identity, back navigation, emergency and social actions. Start-wave time authority remains in the Course section and is unaffected by hero focus reset, branding, collapse state, or sponsor placement.
+
 The two-line clamp for bib-pickup address links is isolated from SAS rendering and does not change start-wave data or ordering.
 
 Disabling the format access override hides saved runner information only; it does not change SAS rows or start-time authority.
@@ -45,3 +47,7 @@ The Organizer editor serializes revisioned autosaves: a response for an older re
 Published rows travel in the consolidated RaceBook CDN snapshot. A successful atomic SAS replacement invalidates the parent race tag after persistence.
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; SAS time authority, ordering, visibility, and write contracts remain unchanged.
+
+The contextual RaceBook bottom bar changes only primary-section navigation. SAS remains a conditional Course sub-tab and the common start-time synchronization contract is unchanged.
+
+Mobile SAS index and time treatments now use published accent variants. Source wave rows and ordering remain unchanged, and personal equipment checks stay in their separate owner-scoped table.

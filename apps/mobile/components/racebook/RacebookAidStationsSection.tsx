@@ -21,10 +21,19 @@ export type RacebookAidStationCopy = {
   aidCutoffTime: string;
   aidFromStart: string;
   aidFromPrevious: string;
+  startLabel: string;
+  finishLabel: string;
 };
 
 type RacebookAidStationsSectionProps = {
   stations: RacebookAidStation[];
+  finish: {
+    label: string;
+    distanceKm: number;
+    elevationGainM: number;
+    elevationLossM: number | null;
+    cutoffTime: string | null;
+  };
   expandedStationId: string | null;
   showOfficialProducts: boolean;
   theme: ResolvedRacebookTheme;
@@ -80,6 +89,7 @@ function ServiceIcon({ icon, label, theme }: {
 function AidStationCard({
   station,
   position,
+  isFinish = false,
   copy,
   expanded,
   onToggle,
@@ -87,6 +97,7 @@ function AidStationCard({
 }: {
   station: RacebookAidStation;
   position: number;
+  isFinish?: boolean;
   expanded: boolean;
   onToggle: () => void;
   theme: ResolvedRacebookTheme;
@@ -110,7 +121,7 @@ function AidStationCard({
       <Pressable
         accessibilityRole={hasExpandedDetails ? 'button' : undefined}
         accessibilityLabel={[
-          `R${position}`,
+          isFinish ? copy.finishLabel : `R${position}`,
           station.name,
           formatStationDistance(station.km),
           ...serviceItems.map((item) => item.label),
@@ -205,37 +216,77 @@ function AidStationCard({
   );
 }
 
+function FinishCard({
+  label,
+  distanceKm,
+  cutoffTime,
+  copy,
+}: {
+  label: string;
+  distanceKm: number;
+  cutoffTime: string | null;
+  copy: Omit<RacebookAidStationCopy, 'sectionTitle' | 'emptyMessage'>;
+}) {
+  return (
+    <View accessible accessibilityLabel={[label, formatStationDistance(distanceKm), cutoffTime ? `${copy.aidCutoffTime} ${cutoffTime}` : null].filter(Boolean).join(', ')} style={styles.aidStationCard}>
+      <View style={styles.aidStationSummary}>
+        <View style={styles.aidStationSummaryMain}>
+          <Text numberOfLines={2} style={styles.aidStationName}>{label}</Text>
+          {cutoffTime ? (
+            <View style={styles.cutoffSummary}>
+              <Ionicons color={Colors.danger} name="time-outline" size={13} />
+              <DataText numberOfLines={1} style={styles.cutoffSummaryText}>
+                {copy.aidCutoffTime} {cutoffTime}
+              </DataText>
+            </View>
+          ) : null}
+        </View>
+        <DataText style={styles.aidStationSummaryDistance}>{formatStationDistance(distanceKm)}</DataText>
+      </View>
+    </View>
+  );
+}
+
 function getSegmentElevation(
   currentValue: number | null,
   previousValue: number | null | undefined,
+  hasPrevious: boolean,
 ) {
   if (currentValue === null) return null;
+  if (hasPrevious && previousValue == null) return null;
   return Math.max(0, Math.round(currentValue - (previousValue ?? 0)));
 }
 
 function SegmentConnector({
-  station,
+  targetKm,
+  targetElevationGainM,
+  targetElevationLossM,
   previousStation,
-  copy,
+  segmentLabel,
+  elevationGainLabel,
+  elevationLossLabel,
   theme,
 }: {
-  station: RacebookAidStation;
+  targetKm: number;
+  targetElevationGainM: number | null;
+  targetElevationLossM: number | null;
   previousStation?: RacebookAidStation;
-  copy: Omit<RacebookAidStationCopy, 'sectionTitle' | 'emptyMessage'>;
+  segmentLabel: string;
+  elevationGainLabel: string;
+  elevationLossLabel: string;
   theme: ResolvedRacebookTheme;
 }) {
-  const segmentDistance = Math.max(0, station.km - (previousStation?.km ?? 0));
+  const segmentDistance = Math.max(0, targetKm - (previousStation?.km ?? 0));
   const segmentGain = getSegmentElevation(
-    station.organizerDetails.cumulativeElevationGainM,
+    targetElevationGainM,
     previousStation?.organizerDetails.cumulativeElevationGainM,
+    Boolean(previousStation),
   );
   const segmentLoss = getSegmentElevation(
-    station.organizerDetails.cumulativeElevationLossM,
+    targetElevationLossM,
     previousStation?.organizerDetails.cumulativeElevationLossM,
+    Boolean(previousStation),
   );
-  const segmentLabel = previousStation
-    ? copy.aidFromPrevious.replace('{name}', previousStation.name)
-    : copy.aidFromStart;
 
   return (
     <View
@@ -243,8 +294,8 @@ function SegmentConnector({
       accessibilityLabel={[
         segmentLabel,
         formatStationDistance(segmentDistance),
-        segmentGain !== null ? `${copy.aidElevationGain} ${segmentGain} m` : null,
-        segmentLoss !== null ? `${copy.aidElevationLoss} ${segmentLoss} m` : null,
+        segmentGain !== null ? `${elevationGainLabel} ${segmentGain} m` : null,
+        segmentLoss !== null ? `${elevationLossLabel} ${segmentLoss} m` : null,
       ].filter(Boolean).join(', ')}
       style={styles.segmentRow}
     >
@@ -256,17 +307,6 @@ function SegmentConnector({
             { backgroundColor: theme.accentBorderColor },
           ]}
         />
-        {!previousStation ? (
-          <View
-            style={[
-              styles.startMarker,
-              {
-                backgroundColor: theme.accentColor,
-                borderColor: theme.accentSurfaceColor,
-              },
-            ]}
-          />
-        ) : null}
         <View
           style={[
             styles.directionMarker,
@@ -276,7 +316,7 @@ function SegmentConnector({
             },
           ]}
         >
-          <Ionicons color={theme.accentColor} name="arrow-down" size={13} />
+          <Ionicons color={theme.accentGraphicColor} name="arrow-down" size={13} />
         </View>
       </View>
 
@@ -289,7 +329,7 @@ function SegmentConnector({
           },
         ]}
       >
-        <Text numberOfLines={1} style={[styles.segmentLabel, { color: theme.accentColor }]}>
+        <Text numberOfLines={1} style={[styles.segmentLabel, { color: theme.accentForegroundColor }]}>
           {segmentLabel}
         </Text>
         <View style={styles.segmentMetrics}>
@@ -301,7 +341,7 @@ function SegmentConnector({
             <View style={styles.segmentMetricItem}>
               <Ionicons color={Colors.textSecondary} name="trending-up-outline" size={13} />
               <DataText style={styles.segmentMetric}>
-                {copy.aidElevationGain} {segmentGain} m
+                {elevationGainLabel} {segmentGain} m
               </DataText>
             </View>
           ) : null}
@@ -309,7 +349,7 @@ function SegmentConnector({
             <View style={styles.segmentMetricItem}>
               <Ionicons color={Colors.textSecondary} name="trending-down-outline" size={13} />
               <DataText style={styles.segmentMetric}>
-                {copy.aidElevationLoss} {segmentLoss} m
+                {elevationLossLabel} {segmentLoss} m
               </DataText>
             </View>
           ) : null}
@@ -321,32 +361,51 @@ function SegmentConnector({
 
 export function RacebookAidStationsSection({
   stations,
+  finish,
   expandedStationId,
   showOfficialProducts,
   theme,
   copy,
   onToggleStation,
 }: RacebookAidStationsSectionProps) {
-  if (stations.length === 0) {
-    return (
-      <View style={styles.emptyCard}>
-        <Text style={styles.emptyText}>{copy.emptyMessage}</Text>
-      </View>
-    );
-  }
+  const lastStation = stations[stations.length - 1];
+  const finishStation = lastStation && Math.abs(lastStation.km - finish.distanceKm) <= 0.2
+    ? lastStation
+    : null;
+  const aidStations = finishStation ? stations.slice(0, -1) : stations;
+  const previousStation = aidStations[aidStations.length - 1];
+  const finishSegmentLabel = previousStation
+    ? copy.aidFromPrevious.replace('{name}', previousStation.name)
+    : copy.aidFromStart;
 
   return (
     <View style={styles.aidStationsWrap}>
-      {stations.map((station, index) => {
+      <View style={styles.timelineEndpointRow}>
+        <View style={styles.timelineEndpointCard}>
+          <FinishCard label={copy.startLabel} distanceKm={0} cutoffTime={null} copy={copy} />
+        </View>
+      </View>
+      {aidStations.length === 0 && !finishStation ? (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>{copy.emptyMessage}</Text>
+        </View>
+      ) : null}
+      {aidStations.map((station, index) => {
         const previousStation = index > 0 ? stations[index - 1] : undefined;
-        const isLastStation = index === stations.length - 1;
+        const segmentLabel = previousStation
+          ? copy.aidFromPrevious.replace('{name}', previousStation.name)
+          : copy.aidFromStart;
 
         return (
           <View key={station.id}>
             <SegmentConnector
-              station={station}
+              targetKm={station.km}
+              targetElevationGainM={station.organizerDetails.cumulativeElevationGainM}
+              targetElevationLossM={station.organizerDetails.cumulativeElevationLossM}
               previousStation={previousStation}
-              copy={copy}
+              segmentLabel={segmentLabel}
+              elevationGainLabel={copy.aidElevationGain}
+              elevationLossLabel={copy.aidElevationLoss}
               theme={theme}
             />
             <View style={styles.timelineStationRow}>
@@ -354,7 +413,7 @@ export function RacebookAidStationsSection({
                 <View
                   style={[
                     styles.timelineLine,
-                    isLastStation ? styles.timelineLineLast : styles.timelineLineFull,
+                    styles.timelineLineFull,
                     { backgroundColor: theme.accentBorderColor },
                   ]}
                 />
@@ -384,6 +443,38 @@ export function RacebookAidStationsSection({
           </View>
         );
       })}
+      <SegmentConnector
+        targetKm={finish.distanceKm}
+        targetElevationGainM={finish.elevationGainM}
+        targetElevationLossM={finish.elevationLossM}
+        previousStation={previousStation}
+        segmentLabel={finishSegmentLabel}
+        elevationGainLabel={copy.aidElevationGain}
+        elevationLossLabel={copy.aidElevationLoss}
+        theme={theme}
+      />
+      <View style={styles.timelineEndpointRow}>
+        <View style={styles.timelineEndpointCard}>
+          {finishStation ? (
+            <AidStationCard
+              station={showOfficialProducts ? finishStation : { ...finishStation, products: [] }}
+              position={aidStations.length + 1}
+              isFinish
+              expanded={expandedStationId === finishStation.id}
+              onToggle={() => onToggleStation(finishStation)}
+              theme={theme}
+              copy={copy}
+            />
+          ) : (
+            <FinishCard
+              label={finish.label}
+              distanceKm={finish.distanceKm}
+              cutoffTime={finish.cutoffTime}
+              copy={copy}
+            />
+          )}
+        </View>
+      </View>
     </View>
   );
 }
@@ -400,6 +491,8 @@ const styles = StyleSheet.create({
   aidStationsWrap: { gap: 0 },
   timelineStationRow: { flexDirection: 'row', alignItems: 'stretch' },
   timelineCard: { flex: 1, paddingBottom: 4 },
+  timelineEndpointRow: { width: '100%' },
+  timelineEndpointCard: { width: '100%', paddingBottom: 4 },
   stationRail: {
     width: 42,
     alignItems: 'center',
@@ -410,7 +503,6 @@ const styles = StyleSheet.create({
   segmentRail: { width: 42, alignItems: 'center', justifyContent: 'center' },
   timelineLine: { position: 'absolute', left: 20, width: 2 },
   timelineLineFull: { top: 0, bottom: 0 },
-  timelineLineLast: { top: 0, height: 37 },
   directionMarker: {
     width: 24,
     height: 24,
@@ -418,15 +510,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 12,
     borderWidth: 1,
-  },
-  startMarker: {
-    position: 'absolute',
-    top: 0,
-    left: 15,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 2,
   },
   aidStationCard: {
     overflow: 'hidden',
@@ -483,6 +566,7 @@ const styles = StyleSheet.create({
   segmentSummary: {
     flex: 1,
     alignSelf: 'center',
+    marginLeft: 14,
     gap: 8,
     padding: 11,
     borderRadius: 12,

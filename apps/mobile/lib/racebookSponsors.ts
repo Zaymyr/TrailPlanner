@@ -6,6 +6,7 @@ import { fetchWithTimeout } from './fetchWithTimeout';
 import {
   EMPTY_RACEBOOK_SPONSORS,
   normalizeRacebookSponsorPresentation,
+  type RacebookSponsorImpression,
   type RacebookSponsorPresentation,
 } from './racebookSponsorPresentation';
 
@@ -20,6 +21,32 @@ type SponsorCacheEntry = {
 };
 
 const sponsorRequests = new Map<string, SponsorCacheEntry>();
+
+export function createRacebookSponsorViewId() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (token) => {
+    const random = Math.floor(Math.random() * 16);
+    const value = token === 'x' ? random : (random & 0x3) | 0x8;
+    return value.toString(16);
+  });
+}
+
+export async function reportRacebookSponsorImpression(
+  raceId: string,
+  viewId: string,
+  impression: RacebookSponsorImpression,
+) {
+  await fetchWithTimeout(`${WEB_API_BASE_URL}/api/racebook-sponsors/impression`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      raceId,
+      viewId,
+      sponsorId: impression.sponsorId,
+      placement: impression.placement,
+    }),
+  }, 2_500).catch(() => null);
+}
 
 export async function fetchRacebookSponsors(raceId: string): Promise<RacebookSponsorPresentation> {
   const { data } = await supabase.auth.getSession();

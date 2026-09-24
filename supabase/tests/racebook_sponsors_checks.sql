@@ -26,14 +26,24 @@ begin
     or not has_function_privilege('service_role', 'public.reorder_racebook_sponsors(uuid,jsonb)', 'execute') then
     raise exception 'Sponsor reorder execution must be service-role-only.';
   end if;
+
+  if has_function_privilege('anon', 'public.increment_racebook_sponsor_impression(uuid,uuid,text)', 'execute')
+    or has_function_privilege('authenticated', 'public.increment_racebook_sponsor_impression(uuid,uuid,text)', 'execute')
+    or not has_function_privilege('service_role', 'public.increment_racebook_sponsor_impression(uuid,uuid,text)', 'execute') then
+    raise exception 'Sponsor impression execution must be service-role-only.';
+  end if;
 end $$;
 
-create temp table _racebook_sponsor_fixture (edition_id uuid not null, race_id uuid not null) on commit drop;
+create temp table _racebook_sponsor_fixture (
+  edition_id uuid not null,
+  race_id uuid not null,
+  event_id uuid not null
+) on commit drop;
 
-insert into _racebook_sponsor_fixture (edition_id, race_id)
-select race.edition_id, race.id
+insert into _racebook_sponsor_fixture (edition_id, race_id, event_id)
+select race.edition_id, race.id, race.event_id
 from public.races race
-where race.edition_id is not null
+where race.edition_id is not null and race.event_id is not null
 limit 1;
 
 do $$
@@ -120,7 +130,8 @@ delete from public.race_event_edition_sponsors
 where edition_id = (select edition_id from _racebook_sponsor_fixture);
 
 insert into public.race_event_edition_sponsors (
-  id, edition_id, name, logo_url, website_url, is_active, show_on_loading, show_in_banner, position
+  id, edition_id, name, logo_url, website_url, is_active, show_on_loading, show_in_banner, position,
+  partnership_level, category, contextual_placement
 ) values (
   '7a110000-5999-4000-8000-000000000999',
   (select edition_id from _racebook_sponsor_fixture),
@@ -130,7 +141,10 @@ insert into public.race_event_edition_sponsors (
   true,
   false,
   true,
-  0
+  0,
+  'principal',
+  'Équipement outdoor',
+  'equipment'
 );
 
 insert into public.race_event_edition_sponsors (
@@ -202,6 +216,57 @@ begin
   ) <> 1 then
     raise exception 'Sponsor click increment must be atomic and aggregate-only.';
   end if;
+end $$;
+
+update public.races
+set is_live = true,
+    racebook_is_live = true
+where id = (select race_id from _racebook_sponsor_fixture);
+
+update public.race_events
+set is_live = true
+where id = (select event_id from _racebook_sponsor_fixture);
+
+select public.increment_racebook_sponsor_impression(
+  '7a110000-5999-4000-8000-000000000999',
+  (select race_id from _racebook_sponsor_fixture),
+  'equipment'
+);
+
+do $$
+begin
+  if (
+    select impression_count from public.race_event_edition_sponsors
+    where id = '7a110000-5999-4000-8000-000000000999'
+  ) <> 1 then
+    raise exception 'Sponsor impression increment must be atomic and aggregate-only.';
+  end if;
+
+  begin
+    perform public.increment_racebook_sponsor_impression(
+      '7a110000-5999-4000-8000-000000000999',
+      (select race_id from _racebook_sponsor_fixture),
+      'services'
+    );
+    raise exception 'Expected a mismatched contextual placement to be rejected.';
+  exception when no_data_found then
+    null;
+  end;
+
+  update public.races
+  set racebook_preview_is_visible = false
+  where id = (select race_id from _racebook_sponsor_fixture);
+
+  begin
+    perform public.increment_racebook_sponsor_impression(
+      '7a110000-5999-4000-8000-000000000999',
+      (select race_id from _racebook_sponsor_fixture),
+      'equipment'
+    );
+    raise exception 'Expected a hidden RaceBook impression to be rejected.';
+  exception when no_data_found then
+    null;
+  end;
 end $$;
 
 rollback;

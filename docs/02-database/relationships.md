@@ -1,7 +1,7 @@
 ---
 title: Database Relationships
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -29,6 +29,7 @@ related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/migrations/20260911110037_fix_organizer_publication_and_manual_payment_consistency.sql
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
@@ -54,6 +55,7 @@ related_tables:
   - race_event_organizers
   - race_event_updates
   - race_event_update_reads
+  - racebook_gear_checks
   - products
   - user_favorite_race_events
   - user_profiles
@@ -106,6 +108,7 @@ User-owned tables include:
 - `plan_share_links.user_id`
 - `race_event_updates.created_by`
 - `race_event_update_reads.user_id`
+- `racebook_gear_checks.user_id`
 - `organizer_import_sessions.created_by`
 
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
@@ -199,6 +202,8 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_updates.race_id -> races(id) on delete set null`
 - `race_event_update_reads.update_id -> race_event_updates(id) on delete cascade`
 - `race_event_update_reads.user_id -> user_profiles(user_id) on delete cascade`
+- `racebook_gear_checks.user_id -> user_profiles(user_id) on delete cascade`
+- `racebook_gear_checks.race_id -> races(id) on delete cascade`
 - `race_aid_station_products.race_aid_station_id -> race_aid_stations(id) on delete cascade`
 - `race_aid_station_products.product_id -> products(id) on delete cascade`
 - `organizer_import_sessions.event_id -> race_events(id) on delete cascade`
@@ -237,7 +242,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - A deleted race removes its unusable slug mappings by cascade. While the race exists, former slugs remain reserved and cannot be reassigned to another row.
 - Edition deletion also removes its entitlement and payment ledger. Membership remains event-scoped, so every active organizer consumes the same edition capability.
 - Edition deletion also removes its complimentary capability grants. Pack changes leave those rows untouched because the grant projection is independent from the entitlement projection.
-- Sponsor clicks belong to the edition sponsor row rather than to a race or runner. The redirect RPC verifies the requested race shares that edition before incrementing.
+- Sponsor clicks and impressions belong to the edition sponsor row rather than to a race or runner. The click RPC verifies the requested race shares that edition; the impression RPC additionally requires a published matching race/event and an eligible exact placement before incrementing.
 
 ## Related Docs
 

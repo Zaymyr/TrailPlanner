@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import {
   Alert,
+  Animated,
   AppState,
   Image,
   Linking,
@@ -13,6 +14,7 @@ import {
 } from 'react-native';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   RACEBOOK_EDITION_LOGO_ENABLED,
   resolveRacebookTheme,
@@ -27,10 +29,13 @@ import { Heading } from '../../../../components/themed/Heading';
 import { Text } from '../../../../components/themed/Text';
 import { OnboardingGuideCard } from '../../../../components/onboarding/OnboardingGuideCard';
 import {
-  RacebookBrandLogo as SponsorBrandLogo,
   RacebookLoadingScreen as SponsorLoadingScreen,
   SponsorBanner as RacebookSponsorBanner,
 } from '../../../../components/racebook/RacebookSponsorExperience';
+import {
+  RACEBOOK_HERO_BODY_HEIGHT,
+  RacebookCollapsibleHero,
+} from '../../../../components/racebook/RacebookCollapsibleHero';
 import {
   RacebookAccessSection,
   type RacebookAccessLocation,
@@ -52,14 +57,18 @@ import { useI18n } from '../../../../lib/i18n';
 import { clearRaceProfileRequestCache, fetchRaceElevationProfile, fetchRaceRoutePreviewPoints } from '../../../../lib/raceProfile';
 import { approximateDistanceKm, fetchRaceRacebookData, type RacebookScreenData } from '../../../../lib/racebook';
 import {
+  createRacebookSponsorViewId,
   EMPTY_RACEBOOK_SPONSORS,
   fetchRacebookSponsors,
   RACEBOOK_SPONSOR_MINIMUM_MS,
+  reportRacebookSponsorImpression,
+  type RacebookSponsorImpression,
   type RacebookSponsorPresentation,
 } from '../../../../lib/racebookSponsors';
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardingStatus';
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
+import { loadRacebookGearChecks, saveRacebookGearCheck } from '../../../../lib/racebookGearChecklist';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
@@ -210,6 +219,10 @@ function formatDistance(distanceKm: number) {
   return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
 }
 
+function formatElevation(elevationM: number, locale: 'fr' | 'en') {
+  return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 0 }).format(elevationM);
+}
+
 function SectionCard({
   title,
   children,
@@ -251,7 +264,7 @@ function CourseProfileCard({
     <SectionCard title={title} accent>
       {points.length >= 2 ? (
         <View style={styles.courseProfileWrap}>
-          <ProfileMiniChart points={points} accentColor={brandTheme.accentColor} />
+          <ProfileMiniChart points={points} accentColor={brandTheme.accentGraphicColor} />
           <View style={styles.courseProfileMetaRow}>
             <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[0]?.distanceKm ?? 0)} km`}</DataText>
             <DataText style={styles.courseProfileMetaText}>{`${formatDistance(points[points.length - 1]?.distanceKm ?? 0)} km`}</DataText>
@@ -277,7 +290,7 @@ function CourseMapCard({
   return (
     <SectionCard title={title} accent>
       {points.length >= 2 ? (
-        <RacebookLeafletMap points={points} routeColor={brandTheme.accentColor} />
+        <RacebookLeafletMap points={points} routeColor={brandTheme.accentGraphicColor} />
       ) : (
         <EmptyState message={emptyMessage} />
       )}
@@ -315,7 +328,7 @@ function InfoList({ values }: { values: string[] }) {
     <View style={styles.listGroup}>
       {values.map((value) => (
         <View key={value} style={styles.listRow}>
-          <View style={[styles.listDot, { backgroundColor: brandTheme.primaryColor }]} />
+          <View style={[styles.listDot, { backgroundColor: brandTheme.primaryGraphicColor }]} />
           <Text style={styles.listText}>{value}</Text>
         </View>
       ))}
@@ -352,7 +365,7 @@ function LabeledInfoList({ items, emphasis = false, onOpenUrl }: {
                 accessibilityRole="link"
                 accessibilityLabel={`Ouvrir ${item.label}`}
               >
-                <Text style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}>
+                <Text style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, styles.tableValueLink, { color: brandTheme.primaryForegroundColor, textDecorationColor: brandTheme.primaryForegroundColor }]}>
                   {item.value}
                 </Text>
               </Pressable>
@@ -360,7 +373,7 @@ function LabeledInfoList({ items, emphasis = false, onOpenUrl }: {
               <DataText
                 tone={item.tone === 'critical' ? 'danger' : item.tone === 'positive' ? 'brand' : 'primary'}
                 weight="semibold"
-                style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, item.tone === 'positive' ? { color: brandTheme.primaryColor } : null]}
+                style={[styles.tableValue, emphasis ? styles.tableValueEmphasis : null, item.tone === 'positive' ? { color: brandTheme.primaryForegroundColor } : null]}
               >
                 {item.value}
               </DataText>
@@ -398,9 +411,14 @@ export default function RaceRacebookScreen() {
   const navigation = useNavigation();
   const { locale, t } = useI18n();
   const { height: viewportHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const scrollRef = useRef<ScrollView>(null);
   const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
   const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>('route');
   const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(null);
+  const [checkedGearItemKeys, setCheckedGearItemKeys] = useState<Set<string>>(new Set());
+  const [pendingGearItemKeys, setPendingGearItemKeys] = useState<Set<string>>(new Set());
   const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -423,10 +441,70 @@ export default function RaceRacebookScreen() {
   const activeTabRef = useRef<RacebookTabKey>('gear');
   const activeCourseTabRef = useRef<CourseTabKey>('route');
   const unavailableTrackedRaceIdRef = useRef<string | null>(null);
+  const sponsorViewRef = useRef<{ raceId: string | null; viewId: string } | null>(null);
+  const activeRaceIdRef = useRef(id);
+  activeRaceIdRef.current = id;
+
+  if (!sponsorViewRef.current || sponsorViewRef.current.raceId !== (id ?? null)) {
+    sponsorViewRef.current = { raceId: id ?? null, viewId: createRacebookSponsorViewId() };
+  }
+  const sponsorViewId = sponsorViewRef.current.viewId;
 
   analyticsDataRef.current = data;
   activeTabRef.current = activeTab;
   activeCourseTabRef.current = activeCourseTab;
+
+  useEffect(() => {
+    let cancelled = false;
+    setCheckedGearItemKeys(new Set());
+    setPendingGearItemKeys(new Set());
+
+    if (!id) return () => { cancelled = true; };
+
+    loadRacebookGearChecks(id)
+      .then((itemKeys) => {
+        if (!cancelled && activeRaceIdRef.current === id) setCheckedGearItemKeys(itemKeys);
+      })
+      .catch((error) => console.warn('Unable to load RaceBook gear checks.', error));
+
+    return () => { cancelled = true; };
+  }, [id]);
+
+  async function toggleGearItem(itemKey: string, checked: boolean) {
+    if (!id || pendingGearItemKeys.has(itemKey)) return;
+    const targetRaceId = id;
+
+    setCheckedGearItemKeys((current) => {
+      const next = new Set(current);
+      if (checked) next.add(itemKey);
+      else next.delete(itemKey);
+      return next;
+    });
+    setPendingGearItemKeys((current) => new Set(current).add(itemKey));
+
+    try {
+      await saveRacebookGearCheck(targetRaceId, itemKey, checked);
+    } catch (error) {
+      console.warn('Unable to save RaceBook gear check.', error);
+      if (activeRaceIdRef.current === targetRaceId) {
+        setCheckedGearItemKeys((current) => {
+          const next = new Set(current);
+          if (checked) next.delete(itemKey);
+          else next.add(itemKey);
+          return next;
+        });
+        Alert.alert(t.common.error, t.catalog.racebookGearSaveError);
+      }
+    } finally {
+      if (activeRaceIdRef.current === targetRaceId) {
+        setPendingGearItemKeys((current) => {
+          const next = new Set(current);
+          next.delete(itemKey);
+          return next;
+        });
+      }
+    }
+  }
 
   useEffect(() => {
     if (!sponsorLookupDone) {
@@ -579,6 +657,7 @@ export default function RaceRacebookScreen() {
     locale,
   );
   const formattedRaceDate = formatDate(data?.race.raceDate ?? null, locale);
+  const heroImageUrl = data?.race.thumbnailUrl ?? data?.event.thumbnailUrl ?? null;
   const eventLocationDetails = data?.event.organizerDetails.eventLocation;
   const raceLocationDetails = data?.race.organizerDetails.raceLocation;
   const headerLocation =
@@ -663,14 +742,18 @@ export default function RaceRacebookScreen() {
   }, [data]);
 
   const tabs = useMemo(() => {
-    const availableTabs: Array<{ key: RacebookTabKey; label: string }> = [];
-    if (sponsorPresentation.modules.equipment) availableTabs.push({ key: 'gear', label: t.catalog.racebookTabGear });
-    if (sponsorPresentation.modules.bib_pickup) availableTabs.push({ key: 'bib', label: t.catalog.racebookTabBib });
-    availableTabs.push({ key: 'course', label: t.catalog.racebookTabCourse });
-    if (sponsorPresentation.modules.access) availableTabs.push({ key: 'access', label: t.catalog.racebookTabAccess });
+    const availableTabs: {
+      key: RacebookTabKey;
+      label: string;
+      icon: keyof typeof Ionicons.glyphMap;
+    }[] = [];
+    if (sponsorPresentation.modules.equipment) availableTabs.push({ key: 'gear', label: t.catalog.racebookTabGear, icon: 'bag-check' });
+    if (sponsorPresentation.modules.bib_pickup) availableTabs.push({ key: 'bib', label: t.catalog.racebookTabBib, icon: 'ticket' });
+    availableTabs.push({ key: 'course', label: t.catalog.racebookTabCourse, icon: 'map' });
+    if (sponsorPresentation.modules.access) availableTabs.push({ key: 'access', label: t.catalog.racebookTabAccess, icon: 'navigate' });
 
     if (sponsorPresentation.modules.services && (serviceSections.length > 0 || structuredServices.length > 0)) {
-      availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices });
+      availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices, icon: 'grid' });
     }
 
     return availableTabs;
@@ -897,6 +980,7 @@ export default function RaceRacebookScreen() {
   );
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
+  const heroExpandedHeight = insets.top + RACEBOOK_HERO_BODY_HEIGHT;
 
   useFocusEffect(
     useCallback(() => {
@@ -1025,16 +1109,23 @@ export default function RaceRacebookScreen() {
     openExternalUrl(url);
   }, [captureRacebookInteraction, openExternalUrl]);
 
-  useEffect(() => {
-    const tabsNavigation = navigation.getParent();
-    navigation.setOptions({ headerRight: showLoading ? () => null : undefined });
-    tabsNavigation?.setOptions({ tabBarStyle: showLoading ? { display: 'none' } : undefined });
+  const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {
+    if (!id) return;
+    void reportRacebookSponsorImpression(id, sponsorViewId, impression);
+  }, [id, sponsorViewId]);
 
-    return () => {
-      navigation.setOptions({ headerRight: undefined });
-      tabsNavigation?.setOptions({ tabBarStyle: undefined });
-    };
+  useEffect(() => {
+    navigation.setOptions({ headerRight: showLoading ? () => null : undefined });
+    return () => navigation.setOptions({ headerRight: undefined });
   }, [navigation, showLoading]);
+
+  useFocusEffect(useCallback(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    scrollY.setValue(0);
+    const tabsNavigation = navigation.getParent();
+    tabsNavigation?.setOptions({ tabBarStyle: { display: 'none' } });
+    return () => tabsNavigation?.setOptions({ tabBarStyle: undefined });
+  }, [navigation, scrollY]));
 
   async function finishRacebookOnboarding(completed: boolean) {
     setOnboardingBusy(true);
@@ -1050,9 +1141,58 @@ export default function RaceRacebookScreen() {
 
   return (
     <RacebookBrandThemeContext.Provider value={brandTheme}>
-    <View style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={[styles.container, showLoading && { minHeight: Math.max(520, viewportHeight - 120) }]}
+    <View style={[styles.screen, { backgroundColor: brandTheme.primarySurfaceColor }]}>
+      {!showLoading && !unavailable && data ? (
+        <RacebookCollapsibleHero
+          scrollY={scrollY}
+          topInset={insets.top}
+          eventName={data.event.name}
+          raceName={data.race.name}
+          imageUrl={heroImageUrl}
+          logoUrl={RACEBOOK_EDITION_LOGO_ENABLED ? brandTheme.logoUrl : null}
+          dateLabel={formattedRaceDate ?? eventDateRange}
+          locationLabel={headerLocation}
+          participationLabel={participationLabels.join(' + ') || null}
+          participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
+          distanceLabel={`${formatDistance(data.race.distanceKm)} km`}
+          elevationGainLabel={`D+ ${formatElevation(data.race.elevationGainM, locale)} m`}
+          elevationLossLabel={data.race.elevationLossM !== null ? `D- ${formatElevation(data.race.elevationLossM, locale)} m` : null}
+          elevationCaption={locale === 'fr' ? 'Dénivelé' : 'Elevation gain'}
+          descentCaption={locale === 'fr' ? 'Descente' : 'Elevation loss'}
+          backLabel={t.common.back}
+          theme={brandTheme}
+          emergency={emergencyContact?.phone && emergencyTelephoneUrl ? {
+            label: t.catalog.racebookEmergencyShort,
+            name: emergencyContact.name,
+            phone: emergencyContact.phone,
+            callLabel: t.catalog.racebookCallAction,
+            accessibilityLabel: t.catalog.racebookCallEmergency,
+          } : null}
+          socialLinks={[
+            ...(officialWebsiteUrl ? [{ accessibilityLabel: t.catalog.racebookOfficialWebsite, action: 'official_website_opened', icon: 'globe-outline' as const, url: officialWebsiteUrl }] : []),
+            ...(instagramUrl ? [{ accessibilityLabel: 'Instagram', action: 'instagram_opened', icon: 'logo-instagram' as const, url: instagramUrl }] : []),
+            ...(facebookUrl ? [{ accessibilityLabel: 'Facebook', action: 'facebook_opened', icon: 'logo-facebook' as const, url: facebookUrl }] : []),
+          ]}
+          onBack={() => {
+            if (router.canGoBack()) router.back();
+            else router.replace('/(app)/catalog');
+          }}
+          onCallEmergency={emergencyTelephoneUrl ? () => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started') : undefined}
+          onOpenLocation={headerLocationUrl ? () => openTrackedUrl(headerLocationUrl, 'map_opened', 'header_location') : undefined}
+          onOpenSocial={(url, action) => openTrackedUrl(url, action)}
+        />
+      ) : null}
+      <Animated.ScrollView
+        ref={scrollRef}
+        contentContainerStyle={[
+          styles.container,
+          { backgroundColor: brandTheme.primarySurfaceColor },
+          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + 16 } : null,
+          showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
+          showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
+        ]}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        scrollEventThrottle={16}
         alwaysBounceVertical
         refreshControl={
           <RefreshControl
@@ -1074,11 +1214,12 @@ export default function RaceRacebookScreen() {
           viewportHeight={viewportHeight}
           sponsorLookupDone={sponsorLookupDone}
           theme={brandTheme}
+          onSponsorImpression={reportSponsorImpression}
         />
       ) : unavailable ? (
         <View style={styles.centerState}>
           <View style={styles.emptyIconWrap}>
-            <Ionicons name="information-circle-outline" size={26} color={brandTheme.primaryColor} />
+            <Ionicons name="information-circle-outline" size={26} color={brandTheme.primaryGraphicColor} />
           </View>
           <Heading variant="h3" style={styles.unavailableTitle}>
             {t.catalog.racebookUnavailableTitle}
@@ -1090,143 +1231,19 @@ export default function RaceRacebookScreen() {
         </View>
       ) : data ? (
         <>
-          <RacebookSponsorBanner sponsors={sponsorPresentation.bannerSponsors} label={t.catalog.racebookSponsorsBannerLabel} />
-          <Card style={styles.heroCard}>
-            {RACEBOOK_EDITION_LOGO_ENABLED ? (
-              <SponsorBrandLogo
-                uri={brandTheme.logoUrl}
-                style={[styles.heroBrandLogo, { borderColor: brandTheme.primaryBorderColor }]}
-                accessibilityLabel={data.event.name ?? data.race.name}
-              />
-            ) : null}
-            <View style={styles.heroHeader}>
-              <View style={styles.heroHeaderText}>
-                {data.event.name && data.event.name !== data.race.name ? (
-                  <Text style={[styles.heroKicker, { color: brandTheme.primaryColor }]}>{data.event.name}</Text>
-                ) : null}
-                <Heading variant="h2" style={styles.heroTitle}>
-                  {data.race.name}
-                </Heading>
-                <View style={styles.heroMetaGroup}>
-                  {formattedRaceDate ?? eventDateRange ? (
-                    <View style={styles.heroMetaItem}>
-                      <Ionicons name="calendar-outline" size={18} color={brandTheme.primaryColor} />
-                      <Text style={styles.heroMeta}>{formattedRaceDate ?? eventDateRange}</Text>
-                    </View>
-                  ) : null}
-                  {(formattedRaceDate ?? eventDateRange) && (headerLocation || participationLabels.length > 0) ? (
-                    <Text style={styles.heroMetaSeparator}>•</Text>
-                  ) : null}
-                  {headerLocation ? (
-                    <View style={styles.heroMetaItem}>
-                      <Ionicons name="location-outline" size={19} color={brandTheme.primaryColor} />
-                      {headerLocationUrl ? (
-                        <Pressable
-                          accessibilityRole="link"
-                          accessibilityLabel={`Ouvrir ${headerLocation}`}
-                          onPress={() => openTrackedUrl(headerLocationUrl, 'map_opened', 'header_location')}
-                          style={styles.heroLocationAction}
-                        >
-                          <Text style={[styles.heroMeta, styles.tableValueLink, { color: brandTheme.primaryColor, textDecorationColor: brandTheme.primaryColor }]}>{headerLocation}</Text>
-                        </Pressable>
-                      ) : (
-                        <Text style={styles.heroMeta}>{headerLocation}</Text>
-                      )}
-                    </View>
-                  ) : null}
-                  {headerLocation && participationLabels.length > 0 ? <Text style={styles.heroMetaSeparator}>•</Text> : null}
-                  {participationLabels.length > 0 ? (
-                    <View style={styles.heroParticipationBadges}>
-                      {participationLabels.map((label, index) => (
-                        <View key={label} style={styles.heroParticipationItem}>
-                          {index > 0 ? <Text style={styles.heroMetaSeparator}>•</Text> : null}
-                          <View style={styles.heroParticipationBadge}>
-                            <Text style={[styles.heroParticipationBadgeText, { color: brandTheme.primaryColor }]}>{label}</Text>
-                          </View>
-                        </View>
-                      ))}
-                    </View>
-                  ) : null}
-                </View>
-              </View>
-              {officialWebsiteUrl || instagramUrl || facebookUrl ? (
-                <View style={styles.heroSocialActions}>
-                  {officialWebsiteUrl ? (
-                    <Pressable
-                      accessibilityRole="link"
-                      accessibilityLabel={t.catalog.racebookOfficialWebsite}
-                      onPress={() => openTrackedUrl(officialWebsiteUrl, 'official_website_opened')}
-                      style={({ pressed }) => [styles.heroSocialAction, { borderColor: brandTheme.primaryBorderColor }, pressed && styles.heroQuickActionPressed]}
-                    >
-                      <Ionicons name="globe-outline" size={22} color={brandTheme.primaryColor} />
-                    </Pressable>
-                  ) : null}
-                  {instagramUrl || facebookUrl ? (
-                    <View style={styles.heroSocialNetworks}>
-                      {instagramUrl ? (
-                        <Pressable
-                          accessibilityRole="link"
-                          accessibilityLabel="Instagram"
-                          onPress={() => openTrackedUrl(instagramUrl, 'instagram_opened')}
-                          style={({ pressed }) => [styles.heroSocialAction, { borderColor: brandTheme.primaryBorderColor }, pressed && styles.heroQuickActionPressed]}
-                        >
-                          <Ionicons name="logo-instagram" size={22} color={brandTheme.primaryColor} />
-                        </Pressable>
-                      ) : null}
-                      {facebookUrl ? (
-                        <Pressable
-                          accessibilityRole="link"
-                          accessibilityLabel="Facebook"
-                          onPress={() => openTrackedUrl(facebookUrl, 'facebook_opened')}
-                          style={({ pressed }) => [styles.heroSocialAction, { borderColor: brandTheme.primaryBorderColor }, pressed && styles.heroQuickActionPressed]}
-                        >
-                          <Ionicons name="logo-facebook" size={22} color={brandTheme.primaryColor} />
-                        </Pressable>
-                      ) : null}
-                    </View>
-                  ) : null}
-                </View>
-              ) : null}
-            </View>
-
-            {emergencyContact?.phone && emergencyTelephoneUrl ? (
-              <>
-                <View style={styles.heroDivider} />
-                <Pressable
-                  accessibilityRole="link"
-                  accessibilityLabel={t.catalog.racebookCallEmergency}
-                  onPress={() => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started')}
-                  style={({ pressed }) => [styles.heroEmergencyAction, pressed && styles.heroQuickActionPressed]}
-                >
-                  <Ionicons name="call-outline" size={26} color={Colors.danger} />
-                  <View style={styles.heroQuickActionText}>
-                    <View style={styles.heroEmergencyLine}>
-                      <Text style={styles.heroEmergencyLabel} numberOfLines={1}>
-                        {t.catalog.racebookEmergencyShort}
-                      </Text>
-                      {emergencyContact.name ? (
-                        <>
-                          <Text style={styles.heroEmergencySeparator}>-</Text>
-                          <Text style={styles.heroEmergencyName} numberOfLines={1}>
-                            {emergencyContact.name}
-                          </Text>
-                        </>
-                      ) : null}
-                    </View>
-                  </View>
-                  <View style={[styles.heroCallButton, { borderColor: brandTheme.primaryBorderColor }]}>
-                    <Ionicons name="call-outline" size={18} color={brandTheme.primaryColor} />
-                    <Text style={[styles.heroCallButtonText, { color: brandTheme.primaryColor }]}>{t.catalog.racebookCallAction}</Text>
-                  </View>
-                </Pressable>
-              </>
-            ) : null}
-
-            {runnerInfoLines.length > 0 ? <View style={styles.heroDivider} /> : null}
-            {runnerInfoLines.length > 0 ? (
+          <RacebookSponsorBanner
+            key={`hero-${id ?? 'unknown'}`}
+            sponsors={sponsorPresentation.bannerSponsors}
+            label={t.catalog.racebookSponsorsBannerLabel}
+            discoverLabel={t.catalog.racebookSponsorDiscover}
+            theme={brandTheme}
+            onSponsorImpression={reportSponsorImpression}
+          />
+          {runnerInfoLines.length > 0 ? (
+            <Card style={styles.heroCard}>
               <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
-            ) : null}
-          </Card>
+            </Card>
+          ) : null}
 
           {weatherAlertMessage ? <InlineAlertCard icon={weatherAlertIcon} title="Alerte météo" message={weatherAlertMessage} /> : null}
 
@@ -1234,21 +1251,18 @@ export default function RaceRacebookScreen() {
             <InlineAlertCard icon="megaphone-outline" title={t.catalog.racebookLastMinuteTitle} message={lastMinuteMessage} />
           ) : null}
 
-          <RacebookTabBar
-            tabs={tabs}
-            activeTab={activeTab}
-            onPress={handleTabPress}
-            theme={brandTheme}
-          />
-
           <View style={styles.contentWrap}>
             {activeTab === 'gear' ? (
+              <>
               <RacebookGearSection
                 requiredItems={requiredEquipment}
                 recommendedItems={recommendedEquipment}
                 weatherItems={conditionalEquipment}
                 notes={equipmentNotes}
                 theme={brandTheme}
+                checkedItemKeys={checkedGearItemKeys}
+                pendingItemKeys={pendingGearItemKeys}
+                onToggleItem={toggleGearItem}
                 copy={{
                   requiredTitle: t.catalog.racebookSectionGearRequired,
                   recommendedTitle: t.catalog.racebookSectionGearRecommended,
@@ -1256,8 +1270,21 @@ export default function RaceRacebookScreen() {
                   emptyMessage: t.catalog.racebookEmptyGear,
                   coldWeather: t.catalog.racebookGearColdWeather,
                   hotWeather: t.catalog.racebookGearHotWeather,
+                  checkedLabel: t.catalog.racebookGearChecked,
+                  uncheckedLabel: t.catalog.racebookGearUnchecked,
+                  progressLabel: t.catalog.racebookGearProgress,
                 }}
               />
+              <RacebookSponsorBanner
+                key={`equipment-${id ?? 'unknown'}`}
+                sponsors={sponsorPresentation.contextualSponsors}
+                label={t.catalog.racebookSponsorsBannerLabel}
+                discoverLabel={t.catalog.racebookSponsorDiscover}
+                placement="equipment"
+                theme={brandTheme}
+                onSponsorImpression={reportSponsorImpression}
+              />
+              </>
             ) : null}
 
             {activeTab === 'bib' ? (
@@ -1299,7 +1326,7 @@ export default function RaceRacebookScreen() {
                         onPress={() => handleCourseTabPress(tab.key)}
                         style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null, active ? { borderColor: brandTheme.primaryBorderColor } : null]}
                       >
-                        <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null, active ? { color: brandTheme.primaryColor } : null]}>
+                        <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null, active ? { color: brandTheme.primaryForegroundColor } : null]}>
                           {tab.label}
                         </Text>
                       </Pressable>
@@ -1320,16 +1347,14 @@ export default function RaceRacebookScreen() {
                             style={styles.courseEssentialMetric}
                           >
                             <Text numberOfLines={1} style={styles.courseEssentialLabel}>
-                              {item.tone === 'positive'
-                                ? t.catalog.racebookMapStart
-                                : t.catalog.racebookMapFinish}
+                              {item.label}
                             </Text>
                             <DataText
                               numberOfLines={1}
                               style={[
                                 styles.courseEssentialValue,
                                 item.tone === 'critical' ? styles.courseEssentialValueCritical : null,
-                                item.tone === 'positive' ? { color: brandTheme.primaryColor } : null,
+                                item.tone === 'positive' ? { color: brandTheme.primaryForegroundColor } : null,
                               ]}
                             >
                               {item.value}
@@ -1429,8 +1454,16 @@ export default function RaceRacebookScreen() {
                 />
 
                 {activeCourseTab === 'aid-stations' ? (
+                  <>
                   <RacebookAidStationsSection
                     stations={data.aidStations}
+                    finish={{
+                      label: t.catalog.racebookMapFinish,
+                      distanceKm: data.race.distanceKm,
+                      elevationGainM: data.race.elevationGainM,
+                      elevationLossM: data.race.elevationLossM,
+                      cutoffTime: data.runnerDetails.schedule.finishCutoffTime,
+                    }}
                     expandedStationId={expandedAidStationId}
                     showOfficialProducts={sponsorPresentation.modules.official_products}
                     theme={brandTheme}
@@ -1458,14 +1491,27 @@ export default function RaceRacebookScreen() {
                       aidCutoffTime: t.catalog.racebookAidCutoffTime,
                       aidFromStart: locale === 'fr' ? 'Depuis le départ' : 'From the start',
                       aidFromPrevious: locale === 'fr' ? 'Depuis {name}' : 'From {name}',
+                      startLabel: t.catalog.racebookMapStart,
+                      finishLabel: t.catalog.racebookMapFinish,
                     }}
                   />
+                  <RacebookSponsorBanner
+                    key={`aid-stations-${id ?? 'unknown'}`}
+                    sponsors={sponsorPresentation.contextualSponsors}
+                    label={t.catalog.racebookSponsorsBannerLabel}
+                    discoverLabel={t.catalog.racebookSponsorDiscover}
+                    placement="aid_stations"
+                    theme={brandTheme}
+                    onSponsorImpression={reportSponsorImpression}
+                  />
+                  </>
                 ) : null}
 
               </>
             ) : null}
 
             {activeTab === 'access' ? (
+              <>
               <RacebookAccessSection
                 presentation={accessPresentation}
                 expanded={expandedAccessTransport}
@@ -1496,9 +1542,20 @@ export default function RaceRacebookScreen() {
                   scheduleLabel: t.catalog.racebookAccessSchedule,
                 }}
               />
+              <RacebookSponsorBanner
+                key={`access-${id ?? 'unknown'}`}
+                sponsors={sponsorPresentation.contextualSponsors}
+                label={t.catalog.racebookSponsorsBannerLabel}
+                discoverLabel={t.catalog.racebookSponsorDiscover}
+                placement="access"
+                theme={brandTheme}
+                onSponsorImpression={reportSponsorImpression}
+              />
+              </>
             ) : null}
 
             {activeTab === 'services' ? (
+              <>
               <RacebookServicesSection
                 services={structuredServices.map((service) => ({
                   id: service.id,
@@ -1540,11 +1597,37 @@ export default function RaceRacebookScreen() {
                   },
                 }}
               />
+              <RacebookSponsorBanner
+                key={`services-${id ?? 'unknown'}`}
+                sponsors={sponsorPresentation.contextualSponsors}
+                label={t.catalog.racebookSponsorsBannerLabel}
+                discoverLabel={t.catalog.racebookSponsorDiscover}
+                placement="services"
+                theme={brandTheme}
+                onSponsorImpression={reportSponsorImpression}
+              />
+              </>
             ) : null}
           </View>
         </>
       ) : null}
-      </ScrollView>
+      </Animated.ScrollView>
+      {!showLoading && !unavailable && data ? (
+        <RacebookTabBar
+          tabs={tabs}
+          activeTab={activeTab}
+          onPress={handleTabPress}
+          exitAction={{
+            label: locale === 'fr' ? 'Courses' : 'Races',
+            accessibilityLabel: locale === 'fr' ? 'Quitter le RaceBook et revenir aux courses' : 'Leave the RaceBook and return to races',
+            onPress: () => {
+              captureRacebookInteraction('racebook action clicked', { action: 'exit_to_catalog' });
+              router.replace('/(app)/catalog');
+            },
+          }}
+          theme={brandTheme}
+        />
+      ) : null}
       {onboarding === 'racebook' && !showLoading ? (
         <OnboardingGuideCard
           title={
@@ -1626,14 +1709,6 @@ const styles = StyleSheet.create({
     paddingTop: 22,
     paddingBottom: 20,
   },
-  heroBrandLogo: {
-    width: 72,
-    height: 56,
-    borderRadius: 14,
-    borderWidth: 1,
-    backgroundColor: Colors.surface,
-    padding: 6,
-  },
   alertCard: {
     gap: 8,
     paddingHorizontal: 12,
@@ -1671,80 +1746,6 @@ const styles = StyleSheet.create({
     color: Colors.textPrimary,
     fontSize: 13,
     lineHeight: 18,
-  },
-  heroHeader: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    gap: 16,
-  },
-  heroHeaderText: {
-    flex: 1,
-    minWidth: 0,
-    gap: 4,
-  },
-  heroSocialActions: {
-    alignSelf: 'flex-start',
-    alignItems: 'flex-end',
-    gap: 8,
-  },
-  heroSocialNetworks: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  heroSocialAction: {
-    width: 46,
-    minHeight: 46,
-    borderRadius: 23,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    backgroundColor: Colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  heroEmergencyAction: {
-    width: '100%',
-    minHeight: 52,
-    paddingVertical: 2,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  heroQuickActionPressed: {
-    opacity: 0.68,
-  },
-  heroQuickActionText: {
-    flex: 1,
-    minWidth: 0,
-    alignItems: 'flex-start',
-  },
-  heroEmergencyLine: {
-    width: '100%',
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  heroEmergencyLabel: {
-    color: Colors.danger,
-    flexShrink: 0,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: '700',
-    textAlign: 'left',
-  },
-  heroEmergencySeparator: {
-    flexShrink: 0,
-    color: Colors.danger,
-    fontSize: 14,
-    lineHeight: 18,
-  },
-  heroEmergencyName: {
-    flexShrink: 1,
-    minWidth: 0,
-    color: Colors.textSecondary,
-    fontSize: 12,
-    lineHeight: 16,
   },
   heroKicker: {
     color: Colors.brandPrimary,
@@ -1817,28 +1818,6 @@ const styles = StyleSheet.create({
     color: Colors.brandPrimary,
     fontSize: 15,
     lineHeight: 20,
-    fontWeight: '700',
-  },
-  heroDivider: {
-    height: 1,
-    backgroundColor: Colors.border,
-  },
-  heroCallButton: {
-    flexShrink: 0,
-    minHeight: 44,
-    paddingHorizontal: 16,
-    borderRadius: 22,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  heroCallButtonText: {
-    color: Colors.brandPrimary,
-    fontSize: 14,
-    lineHeight: 18,
     fontWeight: '700',
   },
   heroDetailGroup: {

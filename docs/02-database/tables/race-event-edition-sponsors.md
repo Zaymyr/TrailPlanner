@@ -1,10 +1,11 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
@@ -18,8 +19,11 @@ related_files:
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
   - apps/web/app/api/racebook-sponsors/route.test.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.test.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.test.ts
   - apps/web/app/organizer/_components/dashboard/sponsors-editor.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookSponsorExperience.tsx
   - apps/mobile/lib/racebookSponsors.ts
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/web/lib/racebook-branding.ts
@@ -34,7 +38,7 @@ related_tables:
 
 ## Purpose
 
-`race_event_edition_sponsors` stores sponsor presentation and one aggregate redirect counter for a canonical event edition. Every format attached to the edition reuses the same ordered sponsors.
+`race_event_edition_sponsors` stores sponsor presentation plus aggregate click and viewable-impression counters for a canonical event edition. Every format attached to the edition reuses the same ordered sponsors.
 
 ## Columns
 
@@ -50,17 +54,21 @@ related_tables:
 | `show_in_banner` | boolean | Eligible for the compact RaceBook banner. |
 | `position` | integer 0–9 | Edition display order. |
 | `click_count` | non-negative bigint | Aggregate raw redirect openings only. |
+| `impression_count` | non-negative bigint | Accepted aggregate viewable presentations only. |
+| `partnership_level` | `principal`, `official`, or `service` | Visual and commercial hierarchy. |
+| `category` | nullable trimmed text, 1-60 characters | Optional organizer-authored partner role. |
+| `contextual_placement` | `none`, `aid_stations`, `equipment`, `access`, or `services` | Optional exact RaceBook section placement. |
 | `created_at`, `updated_at` | timestamps | Audit fields. |
 
-An active row needs at least one placement. A transaction-serialized trigger enforces at most ten rows per edition and at most two active loading rows, including concurrent writes.
+An active row needs at least one loading, hero/banner, or contextual placement. A transaction-serialized trigger enforces at most ten rows per edition and at most two active loading rows, including concurrent writes.
 
 ## Security and Access
 
 RLS is enabled and `anon` / `authenticated` receive no table privileges or policies. Organizer and mobile clients use Next.js routes, then the routes use `service_role`. Organizer draft reads and mutations require active parent-event membership plus a selected sponsor module; Signature remains required for runner-visible placements and partner behavior.
 
-The public presentation route returns only active rows after the normal public RaceBook gate, with an active organizer preview exception. A format explicitly masked through `racebook_preview_is_visible = false` receives no payload even for an organizer. The route exposes a server redirect URL instead of `website_url`. The redirect route validates the sponsor/race edition pair, rate-limits counting by sponsor plus a hashed network identifier, invokes `increment_racebook_sponsor_click` atomically, and redirects even when counting fails.
+The public presentation route returns only active rows after the normal public RaceBook gate, with an active organizer preview exception. A format explicitly masked through `racebook_preview_is_visible = false` receives no payload even for an organizer. It exposes hierarchy, category, contextual placement, and a server redirect URL instead of `website_url`; aggregate counters stay organizer-only. The redirect route validates the sponsor/race edition pair, rate-limits counting by sponsor plus a hashed network identifier, invokes `increment_racebook_sponsor_click` atomically, and redirects even when counting fails.
 
-No impression, runner id, network identifier, or individual click history is stored. `click_count` represents raw openings, not unique visitors.
+`POST /api/racebook-sponsors/impression` accepts a race id, sponsor id, random view UUID, and exact `loading`, `hero`, `aid_stations`, `equipment`, `access`, or `services` placement. It verifies the active module and configured placement, applies ephemeral in-process sponsor/placement/view deduplication plus a global anti-abuse ceiling, then invokes the service-only `increment_racebook_sponsor_impression` RPC. The RPC repeats the sponsor/race-edition, explicit-preview, publication, and placement checks before incrementing. Only aggregate counters persist: no runner id, network identifier, view id, or individual click/impression history is stored. Counts are raw accepted presentations/openings, not unique visitors.
 
 ## Storage
 
@@ -70,13 +78,13 @@ The fictitious Trail TST assets are reproducible under `supabase/demo-assets/spo
 
 ## Mobile Presentation
 
-The same backward-compatible `/api/racebook-sponsors` response carries the edition's resolved published `branding` object beside sponsor arrays. The temporary edition-logo kill switch forces `branding.logoUrl` to `null`, so only sponsor logos are currently prefetched and displayed. The stored edition-logo contract remains separate from sponsor slots and click reporting. Missing/unpublished branding resolves to Pace Yourself color defaults without changing sponsor behavior.
+The same backward-compatible `/api/racebook-sponsors` response carries the edition's resolved published `branding` object beside sponsor arrays. The published edition logo is independently resolved from sponsor slots and remains separate from click reporting. Missing/unpublished branding resolves to Pace Yourself color defaults without changing sponsor behavior.
 
-The Courses sheet starts a short-lived, account-scoped sponsor request and logo warmup immediately before navigating to a RaceBook. The destination reuses that in-flight/cached request, holds visible progress at its initial position until loading logos are ready, then starts the normal animation with sponsors already displayed. Direct links keep the same lookup and logo-prefetch fallback. The RaceBook reserves one unified loading panel with two vertical logo slots while that preparation is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears. The presentation does not add impression tracking or expose direct destination URLs.
+The Courses sheet starts a short-lived, account-scoped sponsor request and logo warmup immediately before navigating to a RaceBook. The destination reuses that in-flight/cached request, holds visible progress at its initial position until loading logos are ready, then starts the normal animation with sponsors already displayed. Direct links keep the same lookup and logo-prefetch fallback. The RaceBook reserves one unified loading panel with two vertical logo slots while that preparation is pending. The slots share one surface with a subtle divider and occupy roughly one third of the available viewport beneath a compact localized title and animated runner trail. An empty or failed lookup removes the panel and does not activate the 2.5-second sponsor gate. This loading state temporarily hides feedback and the bottom tab bar, but keeps the native back/title header and restores normal navigation before content appears.
 
-Banner placements use an automatic horizontal carousel whenever at least two active sponsors exist. It presents one sponsor per viewport-sized slide for three seconds, transitions over 520 ms, and loops through a duplicate first slide; reduced-motion users receive the manual horizontal list instead. The carousel still preserves database order, the ten-sponsor cap, and counted redirect links.
+The former 44dp carousel is replaced by a stable `Partenaires officiels` surface. It keeps ordered active placements visible simultaneously, with 56â€“80dp logos, a visible `DÃ©couvrir` redirect affordance, and optional `principal`, `official`, and `service` hierarchy. The public payload can also provide `contextualSponsors`: composable RaceBook sections filter that collection by `aid_stations`, `equipment`, `access`, or `services`; older responses safely fall back to `bannerSponsors`. The title-partner surface derives its fill, border, and CTA from the resolved edition theme rather than Pace Yourself green.
 
-RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, and foreground active duration. Sponsor impressions, identities, placements, and redirect presses remain excluded from that person-level stream; only the existing aggregate redirect boundary counts sponsor clicks.
+RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, and foreground active duration. Sponsor identities and redirect presses remain excluded from that person-level stream. Sponsor surfaces report aggregate viewability through the dedicated endpoint only after the surface is actually presented; the per-mount callback carries sponsor id, exact placement, and tier, while the transport adds race id and one random view UUID. A caller must not attach a runner identity or destination URL.
 
 The two-line clamp for bib-pickup address links is independent from sponsor layouts, timing, redirects, and click counting.
 
@@ -100,10 +108,17 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - Keep loading sponsors ordered and capped at two on both the route and mobile normalization layers even though the database trigger also enforces the invariant.
 - Keep the mobile loading panel and its two slots reserved until the lightweight lookup settles so logo arrival does not reflow the whole loading screen.
 - Keep the sponsor handoff cache short-lived and scoped by authenticated user id plus race id. It may share one in-flight request across the catalog and destination, but must not reuse an organizer-only draft response after a session change.
-- Keep the compact banner carousel independent from aggregate row-width measurement; every active banner sponsor must rotate even when several logos could technically fit at once.
+- Treat loading as bonus visibility. The stable hero/partner block is the principal sponsor surface and must not depend on the transient loading interstitial.
 - Keep sponsor timing independent from route-local expansion state; opening a parking, shuttle, or ravito accordion row must not restart the banner or sponsor gate.
 - The extracted access, ravito and structured Course components remain below the route-owned sponsor gate and do not read or mutate sponsor presentation state.
-- Do not add sponsor ids or names to identified RaceBook engagement events. Sponsor performance remains an aggregate click-count contract.
+- Do not add sponsor ids or names to identified RaceBook engagement events. Sponsor performance remains a separate aggregate click/impression contract.
+- Keep `contextualSponsors` fallback-compatible with `bannerSponsors`; a partner configured only for a contextual surface must not disappear for clients that receive the new collection.
+- Keep impression placement exact: `hero` maps to `show_in_banner`; contextual values must equal `contextual_placement`; `loading` maps only to `show_on_loading`.
+- The RaceBook contextual bottom bar and hero social rail are app navigation/contact surfaces, not sponsor placements. They do not emit sponsor impressions or alter the stable hero partner block.
+- The emergency number/action added to the expanded hero and its compact telephone icon are event contact surfaces, not sponsor placements. They neither affect viewability measurement nor share sponsor click/impression reporting.
+- Official partners use compact three-column cards in the stable partner block. This density change does not alter ordering, tier eligibility, click redirects, viewability thresholds, or aggregate impression counting.
+- The loading runner has no opaque backing tile: it moves directly above the progress track, including for a customized edition theme. This polish change does not affect the sponsor gate or impression timing.
+- The account-owned Material checklist and broader decorative use of edition accent colors do not create sponsor impressions or mutate sponsor placement.
 
 ## Related Docs
 

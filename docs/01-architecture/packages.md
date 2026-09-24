@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-09-16
+last_verified: 2026-09-24
 ai_priority: medium
 related_files:
   - package.json
@@ -48,7 +48,7 @@ This package contains runtime-neutral logic, but no current application import w
 
 Location: `packages/design-system`
 
-Exports tokens, fonts, signature icons, and the runtime-neutral RaceBook branding resolver. The resolver derives primary/accent surfaces and borders and owns the temporary edition-logo kill switch used consistently by web and mobile. The web app transpiles this package in `apps/web/next.config.mjs`.
+Exports tokens, fonts, signature icons, and the runtime-neutral RaceBook branding resolver. The resolver derives primary/accent surfaces, borders, contrasting solid-surface text, and accessible foreground/graphic variants for use on white. It also owns the enabled edition-logo release switch used consistently by web and mobile. The web app transpiles this package in `apps/web/next.config.mjs`.
 
 Primary source files:
 
@@ -107,6 +107,7 @@ Keep logic inside an app when:
 ## Gotchas
 
 - Keep the RaceBook branding resolver runtime-neutral: both Next.js and Expo import it, so it must not depend on DOM, Node, React, or React Native APIs.
+- Keep color contrast derivation in this shared resolver; app surfaces must not independently darken bright organizer colors.
 - The package name `@trailplanner/shared` still uses the old TrailPlanner naming. Do not rename it casually; workspace package names affect imports.
 - Alert scheduling currently has a broader package implementation and a time-only mobile implementation. Preserve their explicit tests and reconcile their product contract before removing either copy.
 - `apps/web/next.config.mjs` transpiles `@trailplanner/shared` and `@pace-yourself/design-system` and owns route-scoped response headers such as the English subtree's `Content-Language`. Preserve both responsibilities when editing the config; a new package that exports TS/TSX directly may need a matching transpile entry.

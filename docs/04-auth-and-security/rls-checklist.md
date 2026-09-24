@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -19,6 +19,9 @@ related_files:
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
+  - supabase/migrations/20260924140119_add_racebook_gear_checks.sql
+  - supabase/tests/racebook_gear_checks.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
@@ -73,6 +76,7 @@ related_tables:
   - race_event_organizers
   - race_aid_station_products
   - race_event_update_reads
+  - racebook_gear_checks
   - race_event_edition_sponsors
   - race_event_edition_branding
   - organizer_racebook_module_settings
@@ -158,6 +162,7 @@ Use:
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click increments;
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
+- `supabase/tests/racebook_gear_checks.sql` for authenticated-only grants, owner-scoped select/insert/delete policies, immutable append/remove state, and user/race cascades;
 - `supabase/tests/organizer_edition_entitlements_checks.sql` for Stripe/manual recalculation, complimentary-override conversion, duplicate/downgrade rejection, invoice-bucket privacy configuration, and bank-transfer RPC privileges;
 - `supabase/tests/organizer_edition_capability_grants_checks.sql` for service-only privileges, invoker execution, lifecycle audit, pack independence, and capability allowlisting;
 - `supabase/tests/organizer_generated_invoice_checks.sql` for client execute revocation, serialized invoice allocation, and issued-fact update/delete protection;
@@ -207,7 +212,7 @@ Use:
 - Superseding organizer-offer rule: paid publication uses a service-only edition entitlement and atomic RPC. Notification, relay, and station-product clients have no direct mutation grant; public Pro overlays use only the narrow private boolean helper.
 - The organizer website-import route is admin-only even though its target event may be organizer-managed. Keep this route behind trusted `app_metadata` admin checks and never authorize LLM reconciliation from client role input.
 - `organizer_import_sessions` is service-only workflow state: no client policy is intentional. Both mutation RPCs must remain `SECURITY INVOKER`, revoke `PUBLIC` execution, and validate session expiry/scope plus every JSON key before writing.
-- `race_event_edition_sponsors` is also intentionally service-only. Public presentation must pass through the RaceBook gate and expose counted redirect URLs rather than direct destination fields.
+- `race_event_edition_sponsors` is also intentionally service-only. Public presentation must pass through the RaceBook gate and expose counted redirect URLs rather than direct destination fields. Aggregate impressions use a service-role-only invoker RPC that repeats publication, edition, and exact-placement checks; the public endpoint adds deduplication and anti-abuse limits without granting client table/function access.
 - Atomic Organizer course and sponsor-order functions remain invoker-security, empty-search-path and `service_role`-only. Their database validation complements rather than replaces route membership and entitlement checks.
 - `race_event_edition_branding` is intentionally service-only. Its organizer route requires active parent-event membership plus Pro; public/mobile presentation must expose only the published snapshot and keep downgrade behavior read-only rather than destructive.
 - `organizer_edition_capability_grants` is intentionally service-only. Resolve it in authorized server routes and never expose its admin audit fields through a generic client table query.

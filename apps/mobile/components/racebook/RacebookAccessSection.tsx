@@ -105,8 +105,8 @@ function LocationsCard({
       <View style={styles.locationList}>
         {locations.map((location, index) => (
           <View key={location.key} style={[styles.locationItem, index > 0 ? styles.locationItemBorder : null]}>
-            <View style={[styles.locationIcon, { backgroundColor: theme.primarySurfaceColor }]}>
-              <Ionicons name="location-outline" size={18} color={theme.primaryColor} />
+            <View style={[styles.locationIcon, { backgroundColor: theme.accentSurfaceColor }]}>
+              <Ionicons name="location-outline" size={18} color={theme.accentGraphicColor} />
             </View>
             <View style={styles.locationContent}>
               <Text style={styles.locationLabel}>{location.label}</Text>
@@ -119,10 +119,14 @@ function LocationsCard({
                     onOpenMap(location.key);
                     onOpenUrl(location.actionUrl!);
                   }}
-                  style={({ pressed }) => [styles.mapAction, pressed ? styles.actionPressed : null]}
+                  style={({ pressed }) => [
+                    styles.mapAction,
+                    { backgroundColor: theme.accentSurfaceColor },
+                    pressed ? styles.actionPressed : null,
+                  ]}
                 >
-                  <Ionicons name="navigate-outline" size={15} color={theme.primaryColor} />
-                  <Text style={[styles.mapActionText, { color: theme.primaryColor }]}>{openMapsLabel}</Text>
+                  <Ionicons name="navigate-outline" size={15} color={theme.accentGraphicColor} />
+                  <Text style={[styles.mapActionText, { color: theme.accentForegroundColor }]}>{openMapsLabel}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -139,12 +143,12 @@ function LocationsCard({
           }}
           style={({ pressed }) => [
             styles.generalMapAction,
-            { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor },
+            { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor },
             pressed ? styles.actionPressed : null,
           ]}
         >
-          <Ionicons name="map-outline" size={17} color={theme.primaryColor} />
-          <Text style={[styles.generalMapActionText, { color: theme.primaryColor }]}>{openGeneralMapLabel}</Text>
+          <Ionicons name="map-outline" size={17} color={theme.accentGraphicColor} />
+          <Text style={[styles.generalMapActionText, { color: theme.accentForegroundColor }]}>{openGeneralMapLabel}</Text>
         </Pressable>
       ) : null}
     </SectionCard>
@@ -189,8 +193,8 @@ function TransportCard({
               ]}
             >
               <View style={styles.transportHeader}>
-                <View style={[styles.transportIcon, { backgroundColor: theme.primarySurfaceColor }]}>
-                  <Ionicons name={item.icon} size={18} color={theme.primaryColor} />
+                <View style={[styles.transportIcon, { backgroundColor: theme.accentSurfaceColor }]}>
+                  <Ionicons name={item.icon} size={18} color={theme.accentGraphicColor} />
                 </View>
                 <View style={styles.transportHeading}>
                   <Text style={styles.transportTitle}>{item.title}</Text>
@@ -203,7 +207,7 @@ function TransportCard({
                 <View style={[styles.scheduleRow, { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor }]}>
                   <Ionicons name="time-outline" size={16} color={theme.accentColor} />
                   <View style={styles.scheduleContent}>
-                    <Text style={[styles.scheduleLabel, { color: theme.primaryColor }]}>{scheduleLabel}</Text>
+                    <Text style={[styles.scheduleLabel, { color: theme.accentForegroundColor }]}>{scheduleLabel}</Text>
                     <Text style={styles.scheduleText}>{item.schedule}</Text>
                   </View>
                 </View>

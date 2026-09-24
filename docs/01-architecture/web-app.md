@@ -197,6 +197,8 @@ related_files:
   - apps/web/app/api/racebook-data/route.ts
   - apps/web/app/api/racebook-data/route.test.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.test.ts
   - apps/web/lib/racebook-cache.ts
   - apps/web/lib/racebook-cache.test.ts
   - apps/web/lib/racebook-sponsors.ts
@@ -482,11 +484,11 @@ The equipment editor layout should keep each item on one compact flexible row so
 
 ### RaceBook Sponsor Routes
 
-The optional Organizer `Sponsors` tile is Pro-only. Visibilité and RaceBook editions see a Pro upsell and never mount the editor. With Pro active, opening the tile lazily reads the selected edition's list, while metadata blur/save, placement toggles, logo replacement, and deletion use edition routes that repeat both active-membership and `sponsors.manage` checks. Ordering submits the complete list to one service-only transaction; partial lists, foreign ids and duplicate positions are rejected. The same tile reports active rows and aggregate raw clicks. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
+The optional Organizer `Sponsors` tile is Signature-only for runner presentation. Opening the selected private draft lazily reads the edition list; metadata includes the partnership level, optional category, loading/hero flags, and one exact contextual placement. Organizer routes repeat active-membership and selected-module checks for writes. Ordering submits the complete list to one service-only transaction; partial lists, foreign ids and duplicate positions are rejected. The same tile reports active rows plus aggregate raw clicks and impressions. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
 
 Mobile calls the lightweight public `/api/racebook-sponsors?raceId=...` route in parallel with `/api/racebook-data?raceId=...`, which assembles the race, ravitos/products, relay points, SAS, awards, and edition services in one server response. Both public responses use a five-minute Vercel CDN TTL with stale-while-revalidate and race/edition/event cache tags; organizer previews remain authenticated and `private, no-store`. The mobile caller deliberately tries the anonymous public URL first so an existing session does not bypass the shared CDN, then retries with its bearer token only for a private organizer preview. Successful organizer mutations invalidate the affected cache tag; a bounded TTL remains the fallback if invalidation is temporarily unavailable.
 
-The sponsor response still exposes only active placement DTOs and counted redirect URLs. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target.
+The sponsor response exposes only active presentation DTOs (`tier`, optional `category`, exact `contextualPlacement`) and counted redirect URLs; it never exposes destinations or counters. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target. The separate POST impression route accepts a random view UUID and exact surface placement, deduplicates and throttles it through opaque rate-limit keys, validates the active module/configuration, and uses a service-only RPC that repeats the published race/edition gate before incrementing the aggregate counter.
 
 ### Billing and Entitlements
 
