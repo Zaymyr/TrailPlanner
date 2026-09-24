@@ -20,6 +20,17 @@ describe("RaceBook sponsor validation", () => {
     expect(sponsorMetadataSchema.safeParse({ ...base, websiteUrl: "ftp://example.com" }).success).toBe(false);
     expect(sponsorMetadataSchema.safeParse({ ...base, websiteUrl: "https://example.com" }).success).toBe(false);
     expect(sponsorMetadataSchema.safeParse({ ...base, websiteUrl: "https://example.com", showInBanner: true }).success).toBe(true);
+    expect(sponsorMetadataSchema.safeParse({
+      ...base,
+      websiteUrl: "https://example.com",
+      contextualPlacement: "services",
+    }).success).toBe(true);
+    expect(sponsorMetadataSchema.safeParse({
+      ...base,
+      websiteUrl: "https://example.com",
+      tier: "gold",
+      showInBanner: true,
+    }).success).toBe(false);
   });
 
   it("detects whether a RaceBook has content worth presenting", () => {

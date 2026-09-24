@@ -1,7 +1,7 @@
 ---
 title: race_event_editions
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260820164141_target_racebook_publication_requests.sql
@@ -94,7 +94,7 @@ related_tables:
 
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
 - `races.edition_id -> race_event_editions(id) on delete cascade`
-- `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
+- `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`; sponsor hierarchy, contextual placement, and aggregate click/impression counters stay shared by every format in that edition and are mutated only through membership-checked server routes.
 - `race_event_edition_branding.edition_id -> race_event_editions(id) on delete cascade`
 - `organizer_racebook_module_settings.edition_id -> race_event_editions(id) on delete cascade`
 

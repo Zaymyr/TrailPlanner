@@ -10,6 +10,13 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
+import {
+  IMAGE_UPLOAD_CACHE_CONTROL,
+  InvalidImageError,
+  OPTIMIZED_IMAGE_CONTENT_TYPE,
+  OPTIMIZED_IMAGE_EXTENSION,
+  optimizeImageFile,
+} from "../../../../../../lib/optimized-image";
 
 const MAX_RACE_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const ALLOWED_RACE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/avif"]);
@@ -18,13 +25,6 @@ const raceImageRowSchema = z.object({
   id: z.string().uuid(),
   thumbnail_url: z.string().nullable().optional(),
 });
-
-const IMAGE_EXTENSION_BY_TYPE: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/avif": "avif",
-};
 
 const deleteUploadedImage = async (
   serviceConfig: Parameters<typeof serviceHeaders>[0],
@@ -57,17 +57,25 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   }
   if (imageFile.size > MAX_RACE_IMAGE_SIZE_BYTES) return jsonError("Image is too large (max 5 MB).", 400);
 
-  const extension = IMAGE_EXTENSION_BY_TYPE[imageFile.type] ?? "png";
-  const storagePath = `organizer-races/${race.event_id}/${parsedParams.data.id}/thumbnail-${Date.now()}.${extension}`;
+  let optimizedImage: ArrayBuffer;
+  try {
+    optimizedImage = await optimizeImageFile(imageFile);
+  } catch (error) {
+    if (error instanceof InvalidImageError) return jsonError("Invalid image file.", 400);
+    throw error;
+  }
+
+  const storagePath = `organizer-races/${race.event_id}/${parsedParams.data.id}/thumbnail-${Date.now()}.${OPTIMIZED_IMAGE_EXTENSION}`;
   const uploadResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/storage/v1/object/race-images/${storagePath}`,
     {
       method: "POST",
       headers: {
-        ...serviceHeaders(auth.serviceConfig, imageFile.type),
+        ...serviceHeaders(auth.serviceConfig, OPTIMIZED_IMAGE_CONTENT_TYPE),
+        "cache-control": IMAGE_UPLOAD_CACHE_CONTROL,
         "x-upsert": "true",
       },
-      body: imageFile,
+      body: optimizedImage,
       cache: "no-store",
     }
   );

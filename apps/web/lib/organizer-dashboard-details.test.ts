@@ -6,7 +6,21 @@ import {
   defaultOrganizerEventDetails,
   defaultOrganizerRaceDetails,
   parseOrganizerEventDetails,
+  parseOrganizerRaceDetails,
 } from "./organizer-dashboard-details";
+
+describe("parseOrganizerRaceDetails", () => {
+  it("defaults both RaceBook GPX visuals to visible and preserves organizer choices", () => {
+    expect(parseOrganizerRaceDetails({}).gpxDisplay).toEqual({
+      showRoute: true,
+      showElevationProfile: true,
+    });
+    expect(parseOrganizerRaceDetails({ gpxDisplay: { showRoute: false, showElevationProfile: true } }).gpxDisplay).toEqual({
+      showRoute: false,
+      showElevationProfile: true,
+    });
+  });
+});
 
 describe("parseOrganizerEventDetails", () => {
   it("normalizes the event links and emergency contact", () => {

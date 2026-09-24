@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -37,6 +37,10 @@ related_files:
   - supabase/tests/web_race_visibility_checks.sql
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/races/route.test.ts
+  - apps/web/lib/organizer-dashboard-details.ts
+  - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
+  - apps/mobile/lib/racebook.ts
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/RaceSelector.tsx
   - apps/web/app/api/organizer/events/[id]/website-import/route.ts
   - apps/web/app/api/organizer/editions/[id]/route.ts
@@ -84,7 +88,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 | `gpx_path`, `gpx_hash` | nullable text | Legacy GPX compatibility fields; null is valid when no verified trace is available. |
 | `gpx_storage_path`, `gpx_sha256` | nullable text | Actual private Storage object and digest; null means no imported GPX. |
 | altitude/start/bounds columns | nullable numeric | GPX-derived geographic summary. |
-| `organizer_details` | nullable `jsonb` | Progressive format schedule, logistics, equipment override, and notes. |
+| `organizer_details` | nullable `jsonb` | Progressive format schedule, logistics, equipment override, notes, and `gpxDisplay` route/profile presentation preferences. |
 | `is_live`, `is_public` | boolean | Course catalog state. |
 | `web_catalog_is_live` | boolean | Durable web catalog/SEO visibility. First public mobile publication promotes it; later mobile hiding preserves it, while `is_public = false` clears it. |
 | `racebook_preview_is_visible` | boolean | Mobile course-catalog inclusion for a non-live organizer format and organizer RaceBook preview selection; false masks it and excludes it from edition publication. |
@@ -121,6 +125,7 @@ An authenticated non-admin may insert, update, or delete only a standalone race 
 - Authenticated race selectors combine public/live catalog rows with private rows owned by the current user. A private standalone race remains selectable even though its required `is_live` value is false.
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
 - A runner-live RaceBook must also be selected for organizer preview. Turning preview off atomically clears `racebook_is_live`; turning it back on never publishes by itself.
+- `organizer_details.gpxDisplay.showRoute` and `showElevationProfile` default to `true` when absent. They independently hide RaceBook visuals without deleting the GPX object or changing parsed metrics.
 - The service-only format publication function locks one row, authorizes either an active parent-event organizer or a trusted Auth `raw_app_meta_data` admin, and atomically restores `is_live`, `racebook_preview_is_visible`, and `racebook_is_live`; the admin lookup is isolated behind a private boolean-only helper because `service_role` cannot select `auth.users` directly. Its false branch produces the private state, while the route writes the masked state directly in one update. The edition publication function performs the same public transition for every selected complete public-source format and must not require `is_live` before that update.
 - Complete catalog formats require a name, slug, exact date, location, positive distance and official source. D+ and GPX are optional enrichments and remain null when unknown.
 - Unknown imported distance uses zero only while `distance_km` is listed missing; an explicitly known flat D+ may be zero, while an unknown D+ is null.

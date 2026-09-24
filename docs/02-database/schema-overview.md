@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -45,6 +45,7 @@ related_files:
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
@@ -90,6 +91,7 @@ related_tables:
   - race_event_organizers
   - race_event_updates
   - race_event_update_reads
+  - racebook_gear_checks
   - products
   - user_favorite_race_events
   - user_profiles
@@ -141,6 +143,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Import draft: a confirmed `races` format may exist before the catalog minimum is known; `data_status` and `missing_required_fields` keep those required gaps explicit and hidden. D+ and GPX are nullable optional enrichments, including on a public source-backed course.
 - Organizer update preview: mobile preloads a short per-event preview from `race_event_updates`, can identify an optional format scope, and places one newest/targeted message after all format actions in a light-green panel; the same panel expands to older messages and the longer history only on demand.
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
+- RaceBook gear checklist: `racebook_gear_checks` stores owner-scoped checked equipment by exact course format and synchronizes it across the runner's devices.
 - Entitlement source: subscription, trial, or premium grant.
 - Organizer edition entitlement: permanent Visibilité/Essential/Complete/Signature capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
 - Organizer edition capability grant: service-only active/revoked complimentary module projection that supplements an edition pack without changing it; V1 supports `racebook_analytics.view`.
@@ -173,9 +176,10 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `race_event_organizers` | Approved event-scoped organizer memberships plus each member's dashboard-onboarding completion. |
 | `race_event_updates` | Manual organizer announcements stored as runner-visible event history. |
 | `race_event_update_reads` | Owner-scoped receipts recording which organizer announcements a runner has seen. |
+| `racebook_gear_checks` | Owner-scoped per-format equipment checks used by the mobile RaceBook checklist. |
 | `race_events` | Event grouping table used by code; creation migration is not visible in this repo; organizer details are a nullable JSONB extension and explicit normalized geography supports future catalog filters. |
 | `race_event_editions` | Canonical yearly start/end date ranges and mobile catalog visibility for organizer events, with one current edition per event. |
-| `race_event_edition_sponsors` | Ordered edition-scoped RaceBook loading/banner sponsors and aggregate redirect counts. |
+| `race_event_edition_sponsors` | Ordered edition-scoped RaceBook sponsors with hierarchy, contextual placement, and aggregate click/impression counts. |
 | `race_event_edition_branding` | Edition-scoped RaceBook identity with separate organizer draft and runner-visible published values. |
 | `race_plans` | Saved planner state and imported GPX plan metadata. |
 | `race_requests` | Authenticated user requests for races to add. |
@@ -268,6 +272,7 @@ erDiagram
 - [race_event_organizers](tables/race-event-organizers.md)
 - [race_event_updates](tables/race-event-updates.md)
 - [race_event_update_reads](tables/race-event-update-reads.md)
+- [racebook_gear_checks](tables/racebook-gear-checks.md)
 - [products](tables/products.md)
 - [user_favorite_race_events](tables/user-favorite-race-events.md)
 - [user_profiles](tables/user-profiles.md)
@@ -305,7 +310,7 @@ erDiagram
 - Do not conflate runner catalog state with the organizer's mobile view. Ordinary discovery still requires live event/course rows; the membership-bounded organizer companion read deliberately ignores those runner-facing filters and never mutates them. Masked/private/public format state remains false/false/false, false/true/false, or true/true/true for course live / preview / RaceBook live.
 - Admin/import flows should likewise default new `race_events` and `races` rows to non-live until an explicit publish action occurs.
 - `Trail TST` is the deliberate runner-facing showcase exception: fixed migration ids, live flags, approval timestamps, and versioned Storage paths make the public fixture reproducible.
-- RaceBook sponsors remain service-only rows. The database serializes edition writes to enforce ten total and two active loading sponsors; clients receive only server-filtered placements and counted redirect URLs.
+- RaceBook sponsors remain service-only rows. The database serializes edition writes to enforce ten total and two active loading sponsors; clients receive only server-filtered hierarchy/placement DTOs and counted redirect URLs. Clicks and viewable impressions remain aggregate counters, with the impression RPC repeating published race/edition and exact-placement validation.
 - Complete sponsor ordering and Organizer course-collection replacements are atomic RPC contracts. Keep their client execution revoked and their route-level membership/capability checks intact.
 - RaceBook branding also remains service-only. Never grant draft access to clients; runner payloads use only a complete explicitly published snapshot and otherwise return shared defaults.
 - Mobile sponsor prefetch is an ephemeral account/race-scoped request handoff between the Courses sheet and RaceBook screen; it adds no table, relationship, persisted cache, or broader Data API access.

@@ -82,13 +82,13 @@ function ServiceAction({
       style={({ pressed }) => [
         styles.action,
         {
-          backgroundColor: theme.primarySurfaceColor,
-          borderColor: theme.primaryBorderColor,
+          backgroundColor: theme.accentSurfaceColor,
+          borderColor: theme.accentBorderColor,
         },
         pressed ? styles.actionPressed : null,
       ]}
     >
-      <Ionicons color={theme.primaryColor} name={icon} size={19} />
+      <Ionicons color={theme.accentGraphicColor} name={icon} size={19} />
     </Pressable>
   );
 }
@@ -184,8 +184,8 @@ export function RacebookServicesSection({
       {groupedServices.map((group) => (
         <Card key={group.category} style={styles.categoryCard}>
           <View style={styles.categoryHeader}>
-            <View style={[styles.categoryIcon, { backgroundColor: theme.primarySurfaceColor }]}>
-              <Ionicons color={theme.primaryColor} name={categoryIcons[group.category]} size={18} />
+            <View style={[styles.categoryIcon, { backgroundColor: theme.accentSurfaceColor }]}>
+              <Ionicons color={theme.accentGraphicColor} name={categoryIcons[group.category]} size={18} />
             </View>
             <Text style={styles.categoryTitle}>{copy.categoryTitles[group.category]}</Text>
           </View>

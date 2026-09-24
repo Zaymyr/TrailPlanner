@@ -1,7 +1,7 @@
 ---
 title: race_edition_services Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -51,6 +51,8 @@ The two-line clamp applied to bib-pickup address text is isolated from service-c
 
 The RaceBook route keeps structured service normalization, distance approximation, link construction and analytics callbacks. `RacebookServicesSection` owns only the grouped mobile presentation and receives normalized rows, resolved theme, explicit copy and URL callbacks.
 
+A sponsor configured for the `services` contextual placement renders after this section. That aggregate presentation and its impression counter do not change service rows, categories, links, or visibility.
+
 The format access override that hides saved runner information is likewise independent from edition service rows and their visibility.
 
 The Organizer editor serializes revisioned autosaves: a response for an older revision cannot replace newer local service edits and instead queues the latest revision. Masking a format from the private demo suppresses its whole RaceBook entry without deleting edition service rows.
@@ -58,3 +60,9 @@ The Organizer editor serializes revisioned autosaves: a response for an older re
 Published rows travel in the consolidated RaceBook CDN snapshot. A successful services replacement invalidates the edition tag after persistence.
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; structured service rows, links, visibility, and API/RLS contracts remain unchanged.
+
+When effective service content exists, Services appears directly in the RaceBook contextual bottom bar. Its filled icon and color-only active state align with the global navigation; the hero's emergency presentation, focus-time scroll reset, and route-replacing Courses exit remain independent, and the same edition-scoped visibility, fallback, and action contracts apply.
+
+Service-category and external-action icons now use the published accent surface/graphic variants. This changes no service field, visibility rule, or URL, and personal equipment checks remain isolated in `racebook_gear_checks`.
+
+Per-format GPX map/profile choices affect only the `Tracé` cards and do not change edition-scoped services or their conditional tab.

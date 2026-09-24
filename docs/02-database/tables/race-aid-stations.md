@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -154,6 +154,8 @@ values ('<race-id>', 'Aid station 1', 12.5, true, true, true, '{"stationType":"w
 - Do not infer that every ravito is a handover or that every handover is a ravito.
 
 ## Related Docs
+
+Per-format GPX route/profile visibility is stored beside other race details and does not change waypoint import, station rows, cumulative elevation interpolation, or station products.
 
 - [race_events](race-events.md)
 - [plan_aid_stations](plan-aid-stations.md)

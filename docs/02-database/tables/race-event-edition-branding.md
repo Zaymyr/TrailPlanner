@@ -15,6 +15,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/branding-editor.tsx
   - apps/mobile/lib/racebookSponsorPresentation.ts
   - apps/mobile/lib/racebookSponsors.ts
+  - apps/mobile/lib/racebookBranding.test.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
@@ -22,6 +23,7 @@ related_files:
   - apps/mobile/components/racebook/RacebookGearSection.tsx
   - apps/mobile/components/racebook/RacebookServicesSection.tsx
   - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
+  - apps/mobile/components/racebook/RacebookCollapsibleHero.tsx
   - packages/design-system/src/branding.ts
 related_tables:
   - race_event_edition_branding
@@ -33,17 +35,18 @@ related_tables:
 
 ## Purpose
 
-Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published colors and module switch; no per-format activation is required. Logo data is retained but its editor and runner presentation are temporarily disabled.
+Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published colors and module switch; no per-format activation is required. A valid published logo is runner-visible in the RaceBook hero and loading composition.
 
 ## Key Concepts
 
 - The organizer portal edits the draft and previews it locally.
 - Publication atomically copies all draft values to the published fields.
-- Runner and mobile preview payloads expose only published color values, and return no RaceBook payload for a format explicitly masked from the organizer demo. `RACEBOOK_EDITION_LOGO_ENABLED` currently forces the resolved logo to `null` without deleting stored draft or published URLs.
+- Runner and mobile preview payloads expose only published values, including a valid HTTPS logo, and return no RaceBook payload for a format explicitly masked from the organizer demo. The shared resolver remains the final URL and color validation boundary.
 - Editing the draft requires active event membership and a selected `branding` module. Copying the draft to the published snapshot requires the Signature `branding.manage` capability and an effectively active module. A downgrade masks the published identity without deleting either snapshot.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, and semantic danger/warning/info colors.
-- Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves. The ravito chronology uses the resolved accent only for its non-semantic rail and segment surfaces, while cutoff warnings retain the app-owned danger color.
+- Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves. Accent surfaces and contrast-safe accent foreground/graphic variants identify checklist completion, decorative location/service actions, structured course cards, and the ravito chronology rail/segments; cutoff warnings and other semantic states retain app-owned colors.
 - Branding can recolor the linked bib address, but its two-line clamp and complete accessibility label remain app-owned presentation behavior.
+- The published primary identity also colors the scroll-driven hero that replaces the native RaceBook header. Its title/back alignment, persistent social actions, single-line emergency contact/number row and compact icon, long-title clipping, safe-area handling, and focus-time expansion reset remain app-owned and store no additional branding state.
 
 ## Columns
 
@@ -53,7 +56,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 | `draft_logo_url` | nullable HTTPS URL | Organizer working logo. |
 | `draft_primary_color` | `#RRGGBB`, default `#2D5016` | Working interaction color. |
 | `draft_accent_color` | `#RRGGBB`, default `#B45309` | Working graphic and decorative-surface accent. |
-| `published_logo_url` | nullable HTTPS URL | Preserved published logo, dormant while the shared feature flag is disabled. |
+| `published_logo_url` | nullable HTTPS URL | Runner-visible published edition logo. |
 | `published_primary_color` | nullable `#RRGGBB` | Runner-visible interaction color after publication. |
 | `published_accent_color` | nullable `#RRGGBB` | Runner-visible graphic accent after publication. |
 | `published_at` | nullable timestamp | Explicit publication marker. |
@@ -82,8 +85,9 @@ RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated` ha
 - Logos live in `race-images/organizer-branding/{editionId}/`.
 - Replaced unpublished logos, superseded published logos, and logos belonging to deleted editions/events are removed from Storage when no draft or published field still references them.
 - `publish_racebook_edition_branding(uuid)` copies logo and both colors in one SQL update and timestamps the publication.
+- After publication, the organizer response resolves the copied HTTPS logo while `RACEBOOK_EDITION_LOGO_ENABLED` is enabled; the route test also verifies cleanup of the superseded published object.
 - The additive public sponsors payload always includes defaults when no valid published identity exists.
-- The shared design-system resolver chooses black or white primary text by contrast and derives light surfaces/borders from both colors. Accent now covers route/progress graphics plus related non-semantic cards and positive information highlights; warning, danger and information semantics keep Pace Yourself colors.
+- The shared design-system resolver chooses contrasting text for both solid colors, derives light surfaces/borders, and derives WCAG-oriented text and graphic variants for use on white. Accent covers route/progress graphics plus related non-semantic cards and positive information highlights; warning, danger and information semantics keep Pace Yourself colors.
 
 ## Common Queries
 
@@ -103,12 +107,15 @@ where edition_id = :edition_id;
 - Do not grant direct mobile/browser access to this table; the existing server route is the compatibility and authorization boundary.
 - Public resolved branding shares the tagged sponsor response. Draft writes and publication/reset mutations invalidate the edition tag, but private draft/preview data must never enter the shared CDN cache.
 - Do not delete a logo still referenced by either the draft or the published state.
-- Sponsor logos and organizer-branding logos use separate Storage prefixes. Edition-logo controls and rendering are dormant behind `RACEBOOK_EDITION_LOGO_ENABLED`; do not delete stored URLs merely because the flag is off.
+- Sponsor logos and organizer-branding logos use separate Storage prefixes. Keep edition-logo rendering behind the shared `RACEBOOK_EDITION_LOGO_ENABLED` release switch so it can be disabled without deleting stored URLs.
 - Invalid/missing branding and image load failures must fall back silently to the Pace Yourself theme.
 - Mobile waits for the edition bootstrap before revealing RaceBook content; do not reintroduce a short presentation timeout that permanently replaces a valid slow response with default colors.
+- Hero, contextual, and Android back actions replace the active route with Courses rather than exposing an earlier RaceBook; this navigation rule does not change the published branding payload or resolver.
 - Branding draft mutation does not require a paid entitlement. Publication does require active Signature; inactive or draft-only branding remains stored while runner bootstrap returns Pace Yourself defaults.
 
 ## Related Docs
+
+Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.
 
 - [race_event_editions](race-event-editions.md)
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)

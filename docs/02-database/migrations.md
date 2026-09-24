@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
@@ -38,6 +38,9 @@ related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
+  - supabase/migrations/20260924140119_add_racebook_gear_checks.sql
+  - supabase/tests/racebook_gear_checks.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
@@ -89,6 +92,7 @@ related_tables:
   - products
   - user_favorite_race_events
   - user_profiles
+  - racebook_gear_checks
   - subscriptions
   - premium_grants
   - organizer_edition_entitlements
@@ -99,6 +103,8 @@ related_tables:
 # Migrations
 
 `20260914055319_harden_privileged_database_access.sql` removes client-writable profile roles from database authorization, clears untrusted legacy admin labels, protects server-owned profile entitlement/analytics fields, restricts user-created races to private standalone rows, restricts privileged SECURITY DEFINER RPCs to `service_role`, enables invoker security on `product_brand_review`, pins advisor-reported function search paths, optimizes the replaced owner/admin RLS predicates, and adds five targeted foreign-key indexes. `supabase/tests/privileged_database_access_checks.sql` verifies profile-field and race-publication escalation denial, trusted-metadata-only admin resolution, view security, and RPC privileges in a rollback transaction.
+
+`20260924140119_add_racebook_gear_checks.sql` adds the owner-scoped, per-format RaceBook equipment checklist. Authenticated clients receive only select/insert/delete grants under matching `auth.uid()` policies; `anon` receives none, and the composite key makes repeated checks idempotent. `supabase/tests/racebook_gear_checks.sql` verifies RLS, privileges, policies, and both cascading parents.
 
 `20260907160043_add_structured_racebook_content.sql` adds normalized services, start waves and awards, their constraints/indexes/RLS, atomic replacement RPCs, and the `schedule.startTime` start-wave backfill.
 
@@ -364,6 +370,8 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 `supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql` repairs events/formats created after the original edition backfill: it creates missing event-year editions, attaches every dated event format, selects a current edition when absent, and installs an invoker trigger that atomically upserts future missing memberships under a per-event transaction advisory lock. It changes no client table grants or RLS policy.
 
 `supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql` adds service-only `race_event_edition_sponsors`, ordered loading/banner placements, aggregate click counts, and an atomic race/edition-validated redirect increment RPC. RLS and explicit privilege revokes keep clients behind server routes. A transaction advisory lock plus trigger enforces ten sponsors per edition and two active loading sponsors even under concurrent writes. `supabase/tests/racebook_sponsors_checks.sql` verifies RLS, privileges, both limits, and the atomic increment inside a rollback transaction.
+
+`supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql` extends those service-only rows with a constrained partnership level, optional category, exact contextual placement, and aggregate impression count. Its service-role-only invoker RPC increments only an eligible placement belonging to a published, preview-visible RaceBook in the same edition. The migration also assigns representative hierarchy and contextual roles to the fictitious Trail TST sponsor fixture; it does not expose the table to clients or retain impression-level identity/history. Deploy this migration before the matching Web build because organizer sponsor mutations write the new columns; mobile/public reads remain backward-compatible during the rollout.
 
 `supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql` replaces multi-request Organizer mutations with parent-locked invoker RPCs for ravitos, station-product links, relay points, organizer product creation plus attachment, and complete sponsor ordering. All functions use an empty search path, revoke execution from client roles, grant only `service_role`, validate parent ownership before writes, and roll back the full operation on failure. `supabase/tests/organizer_atomic_course_collections_checks.sql` and the sponsor SQL checks exercise privileges, ownership rejection and rollback behavior.
 

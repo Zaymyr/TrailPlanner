@@ -46,6 +46,9 @@ related_files:
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.test.ts
+  - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
 related_tables:
@@ -188,7 +191,7 @@ The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid
 
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
-The always-visible ravito segment chronology and its distance/elevation connectors are presentation-only. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; connector visibility adds no new analytics event or property.
+The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, and right-indented distance/elevation connectors are presentation-only. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint and connector visibility add no new analytics event or property.
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 
@@ -257,7 +260,7 @@ The pinned `Organisateurs — Création & évolution des courses` dashboard (`94
 
 ## RaceBook Sponsor Clicks
 
-Sponsor reporting is deliberately separate from PostHog and Google Analytics. A press opens the server redirect, which rate-limits counting by sponsor plus a transient hashed network identifier and atomically increments only `race_event_edition_sponsors.click_count`. Organizers see this aggregate raw-opening total; it is not a unique-visitor metric. No impression, user id, network hash, or individual click history is persisted.
+Sponsor reporting is deliberately separate from PostHog and Google Analytics. A press opens the server redirect, which rate-limits counting by sponsor plus a transient hashed network identifier and atomically increments `race_event_edition_sponsors.click_count`. After a sponsor logo has loaded and at least half of its surface (capped at an 80-point threshold) enters the viewport, the mobile surface posts to the dedicated impression endpoint with a random per-RaceBook-view UUID and an exact `loading`, `hero`, `aid_stations`, `equipment`, `access`, or `services` placement. The endpoint uses ephemeral in-process sponsor/placement/view deduplication and a global anti-abuse ceiling, validates the active module and configured placement, and atomically increments `impression_count` only for a published, preview-visible matching race/edition. Organizers see aggregate raw totals; neither counter is a unique-visitor metric. No user id, network value, view UUID, or individual click/impression history is persisted.
 
 ## Gotchas
 
@@ -279,15 +282,20 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not use analytics identity as proof that a user should be synced to marketing contacts; Resend sync must validate the Supabase session separately.
 - Do not interpret paywall or checkout events as revenue. For mobile conversion funnels, count only `premium purchase verified` with `environment: production`, then reconcile against RevenueCat/App Store transactions.
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
-- Do not reinterpret sponsor `click_count` as unique people or join it to runner analytics identities.
+- Do not reinterpret sponsor click or impression counts as unique people or join them to runner analytics identities.
 - Keep the favorite KPI event-scoped and sourced from the current Supabase relationship count. It is a stock total, not a period flow or a format-specific metric.
 - Do not send edition logo URLs or arbitrary organizer colors as analytics properties.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
 - Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require event selection, format selection, and successful-open events; search is optional because the initial eligible-course list is directly selectable.
+- Primary section selections from the contextual RaceBook bottom bar keep emitting `racebook tab viewed`. The hero return action, contextual Courses exit, and Android hardware back share the deterministic route replacement to Courses and emit `racebook action clicked` with the bounded action `exit_to_catalog`; they carry no organizer-authored content or sponsor identity.
+- The scroll-driven identity hero height/collapse, focus-time scroll reset, title clipping, single-line emergency label/number layout, and persistent emergency/social-action placement are presentation state only. They emit no event and add no scroll offset, phone number, image URL, color, or logo property to RaceBook analytics; an actual emergency or social press keeps its existing bounded action event.
+- Material checklist loads and toggles are private synchronization state in `racebook_gear_checks`, not product analytics events. Do not attach item labels, completion keys, or checked counts to PostHog. Expanded use of the published accent color across decorative RaceBook surfaces is likewise presentation-only.
 
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.
+
+Likewise, hiding the GPX map or elevation profile is format presentation state only; do not attach these organizer choices to identified RaceBook analytics events.
 
 - [Mobile App](../01-architecture/mobile-app.md)
 - [Web App](../01-architecture/web-app.md)

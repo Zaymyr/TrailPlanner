@@ -40,11 +40,12 @@ describe("RaceBook branding mapping", () => {
     });
   });
 
-  it("keeps edition logos dormant in resolved themes", () => {
-    expect(RACEBOOK_EDITION_LOGO_ENABLED).toBe(false);
-    expect(resolveRacebookTheme({ logoUrl: "https://example.com/published.png" }).logoUrl).toBeNull();
+  it("exposes secure edition logos in resolved themes", () => {
+    expect(RACEBOOK_EDITION_LOGO_ENABLED).toBe(true);
+    expect(resolveRacebookTheme({ logoUrl: "https://example.com/published.png" }).logoUrl).toBe("https://example.com/published.png");
     expect(toOrganizerBranding({
       ...row,
+      draft_logo_url: row.published_logo_url,
       draft_primary_color: row.published_primary_color,
       draft_accent_color: row.published_accent_color,
     }).hasUnpublishedChanges).toBe(false);
@@ -52,7 +53,7 @@ describe("RaceBook branding mapping", () => {
 
   it("exposes only published values to runners", () => {
     expect(toPublishedBranding(row)).toEqual({
-      logoUrl: null,
+      logoUrl: "https://example.com/published.png",
       primaryColor: "#654321",
       accentColor: "#FEDCBA",
     });

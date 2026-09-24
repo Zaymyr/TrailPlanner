@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-09-14
+last_verified: 2026-09-24
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -115,6 +115,7 @@ The public `/courses` search reads only the normalized locality names alongside 
 
 - RaceBook branding may recolor Maps buttons and location icons, but it must not alter stored coordinates, generated Google Maps URLs, deduplication, or location inheritance.
 - Layout changes to the format metric fields must leave the canonical location text and structured `raceLocation` update paths unchanged.
+- The adjacent GPX RaceBook display switches live in `organizer_details.gpxDisplay`; they must not alter `raceLocation`, access coordinates, or generated Maps URLs.
 - Do not use a copied event location to make the UI look like a custom override. Equality with the current event location must still render as inherited, even though the save payload persists the effective location required by catalog publication.
 - Do not confuse format-location inheritance with access inheritance. Format access uses its own `access.overrideEnabled` flag and may copy event start/finish access metadata only when the organizer enables a specific access value.
 - The same access override gates format-specific runner information on mobile; disabling it preserves both runner text and geocoded access metadata while hiding the runner-info block.

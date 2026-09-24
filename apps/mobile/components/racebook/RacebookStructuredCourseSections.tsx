@@ -65,10 +65,10 @@ export function RacebookStructuredCourseSections({
             {relaySegments.map((segment, index) => (
               <View
                 key={`${segment.start.name}-${segment.end.name}-${index}`}
-                style={[styles.card, { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor }]}
+                style={[styles.card, { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor }]}
               >
                 <View style={styles.header}>
-                  <Text style={[styles.kicker, { color: theme.primaryColor }]}>
+                  <Text style={[styles.kicker, { color: theme.accentForegroundColor }]}>
                     {copy.relayLeg.replace('{number}', String(index + 1))}
                   </Text>
                   <DataText style={styles.distance}>{`${formatDistance(segment.distanceKm)} km`}</DataText>
@@ -108,17 +108,17 @@ export function RacebookStructuredCourseSections({
                     <View
                       style={[
                         styles.startWaveIndex,
-                        { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor },
+                        { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor },
                       ]}
                     >
-                      <DataText style={[styles.startWaveIndexText, { color: theme.primaryColor }]}>
+                      <DataText style={[styles.startWaveIndexText, { color: theme.accentForegroundColor }]}>
                         {`S${index + 1}`}
                       </DataText>
                     </View>
                     <Text numberOfLines={1} style={[styles.title, styles.startWaveTitle]}>
                       {wave.name}
                     </Text>
-                    <DataText style={[styles.startWaveTime, { color: theme.primaryColor }]}>
+                    <DataText style={[styles.startWaveTime, { color: theme.accentForegroundColor }]}>
                       {wave.startTime}
                     </DataText>
                   </View>
@@ -135,7 +135,7 @@ export function RacebookStructuredCourseSections({
             <SectionCard key={podiumTime} title={`${copy.awardsTitle} · ${podiumTime}`}>
               <View style={styles.list}>
                 {awards.map((award) => (
-                  <View key={award.id} style={[styles.card, { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor }]}>
+                  <View key={award.id} style={[styles.card, { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor }]}>
                     <Text style={styles.title}>{award.categoryLabel}</Text>
                     <Text style={styles.meta}>
                       {`${award.audience === 'women' ? copy.awardWomen : award.audience === 'men' ? copy.awardMen : copy.awardMixed} · ${award.placeFrom}–${award.placeTo}`}

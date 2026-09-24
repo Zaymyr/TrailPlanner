@@ -17,6 +17,18 @@ export const RACEBOOK_SPONSOR_IMAGE_TYPES = new Map([
   ["image/avif", "avif"],
 ]);
 
+export const racebookSponsorTierSchema = z.enum(["principal", "official", "service"]);
+export const racebookSponsorContextualPlacementSchema = z.enum([
+  "none",
+  "aid_stations",
+  "equipment",
+  "access",
+  "services",
+]);
+export const racebookSponsorCategorySchema = z
+  .union([z.string().trim().min(1).max(60), z.literal(""), z.null(), z.undefined()])
+  .transform((value) => (value ? value : null));
+
 export const racebookSponsorRowSchema = z.object({
   id: z.string().uuid(),
   edition_id: z.string().uuid(),
@@ -28,6 +40,10 @@ export const racebookSponsorRowSchema = z.object({
   show_in_banner: z.boolean(),
   position: z.number().int().nonnegative(),
   click_count: z.number().int().nonnegative(),
+  partnership_level: racebookSponsorTierSchema.default("official"),
+  category: z.string().trim().min(1).max(60).nullable().default(null),
+  contextual_placement: racebookSponsorContextualPlacementSchema.default("none"),
+  impression_count: z.number().int().nonnegative().default(0),
   created_at: z.string().optional(),
   updated_at: z.string().optional(),
 });
@@ -48,8 +64,12 @@ export const sponsorMetadataSchema = z
     showOnLoading: z.boolean(),
     showInBanner: z.boolean(),
     position: z.number().int().min(0).max(MAX_RACEBOOK_SPONSORS_PER_EDITION - 1),
+    tier: racebookSponsorTierSchema.default("official"),
+    category: racebookSponsorCategorySchema,
+    contextualPlacement: racebookSponsorContextualPlacementSchema.default("none"),
   })
-  .refine((value) => !value.isActive || value.showOnLoading || value.showInBanner, {
+  .refine((value) =>
+    !value.isActive || value.showOnLoading || value.showInBanner || value.contextualPlacement !== "none", {
     message: "An active sponsor needs at least one placement.",
   });
 
@@ -64,6 +84,10 @@ export const toOrganizerSponsor = (sponsor: RacebookSponsorRow) => ({
   showInBanner: sponsor.show_in_banner,
   position: sponsor.position,
   clickCount: sponsor.click_count,
+  impressionCount: sponsor.impression_count,
+  tier: sponsor.partnership_level,
+  category: sponsor.category,
+  contextualPlacement: sponsor.contextual_placement,
 });
 
 const hasText = (...values: Array<string | null | undefined>) =>

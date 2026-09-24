@@ -25,12 +25,12 @@ describe("mobile RaceBook sponsor presentation", () => {
     expect(normalizeRacebookSponsorPresentation({ loadingSponsors: [{ nope: true }] })).toEqual(EMPTY_RACEBOOK_SPONSORS);
   });
 
-  it("normalizes published branding colors while the edition logo flag is disabled", () => {
+  it("normalizes published branding colors and exposes the enabled edition logo", () => {
     const presentation = normalizeRacebookSponsorPresentation({
       branding: { logoUrl: "https://example.com/logo.png", primaryColor: "#abcdef", accentColor: "red" },
     });
     expect(presentation.branding).toEqual({
-      logoUrl: null,
+      logoUrl: "https://example.com/logo.png",
       primaryColor: "#ABCDEF",
       accentColor: "#B45309",
     });

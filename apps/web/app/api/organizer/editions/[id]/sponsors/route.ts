@@ -123,6 +123,9 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     showOnLoading: readBoolean(formData, "showOnLoading"),
     showInBanner: readBoolean(formData, "showInBanner", true),
     position: existing.length,
+    tier: formData.get("tier") ?? undefined,
+    category: formData.get("category"),
+    contextualPlacement: formData.get("contextualPlacement") ?? undefined,
   });
   if (!metadata.success) return jsonError(metadata.error.issues[0]?.message ?? "Invalid sponsor.", 400);
   if (
@@ -160,6 +163,9 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
       show_on_loading: metadata.data.showOnLoading,
       show_in_banner: metadata.data.showInBanner,
       position: metadata.data.position,
+      partnership_level: metadata.data.tier,
+      category: metadata.data.category,
+      contextual_placement: metadata.data.contextualPlacement,
     }),
     cache: "no-store",
   });

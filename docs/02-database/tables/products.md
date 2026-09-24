@@ -1,7 +1,7 @@
 ---
 title: products Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-23
 ai_priority: high
 related_files:
   - supabase/migrations/20241215030000_create_products_and_affiliate_offers.sql
@@ -17,6 +17,9 @@ related_files:
   - apps/web/app/api/admin/products/route.ts
   - apps/web/app/api/products/route.ts
   - apps/web/app/api/products/[productId]/route.ts
+  - apps/web/app/api/products/[productId]/image/route.ts
+  - apps/web/lib/optimized-image.ts
+  - scripts/optimize-supabase-product-images.mjs
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
@@ -118,6 +121,7 @@ The maintenance-only `product_brand_review` view uses `security_invoker = true`,
 - Product rows store nutrition per unit only. Water is a plan/carry context handled by planner logic.
 - For official imports, `official_name` keeps the source label while `name` is the harmonized display label used in app UI and search.
 - Official catalog image backfills store the public product visual in `image_url` and must not change product ownership, visibility, or nutrition values.
+- Product image uploads are decoded server-side, bounded to 1024 px, encoded as WebP, and stored under a versioned public URL with `cacheControl: max-age=31536000` metadata. The reference-based maintenance script updates only current `products.image_url` rows and retains prior Storage objects for rollback.
 - Web API product mappings set client `waterMl` to `0` because water is not stored on products.
 - The 500 ml electrolyte serving assumption lives in `apps/web/lib/nutrition-planner.ts`, not in the product schema.
 - Shared catalog seed migrations should store the consumable unit used by the runner, not ecommerce bundle sizes. For example, drink mixes use one serving sachet, gels use one gel, and multipacks are represented through the same per-unit nutrition.
@@ -161,6 +165,7 @@ where fuel_type = 'electrolyte'
 - Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.
 - Official brand import migrations should set both `is_official = true` and `official_name`; otherwise clients may show the rows as unverified user/catalog data even when `is_live = true`.
 - Official product image migrations should keep `created_by` untouched and target only curated catalog rows, so user-owned products with similar naming are not overwritten.
+- Do not scan or copy the complete product image bucket for maintenance. Resolve the explicit `products.image_url` references, upload the replacement first, then patch that product row; an upload failure must leave the old URL usable.
 - Admin product usage UI should expose aggregate favorite counts only, not the list of users behind `user_favorite_products`.
 - Do not make organizer ravito products live just so imported runners can see them. `/api/plans/from-catalog` carries those suggestions separately from `/api/products`.
 - Do not rely on `/api/products` to list organizer-created non-live products for cross-ravito selection; it intentionally returns only live, non-archived catalog rows unless a route explicitly scopes the read.

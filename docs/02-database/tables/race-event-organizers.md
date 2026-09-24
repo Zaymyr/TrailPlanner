@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -116,7 +116,7 @@ Summary:
 - The membership-gated bootstrap/event detail reads may aggregate narrow persisted ravito, SAS, podium, service, sponsor and branding summaries plus the selected edition's effective Analytics decision; this does not widen access beyond the managed event, expose editable child collections, or expose PostHog data.
 - A membership grants access to source ravito service flags (`water_available`, `solid_available`, `assistance_allowed`) for all formats under the event.
 - A membership grants service-route access to organizer detail JSONB on the event, its formats, and its source ravitos. Event JSONB stores common defaults, the event end date, official website, Instagram and Facebook URLs, display-normalized emergency contact phone, additive geocoded location metadata, and event-level bib pickup as several locations with independent dated time slots. Valid domain links pasted without a protocol are normalized to HTTPS before persistence; invalid and non-HTTP(S) values are rejected. Race JSONB stores active-format differences or additions, including the current access-section toggles and geocoded format/access location metadata used by the organizer dashboard.
-- A membership grants service-route access to upload the event PNG thumbnail, upload a format thumbnail, preview/replace format GPX files, and delete a format for every race under the event.
+- A membership grants service-route access to upload the event PNG thumbnail, upload a format thumbnail, preview/replace format GPX files, and delete a format for every race under the event. Image routes decode and normalize accepted files to a bounded WebP with a versioned URL and `cacheControl: max-age=31536000` Storage metadata before persisting the URL.
 - That same membership also authorizes organizer edition-grouping flows on `races`: creating a brand-new format series, renaming `series_name`, duplicating a format into a new `edition_group_id`, or cloning a new yearly edition inside an existing `edition_group_id`.
 - Active membership authorizes maintenance of both past and future editions; organizer mutation routes no longer apply an additional cutoff derived from `race_date`.
 - Active membership also authorizes edition visibility changes and confirmed edition deletion. The route scopes the edition back to its parent event before mutating it; unlike whole-event deletion, this action is not owner-only.
@@ -189,6 +189,8 @@ order by created_at asc;
 - Synthetic admin selector entries have no persisted onboarding timestamp and must never be inserted solely to remember a guide replay; trusted admins are excluded from automatic display.
 
 ## Related Docs
+
+Changing `races.organizer_details.gpxDisplay` uses the existing membership-checked race-details save path; it grants no additional access and does not alter GPX Storage authorization.
 
 - [race_event_claims](race-event-claims.md)
 - [race_events](race-events.md)

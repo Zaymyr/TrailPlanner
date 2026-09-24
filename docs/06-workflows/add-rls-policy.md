@@ -23,10 +23,13 @@ related_files:
   - supabase/tests/organizer_generated_invoice_checks.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
   - supabase/tests/organizer_edition_capability_grants_checks.sql
+  - supabase/migrations/20260924140119_add_racebook_gear_checks.sql
+  - supabase/tests/racebook_gear_checks.sql
   - apps/web/lib/supabase.ts
 related_tables:
   - race_slug_redirects
   - organizer_edition_capability_grants
+  - racebook_gear_checks
 ---
 
 # Add RLS Policy
@@ -87,6 +90,7 @@ Use `supabase/tests/organizer_racebook_module_settings_checks.sql` to keep servi
 Use `supabase/tests/privileged_database_access_checks.sql` for global privileged-RPC grants, legacy profile-role self-promotion, and trusted admin metadata.
 Use `supabase/tests/organizer_generated_invoice_checks.sql` for a service-role-only invoice-issuance RPC and a trigger that prevents mutation or deletion of issued financial facts without exposing the ledger to clients.
 Use `supabase/tests/organizer_edition_capability_grants_checks.sql` for a service-only grant projection whose invoker RPC allowlists capability keys and retains active/revoked audit state.
+Use `supabase/tests/racebook_gear_checks.sql` for a direct mobile owner table that grants authenticated select/insert/delete, denies `anon`, and keeps every operation scoped to `auth.uid()`.
 
 ## Do Not
 

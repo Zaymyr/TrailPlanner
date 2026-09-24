@@ -228,13 +228,7 @@ export default function AppLayout() {
               accessibilityLabel={t.common.back}
               accessibilityRole="button"
               hitSlop={8}
-              onPress={() => {
-                if (router.canGoBack()) {
-                  router.back();
-                  return;
-                }
-                router.replace('/(app)/catalog');
-              }}
+              onPress={() => router.replace('/(app)/catalog')}
               style={styles.headerBackButton}
               testID="racebook-back-to-catalog"
             >

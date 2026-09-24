@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -197,6 +197,8 @@ related_files:
   - apps/web/app/api/racebook-data/route.ts
   - apps/web/app/api/racebook-data/route.test.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.ts
+  - apps/web/app/api/racebook-sponsors/impression/route.test.ts
   - apps/web/lib/racebook-cache.ts
   - apps/web/lib/racebook-cache.test.ts
   - apps/web/lib/racebook-sponsors.ts
@@ -219,6 +221,10 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/updates/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
+  - apps/web/lib/optimized-image.ts
+  - apps/web/lib/optimized-image.test.ts
+  - apps/web/app/api/products/[productId]/image/route.ts
+  - scripts/optimize-supabase-product-images.mjs
   - apps/web/app/api/race-favorites/route.ts
   - apps/web/app/api/race-favorites/route.test.ts
   - apps/web/app/api/race-events/[id]/updates/route.ts
@@ -288,7 +294,9 @@ Organizer RaceBook statistics are also lazy. Bootstrap and the normal event-deta
 
 The event information editor uses five ordered visual sections instead of one flat grid: primary identity, online presence, edition dates, emergency contact, and cover image. The emergency block has a restrained warning surface, while the image preview and picker share one bounded row so neither creates unused page width.
 
-The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. Edition-logo upload infrastructure and stored values remain intact, but the shared kill switch currently hides its controls and prevents public resolution. Non-Pro organizers receive an upsell instead of draft data.
+The format GPX side rail keeps two independent, accessible RaceBook display switches: route map and elevation profile. They persist in `races.organizer_details.gpxDisplay`, default to visible for historical payloads, and do not affect the Organizer's own GPX validation previews. A confirmed source-delete action clears GPX-only race metadata and the private object, disables both switches, and preserves course metrics, aid stations, and saved-plan snapshots.
+
+The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. The shared edition-logo flag is enabled, so organizers can upload and publish a valid logo and runner-facing resolution may expose it. Non-Pro organizers receive an upsell instead of draft data.
 
 ## Purpose
 
@@ -315,6 +323,8 @@ The web app owns the browser planner, onboarding/account flows, admin catalog to
 - `npm run typecheck --workspace apps/web`
 
 The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser map bindings added under `apps/web` must stay compatible with React 18 until the app is upgraded; for Leaflet route previews that means staying on the React 18-compatible `react-leaflet` line rather than the React 19-only v5 releases.
+
+`sharp` is server-only. Organizer event/format thumbnails and product images are decoded, orientation-normalized, bounded to 1024 px without enlargement, encoded as WebP, and uploaded with `cacheControl: max-age=31536000` Storage metadata. Versioned object paths make a long cache safe wherever the delivery layer honors that metadata. Invalid raster payloads fail before any Storage or database write. The reference-based maintenance script migrates only product URLs currently present in `products.image_url`; it keeps the prior objects for rollback instead of scanning or copying complete buckets.
 
 The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` files. Vitest remains responsible for compiling and running those tests; this prevents a web-only Next.js build from following test imports into mobile-only Expo modules whose dependencies are intentionally absent from the web deployment.
 
@@ -482,11 +492,11 @@ The equipment editor layout should keep each item on one compact flexible row so
 
 ### RaceBook Sponsor Routes
 
-The optional Organizer `Sponsors` tile is Pro-only. Visibilité and RaceBook editions see a Pro upsell and never mount the editor. With Pro active, opening the tile lazily reads the selected edition's list, while metadata blur/save, placement toggles, logo replacement, and deletion use edition routes that repeat both active-membership and `sponsors.manage` checks. Ordering submits the complete list to one service-only transaction; partial lists, foreign ids and duplicate positions are rejected. The same tile reports active rows and aggregate raw clicks. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
+The optional Organizer `Sponsors` tile is Signature-only for runner presentation. Opening the selected private draft lazily reads the edition list; metadata includes the partnership level, optional category, loading/hero flags, and one exact contextual placement. Organizer routes repeat active-membership and selected-module checks for writes. Ordering submits the complete list to one service-only transaction; partial lists, foreign ids and duplicate positions are rejected. The same tile reports active rows plus aggregate raw clicks and impressions. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
 
 Mobile calls the lightweight public `/api/racebook-sponsors?raceId=...` route in parallel with `/api/racebook-data?raceId=...`, which assembles the race, ravitos/products, relay points, SAS, awards, and edition services in one server response. Both public responses use a five-minute Vercel CDN TTL with stale-while-revalidate and race/edition/event cache tags; organizer previews remain authenticated and `private, no-store`. The mobile caller deliberately tries the anonymous public URL first so an existing session does not bypass the shared CDN, then retries with its bearer token only for a private organizer preview. Successful organizer mutations invalidate the affected cache tag; a bounded TTL remains the fallback if invalidation is temporarily unavailable.
 
-The sponsor response still exposes only active placement DTOs and counted redirect URLs. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target.
+The sponsor response exposes only active presentation DTOs (`tier`, optional `category`, exact `contextualPlacement`) and counted redirect URLs; it never exposes destinations or counters. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target. The separate POST impression route accepts a random view UUID and exact surface placement, deduplicates and throttles it through opaque rate-limit keys, validates the active module/configuration, and uses a service-only RPC that repeats the published race/edition gate before incrementing the aggregate counter.
 
 ### Billing and Entitlements
 
@@ -592,7 +602,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer GPX previews are recalculated from the private source GPX; do not add a `races.elevation_profile` column for this dashboard-only curve.
 - GPX replacement must update the active distance/D+/D- form state from the successful response and keep the race edition year selected; an event refresh with the same race id does not trigger race-form initialization by itself.
 - `react-leaflet` v5 expects React 19 and crashes this app's React 18 runtime during GPX map mount. Keep the organizer map on the React 18-compatible `react-leaflet` 4.x line until the web app itself upgrades React.
-- Organizer event image upload accepts PNG only in v1; the client must call the server route instead of writing to Storage directly.
+- Organizer event image input accepts PNG only in v1; the server route validates the binary, emits a bounded WebP object, and the client must not write to Storage directly. Format and product image routes apply the same WebP/cache normalization to their accepted raster formats.
+- On the current Free project, public Storage responses may still expose `Cache-Control: no-cache` even when object metadata contains `max-age=31536000`. Treat smaller versioned assets as the guaranteed egress reduction, and recheck response headers after a plan or CDN change before relying on browser TTL.
 - Keep organizer dashboard French labels UTF-8 clean end-to-end, especially in `event-format-editors.tsx`; mojibake such as `Ã©` is a real regression on the event tab because those strings are rendered directly.
 - Do not auto-send runner notifications on organizer save or publish. The manual event-update route is the only intended push trigger for this v1.
 - The manual notification route additionally requires the selected edition's Pro capability; RaceBook UI must offer the 100 € HT upgrade instead of attempting the send.

@@ -206,6 +206,7 @@ export function FormatsEditor({
   onSelectNewRaceImage,
   onSelectNewRaceGpx,
   onUploadGpx,
+  onDeleteGpx,
   gpxPreview,
   status,
   editionStartDate,
@@ -225,6 +226,7 @@ export function FormatsEditor({
   onSelectNewRaceImage: (event: ChangeEvent<HTMLInputElement>) => void;
   onSelectNewRaceGpx: (event: ChangeEvent<HTMLInputElement>) => void;
   onUploadGpx: (event: ChangeEvent<HTMLInputElement>) => void;
+  onDeleteGpx: () => void;
   gpxPreview: GpxPreview | null;
   status: "idle" | "loading" | "saving" | "uploading";
   editionStartDate: string;
@@ -265,6 +267,7 @@ export function FormatsEditor({
           onSubmit={(event) => event.preventDefault()}
           onImageChange={onUploadRaceImage}
           onGpxChange={onUploadGpx}
+          onDeleteGpx={onDeleteGpx}
           submitLabel=""
           disabled={status === "saving" || status === "uploading"}
           hideSubmit
@@ -290,6 +293,7 @@ function RaceForm({
   onSubmit,
   onImageChange,
   onGpxChange,
+  onDeleteGpx,
   submitLabel,
   disabled,
   pendingImageName,
@@ -310,6 +314,7 @@ function RaceForm({
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
   onGpxChange?: (event: ChangeEvent<HTMLInputElement>) => void;
+  onDeleteGpx?: () => void;
   submitLabel: string;
   disabled?: boolean;
   pendingImageName?: string | null;
@@ -500,6 +505,7 @@ function RaceForm({
             statusText={gpxStatus}
             fileLabel={pendingGpxName ?? (hasGpx ? "Remplacer le GPX source" : "Ajouter un GPX")}
             onGpxChange={onGpxChange}
+            onDeleteGpx={onDeleteGpx}
             disabled={disabled}
             preview={gpxPreview}
             activeRace={previewRace}
@@ -507,6 +513,26 @@ function RaceForm({
             pendingImageName={pendingImageName}
             thumbnailUrl={values.thumbnailUrl}
             onImageChange={onImageChange}
+            showRouteInRacebook={values.organizerDetails.gpxDisplay.showRoute}
+            showElevationProfileInRacebook={values.organizerDetails.gpxDisplay.showElevationProfile}
+            onShowRouteInRacebookChange={(showRoute) =>
+              onChange({
+                ...values,
+                organizerDetails: {
+                  ...values.organizerDetails,
+                  gpxDisplay: { ...values.organizerDetails.gpxDisplay, showRoute },
+                },
+              })
+            }
+            onShowElevationProfileInRacebookChange={(showElevationProfile) =>
+              onChange({
+                ...values,
+                organizerDetails: {
+                  ...values.organizerDetails,
+                  gpxDisplay: { ...values.organizerDetails.gpxDisplay, showElevationProfile },
+                },
+              })
+            }
           />
         ) : null}
       </div>
@@ -544,6 +570,7 @@ function OrganizerGpxPanel({
   statusText,
   fileLabel,
   onGpxChange,
+  onDeleteGpx,
   disabled,
   preview,
   activeRace,
@@ -551,11 +578,16 @@ function OrganizerGpxPanel({
   pendingImageName,
   thumbnailUrl,
   onImageChange,
+  showRouteInRacebook,
+  showElevationProfileInRacebook,
+  onShowRouteInRacebookChange,
+  onShowElevationProfileInRacebookChange,
 }: {
   title: string;
   statusText?: string;
   fileLabel: string;
   onGpxChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  onDeleteGpx?: () => void;
   disabled?: boolean;
   preview: GpxPreview | null;
   activeRace: RaceFormat;
@@ -563,6 +595,10 @@ function OrganizerGpxPanel({
   pendingImageName?: string | null;
   thumbnailUrl?: string | null;
   onImageChange: (event: ChangeEvent<HTMLInputElement>) => void;
+  showRouteInRacebook: boolean;
+  showElevationProfileInRacebook: boolean;
+  onShowRouteInRacebookChange: (checked: boolean) => void;
+  onShowElevationProfileInRacebookChange: (checked: boolean) => void;
 }) {
   const gpxInputId = useId();
   const imageInputId = useId();
@@ -582,11 +618,35 @@ function OrganizerGpxPanel({
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 1</p>
           <Label htmlFor={gpxInputId} className="text-sm font-medium text-foreground">{fileLabel}</Label>
           <Input id={gpxInputId} type="file" accept=".gpx,application/gpx+xml" onChange={onGpxChange} disabled={disabled} />
+          {hasGpx && onDeleteGpx ? (
+            <Button type="button" variant="outline" onClick={onDeleteGpx} disabled={disabled} className="w-full text-destructive hover:text-destructive">
+              Supprimer le GPX
+            </Button>
+          ) : null}
+        </div>
+        <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
+          <div className="space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affichage dans le RaceBook</p>
+            <p className="text-xs text-muted-foreground">Choisissez les visuels GPX visibles par les coureurs.</p>
+          </div>
+          <GpxDisplayToggle
+            label="Afficher le parcours"
+            checked={showRouteInRacebook}
+            onCheckedChange={onShowRouteInRacebookChange}
+            disabled={disabled || !hasGpx}
+          />
+          <GpxDisplayToggle
+            label="Afficher le profil altimétrique"
+            checked={showElevationProfileInRacebook}
+            onCheckedChange={onShowElevationProfileInRacebookChange}
+            disabled={disabled || !hasGpx}
+          />
         </div>
         <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 3</p>
               <span className="text-xs text-muted-foreground">Optionnel</span>
             </div>
             <div className="flex items-center gap-2">
@@ -607,6 +667,35 @@ function OrganizerGpxPanel({
         </div>
       </div>
     </aside>
+  );
+}
+
+function GpxDisplayToggle({
+  label,
+  checked,
+  onCheckedChange,
+  disabled,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+  disabled?: boolean;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-sm font-medium text-foreground">{label}</span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        disabled={disabled}
+        onClick={() => onCheckedChange(!checked)}
+        className={`relative h-6 w-11 shrink-0 rounded-full transition ${checked ? "bg-brand" : "bg-muted"} disabled:cursor-not-allowed disabled:opacity-50`}
+      >
+        <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${checked ? "left-[22px]" : "left-0.5"}`} />
+      </button>
+    </div>
   );
 }
 

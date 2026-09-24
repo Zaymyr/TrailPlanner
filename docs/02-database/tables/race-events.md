@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -100,6 +100,7 @@ related_tables:
 
 - Event grouping: multiple `races` can belong to one event.
 - Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
+- RaceBook identity hero: mobile prefers the format thumbnail and falls back to this event thumbnail beneath the published primary-color gradient; this display choice does not alter image ownership or visibility.
 - Event liveness: mobile and onboarding use event/race live state for course catalog visibility; it no longer determines Racebook visibility.
 - Edition liveness: `race_event_editions.is_visible` can hide one year by forcing only that edition's formats and Racebooks off while leaving the parent event and other years unchanged.
 - Organizer event: created catalog-visible, while its Racebook formats remain hidden until approved.
@@ -202,7 +203,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - Event equipment is inherited unless race JSON explicitly sets `mandatoryEquipment.overrideEnabled = true`. An explicit `false` wins over stale race items; only historical JSON where the flag is absent may infer an override from those differences.
 - Mobile Racebook uses those common defaults as runner-facing event data only through an explicit read-only contract in `apps/mobile/lib/racebook.ts`; `racebook_preview_is_visible = true` is always required, ordinary access additionally requires live course state and `racebook_is_live = true`, and active event membership may bypass only the publication flag. Actual non-ravito organizer content remains mandatory. An emergency phone satisfies that content gate and opens through `tel:`; the official website, Instagram, Facebook, and emergency contact are exposed only as conditional actions inside the identity card. Social links alone do not unlock an otherwise empty Racebook.
 - Mobile RaceBook product analytics attach the stable public `race_events.id` and `races.id` to successful open and engagement events so internal reporting can compare formats and same-format return visits. These client events add no table, RLS policy, organizer-visible counter, or new public database field.
-- Organizer event PNG uploads write to the public `race-images` bucket through a service route, then patch `thumbnail_url`; organizers should not write directly to Storage from client code.
+- Organizer event PNG uploads pass through the service route, which validates the raster payload, converts it to a maximum-1024 px WebP, writes a versioned object with `cacheControl: max-age=31536000` metadata to public `race-images`, then patches `thumbnail_url`; organizers should not write directly to Storage from client code.
 - Mobile catalog groups event races and also displays standalone races with no event. Its nested event relation is explicitly inner-filtered to live formats, so hidden editions do not leak rows and events with no visible format do not render empty cards. After a confirmed favorite mutation, it emits `race favorite updated`; the optimistic heart pulse preserves the current order and viewport, and the new pinning order takes effect on the next catalog load or refresh.
 - Web catalog grouping is edition-aware: one event-edition card contains its currently filtered formats, legacy rows without an edition fall back to an event-only group, standalone race rows remain independent, and every format retains its canonical detail link.
 - Guided Plan and RaceBook onboarding reuse the ordinary mobile catalog route and its `RaceEventSummaryCard`. RaceBook guidance requires a two-character in-memory search, keeps only child formats that pass the ordinary runner `canShowRacebook` gate, and removes plan creation from that sheet; it adds no database assumption or visibility exception.
@@ -213,7 +214,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - That loader waits for the lightweight edition response before revealing content, so a slow request cannot freeze one format on default module visibility or colors while sibling formats use the published edition settings.
 - The post-load automatic sponsor carousel is also presentation-only: viewport-sized slides rotate edition-scoped sponsors without changing event grouping, queries, or visibility.
 - Relay display is format-scoped: the Racebook reads `races.participation_mode` and published `race_relay_points`, then derives legs inside the conditional `Relais` course sub-tab without changing event or nutrition data.
-- Visual identity is edition-scoped rather than event-scoped. Mobile resolves the published colors through the format's edition while keeping the event name/content contract unchanged; edition-logo data is retained but currently masked by the shared presentation flag.
+- Visual identity is edition-scoped rather than event-scoped. Mobile resolves the published colors and valid HTTPS logo through the format's edition while keeping the event name/content contract unchanged; the enabled shared presentation flag still provides the release boundary.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Racebook Identity Presentation
@@ -305,6 +306,7 @@ where is_live = true
 - Event deletion must collect edition sponsor logo paths before the edition cascade, then remove those `race-images` objects after the database delete succeeds.
 - Event deletion must also collect draft and published edition-branding logo paths before the cascade and remove each distinct unreferenced object afterward.
 - Do not store per-format equipment, dossard, or access differences on the event row; keep them in `races.organizer_details` behind their explicit override flags.
+- GPX route/profile display preferences are also format-scoped in `races.organizer_details.gpxDisplay`; do not copy them onto `race_events` or treat them as event visibility.
 - Stored format `runnerInfo` values remain in `races.organizer_details`, but mobile exposes them only while the format access override and runner-info section flag are both enabled.
 - Do not move the canonical event location text out of `race_events.location`; geocoded location JSON is additive metadata for preview/navigation only.
 - Do not infer city, department or region from `location` at read time. Unnormalized rows stay outside exact geographic filters until a trusted source populates their explicit fields.
@@ -312,7 +314,7 @@ where is_live = true
 - Use territory-specific ISO country keys where they exist; TransLantau is catalogued under Hong Kong (`HK`), not mainland China (`CN`).
 - Do not treat an anchor-city coordinate as course geometry or exact road distance. Nearby-city discovery is approximate until a dedicated geospatial route model exists.
 - Do not edit the legacy event date fields as canonical organizer dates; update `race_event_editions` and let its trigger mirror the current range.
-- Keep image upload validation in the server route; the database stores only the resulting URL.
+- Keep image decoding, size validation, WebP normalization, and long-cache upload in the server route; the database stores only the resulting versioned URL.
 - Keep admin organizer review tolerant of missing yearly-edition joins: a failed `race_event_edition_requests -> race_events` read should not prevent the base event-claim review data from loading.
 - Keep the full event list used by direct organizer assignment behind the admin service route; do not expose draft events through a public or ordinary authenticated selector.
 - Keep generic website crawling bounded to prioritized same-origin pages. External registration, social, and activity-platform links are source references, not additional event pages to crawl into the `race_events` preview.
@@ -320,6 +322,9 @@ where is_live = true
 - Expired import sessions cascade with event deletion, but normal cleanup must remove their temporary Storage objects before deleting session rows.
 
 - The membership rule has one server-verified admin exception. Do not turn the complete Organizer selector into an unfiltered authenticated or public `race_events` read.
+- Mobile may render validated event website/social links and the validated emergency contact in the image-backed RaceBook hero. The expanded hero displays the emergency number and call action; its compact safe-area state keeps a telephone icon before social links and clips long titles before those actions. This is presentation-only, and the values remain event-scoped validated links/contact data that never affect catalog or publication state.
+- RaceBook exits replace the active route with Courses instead of reopening a previously viewed format. This route-stack behavior does not change event visibility, ownership, or publication state.
+- Decorative location and access actions now use published edition accent variants. Personal Material completion is stored by exact `race_id` in `racebook_gear_checks`; neither change mutates event organizer metadata.
 
 ## Related Docs
 

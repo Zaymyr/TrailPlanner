@@ -236,6 +236,10 @@ export type OrganizerSponsor = {
   showInBanner: boolean;
   position: number;
   clickCount: number;
+  impressionCount: number;
+  tier: "principal" | "official" | "service";
+  category: string | null;
+  contextualPlacement: "none" | "aid_stations" | "equipment" | "access" | "services";
 };
 
 export type OrganizerBranding = {

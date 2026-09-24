@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-16
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -73,6 +73,8 @@ The public `/organisateurs` page presents these edition offers alongside a separ
 Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100 €, Essential→Signature 250 € and Complete→Signature 150 €.
 
 ## Module Contract
+
+Uploading, replacing, choosing the RaceBook visibility of, or deleting a format GPX remains part of the permanent Course/GPX editor and does not require an offer upgrade. Deletion preserves stored course metrics and aid stations.
 
 `event` and Course/GPX are permanent. Edition modules are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Format modules are `aid_stations`, `start_waves`, `awards`, `relay`, `official_products`. Equipment, bib and access format overrides are centralized advanced groups requiring Complet; the editor marks them once with `Options avancées · Complet` instead of adding field badges.
 

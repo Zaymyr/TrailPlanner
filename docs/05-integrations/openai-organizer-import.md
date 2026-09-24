@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-09-12
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -60,6 +60,8 @@ Every dated format persisted by a service-side import must resolve to a canonica
 After import, manual format-specific bib-pickup, equipment, and access overrides use the ordinary race-details autosave path. They are not import claims and must remain durable when the admin leaves and reopens a format.
 
 The ordinary format editor's visible official-source field and inherited-location snapshot are also outside LLM reconciliation. Manual saves use the normal organizer route and do not create or select import claims.
+
+Manual GPX replacement, RaceBook GPX display switches, and confirmed GPX source deletion are also outside reconciliation. Deleting a GPX never changes the signed import snapshot or asks the model to remove related metrics or ravitaillements.
 
 Edition branding is also outside import reconciliation. The import model cannot propose logo URLs or colors, save a branding draft, or publish a visual identity; those actions remain in the explicit Pro editor.
 

@@ -1,7 +1,7 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-24
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -40,6 +40,7 @@ related_files:
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
   - supabase/migrations/20260829080943_update_amazeaunes_2026_final_roadbook.sql
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
+  - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
   - supabase/tests/racebook_sponsors_checks.sql
@@ -72,6 +73,7 @@ related_tables:
   - race_event_publication_requests
   - race_event_updates
   - race_event_update_reads
+  - racebook_gear_checks
   - race_events
   - products
   - user_favorite_race_events
@@ -223,6 +225,7 @@ Declared in `20260528120000_add_organizer_portal.sql`.
 - RLS is enabled with no client policy, and table privileges are revoked from `PUBLIC`, `anon`, and `authenticated`.
 - Only `service_role` can select or mutate sponsor rows. Organizer routes first require active membership on the edition's parent event; the public mobile route applies the RaceBook live gate or organizer-preview exception.
 - `reorder_racebook_sponsors` is invoker-security and service-role-only; it locks the edition and requires the complete validated ordering before changing positions.
+- `increment_racebook_sponsor_impression` is invoker-security and service-role-only. It increments only an active sponsor whose requested race is published in the same edition and whose `loading`, `hero`, or exact contextual placement is configured.
 
 `race_event_edition_branding` follows the same service-only table pattern but exposes no direct client policy at all. Its invoker-security publish function is executable only by `service_role`; the organizer route checks membership plus `branding.manage`, and the runner route maps only published columns after the existing RaceBook access gate.
 - `increment_racebook_sponsor_click(uuid, uuid)` is `SECURITY INVOKER`, executable only by `service_role`, and increments only when the sponsor is active, has a target, and shares the requested race's edition.
@@ -288,6 +291,15 @@ Declared in `20260629123858_add_race_event_favorites_and_updates.sql`.
 - Authenticated users can select only their own receipts.
 - Authenticated users can insert only their own receipts and only for updates whose parent event is live.
 - The composite `(update_id, user_id)` primary key keeps repeated read marking idempotent; no client update/delete path is granted.
+
+### RaceBook Gear Checklist
+
+`racebook_gear_checks`:
+
+- `anon` has no table privileges.
+- Authenticated runners can select, insert, and delete only rows owned by their `auth.uid()`.
+- No authenticated update path exists: checking inserts an idempotent composite key and unchecking deletes it.
+- The composite `(user_id, race_id, item_key)` key isolates each account and exact course format; user-profile or race deletion cascades its obsolete checks.
 
 ### `products`
 

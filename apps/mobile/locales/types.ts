@@ -585,6 +585,7 @@ export type MobileTranslations = {
     racebookLoadingTitle: string;
     racebookSponsorsSupportedBy: string;
     racebookSponsorsBannerLabel: string;
+    racebookSponsorDiscover: string;
     racebookUnavailableTitle: string;
     racebookUnavailableBody: string;
     createPlan: string;
@@ -671,6 +672,10 @@ export type MobileTranslations = {
     racebookGearRecommended: string;
     racebookGearColdWeather: string;
     racebookGearHotWeather: string;
+    racebookGearChecked: string;
+    racebookGearUnchecked: string;
+    racebookGearProgress: string;
+    racebookGearSaveError: string;
     racebookAidProducts: string;
     racebookAidWater: string;
     racebookAidFood: string;

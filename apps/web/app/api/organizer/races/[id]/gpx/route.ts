@@ -12,6 +12,7 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { withSecurityHeaders } from "../../../../../../lib/http";
+import { parseOrganizerRaceDetails } from "../../../../../../lib/organizer-dashboard-details";
 import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 
 type ParsedOrganizerGpx = ReturnType<typeof parseGpx>;
@@ -151,6 +152,86 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     const details = error instanceof Error ? error.message : "Unknown parse error";
     return jsonError(`Invalid GPX file: ${details}`, 422);
   }
+}
+
+export async function DELETE(request: NextRequest, context: { params: { id?: string } }) {
+  const auth = await requireOrganizerAuth(request);
+  if ("error" in auth) return auth.error;
+
+  const parsedParams = uuidParamSchema.safeParse(context.params);
+  if (!parsedParams.success) return jsonError("Invalid race id.", 400);
+
+  const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, parsedParams.data.id);
+  if ("error" in race) return race.error;
+
+  const loadedPath = await loadRaceGpxStoragePath(auth.serviceConfig, parsedParams.data.id);
+  if ("error" in loadedPath) return loadedPath.error;
+
+  const organizerDetails = parseOrganizerRaceDetails(race.organizer_details);
+  const updateResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${parsedParams.data.id}`,
+    {
+      method: "PATCH",
+      headers: {
+        ...serviceHeaders(auth.serviceConfig),
+        Prefer: "return=representation",
+      },
+      body: JSON.stringify({
+        gpx_path: null,
+        gpx_hash: null,
+        gpx_storage_path: null,
+        gpx_sha256: null,
+        min_alt_m: null,
+        max_alt_m: null,
+        start_lat: null,
+        start_lng: null,
+        bounds_min_lat: null,
+        bounds_min_lng: null,
+        bounds_max_lat: null,
+        bounds_max_lng: null,
+        organizer_details: {
+          ...organizerDetails,
+          gpxDisplay: {
+            showRoute: false,
+            showElevationProfile: false,
+          },
+        },
+      }),
+      cache: "no-store",
+    }
+  );
+
+  if (!updateResponse.ok) {
+    console.error("Unable to clear race after organizer GPX deletion", await updateResponse.text());
+    return jsonError("Unable to delete race GPX.", 502);
+  }
+
+  const storageDeleteResponse = await fetch(
+    `${auth.serviceConfig.supabaseUrl}/storage/v1/object/race-gpx/${loadedPath.storagePath}`,
+    {
+      method: "DELETE",
+      headers: serviceHeaders(auth.serviceConfig, ""),
+    }
+  ).catch((error) => {
+    console.error("Unable to delete organizer GPX storage object", error);
+    return null;
+  });
+
+  if (storageDeleteResponse && !storageDeleteResponse.ok) {
+    console.error("Unable to delete organizer GPX storage object", await storageDeleteResponse.text());
+  }
+
+  const updatedRows = await updateResponse.json().catch(() => null);
+  const updated = Array.isArray(updatedRows) ? updatedRows[0] ?? null : null;
+  await invalidateRacebookCache({ raceId: parsedParams.data.id });
+
+  return withSecurityHeaders(
+    NextResponse.json({
+      race: updated
+        ? { ...updated, organizerDetails: parseOrganizerRaceDetails(updated.organizer_details) }
+        : null,
+    })
+  );
 }
 
 export async function PUT(request: NextRequest, context: { params: { id?: string } }) {

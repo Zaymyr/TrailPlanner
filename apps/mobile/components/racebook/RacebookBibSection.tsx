@@ -57,8 +57,8 @@ function LocationPickup({
   return (
     <View style={styles.locationPickup}>
       <View style={styles.locationHeader}>
-        <View style={[styles.locationIcon, { backgroundColor: theme.primarySurfaceColor, borderColor: theme.primaryBorderColor }]}>
-          <Ionicons name="location-outline" size={18} color={theme.primaryColor} />
+        <View style={[styles.locationIcon, { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor }]}>
+          <Ionicons name="location-outline" size={18} color={theme.accentGraphicColor} />
         </View>
         <View style={styles.locationContent}>
           <Text numberOfLines={2} style={styles.locationName}>{group.location}</Text>
@@ -75,11 +75,11 @@ function LocationPickup({
             }}
             style={({ pressed }) => [
               styles.mapsAction,
-              { borderColor: theme.primaryBorderColor, backgroundColor: theme.primarySurfaceColor },
+              { borderColor: theme.accentBorderColor, backgroundColor: theme.accentSurfaceColor },
               pressed ? styles.pressed : null,
             ]}
           >
-            <Ionicons name="navigate-outline" size={18} color={theme.primaryColor} />
+            <Ionicons name="navigate-outline" size={18} color={theme.accentGraphicColor} />
           </Pressable>
         ) : null}
       </View>
@@ -160,8 +160,8 @@ export function RacebookBibSection({
       {requiredDocuments ? (
         <Card style={styles.card}>
           <View style={styles.documentHeader}>
-            <View style={[styles.documentIcon, { backgroundColor: theme.primarySurfaceColor }]}>
-              <Ionicons name="document-text-outline" size={18} color={theme.primaryColor} />
+            <View style={[styles.documentIcon, { backgroundColor: theme.accentSurfaceColor }]}>
+              <Ionicons name="document-text-outline" size={18} color={theme.accentGraphicColor} />
             </View>
             <Text style={styles.sectionTitle}>{copy.documentsTitle}</Text>
           </View>

@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-09-09
+last_verified: 2026-09-24
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -57,9 +57,9 @@ The web app also defines HSL CSS variables in `apps/web/app/globals.css` for lig
 
 ### RaceBook edition theme
 
-`packages/design-system/src/branding.ts` owns the shared runtime theme contract used by the organizer preview and mobile RaceBook. Defaults are `#2D5016` for primary and `#B45309` for accent. It accepts only `#RRGGBB`, computes black or white text with the stronger contrast against the primary color, and derives light surfaces and borders from both colors by mixing with white. `RACEBOOK_EDITION_LOGO_ENABLED` is the shared temporary kill switch for the dormant edition-logo presentation.
+`packages/design-system/src/branding.ts` owns the shared runtime theme contract used by the organizer preview and mobile RaceBook. Defaults are `#2D5016` for primary and `#B45309` for accent. It accepts only `#RRGGBB`, computes contrasting text for each solid brand color, derives light surfaces and borders, and exposes separate foreground (4.5:1 on white) and graphic (3:1 on white) variants. These derived variants preserve bright organizer colors such as yellow as identity inputs while keeping small text and route/profile strokes readable. `RACEBOOK_EDITION_LOGO_ENABLED` is enabled, so a valid published HTTPS edition logo can render in runner-facing RaceBook surfaces.
 
-Primary colors style interactions, links, active tabs and icons. Accent colors style progress, route and elevation profile together with their related cards, positive information rows and other non-semantic highlights. Typography, neutral backgrounds, layout, and semantic danger/warning/info colors are never organizer-controlled.
+Primary colors style the RaceBook hero, its softly tinted screen background, interactions, links, active tabs and icons. Accent colors style progress, route and elevation profile together with their related cards, positive information rows and other non-semantic highlights. Typography, layout, and semantic danger/warning/info colors are never organizer-controlled.
 
 ## Typography
 
@@ -97,6 +97,7 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 
 - Do not use an edition accent as a semantic success, warning, danger, or information color.
 - Invalid colors and non-HTTPS logos must resolve to the Pace Yourself defaults without breaking the RaceBook.
+- Use the derived foreground or graphic variant when an organizer color is drawn on white; do not assume the raw color has sufficient contrast.
 - The design-system color tokens and web CSS variables are related but not identical.
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.
 - If tokens change, update Tailwind mapping and design docs together.

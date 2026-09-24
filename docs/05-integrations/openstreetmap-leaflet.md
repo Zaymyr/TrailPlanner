@@ -1,7 +1,7 @@
 ---
 title: OpenStreetMap and Leaflet
 scope: integration
-last_verified: 2026-09-16
+last_verified: 2026-09-24
 ai_priority: medium
 related_files:
   - apps/web/package.json
@@ -24,7 +24,7 @@ This document records the lightweight mapping setup used for organizer GPX route
 
 - `leaflet` provides the interactive map runtime.
 - `react-leaflet` provides the React bindings and must stay on the React 18-compatible 4.x line while `apps/web` is still on React 18.
-- The current web dependency audit retains that 4.x map binding; `tus-js-client` and the server-only `pdf-lib` invoice renderer are isolated from the GPX map runtime.
+- The current web dependency audit retains that 4.x map binding; `tus-js-client`, the server-only `pdf-lib` invoice renderer, and server-only `sharp` image normalization are isolated from the GPX map runtime.
 - `leaflet/dist/leaflet.css` is loaded from `apps/web/app/layout.tsx`; the same static root layout also supplies default social metadata without introducing request-bound rendering, and omits the retired trial-welcome overlay without affecting map initialization.
 - Base tiles come from `https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png`.
 
@@ -48,6 +48,8 @@ It:
 
 The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeafletMap.tsx`. The published edition accent may override only the route polyline after strict `#RRGGBB` validation; tiles, map controls, and semantic markers remain application-owned.
 
+The per-format `gpxDisplay.showRoute` preference may omit this mobile map from the RaceBook. It does not prevent the Organizer Leaflet preview from rendering, because that preview validates the uploaded source independently from runner presentation.
+
 ## Gotchas
 
 - Keep the map client-only. `react-leaflet` should not be rendered through SSR.
@@ -59,6 +61,7 @@ The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeaflet
 - The Organizer may move map-layout guidance behind hover/focus contextual help, but GPX availability, parse failures, and the rendered route state remain visible without hover.
 - If a future screen needs editing or advanced basemap controls, extend the shared component instead of creating another map stack.
 - Never interpolate an unvalidated organizer color into the mobile WebView HTML.
+- Do not interpret a hidden RaceBook route as permission to delete or stop validating the GPX geometry.
 - Keep upload transport dependencies out of the map chunk; Organizer module code-splitting should not make TUS part of a route-preview load.
 
 ## Related Docs
