@@ -43,7 +43,13 @@ create temp table _racebook_sponsor_fixture (
 insert into _racebook_sponsor_fixture (edition_id, race_id, event_id)
 select race.edition_id, race.id, race.event_id
 from public.races race
-where race.edition_id is not null and race.event_id is not null
+join public.race_events event_row on event_row.id = race.event_id
+where race.edition_id is not null
+  and race.event_id is not null
+  and race.is_live
+  and race.racebook_is_live
+  and coalesce(race.racebook_preview_is_visible, true)
+  and event_row.is_live
 limit 1;
 
 do $$
@@ -218,15 +224,6 @@ begin
   end if;
 end $$;
 
-update public.races
-set is_live = true,
-    racebook_is_live = true
-where id = (select race_id from _racebook_sponsor_fixture);
-
-update public.race_events
-set is_live = true
-where id = (select event_id from _racebook_sponsor_fixture);
-
 select public.increment_racebook_sponsor_impression(
   '7a110000-5999-4000-8000-000000000999',
   (select race_id from _racebook_sponsor_fixture),
@@ -254,7 +251,8 @@ begin
   end;
 
   update public.races
-  set racebook_preview_is_visible = false
+  set racebook_preview_is_visible = false,
+      racebook_is_live = false
   where id = (select race_id from _racebook_sponsor_fixture);
 
   begin

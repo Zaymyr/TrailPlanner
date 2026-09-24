@@ -159,7 +159,7 @@ Use:
 - `supabase/tests/organizer_import_sessions_checks.sql` for service-only session grants, invoker RPC privileges, strict JSON payloads, and draft constraints;
 - `supabase/tests/race_slug_redirects_checks.sql` for public parent-gated redirect reads, service-only mutations/RPC execution, invoker security, and reserved-slug behavior;
 - `supabase/tests/web_race_visibility_checks.sql` for web/mobile separation, masked-row client denial, trigger security, and forced clearing of non-public web state;
-- `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click increments;
+- `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click/impression increments against an already-published, preview-visible fixture;
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
 - `supabase/tests/racebook_gear_checks.sql` for authenticated-only grants, owner-scoped select/insert/delete policies, immutable append/remove state, and user/race cascades;

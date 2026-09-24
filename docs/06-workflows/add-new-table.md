@@ -86,6 +86,7 @@ Use `supabase/tests/organizer_rls_checks.sql` as the event-membership example.
 Use `supabase/tests/organizer_import_sessions_checks.sql` for service-only tables and `SECURITY INVOKER` mutation RPCs. Use `supabase/tests/race_slug_redirects_checks.sql` for a public child mapping whose select policy inherits parent visibility while every mutation remains service-only.
 The organizer entitlement/payment pair is the current service-only projection-plus-ledger example; its transition SQL check exercises recalculation separately from route/webhook tests. Generated invoice metadata extends that existing ledger through a column-only migration and dedicated immutability test; it is not a reason to create a second invoice table. `race_event_edition_branding` is the edition-unique draft/published projection example: one invoker RPC publishes all fields atomically while explicit role checks prove drafts cannot be queried directly.
 `organizer_edition_capability_grants` is the service-only current-state module-grant example: an allowlisted invoker RPC retains activation/revocation audit while the web layer combines it with a separate commercial entitlement.
+For visibility-gated aggregate RPCs such as sponsor impressions, select an existing row that already satisfies the production publication invariants. Do not force an arbitrary fixture live when completeness or parent-visibility triggers are designed to reject that transition.
 
 ## Do Not
 
