@@ -214,7 +214,7 @@ Organizer portal writes also go through web service routes after checking `race_
 - That loader waits for the lightweight edition response before revealing content, so a slow request cannot freeze one format on default module visibility or colors while sibling formats use the published edition settings.
 - The post-load automatic sponsor carousel is also presentation-only: viewport-sized slides rotate edition-scoped sponsors without changing event grouping, queries, or visibility.
 - Relay display is format-scoped: the Racebook reads `races.participation_mode` and published `race_relay_points`, then derives legs inside the conditional `Relais` course sub-tab without changing event or nutrition data.
-- Visual identity is edition-scoped rather than event-scoped. Mobile resolves the published colors through the format's edition while keeping the event name/content contract unchanged; edition-logo data is retained but currently masked by the shared presentation flag.
+- Visual identity is edition-scoped rather than event-scoped. Mobile resolves the published colors and valid HTTPS logo through the format's edition while keeping the event name/content contract unchanged; the enabled shared presentation flag still provides the release boundary.
 - Event thumbnails can be copied from the first related race by `20260331000000_add_thumbnail_to_race_events.sql`.
 
 ## Racebook Identity Presentation

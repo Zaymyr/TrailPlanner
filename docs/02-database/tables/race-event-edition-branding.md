@@ -85,6 +85,7 @@ RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated` ha
 - Logos live in `race-images/organizer-branding/{editionId}/`.
 - Replaced unpublished logos, superseded published logos, and logos belonging to deleted editions/events are removed from Storage when no draft or published field still references them.
 - `publish_racebook_edition_branding(uuid)` copies logo and both colors in one SQL update and timestamps the publication.
+- After publication, the organizer response resolves the copied HTTPS logo while `RACEBOOK_EDITION_LOGO_ENABLED` is enabled; the route test also verifies cleanup of the superseded published object.
 - The additive public sponsors payload always includes defaults when no valid published identity exists.
 - The shared design-system resolver chooses contrasting text for both solid colors, derives light surfaces/borders, and derives WCAG-oriented text and graphic variants for use on white. Accent covers route/progress graphics plus related non-semantic cards and positive information highlights; warning, danger and information semantics keep Pace Yourself colors.
 
