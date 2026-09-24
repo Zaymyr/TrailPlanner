@@ -55,3 +55,5 @@ The hero, contextual Courses action, and Android hardware back replace the activ
 Mobile SAS index and time treatments now use published accent variants. Source wave rows and ordering remain unchanged, and personal equipment checks stay in their separate owner-scoped table.
 
 Per-format GPX map/profile choices affect only the `Tracé` cards and do not alter SAS rows, ordering, or start-time authority.
+
+Fullscreen course visuals and tappable ravito markers remain independent from SAS selection, times, criteria, and ordering.

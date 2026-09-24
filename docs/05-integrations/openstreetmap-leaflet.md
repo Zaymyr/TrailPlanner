@@ -11,6 +11,7 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/web/app/courses/_components/RaceRouteExplorer.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
+  - apps/mobile/lib/racebookCourseVisuals.ts
 related_tables: []
 ---
 
@@ -46,7 +47,9 @@ It:
 - is independent from event-level website, Instagram, and Facebook fields rendered by the same Organizer information component.
 - on the public `/courses/[slug]` page, `apps/web/app/courses/_components/RaceRouteExplorer.tsx` wraps `GpxRouteMap` and forces `interactive={false}` until the runner taps "Explorer la carte", so pan/zoom gestures never capture mobile scroll.
 
-The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeafletMap.tsx`. The published edition accent may override only the route polyline after strict `#RRGGBB` validation; tiles, map controls, and semantic markers remain application-owned.
+The mobile RaceBook embeds its existing Leaflet WebView through `RacebookLeafletMap.tsx`. The published edition accent may override only the route polyline after strict `#RRGGBB` validation; tiles, map controls, and semantic markers remain application-owned. Published ravitos are projected from cumulative kilometer onto the measured route, rendered as compact application-owned point markers without permanent names, and expose escaped DOM-built details in a Leaflet popup after selection. Each visual point is paired with a transparent 44-pixel Leaflet hit target so it remains easy to select without enlarging the marker. Its popup gives cumulative distance and D+ first-class statistic blocks, using organizer cumulative elevation when available and measured GPX progress as fallback. Stations beyond the measured route extent are omitted rather than clamped to the finish. The fullscreen map keeps a native safe-area-aware close bar outside the WebView so system cutouts and map gestures cannot make dismissal unreachable.
+
+The shared `racebookCourseVisuals` helper also interpolates the mobile elevation-profile cursor and its below-chart measured cumulative D+/D- readout. Entering the narrow snap radius of a projected ravito swaps that readout for station details while keeping cumulative distance and D+ visually prominent. This native SVG interaction is independent from Leaflet, but it must keep the same bounded-distance rule so neither visual implies geometry beyond the supplied GPX.
 
 The per-format `gpxDisplay.showRoute` preference may omit this mobile map from the RaceBook. It does not prevent the Organizer Leaflet preview from rendering, because that preview validates the uploaded source independently from runner presentation.
 
@@ -61,6 +64,7 @@ The per-format `gpxDisplay.showRoute` preference may omit this mobile map from t
 - The Organizer may move map-layout guidance behind hover/focus contextual help, but GPX availability, parse failures, and the rendered route state remain visible without hover.
 - If a future screen needs editing or advanced basemap controls, extend the shared component instead of creating another map stack.
 - Never interpolate an unvalidated organizer color into the mobile WebView HTML.
+- Keep organizer-authored station names, services, cutoffs, and notes out of raw HTML interpolation; construct popup content with DOM text nodes and preserve accessible marker labels.
 - Do not interpret a hidden RaceBook route as permission to delete or stop validating the GPX geometry.
 - Keep upload transport dependencies out of the map chunk; Organizer module code-splitting should not make TUS part of a route-preview load.
 

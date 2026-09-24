@@ -45,6 +45,7 @@ related_tables:
 - Toggling is optimistic in the app and rolls back visibly if the owner-scoped database write fails.
 - Leaving a RaceBook replaces it with Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
 - Compact sponsor rows and the Ravitos endpoint timing/spacing presentation do not read or mutate equipment-check rows.
+- Fullscreen route/profile presentation and tappable ravito points do not read or mutate equipment-check rows.
 
 ## Related Docs
 
