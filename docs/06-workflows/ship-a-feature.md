@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-17
+last_verified: 2026-09-23
 ai_priority: medium
 related_files:
   - package.json
@@ -62,6 +62,7 @@ npm run verify
    `verify` first checks the `related_files` documentation protocol, then runs lint, TypeScript checks, the non-watch web and mobile unit suites, and the production build. Use `npm run verify:web` when iterating on a web-only change; the pull-request CI still runs the complete web gate as separate, visible steps.
 
 8. For web UI changes, run/build the web app.
+   Server image changes must also exercise a real decode/resize test and a clean production build so Sharp's platform-specific binary is present in the deployed web workspace.
 9. For mobile native changes, use the EAS/dev-client path.
 10. For Supabase changes, verify RLS and service-role behavior separately.
 11. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.

@@ -52,6 +52,7 @@ The web app is a Next.js 14 app:
 - Analytics dependencies: `posthog-js`, `posthog-node`, `@vercel/analytics`, `@vercel/speed-insights`
 - Resumable browser uploads: `tus-js-client ^4.3.1` for large temporary Organizer import documents sent directly to Supabase Storage.
 - Server PDF generation: `pdf-lib ^1.17.1` for automatic organizer invoices; it is not imported into client components.
+- Server image normalization: `sharp ^0.34.5` converts organizer and product uploads to bounded WebP assets before Supabase Storage receives them.
 - Browser journey testing: `@playwright/test` is a development-only web dependency; the organizer payment journey is opt-in and guarded to Stripe test sessions.
 - Route headers: `apps/web/next.config.mjs` emits `Content-Language: en` for the server-rendered `/en/*` subtree without making the root layout request-dynamic.
 

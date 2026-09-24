@@ -10,6 +10,13 @@ import {
   uuidParamSchema,
 } from "../../../../../../lib/organizer";
 import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
+import {
+  IMAGE_UPLOAD_CACHE_CONTROL,
+  InvalidImageError,
+  OPTIMIZED_IMAGE_CONTENT_TYPE,
+  OPTIMIZED_IMAGE_EXTENSION,
+  optimizeImageFile,
+} from "../../../../../../lib/optimized-image";
 
 const MAX_EVENT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const EVENT_IMAGE_TYPE = "image/png";
@@ -48,16 +55,25 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   if (imageFile.type !== EVENT_IMAGE_TYPE) return jsonError("Invalid image type. Use PNG.", 400);
   if (imageFile.size > MAX_EVENT_IMAGE_SIZE_BYTES) return jsonError("Image is too large (max 5 MB).", 400);
 
-  const storagePath = `organizer-events/${parsedParams.data.id}/thumbnail-${Date.now()}.png`;
+  let optimizedImage: ArrayBuffer;
+  try {
+    optimizedImage = await optimizeImageFile(imageFile);
+  } catch (error) {
+    if (error instanceof InvalidImageError) return jsonError("Invalid PNG image file.", 400);
+    throw error;
+  }
+
+  const storagePath = `organizer-events/${parsedParams.data.id}/thumbnail-${Date.now()}.${OPTIMIZED_IMAGE_EXTENSION}`;
   const uploadResponse = await fetch(
     `${auth.serviceConfig.supabaseUrl}/storage/v1/object/race-images/${storagePath}`,
     {
       method: "POST",
       headers: {
-        ...serviceHeaders(auth.serviceConfig, EVENT_IMAGE_TYPE),
+        ...serviceHeaders(auth.serviceConfig, OPTIMIZED_IMAGE_CONTENT_TYPE),
+        "cache-control": IMAGE_UPLOAD_CACHE_CONTROL,
         "x-upsert": "true",
       },
-      body: imageFile,
+      body: optimizedImage,
       cache: "no-store",
     }
   );

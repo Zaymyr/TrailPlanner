@@ -5,6 +5,10 @@ import { PUT } from "./route";
 
 const raceId = "11111111-1111-1111-1111-111111111111";
 const eventId = "22222222-2222-2222-2222-222222222222";
+const validPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64"
+);
 
 const organizerMocks = vi.hoisted(() => ({
   loadRaceForOrganizer: vi.fn(),
@@ -60,7 +64,7 @@ describe("/api/organizer/races/[id]/image", () => {
         ])
       );
 
-    const response = await PUT(putRequest(new File(["jpg"], "race.jpg", { type: "image/jpeg" })), {
+    const response = await PUT(putRequest(new File([validPng], "race.png", { type: "image/png" })), {
       params: { id: raceId },
     });
     const payload = await response.json();
@@ -70,7 +74,12 @@ describe("/api/organizer/races/[id]/image", () => {
 
     const uploadCall = mockFetch.mock.calls.find(([url]) => String(url).includes("/storage/v1/object/race-images/"));
     expect(uploadCall?.[0]).toContain(`organizer-races/${eventId}/${raceId}/thumbnail-`);
-    expect(uploadCall?.[1]?.headers).toMatchObject({ "Content-Type": "image/jpeg", "x-upsert": "true" });
+    expect(uploadCall?.[0]).toMatch(/\.webp$/);
+    expect(uploadCall?.[1]?.headers).toMatchObject({
+      "Content-Type": "image/webp",
+      "cache-control": "max-age=31536000",
+      "x-upsert": "true",
+    });
 
     const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(patchCall?.[1]?.body as string)).toEqual({ thumbnail_url: payload.thumbnailUrl });

@@ -4,6 +4,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PUT } from "./route";
 
 const eventId = "11111111-1111-1111-1111-111111111111";
+const validPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+  "base64"
+);
 
 const organizerMocks = vi.hoisted(() => ({
   requireEventOrganizer: vi.fn(),
@@ -40,7 +44,7 @@ describe("/api/organizer/events/[id]/image", () => {
       error: Response.json({ message: "Not authorized for this event." }, { status: 403 }),
     });
 
-    const response = await PUT(putRequest(new File(["png"], "event.png", { type: "image/png" })), {
+    const response = await PUT(putRequest(new File([validPng], "event.png", { type: "image/png" })), {
       params: { id: eventId },
     });
     const payload = await response.json();
@@ -74,7 +78,7 @@ describe("/api/organizer/events/[id]/image", () => {
         ])
       );
 
-    const response = await PUT(putRequest(new File(["png"], "event.png", { type: "image/png" })), {
+    const response = await PUT(putRequest(new File([validPng], "event.png", { type: "image/png" })), {
       params: { id: eventId },
     });
     const payload = await response.json();
@@ -84,7 +88,12 @@ describe("/api/organizer/events/[id]/image", () => {
 
     const uploadCall = mockFetch.mock.calls.find(([url]) => String(url).includes("/storage/v1/object/race-images/"));
     expect(uploadCall?.[0]).toContain(`organizer-events/${eventId}/thumbnail-`);
-    expect(uploadCall?.[1]?.headers).toMatchObject({ "Content-Type": "image/png", "x-upsert": "true" });
+    expect(uploadCall?.[0]).toMatch(/\.webp$/);
+    expect(uploadCall?.[1]?.headers).toMatchObject({
+      "Content-Type": "image/webp",
+      "cache-control": "max-age=31536000",
+      "x-upsert": "true",
+    });
 
     const patchCall = mockFetch.mock.calls.find(([, init]) => init?.method === "PATCH");
     expect(JSON.parse(patchCall?.[1]?.body as string)).toEqual({ thumbnail_url: payload.thumbnailUrl });

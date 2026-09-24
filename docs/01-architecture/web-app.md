@@ -221,6 +221,10 @@ related_files:
   - apps/web/app/api/organizer/events/[id]/updates/route.test.ts
   - apps/web/app/api/organizer/events/[id]/image/route.ts
   - apps/web/app/api/organizer/events/[id]/image/route.test.ts
+  - apps/web/lib/optimized-image.ts
+  - apps/web/lib/optimized-image.test.ts
+  - apps/web/app/api/products/[productId]/image/route.ts
+  - scripts/optimize-supabase-product-images.mjs
   - apps/web/app/api/race-favorites/route.ts
   - apps/web/app/api/race-favorites/route.test.ts
   - apps/web/app/api/race-events/[id]/updates/route.ts
@@ -319,6 +323,8 @@ The web app owns the browser planner, onboarding/account flows, admin catalog to
 - `npm run typecheck --workspace apps/web`
 
 The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser map bindings added under `apps/web` must stay compatible with React 18 until the app is upgraded; for Leaflet route previews that means staying on the React 18-compatible `react-leaflet` line rather than the React 19-only v5 releases.
+
+`sharp` is server-only. Organizer event/format thumbnails and product images are decoded, orientation-normalized, bounded to 1024 px without enlargement, encoded as WebP, and uploaded with `cacheControl: max-age=31536000` Storage metadata. Versioned object paths make a long cache safe wherever the delivery layer honors that metadata. Invalid raster payloads fail before any Storage or database write. The reference-based maintenance script migrates only product URLs currently present in `products.image_url`; it keeps the prior objects for rollback instead of scanning or copying complete buckets.
 
 The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` files. Vitest remains responsible for compiling and running those tests; this prevents a web-only Next.js build from following test imports into mobile-only Expo modules whose dependencies are intentionally absent from the web deployment.
 
@@ -596,7 +602,8 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Organizer GPX previews are recalculated from the private source GPX; do not add a `races.elevation_profile` column for this dashboard-only curve.
 - GPX replacement must update the active distance/D+/D- form state from the successful response and keep the race edition year selected; an event refresh with the same race id does not trigger race-form initialization by itself.
 - `react-leaflet` v5 expects React 19 and crashes this app's React 18 runtime during GPX map mount. Keep the organizer map on the React 18-compatible `react-leaflet` 4.x line until the web app itself upgrades React.
-- Organizer event image upload accepts PNG only in v1; the client must call the server route instead of writing to Storage directly.
+- Organizer event image input accepts PNG only in v1; the server route validates the binary, emits a bounded WebP object, and the client must not write to Storage directly. Format and product image routes apply the same WebP/cache normalization to their accepted raster formats.
+- On the current Free project, public Storage responses may still expose `Cache-Control: no-cache` even when object metadata contains `max-age=31536000`. Treat smaller versioned assets as the guaranteed egress reduction, and recheck response headers after a plan or CDN change before relying on browser TTL.
 - Keep organizer dashboard French labels UTF-8 clean end-to-end, especially in `event-format-editors.tsx`; mojibake such as `Ã©` is a real regression on the event tab because those strings are rendered directly.
 - Do not auto-send runner notifications on organizer save or publish. The manual event-update route is the only intended push trigger for this v1.
 - The manual notification route additionally requires the selected edition's Pro capability; RaceBook UI must offer the 100 € HT upgrade instead of attempting the send.

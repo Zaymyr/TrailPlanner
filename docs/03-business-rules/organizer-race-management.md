@@ -303,7 +303,7 @@ Organizers with an active event membership can:
 - create a yearly edition from a new start/end range, either empty or by duplicating the selected source edition; when duplication is enabled, formats, GPX, ravitos, and station products are cloned as draft rows attached to it while preserving format edition groups;
 - publish or hide the selected edition as one unit; hiding it removes every attached format from course discovery and forces every associated Racebook off, while showing it never republishes formats implicitly and leaves each format's Public transition explicit;
 - permanently delete a selected edition after typing its exact four-digit year; the database deletes its formats and dependent source data atomically, Storage cleanup removes their GPX/images, saved plans keep their snapshots with a null source link, and the only remaining edition cannot be deleted through this action;
-- upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL;
+- upload or replace a format thumbnail through a file picker and server-side Storage route, not by pasting a URL; the route emits a maximum-1024 px WebP with a versioned path and `cacheControl: max-age=31536000` Storage metadata before saving the public URL;
 - replace a format GPX source in `race-gpx`;
 - delete a format from the `Course` module after a confirmation step; the button is aligned at the far right of the `Formats & GPX` title row, source ravitos and linked official products follow normal FK cascades, while saved runner plans keep their snapshots and simply lose the `race_id` link;
 - see whether the selected event has all publication-required information through one compact preparation bar;
@@ -555,7 +555,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Do not reintroduce a date-based organizer edit lock without a new explicit business decision; active membership currently authorizes both past and future edition maintenance.
 - Do not re-open manual editing for cumulative D+ / D- in the organizer ravito form while GPX-driven interpolation is the source of truth; km edits must keep recomputing those values from the active GPX preview.
 - Keep a UTF-8 regression test around route-local organizer copy when touching French labels on ravito cards or related dashboard text; mojibake should fail tests before it reaches the screen.
-- Organizer event images are uploaded through the server-side PNG route, and format images through the server-side race image route; do not expose direct Storage writes from the dashboard client.
+- Organizer event images are accepted through the server-side PNG route, and format images through the server-side race image route. Both validate the decoded raster and persist a bounded WebP with long cache headers; do not expose direct Storage writes from the dashboard client.
 - Deleting a format must preserve saved runner plans by relying on the `race_plans.race_id` detach behavior rather than deleting plan rows.
 - Keep organizer dashboard UI additions reuse-first: search existing route-local dashboard components and shared web primitives before adding another component.
 - Dashboard onboarding is membership presentation state. It must not alter event content, edition entitlement, publication state, or the section configuration completion marker; closing or finishing it only stamps the active organizer membership.

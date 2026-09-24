@@ -3,6 +3,13 @@ import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../../lib/http";
 import {
+  IMAGE_UPLOAD_CACHE_CONTROL,
+  InvalidImageError,
+  OPTIMIZED_IMAGE_CONTENT_TYPE,
+  OPTIMIZED_IMAGE_EXTENSION,
+  optimizeImageFile,
+} from "../../../../../lib/optimized-image";
+import {
   extractBearerToken,
   fetchSupabaseUser,
   getSupabaseAnonConfig,
@@ -122,8 +129,17 @@ export async function PUT(request: NextRequest, context: { params: { productId?:
     );
   }
 
-  const ext = mimeType.split("/")[1] ?? "jpg";
-  const storagePath = `products/${product.id}/image-${Date.now()}.${ext}`;
+  let optimizedImage: ArrayBuffer;
+  try {
+    optimizedImage = await optimizeImageFile(imageFile);
+  } catch (error) {
+    if (error instanceof InvalidImageError) {
+      return withSecurityHeaders(NextResponse.json({ message: "Invalid image file." }, { status: 400 }));
+    }
+    throw error;
+  }
+
+  const storagePath = `products/${product.id}/image-${Date.now()}.${OPTIMIZED_IMAGE_EXTENSION}`;
 
   const uploadResponse = await fetch(
     `${supabaseService.supabaseUrl}/storage/v1/object/${PRODUCT_IMAGES_BUCKET}/${storagePath}`,
@@ -132,10 +148,11 @@ export async function PUT(request: NextRequest, context: { params: { productId?:
       headers: {
         apikey: supabaseService.supabaseServiceRoleKey,
         Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
-        "Content-Type": mimeType,
+        "Content-Type": OPTIMIZED_IMAGE_CONTENT_TYPE,
+        "cache-control": IMAGE_UPLOAD_CACHE_CONTROL,
         "x-upsert": "true",
       },
-      body: imageFile,
+      body: optimizedImage,
     }
   );
 
