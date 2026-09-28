@@ -48,6 +48,7 @@ related_files:
   - apps/mobile/lib/racebookGearAnalytics.ts
   - apps/mobile/lib/racebookGearAnalytics.test.ts
   - apps/mobile/lib/racebookGearItemKey.ts
+  - apps/mobile/lib/racebookGearItemKey.test.ts
   - scripts/backfill-racebook-gear-posthog.mjs
   - scripts/backfill-racebook-gear-state-posthog.mjs
   - apps/mobile/lib/racebookOnboarding.ts
@@ -195,7 +196,7 @@ The ordered funnel is `onboarding started` filtered to `onboarding_kind = racebo
 
 The mobile RaceBook emits `racebook opened` only after an accessible RaceBook has finished loading, the edition sponsor/module/branding bootstrap has resolved, and the loading composition has exited. Every RaceBook engagement event carries the stable `race_id`, optional parent `event_id`, public race/event names, race date, local-calendar `days_before_race`, a bounded proximity window, and whether the screen was opened by the guided tour or standard navigation. This supports per-RaceBook unique-reader trends and same-RaceBook retention without adding an analytics table to Supabase.
 
-The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, emergency-call, Booking, and Decathlon actions. Partner presses use only the bounded `partner_booking` or `partner_decathlon` action plus the `services` context; neither the resolved destination nor affiliation parameters enter identified analytics. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
+The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, emergency-call, Booking, and Decathlon actions. Partner presses use only the bounded `partner_booking` or `partner_decathlon` action; Booking uses the `services` context and Decathlon uses `equipment`. Neither the resolved destination, affiliation parameters, nor the derived missing-required count enters identified analytics. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
 
 After an owner-scoped Material insert/delete succeeds, mobile emits `racebook gear item toggled` with `checked`, `action: checked|unchecked`, `gear_group`, nullable organizer item id, a trimmed 160-character public item label, required state, and bounded weather context. It inherits the stable RaceBook event/race context. Failed optimistic writes emit nothing, and the event never includes the durable `item_key`, organizer note, or total checked count. The general RaceBook usage dashboard counts unique people from successful checks.
 
