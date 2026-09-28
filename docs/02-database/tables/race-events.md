@@ -275,7 +275,7 @@ where is_live = true
 ## Gotchas
 
 - Event-backed `Créer un plan` clicks include the public event id/name in PostHog for reporting, but do not mutate `race_events`; personal-race clicks intentionally omit parent-event context.
-- Confirmed Material toggles reuse the existing public event/race analytics context but do not mutate `race_events`. Only the bounded published equipment label/id and classification accompany the checked state; persistence keys and notes stay out of PostHog.
+- Confirmed Material toggles and bounded per-item checked/missing snapshots reuse the existing public event/race analytics context but do not mutate `race_events`. Only published equipment identity/classification and item state accompany the event; persistence keys and notes stay out of PostHog.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter event fields, organizer JSON, visibility gates, or RaceBook read contracts.
 - Publication origin is edition-scoped rather than event-scoped. Admin, Offert, Stripe, and virement changes must target the selected canonical edition and do not rewrite the parent event.

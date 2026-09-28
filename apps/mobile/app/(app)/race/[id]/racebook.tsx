@@ -72,7 +72,10 @@ import {
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardingStatus';
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
-import { buildRacebookGearToggleProperties } from '../../../../lib/racebookGearAnalytics';
+import {
+  buildRacebookGearStateProperties,
+  buildRacebookGearToggleProperties,
+} from '../../../../lib/racebookGearAnalytics';
 import { loadRacebookGearChecks, saveRacebookGearCheck } from '../../../../lib/racebookGearChecklist';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
@@ -552,6 +555,7 @@ export default function RaceRacebookScreen() {
   const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(null);
   const [checkedGearItemKeys, setCheckedGearItemKeys] = useState<Set<string>>(new Set());
   const [pendingGearItemKeys, setPendingGearItemKeys] = useState<Set<string>>(new Set());
+  const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
   const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -577,6 +581,8 @@ export default function RaceRacebookScreen() {
   const unavailableTrackedRaceIdRef = useRef<string | null>(null);
   const sponsorViewRef = useRef<{ raceId: string | null; viewId: string } | null>(null);
   const exitingToCatalogRef = useRef(false);
+  const gearChecklistInteractedRef = useRef(false);
+  const lastGearStateSignatureRef = useRef<{ raceId: string; signature: string } | null>(null);
   const activeRaceIdRef = useRef(id);
   activeRaceIdRef.current = id;
 
@@ -593,12 +599,18 @@ export default function RaceRacebookScreen() {
     let cancelled = false;
     setCheckedGearItemKeys(new Set());
     setPendingGearItemKeys(new Set());
+    setGearChecksLoadedRaceId(null);
+    gearChecklistInteractedRef.current = false;
+    lastGearStateSignatureRef.current = null;
 
     if (!id) return () => { cancelled = true; };
 
     loadRacebookGearChecks(id)
       .then((itemKeys) => {
-        if (!cancelled && activeRaceIdRef.current === id) setCheckedGearItemKeys(itemKeys);
+        if (!cancelled && activeRaceIdRef.current === id) {
+          setCheckedGearItemKeys(itemKeys);
+          setGearChecksLoadedRaceId(id);
+        }
       })
       .catch((error) => console.warn('Unable to load RaceBook gear checks.', error));
 
@@ -627,6 +639,7 @@ export default function RaceRacebookScreen() {
       if (analyticsProperties) {
         captureRacebookInteraction('racebook gear item toggled', analyticsProperties);
       }
+      gearChecklistInteractedRef.current = true;
     } catch (error) {
       console.warn('Unable to save RaceBook gear check.', error);
       if (activeRaceIdRef.current === targetRaceId) {
@@ -1130,7 +1143,10 @@ export default function RaceRacebookScreen() {
     t.catalog.racebookFieldStartLocation,
   ]);
 
-  const equipmentItems = data?.runnerDetails.equipmentStatus.items ?? [];
+  const equipmentItems = useMemo(
+    () => data?.runnerDetails.equipmentStatus.items ?? [],
+    [data],
+  );
   const requiredEquipment = equipmentItems.filter((item) => item.active && item.required);
   const recommendedEquipment = equipmentItems.filter((item) => item.active && !item.required);
   const conditionalEquipment = equipmentItems.filter((item) => !item.active);
@@ -1142,6 +1158,49 @@ export default function RaceRacebookScreen() {
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
   const heroExpandedHeight = insets.top + RACEBOOK_HERO_BODY_HEIGHT;
+
+  useEffect(() => {
+    if (
+      !id ||
+      gearChecksLoadedRaceId !== id ||
+      pendingGearItemKeys.size > 0 ||
+      !data?.canOpen ||
+      data.race.id !== id ||
+      equipmentItems.length === 0 ||
+      (checkedGearItemKeys.size === 0 && !gearChecklistInteractedRef.current)
+    ) {
+      return;
+    }
+
+    const itemStates = buildRacebookGearStateProperties(equipmentItems, checkedGearItemKeys);
+    const signature = itemStates
+      .map((item) => `${item.item_analytics_id}:${item.checked ? '1' : '0'}`)
+      .sort()
+      .join('|');
+    const previous = lastGearStateSignatureRef.current;
+    if (previous?.raceId === id && previous.signature === signature) return;
+
+    const context = buildRacebookAnalyticsProperties(
+      data,
+      onboarding === 'racebook' ? 'onboarding' : 'standard',
+    );
+    for (const itemState of itemStates) {
+      captureAnalyticsEvent('racebook gear item state synced', {
+        ...context,
+        ...itemState,
+        state_source: gearChecklistInteractedRef.current ? 'toggle' : 'checklist_load',
+      });
+    }
+    lastGearStateSignatureRef.current = { raceId: id, signature };
+  }, [
+    checkedGearItemKeys,
+    data,
+    equipmentItems,
+    gearChecksLoadedRaceId,
+    id,
+    onboarding,
+    pendingGearItemKeys.size,
+  ]);
 
   useFocusEffect(
     useCallback(() => {

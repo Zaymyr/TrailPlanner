@@ -12,6 +12,7 @@ related_files:
   - apps/mobile/lib/racebookGearAnalytics.ts
   - apps/mobile/lib/racebookGearAnalytics.test.ts
   - apps/mobile/lib/racebookGearItemKey.ts
+  - scripts/backfill-racebook-gear-state-posthog.mjs
 related_tables:
   - racebook_gear_checks
   - user_profiles
@@ -47,6 +48,7 @@ related_tables:
 - Items with a persisted organizer id use it. Legacy items without an id use a deterministic normalized-label key scoped by required/recommended/weather group.
 - Toggling is optimistic in the app and rolls back visibly if the owner-scoped database write fails.
 - After a confirmed insert/delete, mobile emits `racebook gear item toggled`. The event includes the bounded published item label/id, required/recommended/weather group, weather context, and checked state, but never `item_key`, notes, or total checklist state. Failed writes emit nothing.
+- After a successful non-empty load, and after persisted changes settle, mobile emits `racebook gear item state synced` once per currently published item. This bounded snapshot distinguishes checked from missing items only for runners who started the checklist; a plain RaceBook open with no saved or successful interaction state emits no missing-item snapshot.
 - Leaving a RaceBook replaces it with Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
 - Compact sponsor rows and the Ravitos endpoint timing/spacing presentation do not read or mutate equipment-check rows.
 - Fullscreen route/profile presentation and tappable ravito points do not read or mutate equipment-check rows.
@@ -54,7 +56,7 @@ related_tables:
 
 ## Related Docs
 
-PostHog toggle events measure usage during the selected analytics window; this table remains the source of truth for current checked state. Ranking by unique people who checked an item excludes items with no emitted check event and must not be presented as a live table snapshot.
+This table remains the source of truth for current checked state. PostHog organizer rankings use the latest observed state per person, race, and published analytics item inside the selected reporting window; they exclude runners who never started the checklist and must not be presented as a live table snapshot. The marker-guarded `racebook_gear_state_2026_09_28` import seeded checked and missing states only for users represented by existing rows.
 
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)

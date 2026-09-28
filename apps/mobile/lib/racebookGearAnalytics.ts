@@ -21,6 +21,21 @@ function getWeatherContext(item: RacebookGearAnalyticsItem) {
   return 'none';
 }
 
+function buildRacebookGearItemProperties(item: RacebookGearAnalyticsItem) {
+  const gearGroup = getGearGroup(item);
+  const itemKey = getRacebookGearItemKey(gearGroup, item);
+  const analyticsFallback = itemKey.split(':').slice(0, 3).join(':');
+
+  return {
+    gear_group: gearGroup,
+    item_analytics_id: item.id ? `${gearGroup}:id:${item.id}` : analyticsFallback,
+    item_id: item.id,
+    item_label: item.label.trim().slice(0, 160),
+    item_required: item.required,
+    weather_context: getWeatherContext(item),
+  };
+}
+
 export function buildRacebookGearToggleProperties(
   items: RacebookGearAnalyticsItem[],
   itemKey: string,
@@ -35,10 +50,22 @@ export function buildRacebookGearToggleProperties(
   return {
     action: checked ? 'checked' : 'unchecked',
     checked,
-    gear_group: getGearGroup(item),
-    item_id: item.id,
-    item_label: item.label.trim().slice(0, 160),
-    item_required: item.required,
-    weather_context: getWeatherContext(item),
+    ...buildRacebookGearItemProperties(item),
   };
+}
+
+export function buildRacebookGearStateProperties(
+  items: RacebookGearAnalyticsItem[],
+  checkedItemKeys: ReadonlySet<string>,
+) {
+  return items.map((item) => {
+    const properties = buildRacebookGearItemProperties(item);
+    const checked = checkedItemKeys.has(getRacebookGearItemKey(properties.gear_group, item));
+
+    return {
+      checked,
+      state: checked ? 'checked' : 'missing',
+      ...properties,
+    };
+  });
 }
