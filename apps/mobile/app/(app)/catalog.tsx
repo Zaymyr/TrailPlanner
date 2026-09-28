@@ -28,8 +28,9 @@ import {
   CatalogRaceRow,
 } from '../../components/catalog/CatalogPresentation';
 import { Colors } from '../../constants/colors';
-import { useI18n } from '../../lib/i18n';
 import { isAnonymousSession } from '../../lib/appSession';
+import { isCatalogEventVisible } from '../../lib/catalogVisibility';
+import { useI18n } from '../../lib/i18n';
 import { captureAnalyticsEvent } from '../../lib/posthog';
 import { canShowRacebook } from '../../lib/racebook';
 import {
@@ -155,19 +156,6 @@ function getEventDistanceRange(races: Race[]) {
   }
 
   return `${formatDistance(minDistance)}-${formatDistance(maxDistance)} km`;
-}
-
-function isUpcomingOrUndated(isoDate: string | null | undefined) {
-  if (!isoDate) return true;
-
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-
-  const raceDate = new Date(isoDate);
-  if (Number.isNaN(raceDate.getTime())) return true;
-  raceDate.setHours(0, 0, 0, 0);
-
-  return raceDate >= today;
 }
 
 function parseNumberFilter(value: string): number | null {
@@ -639,7 +627,7 @@ export default function CatalogScreen() {
       eventGroups
         .filter(
         (event) =>
-          isUpcomingOrUndated(event.race_date) &&
+          isCatalogEventVisible(event.race_date, favoriteEventIds.includes(event.id)) &&
           matchesDateRange(event.race_date, dateMinFilter, dateMaxFilter) &&
           (quickFilter !== 'favorites' || favoriteEventIds.includes(event.id)),
         )
@@ -681,7 +669,7 @@ export default function CatalogScreen() {
 
       return (
         quickFilter !== 'favorites' &&
-        isUpcomingOrUndated(race.race_date) &&
+        isCatalogEventVisible(race.race_date, false) &&
         raceMatchesName &&
         matchesQuickDistance(race.distance_km, quickFilter) &&
         matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&

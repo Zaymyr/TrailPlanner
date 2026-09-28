@@ -29,6 +29,8 @@ related_files:
   - apps/mobile/components/PlanLoadingScreen.tsx
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/lib/catalogVisibility.ts
+  - apps/mobile/lib/catalogVisibility.test.ts
   - apps/mobile/components/catalog/CatalogPresentation.tsx
   - apps/web/lib/mobile-racebook-onboarding.test.ts
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
@@ -244,6 +246,7 @@ Its reusable loading card, race row, personal-race section, and filter modal liv
 - its public event relation uses an inner join filtered to `races.racebook_preview_is_visible = true`, so an event remains discoverable with private formats but no public RaceBook; the presentation filter removes every format whose preview flag is false;
 - masked formats are absent from the mobile catalog for runners and organizers; private formats remain listed for every runner and support plan creation, but only active event organizers receive the lightly dimmed RaceBook preview action; public formats use the normal runner presentation;
 - it loads favorited `race_events` for identified, non-anonymous users through the web API bridge;
+- it normally keeps only current, future, or undated events, but retains a favorited event through the fourteenth calendar day after its event date; on the fifteenth day it leaves the catalog again;
 - it pins favorite events above the normal date/name ordering when the catalog is loaded or refreshed; for identified runners, the card-local heart state flips in the same interaction frame with a reduced-motion-aware pulse, then resynchronizes with the parent/server state while preserving the current list order and viewport; the next refresh applies the new pinned order;
 - it reuses `RaceEventSummaryCard.tsx` for the event row and exposes the same favorite toggle inside the event sheet;
 - catalog formats accept a nullable published D+: cards and sheets render `D+ non renseigné` instead of coercing the absence to zero, and plan creation stays disabled until a real D+ is supplied;

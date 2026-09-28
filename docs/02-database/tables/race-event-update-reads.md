@@ -55,6 +55,7 @@ related_tables:
 - Likewise, the PostHog `push notification opened` event measures an app-open interaction and does not create or replace this durable receipt.
 - Deleting an announcement through the membership-checked organizer route cascades its receipts; no orphan read state should remain.
 - The mobile catalog keeps message bodies to a short preview but may fetch lightweight update id/event references so an older unread message still keeps the event-level badge visible.
+- Keeping a favorited event in Courses for fourteen calendar days after its date changes only whether its existing announcement preview can still be reached; it does not create, clear, or broaden read receipts.
 - Edition visibility filters catalog formats, not read receipts. A receipt remains event/update-owned even when its former target format is hidden or deleted.
 - The heart animation and stable list position during a favorite mutation are independent of announcement visibility and must not create read receipts.
 - The guest account prompt opened from a heart is also independent of announcement visibility and must not create a read receipt.

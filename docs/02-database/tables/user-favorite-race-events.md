@@ -12,6 +12,8 @@ related_files:
   - apps/web/app/organizer/_components/dashboard/analytics-panel.tsx
   - apps/web/app/organizer/_components/dashboard/analytics-panel.test.ts
   - apps/mobile/app/(app)/catalog.tsx
+  - apps/mobile/lib/catalogVisibility.ts
+  - apps/mobile/lib/catalogVisibility.test.ts
   - apps/mobile/components/race/RaceEventSummaryCard.tsx
 related_tables:
   - user_favorite_race_events
@@ -29,7 +31,7 @@ related_tables:
 
 - Event favorite: one runner follows one `race_events` row.
 - Owner row: favorites are readable and mutable only by the owning user.
-- Catalog pinning: mobile uses these rows to pin favorite events above the normal catalog sort.
+- Catalog pinning and retention: mobile uses these rows to pin favorite events above the normal catalog sort and keep a past favorite visible through the fourteenth calendar day after its event date.
 - Catalog feedback: for identified runners, mobile updates a card-local heart state in the same interaction frame with a reduced-motion-aware pulse, then resynchronizes it with the parent/server result while preserving the current list order and viewport. Guest hearts do not flip before the account prompt.
 - The shared event card preserves favorite behavior when a format has no published D+; it labels the metric as unavailable instead of rendering a false zero.
 - Notification audience: organizer update pushes target users who favorited the event.
@@ -67,6 +69,7 @@ Summary:
 ## Business Invariants
 
 - Favorites are event-scoped, not format-scoped and not plan-scoped.
+- Non-favorite events disappear after their event date. A favorite remains visible on that date and for the following fourteen calendar-day boundaries, then disappears from the catalog on day 15 without deleting the favorite row.
 - One user can favorite an event only once.
 - Anonymous users must not create favorites through the runner API. The mobile heart remains visible to them as an account-conversion entry point, but the prompt is shown before any optimistic state or API write.
 - Organizer notifications use the favorite rows as the fan-out audience source, but favorites themselves do not store notification history.
