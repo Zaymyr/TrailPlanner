@@ -48,6 +48,7 @@ related_files:
   - apps/mobile/lib/racebookGearAnalytics.ts
   - apps/mobile/lib/racebookGearAnalytics.test.ts
   - apps/mobile/lib/racebookGearItemKey.ts
+  - scripts/backfill-racebook-gear-posthog.mjs
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
   - apps/web/app/api/racebook-sponsors/impression/route.ts
@@ -195,7 +196,9 @@ The mobile RaceBook emits `racebook opened` only after an accessible RaceBook ha
 
 The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, emergency-call, Booking, and Decathlon actions. Partner presses use only the bounded `partner_booking` or `partner_decathlon` action plus the `services` context; neither the resolved destination nor affiliation parameters enter identified analytics. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
 
-After an owner-scoped Material insert/delete succeeds, mobile emits `racebook gear item toggled` with `checked`, `action: checked|unchecked`, `gear_group`, nullable organizer item id, a trimmed 160-character public item label, required state, and bounded weather context. It inherits the stable RaceBook event/race context. Failed optimistic writes emit nothing, and the event never includes the durable `item_key`, organizer note, or total checked count. Dashboard usage counts use unique people with `checked = true`; item ranking uses the same filter and unique-person math so repeated rechecks do not inflate popularity.
+After an owner-scoped Material insert/delete succeeds, mobile emits `racebook gear item toggled` with `checked`, `action: checked|unchecked`, `gear_group`, nullable organizer item id, a trimmed 160-character public item label, required state, and bounded weather context. It inherits the stable RaceBook event/race context. Failed optimistic writes emit nothing, and the event never includes the durable `item_key`, organizer note, or total checked count. Dashboard usage counts use unique people with `checked = true`; item ranking uses the same filter and unique-person math so repeated rechecks do not inflate popularity. Ranking groups by organizer item id and displays the required/recommended/weather context, preventing same-label variants from being merged.
+
+The one-time `racebook_gear_checks_2026_09_28` historical import uses `scripts/backfill-racebook-gear-posthog.mjs`. It maps the current owner-scoped Supabase rows to the same public event contract, preserves `checked_at`, and marks every event with `backfill_id` and `backfill_source`. Before executing it, query PostHog for that marker and require a zero count because historical imports are not automatically deduplicated. The source table contains only currently checked items, so this import must not be described as recovered toggle history.
 
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
