@@ -8,8 +8,14 @@ related_files:
   - apps/web/lib/partner-links.test.ts
   - apps/web/app/api/admin/partner-links/route.ts
   - apps/web/app/api/admin/partner-links/route.test.ts
+  - apps/web/app/api/partner-links/route.ts
+  - apps/web/app/api/partner-links/route.test.ts
   - apps/web/app/admin/page.tsx
   - apps/web/app/admin/_components/AdminPartnerLinksTab.tsx
+  - apps/mobile/lib/partnerLinks.ts
+  - apps/mobile/lib/partnerLinks.test.ts
+  - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookServicesSection.tsx
   - apps/web/locales/fr.ts
   - apps/web/locales/en.ts
   - apps/web/locales/types.ts
@@ -24,14 +30,15 @@ related_tables:
 
 ## Purpose
 
-Centralize Booking and Decathlon outbound destinations before their affiliate programmes are approved, then switch each partner from its normal URL to its affiliate URL without changing consuming screens.
+Centralize Booking and Decathlon outbound destinations, switch each partner from its normal URL to its affiliate URL without changing mobile code, and expose enabled destinations in the RaceBook Services tab.
 
 ## Key Concepts
 
 - The Admin `Liens partenaires` tab is the only current management surface.
 - Each partner has a standard URL, optional affiliate URL, affiliate-mode flag, and global enabled flag.
 - `resolvePartnerLinkUrl` defines the shared selection rule: disabled means no URL; otherwise use the affiliate URL only when explicitly enabled, falling back to the standard URL.
-- This first increment manages configuration only. It does not add Booking or Decathlon CTAs to the mobile RaceBook.
+- `GET /api/partner-links` is the public, read-only consumer contract. It returns only enabled resolved destinations plus the affiliation flag; raw configuration and disabled rows stay private.
+- Mobile loads this additive contract with the RaceBook and shows Booking and Decathlon in Services. An enabled partner is enough to make that tab available when the Services module is effective.
 
 ## Admin Flow
 
@@ -39,17 +46,19 @@ Centralize Booking and Decathlon outbound destinations before their affiliate pr
 
 The UI disables affiliate mode until an affiliate URL exists and previews the URL that would currently resolve. Both partners are seeded disabled, so deployment alone cannot publish outbound links.
 
-## Future Consumer Contract
+## Mobile Consumer Contract
 
-Booking and Decathlon consumers should call a narrow server endpoint that returns only enabled, resolved destinations. Booking can later append allowlisted location/date parameters, while Decathlon can append an encoded missing-equipment query if the approved affiliate deep-link format permits it. Consumers must not reimplement the standard-versus-affiliate selection rule.
+Mobile calls the narrow server endpoint instead of reading `partner_link_settings`. The response is CDN-cached for five minutes and degrades to an empty collection on request or validation failure so partner availability cannot make the RaceBook unavailable. The client accepts one HTTPS destination per known partner, renders the configured URL unchanged, and records only the bounded partner key in RaceBook interaction analytics. Booking location/date parameters and Decathlon equipment-query parameters remain out of scope until their approved deep-link formats are known.
 
 ## Disclosure
 
-Standard links must not be described as affiliate links. Once affiliate mode is active, the consuming surface must disclose that Pace Yourself may receive a commission without additional cost to the runner.
+Standard links are not described as affiliate links. If at least one returned destination is actually affiliate-backed, the mobile partner card discloses that Pace Yourself may receive a commission without additional cost to the runner.
 
 ## Validation
 
 - Route tests cover loading, atomic upsert mapping, trusted actor audit, and rejection of affiliate mode without a URL.
+- Public-route tests cover resolved standard/affiliate destinations, enabled-row filtering, cache headers, and upstream failure.
+- Mobile normalization tests reject malformed, duplicated, unsupported, or non-HTTPS destinations.
 - `supabase/tests/partner_link_settings_checks.sql` verifies RLS, privileges, seed rows, service updates, and database constraints.
 
 ## Gotchas
@@ -57,6 +66,7 @@ Standard links must not be described as affiliate links. Once affiliate mode is 
 - Affiliate-network URLs may use a tracking-network host rather than the merchant host, so validation requires HTTPS but does not hard-code Booking or Decathlon hostnames.
 - Do not display cached prices or stock from these configuration rows; they store destinations only.
 - The older `affiliate_offers` table is scoped to product catalog offers and is not a replacement for these global partner destinations.
+- Admin changes can take up to five minutes to leave the public CDN cache; pull-to-refresh then reloads the mobile partner contract.
 
 ## Related Docs
 

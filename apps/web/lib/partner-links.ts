@@ -53,9 +53,32 @@ export const partnerLinkSettingsUpdateSchema = z.object({
 
 export type PartnerLinkSetting = z.infer<typeof partnerLinkSettingSchema>;
 
+export const resolvedPartnerLinkSchema = z.object({
+  partnerKey: partnerKeySchema,
+  url: httpsUrlSchema,
+  isAffiliate: z.boolean(),
+});
+
+export const resolvedPartnerLinksResponseSchema = z.object({
+  links: z.array(resolvedPartnerLinkSchema),
+});
+
+export type ResolvedPartnerLink = z.infer<typeof resolvedPartnerLinkSchema>;
+
 export function resolvePartnerLinkUrl(setting: PartnerLinkSetting) {
   if (!setting.isEnabled) return null;
   return setting.affiliateEnabled && setting.affiliateUrl
     ? setting.affiliateUrl
     : setting.standardUrl;
+}
+
+export function resolvePublicPartnerLink(setting: PartnerLinkSetting): ResolvedPartnerLink | null {
+  const url = resolvePartnerLinkUrl(setting);
+  if (!url) return null;
+
+  return {
+    partnerKey: setting.partnerKey,
+    url,
+    isAffiliate: setting.affiliateEnabled && Boolean(setting.affiliateUrl),
+  };
 }

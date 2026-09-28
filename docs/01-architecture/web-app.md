@@ -39,6 +39,8 @@ related_files:
   - apps/web/app/admin/_components/AdminPartnerLinksTab.tsx
   - apps/web/app/api/admin/partner-links/route.ts
   - apps/web/app/api/admin/partner-links/route.test.ts
+  - apps/web/app/api/partner-links/route.ts
+  - apps/web/app/api/partner-links/route.test.ts
   - apps/web/lib/partner-links.ts
   - apps/web/lib/partner-links.test.ts
   - apps/web/app/hooks/useVerifiedSession.tsx
@@ -401,7 +403,7 @@ Catalog reads tolerate an officially unpublished D+ as `null`. Runner and admin 
 
 ### Admin Partner Links
 
-The Admin `Liens partenaires` tab manages the two global Booking and Decathlon destinations. Each entry keeps a normal URL, an optional affiliate URL, an explicit affiliate-mode switch, and a global enabled switch. The browser never accesses the configuration table directly: the admin API revalidates the bearer user through trusted Auth `app_metadata`, then performs one service-role PostgREST upsert for both partners. Both seed rows are disabled, so the schema rollout does not publish mobile CTAs. This increment is configuration-only; RaceBook consumers will be wired separately through a narrow resolved-link contract.
+The Admin `Liens partenaires` tab manages the two global Booking and Decathlon destinations. Each entry keeps a normal URL, an optional affiliate URL, an explicit affiliate-mode switch, and a global enabled switch. The browser never accesses the configuration table directly: the admin API revalidates the bearer user through trusted Auth `app_metadata`, then performs one service-role PostgREST upsert for both partners. Both seed rows are disabled, so the schema rollout alone publishes no mobile CTA. The public read-only `/api/partner-links` route uses the service credential server-side, filters enabled rows, applies the shared standard-versus-affiliate resolver, and returns only partner key, resolved HTTPS destination, and affiliation status with a five-minute CDN TTL. It never exposes disabled rows, alternate URLs, rollout flags, audit metadata, or the service credential.
 
 Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, normalizes an optional image to a bounded WebP before uploading it to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live. A new catalog race initializes its required series identity with `edition_group_id = id` and `series_name = name`.
 

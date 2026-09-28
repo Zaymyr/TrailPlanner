@@ -1,7 +1,7 @@
 ---
 title: racebook_gear_checks Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260924140119_add_racebook_gear_checks.sql
@@ -46,6 +46,7 @@ related_tables:
 - Leaving a RaceBook replaces it with Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
 - Compact sponsor rows and the Ravitos endpoint timing/spacing presentation do not read or mutate equipment-check rows.
 - Fullscreen route/profile presentation and tappable ravito points do not read or mutate equipment-check rows.
+- Global Booking and Decathlon destinations are read independently through the web API. Opening either partner action does not create, complete, or mutate a personal equipment-check row.
 
 ## Related Docs
 

@@ -49,7 +49,7 @@ The structured collection is additive on mobile. A temporary Data API/table-unav
 
 The two-line clamp applied to bib-pickup address text is isolated from service-card rendering and does not change service addresses or links.
 
-The RaceBook route keeps structured service normalization, distance approximation, link construction and analytics callbacks. `RacebookServicesSection` owns only the grouped mobile presentation and receives normalized rows, resolved theme, explicit copy and URL callbacks.
+The RaceBook route keeps structured service normalization, distance approximation, link construction and analytics callbacks. `RacebookServicesSection` owns only the grouped mobile presentation and receives normalized rows, separately resolved global Booking/Decathlon links, the resolved theme, explicit copy and URL callbacks. Those global links come from `partner_link_settings` through the public server contract and never become edition-service rows.
 
 A sponsor configured for the `services` contextual placement renders after this section in the shared compact, unframed tiered-row surface. That aggregate presentation and its impression counter do not change service rows, categories, links, or visibility.
 
@@ -61,7 +61,7 @@ Published rows travel in the consolidated RaceBook CDN snapshot. A successful se
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; structured service rows, links, visibility, and API/RLS contracts remain unchanged.
 
-When effective service content exists, Services appears directly in the RaceBook contextual bottom bar. Its filled icon and color-only active state align with the global navigation; the hero's emergency presentation, focus-time scroll reset, and route-replacing Courses exit remain independent, and the same edition-scoped visibility, fallback, and action contracts apply.
+When effective service content or an enabled global partner destination exists, Services appears directly in the RaceBook contextual bottom bar. Its filled icon and color-only active state align with the global navigation; the hero's emergency presentation, focus-time scroll reset, and route-replacing Courses exit remain independent, and the same edition-scoped visibility, fallback, and action contracts apply to organizer-authored services.
 
 Service-category and external-action icons now use the published accent surface/graphic variants. This changes no service field, visibility rule, or URL, and personal equipment checks remain isolated in `racebook_gear_checks`.
 

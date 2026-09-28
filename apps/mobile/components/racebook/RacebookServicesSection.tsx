@@ -27,20 +27,35 @@ export type RacebookLegacyServiceSection = {
   value: string;
 };
 
+export type RacebookPartnerLink = {
+  partnerKey: 'booking' | 'decathlon';
+  url: string;
+  isAffiliate: boolean;
+};
+
 export type RacebookServicesCopy = {
   emptyMessage: string;
   directionsLabel: string;
   websiteLabel: string;
   callLabel: string;
+  partnerLinksTitle: string;
+  affiliateDisclosure: string;
+  partnerLinks: Record<RacebookPartnerLink['partnerKey'], {
+    title: string;
+    description: string;
+    actionLabel: string;
+  }>;
   categoryTitles: Record<RacebookServiceCategory, string>;
 };
 
 type RacebookServicesSectionProps = {
   services: RacebookServiceItem[];
   legacySections?: RacebookLegacyServiceSection[];
+  partnerLinks?: RacebookPartnerLink[];
   theme: ResolvedRacebookTheme;
   copy: RacebookServicesCopy;
   onOpenUrl: (url: string, action: 'directions' | 'website' | 'phone', service: RacebookServiceItem) => void;
+  onOpenPartnerLink: (link: RacebookPartnerLink) => void;
 };
 
 const categoryOrder: RacebookServiceCategory[] = ['restaurant', 'accommodation', 'recovery', 'other'];
@@ -162,16 +177,18 @@ function ServiceRow({
 export function RacebookServicesSection({
   services,
   legacySections = [],
+  partnerLinks = [],
   theme,
   copy,
   onOpenUrl,
+  onOpenPartnerLink,
 }: RacebookServicesSectionProps) {
   const groupedServices = categoryOrder.map((category) => ({
     category,
     services: services.filter((service) => service.category === category),
   })).filter((group) => group.services.length > 0);
 
-  if (groupedServices.length === 0 && legacySections.length === 0) {
+  if (groupedServices.length === 0 && legacySections.length === 0 && partnerLinks.length === 0) {
     return (
       <Card style={styles.emptyCard}>
         <Text style={styles.emptyText}>{copy.emptyMessage}</Text>
@@ -214,6 +231,47 @@ export function RacebookServicesSection({
           ))}
         </Card>
       ) : null}
+
+      {partnerLinks.length > 0 ? (
+        <Card style={styles.partnerCard}>
+          <Text style={styles.categoryTitle}>{copy.partnerLinksTitle}</Text>
+          <View>
+            {partnerLinks.map((link, index) => {
+              const partnerCopy = copy.partnerLinks[link.partnerKey];
+              const icon = link.partnerKey === 'booking' ? 'bed-outline' : 'bag-handle-outline';
+
+              return (
+                <Pressable
+                  accessibilityLabel={`${partnerCopy.actionLabel} - ${partnerCopy.title}`}
+                  accessibilityRole="link"
+                  key={link.partnerKey}
+                  onPress={() => onOpenPartnerLink(link)}
+                  style={({ pressed }) => [
+                    styles.partnerRow,
+                    index > 0 ? styles.serviceRowDivider : null,
+                    pressed ? styles.actionPressed : null,
+                  ]}
+                >
+                  <View style={[styles.partnerIcon, { backgroundColor: theme.accentSurfaceColor }]}>
+                    <Ionicons color={theme.accentGraphicColor} name={icon} size={20} />
+                  </View>
+                  <View style={styles.partnerContent}>
+                    <Text style={styles.serviceName}>{partnerCopy.title}</Text>
+                    <Text style={styles.description}>{partnerCopy.description}</Text>
+                    <Text style={[styles.partnerAction, { color: theme.accentGraphicColor }]}>
+                      {partnerCopy.actionLabel}
+                    </Text>
+                  </View>
+                  <Ionicons color={theme.accentGraphicColor} name="chevron-forward" size={20} />
+                </Pressable>
+              );
+            })}
+          </View>
+          {partnerLinks.some((link) => link.isAffiliate) ? (
+            <Text style={styles.disclosure}>{copy.affiliateDisclosure}</Text>
+          ) : null}
+        </Card>
+      ) : null}
     </View>
   );
 }
@@ -242,4 +300,10 @@ const styles = StyleSheet.create({
   legacySectionDivider: { borderTopWidth: 1, borderTopColor: Colors.border },
   legacyTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
   legacyValue: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
+  partnerCard: { gap: 8 },
+  partnerRow: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 10 },
+  partnerIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  partnerContent: { flex: 1, gap: 2 },
+  partnerAction: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  disclosure: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, paddingTop: 2 },
 });

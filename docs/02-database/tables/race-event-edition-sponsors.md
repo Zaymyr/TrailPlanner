@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -121,6 +121,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - Official partners use compact two-column horizontal rows in the stable partner block. This density change does not alter ordering, tier eligibility, click redirects, viewability thresholds, or aggregate impression counting.
 - The loading runner has no opaque backing tile: it moves directly above the progress track, including for a customized edition theme. This polish change does not affect the sponsor gate or impression timing.
 - The account-owned Material checklist and broader decorative use of edition accent colors do not create sponsor impressions or mutate sponsor placement.
+- The global Booking/Decathlon card in Services is not an edition sponsor placement. Its presses use bounded RaceBook action analytics and must not increment sponsor click/impression counters or inherit sponsor redirect behavior.
 
 ## Related Docs
 

@@ -10,7 +10,11 @@ related_files:
   - apps/web/lib/partner-links.test.ts
   - apps/web/app/api/admin/partner-links/route.ts
   - apps/web/app/api/admin/partner-links/route.test.ts
+  - apps/web/app/api/partner-links/route.ts
+  - apps/web/app/api/partner-links/route.test.ts
   - apps/web/app/admin/_components/AdminPartnerLinksTab.tsx
+  - apps/mobile/lib/partnerLinks.ts
+  - apps/mobile/lib/partnerLinks.test.ts
 related_tables:
   - partner_link_settings
 ---
@@ -62,13 +66,14 @@ RLS is enabled without client policies. `PUBLIC`, `anon`, and `authenticated` ha
 
 ## Common Queries
 
-The admin route reads both rows ordered by `partner_key` and upserts both rows together with `on_conflict=partner_key`. Future public/mobile resolvers should expose only the resolved active URL, never the full configuration or `updated_by` audit field.
+The admin route reads both rows ordered by `partner_key` and upserts both rows together with `on_conflict=partner_key`. The public `/api/partner-links` route filters enabled rows server-side and exposes only the resolved active URL plus whether that resolved destination is affiliated; it never returns the alternative URL, rollout flags, timestamps, or `updated_by` audit field.
 
 ## Gotchas
 
 - `affiliate_offers` remains the product-specific merchant-offer table. Do not use it for global Booking or Decathlon CTA configuration.
 - Do not let mobile or browser clients query this table directly; affiliate destinations and rollout state remain server-mediated.
 - Do not label a standard URL as affiliated while `affiliate_enabled` is false.
+- Mobile failures must degrade to no partner CTA; they must never trigger a direct client query against this service-role-only table.
 
 ## Related Docs
 

@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -102,6 +102,8 @@ Derived relay cards now use published accent surfaces and contrast-safe accent t
 Per-format GPX map/profile choices affect only the sibling `Tracé` content and never remove relay points or the conditional `Relais` sub-tab.
 
 Ravito point markers projected onto the route/profile represent `race_aid_stations`, not relay handovers. Fullscreen course visuals do not merge or reinterpret these two collections.
+
+The independently loaded Booking and Decathlon actions can make Services available, but they never affect relay-row reads, derived legs, or the conditional Relais sub-tab.
 
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)

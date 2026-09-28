@@ -1,7 +1,7 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -54,3 +54,5 @@ Award cards now use the published accent surface and contrast-safe accent text. 
 Per-format GPX map/profile choices affect only the `Tracé` cards and remain independent from award rows, ordering, and module visibility.
 
 Fullscreen course visuals and tappable ravito markers remain presentation-only and do not change podium grouping, ordering, or persistence.
+
+Global Booking and Decathlon actions are loaded through their own server-mediated contract and rendered only in Services. They do not read, filter, or alter award rows or the conditional Podiums view.

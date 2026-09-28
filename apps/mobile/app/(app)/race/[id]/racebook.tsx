@@ -59,6 +59,7 @@ import { useI18n } from '../../../../lib/i18n';
 import { clearRaceProfileRequestCache, fetchRaceElevationProfile, fetchRaceRoutePreviewPoints, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { elevationProfileFromRoute } from '../../../../lib/racebookCourseVisuals';
 import { approximateDistanceKm, fetchRaceRacebookData, type RacebookScreenData } from '../../../../lib/racebook';
+import { fetchPartnerLinks, type ResolvedPartnerLink } from '../../../../lib/partnerLinks';
 import {
   createRacebookSponsorViewId,
   EMPTY_RACEBOOK_SPONSORS,
@@ -555,6 +556,7 @@ export default function RaceRacebookScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<RacebookScreenData | null>(null);
+  const [partnerLinks, setPartnerLinks] = useState<ResolvedPartnerLink[]>([]);
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
   const [routePreviewPoints, setRoutePreviewPoints] = useState<MobileGpxPreviewPoint[]>([]);
   const [sponsorPresentation, setSponsorPresentation] = useState<RacebookSponsorPresentation>(EMPTY_RACEBOOK_SPONSORS);
@@ -666,6 +668,7 @@ export default function RaceRacebookScreen() {
 
     if (!id) {
       setData(null);
+      setPartnerLinks([]);
       setLoading(false);
       setSponsorPresentation(EMPTY_RACEBOOK_SPONSORS);
       setSponsorSplashVisible(false);
@@ -687,10 +690,17 @@ export default function RaceRacebookScreen() {
       fetchRaceRacebookData(id),
       fetchRaceElevationProfile(id),
       fetchRaceRoutePreviewPoints(id),
+      fetchPartnerLinks(),
     ])
-      .then(([result, profilePoints, routePoints]: [RacebookScreenData | null, ElevationPoint[], MobileGpxPreviewPoint[]]) => {
+      .then(([
+        result,
+        profilePoints,
+        routePoints,
+        resolvedPartnerLinks,
+      ]: [RacebookScreenData | null, ElevationPoint[], MobileGpxPreviewPoint[], ResolvedPartnerLink[]]) => {
         if (!cancelled) {
           setData(result);
+          setPartnerLinks(resolvedPartnerLinks);
           setElevationProfile(pickBestElevationProfile(
             [profilePoints, elevationProfileFromRoute(routePoints)],
             result?.race.distanceKm,
@@ -701,6 +711,7 @@ export default function RaceRacebookScreen() {
       .catch(() => {
         if (!cancelled) {
           setData(null);
+          setPartnerLinks([]);
           setElevationProfile([]);
           setRoutePreviewPoints([]);
         }
@@ -764,13 +775,15 @@ export default function RaceRacebookScreen() {
     clearRaceProfileRequestCache(id);
 
     try {
-      const [result, profilePoints, routePoints] = await Promise.all([
+      const [result, profilePoints, routePoints, resolvedPartnerLinks] = await Promise.all([
         fetchRaceRacebookData(id),
         fetchRaceElevationProfile(id),
         fetchRaceRoutePreviewPoints(id),
+        fetchPartnerLinks(),
       ]);
 
       setData(result);
+      setPartnerLinks(resolvedPartnerLinks);
       setElevationProfile(pickBestElevationProfile(
         [profilePoints, elevationProfileFromRoute(routePoints)],
         result?.race.distanceKm,
@@ -890,13 +903,14 @@ export default function RaceRacebookScreen() {
     availableTabs.push({ key: 'course', label: t.catalog.racebookTabCourse, icon: 'map' });
     if (sponsorPresentation.modules.access) availableTabs.push({ key: 'access', label: t.catalog.racebookTabAccess, icon: 'navigate' });
 
-    if (sponsorPresentation.modules.services && (serviceSections.length > 0 || structuredServices.length > 0)) {
+    if (sponsorPresentation.modules.services && (serviceSections.length > 0 || structuredServices.length > 0 || partnerLinks.length > 0)) {
       availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices, icon: 'grid' });
     }
 
     return availableTabs;
   }, [
     serviceSections.length,
+    partnerLinks.length,
     sponsorPresentation.modules,
     structuredServices.length,
     t.catalog.racebookSectionServices,
@@ -1740,6 +1754,7 @@ export default function RaceRacebookScreen() {
                   title: section.title,
                   value: section.value,
                 }))}
+                partnerLinks={partnerLinks}
                 theme={brandTheme}
                 onOpenUrl={(url, action, service) => {
                   const trackedAction = action === 'directions'
@@ -1749,6 +1764,9 @@ export default function RaceRacebookScreen() {
                       : 'service_phone';
                   openTrackedUrl(url, trackedAction, service.category);
                 }}
+                onOpenPartnerLink={(link) => {
+                  openTrackedUrl(link.url, `partner_${link.partnerKey}`, 'services');
+                }}
                 copy={{
                   emptyMessage: locale === 'fr'
                     ? 'Aucun service publié pour cette édition.'
@@ -1756,6 +1774,20 @@ export default function RaceRacebookScreen() {
                   directionsLabel: t.catalog.racebookAccessOpenMaps,
                   websiteLabel: t.catalog.racebookServiceWebsite,
                   callLabel: t.catalog.racebookCallAction,
+                  partnerLinksTitle: t.catalog.racebookPartnerLinksTitle,
+                  affiliateDisclosure: t.catalog.racebookAffiliateDisclosure,
+                  partnerLinks: {
+                    booking: {
+                      title: t.catalog.racebookBookingTitle,
+                      description: t.catalog.racebookBookingDescription,
+                      actionLabel: t.catalog.racebookBookingAction,
+                    },
+                    decathlon: {
+                      title: t.catalog.racebookDecathlonTitle,
+                      description: t.catalog.racebookDecathlonDescription,
+                      actionLabel: t.catalog.racebookDecathlonAction,
+                    },
+                  },
                   categoryTitles: {
                     restaurant: t.catalog.racebookServiceRestaurants,
                     accommodation: t.catalog.racebookServiceAccommodations,

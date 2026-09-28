@@ -620,6 +620,14 @@ export type MobileTranslations = {
     racebookAwardMen: string;
     racebookAwardMixed: string;
     racebookServiceWebsite: string;
+    racebookPartnerLinksTitle: string;
+    racebookBookingTitle: string;
+    racebookBookingDescription: string;
+    racebookBookingAction: string;
+    racebookDecathlonTitle: string;
+    racebookDecathlonDescription: string;
+    racebookDecathlonAction: string;
+    racebookAffiliateDisclosure: string;
     racebookSectionCourseEssentials: string;
     racebookSectionCourseConstraints: string;
     racebookSectionGearRequired: string;

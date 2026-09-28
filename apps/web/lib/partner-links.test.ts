@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { resolvePartnerLinkUrl, type PartnerLinkSetting } from "./partner-links";
+import { resolvePartnerLinkUrl, resolvePublicPartnerLink, type PartnerLinkSetting } from "./partner-links";
 
 const baseSetting: PartnerLinkSetting = {
   partnerKey: "booking",
@@ -22,5 +22,14 @@ describe("resolvePartnerLinkUrl", () => {
 
   it("returns no destination while the partner is disabled", () => {
     expect(resolvePartnerLinkUrl({ ...baseSetting, isEnabled: false })).toBeNull();
+  });
+
+  it("exposes only the resolved public destination and its affiliation status", () => {
+    expect(resolvePublicPartnerLink({ ...baseSetting, affiliateEnabled: true })).toEqual({
+      partnerKey: "booking",
+      url: "https://affiliate.example/booking",
+      isAffiliate: true,
+    });
+    expect(resolvePublicPartnerLink({ ...baseSetting, isEnabled: false })).toBeNull();
   });
 });
