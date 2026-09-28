@@ -59,3 +59,5 @@ Per-format GPX map/profile choices affect only the `Tracé` cards and do not alt
 Fullscreen course visuals and tappable ravito markers remain independent from SAS selection, times, criteria, and ordering.
 
 Global Booking and Decathlon actions are an independent Services-tab payload. Their availability and presses do not change SAS rows, the authoritative common start time, or Course sub-tab visibility.
+
+Material check/uncheck analytics are independent from SAS selection and timing; they carry no wave fields and do not mutate start-wave rows.

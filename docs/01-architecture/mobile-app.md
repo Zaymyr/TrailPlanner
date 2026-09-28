@@ -99,6 +99,9 @@ related_files:
   - apps/mobile/lib/planDeparture.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
+  - apps/mobile/lib/racebookGearAnalytics.ts
+  - apps/mobile/lib/racebookGearAnalytics.test.ts
+  - apps/mobile/lib/racebookGearItemKey.ts
 related_tables:
   - races
   - race_events
@@ -134,6 +137,8 @@ The mobile `Tracé` view gives route geometry its own interaction hierarchy. The
 These three normalized collections are additive reads. If one table is temporarily unavailable during a staggered database/app rollout, mobile records a bounded warning and treats that collection as empty; it continues rendering an otherwise valid legacy RaceBook. Core race, organizer-detail, ravito and relay failures still keep the unavailable state.
 
 RaceBook sponsor presentation is isolated in `RacebookSponsorExperience.tsx`: resilient edition logos, progressive loading, sponsor links, and the stable themed partner surface remain UI concerns, while the route owns loading state and sponsor selection. `SponsorBanner` accepts a `hero` or contextual placement plus an aggregate-only impression callback, so ravitos, equipment, access, and services can compose a matching sponsor surface without coupling to the route layout. The stable surface has no enclosing advertising-style panel: principal partners use a compact 72-point row, official partners use a two-column 56-point row grid, and service partners use compact horizontal rows.
+
+The Material checklist remains owner-scoped durable state in Supabase. After a check or uncheck is confirmed, the route emits `racebook gear item toggled` with its existing RaceBook context plus bounded item label/id, required/recommended/weather group, weather context, and checked state. Failed optimistic writes emit nothing. Analytics never receives the persistence key, item note, or the runner's total checked count.
 
 ## Purpose
 

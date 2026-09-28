@@ -1,7 +1,7 @@
 ---
 title: race_edition_services Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -64,6 +64,8 @@ The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and mo
 When effective service content or an enabled global partner destination exists, Services appears directly in the RaceBook contextual bottom bar. Its filled icon and color-only active state align with the global navigation; the hero's emergency presentation, focus-time scroll reset, and route-replacing Courses exit remain independent, and the same edition-scoped visibility, fallback, and action contracts apply to organizer-authored services.
 
 Service-category and external-action icons now use the published accent surface/graphic variants. This changes no service field, visibility rule, or URL, and personal equipment checks remain isolated in `racebook_gear_checks`.
+
+Confirmed Material check/uncheck analytics carry equipment context only; they do not attach service names, addresses, links, or categories and do not mutate edition services.
 
 Per-format GPX map/profile choices affect only the `Tracé` cards and do not change edition-scoped services or their conditional tab.
 

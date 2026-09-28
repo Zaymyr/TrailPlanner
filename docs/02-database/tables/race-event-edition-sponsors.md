@@ -90,6 +90,8 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 
 ## Gotchas
 
+- Material check/uncheck analytics remain separate from aggregate sponsor impressions and clicks. They carry no sponsor id, tier, placement, or URL.
+
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; sponsor placement eligibility, redirect counting, payload filtering, and storage contracts remain unchanged.
 - Sponsor eligibility depends on the effective Signature tier, not whether its origin is Admin, Offert, Stripe, or virement.
 - The separate `racebook_analytics.view` complimentary capability never unlocks sponsor authoring or presentation; `sponsors.manage` remains Signature-only.

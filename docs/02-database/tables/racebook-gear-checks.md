@@ -9,6 +9,9 @@ related_files:
   - apps/mobile/lib/racebookGearChecklist.ts
   - apps/mobile/components/racebook/RacebookGearSection.tsx
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/lib/racebookGearAnalytics.ts
+  - apps/mobile/lib/racebookGearAnalytics.test.ts
+  - apps/mobile/lib/racebookGearItemKey.ts
 related_tables:
   - racebook_gear_checks
   - user_profiles
@@ -43,12 +46,15 @@ related_tables:
 - Organizer equipment changes do not rewrite runner rows. The UI counts only keys that still match currently published items, so removed items become harmless dormant rows.
 - Items with a persisted organizer id use it. Legacy items without an id use a deterministic normalized-label key scoped by required/recommended/weather group.
 - Toggling is optimistic in the app and rolls back visibly if the owner-scoped database write fails.
+- After a confirmed insert/delete, mobile emits `racebook gear item toggled`. The event includes the bounded published item label/id, required/recommended/weather group, weather context, and checked state, but never `item_key`, notes, or total checklist state. Failed writes emit nothing.
 - Leaving a RaceBook replaces it with Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
 - Compact sponsor rows and the Ravitos endpoint timing/spacing presentation do not read or mutate equipment-check rows.
 - Fullscreen route/profile presentation and tappable ravito points do not read or mutate equipment-check rows.
 - Global Booking and Decathlon destinations are read independently through the web API. Opening either partner action does not create, complete, or mutate a personal equipment-check row.
 
 ## Related Docs
+
+PostHog toggle events measure usage during the selected analytics window; this table remains the source of truth for current checked state. Ranking by unique people who checked an item excludes items with no emitted check event and must not be presented as a live table snapshot.
 
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)

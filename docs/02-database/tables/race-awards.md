@@ -51,6 +51,8 @@ The RaceBook contextual bottom navigation exposes only primary sections and mirr
 
 Award cards now use the published accent surface and contrast-safe accent text. This is presentation-only; personal equipment checks live separately in `racebook_gear_checks` and do not alter award rows.
 
+Confirmed Material check/uncheck analytics remain isolated from Podiums: they neither read nor mutate award rows and carry no award category or reward content.
+
 Per-format GPX map/profile choices affect only the `Tracé` cards and remain independent from award rows, ordering, and module visibility.
 
 Fullscreen course visuals and tappable ravito markers remain presentation-only and do not change podium grouping, ordering, or persistence.

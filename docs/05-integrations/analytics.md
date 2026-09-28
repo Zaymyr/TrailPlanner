@@ -45,6 +45,9 @@ related_files:
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
   - apps/mobile/components/racebook/RacebookElevationProfile.tsx
+  - apps/mobile/lib/racebookGearAnalytics.ts
+  - apps/mobile/lib/racebookGearAnalytics.test.ts
+  - apps/mobile/lib/racebookGearItemKey.ts
   - apps/mobile/lib/racebookOnboarding.ts
   - apps/web/app/api/racebook-sponsors/[id]/click/route.ts
   - apps/web/app/api/racebook-sponsors/impression/route.ts
@@ -192,6 +195,8 @@ The mobile RaceBook emits `racebook opened` only after an accessible RaceBook ha
 
 The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, emergency-call, Booking, and Decathlon actions. Partner presses use only the bounded `partner_booking` or `partner_decathlon` action plus the `services` context; neither the resolved destination nor affiliation parameters enter identified analytics. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
 
+After an owner-scoped Material insert/delete succeeds, mobile emits `racebook gear item toggled` with `checked`, `action: checked|unchecked`, `gear_group`, nullable organizer item id, a trimmed 160-character public item label, required state, and bounded weather context. It inherits the stable RaceBook event/race context. Failed optimistic writes emit nothing, and the event never includes the durable `item_key`, organizer note, or total checked count. Dashboard usage counts use unique people with `checked = true`; item ranking uses the same filter and unique-person math so repeated rechecks do not inflate popularity.
+
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
 The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, endpoint-integrated start/finish times, and equally spaced right-indented distance/elevation connectors are presentation-only. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint and connector visibility add no new analytics event or property.
@@ -296,7 +301,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Primary section selections from the contextual RaceBook bottom bar keep emitting `racebook tab viewed`. The hero return action, contextual Courses exit, and Android hardware back share the deterministic route replacement to Courses and emit `racebook action clicked` with the bounded action `exit_to_catalog`; they carry no organizer-authored content or sponsor identity.
 - RaceBook useful-action dashboards must exclude `racebook action clicked.action = exit_to_catalog`. They may include `catalog create plan clicked.action = create_plan` as the higher-value Courses follow-up, while retaining `plan created` for successful persistence rather than button intent.
 - The scroll-driven identity hero height/collapse, focus-time scroll reset, title clipping, single-line emergency label/number layout, and persistent emergency/social-action placement are presentation state only. They emit no event and add no scroll offset, phone number, image URL, color, or logo property to RaceBook analytics; an actual emergency or social press keeps its existing bounded action event.
-- Material checklist loads and toggles are private synchronization state in `racebook_gear_checks`, not product analytics events. Do not attach item labels, completion keys, or checked counts to PostHog. Expanded use of the published accent color across decorative RaceBook surfaces is likewise presentation-only.
+- Material checklist loads remain private synchronization state and emit nothing. Confirmed toggles may attach only the bounded public item metadata above; never attach persistence keys, notes, the full checklist, or checked totals. PostHog toggle history is a period interaction metric, not the authoritative current state in `racebook_gear_checks`. Expanded use of the published accent color across decorative RaceBook surfaces remains presentation-only.
 
 ## Related Docs
 
