@@ -1,7 +1,7 @@
 ---
 title: race_event_claims Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -98,6 +98,7 @@ Summary:
 - Approved claims should leave the admin pending-review queue once that membership handoff succeeds; the admin tab shows those rows only through the active-access membership list.
 - The admin review queue should resolve organizer identity when possible (`user_profiles.full_name`, otherwise auth email, otherwise `user_id`) so reviewers are not triaging UUIDs alone.
 - Once membership exists, yearly editions may be created directly as drafts. Empty creation is free; cloning requires Pro. Claims remain only an access-control exception for pre-existing catalog events, while publication rights come from the edition entitlement.
+- The new-edition dialog keeps a duplicated creation visibly busy and non-dismissible until its request and refresh settle. That client-only feedback neither creates a claim nor substitutes for the active membership and duplication-capability checks.
 - The organizer dashboard is available only after membership handoff for legacy claims. Membership unlocks event, format, image, GPX, ravito, product, edition visibility/deletion, geocoded-location maintenance, and private-demo selection for each format. That selection is available before purchase and never publishes by itself; disabling it also clears public visibility. Racebook publication remains a separate edition action requiring a paid or admin-granted entitlement. Hiding an edition forces all of its format and public Racebook flags off; deleting it requires retyping the year and cannot remove the last edition.
 - Trusted admins do not need claim or membership handoff: the claims dashboard endpoint returns all events as selector entries after its `app_metadata` admin check, while preserving membership-only selector data for ordinary users.
 - The same membership dashboard exposes `Notifier les coureurs`, but history, follower count, send, and delete operations additionally require the selected edition's Pro capability.

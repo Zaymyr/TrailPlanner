@@ -442,6 +442,20 @@ export default function CatalogScreen() {
   const lastTrackedRacebookSearchRef = useRef<string | null>(null);
 
   async function handleCreatePlan(catalogRaceId: string) {
+    const catalogEvent = eventGroups.find((event) => event.races.some((race) => race.id === catalogRaceId));
+    const catalogRace = catalogEvent?.races.find((race) => race.id === catalogRaceId)
+      ?? personalRaces.find((race) => race.id === catalogRaceId);
+
+    captureAnalyticsEvent('catalog create plan clicked', {
+      action: 'create_plan',
+      catalog_section: catalogEvent ? 'event_formats' : 'personal_races',
+      onboarding_kind: onboardingMode,
+      event_id: catalogEvent?.id,
+      event_name: catalogEvent?.name,
+      race_id: catalogRaceId,
+      race_name: catalogRace?.name,
+    });
+
     if (onboardingMode === 'plan') {
       await saveOnboardingProgress({ kind: 'plan', stage: 'nutrition', selectedRaceId: catalogRaceId });
       router.replace('/(app)/nutrition?onboarding=plan');

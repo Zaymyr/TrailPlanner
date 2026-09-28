@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_requests Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - supabase/migrations/20260721110000_add_race_event_edition_requests.sql
@@ -33,6 +33,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Existing pending rows are closed as rejected by the transition migration with an explanatory reviewer note.
 - `authenticated` insert/update grants and the organizer insert policy are removed.
 - `POST /api/organizer/edition-requests` keeps its historical URL for compatibility but now creates a canonical `race_event_editions` range. Its `duplicatePreviousEdition` input defaults to `true` for backward compatibility; when false, the route creates the edition without cloning source-year formats. It does not insert this table.
+- While that compatibility request is pending, the new-edition dialog stays open, exposes an accessible creation/duplication status, and disables its controls. This is client presentation state only and does not insert or revive a row in this table.
 - Newly created canonical editions use the database's visible-by-default state. Later visibility changes or confirmed year-typed deletion use `/api/organizer/editions/[id]`, not this retired request table.
 - The compact edition/format summary starts collapsed; expanding it or selecting a format through the mobile selector is local presentation state and neither action creates nor consults this retired request table.
 - Batching section-switch drafts into one explicit module-settings save likewise does not create or consult this retired request table. The chooser's edition-common and per-format groups only expose the existing settings scopes.

@@ -1,7 +1,7 @@
 ---
 title: Mode opératoire RaceBook organisateur
 scope: workflow
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -53,6 +53,7 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Rejouer les six étapes en 1440 × 900 et 390 × 844 : la cible et la carte doivent rester entièrement dans le viewport sans se chevaucher. L'étape éditeur cible seulement son en-tête; l'étape visibilité ouvre les contrôles puis les referme en sortie.
 - Vérifier au clavier que le titre reçoit le focus à chaque étape, que Tab reste dans la carte, qu'Échap ferme le guide, que le document ne défile pas et que le focus initial est restauré.
 - Confirmer que les trois états restent `Masqué`, `Privé` et `Public`.
+- Depuis `Actions > Créer une nouvelle édition`, lancer une duplication et confirmer que la fenêtre reste ouverte avec `Duplication de l’édition en cours…`, un indicateur animé et le formulaire désactivé jusqu’à la fin de la création.
 - Avec Essentiel déjà actif, confirmer que `Publier` et le passage d'un format à `Public` publient directement, que les sections Complet/Signature restent privées et qu'aucune erreur opérationnelle ne rouvre la fenêtre d'achat.
 - Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton RaceBook, qu'un format `Privé` garde un bouton RaceBook grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
 - Dans `Formats & GPX`, confirmer que les interrupteurs `Afficher le parcours` et `Afficher le profil altimétrique` peuvent être combinés librement et que le RaceBook masque uniquement les visuels désactivés sans retirer le GPX source.

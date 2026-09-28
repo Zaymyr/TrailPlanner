@@ -171,6 +171,7 @@ export function OrganizerSummaryHeader({
 }) {
   const [newEditionDialogOpen, setNewEditionDialogOpen] = React.useState(false);
   const [duplicatePreviousEdition, setDuplicatePreviousEdition] = React.useState(true);
+  const [isEditionCreationPending, setIsEditionCreationPending] = React.useState(false);
   const [deleteEventDialogOpen, setDeleteEventDialogOpen] = React.useState(false);
   const [deleteEventConfirmation, setDeleteEventConfirmation] = React.useState("");
   const [deleteEditionDialogOpen, setDeleteEditionDialogOpen] = React.useState(false);
@@ -409,15 +410,25 @@ export function OrganizerSummaryHeader({
         </div>
       ) : null}
 
-      <Dialog open={newEditionDialogOpen} onOpenChange={setNewEditionDialogOpen}>
+      <Dialog
+        open={newEditionDialogOpen}
+        onOpenChange={(open) => {
+          if (!isEditionCreationPending) setNewEditionDialogOpen(open);
+        }}
+      >
         <DialogContent>
           <form
             className="grid gap-5"
-            onSubmit={(event) => {
+            aria-busy={isEditionCreationPending}
+            onSubmit={async (event) => {
               event.preventDefault();
-              void onRequestEdition(duplicatePreviousEdition).then((created) => {
+              setIsEditionCreationPending(true);
+              try {
+                const created = await onRequestEdition(duplicatePreviousEdition);
                 if (created) setNewEditionDialogOpen(false);
-              });
+              } finally {
+                setIsEditionCreationPending(false);
+              }
             }}
           >
             <DialogHeader>
@@ -433,6 +444,7 @@ export function OrganizerSummaryHeader({
                   id="organizer-new-edition-date"
                   type="date"
                   required
+                  disabled={isEditionCreationPending}
                   className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
                   value={newEditionDate}
                   onChange={(event) => onEditionDateChange(event.target.value)}
@@ -446,6 +458,7 @@ export function OrganizerSummaryHeader({
                   id="organizer-new-edition-end-date"
                   type="date"
                   required
+                  disabled={isEditionCreationPending}
                   min={newEditionDate || undefined}
                   className="mt-2 h-10 w-full rounded-md border border-input bg-card px-3 text-sm text-foreground"
                   value={newEditionEndDate}
@@ -459,7 +472,7 @@ export function OrganizerSummaryHeader({
                 className="mt-0.5 h-4 w-4 rounded border-input accent-brand"
                 checked={duplicatePreviousEdition}
                 onChange={(event) => setDuplicatePreviousEdition(event.target.checked)}
-                disabled={ORGANIZER_TIER_RANK[editionTier] < ORGANIZER_TIER_RANK.complete}
+                disabled={isEditionCreationPending || ORGANIZER_TIER_RANK[editionTier] < ORGANIZER_TIER_RANK.complete}
               />
               <span>
                 <span className="block font-medium">Dupliquer depuis l’édition précédente {ORGANIZER_TIER_RANK[editionTier] < ORGANIZER_TIER_RANK.complete ? "— Complet" : ""}</span>
@@ -468,12 +481,38 @@ export function OrganizerSummaryHeader({
                 </span>
               </span>
             </label>
+            {isEditionCreationPending ? (
+              <div
+                role="status"
+                aria-live="polite"
+                className="flex items-start gap-3 rounded-md border border-brand-border bg-brand-surface p-3 text-sm text-foreground"
+              >
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-brand/30 border-t-brand"
+                />
+                <span>
+                  <span className="block font-medium">
+                    {duplicatePreviousEdition ? "Duplication de l’édition en cours…" : "Création de l’édition en cours…"}
+                  </span>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {duplicatePreviousEdition
+                      ? "Les formats et leurs données sont en cours de préparation. Cette opération peut prendre quelques instants."
+                      : "La nouvelle édition est en cours de préparation. Cette opération peut prendre quelques instants."}
+                  </span>
+                </span>
+              </div>
+            ) : null}
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setNewEditionDialogOpen(false)} disabled={status !== "idle"}>
+              <Button type="button" variant="outline" onClick={() => setNewEditionDialogOpen(false)} disabled={isEditionCreationPending || status !== "idle"}>
                 Annuler
               </Button>
-              <Button type="submit" disabled={status !== "idle"}>
-                {status === "saving" ? "Création..." : "Créer l’édition"}
+              <Button type="submit" disabled={isEditionCreationPending || status !== "idle"}>
+                {isEditionCreationPending
+                  ? duplicatePreviousEdition
+                    ? "Duplication en cours…"
+                    : "Création en cours…"
+                  : "Créer l’édition"}
               </Button>
             </DialogFooter>
           </form>
