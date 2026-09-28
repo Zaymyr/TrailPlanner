@@ -21,3 +21,20 @@ export function getRacebookGearItemKey(
 
   return `${group}:label:${(hash >>> 0).toString(36)}:${normalizedLabel.slice(0, 220)}`;
 }
+
+export function countMissingRequiredRacebookGearItems(
+  items: ReadonlyArray<{
+    id: string | null;
+    label: string;
+    active: boolean;
+    required: boolean;
+  }>,
+  checkedItemKeys: ReadonlySet<string>,
+) {
+  return items.reduce((missingCount, item) => {
+    if (!item.active || !item.required) return missingCount;
+    return checkedItemKeys.has(getRacebookGearItemKey('required', item))
+      ? missingCount
+      : missingCount + 1;
+  }, 0);
+}

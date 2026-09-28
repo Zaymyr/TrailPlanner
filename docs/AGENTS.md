@@ -181,6 +181,8 @@ Use the smallest reliable context first, then expand only when the task needs it
 
 ## Hard Rules
 
+- Use the primary repository checkout as the single worktree for normal development. Switch task branches in that directory; do not create an auxiliary worktree unless the user explicitly requests isolated parallel work.
+- Before pushing `main` or promoting production, enumerate every registered worktree, inspect each one with `git status --short --branch`, and inspect `git log --branches --not --remotes --oneline`. A dirty worktree or a local-only commit blocks release until the work is committed and pushed, integrated into the release branch, or explicitly abandoned by the user. CI cannot detect uncommitted files stored in another local worktree.
 - Migrations are schema truth. `docs/_archive/db/schema.sql` is historical.
 - Never query `auth.users` from client code. Use server/service role or SECURITY DEFINER functions.
 - New RLS admin checks must use trusted `app_metadata`, profile/server checks, or service role. Do not use `user_metadata`.

@@ -627,6 +627,9 @@ export type MobileTranslations = {
     racebookDecathlonTitle: string;
     racebookDecathlonDescription: string;
     racebookDecathlonAction: string;
+    racebookDecathlonMissingOne: string;
+    racebookDecathlonMissingMany: string;
+    racebookDecathlonReady: string;
     racebookAffiliateDisclosure: string;
     racebookSectionCourseEssentials: string;
     racebookSectionCourseConstraints: string;

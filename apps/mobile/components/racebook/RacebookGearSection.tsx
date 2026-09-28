@@ -25,6 +25,12 @@ export type RacebookGearSectionCopy = {
   checkedLabel: string;
   uncheckedLabel: string;
   progressLabel: string;
+  decathlonTitle: string;
+  decathlonMissingOne: string;
+  decathlonMissingMany: string;
+  decathlonReady: string;
+  decathlonAction: string;
+  affiliateDisclosure: string;
 };
 
 export type RacebookGearSectionProps = {
@@ -37,6 +43,9 @@ export type RacebookGearSectionProps = {
   checkedItemKeys: ReadonlySet<string>;
   pendingItemKeys: ReadonlySet<string>;
   onToggleItem: (itemKey: string, checked: boolean) => void;
+  decathlonLink?: { isAffiliate: boolean } | null;
+  missingRequiredItemCount: number;
+  onOpenDecathlonLink?: () => void;
 };
 
 const EMPTY_ITEM_KEYS = new Set<string>();
@@ -155,6 +164,9 @@ export function RacebookGearSection({
   checkedItemKeys = EMPTY_ITEM_KEYS,
   pendingItemKeys = EMPTY_ITEM_KEYS,
   onToggleItem = NOOP_TOGGLE,
+  decathlonLink = null,
+  missingRequiredItemCount,
+  onOpenDecathlonLink = NOOP_TOGGLE,
 }: RacebookGearSectionProps) {
   const hasItems = requiredItems.length + recommendedItems.length + weatherItems.length > 0;
   const totalItems = requiredItems.length + recommendedItems.length + weatherItems.length;
@@ -165,7 +177,7 @@ export function RacebookGearSection({
   ];
   const checkedCount = allItemKeys.filter((itemKey) => checkedItemKeys.has(itemKey)).length;
 
-  if (!hasItems && notes.length === 0) {
+  if (!hasItems && notes.length === 0 && !decathlonLink) {
     return (
       <Card style={styles.emptyCard}>
         <Text style={styles.emptyText}>{copy.emptyMessage}</Text>
@@ -184,6 +196,44 @@ export function RacebookGearSection({
             {copy.progressLabel.replace('{checked}', String(checkedCount)).replace('{total}', String(totalItems))}
           </Text>
         </View>
+      ) : null}
+      {decathlonLink ? (
+        <>
+          <Pressable
+            accessibilityLabel={`${copy.decathlonAction} - ${copy.decathlonTitle}`}
+            accessibilityRole="link"
+            onPress={onOpenDecathlonLink}
+            style={({ pressed }) => [
+              styles.decathlonLink,
+              {
+                backgroundColor: theme.accentSurfaceColor,
+                borderColor: theme.accentBorderColor,
+              },
+              pressed ? styles.gearRowPressed : null,
+            ]}
+          >
+            <View style={[styles.decathlonIcon, { backgroundColor: theme.accentGraphicColor }]}>
+              <Ionicons color={Colors.surface} name="bag-handle-outline" size={20} />
+            </View>
+            <View style={styles.decathlonContent}>
+              <Text style={styles.decathlonTitle}>{copy.decathlonTitle}</Text>
+              <Text style={styles.decathlonDescription}>
+                {missingRequiredItemCount === 0
+                  ? copy.decathlonReady
+                  : missingRequiredItemCount === 1
+                    ? copy.decathlonMissingOne
+                    : copy.decathlonMissingMany.replace('{count}', String(missingRequiredItemCount))}
+              </Text>
+              <Text style={[styles.decathlonAction, { color: theme.accentGraphicColor }]}>
+                {copy.decathlonAction}
+              </Text>
+            </View>
+            <Ionicons color={theme.accentGraphicColor} name="chevron-forward" size={20} />
+          </Pressable>
+          {decathlonLink.isAffiliate ? (
+            <Text style={styles.disclosure}>{copy.affiliateDisclosure}</Text>
+          ) : null}
+        </>
       ) : null}
       <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="required" items={requiredItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} theme={theme} title={copy.requiredTitle} />
       <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="recommended" items={recommendedItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} theme={theme} title={copy.recommendedTitle} />
@@ -210,6 +260,13 @@ const styles = StyleSheet.create({
   progress: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1 },
   progressIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
   progressText: { flex: 1, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  decathlonLink: { minHeight: 84, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1 },
+  decathlonIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  decathlonContent: { flex: 1, gap: 2 },
+  decathlonTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
+  decathlonDescription: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
+  decathlonAction: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  disclosure: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: -12 },
   emptyCard: { padding: 16 },
   emptyText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   group: { gap: 8 },

@@ -15,6 +15,7 @@ related_files:
   - apps/mobile/lib/partnerLinks.ts
   - apps/mobile/lib/partnerLinks.test.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/components/racebook/RacebookGearSection.tsx
   - apps/mobile/components/racebook/RacebookServicesSection.tsx
   - apps/web/locales/fr.ts
   - apps/web/locales/en.ts
@@ -30,7 +31,7 @@ related_tables:
 
 ## Purpose
 
-Centralize Booking and Decathlon outbound destinations, switch each partner from its normal URL to its affiliate URL without changing mobile code, and expose enabled destinations in the RaceBook Services tab.
+Centralize Booking and Decathlon outbound destinations, switch each partner from its normal URL to its affiliate URL without changing mobile code, and expose them in the relevant RaceBook preparation surfaces.
 
 ## Key Concepts
 
@@ -38,7 +39,7 @@ Centralize Booking and Decathlon outbound destinations, switch each partner from
 - Each partner has a standard URL, optional affiliate URL, affiliate-mode flag, and global enabled flag.
 - `resolvePartnerLinkUrl` defines the shared selection rule: disabled means no URL; otherwise use the affiliate URL only when explicitly enabled, falling back to the standard URL.
 - `GET /api/partner-links` is the public, read-only consumer contract. It returns only enabled resolved destinations plus the affiliation flag; raw configuration and disabled rows stay private.
-- Mobile loads this additive contract with the RaceBook and shows Booking and Decathlon in Services. An enabled partner is enough to make that tab available when the Services module is effective.
+- Mobile loads this additive contract with the RaceBook. Booking appears in the permanent Services tab; Decathlon appears in Matériel immediately above the required-equipment group.
 
 ## Admin Flow
 
@@ -48,13 +49,13 @@ The UI disables affiliate mode until an affiliate URL exists and previews the UR
 
 ## Mobile Consumer Contract
 
-Mobile calls the narrow server endpoint instead of reading `partner_link_settings`. The response is CDN-cached for five minutes and degrades to an empty collection on request or validation failure so partner availability cannot make the RaceBook unavailable. The client accepts one HTTPS destination per known partner, renders the configured URL unchanged, and records only the bounded partner key in RaceBook interaction analytics. Booking location/date parameters and Decathlon equipment-query parameters remain out of scope until their approved deep-link formats are known.
+Mobile calls the narrow server endpoint instead of reading `partner_link_settings`. The response is CDN-cached for five minutes and degrades to an empty collection on request or validation failure so partner availability cannot make the RaceBook unavailable. The client accepts one HTTPS destination per known partner and renders the configured URL unchanged. Booking remains in Services with `action_context: services`; Decathlon uses the Matériel surface with `action_context: equipment` and a dynamic missing-required message. That count includes only active required equipment, so recommended items and weather-tagged items under an inactive weather plan are excluded. Analytics records only the bounded partner key/context, never the count or destination. Booking location/date parameters and Decathlon equipment-query parameters remain out of scope until their approved deep-link formats are known.
 
 RaceBook gear-checklist analytics are independent from this contract: loading or toggling gear does not alter partner visibility, destinations, or outbound-link tracking.
 
 ## Disclosure
 
-Standard links are not described as affiliate links. If at least one returned destination is actually affiliate-backed, the mobile partner card discloses that Pace Yourself may receive a commission without additional cost to the runner.
+Standard links are not described as affiliate links. Each mobile surface discloses that Pace Yourself may receive a commission without additional cost to the runner only when its rendered destination is actually affiliate-backed.
 
 ## Validation
 
@@ -69,6 +70,7 @@ Standard links are not described as affiliate links. If at least one returned de
 - Do not display cached prices or stock from these configuration rows; they store destinations only.
 - The older `affiliate_offers` table is scoped to product catalog offers and is not a replacement for these global partner destinations.
 - Admin changes can take up to five minutes to leave the public CDN cache; pull-to-refresh then reloads the mobile partner contract.
+- The Services tab remains visible even if the partner request temporarily fails. That failure shows its ordinary empty state and does not re-enable organizer-authored services whose module is inactive.
 
 ## Related Docs
 

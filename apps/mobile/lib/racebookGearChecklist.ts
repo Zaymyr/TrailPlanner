@@ -1,6 +1,10 @@
 import { supabase } from './supabase';
 
-export { getRacebookGearItemKey, type RacebookGearGroupKey } from './racebookGearItemKey';
+export {
+  countMissingRequiredRacebookGearItems,
+  getRacebookGearItemKey,
+  type RacebookGearGroupKey,
+} from './racebookGearItemKey';
 
 export async function loadRacebookGearChecks(raceId: string) {
   const { data: sessionData } = await supabase.auth.getSession();
