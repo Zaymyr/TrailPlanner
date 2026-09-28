@@ -57,4 +57,4 @@ Per-format GPX map/profile choices affect only the `Tracé` cards and remain ind
 
 Fullscreen course visuals and tappable ravito markers remain presentation-only and do not change podium grouping, ordering, or persistence.
 
-Global Booking and Decathlon actions are loaded through their own server-mediated contract and rendered only in Services. They do not read, filter, or alter award rows or the conditional Podiums view.
+Global Booking and Decathlon actions are loaded through their own server-mediated contract. Booking renders in the permanent Services tab, while Decathlon renders in Matériel above required equipment. Neither action reads, filters, or alters award rows or the conditional Podiums view.

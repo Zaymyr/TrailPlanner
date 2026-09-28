@@ -76,7 +76,11 @@ import {
   buildRacebookGearStateProperties,
   buildRacebookGearToggleProperties,
 } from '../../../../lib/racebookGearAnalytics';
-import { loadRacebookGearChecks, saveRacebookGearCheck } from '../../../../lib/racebookGearChecklist';
+import {
+  countMissingRequiredRacebookGearItems,
+  loadRacebookGearChecks,
+  saveRacebookGearCheck,
+} from '../../../../lib/racebookGearChecklist';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
@@ -907,6 +911,14 @@ export default function RaceRacebookScreen() {
         : null),
     }));
   }, [data]);
+  const bookingPartnerLinks = useMemo(
+    () => partnerLinks.filter((link) => link.partnerKey === 'booking'),
+    [partnerLinks],
+  );
+  const decathlonPartnerLink = useMemo(
+    () => partnerLinks.find((link) => link.partnerKey === 'decathlon') ?? null,
+    [partnerLinks],
+  );
 
   const awardsByTime = useMemo(() => {
     const groups = new Map<string, NonNullable<typeof data>['awards']>();
@@ -925,16 +937,11 @@ export default function RaceRacebookScreen() {
     availableTabs.push({ key: 'course', label: t.catalog.racebookTabCourse, icon: 'map' });
     if (sponsorPresentation.modules.access) availableTabs.push({ key: 'access', label: t.catalog.racebookTabAccess, icon: 'navigate' });
 
-    if (sponsorPresentation.modules.services && (serviceSections.length > 0 || structuredServices.length > 0 || partnerLinks.length > 0)) {
-      availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices, icon: 'grid' });
-    }
+    availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices, icon: 'grid' });
 
     return availableTabs;
   }, [
-    serviceSections.length,
-    partnerLinks.length,
     sponsorPresentation.modules,
-    structuredServices.length,
     t.catalog.racebookSectionServices,
     t.catalog.racebookTabAccess,
     t.catalog.racebookTabBib,
@@ -1150,6 +1157,10 @@ export default function RaceRacebookScreen() {
   const requiredEquipment = equipmentItems.filter((item) => item.active && item.required);
   const recommendedEquipment = equipmentItems.filter((item) => item.active && !item.required);
   const conditionalEquipment = equipmentItems.filter((item) => !item.active);
+  const missingRequiredEquipmentCount = countMissingRequiredRacebookGearItems(
+    equipmentItems,
+    checkedGearItemKeys,
+  );
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
     () => resolveRacebookTheme(sponsorPresentation.branding),
@@ -1501,6 +1512,13 @@ export default function RaceRacebookScreen() {
                 checkedItemKeys={checkedGearItemKeys}
                 pendingItemKeys={pendingGearItemKeys}
                 onToggleItem={toggleGearItem}
+                decathlonLink={decathlonPartnerLink}
+                missingRequiredItemCount={missingRequiredEquipmentCount}
+                onOpenDecathlonLink={() => {
+                  if (decathlonPartnerLink) {
+                    openTrackedUrl(decathlonPartnerLink.url, 'partner_decathlon', 'equipment');
+                  }
+                }}
                 copy={{
                   requiredTitle: t.catalog.racebookSectionGearRequired,
                   recommendedTitle: t.catalog.racebookSectionGearRecommended,
@@ -1511,6 +1529,12 @@ export default function RaceRacebookScreen() {
                   checkedLabel: t.catalog.racebookGearChecked,
                   uncheckedLabel: t.catalog.racebookGearUnchecked,
                   progressLabel: t.catalog.racebookGearProgress,
+                  decathlonTitle: t.catalog.racebookDecathlonTitle,
+                  decathlonMissingOne: t.catalog.racebookDecathlonMissingOne,
+                  decathlonMissingMany: t.catalog.racebookDecathlonMissingMany,
+                  decathlonReady: t.catalog.racebookDecathlonReady,
+                  decathlonAction: t.catalog.racebookDecathlonAction,
+                  affiliateDisclosure: t.catalog.racebookAffiliateDisclosure,
                 }}
               />
               <RacebookSponsorBanner
@@ -1806,7 +1830,7 @@ export default function RaceRacebookScreen() {
             {activeTab === 'services' ? (
               <>
               <RacebookServicesSection
-                services={structuredServices.map((service) => ({
+                services={(sponsorPresentation.modules.services ? structuredServices : []).map((service) => ({
                   id: service.id,
                   category: service.serviceType,
                   name: service.name,
@@ -1817,12 +1841,12 @@ export default function RaceRacebookScreen() {
                   websiteUrl: service.websiteUrl,
                   phoneUrl: service.phone ? buildTelephoneUrl(service.phone) : null,
                 }))}
-                legacySections={serviceSections.map((section) => ({
+                legacySections={(sponsorPresentation.modules.services ? serviceSections : []).map((section) => ({
                   key: section.title,
                   title: section.title,
                   value: section.value,
                 }))}
-                partnerLinks={partnerLinks}
+                partnerLinks={bookingPartnerLinks}
                 theme={brandTheme}
                 onOpenUrl={(url, action, service) => {
                   const trackedAction = action === 'directions'
@@ -1864,15 +1888,17 @@ export default function RaceRacebookScreen() {
                   },
                 }}
               />
-              <RacebookSponsorBanner
-                key={`services-${id ?? 'unknown'}`}
-                sponsors={sponsorPresentation.contextualSponsors}
-                label={t.catalog.racebookSponsorsBannerLabel}
-                discoverLabel={t.catalog.racebookSponsorDiscover}
-                placement="services"
-                theme={brandTheme}
-                onSponsorImpression={reportSponsorImpression}
-              />
+              {sponsorPresentation.modules.services ? (
+                <RacebookSponsorBanner
+                  key={`services-${id ?? 'unknown'}`}
+                  sponsors={sponsorPresentation.contextualSponsors}
+                  label={t.catalog.racebookSponsorsBannerLabel}
+                  discoverLabel={t.catalog.racebookSponsorDiscover}
+                  placement="services"
+                  theme={brandTheme}
+                  onSponsorImpression={reportSponsorImpression}
+                />
+              ) : null}
               </>
             ) : null}
           </View>

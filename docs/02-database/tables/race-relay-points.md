@@ -105,7 +105,7 @@ Per-format GPX map/profile choices affect only the sibling `Tracé` content and 
 
 Ravito point markers projected onto the route/profile represent `race_aid_stations`, not relay handovers. Fullscreen course visuals do not merge or reinterpret these two collections.
 
-The independently loaded Booking and Decathlon actions can make Services available, but they never affect relay-row reads, derived legs, or the conditional Relais sub-tab.
+The independently loaded Booking action occupies the permanent Services tab, while Decathlon appears in Matériel. Neither action affects relay-row reads, derived legs, or the conditional Relais sub-tab.
 
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)

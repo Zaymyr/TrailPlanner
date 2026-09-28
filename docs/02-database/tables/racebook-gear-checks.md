@@ -12,6 +12,7 @@ related_files:
   - apps/mobile/lib/racebookGearAnalytics.ts
   - apps/mobile/lib/racebookGearAnalytics.test.ts
   - apps/mobile/lib/racebookGearItemKey.ts
+  - apps/mobile/lib/racebookGearItemKey.test.ts
   - scripts/backfill-racebook-gear-state-posthog.mjs
 related_tables:
   - racebook_gear_checks
@@ -52,7 +53,7 @@ related_tables:
 - Leaving a RaceBook replaces it with Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
 - Compact sponsor rows and the Ravitos endpoint timing/spacing presentation do not read or mutate equipment-check rows.
 - Fullscreen route/profile presentation and tappable ravito points do not read or mutate equipment-check rows.
-- Global Booking and Decathlon destinations are read independently through the web API. Opening either partner action does not create, complete, or mutate a personal equipment-check row.
+- Global Booking and Decathlon destinations are read independently through the web API. Decathlon renders above required equipment and derives its message from unchecked keys among active required items only; inactive weather-plan and recommended items are excluded. Opening either partner action does not create, complete, or mutate a personal equipment-check row.
 
 ## Related Docs
 
