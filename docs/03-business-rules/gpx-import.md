@@ -40,6 +40,7 @@ related_files:
   - apps/mobile/components/race/GpxImportPreviewModal.tsx
   - apps/mobile/components/race/GpxRoutePreviewCard.tsx
   - apps/mobile/lib/race-import.ts
+  - supabase/migrations/20260928090816_correct_bibracte_ultra_druides_aid_stations.sql
 related_tables:
   - races
   - race_aid_stations
@@ -72,6 +73,7 @@ This document describes how GPX files are parsed, stored, and converted into rac
 - rejects HTML/non-GPX content;
 - parses `trkpt` first, then `rtept`, then `wpt` as a fallback;
 - validates latitude and longitude ranges;
+- unwraps CDATA sections used by some GPX producers for track, waypoint, and description text;
 - computes cumulative distance with haversine distance;
 - computes elevation gain/loss with a 1 m threshold;
 - returns bounds, min/max altitude, start coordinate, waypoints, and point source.
@@ -207,6 +209,8 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - A dated event format must have a canonical `edition_id`. The database assignment trigger creates or reuses the matching event/year edition for service-side catalog/import inserts; GPX parsing itself must not infer the commercial checkout target.
 
 - GPX parse errors have specific codes. Preserve them when adding UI messaging.
+- GPX waypoint labels may be wrapped in XML CDATA. Keep the wrapper out of parsed names and descriptions so Organizer previews and imported station labels show only the source text.
+- Do not assume every generic waypoint is a ravito. The Bibracte Ultra des Druides source GPX mixes unlabeled course POIs and summit-area points; its targeted data correction uses the organizer profile's ten food-station markers plus its distinct Saint-Prix water point, and preserves the remaining waypoints as route-only source data.
 - A user GPX import must be private and non-live in the initial database insert. Never rely on a follow-up mobile update to close a temporary public row.
 - Keep `GPX récupéré` tied to importable GPX content, not only to reliable provider metrics; some adapters can know distance/elevation without returning a file.
 - Never merge a distance-only GPX detection into a named format automatically. Preserve it as a separate candidate until identity is confirmed.

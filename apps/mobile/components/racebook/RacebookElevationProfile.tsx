@@ -160,6 +160,18 @@ export function RacebookElevationProfile({
         selectedStation.waterAvailable ? (locale === 'fr' ? 'Eau' : 'Water') : null,
         selectedStation.solidAvailable ? (locale === 'fr' ? 'Solide' : 'Food') : null,
         selectedStation.assistanceAllowed ? (locale === 'fr' ? 'Assistance autorisée' : 'Crew allowed') : null,
+        selectedStation.organizerDetails.dropBagAvailable ? (locale === 'fr' ? 'Sac d’allègement' : 'Drop bag') : null,
+      ].filter(Boolean)
+    : [];
+  const stationNote = selectedStation
+    ? selectedStation.organizerDetails.organizerNote ?? selectedStation.notes
+    : null;
+  const stationContext = selectedStation
+    ? [
+        services.join(' · ') || null,
+        selectedStation.organizerDetails.cutoffTime
+          ? `${locale === 'fr' ? 'Barrière' : 'Cutoff'} ${selectedStation.organizerDetails.cutoffTime}`
+          : null,
       ].filter(Boolean)
     : [];
 
@@ -256,15 +268,50 @@ export function RacebookElevationProfile({
       </View>
 
       {selectedStation ? (
-        <View style={[styles.stationDetail, expanded && styles.stationDetailExpanded, { borderColor: accentColor }]} accessibilityLiveRegion="polite">
-          <View style={styles.stationDetailHeader}>
-            <View style={[styles.stationDetailIcon, { backgroundColor: accentColor }]}>
-              <Ionicons name="water" size={15} color="#FFFFFF" />
+        expanded ? (
+          <View style={[styles.stationDetail, styles.stationDetailExpanded, { borderColor: accentColor }]} accessibilityLiveRegion="polite">
+            <View style={styles.stationDetailExpandedIdentity}>
+              <View style={[styles.stationDetailIcon, styles.stationDetailIconExpanded, { backgroundColor: accentColor }]}>
+                <Ionicons name="water" size={13} color="#FFFFFF" />
+              </View>
+              <View style={styles.stationDetailTitleWrap}>
+                <Text style={styles.stationDetailEyebrow}>{locale === 'fr' ? 'Ravitaillement' : 'Aid station'}</Text>
+                <Text style={styles.stationDetailTitle}>{selectedStation.name}</Text>
+              </View>
             </View>
-            <View style={styles.stationDetailTitleWrap}>
-              <Text style={styles.stationDetailEyebrow}>{locale === 'fr' ? 'Ravitaillement' : 'Aid station'}</Text>
-              <Text style={styles.stationDetailTitle}>{selectedStation.name}</Text>
+
+            <View style={styles.stationStatsExpanded}>
+              <View style={styles.stationStatExpanded}>
+                <Text style={styles.stationStatLabel}>Distance</Text>
+                <DataText style={styles.stationStatValueExpanded}>
+                  {selectedStation.km.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km
+                </DataText>
+              </View>
+              <View style={styles.stationStatExpanded}>
+                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'D+ cumulé' : 'Gain so far'}</Text>
+                <DataText style={styles.stationStatValueExpanded}>
+                  {selectedStationCumulativeGain !== null && selectedStationCumulativeGain !== undefined
+                    ? `${formatNumber(selectedStationCumulativeGain, locale)} m`
+                    : '—'}
+                </DataText>
+              </View>
+              <View style={styles.stationStatExpanded}>
+                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'D- cumulé' : 'Loss so far'}</Text>
+                <DataText style={styles.stationStatValueExpanded}>
+                  {selectedStationCumulativeLoss !== null && selectedStationCumulativeLoss !== undefined
+                    ? `${formatNumber(selectedStationCumulativeLoss, locale)} m`
+                    : '—'}
+                </DataText>
+              </View>
             </View>
+
+            {stationContext.length > 0 || stationNote ? (
+              <View style={styles.stationDetailExpandedContext}>
+                {stationContext.length > 0 ? <Text style={styles.stationDetailMeta}>{stationContext.join(' · ')}</Text> : null}
+                {stationNote ? <Text style={styles.stationDetailNoteExpanded}>{stationNote}</Text> : null}
+              </View>
+            ) : null}
+
             <Pressable
               onPress={() => setSelectedStationId(null)}
               style={styles.closeDetail}
@@ -275,34 +322,53 @@ export function RacebookElevationProfile({
               <Ionicons name="close" size={18} color={Colors.textSecondary} />
             </Pressable>
           </View>
-          <View style={styles.stationStats}>
-            <View style={styles.stationStat}>
-              <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'Distance cumulée' : 'Distance'}</Text>
-              <DataText style={styles.stationStatValue}>
-                {selectedStation.km.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km
-              </DataText>
+        ) : (
+          <View style={[styles.stationDetail, { borderColor: accentColor }]} accessibilityLiveRegion="polite">
+            <View style={styles.stationDetailHeader}>
+              <View style={[styles.stationDetailIcon, { backgroundColor: accentColor }]}>
+                <Ionicons name="water" size={15} color="#FFFFFF" />
+              </View>
+              <View style={styles.stationDetailTitleWrap}>
+                <Text style={styles.stationDetailEyebrow}>{locale === 'fr' ? 'Ravitaillement' : 'Aid station'}</Text>
+                <Text style={styles.stationDetailTitle}>{selectedStation.name}</Text>
+              </View>
+              <Pressable
+                onPress={() => setSelectedStationId(null)}
+                style={styles.closeDetail}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={locale === 'fr' ? 'Fermer le détail' : 'Close details'}
+              >
+                <Ionicons name="close" size={18} color={Colors.textSecondary} />
+              </Pressable>
             </View>
-            <View style={styles.stationStat}>
-              <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'D+ cumulé' : 'Gain so far'}</Text>
-              <DataText style={styles.stationStatValue}>
-                {selectedStationCumulativeGain !== null && selectedStationCumulativeGain !== undefined
-                  ? `${formatNumber(selectedStationCumulativeGain, locale)} m`
-                  : '—'}
-              </DataText>
+            <View style={styles.stationStats}>
+              <View style={styles.stationStat}>
+                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'Distance cumulée' : 'Distance'}</Text>
+                <DataText style={styles.stationStatValue}>
+                  {selectedStation.km.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km
+                </DataText>
+              </View>
+              <View style={styles.stationStat}>
+                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'D+ cumulé' : 'Gain so far'}</Text>
+                <DataText style={styles.stationStatValue}>
+                  {selectedStationCumulativeGain !== null && selectedStationCumulativeGain !== undefined
+                    ? `${formatNumber(selectedStationCumulativeGain, locale)} m`
+                    : '—'}
+                </DataText>
+              </View>
             </View>
+            {(() => {
+              const details = [
+                services.join(' · ') || null,
+                selectedStationCumulativeLoss !== null && selectedStationCumulativeLoss !== undefined ? `D- ${formatNumber(selectedStationCumulativeLoss, locale)} m` : null,
+                selectedStation.organizerDetails.cutoffTime ? `${locale === 'fr' ? 'Barrière' : 'Cutoff'} ${selectedStation.organizerDetails.cutoffTime}` : null,
+              ].filter(Boolean);
+              return details.length > 0 ? <Text style={styles.stationDetailMeta}>{details.join(' · ')}</Text> : null;
+            })()}
+            {stationNote ? <Text style={styles.stationDetailNote}>{stationNote}</Text> : null}
           </View>
-          {(() => {
-            const details = [
-              services.join(' · ') || null,
-              selectedStationCumulativeLoss !== null && selectedStationCumulativeLoss !== undefined ? `D- ${formatNumber(selectedStationCumulativeLoss, locale)} m` : null,
-              selectedStation.organizerDetails.cutoffTime ? `${locale === 'fr' ? 'Barrière' : 'Cutoff'} ${selectedStation.organizerDetails.cutoffTime}` : null,
-            ].filter(Boolean);
-            return details.length > 0 ? <Text style={styles.stationDetailMeta}>{details.join(' · ')}</Text> : null;
-          })()}
-          {!expanded && (selectedStation.organizerDetails.organizerNote ?? selectedStation.notes) ? (
-            <Text style={styles.stationDetailNote}>{selectedStation.organizerDetails.organizerNote ?? selectedStation.notes}</Text>
-          ) : null}
-        </View>
+        )
       ) : inspection ? (
         <View style={styles.metricsRow} accessibilityLiveRegion="polite">
           <View style={styles.metric}>
@@ -349,17 +415,24 @@ const styles = StyleSheet.create({
   coverageNotice: { flexDirection: 'row', alignItems: 'flex-start', gap: 7, paddingHorizontal: 10, paddingVertical: 9, borderRadius: 12, backgroundColor: Colors.warningSurface },
   coverageNoticeText: { flex: 1, color: Colors.textSecondary, fontSize: 11, lineHeight: 16 },
   stationDetail: { padding: 12, borderRadius: 14, borderWidth: 1, backgroundColor: Colors.surface, gap: 5 },
-  stationDetailExpanded: { paddingVertical: 8, gap: 2 },
+  stationDetailExpanded: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 6, gap: 8 },
+  stationDetailExpandedIdentity: { width: 130, minWidth: 90, flexShrink: 1, flexDirection: 'row', alignItems: 'center', gap: 7 },
   stationDetailHeader: { flexDirection: 'row', alignItems: 'center', gap: 9 },
   stationDetailIcon: { width: 30, height: 30, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
+  stationDetailIconExpanded: { width: 26, height: 26, borderRadius: 13 },
   stationDetailTitleWrap: { flex: 1, minWidth: 0 },
   stationDetailEyebrow: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700', textTransform: 'uppercase' },
   stationDetailTitle: { color: Colors.textPrimary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
   closeDetail: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
   stationStats: { flexDirection: 'row', gap: 8 },
+  stationStatsExpanded: { flexShrink: 1, flexDirection: 'row', gap: 4 },
   stationStat: { flex: 1, minWidth: 0, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 10, backgroundColor: Colors.surfaceSecondary },
+  stationStatExpanded: { width: 72, minWidth: 58, flexShrink: 1, paddingHorizontal: 6, paddingVertical: 6, borderRadius: 9, backgroundColor: Colors.surfaceSecondary },
   stationStatLabel: { color: Colors.textMuted, fontSize: 9, lineHeight: 12, fontWeight: '700', textTransform: 'uppercase' },
   stationStatValue: { marginTop: 1, color: Colors.textPrimary, fontSize: 15, lineHeight: 19, fontWeight: '800' },
+  stationStatValueExpanded: { marginTop: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 16, fontWeight: '800' },
   stationDetailMeta: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
   stationDetailNote: { marginTop: 2, paddingTop: 7, borderTopWidth: 1, borderTopColor: Colors.border, color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  stationDetailExpandedContext: { flex: 1, minWidth: 70, gap: 2 },
+  stationDetailNoteExpanded: { color: Colors.textSecondary, fontSize: 11, lineHeight: 14 },
 });

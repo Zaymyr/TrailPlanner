@@ -89,14 +89,17 @@ const decodeNumericEntity = (value: string) => {
 
 const decodeEntities = (text: string | null | undefined) => {
   if (!text) return "";
-  return text
+  const trimmed = text.trim();
+  const cdata = trimmed.match(/^<!\[CDATA\[([\s\S]*)\]\]>$/);
+  if (cdata) return cdata[1].trim();
+
+  return trimmed
     .replace(/&#(x?[0-9a-f]+);/gi, (_match, value: string) => decodeNumericEntity(value))
     .replace(/&lt;/g, "<")
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
-    .replace(/&amp;/g, "&")
-    .trim();
+    .replace(/&amp;/g, "&");
 };
 
 const toRadians = (degrees: number) => (degrees * Math.PI) / 180;

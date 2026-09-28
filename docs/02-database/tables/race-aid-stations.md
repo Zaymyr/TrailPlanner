@@ -20,6 +20,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.test.ts
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
+  - supabase/migrations/20260928090816_correct_bibracte_ultra_druides_aid_stations.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
   - apps/web/app/api/organizer/races/[id]/aid-station-products/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
@@ -105,6 +106,7 @@ Summary:
 - Organizer GPX upload creates stations from waypoints only when a format has no existing source stations; existing station ids are preserved and must be edited through the ravito route.
 - Organizer field import leaves stations untouched unless the admin explicitly selects the `aidStations` field. That selection atomically replaces the whole set through the service-only apply RPC; omitted service flags keep the historical enabled defaults.
 - A ravito may be selected as a relay handover location, but its relay snapshot remains separate and does not change nutrition behavior.
+- The Bibracte Ultra des Druides correction uses the organizer-uploaded profile image to seed its ten full food-station markers plus the distinct Saint-Prix water point, only when the format still has no source stations. Generic GPX waypoints are deliberately not inserted because that file also marks summits and does not identify waypoint roles.
 
 ## Common Queries
 

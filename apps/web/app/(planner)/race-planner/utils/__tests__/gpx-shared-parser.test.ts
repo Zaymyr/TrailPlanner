@@ -134,4 +134,25 @@ describe("shared GPX parser", () => {
     const parsed = parseGpx(gpx);
     expect(parsed.waypoints[0]?.name).toBe("Départ d'été");
   });
+
+  it("unwraps CDATA waypoint names and descriptions", () => {
+    const gpx = `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <wpt lat="45.0000" lon="3.0000">
+    <name><![CDATA[POI Générique]]></name>
+    <desc><![CDATA[Texte libre]]></desc>
+  </wpt>
+  <trk><trkseg>
+    <trkpt lat="45.0000" lon="3.0000" />
+    <trkpt lat="45.0010" lon="3.0010" />
+  </trkseg></trk>
+</gpx>`;
+
+    const parsed = parseGpx(gpx);
+
+    expect(parsed.waypoints[0]).toMatchObject({
+      name: "POI Générique",
+      desc: "Texte libre",
+    });
+  });
 });
