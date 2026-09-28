@@ -19,11 +19,13 @@ Before doing ANY task in this repo, read in this order:
 
 4. **Branch discipline** — every new task MUST start on a new `dev/*` branch created from the latest `origin/main` (`git fetch origin` then `git switch -c dev/<task-name> origin/main`). Never work directly on `main`, reuse a branch from an already merged or closed pull request, or continue new work on a previous task branch.
 
-5. **Supabase auth** — admin role is in `auth.users.raw_app_meta_data` (JWT claims), NOT in `user_profiles.role`. RLS policies reference `app_metadata`, not `user_metadata`.
+5. **Single-worktree discipline** — use the primary repository checkout and switch `dev/*` branches in that same directory. Do not create an additional worktree unless the user explicitly requests isolated parallel work. Before any push to `main` or production promotion, audit every path returned by `git worktree list --porcelain`; any uncommitted change or local commit absent from all remotes blocks the push until it is committed and pushed, integrated, or explicitly abandoned by the user.
 
-6. **UI component reuse-first** — before creating a UI component, search existing components in `apps/web/components`, the local `_components` folder, and package design-system exports. Reuse or extend an existing component when it fits; keep new components at the narrowest scope until they are used by multiple screens.
+6. **Supabase auth** — admin role is in `auth.users.raw_app_meta_data` (JWT claims), NOT in `user_profiles.role`. RLS policies reference `app_metadata`, not `user_metadata`.
 
-7. **Progressive context first** - start with the smallest reliable context: the active file, direct imports, the nearest relevant test, and the minimum required docs. Prefer targeted search before opening whole files. Expand to broader tests, related docs, or shared code as soon as uncertainty remains or contracts, security, schema, business rules, or regression risk require it.
+7. **UI component reuse-first** — before creating a UI component, search existing components in `apps/web/components`, the local `_components` folder, and package design-system exports. Reuse or extend an existing component when it fits; keep new components at the narrowest scope until they are used by multiple screens.
+
+8. **Progressive context first** - start with the smallest reliable context: the active file, direct imports, the nearest relevant test, and the minimum required docs. Prefer targeted search before opening whole files. Expand to broader tests, related docs, or shared code as soon as uncertainty remains or contracts, security, schema, business rules, or regression risk require it.
 
 ## Delegation and model economy
 

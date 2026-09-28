@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - package.json
@@ -32,6 +32,7 @@ Use this workflow as a repo-level checklist for implementing and validating a fe
 - Surface: web, mobile, Supabase, or shared package.
 - Blast radius: how many routes/tables/apps the change touches.
 - Docs update: required when behavior, schema, auth, or workflows change.
+- Worktree visibility: GitHub and remote CI cannot see uncommitted changes stored in another local worktree.
 
 ## Steps
 
@@ -43,6 +44,7 @@ git switch -c dev/<task-name> origin/main
 ```
 
    Never reuse a branch from an already merged or closed pull request, and never place new work on a branch from a previous task. After the pull request is merged, delete its local and remote branches.
+   Use the primary repository checkout and switch task branches there. Do not create another worktree unless the user explicitly requests isolated parallel work.
 2. Read `docs/AGENTS.md` and route yourself to the relevant domain docs.
 3. Search the existing implementation before adding new patterns:
 
@@ -70,6 +72,14 @@ npm run verify
     Run `npm run lint -w @trailplanner/mobile` after TypeScript or JavaScript changes.
     Keep Expo ESLint plugins used by the legacy config explicit in `apps/mobile/devDependencies`; do not rely on a plugin being transitively hoisted in an existing local `node_modules` tree.
 12. For mobile navigation, authentication, or visual changes, run the Maestro shell journey and review its screenshots against [Mobile UX Audit](mobile-ux-audit.md). Treat the automated pass as functional evidence, not as proof that the composition is harmonious.
+13. Immediately before pushing `main` or promoting production, run the local worktree release audit:
+
+```bash
+git worktree list --porcelain
+git log --branches --not --remotes --oneline
+```
+
+   For every `worktree` path in the first command, run `git -C <path> status --short --branch`. Stop the release when any worktree is dirty or when any commit is local-only. Resolve each item by committing and pushing it, integrating it into the release branch, or obtaining an explicit user decision to abandon it. A clean current directory alone is not sufficient evidence.
 
 The web CI workflow runs on pull requests and on `main`. It fetches Git history and runs `npm run docs:check` against the pull-request base commit or the previous `main` commit, then runs lint, typecheck, the complete web Vitest suite, and the production build. The mobile pre-check runs on pull requests and on `main` when mobile code, shared packages, workspace manifests, the lockfile, Turbo configuration, or its workflow changes. It blocks on mobile lint, typecheck, unit tests, and Expo dependency compatibility. Keep targeted local tests for fast feedback, but do not remove these full gates from CI.
 
@@ -88,6 +98,8 @@ The root `packageManager` pin is required by Turbo workspace discovery. Update i
 ## Do Not
 
 - Do not start a new task from an existing feature branch or reuse a branch whose pull request was merged or closed.
+- Do not create an additional worktree for ordinary sequential work.
+- Do not push `main` or promote production while another registered worktree is dirty or a local commit is absent from all remotes.
 - Do not invent schema fields; verify migrations or live schema.
 - Do not edit `_archive` as current docs.
 - Do not add generic SaaS prose to project docs.
