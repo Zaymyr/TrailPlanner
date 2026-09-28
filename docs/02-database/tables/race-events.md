@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -32,6 +32,8 @@ related_files:
   - supabase/tests/race_slug_redirects_checks.sql
   - supabase/tests/web_race_visibility_checks.sql
   - apps/web/app/api/race-catalog/route.ts
+  - apps/web/app/api/admin/race-events/[id]/thumbnail/route.ts
+  - scripts/optimize-supabase-race-images.mjs
   - apps/web/app/api/admin/race-catalog/route.ts
   - apps/web/app/api/admin/race-events/[id]/route.ts
   - apps/web/app/api/organizer/events/[id]/route.ts
@@ -99,7 +101,7 @@ related_tables:
 ## Key Concepts
 
 - Event grouping: multiple `races` can belong to one event.
-- Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer uploads currently accept PNG files through a server route and store the resulting public Storage URL here.
+- Event image: `thumbnail_url` can be used as a shared event thumbnail; organizer and admin uploads pass through server routes that store a bounded, versioned WebP public Storage URL here.
 - RaceBook identity hero: mobile prefers the format thumbnail and falls back to this event thumbnail beneath the published primary-color gradient; this display choice does not alter image ownership or visibility.
 - Event liveness: mobile and onboarding use event/race live state for course catalog visibility; it no longer determines Racebook visibility.
 - Edition liveness: `race_event_editions.is_visible` can hide one year by forcing only that edition's formats and Racebooks off while leaving the parent event and other years unchanged.
@@ -170,6 +172,7 @@ Organizer portal writes also go through web service routes after checking `race_
 ## Business Invariants
 
 - Event rows are created by admin catalog import routes when `event_name` is supplied.
+- New admin event-thumbnail writes are normalized to a maximum-1024 px WebP with long-cache metadata. The reference migration script conditionally swaps current database URLs to optimized objects and preserves the old objects for rollback.
 - Geographic catalog filtering must use the explicit normalized columns. The plain `location` label remains display text and `organizer_details.eventLocation` remains runner-navigation metadata.
 - Latitude/longitude identify an event anchor city, not every point crossed by a route. Multi-city formats keep their sourced departure-arrival wording in `races.location_text`.
 - Changing `race_events.location` without updating the normalized geography in the same statement clears all normalized fields through `clear_stale_race_event_geography()`, preventing stale regional filters.

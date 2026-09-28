@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
@@ -46,6 +46,8 @@ A column-and-trigger migration on an existing table is outside this workflow too
 A function-only authorization repair, such as `20260911120508_fix_single_format_publication_admin_check.sql`, also belongs to the RLS workflow rather than this table workflow.
 
 A presentation-only change in a consumer listed by the schema documentation, such as the mobile race catalog card, does not require a migration. Keep the affected schema or table documentation aligned with the consumer's current read contract, then validate the application and documentation without applying the table-creation steps below.
+
+A Storage delivery optimization that only writes new versioned image objects and conditionally replaces existing `thumbnail_url` values also does not require a table migration. Document the affected image-write contract and preserve old objects for rollback; do not introduce schema solely to change image encoding or cache metadata.
 
 ## Key Concepts
 

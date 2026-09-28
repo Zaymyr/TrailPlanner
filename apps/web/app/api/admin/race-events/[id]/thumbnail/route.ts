@@ -3,6 +3,12 @@ import { z } from "zod";
 
 import { checkRateLimit, withSecurityHeaders } from "../../../../../../lib/http";
 import {
+  IMAGE_UPLOAD_CACHE_CONTROL,
+  OPTIMIZED_IMAGE_CONTENT_TYPE,
+  OPTIMIZED_IMAGE_EXTENSION,
+  optimizeImageFile,
+} from "../../../../../../lib/optimized-image";
+import {
   extractBearerToken,
   fetchSupabaseUser,
   getSupabaseAnonConfig,
@@ -79,8 +85,14 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     );
   }
 
-  const ext = mimeType.split("/")[1] ?? "jpg";
-  const storagePath = `events/${parsedParams.data.id}/thumbnail-${Date.now()}.${ext}`;
+  let optimizedImage: ArrayBuffer;
+  try {
+    optimizedImage = await optimizeImageFile(imageFile);
+  } catch {
+    return withSecurityHeaders(NextResponse.json({ message: "Invalid image file." }, { status: 400 }));
+  }
+
+  const storagePath = `events/${parsedParams.data.id}/thumbnail-${Date.now()}.${OPTIMIZED_IMAGE_EXTENSION}`;
 
   const uploadResponse = await fetch(
     `${supabaseService.supabaseUrl}/storage/v1/object/race-images/${storagePath}`,
@@ -89,10 +101,11 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
       headers: {
         apikey: supabaseService.supabaseServiceRoleKey,
         Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
-        "Content-Type": mimeType,
+        "Content-Type": OPTIMIZED_IMAGE_CONTENT_TYPE,
+        "cache-control": IMAGE_UPLOAD_CACHE_CONTROL,
         "x-upsert": "true",
       },
-      body: imageFile,
+      body: optimizedImage,
     }
   );
 

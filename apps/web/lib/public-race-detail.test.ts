@@ -132,6 +132,8 @@ describe("public race detail", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
     }));
+    const gpxCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/storage/v1/object/race-gpx/"));
+    expect(gpxCall?.[1]).toEqual(expect.objectContaining({ next: { revalidate: 31_536_000 } }));
   });
 
   it("refuses rich content when the parent event is no longer public", async () => {

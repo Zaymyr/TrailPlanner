@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -42,6 +42,7 @@ related_files:
   - apps/web/app/courses/[slug]/race-metadata.ts
   - scripts/audit-public-race-slugs.mjs
   - scripts/audit-public-race-slugs.test.mjs
+  - scripts/optimize-supabase-race-images.mjs
 related_tables:
   - race_events
   - races
@@ -69,6 +70,8 @@ This document defines which public race pages Pace Yourself may expose to search
 The lightweight catalog contract allowlists the parent event's canonical `race_events.website_url` alongside the format's `races.external_site_url`. The primary `S’inscrire` action uses the event website first, falls back to the format URL for a standalone or missing-event link, opens in a new tab, and is omitted unless the selected value is HTTP(S). The same rule applies to the course hero and the existing official-source list without exposing raw organizer JSON.
 
 Each current public slug resolves to `/courses/[slug]`. A known former slug reloads the target through the same current visibility checks, emits canonical metadata for the current URL, then returns a permanent redirect. Unknown mappings and targets that are no longer public remain not found and noindex.
+
+The dynamic route returns no build-time parameters. The first request for a current or former slug generates the route through ISR, then the normal 15-minute page revalidation applies. This prevents a deployment from replaying every public race detail query and private GPX read while the sitemap continues to expose every canonical URL.
 
 The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, display location, normalized city/department/region/country labels, an allowlisted array of searchable location labels, distance, D+, slug, the format official URL, and the parent event website used by the registration CTA. Searchable labels come only from the format's two public location strings and the parent event's public location, city, department, region, and country; codes, coordinates, organizer JSON and operational fields stay outside the client DTO. Its server-only, explicit-column service read requires `races.web_catalog_is_live`, `races.is_public`, and a live optional parent event; it deliberately does not consult mobile edition visibility or broaden direct client RLS. The separate server-only `PublicRaceDetail` repeats those web gates before reading organizer details, edition dates, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
 
@@ -128,6 +131,7 @@ Existing race slugs remain canonical until a rename is explicitly approved. The 
 ## Gotchas
 
 - Keep the registration target event-first and HTTP(S)-only. Do not expose raw organizer JSON or silently turn an unvalidated string into an outbound link.
+- Keep catalog/detail visibility on the 15-minute public window. The raw GPX object may remain in the persistent data cache for one year only because every replacement writes a new Storage path; never overwrite or reuse a published GPX path.
 - Web course discovery uses `races.web_catalog_is_live` / `races.is_public` and live parent events. Mobile discovery continues to use `is_live`, `racebook_preview_is_visible`, and edition visibility; `racebook_is_live` independently protects practical RaceBook modules.
 - First public/mobile publication promotes `web_catalog_is_live`. Later format-private, masked, or edition-hidden transitions may clear the mobile/RaceBook flags but preserve the factual web page and its slug redirects. Setting `is_public = false` clears web visibility, and deleting an edition still cascades its formats.
 - Keep catalog, slug resolution, sitemap, detail, and private-GPX preview on the shared 15-minute public-race revalidation window. A longer negative detail cache can otherwise outlive a catalog refresh and expose a temporary crawlable 404.

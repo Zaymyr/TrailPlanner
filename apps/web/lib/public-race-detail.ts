@@ -241,7 +241,9 @@ async function loadRoutePreview(config: SupabaseServiceConfig, storagePath: stri
   try {
     const response = await fetch(`${config.supabaseUrl}/storage/v1/object/race-gpx/${storagePath}`, {
       headers: serviceHeaders(config),
-      next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      // GPX paths are versioned on upload. Keep the raw multi-megabyte source
+      // in the persistent data cache while the page data keeps its 15-minute ISR.
+      next: { revalidate: 31_536_000 },
     });
     if (!response.ok) return null;
     return buildPublicRaceRoutePreview(await response.text());

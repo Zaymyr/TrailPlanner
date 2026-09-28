@@ -20,6 +20,7 @@ import { buildRaceMetadataDescription, buildRaceMetadataTitle, formatPublicRaceD
 import { buildRaceOverview, buildRaceStructuredData } from "./race-structured-data";
 
 export const revalidate = 900;
+export const dynamicParams = true;
 
 type PageProps = { params: { slug: string } };
 
@@ -121,8 +122,7 @@ const StatusBadge = ({ positive, label }: { positive: boolean; label: string }) 
 
 
 export async function generateStaticParams() {
-  const races = await getPublicRaces();
-  return races.map((race) => ({ slug: race.slug }));
+  return [];
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {

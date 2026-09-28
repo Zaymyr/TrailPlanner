@@ -19,7 +19,7 @@ vi.mock("../../../lib/public-races", () => ({
 
 vi.mock("../../../lib/public-race-detail", () => ({ getPublicRaceDetail }));
 
-import RacePage, { generateMetadata } from "./page";
+import RacePage, { generateMetadata, generateStaticParams } from "./page";
 import { buildRaceMetadataDescription, buildRaceMetadataTitle } from "./race-metadata";
 
 const canonicalRace = {
@@ -101,6 +101,11 @@ describe("public race legacy slug page", () => {
     permanentRedirect.mockImplementation(() => {
       throw new Error("NEXT_REDIRECT");
     });
+  });
+
+  it("defers course generation until the first request", async () => {
+    await expect(generateStaticParams()).resolves.toEqual([]);
+    expect(getPublicRaces).not.toHaveBeenCalled();
   });
 
   it("uses canonical metadata for a known old slug", async () => {

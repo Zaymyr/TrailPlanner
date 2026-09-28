@@ -6,6 +6,12 @@ import { parseGpx } from "../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../lib/http";
 import {
+  IMAGE_UPLOAD_CACHE_CONTROL,
+  OPTIMIZED_IMAGE_CONTENT_TYPE,
+  OPTIMIZED_IMAGE_EXTENSION,
+  optimizeImageFile,
+} from "../../../lib/optimized-image";
+import {
   extractBearerToken,
   fetchSupabaseUser,
   getSupabaseAnonConfig,
@@ -203,21 +209,20 @@ const validateImageFile = (imageFile: File) => {
 const uploadRaceImage = async (
   supabaseService: NonNullable<ReturnType<typeof getSupabaseServiceConfig>>,
   raceId: string,
-  imageFile: File
+  optimizedImage: ArrayBuffer
 ) => {
-  const mimeType = imageFile.type || "image/jpeg";
-  const extension = mimeType.split("/")[1] ?? "jpg";
-  const storagePath = `catalog/${raceId}/thumbnail-${Date.now()}.${extension}`;
+  const storagePath = `catalog/${raceId}/thumbnail-${Date.now()}.${OPTIMIZED_IMAGE_EXTENSION}`;
 
   const uploadResponse = await fetch(`${supabaseService.supabaseUrl}/storage/v1/object/race-images/${storagePath}`, {
     method: "POST",
     headers: {
       apikey: supabaseService.supabaseServiceRoleKey,
       Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
-      "Content-Type": mimeType,
+      "Content-Type": OPTIMIZED_IMAGE_CONTENT_TYPE,
+      "cache-control": IMAGE_UPLOAD_CACHE_CONTROL,
       "x-upsert": "true",
     },
-    body: imageFile,
+    body: optimizedImage,
   });
 
   if (!uploadResponse.ok) {
@@ -347,10 +352,16 @@ export async function POST(request: NextRequest) {
   }
 
   const imageFile = formData.get("image");
+  let optimizedImage: ArrayBuffer | null = null;
   if (imageFile instanceof File) {
     const imageError = validateImageFile(imageFile);
     if (imageError) {
       return withSecurityHeaders(NextResponse.json({ message: imageError }, { status: 400 }));
+    }
+    try {
+      optimizedImage = await optimizeImageFile(imageFile);
+    } catch {
+      return withSecurityHeaders(NextResponse.json({ message: "Invalid image file." }, { status: 400 }));
     }
   } else if (imageFile !== null) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid image file." }, { status: 400 }));
@@ -416,9 +427,9 @@ export async function POST(request: NextRequest) {
 
   let thumbnailUrl = parsedFields.data.thumbnail_url ?? null;
   let imageStoragePath: string | null = null;
-  if (imageFile instanceof File) {
+  if (optimizedImage) {
     try {
-      const uploadedImage = await uploadRaceImage(supabaseService, raceId, imageFile);
+      const uploadedImage = await uploadRaceImage(supabaseService, raceId, optimizedImage);
       thumbnailUrl = uploadedImage.publicUrl;
       imageStoragePath = uploadedImage.storagePath;
     } catch (error) {

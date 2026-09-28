@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -37,6 +37,7 @@ related_files:
   - supabase/tests/web_race_visibility_checks.sql
   - apps/web/app/api/races/route.ts
   - apps/web/app/api/races/route.test.ts
+  - apps/web/app/api/race-catalog/[id]/thumbnail/route.ts
   - apps/web/lib/organizer-dashboard-details.ts
   - apps/web/app/organizer/_components/dashboard/event-format-editors.tsx
   - apps/mobile/lib/racebook.ts
@@ -49,6 +50,7 @@ related_files:
   - apps/web/lib/public-race-detail.test.ts
   - scripts/audit-public-race-slugs.mjs
   - scripts/audit-public-race-slugs.test.mjs
+  - scripts/optimize-supabase-race-images.mjs
 related_tables:
   - races
   - race_events
@@ -148,7 +150,7 @@ An authenticated non-admin may insert, update, or delete only a standalone race 
 - The organizer-source March–May 2027 batch publishes 15 additional formats across Rouffach, Cahors, and Volvic. Exact dates, locations, distances, and source URLs come from organizer pages; D+ stays null for Volvic formats whose 2027 elevation is not yet published. The existing 2026 XGTV format retains its measured metrics and receives only its verified route label/source fallback.
 - The normalized-geography migration refreshes eleven Search Console-priority `location`/`location_text` labels with source-backed city, route endpoint and administrative-area wording. Exact region/department filters belong to the parent `race_events` normalized fields rather than parsed format text.
 - Every dated row with an `event_id` is attached to the matching canonical event/year edition. The assignment trigger atomically creates or expands that edition when legacy catalog/import code omits `edition_id`.
-- Web catalog, slug, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail, and GPX preview share a 15-minute revalidation window. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
+- Web catalog, slug, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail visibility, and route ISR share a 15-minute revalidation window; raw GPX bytes use a one-year persistent cache because replacement uploads use immutable versioned paths. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 
 ## Common Queries
@@ -191,6 +193,7 @@ where web_catalog_is_live = true
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
 - Do not bulk-update slugs without reviewing the read-only audit and using the service-only rename RPC after its migration is deployed.
 - Never expose `gpx_storage_path` or raw `organizer_details` from a public client contract. The public route may receive only the server-parsed, bounded GPX preview and allowlisted practical fields.
+- Admin thumbnail replacement writes a bounded versioned WebP with long-cache metadata. The reference migration script updates only rows still pointing at the source URL and preserves old Storage objects for rollback.
 - Do not add per-format logo/color columns to `races`; all formats in one canonical edition deliberately share the branding projection.
 - Do not parse `location_text` into geographic filters. It may describe a start-to-finish route crossing several communes; use the parent event's normalized geography for broad catalog filters.
 

@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -97,7 +97,7 @@ The parser does not use a DOM/XML parser; it uses regex-based extraction tuned t
 2. Accepts multipart form data with GPX.
 3. Optionally creates a draft `race_events` row unless the admin explicitly marks it live.
 4. Uploads GPX into private `race-gpx`.
-5. Optionally uploads image into public `race-images`.
+5. Optionally decodes the image, bounds it to 1024 px, converts it to WebP, and uploads the versioned object into public `race-images` with one-year cache metadata.
 6. Inserts a public `races` row that stays draft (`is_live = false`) by default unless the admin explicitly marks it live, initializing `edition_group_id` from the new race id and `series_name` from its name.
 7. Inserts `race_aid_stations` from manual stations or normalized GPX waypoints.
 
@@ -141,7 +141,7 @@ The mobile import preview also keeps the parsed route geometry client-side throu
 
 ## Public Course Preview
 
-The public `/courses/[slug]` detail loader can read a private `race-gpx` object only from the server and only after independently confirming `races.web_catalog_is_live`, `races.is_public`, and optional parent-event liveness. Mobile format/edition visibility does not remove an already published web preview. It parses through the same `parseGpx` source of truth and sends the browser a bounded route/elevation DTO of about 600 points. The Storage path and GPX source content are never serialized, and the page exposes no GPX download button. Its server fetch uses the shared 15-minute public-race revalidation window so GPX/detail visibility cannot remain stale longer than the catalog or sitemap.
+The public `/courses/[slug]` detail loader can read a private `race-gpx` object only from the server and only after independently confirming `races.web_catalog_is_live`, `races.is_public`, and optional parent-event liveness. Mobile format/edition visibility does not remove an already published web preview. It parses through the same `parseGpx` source of truth and sends the browser a bounded route/elevation DTO of about 600 points. The Storage path and GPX source content are never serialized, and the page exposes no GPX download button. Detail visibility and route ISR use the shared 15-minute public-race window, while the raw multi-megabyte GPX fetch uses a one-year persistent data-cache entry because replacement uploads always use a new versioned path.
 
 Route geometry remains usable when elevation tags are absent, but the elevation profile is omitted rather than inventing zero-altitude data. Missing objects and parse failures return no preview without blocking the remaining public course facts.
 
@@ -200,6 +200,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 ## Gotchas
 
 - Admin catalog copy may use typographic French apostrophes to remain JSX-lint safe; this presentation detail must not alter GPX parsing, upload, or publication behavior.
+- Never overwrite or reuse a public race's existing `gpx_storage_path`: the public detail loader relies on versioned replacement paths to cache raw GPX bytes durably without serving an old trace.
 - A legacy `elevation_gain_m` missing marker is cleared when the parsed trace contains elevation samples, even if the computed gain is zero; do not use a positive-gain test as a proxy for elevation availability.
 
 - Organizer official-product overlays are capability-gated separately from GPX/ravito import. Non-Pro formats keep their route and stations but expose no official-product overlay.

@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -109,6 +109,9 @@ related_files:
   - apps/web/app/root-chrome.tsx
   - apps/web/lib/plan-share.ts
   - apps/web/app/api/race-catalog/route.ts
+  - apps/web/app/api/race-catalog/[id]/thumbnail/route.ts
+  - apps/web/app/api/admin/race-events/[id]/thumbnail/route.ts
+  - scripts/optimize-supabase-race-images.mjs
   - apps/web/app/api/admin/race-catalog/utmb/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.test.ts
@@ -324,7 +327,7 @@ The web app owns the browser planner, onboarding/account flows, admin catalog to
 
 The current web stack still runs on `react` / `react-dom` `18.3.1`. Any browser map bindings added under `apps/web` must stay compatible with React 18 until the app is upgraded; for Leaflet route previews that means staying on the React 18-compatible `react-leaflet` line rather than the React 19-only v5 releases.
 
-`sharp` is server-only. Organizer event/format thumbnails and product images are decoded, orientation-normalized, bounded to 1024 px without enlargement, encoded as WebP, and uploaded with `cacheControl: max-age=31536000` Storage metadata. Versioned object paths make a long cache safe wherever the delivery layer honors that metadata. Invalid raster payloads fail before any Storage or database write. The reference-based maintenance script migrates only product URLs currently present in `products.image_url`; it keeps the prior objects for rollback instead of scanning or copying complete buckets.
+`sharp` is server-only. Organizer and admin event/format thumbnails and product images are decoded, orientation-normalized, bounded to 1024 px without enlargement, encoded as WebP, and uploaded with `cacheControl: max-age=31536000` Storage metadata. Versioned object paths make a long cache safe wherever the delivery layer honors that metadata. Invalid raster payloads fail before any Storage or database write. Reference-based maintenance scripts migrate only URLs currently present in database rows: the product script updates `products.image_url`, while `scripts/optimize-supabase-race-images.mjs` updates referenced `race_events.thumbnail_url` and `races.thumbnail_url` values. Both keep prior objects for rollback instead of scanning or copying complete buckets.
 
 The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` files. Vitest remains responsible for compiling and running those tests; this prevents a web-only Next.js build from following test imports into mobile-only Expo modules whose dependencies are intentionally absent from the web deployment.
 
@@ -390,7 +393,7 @@ The public client emits consent-gated, aggregate-only crew engagement events for
 
 Catalog reads tolerate an officially unpublished D+ as `null`. Runner and admin surfaces display it as not supplied (never as zero or `NaN`), and catalog plan creation remains unavailable until a real elevation value exists.
 
-Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, uploads images to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live. A new catalog race initializes its required series identity with `edition_group_id = id` and `series_name = name`.
+Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, normalizes an optional image to a bounded WebP before uploading it to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live. A new catalog race initializes its required series identity with `edition_group_id = id` and `series_name = name`.
 
 The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, and direct GPX download. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition.
 
@@ -410,7 +413,7 @@ Blog frontmatter supports an explicit `locale` of `fr` or `en` and otherwise def
 
 The public race discovery surface lives at `/courses`. Its server-only service read loads only rows where both `races.web_catalog_is_live` and `races.is_public` are true, uses explicit public column selects, and requires a live optional parent event. This keeps masked organizer columns behind existing client RLS while making mobile format/edition visibility independent. Search, distance, period, grouping, and pagination are computed on the server, and only 12 event-edition groups are serialized per response; none of the complete `PublicRace` collection is sent as client-component props. The server-rendered page emits a page-scoped `ItemList`, ordinary crawlable course links, and `prev`/`next` pagination links. Filtered query combinations are `noindex,follow` with `/courses` as canonical; unfiltered numbered pages keep their own canonical and out-of-range pages return not found. Text search covers the format name/location, parent event name/location, and the event's normalized city, department, region, and country. It is accent- and punctuation-insensitive and treats entered words independently, so administrative names remain findable in any order. The default view puts upcoming/current formats before undated formats, while the past view sorts newest first. After filtering, formats sharing a stable non-null `eventId + editionId` render inside one semantic event-edition card ordered by distance; legacy event rows without an edition fall back to `eventId`, and standalone races remain separate cards. Event and format image URLs stay distinct, missing images reserve no space, and every format keeps a crawlable course link.
 
-Each web-public race has a canonical `/courses/[slug]` page. Known slugs are returned from `generateStaticParams`; catalog, slug resolution, sitemap, detail, and private-GPX preview share the same 15-minute revalidation window, and uncached slugs remain resolvable at runtime. A former slug is looked up in `race_slug_redirects`, revalidated against the durable web flag and optional parent-event visibility, then permanently redirected before rich data is loaded. Course metadata keeps titles at 60 characters and descriptions at 160 characters. The title reserves a factual distance/year suffix and truncates the middle of long race names, preserving both the event prefix and the distinguishing format code or name at the end.
+Each web-public race has a canonical `/courses/[slug]` page. `generateStaticParams` deliberately returns no build-time paths: a course is generated and cached by ISR on its first request, avoiding a complete catalog/detail/GPX replay on every deployment. Catalog, slug resolution, sitemap, detail visibility, and the route page keep a 15-minute revalidation window. The raw private GPX fetch uses a one-year persistent data-cache entry because every replacement receives a new versioned Storage path; uncached slugs remain resolvable at runtime. A former slug is looked up in `race_slug_redirects`, revalidated against the durable web flag and optional parent-event visibility, then permanently redirected before rich data is loaded. Course metadata keeps titles at 60 characters and descriptions at 160 characters. The title reserves a factual distance/year suffix and truncates the middle of long race names, preserving both the event prefix and the distinguishing format code or name at the end.
 
 The lightweight catalog DTO and server-only detail DTO are deliberately separate. The detail service rechecks web-public race and live parent event before service-role organizer, edition-date, ravito, or private GPX reads. It applies the shared inheritance parser but serializes only an explicit runner-safe shape: emergency phone, `lastMinuteMessage`, raw organizer JSON, GPX paths and GPX source content never reach client components. A valid private GPX is parsed on the server and reduced to about 600 route/profile points; invalid GPX removes only that visualization. Detail pages add `BreadcrumbList` JSON-LD and add factual `SportsEvent` JSON-LD only when the format has a valid calendar date in strict `YYYY-MM-DD` form. They also provide Open Graph/Twitter image fallbacks, responsive map/profile and ravito cards, native/Facebook/copy sharing, same-edition formats, similar races, distinct official sources, and a planner link carrying `catalogRaceId`.
 
@@ -554,7 +557,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep locale-specific paths authoritative over the saved language preference: `/en` and `/en/*` must hydrate in English, while `/partenaires` and `/links` must hydrate in French. The route-scoped `Content-Language` header and content-level `lang` remain the server-visible signals until a deliberate multi-root-layout migration can set a route-specific root `<html lang>` without making every page dynamic.
 - Keep `/organisateurs` as the indexable French acquisition page. `/organizers` is the authenticated creation workflow and `/race-planner/print/assistance` is a transient print view; both must remain `noindex`.
 - Never render stale race content at a former slug. Resolve its stable race id, verify current public visibility, then issue the permanent redirect before loading discovery links.
-- Keep the shared public-race cache duration aligned across catalog, slug resolution, sitemap, detail, and GPX preview so a refreshed catalog cannot link to a longer-lived negative detail cache.
+- Keep catalog, slug resolution, sitemap, detail visibility, and route ISR aligned to 15 minutes so a refreshed catalog cannot link to a longer-lived negative detail cache. Raw GPX bytes may use the durable one-year data cache only while upload/replacement paths remain immutable and versioned.
 - Keep every legacy/blog redirect target inside the route-or-canonical integrity test, and never introduce a redirect chain or a target without a real page.
 - Do not call `headers()` from the root layout solely to localize `<html lang>`; that opts the complete public surface into dynamic rendering. A future server-correct English document language requires a deliberate multi-root-layout route structure.
 
