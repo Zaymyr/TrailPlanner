@@ -95,7 +95,7 @@ async function readRows() {
   const input = readline.createInterface({ input: process.stdin, crlfDelay: Infinity });
   try {
     for await (const line of input) {
-      if (line.trim()) return JSON.parse(line);
+      if (line.trim()) return JSON.parse(line.replace(/^\uFEFF/, ''));
     }
   } finally {
     if (rawMode) process.stdin.setRawMode(false);

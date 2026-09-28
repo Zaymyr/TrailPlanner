@@ -50,6 +50,8 @@ The UI disables affiliate mode until an affiliate URL exists and previews the UR
 
 Mobile calls the narrow server endpoint instead of reading `partner_link_settings`. The response is CDN-cached for five minutes and degrades to an empty collection on request or validation failure so partner availability cannot make the RaceBook unavailable. The client accepts one HTTPS destination per known partner, renders the configured URL unchanged, and records only the bounded partner key in RaceBook interaction analytics. Booking location/date parameters and Decathlon equipment-query parameters remain out of scope until their approved deep-link formats are known.
 
+RaceBook gear-checklist analytics are independent from this contract: loading or toggling gear does not alter partner visibility, destinations, or outbound-link tracking.
+
 ## Disclosure
 
 Standard links are not described as affiliate links. If at least one returned destination is actually affiliate-backed, the mobile partner card discloses that Pace Yourself may receive a commission without additional cost to the runner.
