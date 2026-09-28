@@ -177,7 +177,7 @@ where web_catalog_is_live = true
 
 ## Gotchas
 
-- Confirmed Material toggles reuse the stable `race_id` in PostHog for format analysis but do not mutate `races` or organizer equipment JSON. Analytics omits the persistence key and organizer notes.
+- Confirmed Material toggles and bounded per-item checked/missing snapshots reuse the stable `race_id` in PostHog for format analysis but do not mutate `races` or organizer equipment JSON. Analytics omits the persistence key and organizer notes.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; race fields, visibility-state transitions, organizer JSON, and RaceBook gates remain unchanged.
 - A format's public state consumes the edition entitlement regardless of whether its origin is Admin, Offert, Stripe, or virement; changing origin does not directly rewrite format visibility.

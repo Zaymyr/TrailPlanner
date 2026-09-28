@@ -100,7 +100,7 @@ where edition_id = :edition_id;
 
 ## Gotchas
 
-- Material check/uncheck analytics contain no logo URL or color value. Checklist theming stays presentation-only even though a confirmed checklist mutation now emits bounded equipment metadata.
+- Material check/uncheck analytics and bounded per-item checked/missing snapshots contain no logo URL or color value. Checklist theming stays presentation-only even though confirmed checklist state emits bounded equipment metadata.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter the resolved published-branding payload, service-only access boundary, or color semantics.
 - The Organizer preview uses optimized image rendering and explicit form labels. Logo constraints are available through keyboard- and pointer-accessible contextual help instead of a permanent helper paragraph; these presentation details do not broaden the service-only draft access contract.

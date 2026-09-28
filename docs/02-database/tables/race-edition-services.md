@@ -65,7 +65,7 @@ When effective service content exists, Services appears directly in the RaceBook
 
 Service-category and external-action icons now use the published accent surface/graphic variants. This changes no service field, visibility rule, or URL, and personal equipment checks remain isolated in `racebook_gear_checks`.
 
-Confirmed Material check/uncheck analytics carry equipment context only; they do not attach service names, addresses, links, or categories and do not mutate edition services.
+Confirmed Material check/uncheck analytics and the bounded per-item checked/missing snapshots carry equipment context only; they do not attach service names, addresses, links, or categories and do not mutate edition services.
 
 Per-format GPX map/profile choices affect only the `Tracé` cards and do not change edition-scoped services or their conditional tab.
 
