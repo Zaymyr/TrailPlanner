@@ -287,6 +287,8 @@ erDiagram
 
 ## Gotchas
 
+- `catalog create plan clicked` is a PostHog interaction emitted before navigation; it does not create a database row or prove that a `race_plans` insert later succeeded.
+
 - The 2026-09-14 iOS accessibility pass changes keyboard, gesture, motion, safe-area, and touch-target presentation only; it adds no schema field, relationship, RLS policy, or client database access.
 - Do not use `docs/_archive/db/schema.sql` as current truth.
 - RLS is enabled on the main app tables; tests and server routes must be explicit about role context.

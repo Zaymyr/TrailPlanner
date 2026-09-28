@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -141,6 +141,10 @@ For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobil
 For production OTA updates, resolve and verify runtime `1.1.1` on both platforms. Do not publish an iOS `1.1.1` OTA until a matching iOS binary containing the light appearance configuration is installed or released.
 
 For App Store subscription work, verify on iPhone and iPad layouts that the purchase surface still exposes functional privacy and Terms/EULA links without truncation.
+
+## Analytics Gotchas
+
+- Reuse the Courses `catalog create plan clicked` boundary for enabled catalog plan actions. It records click intent before navigation; successful persistence remains the responsibility of the later `plan created` event.
 
 ## Do Not
 

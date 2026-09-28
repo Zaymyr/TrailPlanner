@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -328,6 +328,8 @@ Confirmed favorite mutations emit `race favorite updated` with the public event 
 Do not copy actual keys into docs. Use environment variable names only.
 
 ## Gotchas
+
+- The Courses `Créer un plan` action emits `catalog create plan clicked` before routing, with bounded catalog/race context and optional public event context. This click signal does not replace the later `plan created` persistence event.
 
 - Keep the fast Vitest suite Node-only and focused on pure modules. Code that imports Expo or React Native runtime modules belongs behind adapters or in the Maestro/device path; do not make unit tests depend on a native simulator.
 - Keep `APP_VARIANT=development` aligned between the EAS development profile and local Expo startup. The Dev binary uses `com.paceyourself.app.dev`, while preview, E2E, and production retain `com.paceyourself.app`. The shared `paceyourself` scheme remains intentional because account-conversion redirects currently reference it explicitly; co-installed builds can therefore compete for deep links even though their application identifiers differ.

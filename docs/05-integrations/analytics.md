@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -133,6 +133,8 @@ Opening, replaying, stepping through, or closing the Organizer spotlight guide e
 - public crew links emit `plan crew link opened` and `plan crew state updated` with aggregate checkpoint counts and a bounded action. They never include the secret URL token, plan name, or another direct identifier.
 
 Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. The optimistic heart animation, stable current ordering, and in-memory quick-filter changes emit no additional analytics event. Guest account gates emit `guest account prompt viewed` with a bounded `race_favorite` or `plan_limit` source, then `guest account conversion started` only when the runner chooses account creation or existing-account sign-in. Notification hrefs, message bodies, and guest-prompt copy are excluded.
+
+Pressing an enabled `Créer un plan` action in Courses emits `catalog create plan clicked` before navigation. The event uses the bounded `create_plan` action and `event_formats|personal_races` catalog section, includes the selected race id/name, and includes the public parent event id/name only when the format belongs to a catalog event. `onboarding_kind` distinguishes guided Plan selection from ordinary use. This is a click-intent metric; keep `plan created` as the separate persisted-outcome metric.
 
 ## Mobile PostHog
 
@@ -291,6 +293,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
 - Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require event selection, format selection, and successful-open events; search is optional because the initial eligible-course list is directly selectable.
 - Primary section selections from the contextual RaceBook bottom bar keep emitting `racebook tab viewed`. The hero return action, contextual Courses exit, and Android hardware back share the deterministic route replacement to Courses and emit `racebook action clicked` with the bounded action `exit_to_catalog`; they carry no organizer-authored content or sponsor identity.
+- RaceBook useful-action dashboards must exclude `racebook action clicked.action = exit_to_catalog`. They may include `catalog create plan clicked.action = create_plan` as the higher-value Courses follow-up, while retaining `plan created` for successful persistence rather than button intent.
 - The scroll-driven identity hero height/collapse, focus-time scroll reset, title clipping, single-line emergency label/number layout, and persistent emergency/social-action placement are presentation state only. They emit no event and add no scroll offset, phone number, image URL, color, or logo property to RaceBook analytics; an actual emergency or social press keeps its existing bounded action event.
 - Material checklist loads and toggles are private synchronization state in `racebook_gear_checks`, not product analytics events. Do not attach item labels, completion keys, or checked counts to PostHog. Expanded use of the published accent color across decorative RaceBook surfaces is likewise presentation-only.
 

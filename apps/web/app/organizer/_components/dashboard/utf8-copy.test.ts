@@ -202,6 +202,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Factures");
     expect(shellSource).toContain("Modifications non enregistrées");
     expect(shellSource).toContain("Une autre section contient des modifications non enregistrées.");
+    expect(shellSource).toContain("Duplication de l’édition en cours…");
+    expect(shellSource).toContain("Cette opération peut prendre quelques instants.");
+    expect(shellSource).toContain('aria-busy={isEditionCreationPending}');
+    expect(shellSource).toContain('role="status"');
     expect(shellSource).toContain("fixed inset-x-4 top-20");
     expect(shellSource).toContain("sm:bottom-4");
     expect(dashboardSource).toContain("hasAnyDirtyChanges={hasAnyDirtyChanges}");

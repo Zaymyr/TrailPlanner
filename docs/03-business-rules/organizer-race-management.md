@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -255,6 +255,8 @@ Information and Course/GPX are permanent. Other edition or format tiles are `act
 
 Edition duplication copies the common settings and the settings for each cloned format. Mobile receives only the effective module map and removes disabled tabs/sub-tabs. Missing configuration during a staggered deployment preserves the historical mobile presentation.
 
+Because that copy can take several seconds, the shared new-edition dialog remains open and exposes an accessible busy status for the complete request and event refresh. Duplication uses a spinner and explicit progress wording, while every editable/dismissal control stays disabled until success or failure; this feedback does not change the cloned data or entitlement rules.
+
 ## Purpose
 
 This document records the organizer portal rules: authenticated users create a catalog-visible event, receive immediate event-scoped organizer access, manage formats and runner-facing details on the web, and mobile exposes each populated Racebook to its active organizers for preview while keeping runner access behind the edition entitlement and publication flag.
@@ -487,6 +489,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
+- Catalog plan intent is measured by `catalog create plan clicked`; only event-backed formats carry public event context for organizer/report filtering. Personal races remain measurable globally without being attributed to an organizer event.
+
 - The admin publication manager exposes Visibilité plus the three paid packs through full-row radio targets, then four distinct origins for a paid pack: Admin, Paiement Stripe, Paiement par virement, and Offert. Admin/Offert are editable grants; selecting a new virement preloads read-only canonical HT and zero VAT, requires the customer's name and address, accepts an absent SIREN but validates it as nine digits when present, previews the PDF on demand, and writes its real ledger plus immutable invoice facts. Restoring Stripe or an already-recorded virement still requires a matching valid path.
 - Keep the optional-SIREN rule aligned across the admin form, preview route, persisted legal snapshot, and final PDF; an empty value is `null` and must not create a blank document line.
 - Generating a missing historical invoice is not a new purchase action. Keep it on the existing paid bank-transfer row and reject non-EUR, taxed, inconsistent, or already-invoiced rows instead of rewriting their history.
@@ -567,7 +571,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Keep the `Course` module free of duplicate/preview/show-hide action clutter; only the format delete action belongs in the `Formats & GPX` title row.
 - GPX source deletion is a separate confirmed action inside the format GPX panel. It clears the source file and GPX-only metadata, hides both RaceBook visuals, and preserves distance/D+/D-, ravitaillements, and existing plan snapshots.
 - Keep format-location inheritance explicit: an unchecked `Lieu différent de l'événement` must restore the current event location snapshot while still rendering it as inherited, not as a custom override.
-- Keep new-edition dates and the optional duplication control inside the shared dialog. The edition selector stays in the main header; creation, import, notification, and destructive actions remain grouped in the secondary action menu, separate from frequent selectors and publication.
+- Keep new-edition dates, the optional duplication control, and the request progress status inside the shared dialog. While creation is pending, keep the dialog open, announce its busy state, and disable edits or dismissal until the request settles. The edition selector stays in the main header; creation, import, notification, and destructive actions remain grouped in the secondary action menu, separate from frequent selectors and publication.
 - Keep edition visibility and deletion membership-checked on the server. Deletion must use the database transaction boundary, must not detach orphan formats, and must retain at least one edition for an event.
 - Re-showing an edition may restore complete course rows, but must never silently republish its Racebooks after they were hidden.
 - Keep website-import writes conservative. Manual confirmation is the guardrail, and v1 should not overwrite existing race thumbnails or GPX files when those source assets are already present.

@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -128,6 +128,7 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 - The workspace status labels are presentation-only: masked formats stay explicitly hidden from the mobile app, private formats remain runner-visible for plan creation but show `RaceBook privé`, and public formats show their public state. Keeping a masked format editable for authorized organizers/admins does not grant an offer or expose it to runners.
 - Offer and visibility consequences use contextual hover/focus help beside short controls. Hiding that explanatory copy visually does not weaken server-side readiness or entitlement checks, and errors remain visible inline.
 - Completing, skipping, or replaying the dashboard guide never creates or upgrades an organizer entitlement. `Terminer` closes it; its visually secondary configuration action only opens the existing section chooser.
+- The new-edition dialog's spinner, busy announcement, and disabled controls are request feedback only. They neither grant the Complet duplication capability nor weaken the server-side capability check, and empty-edition creation remains available without that capability.
 
 ## Related Docs
 

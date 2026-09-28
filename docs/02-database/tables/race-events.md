@@ -273,6 +273,8 @@ where is_live = true
 
 ## Gotchas
 
+- Event-backed `Créer un plan` clicks include the public event id/name in PostHog for reporting, but do not mutate `race_events`; personal-race clicks intentionally omit parent-event context.
+
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter event fields, organizer JSON, visibility gates, or RaceBook read contracts.
 - Publication origin is edition-scoped rather than event-scoped. Admin, Offert, Stripe, and virement changes must target the selected canonical edition and do not rewrite the parent event.
 - The admin publication response may project generated invoice number/source beside an edition payment. Those fields come from the service-only payment ledger and do not add invoice or billing columns to `race_events`.

@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-09-15
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -98,6 +98,8 @@ values ('<event-id>', null, auth.uid(), 'Retrait des dossards dès 17h.');
 Organizer deletion includes both `updateId` and `editionId`. The server verifies event membership, the edition/event relationship, Pro, and filters the service-role delete by update and event ids.
 
 ## Gotchas
+
+- The catalog `Créer un plan` click event carries only bounded race and optional public event context; it neither stores announcement content nor changes update visibility/history.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; announcement visibility, targeting, history, and push contracts remain unchanged.
 - The runner catalog may reuse the same bounded event update preview when a visible event has only private plan-capable formats, but it removes masked formats after deduplicating stable event and format ids; this presentation filter does not change announcement audience or visibility policies.
