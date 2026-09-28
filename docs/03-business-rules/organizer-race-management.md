@@ -64,6 +64,7 @@ related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
   - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260928192654_update_default_racebook_accent_color.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/migrations/20260829204032_seed_trail_tst_sponsors.sql
   - supabase/tests/racebook_sponsors_checks.sql
@@ -463,7 +464,7 @@ Active partners remain visible in the stable themed sponsor surface, grouped by 
 
 ## RaceBook Visual Identity
 
-The event-level `Identité visuelle` tile is edition-scoped and Pro-only. Non-Pro editions see an upsell. Pro organizers lazily load a working draft, edit strict `#RRGGBB` primary/accent values, upload a valid edition logo, and inspect a compact mobile preview covering identity, tabs, an accent-tinted information card, a primary action, and a route trace. Local edits arm `beforeunload`; the organizer can discard them, save the draft, or reset only the colors to Pace Yourself defaults. A `Brouillon non publié` state remains until explicit publication. The shared edition-logo flag is enabled, so a published HTTPS logo is runner-visible.
+The event-level `Identité visuelle` tile is edition-scoped and Pro-only. Non-Pro editions see an upsell. Pro organizers lazily load a working draft, edit strict `#RRGGBB` primary/accent values, upload a valid edition logo, and inspect a compact mobile preview covering identity, tabs, an accent-tinted information card, a primary action, and a route trace. Local edits arm `beforeunload`; the organizer can discard them, save the draft, or reset only the colors to Pace Yourself defaults: forest green `#2D5016` and alpine blue `#3F6F8F`. A `Brouillon non publié` state remains until explicit publication. The shared edition-logo flag is enabled, so a published HTTPS logo is runner-visible.
 
 The logo API accepts only a matching PNG/JPEG/WebP/AVIF signature and MIME type up to 5 MB under `race-images/organizer-branding/{editionId}/`. Every organizer endpoint repeats authenticated parent-event membership and `branding.manage` checks. Publication atomically copies the complete draft to published fields. Downgrade disables the editor without deleting the published identity. Replaced/unreferenced files are cleaned after successful mutations and during edition/event deletion; disabling the UI alone never deletes stored logos.
 

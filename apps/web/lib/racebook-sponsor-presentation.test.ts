@@ -32,7 +32,7 @@ describe("mobile RaceBook sponsor presentation", () => {
     expect(presentation.branding).toEqual({
       logoUrl: "https://example.com/logo.png",
       primaryColor: "#ABCDEF",
-      accentColor: "#B45309",
+      accentColor: "#3F6F8F",
     });
   });
 });

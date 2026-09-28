@@ -1,3 +1,4 @@
+import { DEFAULT_RACEBOOK_ACCENT_COLOR } from '@pace-yourself/design-system';
 import { useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { WebView } from 'react-native-webview';
@@ -208,12 +209,12 @@ function buildMapHtml(
 export function RacebookLeafletMap({
   points,
   height = 260,
-  routeColor = '#B45309',
+  routeColor = DEFAULT_RACEBOOK_ACCENT_COLOR,
   aidStations = [],
   locale = 'fr',
   fullscreen = false,
 }: RacebookLeafletMapProps) {
-  const safeRouteColor = /^#[0-9A-Fa-f]{6}$/.test(routeColor) ? routeColor : '#B45309';
+  const safeRouteColor = /^#[0-9A-Fa-f]{6}$/.test(routeColor) ? routeColor : DEFAULT_RACEBOOK_ACCENT_COLOR;
   const source = useMemo(
     () => ({ html: buildMapHtml(points, safeRouteColor, aidStations, locale) }),
     [aidStations, locale, points, safeRouteColor],

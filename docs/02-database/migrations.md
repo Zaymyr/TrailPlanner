@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
@@ -25,6 +25,7 @@ related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260928192654_update_default_racebook_accent_color.sql
   - supabase/migrations/20260908160018_preserve_global_start_time_without_waves.sql
   - supabase/tests/racebook_branding_checks.sql
   - supabase/tests/structured_racebook_content_checks.sql
@@ -380,6 +381,8 @@ The companion `supabase/tests/organizer_import_sessions_checks.sql` checks privi
 `supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql` replaces multi-request Organizer mutations with parent-locked invoker RPCs for ravitos, station-product links, relay points, organizer product creation plus attachment, and complete sponsor ordering. All functions use an empty search path, revoke execution from client roles, grant only `service_role`, validate parent ownership before writes, and roll back the full operation on failure. `supabase/tests/organizer_atomic_course_collections_checks.sql` and the sponsor SQL checks exercise privileges, ownership rejection and rollback behavior.
 
 `supabase/migrations/20260907171043_add_racebook_edition_branding.sql` adds the service-only edition branding draft/published projection, strict hex and publication-state constraints, and an invoker-security atomic publish function. Explicit client revokes and service-role grants keep both states behind server routes. `supabase/tests/racebook_branding_checks.sql` verifies RLS, privileges, one-row edition scope, cascade, malformed-color rejection, and atomic publication.
+
+`supabase/migrations/20260928192654_update_default_racebook_accent_color.sql` changes the RaceBook accent default from the former burnt orange to alpine blue `#3F6F8F`. It backfills draft and published accents only when the corresponding stored primary/accent pair still matches the former Pace Yourself defaults, leaving organizer-customized palettes unchanged. It changes no grants, policies, functions, or ownership semantics.
 
 ### Admin KPI Aggregates
 

@@ -307,7 +307,7 @@ The event information editor uses five ordered visual sections instead of one fl
 
 The format GPX side rail keeps two independent, accessible RaceBook display switches: route map and elevation profile. They persist in `races.organizer_details.gpxDisplay`, default to visible for historical payloads, and do not affect the Organizer's own GPX validation previews. A confirmed source-delete action clears GPX-only race metadata and the private object, disables both switches, and preserves course metrics, aid stations, and saved-plan snapshots.
 
-The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. The shared edition-logo flag is enabled, so organizers can upload and publish a valid logo and runner-facing resolution may expose it. Non-Pro organizers receive an upsell instead of draft data.
+The edition-level RaceBook branding editor is another lazy event module. It keeps local primary/accent edits separate from its saved draft, previews both interaction colors and accent-tinted information surfaces, and publishes only through the atomic database RPC. New or invalid palettes resolve to the Pace Yourself forest green `#2D5016` and alpine blue `#3F6F8F` defaults. The shared edition-logo flag is enabled, so organizers can upload and publish a valid logo and runner-facing resolution may expose it. Non-Pro organizers receive an upsell instead of draft data.
 
 ## Purpose
 

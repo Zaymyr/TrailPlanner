@@ -1,7 +1,7 @@
 ---
 title: Packages Architecture
 scope: architecture
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - package.json
@@ -48,7 +48,7 @@ This package contains runtime-neutral logic, but no current application import w
 
 Location: `packages/design-system`
 
-Exports tokens, fonts, signature icons, and the runtime-neutral RaceBook branding resolver. The resolver derives primary/accent surfaces, borders, contrasting solid-surface text, and accessible foreground/graphic variants for use on white. It also owns the enabled edition-logo release switch used consistently by web and mobile. The web app transpiles this package in `apps/web/next.config.mjs`.
+Exports tokens, fonts, signature icons, and the runtime-neutral RaceBook branding resolver. The brand tokens define forest green as primary and alpine blue `#3F6F8F` as secondary; the resolver consumes those shared defaults and derives primary/accent surfaces, borders, contrasting solid-surface text, and accessible foreground/graphic variants for use on white. It also owns the enabled edition-logo release switch used consistently by web and mobile. The web app transpiles this package in `apps/web/next.config.mjs`.
 
 Primary source files:
 

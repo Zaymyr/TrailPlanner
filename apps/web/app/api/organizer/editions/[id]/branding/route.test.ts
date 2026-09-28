@@ -70,14 +70,14 @@ describe("organizer RaceBook branding route", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }));
     const response = await GET(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/branding`), { params: { id: editionId } });
-    expect(await response.json()).toMatchObject({ branding: { draft: { primaryColor: "#2D5016", accentColor: "#B45309" }, publishedAt: null } });
+    expect(await response.json()).toMatchObject({ branding: { draft: { primaryColor: "#2D5016", accentColor: "#3F6F8F" }, publishedAt: null } });
   });
 
   it("rejects malformed colors before writing a draft", async () => {
     const fetchMock = vi.spyOn(global, "fetch").mockResolvedValueOnce(new Response(JSON.stringify([{ id: editionId, event_id: eventId }]), { status: 200 }));
     const response = await PATCH(new NextRequest(`http://localhost/api/organizer/editions/${editionId}/branding`, {
       method: "PATCH",
-      body: JSON.stringify({ primaryColor: "red", accentColor: "#B45309" }),
+      body: JSON.stringify({ primaryColor: "red", accentColor: "#3F6F8F" }),
     }), { params: { id: editionId } });
     expect(response.status).toBe(400);
     expect(fetchMock).toHaveBeenCalledTimes(1);

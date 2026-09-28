@@ -151,7 +151,7 @@ describe("GET /api/racebook-sponsors", () => {
 
     const response = await GET(new NextRequest(`http://localhost/api/racebook-sponsors?raceId=${raceId}`));
     expect(await response.json()).toMatchObject({
-      branding: { logoUrl: null, primaryColor: "#2D5016", accentColor: "#B45309" },
+      branding: { logoUrl: null, primaryColor: "#2D5016", accentColor: "#3F6F8F" },
     });
   });
 

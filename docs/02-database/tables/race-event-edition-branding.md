@@ -5,6 +5,7 @@ last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260928192654_update_default_racebook_accent_color.sql
   - supabase/tests/racebook_branding_checks.sql
   - apps/web/lib/racebook-branding.ts
   - apps/web/lib/racebook-branding.test.ts
@@ -55,7 +56,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 | `edition_id` | UUID primary key, edition FK with cascade | Shared edition scope and one-row uniqueness. |
 | `draft_logo_url` | nullable HTTPS URL | Organizer working logo. |
 | `draft_primary_color` | `#RRGGBB`, default `#2D5016` | Working interaction color. |
-| `draft_accent_color` | `#RRGGBB`, default `#B45309` | Working graphic and decorative-surface accent. |
+| `draft_accent_color` | `#RRGGBB`, default `#3F6F8F` | Working graphic and decorative-surface accent. |
 | `published_logo_url` | nullable HTTPS URL | Runner-visible published edition logo. |
 | `published_primary_color` | nullable `#RRGGBB` | Runner-visible interaction color after publication. |
 | `published_accent_color` | nullable `#RRGGBB` | Runner-visible graphic accent after publication. |
@@ -81,6 +82,7 @@ RLS is enabled with no client policies. `PUBLIC`, `anon`, and `authenticated` ha
 ## Business Invariants
 
 - Colors accept exactly six hexadecimal digits and are normalized to uppercase at the API boundary.
+- The Pace Yourself fallback identity uses forest green `#2D5016` and alpine blue `#3F6F8F`. The follow-up accent migration updates stored rows only when their matching primary/accent pair still equals the former application defaults, preserving organizer-customized palettes.
 - Logos accept PNG, JPEG, WebP, or AVIF only, must match their binary signature and declared MIME type, and cannot exceed 5 MB.
 - Logos live in `race-images/organizer-branding/{editionId}/`.
 - Replaced unpublished logos, superseded published logos, and logos belonging to deleted editions/events are removed from Storage when no draft or published field still references them.

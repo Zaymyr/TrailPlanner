@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -47,7 +47,7 @@ Font metadata:
 
 Token groups:
 
-- `brand`: forest, forestLight, forestDark.
+- `brand`: forest, forestLight, forestDark, secondary. The shared secondary is the alpine blue `#3F6F8F`.
 - `surface`: sand, sandLight, white, cream.
 - `text`: primary, secondary, tertiary, inverse.
 - `accent`: terracotta, amber, olive.
@@ -57,7 +57,7 @@ The web app also defines HSL CSS variables in `apps/web/app/globals.css` for lig
 
 ### RaceBook edition theme
 
-`packages/design-system/src/branding.ts` owns the shared runtime theme contract used by the organizer preview and mobile RaceBook. Defaults are `#2D5016` for primary and `#B45309` for accent. It accepts only `#RRGGBB`, computes contrasting text for each solid brand color, derives light surfaces and borders, and exposes separate foreground (4.5:1 on white) and graphic (3:1 on white) variants. These derived variants preserve bright organizer colors such as yellow as identity inputs while keeping small text and route/profile strokes readable. `RACEBOOK_EDITION_LOGO_ENABLED` is enabled, so a valid published HTTPS edition logo can render in runner-facing RaceBook surfaces.
+`packages/design-system/src/branding.ts` owns the shared runtime theme contract used by the organizer preview and mobile RaceBook. Defaults are `#2D5016` for primary and the shared alpine blue `#3F6F8F` for accent. It accepts only `#RRGGBB`, computes contrasting text for each solid brand color, derives light surfaces and borders, and exposes separate foreground (4.5:1 on white) and graphic (3:1 on white) variants. These derived variants preserve bright organizer colors such as yellow as identity inputs while keeping small text and route/profile strokes readable. `RACEBOOK_EDITION_LOGO_ENABLED` is enabled, so a valid published HTTPS edition logo can render in runner-facing RaceBook surfaces.
 
 Primary colors style the RaceBook hero, its softly tinted screen background, interactions, links, active tabs and icons. Accent colors style progress, route and elevation profile together with their related cards, positive information rows and other non-semantic highlights. Typography, layout, and semantic danger/warning/info colors are never organizer-controlled.
 

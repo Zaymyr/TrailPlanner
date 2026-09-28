@@ -1,5 +1,7 @@
-export const DEFAULT_RACEBOOK_PRIMARY_COLOR = "#2D5016";
-export const DEFAULT_RACEBOOK_ACCENT_COLOR = "#B45309";
+import { colors } from "./tokens/colors";
+
+export const DEFAULT_RACEBOOK_PRIMARY_COLOR = colors.brand.forest;
+export const DEFAULT_RACEBOOK_ACCENT_COLOR = colors.brand.secondary;
 export const RACEBOOK_EDITION_LOGO_ENABLED = true;
 
 export type RacebookBranding = {

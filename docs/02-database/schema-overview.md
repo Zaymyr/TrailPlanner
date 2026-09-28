@@ -17,6 +17,7 @@ related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
   - supabase/migrations/20260907170842_fix_structured_racebook_rls_dependencies.sql
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
+  - supabase/migrations/20260928192654_update_default_racebook_accent_color.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
   - supabase/migrations/20260910081049_add_atomic_organizer_course_collections.sql
   - supabase/migrations/20260910082051_backfill_catalog_race_event_geography.sql
@@ -109,7 +110,7 @@ RaceBook structured organizer content is normalized into `race_edition_services`
 
 Their public RLS predicates traverse `races`, whose public visibility columns and client SELECT access already form the RaceBook boundary. They do not traverse service-role-only `race_event_editions`, which would make valid Data API reads fail with `42501`.
 
-RaceBook visual identity is stored in the separate service-only `race_event_edition_branding` projection. Draft and published columns coexist on one edition-unique row; only the server exposes the published logo and colors through the existing sponsors payload.
+RaceBook visual identity is stored in the separate service-only `race_event_edition_branding` projection. Draft and published columns coexist on one edition-unique row; only the server exposes the published logo and colors through the existing sponsors payload. Pace Yourself's shared default pair is forest green `#2D5016` and alpine blue `#3F6F8F`; the accent migration updates only rows still carrying the complete former default pair.
 
 Organizer ravito, station-product and relay replacements, organizer product creation plus attachment, and edition sponsor ordering use parent-locked service-only transactions. These functions add no client table access or new ownership model.
 

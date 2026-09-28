@@ -3,6 +3,7 @@ export const colors = {
     forest: "#2D5016",
     forestLight: "#3F6B1F",
     forestDark: "#1F3810",
+    secondary: "#3F6F8F",
   },
   surface: {
     sand: "#ECEAE3",
