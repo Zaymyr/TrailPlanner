@@ -71,6 +71,7 @@ import {
 import type { ElevationPoint } from '../../../../components/plan-form/profile-utils';
 import { completeOnboarding, skipOnboardingKind } from '../../../../lib/onboardingStatus';
 import { captureAnalyticsEvent } from '../../../../lib/posthog';
+import { buildRacebookGearToggleProperties } from '../../../../lib/racebookGearAnalytics';
 import { loadRacebookGearChecks, saveRacebookGearCheck } from '../../../../lib/racebookGearChecklist';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
@@ -616,6 +617,14 @@ export default function RaceRacebookScreen() {
 
     try {
       await saveRacebookGearCheck(targetRaceId, itemKey, checked);
+      const analyticsProperties = buildRacebookGearToggleProperties(
+        data?.runnerDetails.equipmentStatus.items ?? [],
+        itemKey,
+        checked,
+      );
+      if (analyticsProperties) {
+        captureRacebookInteraction('racebook gear item toggled', analyticsProperties);
+      }
     } catch (error) {
       console.warn('Unable to save RaceBook gear check.', error);
       if (activeRaceIdRef.current === targetRaceId) {

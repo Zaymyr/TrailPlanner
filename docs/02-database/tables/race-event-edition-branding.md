@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -99,6 +99,8 @@ where edition_id = :edition_id;
 ```
 
 ## Gotchas
+
+- Material check/uncheck analytics contain no logo URL or color value. Checklist theming stays presentation-only even though a confirmed checklist mutation now emits bounded equipment metadata.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter the resolved published-branding payload, service-only access boundary, or color semantics.
 - The Organizer preview uses optimized image rendering and explicit form labels. Logo constraints are available through keyboard- and pointer-accessible contextual help instead of a permanent helper paragraph; these presentation details do not broaden the service-only draft access contract.
