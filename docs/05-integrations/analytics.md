@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -194,7 +194,7 @@ Access and ravito UI now delegate interaction callbacks to focused presentationa
 
 The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, endpoint-integrated start/finish times, and equally spaced right-indented distance/elevation connectors are presentation-only. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint and connector visibility add no new analytics event or property.
 
-Ravito points on the map/profile, their local detail selection or cursor-hover state, the below-chart cumulative distance/D+/D- cards, the map/profile fullscreen controls, the taller rotated landscape profile, and incomplete-GPX coverage warnings are presentation-only. They add no station name, note, cutoff, geometry, cursor position/totals, fullscreen state, or GPX completeness property to identified analytics events.
+Ravito points on the map/profile, their local detail selection or cursor-hover state, the below-chart cumulative distance/D+/D- cards, the compact fullscreen ravito-detail row, the map/profile fullscreen controls, the taller rotated landscape profile, and incomplete-GPX coverage warnings are presentation-only. They add no station name, note, cutoff, geometry, cursor position/totals, fullscreen state, or GPX completeness property to identified analytics events.
 
 Sponsor presentation and clicks are intentionally excluded from these person-level RaceBook engagement events. Compacting the stable surface into unframed tiered rows changes neither viewability measurement nor placement names. Sponsor click reporting keeps its separate aggregate redirect counter and must not be joined to runner analytics identities.
 

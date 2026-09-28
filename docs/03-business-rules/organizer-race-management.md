@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -241,7 +241,7 @@ The combined format module is **Départ, ravitos & relais**. Its common departur
 
 The section chooser presents edition-common modules separately from format-owned modules. Branding, sponsors, services, equipment, bib pickup, and access use one edition setting shared by every attached format. Race modules retain per-format values; the event view can apply one choice to all existing formats and explicitly reports mixed values, while a format tab edits only its active race.
 
-Each format also owns two GPX presentation preferences in `races.organizer_details.gpxDisplay`: `showRoute` and `showElevationProfile`. Both default to `true` for historical rows. The Organizer exposes them beside the GPX upload, while its own map/profile previews remain visible for source validation; mobile independently omits the map, the profile, or both from the RaceBook `Tracé` view. On mobile, the remaining visuals can open fullscreen independently. Ravitos are projected from their published cumulative kilometers onto the measured route/profile and reveal organizer details after direct selection or when the moving profile cursor reaches their hit area; a station outside an incomplete GPX extent is omitted from that visual instead of being moved to its endpoint. Away from ravitos, three cards below the mobile profile show free press-and-slide inspection of measured cumulative distance, D+ and D-. These interactions do not change the organizer's stored station/course totals or GPX source.
+Each format also owns two GPX presentation preferences in `races.organizer_details.gpxDisplay`: `showRoute` and `showElevationProfile`. Both default to `true` for historical rows. The Organizer exposes them beside the GPX upload, while its own map/profile previews remain visible for source validation; mobile independently omits the map, the profile, or both from the RaceBook `Tracé` view. On mobile, the remaining visuals can open fullscreen independently. Ravitos are projected from their published cumulative kilometers onto the measured route/profile and reveal organizer details after direct selection or when the moving profile cursor reaches their hit area; a station outside an incomplete GPX extent is omitted from that visual instead of being moved to its endpoint. Away from ravitos, three cards below the mobile profile show free press-and-slide inspection of measured cumulative distance, D+ and D-. The landscape profile replaces those cards with a similarly compact horizontal ravito row that retains the station services, cutoff and organizer note without reducing the graph to a secondary surface. These interactions do not change the organizer's stored station/course totals or GPX source.
 
 Legacy service text is never parsed or deleted automatically. While SAS exist, their earliest time is authoritative: it is mirrored to `schedule.startTime`, displayed in the common departure card, and disables manual departure editing. Removing the final SAS preserves that stored value and re-enables the common field.
 
