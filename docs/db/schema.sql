@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict yGRn5ixwnMfc5C1vTE54IDjgNsMubCncQvObRlgTMsrfAw5i4c2GL7orbWjVCvJ
+\restrict 1PeyirxmlBTDzkksgZydplrAM13cDJeauUcCcFdQOv02RvgpFbwKCUA6vuMcM39
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -3569,7 +3569,7 @@ CREATE TABLE public.race_event_edition_branding (
     edition_id uuid NOT NULL,
     draft_logo_url text,
     draft_primary_color text DEFAULT '#2D5016'::text NOT NULL,
-    draft_accent_color text DEFAULT '#B45309'::text NOT NULL,
+    draft_accent_color text DEFAULT '#3F6F8F'::text NOT NULL,
     published_logo_url text,
     published_primary_color text,
     published_accent_color text,
@@ -3591,6 +3591,13 @@ CREATE TABLE public.race_event_edition_branding (
 --
 
 COMMENT ON TABLE public.race_event_edition_branding IS 'Service-managed draft and published RaceBook branding for one canonical event edition.';
+
+
+--
+-- Name: COLUMN race_event_edition_branding.draft_accent_color; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON COLUMN public.race_event_edition_branding.draft_accent_color IS 'Organizer working graphic accent; defaults to the Pace Yourself alpine blue.';
 
 
 --
@@ -17880,5 +17887,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict yGRn5ixwnMfc5C1vTE54IDjgNsMubCncQvObRlgTMsrfAw5i4c2GL7orbWjVCvJ
+\unrestrict 1PeyirxmlBTDzkksgZydplrAM13cDJeauUcCcFdQOv02RvgpFbwKCUA6vuMcM39
 
