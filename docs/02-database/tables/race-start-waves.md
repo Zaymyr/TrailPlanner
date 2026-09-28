@@ -1,7 +1,7 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -57,3 +57,5 @@ Mobile SAS index and time treatments now use published accent variants. Source w
 Per-format GPX map/profile choices affect only the `Tracé` cards and do not alter SAS rows, ordering, or start-time authority.
 
 Fullscreen course visuals and tappable ravito markers remain independent from SAS selection, times, criteria, and ordering.
+
+Material check/uncheck analytics are independent from SAS selection and timing; they carry no wave fields and do not mutate start-wave rows.

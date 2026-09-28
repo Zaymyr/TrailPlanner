@@ -273,6 +273,8 @@ where is_live = true
 
 ## Gotchas
 
+- Confirmed Material toggles reuse the existing public event/race analytics context but do not mutate `race_events`. Only the bounded published equipment label/id and classification accompany the checked state; persistence keys and notes stay out of PostHog.
+
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter event fields, organizer JSON, visibility gates, or RaceBook read contracts.
 - Publication origin is edition-scoped rather than event-scoped. Admin, Offert, Stripe, and virement changes must target the selected canonical edition and do not rewrite the parent event.
 - The admin publication response may project generated invoice number/source beside an edition payment. Those fields come from the service-only payment ledger and do not add invoice or billing columns to `race_events`.

@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -74,6 +74,8 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 - The Organizer endpoint distance-sorts and replaces the ordered collection.
 
 ## Gotchas
+
+- Material check/uncheck analytics are independent from relay legs and handovers; they carry no relay-point fields and do not mutate this table.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; relay-point rows, ordering, derived legs, and nutrition separation remain unchanged.
 - Organizer relay replacement is a single parent-race-locked transaction. Keep race/station ownership and distance validation inside the database function so failures cannot leave a partial sequence.
