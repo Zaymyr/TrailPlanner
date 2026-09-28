@@ -979,6 +979,30 @@
 
 ---
 
+### Table `public.partner_link_settings`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `partner_key` | `t` | ✅ | `` |
+| `standard_url` | `t` | ✅ | `` |
+| `affiliate_url` | `t` | ❌ | `` |
+| `affiliate_enabled` | `b` | ✅ | `` |
+| `is_enabled` | `b` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `updated_by` | `u` | ❌ | `` |
+
+**Primary keys**
+- `partner_link_settings_pkey` on (partner_key)
+
+**Foreign keys**
+- `partner_link_settings_updated_by_fkey`: (updated_by) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.plan_aid_stations`
 
 **Columns**

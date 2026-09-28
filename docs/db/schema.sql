@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict oLMiu8EU402qgYpbz1ujDKP8LqRs9MEMrXTGYKwbYyW7cwUdYIuPgzPySyFN2ru
+\restrict v8HgLgHYRg4LQDPANjtLuaWDsRQA7oqFdL9oj9zQn3hGU42drkJpcuNYrcH8Ppf
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -9500,6 +9500,32 @@ COMMENT ON TABLE public.organizer_racebook_module_settings IS 'Edition and forma
 
 
 --
+-- Name: partner_link_settings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.partner_link_settings (
+    partner_key text NOT NULL,
+    standard_url text NOT NULL,
+    affiliate_url text,
+    affiliate_enabled boolean DEFAULT false NOT NULL,
+    is_enabled boolean DEFAULT false NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_by uuid,
+    CONSTRAINT partner_link_settings_affiliate_enabled_check CHECK (((NOT affiliate_enabled) OR (affiliate_url IS NOT NULL))),
+    CONSTRAINT partner_link_settings_affiliate_url_check CHECK (((affiliate_url IS NULL) OR (affiliate_url ~ '^https://[^[:space:]]+$'::text))),
+    CONSTRAINT partner_link_settings_partner_key_check CHECK ((partner_key = ANY (ARRAY['booking'::text, 'decathlon'::text]))),
+    CONSTRAINT partner_link_settings_standard_url_check CHECK ((standard_url ~ '^https://[^[:space:]]+$'::text))
+);
+
+
+--
+-- Name: TABLE partner_link_settings; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.partner_link_settings IS 'Service-managed outbound partner URLs. Clients resolve active links through application routes.';
+
+
+--
 -- Name: plan_aid_stations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10823,6 +10849,14 @@ ALTER TABLE ONLY public.organizer_import_sessions
 
 ALTER TABLE ONLY public.organizer_racebook_module_settings
     ADD CONSTRAINT organizer_racebook_module_settings_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: partner_link_settings partner_link_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.partner_link_settings
+    ADD CONSTRAINT partner_link_settings_pkey PRIMARY KEY (partner_key);
 
 
 --
@@ -13233,6 +13267,14 @@ ALTER TABLE ONLY public.organizer_racebook_module_settings
 
 
 --
+-- Name: partner_link_settings partner_link_settings_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.partner_link_settings
+    ADD CONSTRAINT partner_link_settings_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: plan_aid_stations plan_aid_stations_plan_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14415,6 +14457,12 @@ ALTER TABLE public.organizer_import_sessions ENABLE ROW LEVEL SECURITY;
 --
 
 ALTER TABLE public.organizer_racebook_module_settings ENABLE ROW LEVEL SECURITY;
+
+--
+-- Name: partner_link_settings; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.partner_link_settings ENABLE ROW LEVEL SECURITY;
 
 --
 -- Name: plan_aid_stations; Type: ROW SECURITY; Schema: public; Owner: -
@@ -17185,6 +17233,13 @@ GRANT ALL ON TABLE public.organizer_racebook_module_settings TO service_role;
 
 
 --
+-- Name: TABLE partner_link_settings; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.partner_link_settings TO service_role;
+
+
+--
 -- Name: TABLE plan_aid_stations; Type: ACL; Schema: public; Owner: -
 --
 
@@ -17825,5 +17880,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict oLMiu8EU402qgYpbz1ujDKP8LqRs9MEMrXTGYKwbYyW7cwUdYIuPgzPySyFN2ru
+\unrestrict v8HgLgHYRg4LQDPANjtLuaWDsRQA7oqFdL9oj9zQn3hGU42drkJpcuNYrcH8Ppf
 
