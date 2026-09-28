@@ -32,6 +32,7 @@ related_tables:
 - Event favorite: one runner follows one `race_events` row.
 - Owner row: favorites are readable and mutable only by the owning user.
 - Catalog pinning and retention: mobile uses these rows to pin favorite events above the normal catalog sort and keep a past favorite visible through the fourteenth calendar day after its event date.
+- Edition rollover is independent from favorite ownership: when a newer visible edition is online, formats from the older edition remain through day 14 after that edition's latest visible format date, then the card retains only the newest dated edition.
 - Catalog feedback: for identified runners, mobile updates a card-local heart state in the same interaction frame with a reduced-motion-aware pulse, then resynchronizes it with the parent/server result while preserving the current list order and viewport. Guest hearts do not flip before the account prompt.
 - The shared event card preserves favorite behavior when a format has no published D+; it labels the metric as unavailable instead of rendering a false zero.
 - Notification audience: organizer update pushes target users who favorited the event.
@@ -118,6 +119,7 @@ where event_id = '<event-id>';
 - Favorites follow the catalog event independently from Racebook publication; hiding every Racebook must not delete or hide the event favorite.
 - Organizer-only preview access is derived from `race_event_organizers`, not favorites; it must not pin the event or change notification audience membership.
 - Hiding or deleting one edition must not remove the event favorite. The event appears in the mobile catalog only while at least one live format remains after the explicit embedded-relation filter.
+- Removing an expired edition from the Courses presentation must not delete the event favorite or mutate organizer visibility; the favorite continues to follow the stable parent event and can pin its newer edition.
 - The Courses card may hide its repeated multi-format helper sentence and decorative flag, align its compact action with the format/distance pills, fill the left rail with the race image, place the independent animated heart in the trailing header position, and make the remaining card surface open format selection to reduce density. Quick favorite/distance chips filter the loaded rows only; pinning persistence and event scope remain unchanged.
 - Sponsor warmup from the RaceBook action is independent from favorites and must not write, reorder, or infer notification audience membership.
 

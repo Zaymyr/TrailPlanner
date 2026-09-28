@@ -29,7 +29,10 @@ import {
 } from '../../components/catalog/CatalogPresentation';
 import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
-import { isCatalogEventVisible } from '../../lib/catalogVisibility';
+import {
+  filterCatalogRacesByEditionRetention,
+  isCatalogEventVisible,
+} from '../../lib/catalogVisibility';
 import { useI18n } from '../../lib/i18n';
 import { captureAnalyticsEvent } from '../../lib/posthog';
 import { canShowRacebook } from '../../lib/racebook';
@@ -50,6 +53,7 @@ type Race = {
   name: string;
   distance_km: number;
   elevation_gain_m: number | null;
+  edition_id?: string | null;
   race_date?: string | null;
   is_live: boolean | null;
   racebook_is_live?: boolean | null;
@@ -105,6 +109,7 @@ const EVENT_CATALOG_SELECT = `
     name,
     distance_km,
     elevation_gain_m,
+    edition_id,
     race_date,
     is_live,
     racebook_is_live,
@@ -564,7 +569,11 @@ export default function CatalogScreen() {
             thumbnail_url: event.thumbnail_url,
             is_live: event.is_live,
             organizer_details: event.organizer_details,
-            races: sortRaces((event.races ?? []) as Race[]),
+            races: sortRaces(filterCatalogRacesByEditionRetention(
+              ((event.races ?? []) as Race[]).filter(
+                (race) => race.racebook_preview_is_visible !== false,
+              ),
+            )),
             updatesPreview: sortRaceEventUpdates(event.race_event_updates),
           }));
         const groups = sortEvents(

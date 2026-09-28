@@ -125,7 +125,7 @@ The expanded identity hero displays the formatted course date beneath the race n
 
 ## Validation
 
-For Courses visibility work, verify both roles across all three states: runners never see masked formats, see private formats with plan creation but no RaceBook action, and see public formats normally; active organizers also see no masked formats, see private formats with a dimmed functional RaceBook action, and see public formats normally. Keep the organizer merge bounded by membership event ids, filter masked rows after merging, and deduplicate stable race ids. Also cover the date boundary: non-favorites disappear after their event date, while favorites remain through day 14 and disappear on day 15.
+For Courses visibility work, verify both roles across all three states: runners never see masked formats, see private formats with plan creation but no RaceBook action, and see public formats normally; active organizers also see no masked formats, see private formats with a dimmed functional RaceBook action, and see public formats normally. Keep the organizer merge bounded by membership event ids, filter masked rows after merging, and deduplicate stable race ids. Also cover both date boundaries: non-favorites disappear after their event date while favorites remain through day 14 and disappear on day 15; when a newer edition is online, the older edition remains through day 14 after its latest visible format date and only the newer edition remains on day 15. Preserve legacy or malformed rows whose edition boundary cannot be established.
 
 Run typecheck/test where available:
 

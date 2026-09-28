@@ -1,5 +1,10 @@
 const FAVORITE_PAST_EVENT_RETENTION_DAYS = 14;
 
+type CatalogEditionRace = {
+  edition_id?: string | null;
+  race_date?: string | null;
+};
+
 function startOfLocalDay(value: Date) {
   const date = new Date(value);
   date.setHours(0, 0, 0, 0);
@@ -44,4 +49,49 @@ export function isCatalogEventVisible(
   );
 
   return raceDate >= oldestVisibleFavoriteDate;
+}
+
+export function filterCatalogRacesByEditionRetention<TRace extends CatalogEditionRace>(
+  races: TRace[],
+  now = new Date(),
+) {
+  const editionEndDates = new Map<string, Date>();
+
+  for (const race of races) {
+    if (!race.edition_id || !race.race_date) continue;
+
+    const raceDate = parseCatalogDate(race.race_date);
+    if (!raceDate) continue;
+
+    const currentEndDate = editionEndDates.get(race.edition_id);
+    if (!currentEndDate || raceDate > currentEndDate) {
+      editionEndDates.set(race.edition_id, raceDate);
+    }
+  }
+
+  if (editionEndDates.size < 2) return races;
+
+  const newestEdition = [...editionEndDates.entries()].sort(
+    ([, leftEndDate], [, rightEndDate]) => rightEndDate.getTime() - leftEndDate.getTime(),
+  )[0];
+  if (!newestEdition) return races;
+
+  const oldestRetainedEditionEndDate = startOfLocalDay(now);
+  oldestRetainedEditionEndDate.setDate(
+    oldestRetainedEditionEndDate.getDate() - FAVORITE_PAST_EVENT_RETENTION_DAYS,
+  );
+
+  const retainedEditionIds = new Set(
+    [...editionEndDates.entries()]
+      .filter(([editionId, editionEndDate]) => (
+        editionId === newestEdition[0] || editionEndDate >= oldestRetainedEditionEndDate
+      ))
+      .map(([editionId]) => editionId),
+  );
+
+  return races.filter((race) => (
+    !race.edition_id
+    || !editionEndDates.has(race.edition_id)
+    || retainedEditionIds.has(race.edition_id)
+  ));
 }
