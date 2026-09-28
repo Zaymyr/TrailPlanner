@@ -75,6 +75,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [user_favorite_race_events](02-database/tables/user-favorite-race-events.md)
 - [subscriptions](02-database/tables/subscriptions.md)
 - [premium_grants](02-database/tables/premium-grants.md)
+- [partner_link_settings](02-database/tables/partner-link-settings.md)
 
 ### 03 Business Rules
 
@@ -107,6 +108,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Supabase Edge Functions](05-integrations/supabase-edge-functions.md)
 - [Analytics](05-integrations/analytics.md)
 - [OpenAI Organizer Import Reconciliation](05-integrations/openai-organizer-import.md)
+- [Affiliate Partner Links](05-integrations/affiliate-partner-links.md)
 
 ### 06 Workflows
 

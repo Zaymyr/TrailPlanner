@@ -24,11 +24,14 @@ related_files:
   - supabase/tests/organizer_edition_capability_grants_checks.sql
   - supabase/migrations/20260924140119_add_racebook_gear_checks.sql
   - supabase/tests/racebook_gear_checks.sql
+  - supabase/migrations/20260928123934_add_partner_link_settings.sql
+  - supabase/tests/partner_link_settings_checks.sql
 related_tables:
   - race_slug_redirects
   - race_event_edition_branding
   - organizer_edition_capability_grants
   - racebook_gear_checks
+  - partner_link_settings
 ---
 
 # Add New Table
@@ -37,7 +40,7 @@ related_tables:
 
 Use this workflow when adding a Supabase table to Pace Yourself.
 
-For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name`, the checked Plan/RaceBook onboarding statuses on `user_profiles`, and sponsor hierarchy/contextual/aggregate-impression columns on the already service-only `race_event_edition_sponsors` table. Each still requires schema and business/auth-doc updates plus focused SQL checks for any new service-only RPC. `racebook_gear_checks` is the current owner-scoped table example, with explicit authenticated select/insert/delete grants and separate matching `auth.uid()` policies. `organizer_import_sessions` is the service-only example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges.
+For column-only migrations on existing tables, use the relevant table doc plus [../02-database/migrations.md](../02-database/migrations.md) instead; do not create a new table doc unless a new primary table is introduced. Recent examples include organizer edition grouping on `races.edition_group_id` / `series_name`, the checked Plan/RaceBook onboarding statuses on `user_profiles`, and sponsor hierarchy/contextual/aggregate-impression columns on the already service-only `race_event_edition_sponsors` table. Each still requires schema and business/auth-doc updates plus focused SQL checks for any new service-only RPC. `racebook_gear_checks` is the current owner-scoped table example, with explicit authenticated select/insert/delete grants and separate matching `auth.uid()` policies. `organizer_import_sessions` is the service-only workflow-state example: RLS remains enabled without client policies, every client grant is revoked, service-role grants are explicit, and a SQL check verifies both table and RPC privileges. `partner_link_settings` is the small global-configuration example: its natural key is allowlisted, seed rows remain disabled, and its SQL check proves the service-only privilege boundary.
 
 Data-only catalog/showcase/roadbook migrations are outside this new-table workflow. They must still be created with the migration CLI, remain idempotent, preserve existing RLS/grants, document any external Storage assets, and update the migration documentation. The Les Amaz’Eaunes 2026 final-roadbook synchronization and the 23 September 2026 canonical event-website backfill are current data-correction examples and add no table.
 

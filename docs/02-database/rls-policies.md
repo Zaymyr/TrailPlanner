@@ -43,6 +43,8 @@ related_files:
   - supabase/migrations/20260924093224_add_racebook_sponsor_presentation_analytics.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
+  - supabase/migrations/20260928123934_add_partner_link_settings.sql
+  - supabase/tests/partner_link_settings_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_rls_checks.sql
   - supabase/tests/organizer_import_sessions_checks.sql
@@ -359,6 +361,7 @@ Declared in `20260504120000_add_push_notifications.sql`.
 
 - `race_slug_redirects`: `anon` and `authenticated` keep the historical live/public parent gate. The server-rendered web resolver uses service role and revalidates the current target against `web_catalog_is_live`, `is_public`, and optional parent-event liveness. All mutations and the invoker-security rename RPC are service-role-only.
 - `affiliate_offers`: service role manages; authenticated users read active offers attached to live products.
+- `partner_link_settings`: RLS is enabled without client policies; `PUBLIC`, `anon`, and `authenticated` have no privileges, while `service_role` manages the two rows only after the web route authenticates a trusted admin.
 - `app_feedback`: authenticated users can insert after later migration.
 - `app_changelog`: authenticated users can view.
 - `race_requests`: authenticated users can insert and read own requests.

@@ -35,6 +35,7 @@ related_files:
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260915104528_add_organizer_edition_capability_grants.sql
+  - supabase/migrations/20260928123934_add_partner_link_settings.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -64,6 +65,7 @@ related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
   - organizer_edition_capability_grants
+  - partner_link_settings
 ---
 
 # Database Relationships
@@ -112,6 +114,8 @@ User-owned tables include:
 - `organizer_import_sessions.created_by`
 
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
+
+`partner_link_settings.updated_by` is a nullable admin-audit reference to `auth.users(id)` with `on delete set null`. It does not grant ownership or client access; the table remains service-only.
 
 ## Race and Plan Relationships
 

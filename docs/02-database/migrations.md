@@ -46,6 +46,8 @@ related_files:
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
   - supabase/migrations/20260903095451_add_admin_kpi_aggregates.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
+  - supabase/migrations/20260928123934_add_partner_link_settings.sql
+  - supabase/tests/partner_link_settings_checks.sql
   - supabase/migrations/20260907111600_integrate_la_tourun_2026.sql
   - supabase/migrations/20260910061433_import_utmb_world_series_catalog_2026_2027.sql
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -161,6 +163,8 @@ Early migrations create:
 - `affiliate_events`
 
 The two affiliate engagement tables are historical only: `20260912172415_decommission_affiliate_engagement_analytics.sql` drops `affiliate_click_events`, `affiliate_events`, their event enum, and the affiliate reporting RPC. `affiliate_offers` remains available for resolving outbound merchant links.
+
+`20260928123934_add_partner_link_settings.sql` adds a separate service-only two-row configuration for global Booking and Decathlon destinations. It seeds disabled standard URLs, permits an optional HTTPS affiliate URL only behind an explicit flag, records a nullable trusted-admin audit reference, and revokes all client privileges. `supabase/tests/partner_link_settings_checks.sql` verifies the privilege boundary and constraints without persisting fixtures.
 
 Important files:
 

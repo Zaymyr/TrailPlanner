@@ -98,6 +98,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Public race pages / SEO selections | `docs/03-business-rules/public-race-discovery.md` + `docs/02-database/tables/race-events.md` + `docs/02-database/tables/race-slug-redirects.md` + `docs/01-architecture/web-app.md` |
 | Race favorites / organizer runner notifications | `docs/02-database/tables/user-favorite-race-events.md` + `docs/02-database/tables/race-event-updates.md` + `docs/02-database/tables/race-event-update-reads.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |
 | Integration work (Stripe, Resend, Geocoding, Edge Functions) | `docs/05-integrations/` |
+| Booking / Decathlon partner links | `docs/05-integrations/affiliate-partner-links.md` + `docs/02-database/tables/partner-link-settings.md` |
 | Organizer LLM reconciliation | `docs/05-integrations/openai-organizer-import.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/organizer-import-sessions.md` |
 | Mobile-specific work | `docs/01-architecture/mobile-app.md` + `docs/06-workflows/add-new-screen-mobile.md` |
 | Mobile UI/UX audit or E2E test | `docs/06-workflows/mobile-ux-audit.md` + `docs/01-architecture/mobile-app.md` |
@@ -168,6 +169,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 - RevenueCat context: `docs/03-business-rules/premium-entitlement.md`
 - Supabase functions: `docs/05-integrations/supabase-edge-functions.md`
 - Analytics: `docs/05-integrations/analytics.md`
+- Booking / Decathlon outbound links: `docs/05-integrations/affiliate-partner-links.md`
 - Email/Resend status: `docs/05-integrations/resend.md`
 
 ## If You Are Working On Design System, Read:

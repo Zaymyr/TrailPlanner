@@ -30,6 +30,8 @@ related_files:
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260912172415_decommission_affiliate_engagement_analytics.sql
+  - supabase/migrations/20260928123934_add_partner_link_settings.sql
+  - supabase/tests/partner_link_settings_checks.sql
   - supabase/migrations/20260912172228_remove_trail_ton_chateau_vat.sql
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
   - supabase/tests/organizer_generated_invoice_checks.sql
@@ -155,6 +157,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | --- | --- |
 | `app_feedback` | Feedback submitted from app surfaces; later migrations add user and tracking fields. |
 | `affiliate_offers` | Merchant offer links attached to `products`. |
+| `partner_link_settings` | Service-managed normal and affiliate destinations for global Booking and Decathlon CTAs. |
 | `app_changelog` | Published mobile app changelog entries. |
 | `nutrition_plans` | User-owned nutrition planning snapshots. |
 | `plan_aid_stations` | Aid station rows attached to a saved race plan. |

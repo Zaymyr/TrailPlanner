@@ -799,6 +799,30 @@ export type AdminTranslations = {
     signInCta: string;
     forbidden: string;
   };
+  partnerLinks: {
+    title: string;
+    description: string;
+    loading: string;
+    loadError: string;
+    saveError: string;
+    saved: string;
+    save: string;
+    saving: string;
+    enabledLabel: string;
+    enabledHint: string;
+    standardUrlLabel: string;
+    standardUrlHint: string;
+    affiliateUrlLabel: string;
+    affiliateUrlPlaceholder: string;
+    affiliateEnabledLabel: string;
+    affiliateEnabledHint: string;
+    activeUrlLabel: string;
+    disabledStatus: string;
+    partners: {
+      booking: { title: string; description: string };
+      decathlon: { title: string; description: string };
+    };
+  };
   products: {
     title: string;
     description: string;

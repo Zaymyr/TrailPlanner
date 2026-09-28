@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-09-23
+last_verified: 2026-09-28
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -338,6 +338,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Admin-only favorite usage shown in the mobile product detail modal is operational metadata. It must not influence allocation order, product eligibility, or per-unit nutrition values.
 - Harmonized official product display names must not change the underlying nutrition math. Allocation still depends on `fuel_type`, carbs, sodium, and quantity, not on the display label shown to runners.
 - Keep page-translation contracts defined only once in `apps/web/locales/types.ts`; this includes admin catalog actions such as direct GPX download, and duplicate aliases can break `next build` before planner or catalog pages compile. The shared locale files also contain non-nutrition and SEO copy, including partner and `/links` page descriptions; keep the French and English Google Play/App Store CTAs aligned when replacing a campaign such as the retired beta waitlist.
+- The shared locale files also define the Admin partner-link copy. Those labels are configuration-only and must not alter product eligibility, allocation, or the older product-specific `affiliate_offers` behavior.
 - `Math.round(waterNeeded / 500)` can produce `0` electrolyte servings for low water demand.
 - Carb allocation uses product carbs as weights; products with `carbs_g <= 5` are excluded from carb-source allocation.
 - Sodium from electrolytes and carb products is subtracted before capsule allocation.
