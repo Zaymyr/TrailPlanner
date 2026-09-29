@@ -113,7 +113,7 @@ Catalog imports copy source `race_aid_stations` service flags into `planner_valu
 
 `apps/web/app/api/plans/route.ts` creates, updates, fetches, and deletes saved plans. On GET, plans with `race_id` receive the current `race_aid_station_products` mapped into `planner_values.organizerAidStationProducts` in the response only. This read-time overlay does not update the database row.
 
-The saved-plan mobile workspace keeps Mon plan, Récap, and Paramètres on one in-memory draft. Entering Récap flushes pending changes and derives the summary from the current values and elevation profile; it does not create a parallel editable state. The legacy summary route redirects into that tab. The contextual Plans exit and native back both reuse the canonical save-and-leave path.
+The saved-plan mobile workspace keeps Mon plan, Récap, and Paramètres on one in-memory draft. Entering Récap flushes pending changes and derives the summary from the current values and elevation profile; it does not create a parallel editable state. The legacy summary route redirects into that tab. The contextual Plans exit and native back both reuse the canonical save-and-leave path. Mon plan's tab-only Ravitos/Chronologie/Allures switcher retains one parent scroll and repositions that scroll to the corresponding focused ravito; the pinned controls and permanently expanded settings cards are presentation only and do not create another draft or persistence path.
 
 In the legacy wording below, “recap reload” now means the workspace's initial/direct entry load. After the workspace has loaded, its live canonical draft remains authoritative across tab changes.
 

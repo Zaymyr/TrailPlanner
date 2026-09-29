@@ -39,11 +39,14 @@ import { captureAnalyticsEvent } from '../../lib/posthog';
 import { supabase } from '../../lib/supabase';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { PlanWorkspaceStickyBar } from './PlanWorkspaceStickyBar';
 
 type Props = {
   id: string;
   summary: PlanSummary;
   contentTopInset: number;
+  stickyTopInset: number;
+  stickyRevealOffset: number;
   shareOnMount?: boolean;
   onShareIntentConsumed?: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
@@ -106,7 +109,7 @@ function CheckpointCard({ checkpoint, departureTime, summary }: { checkpoint: Pl
   );
 }
 
-export function PlanRecapContent({ id, summary, contentTopInset, shareOnMount = false, onShareIntentConsumed, onScroll }: Props) {
+export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset, stickyRevealOffset, shareOnMount = false, onShareIntentConsumed, onScroll }: Props) {
   const { locale, t } = useI18n();
   const insets = useSafeAreaInsets();
   const [departureTime, setDepartureTime] = useState(() => new Date());
@@ -115,6 +118,7 @@ export function PlanRecapContent({ id, summary, contentTopInset, shareOnMount = 
   const [pickerHour, setPickerHour] = useState('00');
   const [pickerMinute, setPickerMinute] = useState('00');
   const [sharing, setSharing] = useState(false);
+  const [stickyVisible, setStickyVisible] = useState(false);
   const automaticShareRef = useRef(false);
   const synchronizerRef = useRef(createPlanShareLinkSynchronizer());
   const targetSummary = useMemo(() => `${Math.round(summary.targetCarbsPerHour)} g/h · ${Math.round(summary.targetWaterPerHour)} ml/h · ${Math.round(summary.targetSodiumPerHour)} mg/h`, [summary]);
@@ -192,24 +196,44 @@ export function PlanRecapContent({ id, summary, contentTopInset, shareOnMount = 
     setPickerVisible(false);
   };
 
+  const targetActions = (compact = false) => (
+    <View style={[styles.recapIntro, compact && styles.recapIntroCompact]}>
+      <View style={styles.productMain}>
+        <Text tone="secondary" size={compact ? 'xs' : undefined}>{t.planSummary.hourlyTargets}</Text>
+        <DataText tone="brand" weight="bold" size={compact ? 'xs' : undefined} numberOfLines={1}>{targetSummary}</DataText>
+      </View>
+      <TouchableOpacity
+        accessibilityLabel={t.planSummary.share}
+        disabled={sharing}
+        onPress={() => void handleShare()}
+        style={[styles.shareButton, compact && styles.shareButtonCompact, sharing && styles.disabled]}
+      >
+        <Ionicons name={sharing ? 'hourglass-outline' : 'share-social-outline'} size={18} color={Colors.textOnBrand} />
+        {!compact ? <Text weight="bold" style={styles.shareText}>{sharing ? t.planSummary.shareLinkCreating : t.planSummary.share}</Text> : null}
+      </TouchableOpacity>
+    </View>
+  );
+
   return (
     <>
       <ScrollView
         contentContainerStyle={[styles.content, { paddingTop: contentTopInset }]}
         keyboardShouldPersistTaps="handled"
-        onScroll={onScroll}
+        onScroll={(event) => {
+          const visible = event.nativeEvent.contentOffset.y >= stickyRevealOffset;
+          setStickyVisible((current) => current === visible ? current : visible);
+          onScroll(event);
+        }}
         scrollEventThrottle={16}
         style={styles.screen}
       >
-        <View style={styles.recapIntro}>
-          <View style={styles.productMain}>
-            <Text tone="secondary">{t.planSummary.hourlyTargets}</Text>
-            <DataText tone="brand" weight="bold">{targetSummary}</DataText>
-          </View>
-          <TouchableOpacity disabled={sharing} onPress={() => void handleShare()} style={[styles.shareButton, sharing && styles.disabled]}>
-            <Ionicons name={sharing ? 'hourglass-outline' : 'share-social-outline'} size={18} color={Colors.textOnBrand} />
-            <Text weight="bold" style={styles.shareText}>{sharing ? t.planSummary.shareLinkCreating : t.planSummary.share}</Text>
-          </TouchableOpacity>
+        <View
+          accessibilityElementsHidden={stickyVisible}
+          importantForAccessibility={stickyVisible ? 'no-hide-descendants' : 'auto'}
+          pointerEvents={stickyVisible ? 'none' : 'auto'}
+          style={stickyVisible && styles.hiddenIntro}
+        >
+          {targetActions()}
         </View>
         <TouchableOpacity activeOpacity={0.9} onPress={openPicker} style={styles.departureCard}>
           <View><Text tone="secondary" size="xs" weight="semibold">{t.planSummary.departureTime}</Text><DataText tone="brand" size="2xl" weight="bold">{departureReady ? formatClock(departureTime) : '—'}</DataText></View>
@@ -226,6 +250,9 @@ export function PlanRecapContent({ id, summary, contentTopInset, shareOnMount = 
         </View>
         <View style={styles.bottomSpacer} />
       </ScrollView>
+      <PlanWorkspaceStickyBar top={stickyTopInset} visible={stickyVisible} testID="plan-recap-sticky-actions">
+        {targetActions(true)}
+      </PlanWorkspaceStickyBar>
       <Modal visible={pickerVisible} transparent animationType="fade" onRequestClose={() => setPickerVisible(false)}>
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={[styles.modalScroll, { paddingTop: Math.max(24, insets.top), paddingBottom: Math.max(24, insets.bottom) }]} keyboardShouldPersistTaps="handled">
@@ -250,7 +277,10 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: Colors.background },
   content: { gap: 16, paddingHorizontal: 16, paddingBottom: 16 },
   recapIntro: { flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface, padding: 14 },
+  recapIntroCompact: { minHeight: 54, borderWidth: 0, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 7 },
+  hiddenIntro: { opacity: 0 },
   shareButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 7, borderRadius: 22, backgroundColor: Colors.brandPrimary, paddingHorizontal: 14 },
+  shareButtonCompact: { width: 44, minHeight: 44, justifyContent: 'center', paddingHorizontal: 0 },
   shareText: { color: Colors.textOnBrand },
   disabled: { opacity: 0.65 },
   departureCard: { minHeight: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 16 },

@@ -247,11 +247,11 @@ export default function AppLayout() {
       />
       <Tabs.Screen
         name="plan/[id]/edit"
-        options={{ href: null }}
+        options={{ href: null, tabBarStyle: { display: 'none' } }}
       />
       <Tabs.Screen
         name="plan/[id]/summary"
-        options={{ href: null, headerRight: () => null }}
+        options={{ href: null, headerRight: () => null, tabBarStyle: { display: 'none' } }}
       />
       <Tabs.Screen
         name="training-live"

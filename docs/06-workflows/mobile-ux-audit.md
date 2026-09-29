@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-24
+last_verified: 2026-09-29
 ai_priority: high
 related_files:
   - apps/mobile/package.json
@@ -47,6 +47,7 @@ Use one reproducible runner journey to catch broken navigation and produce compa
 8. On iOS, focus at least one numeric or decimal field and confirm the shared `Terminé` accessory dismisses the keyboard without closing the form or discarding its value.
 
 9. On iOS, open a representative modal with VoiceOver: focus must remain inside the sheet, its title must be announced as a header, and each icon-only close action must announce its purpose with a 44-point target or equivalent hit slop.
+10. Open a saved plan and confirm the contextual bottom bar replaces the global shell bar. Scroll Mon plan through each tab and verify there is one vertical scroll, no horizontal paging, and the tabs plus auto-fill/add actions remain below the compact header. In Récap, verify hourly targets and Share occupy that same pinned position without duplicate VoiceOver focus.
 
 ## Visual Review Rubric
 

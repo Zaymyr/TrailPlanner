@@ -160,7 +160,25 @@ export function PlanBasicsSection({
     title: string,
     summaryChips: string[],
     spaced = false,
-  ) => (
+  ) => inline ? (
+    <View style={styles.inlineSettingsHeader}>
+      <View style={styles.inlineSettingsHeaderIcon}>
+        <Ionicons
+          name={section === 'course' ? 'flag-outline' : section === 'pace' ? 'speedometer-outline' : 'nutrition-outline'}
+          size={20}
+          color={Colors.brandPrimary}
+        />
+      </View>
+      <View style={styles.inlineSettingsHeaderCopy}>
+        <Text style={styles.inlineSettingsTitle}>{title}</Text>
+        <View style={styles.inlineSettingsSummary}>
+          {summaryChips.map((chip) => (
+            <Text key={`${section}-${chip}`} style={styles.inlineSettingsSummaryText}>{chip}</Text>
+          ))}
+        </View>
+      </View>
+    </View>
+  ) : (
     <TouchableOpacity
       style={[
         styles.sectionAccordionHeader,
@@ -195,12 +213,12 @@ export function PlanBasicsSection({
   if (inline) {
     return (
       <View style={styles.inlineSettingsContent}>
+        <View style={styles.inlineSettingsCard}>
         {renderAccordionHeader('course', 'Course', [
           values.name?.trim() || 'Sans nom',
           `${values.raceDistanceKm || 0} km`,
           `D+ ${values.elevationGain || 0} m`,
         ])}
-        {expandedSections.course ? (
           <>
             <Text style={styles.label}>Nom du plan</Text>
             <TextInput
@@ -221,10 +239,10 @@ export function PlanBasicsSection({
               </View>
             </View>
           </>
-        ) : null}
+        </View>
 
+        <View style={styles.inlineSettingsCard}>
         {renderAccordionHeader('pace', 'Allure', [paceSummary, fatigueDescriptor], true)}
-        {expandedSections.pace ? (
           <>
             <View style={styles.toggleRow}>
               <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]} onPress={() => update('paceType', 'pace')}>
@@ -284,15 +302,15 @@ export function PlanBasicsSection({
               </View>
             ) : null}
           </>
-        ) : null}
+        </View>
 
+        <View style={styles.inlineSettingsCard}>
         {renderAccordionHeader('nutrition', 'Nutrition', [
           `${values.targetIntakePerHour || 0} g/h`,
           `${values.waterIntakePerHour || 0} ml/h`,
           `${values.sodiumIntakePerHour || 0} mg/h`,
           `Poche eau ${values.waterBagLiters} L`,
         ], true)}
-        {expandedSections.nutrition ? (
           <>
             <View style={styles.row}>
               <View style={styles.rowItem}>
@@ -321,7 +339,7 @@ export function PlanBasicsSection({
               ))}
             </View>
           </>
-        ) : null}
+        </View>
       </View>
     );
   }

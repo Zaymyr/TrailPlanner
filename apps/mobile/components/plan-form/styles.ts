@@ -17,7 +17,54 @@ export const inputStyles = StyleSheet.create({
 
 export const styles = StyleSheet.create({
   inlineSettingsContent: {
-    gap: 10,
+    gap: 16,
+  },
+  inlineSettingsCard: {
+    gap: 8,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    padding: 16,
+  },
+  inlineSettingsHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    marginBottom: 6,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  inlineSettingsHeaderIcon: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 12,
+    backgroundColor: Colors.brandSurface,
+  },
+  inlineSettingsHeaderCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 4,
+  },
+  inlineSettingsTitle: {
+    color: Colors.textPrimary,
+    fontSize: 19,
+    lineHeight: 24,
+    fontWeight: '800',
+  },
+  inlineSettingsSummary: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 5,
+  },
+  inlineSettingsSummaryText: {
+    color: Colors.textMuted,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
   },
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 48 },

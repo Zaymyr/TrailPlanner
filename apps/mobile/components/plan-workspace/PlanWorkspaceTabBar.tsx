@@ -14,7 +14,7 @@ type Props = {
 };
 
 const TABS: { key: PlanWorkspaceTab; icon: keyof typeof Ionicons.glyphMap }[] = [
-  { key: 'plan', icon: 'map' },
+  { key: 'plan', icon: 'clipboard-outline' },
   { key: 'recap', icon: 'reader' },
   { key: 'settings', icon: 'options' },
 ];
@@ -52,7 +52,7 @@ export function PlanWorkspaceTabBar({ activeTab, onSelectTab, onExit }: Props) {
           style={({ pressed }) => [styles.button, pressed && styles.pressed]}
           testID="plan-workspace-exit"
         >
-          <Ionicons name="albums" size={24} color={Colors.textSecondary} />
+          <Ionicons name="map" size={24} color={Colors.textSecondary} />
           <Text numberOfLines={1} style={styles.exitLabel}>{t.planWorkspace.plans}</Text>
         </Pressable>
       </View>

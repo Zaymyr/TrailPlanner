@@ -26,7 +26,11 @@ import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial
 import { PlanLoadingScreen } from '../../../../components/PlanLoadingScreen';
 import { Colors } from '../../../../constants/colors';
 import { PlanRecapContent } from '../../../../components/plan-workspace/PlanRecapContent';
-import { PlanWorkspaceHeader, PLAN_WORKSPACE_HEADER_BODY_HEIGHT } from '../../../../components/plan-workspace/PlanWorkspaceHeader';
+import {
+  PlanWorkspaceHeader,
+  PLAN_WORKSPACE_HEADER_BODY_HEIGHT,
+  PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT,
+} from '../../../../components/plan-workspace/PlanWorkspaceHeader';
 import { PlanWorkspaceTabBar } from '../../../../components/plan-workspace/PlanWorkspaceTabBar';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
@@ -852,6 +856,8 @@ export default function EditPlanScreen() {
           contentTopInset={headerTopInset}
           id={id}
           onScroll={handleWorkspaceScroll}
+          stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + 16}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
           onShareIntentConsumed={() => router.setParams({ share: undefined })}
           shareOnMount={share === '1'}
           summary={workspaceSummary}
@@ -886,6 +892,8 @@ export default function EditPlanScreen() {
           productData={planProductData}
           compactBasicsByDefault
           contentTopInset={headerTopInset}
+          stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
           onMissingFavoriteProducts={handleMissingFavoriteProducts}
           onWorkspaceScroll={handleWorkspaceScroll}
           showActions={false}

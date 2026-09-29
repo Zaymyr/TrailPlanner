@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { calculateElevationLoss, formatAveragePace, normalizePlanWorkspaceTab } from './planWorkspace';
+import {
+  calculateElevationLoss,
+  findPlanViewAnchorAtFocus,
+  formatAveragePace,
+  getPlanViewScrollTarget,
+  normalizePlanWorkspaceTab,
+} from './planWorkspace';
 
 describe('plan workspace helpers', () => {
   it('calculates cumulative descent without persisting another plan field', () => {
@@ -27,5 +33,22 @@ describe('plan workspace helpers', () => {
     expect(normalizePlanWorkspaceTab('recap')).toBe('recap');
     expect(normalizePlanWorkspaceTab('settings')).toBe('settings');
     expect(normalizePlanWorkspaceTab('unknown')).toBe('plan');
+  });
+
+  it('keeps the station intersecting the sticky focus line when switching views', () => {
+    const anchors = [
+      { index: 0, top: 0, bottom: 180 },
+      { index: 1, top: 190, bottom: 430 },
+      { index: 2, top: 440, bottom: 700 },
+    ];
+
+    expect(findPlanViewAnchorAtFocus(anchors, 315)?.index).toBe(1);
+    expect(findPlanViewAnchorAtFocus(anchors, 900)?.index).toBe(2);
+    expect(findPlanViewAnchorAtFocus(anchors, -10)?.index).toBe(0);
+  });
+
+  it('positions the matching anchor below the compact header and sticky controls', () => {
+    expect(getPlanViewScrollTarget(280, 156, 440, 240)).toBe(636);
+    expect(getPlanViewScrollTarget(20, 30, 40, 240)).toBe(0);
   });
 });

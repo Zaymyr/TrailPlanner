@@ -15,8 +15,12 @@ import {
 import { TutorialTarget, type TutorialMeasurableTarget } from './help/SpotlightTutorial';
 import { useI18n } from '../lib/i18n';
 import {
-  AidStationsSectionV3 as AidStationsSection
+  AidStationsSectionV3 as AidStationsSection,
+  AidStationsToolbar,
+  type AidStationsSectionHandle,
+  type PlanViewMode,
 } from './plan-form/AidStationsSectionV3';
+import { PlanWorkspaceStickyBar } from './plan-workspace/PlanWorkspaceStickyBar';
 import { AutoFillLimitsModal } from './plan-form/AutoFillLimitsModal';
 import {
   ARRIVEE_ID,
@@ -84,6 +88,8 @@ type Props = {
   onMissingFavoriteProducts?: () => void;
   surface?: 'plan' | 'settings';
   contentTopInset?: number;
+  stickyTopInset?: number;
+  stickyRevealOffset?: number;
   showActions?: boolean;
   onWorkspaceScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   tutorial?: {
@@ -98,6 +104,7 @@ type Props = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 const AUTO_FILL_LOADING_MESSAGE = 'Calcul en cours';
+const STICKY_PLAN_CONTROLS_HEIGHT = 112;
 
 function getTargetCacheKey(target: PlanTarget) {
   return target === 'start' ? 'start' : String(target);
@@ -128,6 +135,8 @@ export default function PlanForm({
   tutorial,
   surface = 'plan',
   contentTopInset = 0,
+  stickyTopInset = 0,
+  stickyRevealOffset = Number.POSITIVE_INFINITY,
   showActions = true,
   onWorkspaceScroll,
 }: Props) {
@@ -151,9 +160,12 @@ export default function PlanForm({
   const [autoFillResult, setAutoFillResult] = useState<AutoFillResult | null>(null);
   const [autoFillUndo, setAutoFillUndo] = useState<Pick<PlanFormValues, 'startSupplies' | 'aidStations'> | null>(null);
   const mainScrollRef = useRef<ScrollView>(null);
+  const aidStationsSectionRef = useRef<AidStationsSectionHandle>(null);
   const mainScrollYRef = useRef(0);
   const aidStationsSectionYRef = useRef(0);
-  const lastAidStationsAlignAtRef = useRef(0);
+  const aidStationsToolbarYRef = useRef(Number.POSITIVE_INFINITY);
+  const [aidStationsViewMode, setAidStationsViewMode] = useState<PlanViewMode>('stations');
+  const [stickyControlsVisible, setStickyControlsVisible] = useState(false);
   const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
@@ -174,10 +186,13 @@ export default function PlanForm({
     setAutoFillProductLimits([]);
     setAutoFillResult(null);
     setAutoFillUndo(null);
+    setAidStationsViewMode('stations');
+    setStickyControlsVisible(false);
   }, [compactBasicsByDefault, initialValues]);
 
   useEffect(() => {
     if (surface !== 'settings') return;
+    setStickyControlsVisible(false);
     setExpandedSections((current) => ({ ...current, course: true, pace: true, nutrition: true }));
   }, [surface]);
 
@@ -515,17 +530,6 @@ export default function PlanForm({
     });
   }, []);
 
-  const alignAidStationsSection = useCallback(() => {
-    const targetY = Math.max(0, aidStationsSectionYRef.current - 12);
-    const now = Date.now();
-
-    if (Math.abs(mainScrollYRef.current - targetY) < 24) return;
-    if (now - lastAidStationsAlignAtRef.current < 300) return;
-
-    lastAidStationsAlignAtRef.current = now;
-    mainScrollRef.current?.scrollTo({ y: targetY, animated: true });
-  }, []);
-
   const handleAddProductFromPicker = useCallback((product: PickerProduct) => {
     if (pickerTarget === null) return;
     addSupplyToStation(pickerTarget, product.id);
@@ -803,7 +807,13 @@ export default function PlanForm({
         scrollEventThrottle={16}
         onContentSizeChange={(_, height) => tutorial?.onContentSizeChange(height)}
         onScroll={(event) => {
-          mainScrollYRef.current = event.nativeEvent.contentOffset.y;
+          const nextScrollY = event.nativeEvent.contentOffset.y;
+          mainScrollYRef.current = nextScrollY;
+          aidStationsSectionRef.current?.updateParentScroll(nextScrollY);
+          const toolbarRevealOffset = aidStationsSectionYRef.current + aidStationsToolbarYRef.current - stickyTopInset;
+          const shouldShowStickyControls = surface === 'plan'
+            && nextScrollY >= Math.max(stickyRevealOffset, toolbarRevealOffset);
+          setStickyControlsVisible((current) => current === shouldShowStickyControls ? current : shouldShowStickyControls);
           tutorial?.onScroll(event);
           onWorkspaceScroll?.(event);
         }}
@@ -840,6 +850,7 @@ export default function PlanForm({
           }}
         >
           <AidStationsSection
+            ref={aidStationsSectionRef}
             values={values}
             basePaceMinutesPerKm={basePaceMinutesPerKm}
             departId={DEPART_ID}
@@ -871,7 +882,15 @@ export default function PlanForm({
             onSplitSectionSegment={splitSectionSegment}
             onRemoveSectionSegment={removeSectionSegment}
             onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
-            onNestedScrollInteractionStart={alignAidStationsSection}
+            getParentScrollY={() => mainScrollYRef.current}
+            getSectionTop={() => aidStationsSectionYRef.current}
+            parentFocusOffset={stickyTopInset + STICKY_PLAN_CONTROLS_HEIGHT + 12}
+            scrollParentTo={(y) => mainScrollRef.current?.scrollTo({ y, animated: false })}
+            onViewModeChange={setAidStationsViewMode}
+            onToolbarLayout={(top) => {
+              aidStationsToolbarYRef.current = top;
+            }}
+            toolbarHidden={stickyControlsVisible}
             tutorial={
               tutorial
                 ? {
@@ -886,6 +905,25 @@ export default function PlanForm({
 
         <View style={styles.saveSpacer} />
       </ScrollView>
+
+      {surface === 'plan' ? (
+        <PlanWorkspaceStickyBar
+          top={stickyTopInset}
+          visible={stickyControlsVisible}
+          testID="plan-sticky-controls"
+        >
+          <AidStationsToolbar
+            compact
+            mode={aidStationsViewMode}
+            onSelectMode={(mode) => aidStationsSectionRef.current?.selectViewMode(mode)}
+            addAidStation={handleAddAidStationPress}
+            fillSuppliesAuto={handleFillSuppliesAuto}
+            isAutoFilling={isAutoFilling}
+            autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
+            isPremium={isPremium}
+          />
+        </PlanWorkspaceStickyBar>
+      ) : null}
 
       {autoFillUndo ? (
         <View accessibilityRole="alert" style={styles.autoFillUndoBanner}>

@@ -31,3 +31,22 @@ export function formatAveragePace(totalDurationMin: number, distanceKm: number):
   const seconds = totalSeconds % 60;
   return `${minutes}:${String(seconds).padStart(2, '0')}`;
 }
+
+export type PlanViewAnchor = { index: number; top: number; bottom: number };
+
+export function findPlanViewAnchorAtFocus(anchors: readonly PlanViewAnchor[], focusY: number): PlanViewAnchor | null {
+  if (anchors.length === 0) return null;
+  const ordered = [...anchors].sort((left, right) => left.top - right.top);
+  return ordered.find((anchor) => anchor.top <= focusY && focusY <= anchor.bottom)
+    ?? [...ordered].reverse().find((anchor) => anchor.top <= focusY)
+    ?? ordered[0];
+}
+
+export function getPlanViewScrollTarget(
+  sectionTop: number,
+  activeViewTop: number,
+  anchorTop: number,
+  focusOffset: number,
+) {
+  return Math.max(0, Math.round(sectionTop + activeViewTop + anchorTop - focusOffset));
+}
