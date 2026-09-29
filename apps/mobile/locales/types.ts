@@ -137,6 +137,19 @@ export type MobileTranslations = {
     pause: string;
     shareFailed: string;
   };
+  planWorkspace: {
+    myPlan: string;
+    recap: string;
+    settings: string;
+    plans: string;
+    backToPlans: string;
+    saveAndBackToPlans: string;
+    openHelp: string;
+    estimatedTime: string;
+    averagePace: string;
+    saved: string;
+    saveError: string;
+  };
   trainingLive: {
     title: string;
     menuLabel: string;

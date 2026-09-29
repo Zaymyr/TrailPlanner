@@ -42,7 +42,6 @@ import {
 } from './plan-form/metrics';
 import { NumberInput } from './plan-form/NumberInput';
 import { PlanBasicsSection } from './plan-form/PlanBasicsSection';
-import { PlanHighlightsSection } from './plan-form/PlanHighlightsSection';
 import { ProductPickerModal, type PickerProduct } from './plan-form/ProductPickerModal';
 import { PremiumUpsellModal } from './premium/PremiumUpsellModal';
 import { buildCarryoverCoverages } from './plan-form/carryover';
@@ -83,6 +82,10 @@ type Props = {
   elevationProfile?: ElevationPoint[];
   compactBasicsByDefault?: boolean;
   onMissingFavoriteProducts?: () => void;
+  surface?: 'plan' | 'settings';
+  contentTopInset?: number;
+  showActions?: boolean;
+  onWorkspaceScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   tutorial?: {
     scrollRef: React.MutableRefObject<ScrollView | null>;
     onContentSizeChange: (height: number) => void;
@@ -123,6 +126,10 @@ export default function PlanForm({
   compactBasicsByDefault = false,
   onMissingFavoriteProducts,
   tutorial,
+  surface = 'plan',
+  contentTopInset = 0,
+  showActions = true,
+  onWorkspaceScroll,
 }: Props) {
   const { t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
@@ -168,6 +175,11 @@ export default function PlanForm({
     setAutoFillResult(null);
     setAutoFillUndo(null);
   }, [compactBasicsByDefault, initialValues]);
+
+  useEffect(() => {
+    if (surface !== 'settings') return;
+    setExpandedSections((current) => ({ ...current, course: true, pace: true, nutrition: true }));
+  }, [surface]);
 
   const clearAutoFillUndoTimer = useCallback(() => {
     if (autoFillUndoTimerRef.current) {
@@ -375,14 +387,6 @@ export default function PlanForm({
 
     return map;
   }, [liveSectionSummaries, values.aidStations, values.waterBagLiters]);
-  const paceLabel = useMemo(() => {
-    const safeMinutesPerKm = highlights.totalDurationMin / Math.max(values.raceDistanceKm, 0.01);
-    const totalSeconds = Math.max(1, Math.round(safeMinutesPerKm * 60));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes}:${String(seconds).padStart(2, '0')}`;
-  }, [highlights.totalDurationMin, values.raceDistanceKm]);
-
   const gaugeMetricsMap = useMemo(() => {
     const map = new Map<string, GaugeMetric[]>();
 
@@ -794,53 +798,42 @@ export default function PlanForm({
       <ScrollView
         ref={setScrollRefs}
         style={styles.container}
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, { paddingTop: contentTopInset }]}
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         onContentSizeChange={(_, height) => tutorial?.onContentSizeChange(height)}
         onScroll={(event) => {
           mainScrollYRef.current = event.nativeEvent.contentOffset.y;
           tutorial?.onScroll(event);
+          onWorkspaceScroll?.(event);
         }}
         onMomentumScrollEnd={tutorial?.onScrollSettled}
         onScrollEndDrag={tutorial?.onScrollSettled}
       >
-        <TutorialTarget
-          onMeasure={handleTutorialTargetMeasure}
-          onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="summary"
-        >
-          <View>
-            <PlanHighlightsSection
-              totalDurationLabel={highlights.totalDurationLabel}
-              paceLabel={paceLabel}
-              intermediateCount={highlights.intermediateCount}
-            />
-          </View>
-        </TutorialTarget>
-
-        <TutorialTarget
-          onMeasure={handleTutorialTargetMeasure}
-          onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="basics"
-        >
-          <View>
-            <PlanBasicsSection
-              values={values}
-              expandedSections={expandedSections}
-              toggleSection={toggleSection}
-              settingsVisible={settingsSheetVisible}
-              onOpenSettings={openSettingsSheet}
-              onCloseSettings={closeSettingsSheet}
-              update={update}
-              hasSectionTimingOverrides={hasSectionTimingOverrides}
-              onResetSectionTimingOverrides={resetSectionTimingOverrides}
-              NumberInput={NumberInput}
-              waterBagOptions={WATER_BAG_OPTIONS}
-            />
-          </View>
-        </TutorialTarget>
-
+        {surface === 'settings' ? (
+          <TutorialTarget
+            onMeasure={handleTutorialTargetMeasure}
+            onRegisterRef={tutorial?.onTargetRegisterRef}
+            targetKey="basics"
+          >
+            <View>
+              <PlanBasicsSection
+                values={values}
+                expandedSections={expandedSections}
+                toggleSection={toggleSection}
+                settingsVisible={settingsSheetVisible}
+                onOpenSettings={openSettingsSheet}
+                onCloseSettings={closeSettingsSheet}
+                update={update}
+                hasSectionTimingOverrides={hasSectionTimingOverrides}
+                onResetSectionTimingOverrides={resetSectionTimingOverrides}
+                NumberInput={NumberInput}
+                waterBagOptions={WATER_BAG_OPTIONS}
+                inline
+              />
+            </View>
+          </TutorialTarget>
+        ) : (
         <View
           onLayout={(event) => {
             aidStationsSectionYRef.current = event.nativeEvent.layout.y;
@@ -889,6 +882,7 @@ export default function PlanForm({
             }
           />
         </View>
+        )}
 
         <View style={styles.saveSpacer} />
       </ScrollView>
@@ -902,12 +896,12 @@ export default function PlanForm({
         </View>
       ) : null}
 
-      <FloatingActionMenu
+      {showActions ? <FloatingActionMenu
         accessibilityLabel={t.planSummary.openActions}
         actions={planActions}
         closedIcon="ellipsis-horizontal"
         dismissAccessibilityLabel={t.planSummary.closeActions}
-      />
+      /> : null}
 
       <ProductPickerModal
         visible={pickerTarget !== null}

@@ -16,6 +16,9 @@ export const inputStyles = StyleSheet.create({
 });
 
 export const styles = StyleSheet.create({
+  inlineSettingsContent: {
+    gap: 10,
+  },
   container: { flex: 1, backgroundColor: Colors.background },
   content: { padding: 20, paddingBottom: 48 },
   planOverviewHeader: {

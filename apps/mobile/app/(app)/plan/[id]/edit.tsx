@@ -5,27 +5,29 @@ import {
   useRef,
   useState
 } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
+  Animated,
+  BackHandler,
+  Pressable,
   View,
   StyleSheet,
   Alert,
-  TouchableOpacity,
   AppState,
-  Share
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { Text } from '../../../../components/themed/Text';
-import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { supabase } from '../../../../lib/supabase';
-import { AppHeaderTitle } from '../../../../components/navigation/AppHeaderTitle';
 import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';
 import type { PlanProduct } from '../../../../components/plan-form/contracts';
-import { FeedbackHeaderButton } from '../../../../components/feedback/FeedbackHeaderButton';
-import { HelpHeaderButton } from '../../../../components/help/HelpHeaderButton';
 import { SpotlightTutorial } from '../../../../components/help/SpotlightTutorial';
 import { PlanLoadingScreen } from '../../../../components/PlanLoadingScreen';
 import { Colors } from '../../../../constants/colors';
+import { PlanRecapContent } from '../../../../components/plan-workspace/PlanRecapContent';
+import { PlanWorkspaceHeader, PLAN_WORKSPACE_HEADER_BODY_HEIGHT } from '../../../../components/plan-workspace/PlanWorkspaceHeader';
+import { PlanWorkspaceTabBar } from '../../../../components/plan-workspace/PlanWorkspaceTabBar';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
@@ -50,14 +52,12 @@ import {
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 import {
-  applyStoredDepartureTime,
   buildPlanSummary,
   buildProductMap as buildSummaryProductMap,
   buildStoredRacePlanFromValues,
-  collectPlanProductIdsFromValues,
-  getPlanSummaryDepartureTimeStorageKey,
+  formatDuration,
 } from '../../../../lib/planSummary';
-import { createPlanShareLink } from '../../../../lib/planShareLinks';
+import { calculateElevationLoss, formatAveragePace, normalizePlanWorkspaceTab, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
 import {
   buildPersistedPlannerValues,
   createPlanPersistenceSnapshot,
@@ -82,18 +82,18 @@ type RacePlanRow = {
     waterIntakePerHour?: number;
     sodiumIntakePerHour?: number;
     waterBagLiters?: number;
-    startSupplies?: Array<{ productId: string; quantity: number }>;
+    startSupplies?: { productId: string; quantity: number }[];
     segments?: Record<string, any[]>;
     sectionSegments?: Record<string, any[]>;
-    aidStations?: Array<{
+    aidStations?: {
       name: string;
       distanceKm: number;
       waterRefill: boolean;
       solidRefill?: boolean;
       assistanceAllowed?: boolean;
       pauseMinutes?: number;
-      supplies?: Array<{ productId: string; quantity: number }>;
-    }>;
+      supplies?: { productId: string; quantity: number }[];
+    }[];
   };
 };
 
@@ -147,24 +147,14 @@ function getUnsavedPlanEditDraft(planId: string) {
 
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
 
-async function loadProductMapForPlanValues(values: PlanFormValues) {
-  const productIds = collectPlanProductIdsFromValues(values);
-  if (productIds.length === 0) return {};
-
-  const { data, error } = await supabase
-    .from('products')
-    .select('id, name, brand, fuel_type, carbs_g, sodium_mg, calories_kcal')
-    .in('id', productIds);
-
-  if (error) throw error;
-
-  return buildSummaryProductMap((data ?? []) as PlanProduct[]);
-}
-
 export default function EditPlanScreen() {
-  const { id, showHelp } = useLocalSearchParams<{ id: string; showHelp?: string }>();
+  const { id, showHelp, tab, share } = useLocalSearchParams<{ id: string; showHelp?: string; tab?: string; share?: string }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { locale, t } = useI18n();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const [activeTab, setActiveTab] = useState<PlanWorkspaceTab>(() => normalizePlanWorkspaceTab(tab));
   const initialWarmStartDraft = id ? getUnsavedPlanEditDraft(id) : null;
   const initialWarmStartProductData = id ? getPlanEditProductsBootstrap(id) : null;
   const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
@@ -178,14 +168,6 @@ export default function EditPlanScreen() {
         highlightPadding: 8,
         highlightRadius: 16,
         placement: 'bottom',
-      },
-      {
-        screenKey: 'planEdit',
-        targetKey: 'summary',
-        title: t.helpTutorial.planEdit.summaryTitle,
-        body: t.helpTutorial.planEdit.summaryBody,
-        highlightPadding: 8,
-        highlightRadius: 16,
       },
       {
         screenKey: 'planEdit',
@@ -216,6 +198,9 @@ export default function EditPlanScreen() {
     [t.helpTutorial],
   );
   const [initialValues, setInitialValues] = useState<PlanFormValues | null>(
+    () => initialWarmStartDraft?.values ?? null,
+  );
+  const [liveValues, setLiveValues] = useState<PlanFormValues | null>(
     () => initialWarmStartDraft?.values ?? null,
   );
   const [planName, setPlanName] = useState(() => initialWarmStartDraft?.planName ?? '');
@@ -255,6 +240,7 @@ export default function EditPlanScreen() {
   const loadRequestIdRef = useRef(0);
   const router = useRouter();
   const {
+    currentTutorialTargetKey,
     handleTutorialClose,
     handleTutorialNext,
     handleTutorialPrevious,
@@ -272,6 +258,17 @@ export default function EditPlanScreen() {
     tutorialViewport,
     tutorialVisible,
   } = usePlanEditTutorial({ steps: tutorialSteps });
+
+  useEffect(() => {
+    setActiveTab(normalizePlanWorkspaceTab(tab));
+  }, [tab]);
+
+  useEffect(() => {
+    if (!tutorialVisible || !currentTutorialTargetKey) return;
+    setActiveTab(currentTutorialTargetKey === 'basics' ? 'settings' : 'plan');
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    scrollY.setValue(0);
+  }, [currentTutorialTargetKey, scrollRef, scrollY, tutorialVisible]);
 
   useEffect(() => {
     elevationProfileRef.current = elevationProfile;
@@ -351,6 +348,7 @@ export default function EditPlanScreen() {
       elevationProfileRef.current = cachedDraft.elevationProfile;
       setLoadedPlanId(id);
       setInitialValues(cachedDraft.values);
+      setLiveValues(cachedDraft.values);
       setPlanName(cachedDraft.planName);
       setLoadingPlanName(cachedDraft.planName);
       setLoadingPlanNameId(id);
@@ -366,6 +364,7 @@ export default function EditPlanScreen() {
     loadedPlanIdRef.current = null;
     setLoadedPlanId(null);
     setInitialValues(null);
+    setLiveValues(null);
     setPlanName('');
     setLoadingPlanName(null);
     setLoadingPlanNameId(id);
@@ -404,6 +403,7 @@ export default function EditPlanScreen() {
       clearActivePlanEditSession(id);
       clearPlanEditDraft(id);
       setInitialValues(null);
+      setLiveValues(null);
       setElevationProfile([]);
       setPlanProductData(null);
       loadedPlanIdRef.current = null;
@@ -427,6 +427,7 @@ export default function EditPlanScreen() {
       setLoadingPlanNameId(id);
       setPlanName(cachedDraft.planName);
       setInitialValues(cachedDraft.values);
+      setLiveValues(cachedDraft.values);
       setElevationProfile(cachedDraft.elevationProfile);
       latestDraftRef.current = cachedDraft.values;
       lastSavedSnapshotRef.current = cachedDraft.lastSavedSnapshot;
@@ -443,6 +444,7 @@ export default function EditPlanScreen() {
       if (planResult.error) {
         setError(planResult.error.message);
         setInitialValues(null);
+        setLiveValues(null);
         setElevationProfile([]);
         setPlanProductData(null);
         loadedPlanIdRef.current = null;
@@ -471,6 +473,7 @@ export default function EditPlanScreen() {
 
         setPlanName(plan.name);
         setInitialValues(nextValues);
+        setLiveValues(nextValues);
         setElevationProfile(nextElevationProfile);
         latestDraftRef.current = nextValues;
         lastSavedSnapshotRef.current = serializePlanValues(nextValues, storedPlanElevationProfile);
@@ -734,99 +737,6 @@ export default function EditPlanScreen() {
     await saveAndLeaveToPlans();
   }
 
-  const stageDraftForAction = useCallback(
-    (values: PlanFormValues) => {
-      const normalizedValues = normalizePlanValuesForPersistence(values);
-      latestDraftRef.current = normalizedValues;
-      const nextSnapshot = serializePlanValues(normalizedValues, elevationProfileRef.current);
-      setDraftSnapshot(nextSnapshot);
-
-      if (id) {
-        setPlanEditDraft(id, {
-          elevationProfile: elevationProfileRef.current,
-          lastSavedSnapshot: lastSavedSnapshotRef.current,
-          planName: normalizedValues.name || planName,
-          values: normalizedValues,
-        });
-      }
-    },
-    [id, planName],
-  );
-
-  const handleOpenSummary = useCallback(
-    async (values: PlanFormValues) => {
-      if (!id) return;
-
-      stageDraftForAction(values);
-      const saved = await saveLatestDraft(true);
-
-      if (!saved) {
-        Alert.alert(t.common.error, t.profile.saveFailed);
-        return;
-      }
-
-      captureAnalyticsEvent('plan recap opened', {
-        aid_station_count: getIntermediateAidStationCount(values.aidStations),
-      });
-      router.push(`/(app)/plan/${id}/summary` as any);
-    },
-    [id, router, saveLatestDraft, stageDraftForAction, t.common.error, t.profile.saveFailed],
-  );
-
-  const handleSharePlan = useCallback(
-    async (values: PlanFormValues) => {
-      if (!id) return;
-
-      try {
-        stageDraftForAction(values);
-        const saved = await saveLatestDraft(true);
-        if (!saved) {
-          Alert.alert(t.common.error, t.profile.saveFailed);
-          return;
-        }
-
-        const normalizedValues = normalizePlanValuesForPersistence(values);
-        const productMap = await loadProductMapForPlanValues(normalizedValues);
-        const plan = buildStoredRacePlanFromValues({
-          id,
-          values: normalizedValues,
-          elevationProfile: elevationProfileRef.current,
-        });
-        const summary = buildPlanSummary(plan, productMap);
-        const fallbackDepartureTime = new Date();
-        const departureTime = await AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(id))
-          .then((storedValue) => applyStoredDepartureTime(storedValue, fallbackDepartureTime) ?? fallbackDepartureTime)
-          .catch(() => fallbackDepartureTime);
-        const shareUrl = await createPlanShareLink({
-          summary,
-          departureTime,
-          locale,
-        });
-
-        await Share.share({
-          message: `${t.planSummary.shareLinkIntro.replace('{name}', summary.name)}\n${shareUrl}`,
-          url: shareUrl,
-        });
-        captureAnalyticsEvent('plan recap link shared', {
-          aid_station_count: getIntermediateAidStationCount(normalizedValues.aidStations),
-          product_count: summary.totalProductUnits,
-        });
-      } catch {
-        Alert.alert(t.common.error, t.planSummary.shareFailed);
-      }
-    },
-    [
-      id,
-      locale,
-      saveLatestDraft,
-      stageDraftForAction,
-      t.common.error,
-      t.planSummary.shareFailed,
-      t.planSummary.shareLinkIntro,
-      t.profile.saveFailed,
-    ],
-  );
-
   const handleMissingFavoriteProducts = useCallback(() => {
     Alert.alert(
       'Favoris nutrition requis',
@@ -841,22 +751,68 @@ export default function EditPlanScreen() {
     );
   }, [router, t.common.cancel]);
 
+  const summaryProductMap = useMemo(
+    () => buildSummaryProductMap((planProductData?.allProducts ?? []) as PlanProduct[]),
+    [planProductData],
+  );
+  const workspaceSummary = useMemo(() => {
+    if (!id || !liveValues) return null;
+    return buildPlanSummary(
+      buildStoredRacePlanFromValues({ id, values: liveValues, elevationProfile }),
+      summaryProductMap,
+    );
+  }, [elevationProfile, id, liveValues, summaryProductMap]);
+  const elevationLoss = useMemo(() => calculateElevationLoss(elevationProfile), [elevationProfile]);
+  const averagePace = workspaceSummary
+    ? formatAveragePace(workspaceSummary.totalDurationMin, workspaceSummary.distanceKm)
+    : '—';
+  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + 16;
+
+  const handleWorkspaceScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    scrollY.setValue(event.nativeEvent.contentOffset.y);
+  }, [scrollY]);
+
+  const handleTabSelect = useCallback(async (nextTab: PlanWorkspaceTab) => {
+    if (nextTab === activeTab) return;
+    if (nextTab === 'recap') {
+      const saved = await saveLatestDraft(true);
+      if (!saved) {
+        Alert.alert(t.common.error, t.profile.saveFailed);
+        return;
+      }
+      captureAnalyticsEvent('plan recap viewed', {
+        aid_station_count: getIntermediateAidStationCount(latestDraftRef.current?.aidStations ?? []),
+      });
+    }
+    if (activeTab === 'recap' && liveValues) {
+      setInitialValues(liveValues);
+    }
+    setActiveTab(nextTab);
+    router.setParams({ tab: nextTab });
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+    scrollY.setValue(0);
+  }, [activeTab, liveValues, router, saveLatestDraft, scrollRef, scrollY, t.common.error, t.profile.saveFailed]);
+
+  useFocusEffect(useCallback(() => {
+    const tabsNavigation = navigation.getParent();
+    tabsNavigation?.setOptions({ tabBarStyle: { display: 'none' } });
+    const backSubscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      handleBackToPlans();
+      return true;
+    });
+    return () => {
+      backSubscription.remove();
+      tabsNavigation?.setOptions({ tabBarStyle: undefined });
+    };
+  }, [handleBackToPlans, navigation]));
+
   if (loading || premiumLoading || (!error && (loadedPlanId !== id || (initialValues && !planProductData)))) {
     const currentLoadingPlanName = loadingPlanNameId === id ? loadingPlanName : null;
     const visiblePlanName =
       currentLoadingPlanName ?? (loadedPlanId === id ? planName || initialValues?.name || null : null);
     return (
       <>
-        <Stack.Screen
-          options={{
-            headerTitleAlign: 'left',
-            headerTitle: () => (
-              <AppHeaderTitle
-                title={visiblePlanName ? `Modifier : ${visiblePlanName}` : locale === 'fr' ? 'Modifier le plan' : 'Edit plan'}
-              />
-            ),
-          }}
-        />
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <PlanLoadingScreen
           planName={visiblePlanName}
           progress={loadingProgress}
@@ -869,7 +825,11 @@ export default function EditPlanScreen() {
   if (error || !initialValues) {
     return (
       <View style={styles.center}>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <Text style={styles.errorText}>{error ?? 'Plan introuvable.'}</Text>
+        <Pressable accessibilityRole="button" onPress={() => router.replace('/(app)/plans')} style={styles.errorBackButton}>
+          <Text style={styles.errorBackButtonText}>{t.planWorkspace.backToPlans}</Text>
+        </Pressable>
       </View>
     );
   }
@@ -886,100 +846,80 @@ export default function EditPlanScreen() {
       }
       style={styles.screen}
     >
-      <Stack.Screen
-        options={{
-          headerTitleAlign: 'left',
-          headerTitle: () => (
-            <View style={styles.headerTitleWrap}>
-              <AppHeaderTitle title={`Modifier : ${planName}`} />
-              {saveStatus !== 'idle' ? (
-                <View accessibilityLiveRegion="polite" style={styles.saveStatus}>
-                  <Ionicons
-                    color={saveStatus === 'error' ? Colors.danger : Colors.textSecondary}
-                    name={
-                      saveStatus === 'saving'
-                        ? 'sync-outline'
-                        : saveStatus === 'saved'
-                          ? 'checkmark-circle-outline'
-                          : 'alert-circle-outline'
-                    }
-                    size={12}
-                  />
-                  <Text
-                    style={[
-                      styles.saveStatusText,
-                      saveStatus === 'error' ? styles.saveStatusError : null,
-                    ]}
-                  >
-                    {saveStatus === 'saving'
-                      ? t.common.saving
-                      : saveStatus === 'saved'
-                        ? locale === 'fr' ? 'Enregistré' : 'Saved'
-                        : locale === 'fr' ? 'Erreur' : 'Error'}
-                  </Text>
-                </View>
-              ) : null}
-            </View>
-          ),
-          headerLeft: () => (
-            <TouchableOpacity
-              accessibilityLabel={t.common.back}
-              hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-              onPress={handleBackToPlans}
-              style={styles.headerBackButton}
-            >
-              <Ionicons name="chevron-back" size={26} color={Colors.textPrimary} />
-            </TouchableOpacity>
-          ),
-          headerRight: () => (
-            <FeedbackHeaderButton
-              contextLabel={t.plans.title}
-              leading={<HelpHeaderButton screenKey="planEdit" />}
-            />
-          ),
-        }}
-      />
-      <PlanForm
-        key={id}
-        initialValues={initialValues}
-        elevationProfile={elevationProfile}
-        onSave={handleSave}
-        onOpenSummary={handleOpenSummary}
-        onShare={handleSharePlan}
-        isPremium={isPremium}
-        onValuesChange={(values) => {
-          latestDraftRef.current = values;
-          const nextSnapshot = serializePlanValues(values, elevationProfileRef.current);
-          setDraftSnapshot(nextSnapshot);
-          if (nextSnapshot !== lastSavedSnapshotRef.current) {
-            setSaveStatus('idle');
-          }
-          if (id) {
-            if (nextSnapshot === lastSavedSnapshotRef.current) {
-              clearPlanEditDraft(id);
-              return;
+      <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+      {activeTab === 'recap' && workspaceSummary ? (
+        <PlanRecapContent
+          contentTopInset={headerTopInset}
+          id={id}
+          onScroll={handleWorkspaceScroll}
+          onShareIntentConsumed={() => router.setParams({ share: undefined })}
+          shareOnMount={share === '1'}
+          summary={workspaceSummary}
+        />
+      ) : (
+        <PlanForm
+          key={id}
+          initialValues={initialValues}
+          elevationProfile={elevationProfile}
+          onSave={handleSave}
+          isPremium={isPremium}
+          onValuesChange={(values) => {
+            latestDraftRef.current = values;
+            setLiveValues(values);
+            const nextSnapshot = serializePlanValues(values, elevationProfileRef.current);
+            setDraftSnapshot(nextSnapshot);
+            if (nextSnapshot !== lastSavedSnapshotRef.current) setSaveStatus('idle');
+            if (id) {
+              if (nextSnapshot === lastSavedSnapshotRef.current) {
+                clearPlanEditDraft(id);
+                return;
+              }
+              setPlanEditDraft(id, {
+                elevationProfile: elevationProfileRef.current,
+                lastSavedSnapshot: lastSavedSnapshotRef.current,
+                planName: values.name || planName,
+                values,
+              });
             }
-            setPlanEditDraft(id, {
-              elevationProfile: elevationProfileRef.current,
-              lastSavedSnapshot: lastSavedSnapshotRef.current,
-              planName: values.name || planName,
-              values,
-            });
-          }
-        }}
-        loading={saving}
-        saveLabel={t.planSummary.saveAndLeave}
-        productData={planProductData}
-        compactBasicsByDefault
-        onMissingFavoriteProducts={handleMissingFavoriteProducts}
-        tutorial={{
-          scrollRef,
-          onContentSizeChange: setTutorialContentHeight,
-          onScroll: handleTutorialScrollEvent,
-          onScrollSettled: handleTutorialScrollSettled,
-          onTargetMeasure: registerTutorialTarget,
-          onTargetRegisterRef: registerTutorialTargetRef,
-        }}
+          }}
+          loading={saving}
+          productData={planProductData}
+          compactBasicsByDefault
+          contentTopInset={headerTopInset}
+          onMissingFavoriteProducts={handleMissingFavoriteProducts}
+          onWorkspaceScroll={handleWorkspaceScroll}
+          showActions={false}
+          surface={activeTab === 'settings' ? 'settings' : 'plan'}
+          tutorial={{
+            scrollRef,
+            onContentSizeChange: setTutorialContentHeight,
+            onScroll: handleTutorialScrollEvent,
+            onScrollSettled: handleTutorialScrollSettled,
+            onTargetMeasure: registerTutorialTarget,
+            onTargetRegisterRef: registerTutorialTargetRef,
+          }}
+        />
+      )}
+      <PlanWorkspaceHeader
+        averagePace={averagePace}
+        metrics={[
+          { label: t.planWorkspace.estimatedTime, value: workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—' },
+          { label: t.planWorkspace.averagePace, value: averagePace === '—' ? '—' : `${averagePace}/km` },
+          { label: 'D+', value: `${Math.round(liveValues?.elevationGain ?? 0)} m` },
+          { label: 'D−', value: elevationLoss === null ? '—' : `${Math.round(elevationLoss)} m` },
+          { label: 'Distance', value: `${(liveValues?.raceDistanceKm ?? 0).toLocaleString(locale, { maximumFractionDigits: 1 })} km` },
+        ]}
+        onBack={handleBackToPlans}
+        saveStatus={saveStatus}
+        scrollY={scrollY}
+        title={liveValues?.name || planName}
+        topInset={insets.top}
+        totalTime={workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—'}
+      />
+      <PlanWorkspaceTabBar
+        activeTab={activeTab}
+        onExit={handleBackToPlans}
+        onSelectTab={(nextTab) => { void handleTabSelect(nextTab); }}
       />
       <SpotlightTutorial
         activeStepIndex={tutorialStepIndex}
@@ -1017,6 +957,18 @@ const styles = StyleSheet.create({
     color: Colors.danger,
     fontSize: 15,
     textAlign: 'center',
+  },
+  errorBackButton: {
+    minHeight: 46,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 23,
+    backgroundColor: Colors.brandPrimary,
+    paddingHorizontal: 20,
+  },
+  errorBackButtonText: {
+    color: Colors.textOnBrand,
+    fontWeight: '700',
   },
   headerBackButton: {
     alignItems: 'center',

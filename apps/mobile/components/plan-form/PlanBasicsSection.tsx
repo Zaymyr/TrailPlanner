@@ -38,6 +38,7 @@ type Props = {
   onResetSectionTimingOverrides: () => void;
   NumberInput: (props: NumberInputProps) => ReactElement;
   waterBagOptions: number[];
+  inline?: boolean;
 };
 
 export function PlanBasicsSection({
@@ -52,6 +53,7 @@ export function PlanBasicsSection({
   onResetSectionTimingOverrides,
   NumberInput,
   waterBagOptions,
+  inline = false,
 }: Props) {
   const { t } = useI18n();
   const [fatigueTrackWidth, setFatigueTrackWidth] = useState(0);
@@ -189,6 +191,140 @@ export function PlanBasicsSection({
       />
     </TouchableOpacity>
   );
+
+  if (inline) {
+    return (
+      <View style={styles.inlineSettingsContent}>
+        {renderAccordionHeader('course', 'Course', [
+          values.name?.trim() || 'Sans nom',
+          `${values.raceDistanceKm || 0} km`,
+          `D+ ${values.elevationGain || 0} m`,
+        ])}
+        {expandedSections.course ? (
+          <>
+            <Text style={styles.label}>Nom du plan</Text>
+            <TextInput
+              style={styles.textInput}
+              value={values.name}
+              onChangeText={(text) => update('name', text)}
+              placeholder="Ex : UTMB 2025"
+              placeholderTextColor={Colors.textMuted}
+            />
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <Text style={styles.label}>Distance (km)</Text>
+                <NumberInput value={values.raceDistanceKm} onChange={(value) => update('raceDistanceKm', value)} placeholder="50" />
+              </View>
+              <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                <Text style={styles.label}>D+ (m)</Text>
+                <NumberInput value={values.elevationGain} onChange={(value) => update('elevationGain', value)} placeholder="3000" />
+              </View>
+            </View>
+          </>
+        ) : null}
+
+        {renderAccordionHeader('pace', 'Allure', [paceSummary, fatigueDescriptor], true)}
+        {expandedSections.pace ? (
+          <>
+            <View style={styles.toggleRow}>
+              <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]} onPress={() => update('paceType', 'pace')}>
+                <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>Allure (min/km)</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'speed' && styles.toggleBtnActive]} onPress={() => update('paceType', 'speed')}>
+                <Text style={[styles.toggleBtnText, values.paceType === 'speed' && styles.toggleBtnTextActive]}>Vitesse (km/h)</Text>
+              </TouchableOpacity>
+            </View>
+            {values.paceType === 'pace' ? (
+              <View style={styles.row}>
+                <View style={styles.rowItem}>
+                  <Text style={styles.label}>Minutes</Text>
+                  <NumberInput value={values.paceMinutes} onChange={(value) => update('paceMinutes', Math.floor(value))} placeholder="6" />
+                </View>
+                <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                  <Text style={styles.label}>Secondes</Text>
+                  <NumberInput value={values.paceSeconds} onChange={(value) => update('paceSeconds', Math.min(59, Math.floor(value)))} placeholder="30" />
+                </View>
+              </View>
+            ) : (
+              <>
+                <Text style={styles.label}>Vitesse (km/h)</Text>
+                <NumberInput value={values.speedKph} onChange={(value) => update('speedKph', value)} placeholder="10" />
+              </>
+            )}
+            <Text style={styles.label}>{t.plans.fatigueLabel}</Text>
+            <Text style={styles.waterBagHint}>{t.plans.fatigueHint}</Text>
+            <View style={styles.fatigueSliderWrap}>
+              <View style={styles.fatigueSliderTrack}>
+                <View
+                  style={styles.fatigueSliderTouchArea}
+                  onLayout={(event) => setFatigueTrackWidth(event.nativeEvent.layout.width)}
+                  onTouchStart={handleFatigueTrackTouchStart}
+                  onTouchEnd={handleFatigueTrackTouchEnd}
+                  {...panResponder.panHandlers}
+                />
+                <View style={[styles.fatigueSliderFill, { width: `${displayedFatigueLevel * 100}%` }]} />
+                <View style={[styles.fatigueSliderThumb, { left: fatigueThumbLeft }]} />
+              </View>
+            </View>
+            <View style={styles.fatigueSliderLabels}>
+              {[
+                { label: t.plans.fatigueLow, active: displayedFatigueLevel <= 0.33 },
+                { label: t.plans.fatigueMedium, active: displayedFatigueLevel > 0.33 && displayedFatigueLevel < 0.67 },
+                { label: t.plans.fatigueHigh, active: displayedFatigueLevel >= 0.67 },
+              ].map((option) => (
+                <Text key={option.label} style={[styles.fatigueSliderLabel, option.active && styles.fatigueSliderLabelActive]}>{option.label}</Text>
+              ))}
+            </View>
+            {hasSectionTimingOverrides ? (
+              <View style={styles.sectionTimingResetBox}>
+                <Text style={styles.sectionTimingResetHint}>{t.plans.sectionTimingLockedHint}</Text>
+                <TouchableOpacity style={styles.sectionTimingResetButton} onPress={onResetSectionTimingOverrides}>
+                  <Text style={styles.sectionTimingResetButtonText}>{t.plans.sectionTimingReset}</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </>
+        ) : null}
+
+        {renderAccordionHeader('nutrition', 'Nutrition', [
+          `${values.targetIntakePerHour || 0} g/h`,
+          `${values.waterIntakePerHour || 0} ml/h`,
+          `${values.sodiumIntakePerHour || 0} mg/h`,
+          `Poche eau ${values.waterBagLiters} L`,
+        ], true)}
+        {expandedSections.nutrition ? (
+          <>
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <Text style={styles.label}>Glucides (g/h)</Text>
+                <NumberInput value={values.targetIntakePerHour} onChange={(value) => update('targetIntakePerHour', value)} placeholder="70" />
+              </View>
+              <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                <Text style={styles.label}>Eau (ml/h)</Text>
+                <NumberInput value={values.waterIntakePerHour} onChange={(value) => update('waterIntakePerHour', value)} placeholder="500" />
+              </View>
+            </View>
+            <View style={styles.row}>
+              <View style={styles.rowItem}>
+                <Text style={styles.label}>Sodium (mg/h)</Text>
+                <NumberInput value={values.sodiumIntakePerHour} onChange={(value) => update('sodiumIntakePerHour', value)} placeholder="600" />
+              </View>
+              <View style={[styles.rowItem, { marginLeft: 12 }]} />
+            </View>
+            <Text style={styles.label}>Volume de la poche à eau</Text>
+            <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
+            <View style={styles.waterBagRow}>
+              {waterBagOptions.map((option) => (
+                <TouchableOpacity key={option} style={[styles.waterBagBtn, values.waterBagLiters === option && styles.waterBagBtnActive]} onPress={() => update('waterBagLiters', option)}>
+                  <Text style={[styles.waterBagBtnText, values.waterBagLiters === option && styles.waterBagBtnTextActive]}>{option}L</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
     <>

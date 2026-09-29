@@ -1,7 +1,7 @@
 ---
 title: plan_share_links Table
 scope: database
-last_verified: 2026-09-23
+last_verified: 2026-09-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260609091933_add_plan_share_links.sql
@@ -14,6 +14,7 @@ related_files:
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
+  - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
 related_tables:
   - plan_share_links
   - race_plans
@@ -83,7 +84,7 @@ Summary:
 
 - Store only `token_hash`; never persist the raw public token.
 - The public page displays `snapshot`, not live editable planner state.
-- The in-app recap reloads the editable plan when its screen regains focus and synchronizes the recalculated snapshot through the authenticated API. The public page continues to display only that stored `snapshot`, never the editable plan row directly.
+- The in-app recap is a tab in the saved-plan workspace. It receives the current canonical draft after pending edits are flushed and synchronizes the recalculated snapshot through the authenticated API; the legacy recap route redirects into this tab. The public page continues to display only that stored `snapshot`, never the editable plan row directly.
 - The in-app recap preserves its manually selected departure time as a device-local, per-plan preference when the live plan-derived recap regenerates. Once the recap is ready, that preference is copied to `plan_share_links.departure_time` with the synchronized snapshot; changing it in the recap triggers the same deduplicated refresh.
 - The recap's editable departure-time fields use the shared iOS numeric-keyboard dismissal accessory. Their modal also moves above the keyboard, remains scrollable inside the device safe area, exposes its title and fields to VoiceOver, and closes through the native modal request. These protections are presentation-only and do not change `departure_time` validation, `crew_state`, or snapshot persistence.
 - The Plans-card Share shortcut remains an explicit native-share action: it opens the recap with a one-shot share intent only after recap data and the device-local departure time are ready. The recap's background refresh and the share action use one deduplicated link synchronizer, so they cannot create parallel persistence paths for the same snapshot.

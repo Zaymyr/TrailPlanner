@@ -327,7 +327,7 @@ export function usePlansScreen() {
 
   const handleOpenPlanSummary = useCallback(
     (planId: string) => {
-      router.push(`/(app)/plan/${planId}/summary` as any);
+      router.push({ pathname: '/(app)/plan/[id]/edit', params: { id: planId, tab: 'recap' } });
     },
     [router],
   );
