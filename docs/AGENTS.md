@@ -90,8 +90,8 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Auth / session work | `docs/04-auth-and-security/` + `docs/03-business-rules/trial-lifecycle.md` |
 | Business logic changes | `docs/03-business-rules/` |
 | Organizer portal / race organizer claims | `docs/03-business-rules/organizer-race-management.md` + `docs/02-database/tables/race-event-editions.md` + `docs/02-database/` + `docs/01-architecture/web-app.md` |
-| RaceBook sponsors | `docs/02-database/tables/race-event-edition-sponsors.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` + `docs/05-integrations/analytics.md` |
-| RaceBook branding / DA | `docs/02-database/tables/race-event-edition-branding.md` + `docs/03-business-rules/organizer-commercial-offers.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/07-design-system/tokens.md` + `docs/01-architecture/mobile-app.md` |
+| Livret coureur (`racebook`) sponsors | `docs/02-database/tables/race-event-edition-sponsors.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` + `docs/05-integrations/analytics.md` |
+| Livret coureur (`racebook`) branding / DA | `docs/02-database/tables/race-event-edition-branding.md` + `docs/03-business-rules/organizer-commercial-offers.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/07-design-system/tokens.md` + `docs/01-architecture/mobile-app.md` |
 | Organizer offers / edition Stripe payments | `docs/03-business-rules/organizer-commercial-offers.md` + `docs/05-integrations/stripe.md` + `docs/02-database/tables/organizer-edition-entitlements.md` + `docs/02-database/tables/organizer-edition-payments.md` |
 | Organizer complimentary module grants | `docs/03-business-rules/organizer-commercial-offers.md` + `docs/02-database/tables/organizer-edition-capability-grants.md` + `docs/04-auth-and-security/rls-checklist.md` |
 | Relay formats / handover points | `docs/02-database/tables/race-relay-points.md` + `docs/02-database/tables/races.md` + `docs/03-business-rules/organizer-race-management.md` + `docs/01-architecture/mobile-app.md` |

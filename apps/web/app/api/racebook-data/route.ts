@@ -90,16 +90,16 @@ export async function GET(request: NextRequest) {
     `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=${raceSelect}&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
   );
-  if (!raceResponse.ok) return jsonError("Unable to load RaceBook.", 502);
+  if (!raceResponse.ok) return jsonError("Unable to load Race Book.", 502);
 
   const race = z.array(raceSchema).parse(await raceResponse.json())[0] ?? null;
   if (!race || race.racebook_preview_is_visible === false || !race.event_id) {
-    return jsonError("RaceBook not available.", 404);
+    return jsonError("Race Book not available.", 404);
   }
 
   const event = Array.isArray(race.race_events) ? race.race_events[0] ?? null : race.race_events;
   if (!event || !hasOrganizerRacebookContent(event.organizer_details, race.organizer_details, race.participation_mode)) {
-    return jsonError("RaceBook not available.", 404);
+    return jsonError("Race Book not available.", 404);
   }
 
   const isPublic = race.is_live && race.racebook_is_live && event.is_live;
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
     const anonConfig = getSupabaseAnonConfig();
     const user = token && anonConfig ? await fetchSupabaseUser(token, anonConfig) : null;
     if (!user?.id || !(await isOrganizerForEvent(serviceConfig, user.id, race.event_id))) {
-      return jsonError("RaceBook not available.", 404);
+      return jsonError("Race Book not available.", 404);
     }
   }
 
@@ -148,6 +148,6 @@ export async function GET(request: NextRequest) {
       ? setPublicRacebookCacheHeaders(response, { raceId, editionId: race.edition_id, eventId: race.event_id })
       : setPrivateRacebookCacheHeaders(response);
   } catch {
-    return jsonError("Unable to load RaceBook content.", 502);
+    return jsonError("Unable to load Race Book content.", 502);
   }
 }

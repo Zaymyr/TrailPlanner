@@ -267,7 +267,7 @@ test('builds a standalone follow-up subject when the original Gmail thread is un
     api.followupSubject_({ objet_relance: 'Suite pour {{organization_name}}' }, 'Trail des Anges'),
     'Suite pour Trail des Anges',
   );
-  assert.equal(api.followupSubject_({}, 'Trail des Anges'), 'Re: Un Race Book mobile pour Trail des Anges');
+  assert.equal(api.followupSubject_({}, 'Trail des Anges'), 'Re: Un Livret coureur mobile pour Trail des Anges');
 });
 
 test('keeps a follow-up threaded only when the subject already identifies the organization', () => {

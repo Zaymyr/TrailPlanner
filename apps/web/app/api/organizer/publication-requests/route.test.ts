@@ -15,7 +15,7 @@ describe("/api/organizer/publication-requests POST", () => {
     }));
 
     expect(response.status).toBe(410);
-    expect((await response.json()).message).toContain("RaceBook");
+    expect((await response.json()).message).toContain("Livret coureur");
   });
 });
 

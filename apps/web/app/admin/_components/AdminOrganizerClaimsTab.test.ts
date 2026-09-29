@@ -31,7 +31,7 @@ describe("Admin Organizer publication grants", () => {
     expect(source).not.toContain("<LiveToggle");
     expect(source).not.toContain('action: "setRacebookVisibility"');
     expect(source).toContain("Modules offerts hors pack");
-    expect(source).toContain("Statistiques RaceBook");
+    expect(source).toContain("Statistiques Livret coureur");
     expect(source).toContain('action: "setEditionCapabilityGrant"');
     expect(source).toContain('capabilityKey: "racebook_analytics.view"');
     expect(source).toContain("Inclus dans Signature");

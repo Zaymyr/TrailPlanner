@@ -91,6 +91,7 @@ describe("GET /api/admin/growth", () => {
       premium: { paidSubscriptions: 2, appTrials: 2, grants: 1, effectiveUsers: 4 },
     });
     expect(payload.organizers.funnel.map((row: { count: number }) => row.count)).toEqual([1, 1, 1, 0]);
+    expect(payload.organizers.funnel[3].step).toBe("Avec un Livret coureur publié");
     expect(payload.organizers.commercial).toMatchObject({
       checkoutsStarted: 4,
       checkoutConversion: 75,

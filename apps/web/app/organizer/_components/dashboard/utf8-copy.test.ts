@@ -140,7 +140,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(controlsSource).toContain('{ value: "public", label: "Public"');
     expect(controlsSource).toContain("group-hover/visibility:block");
     expect(controlsSource).toContain("group-focus-within/visibility:block");
-    expect(controlsSource).toContain("La course et son RaceBook sont visibles uniquement par les organisateurs actifs");
+    expect(controlsSource).toContain("La course et son Livret coureur sont visibles uniquement par les organisateurs actifs");
     expect(dashboardSource).toContain('racebookIsLive: visibility === "public"');
     expect(dashboardSource).toContain('visibility === "public" && activeTier === "visibility"');
     expect(dashboardSource).toContain('openPricingDialog("publication")');
@@ -192,8 +192,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Commun à toutes les courses");
     expect(shellSource).toContain('<optgroup label="Formats de course">');
     expect(shellSource).toContain("Course masquée pour le public");
-    expect(shellSource).toContain("RaceBook privé");
-    expect(shellSource).toContain("Course et RaceBook publics");
+    expect(shellSource).toContain("Livret coureur privé");
+    expect(shellSource).toContain("Course et Livret coureur publics");
     expect(shellSource).toContain('aria-label="Ajouter un format"');
     expect(shellSource).toContain("Créer un autre événement");
     expect(shellSource).toContain("Gérer la visibilité");

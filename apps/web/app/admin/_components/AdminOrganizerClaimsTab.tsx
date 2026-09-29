@@ -904,7 +904,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
     <div className="space-y-5">
       <TabsList
         tabs={[
-          { id: "publication", label: "Publier le RaceBook" },
+          { id: "publication", label: "Publier le Livret coureur" },
           { id: "access", label: "Accès organisateurs" },
         ]}
         activeTab={organizerAdminTab}
@@ -1176,7 +1176,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                       )}
                     </div>
                     <p className="text-sm text-muted-foreground">
-                      {event.races.length} format(s) · {publishedCount} Racebook(s) affiché(s)
+                      {event.races.length} format(s) · {publishedCount} {publishedCount > 1 ? "Livrets coureurs affichés" : "Livret coureur affiché"}
                       {` · ${completeCount}/${event.races.length} complet(s)`}
                       {event.location ? ` · ${event.location}` : ""}
                     </p>
@@ -1338,7 +1338,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
             </fieldset>
             {purchaseTier === "visibility" ? (
               <p className="rounded-md border border-border bg-muted/30 px-3 py-2 text-sm text-muted-foreground sm:col-span-2">
-                L’événement restera visible dans le catalogue, mais tous les RaceBooks de cette édition seront retirés du public. Les contenus restent enregistrés.
+                L’événement restera visible dans le catalogue, mais tous les Livrets coureurs de cette édition seront retirés du public. Les contenus restent enregistrés.
               </p>
             ) : <div className="space-y-1.5 sm:col-span-2">
               <Label htmlFor="organizer-publication-origin">Origine de la publication</Label>
@@ -1370,7 +1370,7 @@ export function AdminOrganizerClaimsTab({ accessToken }: Props) {
                   onChange={(event) => setAnalyticsGrantEnabled(event.target.checked)}
                 />
                 <span>
-                  <span className="block text-sm font-medium text-foreground">Statistiques RaceBook</span>
+                  <span className="block text-sm font-medium text-foreground">Statistiques Livret coureur</span>
                   <span className="block text-xs text-muted-foreground">
                     {purchaseTier === "signature"
                       ? "Inclus dans Signature"

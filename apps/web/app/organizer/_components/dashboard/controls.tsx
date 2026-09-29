@@ -92,9 +92,9 @@ const RACEBOOK_VISIBILITY_OPTIONS: Array<{
   label: string;
   description: string;
 }> = [
-  { value: "hidden", label: "Masqué", description: "Le format (course et RaceBook) est absent du catalogue mobile. Son contenu reste enregistré." },
-  { value: "private", label: "Privé", description: "La course et son RaceBook sont visibles uniquement par les organisateurs actifs de l’événement." },
-  { value: "public", label: "Public", description: "La course et son RaceBook sont visibles par tous. L’édition doit elle aussi être visible." },
+  { value: "hidden", label: "Masqué", description: "Le format (course et Livret coureur) est absent du catalogue mobile. Son contenu reste enregistré." },
+  { value: "private", label: "Privé", description: "La course et son Livret coureur sont visibles uniquement par les organisateurs actifs de l’événement." },
+  { value: "public", label: "Public", description: "La course et son Livret coureur sont visibles par tous. L’édition doit elle aussi être visible." },
 ];
 
 export function RacebookVisibilityControl({

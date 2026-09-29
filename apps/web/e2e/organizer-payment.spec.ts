@@ -24,7 +24,7 @@ test("organizer creates, publishes, pays for, and deletes a TEST event", async (
 
   try {
     await page.goto("/organisateurs");
-    await page.getByRole("link", { name: /créer mon race book/i }).first().click();
+    await page.getByRole("link", { name: /créer mon livret coureur/i }).first().click();
     await expect(page).toHaveURL(/\/organizers/);
 
     await page.getByRole("link", { name: /se connecter/i }).click();
@@ -60,7 +60,7 @@ test("organizer creates, publishes, pays for, and deletes a TEST event", async (
     await page.getByRole("button", { name: "Ajouter", exact: true }).click();
     expect((await createRaceResponsePromise).ok()).toBeTruthy();
 
-    await page.getByRole("button", { name: "Publier le RaceBook", exact: true }).click();
+    await page.getByRole("button", { name: "Publier le Livret coureur", exact: true }).click();
     await expect(page.getByRole("heading", { name: /publier cette édition/i })).toBeVisible();
     const checkoutResponsePromise = page.waitForResponse(
       (response) => response.url().endsWith("/api/organizer/publication-checkout") && response.request().method() === "POST"

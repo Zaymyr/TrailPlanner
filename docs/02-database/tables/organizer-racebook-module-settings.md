@@ -1,7 +1,7 @@
 ---
 title: organizer_racebook_module_settings
 scope: database
-last_verified: 2026-09-12
+last_verified: 2026-09-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
@@ -18,6 +18,8 @@ related_tables:
 ---
 
 # `organizer_racebook_module_settings`
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 Format-level private-demo visibility is deliberately not another module setting. It lives on `races.racebook_preview_is_visible`, can be changed without an entitlement, and excludes the entire format from both organizer preview and the next edition publication without deleting any module content.
 

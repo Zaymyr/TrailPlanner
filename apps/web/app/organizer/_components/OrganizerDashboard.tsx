@@ -275,7 +275,7 @@ type OrganizerStartWaveSummary = {
 
 const ORGANIZER_OFFER_DETAILS: Record<PaidOrganizerTier, { description: string; features: string[] }> = {
   essential: {
-    description: "Le RaceBook simple pour centraliser les informations indispensables.",
+    description: "Le Livret coureur simple pour centraliser les informations indispensables.",
     features: ["Publication mobile", "Course, GPX et profil", "Matériel, dossard et accès", "Ravitaillements simples"],
   },
   complete: {
@@ -845,7 +845,7 @@ export function OrganizerDashboard({
       const data = (await response.json().catch(() => null)) as OrganizerModuleSettingsPayload | { message?: string } | null;
       if (controller.signal.aborted) return;
       if (!response.ok || !data || !("edition" in data)) {
-        showToast("error", (data && "message" in data ? data.message : null) ?? "Impossible de charger les sections du RaceBook.");
+        showToast("error", (data && "message" in data ? data.message : null) ?? "Impossible de charger les sections du Livret coureur.");
         return;
       }
       setModuleSettings(data);
@@ -854,7 +854,7 @@ export function OrganizerDashboard({
     void loadModuleSettings().catch((caught: unknown) => {
       if (!controller.signal.aborted) {
         console.error("Unable to load organizer module settings", caught);
-        showToast("error", "Impossible de charger les sections du RaceBook.");
+        showToast("error", "Impossible de charger les sections du Livret coureur.");
       }
     });
     return () => controller.abort();
@@ -1079,7 +1079,7 @@ export function OrganizerDashboard({
         showToast(
           "success",
           publishedCount > 0
-            ? `L’offre ${ORGANIZER_TIER_LABEL[targetTier]} est active et ${publishedCount} RaceBook${publishedCount > 1 ? "s sont publiés" : " est publié"}.`
+            ? `L’offre ${ORGANIZER_TIER_LABEL[targetTier]} est active et ${publishedCount} Livret${publishedCount > 1 ? "s coureurs sont publiés" : " coureur est publié"}.`
             : `L’offre ${ORGANIZER_TIER_LABEL[targetTier]} est maintenant active.`
         );
         params.delete("organizerPayment");
@@ -2255,8 +2255,8 @@ export function OrganizerDashboard({
       showToast(
         "success",
         isVisible
-          ? "Édition visible. Les Racebooks restent masqués jusqu’à leur republication."
-          : "Édition et Racebooks associés masqués."
+          ? "Édition visible. Les Livrets coureurs restent masqués jusqu’à leur republication."
+          : "Édition et Livrets coureurs associés masqués."
       );
       return true;
     } catch (caught) {
@@ -2558,9 +2558,9 @@ export function OrganizerDashboard({
       showToast(
         "success",
         visibility === "public"
-          ? "Course et RaceBook publiés pour tous."
+          ? "Course et Livret coureur publiés pour tous."
           : visibility === "private"
-            ? "Course et RaceBook visibles uniquement par les organisateurs."
+            ? "Course et Livret coureur visibles uniquement par les organisateurs."
             : "Format masqué du catalogue mobile."
       );
     } catch (caught) {
@@ -2679,7 +2679,7 @@ export function OrganizerDashboard({
         message?: string;
       } | null;
       if (!response.ok || !data?.publishedRaceIds?.length) {
-        showToast("error", data?.message ?? "Impossible de publier les RaceBooks de cette édition.");
+        showToast("error", data?.message ?? "Impossible de publier les Livrets coureurs de cette édition.");
         return;
       }
 
@@ -2699,11 +2699,11 @@ export function OrganizerDashboard({
         : current);
       showToast(
         "success",
-        `${publishedIds.size} RaceBook${publishedIds.size > 1 ? "s" : ""} publié${publishedIds.size > 1 ? "s" : ""} pour les coureurs.`
+        `${publishedIds.size} Livret${publishedIds.size > 1 ? "s coureurs publiés" : " coureur publié"} pour les coureurs.`
       );
     } catch (caught) {
       console.error("Unable to publish organizer edition RaceBooks", caught);
-      showToast("error", "Impossible de publier les RaceBooks de cette édition.");
+      showToast("error", "Impossible de publier les Livrets coureurs de cette édition.");
     } finally {
       setStatus("idle");
     }
@@ -3204,7 +3204,7 @@ export function OrganizerDashboard({
 
       {error ? <p className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700">{error}</p> : null}
 
-      <nav className="flex gap-1 border-b border-border" aria-label="Espace RaceBook">
+      <nav className="flex gap-1 border-b border-border" aria-label="Espace Livret coureur">
         {([
           ["content", "Contenu"],
           ["analytics", "Statistiques"],
@@ -3231,10 +3231,10 @@ export function OrganizerDashboard({
         <div className="space-y-3">
           <div className="flex flex-wrap items-center justify-between gap-3 px-1">
             <div className="flex items-center gap-2">
-              <p className="font-semibold text-foreground">Contenu du RaceBook</p>
+              <p className="font-semibold text-foreground">Contenu du Livret coureur</p>
               <ContextualHelp text={`Offre requise pour publier toutes les sections utilisées : ${ORGANIZER_TIER_LABEL[requiredPublicationTier]}.`} />
             </div>
-            <Button type="button" variant="ghost" onClick={openModuleSettingsDialog} disabled={!moduleSettings} title="Choisir les sections affichées dans le RaceBook sans supprimer leur contenu.">
+            <Button type="button" variant="ghost" onClick={openModuleSettingsDialog} disabled={!moduleSettings} title="Choisir les sections affichées dans le Livret coureur sans supprimer leur contenu.">
               Gérer les sections
             </Button>
           </div>
@@ -3262,7 +3262,7 @@ export function OrganizerDashboard({
         <DialogContent className="!my-0 !flex max-h-[calc(100dvh-2rem)] !max-w-6xl flex-col gap-4 overflow-hidden p-4 sm:p-6">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre RaceBook" : "Sections du RaceBook"}</DialogTitle>
+              <DialogTitle>{moduleSettings?.setupCompletedAt === null ? "Configurons votre Livret coureur" : "Sections du Livret coureur"}</DialogTitle>
               <ContextualHelp text="Activez uniquement les sections utiles. Masquer une section conserve ses informations." />
             </div>
           </DialogHeader>

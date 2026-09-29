@@ -1,7 +1,7 @@
 ---
-title: Mode opératoire RaceBook organisateur
+title: Mode opératoire Livret coureur organisateur
 scope: workflow
-last_verified: 2026-09-28
+last_verified: 2026-09-29
 ai_priority: medium
 related_files:
   - scripts/generate-racebook-organizer-manual.mjs
@@ -17,7 +17,9 @@ related_tables:
   - race_aid_stations
 ---
 
-# Mode opératoire RaceBook organisateur
+# Mode opératoire Livret coureur organisateur
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 
@@ -55,9 +57,9 @@ Ce document accompagne le PDF utilisateur [`docs/mode-operatoire-racebook-organi
 - Confirmer que les trois états restent `Masqué`, `Privé` et `Public`.
 - Depuis `Actions > Créer une nouvelle édition`, lancer une duplication et confirmer que la fenêtre reste ouverte avec `Duplication de l’édition en cours…`, un indicateur animé et le formulaire désactivé jusqu’à la fin de la création.
 - Avec Essentiel déjà actif, confirmer que `Publier` et le passage d'un format à `Public` publient directement, que les sections Complet/Signature restent privées et qu'aucune erreur opérationnelle ne rouvre la fenêtre d'achat.
-- Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton RaceBook, qu'un format `Privé` garde un bouton RaceBook grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
-- Dans `Formats & GPX`, confirmer que les interrupteurs `Afficher le parcours` et `Afficher le profil altimétrique` peuvent être combinés librement et que le RaceBook masque uniquement les visuels désactivés sans retirer le GPX source.
-- Avec un GPX source existant, cliquer sur `Supprimer le GPX`, annuler une première fois pour vérifier la confirmation, puis confirmer. Vérifier que la carte et le profil disparaissent du dashboard et du RaceBook, tandis que distance, D+/D- et ravitaillements restent présents.
+- Dans l'app avec le compte organisateur, confirmer qu'un événement reste visible hors catalogue, qu'un format `Masqué` est légèrement grisé sans bouton Livret coureur, qu'un format `Privé` garde un bouton Livret coureur grisé mais fonctionnel, et qu'un format `Public` a le rendu coureur normal.
+- Dans `Formats & GPX`, confirmer que les interrupteurs `Afficher le parcours` et `Afficher le profil altimétrique` peuvent être combinés librement et que le Livret coureur masque uniquement les visuels désactivés sans retirer le GPX source.
+- Avec un GPX source existant, cliquer sur `Supprimer le GPX`, annuler une première fois pour vérifier la confirmation, puis confirmer. Vérifier que la carte et le profil disparaissent du dashboard et du Livret coureur, tandis que distance, D+/D- et ravitaillements restent présents.
 - Dans la tuile `Départ, ravitos & relais`, confirmer que l'onglet `Ravitos` est sélectionné par défaut à l'ouverture et après un changement de format. Vérifier que le départ commun utilise un sélecteur horaire, que `9h`/`10h15`/`11:10:00` sont présentés en `HH:mm`, et qu'une ancienne valeur contenant plusieurs horaires reste visible avec l'instruction de créer des SAS au lieu d'être écrasée.
 
 ## Do Not

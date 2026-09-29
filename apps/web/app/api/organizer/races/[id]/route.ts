@@ -100,7 +100,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   const parsedBody = updateRaceSchema.safeParse(await request.json().catch(() => null));
   if (!parsedBody.success) return jsonError("Invalid race fields.", 400);
   if (parsedBody.data.racebookIsLive === true && (race.data_status ?? "complete") === "draft") {
-    return jsonError("Complète les informations minimales du format avant de publier son Racebook.", 409);
+    return jsonError("Complète les informations minimales du format avant de publier son Livret coureur.", 409);
   }
   if (parsedBody.data.raceDate !== undefined && parsedBody.data.raceDate !== null) {
     if (!race.edition_id) return jsonError("This format is not attached to an event edition.", 409);
@@ -234,7 +234,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
           return jsonError("Rends d’abord cette édition visible avant de publier ce format.", 409);
         }
         if (/racebook entitlement required/i.test(detail)) {
-          return jsonError("Une offre RaceBook active est requise pour publier ce format.", 403);
+          return jsonError("Une offre Livret coureur active est requise pour publier ce format.", 403);
         }
         return jsonError("Impossible de publier ce format pour le moment.", 502);
       }

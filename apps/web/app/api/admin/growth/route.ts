@@ -86,6 +86,12 @@ export async function GET(request: NextRequest) {
     if (!response.ok) throw new Error(`Growth metrics RPC failed (${response.status})`);
 
     const metrics = await response.json();
+    if (Array.isArray(metrics?.organizers?.funnel)) {
+      metrics.organizers.funnel = metrics.organizers.funnel.map((row: { step?: unknown }) => ({
+        ...row,
+        step: typeof row.step === "string" ? row.step.replaceAll("RaceBook", "Livret coureur") : row.step,
+      }));
+    }
     const activationEligibleAccounts = Number(metrics?.overview?.activationEligibleAccounts ?? 0);
     const activatedUsers = Number(metrics?.overview?.activatedUsers ?? 0);
     const actions = [];

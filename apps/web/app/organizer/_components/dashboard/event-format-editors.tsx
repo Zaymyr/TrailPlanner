@@ -627,7 +627,7 @@ function OrganizerGpxPanel({
         <div className="space-y-3 rounded-md border border-border/70 bg-background px-3 py-3">
           <div className="space-y-1">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Etape 2</p>
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affichage dans le RaceBook</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Affichage dans le Livret coureur</p>
             <p className="text-xs text-muted-foreground">Choisissez les visuels GPX visibles par les coureurs.</p>
           </div>
           <GpxDisplayToggle

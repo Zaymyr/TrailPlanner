@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-09-24
+last_verified: 2026-09-29
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -25,6 +25,8 @@ related_tables:
 ---
 
 # OpenAI Organizer Import Reconciliation
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 

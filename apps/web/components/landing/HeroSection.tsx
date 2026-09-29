@@ -86,7 +86,7 @@ export function HeroSection({ hero, locale }: HeroSectionProps) {
             >
               <span className="flex flex-col">
                 <span className="text-xs font-medium opacity-80">{isFrench ? "Je suis organisateur" : "I am an organizer"}</span>
-                <span className="text-sm font-semibold">{isFrench ? "Créer mon RaceBook" : "Create my RaceBook"}</span>
+                <span className="text-sm font-semibold">{isFrench ? "Créer mon Livret coureur" : "Create my Race Book"}</span>
               </span>
               <IconArrowRight className="h-4 w-4 transition group-hover:translate-x-0.5" />
             </Link>

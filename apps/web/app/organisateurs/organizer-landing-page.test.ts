@@ -12,9 +12,9 @@ describe("organizer landing TST discovery", () => {
     expect(source).not.toContain("Voir un exemple complet");
   });
 
-  it("explains the complete path to the Trail TST RaceBook", () => {
+  it("explains the complete path to the Trail TST Livret coureur", () => {
     expect(source).toContain("Dans l’onglet Courses, utilisez la recherche et ouvrez la fiche Trail TST.");
     expect(source).toContain("Choisissez l’un des trois formats");
-    expect(source).toContain("appuyez sur « Racebook »");
+    expect(source).toContain("appuyez sur « Livret coureur »");
   });
 });

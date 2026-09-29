@@ -51,7 +51,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
 
   const entitlement = await loadOrganizerEditionEntitlement(auth.serviceConfig, edition.id);
   if (!entitlement || entitlement.status !== "active" || entitlement.tier === "visibility") {
-    return jsonError("Une offre RaceBook active est requise pour publier cette édition.", 403);
+    return jsonError("Une offre Livret coureur active est requise pour publier cette édition.", 403);
   }
 
   const publicationResponse = await fetch(
@@ -65,7 +65,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   );
   if (!publicationResponse.ok) {
     console.error("Unable to publish organizer edition RaceBooks", await publicationResponse.text());
-    return jsonError("Impossible de publier les RaceBooks de cette édition.", 502);
+    return jsonError("Impossible de publier les Livrets coureurs de cette édition.", 502);
   }
 
   const publishedRaces = z.array(publishedRaceSchema).parse(await publicationResponse.json());

@@ -297,7 +297,7 @@ await capture(page, "01-creation-evenement", "main");
 
 await page.goto(`${baseURL}/organizer`, { waitUntil: "domcontentloaded" });
 await page.getByText("Trail des Crêtes — Démo").first().waitFor();
-const eventNameInput = page.locator("#organizer-onboarding-editor input").first();
+const eventNameInput = page.getByLabel("Nom", { exact: true }).first();
 await eventNameInput.fill("Trail des Crêtes — Démo ");
 await page.getByRole("button", { name: "Sauvegarder" }).waitFor();
 await annotate(page, [
@@ -311,7 +311,7 @@ await capture(page, "02-vue-ensemble", "main");
 await page.goto(`${baseURL}/organizer`, { waitUntil: "domcontentloaded" });
 await page.getByText("Trail des Crêtes — Démo").first().waitFor();
 await page.getByRole("button", { name: "Gérer les sections" }).click();
-await page.getByRole("heading", { name: "Sections du RaceBook" }).waitFor();
+await page.getByRole("heading", { name: "Sections du Livret coureur" }).waitFor();
 const sectionsDialog = page.locator("body > div.fixed.inset-0");
 await annotate(page, [
   sectionsDialog.locator("section").nth(0),
@@ -421,7 +421,7 @@ const sections = [
     kicker: "ÉTAPE 2 · SE REPÉRER",
     title: "Comprendre le tableau de bord",
     image: "02-vue-ensemble.png",
-    intro: "Le haut de page sert à choisir l’événement et l’édition. La zone « Contenu du RaceBook » sépare les informations communes des informations propres à chaque format.",
+    intro: "Le haut de page sert à choisir l’événement et l’édition. La zone « Contenu du Livret coureur » sépare les informations communes des informations propres à chaque format.",
     items: [
       ["1", "Vérifiez toujours l’événement et l’année sélectionnés avant de modifier."],
       ["2", "Suivez la jauge de préparation : vert = complet, orange = partiel, gris = vide."],
@@ -515,8 +515,8 @@ const sections = [
     intro: "La visibilité se règle format par format. La publication n’est possible que lorsque les informations obligatoires sont complètes et qu’une offre active couvre les sections publiées.",
     items: [
       ["1", "Masqué : le format est retiré du public."],
-      ["2", "Privé : le RaceBook reste visible uniquement pour l’équipe organisatrice en aperçu."],
-      ["3", "Public : la course et son RaceBook deviennent accessibles aux coureurs après validation serveur."],
+      ["2", "Privé : le Livret coureur reste visible uniquement pour l’équipe organisatrice en aperçu."],
+      ["3", "Public : la course et son Livret coureur deviennent accessibles aux coureurs après validation serveur."],
       ["4", "Cliquez sur « Publier » et vérifiez les sections incluses ou laissées en brouillon."],
     ],
     tip: "Un changement d’offre ou une section privée ne supprime pas les données déjà saisies.",
@@ -535,7 +535,7 @@ const sectionHtml = sections.map((section, index) => `
 `).join("");
 
 const html = `<!doctype html>
-<html lang="fr"><head><meta charset="utf-8"><title>Mode opératoire RaceBook — Organisateur</title>
+<html lang="fr"><head><meta charset="utf-8"><title>Mode opératoire Livret coureur — Organisateur</title>
 <style>
   @page { size: A4; margin: 0; } * { box-sizing: border-box; }
   body { margin: 0; font-family: Inter, Arial, sans-serif; color: #10251f; background: #edf4f1; }
@@ -558,13 +558,13 @@ const html = `<!doctype html>
   aside { margin-top:5mm; border-left:1.5mm solid #2f8064; background:#edf7f3; padding:3mm 4mm; display:flex; gap:3mm; font-size:8.7pt; line-height:1.4; }
   aside strong { color:#28725b; white-space:nowrap; }.final h2{margin-top:10mm}.final-grid{display:grid;grid-template-columns:1fr 1fr;gap:5mm;margin-top:7mm}.card{padding:5mm;border:1px solid #d8e4df;border-radius:4mm}.card h3{margin:0 0 3mm;font-size:12pt}.card p,.card li{font-size:9pt;line-height:1.45;color:#445b53}.card ul{padding-left:5mm;margin:0}.state{display:grid;grid-template-columns:20mm 1fr;gap:3mm;margin:3mm 0}.state b{font-size:8.5pt;border-radius:99px;padding:1.5mm 2mm;text-align:center}.hidden{background:#e8ecea}.private{background:#fff1cf;color:#8a5a00}.public{background:#dff6e9;color:#16714e}.footer-note{margin-top:7mm;padding:6mm;background:#11392e;color:white;border-radius:4mm;font-size:10pt;line-height:1.5}.small{font-size:8pt;color:#6c7e78;margin-top:6mm}
 </style></head><body>
-  <section class="manual-page cover"><header><span>PACE YOURSELF · RACEBOOK</span><b>2026</b></header><h1>Mode opératoire<br>organisateur</h1><p class="subtitle">Créer, compléter et publier un RaceBook clair pour vos coureurs.</p><span class="pill">Guide de prise en main · 15 minutes</span><div class="meta"><span class="brand">Pace Yourself</span><br>Version du 11 septembre 2026 · Données de démonstration</div></section>
+  <section class="manual-page cover"><header><span>PACE YOURSELF · LIVRET COUREUR</span><b>2026</b></header><h1>Mode opératoire<br>organisateur</h1><p class="subtitle">Créer, compléter et publier un Livret coureur clair pour vos coureurs.</p><span class="pill">Guide de prise en main · 15 minutes</span><div class="meta"><span class="brand">Pace Yourself</span><br>Version du 11 septembre 2026 · Données de démonstration</div></section>
   <section class="manual-page toc"><header><span>AVANT DE COMMENCER</span><b>1</b></header><h2>Le parcours en 9 étapes</h2><p class="lead">Ce guide suit l’ordre recommandé pour éviter les oublis et préparer une publication sans aller-retour.</p><div class="toc-grid">
     ${sections.map((section, index) => `<div class="toc-item"><b>${String(index + 1).padStart(2, "0")}</b><strong>${esc(section.title)}</strong><span>${esc(section.intro.split(".")[0])}.</span></div>`).join("")}
   </div><div class="checklist"><h3>À préparer</h3><p>□ Nom, lieu et dates de l’édition</p><p>□ Liste des formats avec distances et dénivelés</p><p>□ GPX de chaque format</p><p>□ Horaires, ravitaillements, barrières horaires et matériel</p><p>□ Informations d’accès, retrait des dossards et contact d’urgence</p><p>□ Images PNG (5 Mo maximum pour l’image de l’événement)</p></div>
   </section>
   ${sectionHtml}
-  <section class="manual-page final"><header><span>CHECKLIST FINALE</span><b>${sections.length + 2}</b></header><h2>Avant de rendre le RaceBook public</h2><p class="lead">Passez cette liste en revue pour chaque édition et chaque format.</p><div class="final-grid">
+  <section class="manual-page final"><header><span>CHECKLIST FINALE</span><b>${sections.length + 2}</b></header><h2>Avant de rendre le Livret coureur public</h2><p class="lead">Passez cette liste en revue pour chaque édition et chaque format.</p><div class="final-grid">
     <div class="card"><h3>Événement</h3><ul><li>Nom, lieu et dates exacts</li><li>Site officiel et réseaux</li><li>Contact d’urgence vérifié</li><li>Matériel commun à jour</li><li>Retrait dossard et accès renseignés</li></ul></div>
     <div class="card"><h3>Chaque format</h3><ul><li>Nom, distance, D+ et date</li><li>URL officielle du format</li><li>GPX et profil contrôlés</li><li>Départ, ravitos et barrières</li><li>Contenu sans contradiction avec le règlement</li></ul></div>
     <div class="card"><h3>Les 3 états</h3><div class="state"><b class="hidden">Masqué</b><p>Invisible du public.</p></div><div class="state"><b class="private">Privé</b><p>Aperçu organisateur uniquement.</p></div><div class="state"><b class="public">Public</b><p>Accessible aux coureurs après validation.</p></div></div>

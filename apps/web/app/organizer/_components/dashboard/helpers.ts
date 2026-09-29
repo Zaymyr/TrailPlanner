@@ -565,8 +565,8 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
     products: "Produits officiels disponibles par ravito.",
     services: "Lieux pratiques structurés pour cette édition.",
     awards: "Catégories récompensées et horaires des podiums.",
-    branding: "Logo et couleurs appliqués à tous les formats du RaceBook de cette édition.",
-    sponsors: "Logos et liens visibles pendant le chargement et dans le bandeau du RaceBook.",
+    branding: "Logo et couleurs appliqués à tous les formats du Livret coureur de cette édition.",
+    sponsors: "Logos et liens visibles pendant le chargement et dans le bandeau du Livret coureur.",
   };
   return descriptions[moduleId];
 }

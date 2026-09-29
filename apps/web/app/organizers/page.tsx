@@ -189,7 +189,7 @@ export default function OrganizersPage({ searchParams }: OrganizersPageProps) {
 
                 <div className="rounded-md border border-border bg-muted/40 p-3 text-xs leading-5 text-muted-foreground">
                   L&apos;événement et ses formats restent modifiables dans le dashboard. Une offre est choisie et payée avant
-                  la première publication du RaceBook.
+                  la première publication du Livret coureur.
                 </div>
 
                 {error ? <p className="text-sm text-red-600 dark:text-red-300">{error}</p> : null}

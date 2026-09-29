@@ -15,40 +15,8 @@ import { Text } from '../themed/Text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
+import { parseRequestedDate } from '../../lib/raceRequestDate';
 import { supabase, supabaseInitError } from '../../lib/supabase';
-
-function parseRequestedDate(input: string): string | null {
-  const trimmed = input.trim();
-  if (!trimmed) return null;
-
-  const isoMatch = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
-  const localMatch = /^(\d{2})[\/.-](\d{2})[\/.-](\d{4})$/.exec(trimmed);
-
-  let year: string;
-  let month: string;
-  let day: string;
-
-  if (isoMatch) {
-    [, year, month, day] = isoMatch;
-  } else if (localMatch) {
-    [, day, month, year] = localMatch;
-  } else {
-    return null;
-  }
-
-  const parsed = new Date(`${year}-${month}-${day}T00:00:00`);
-  if (Number.isNaN(parsed.getTime())) return null;
-
-  if (
-    parsed.getUTCFullYear() !== Number(year) ||
-    parsed.getUTCMonth() + 1 !== Number(month) ||
-    parsed.getUTCDate() !== Number(day)
-  ) {
-    return null;
-  }
-
-  return `${year}-${month}-${day}`;
-}
 
 type RaceRequestHeaderButtonProps = {
   children?: (open: () => void) => ReactNode;

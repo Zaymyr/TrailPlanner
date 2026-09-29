@@ -685,7 +685,7 @@ function createStandaloneFollowupDraft_(recipient, sender, subject, plainBody, h
 function followupSubject_(template, organizationName) {
   const configured = String(template.objet_relance || '').trim();
   if (configured) return replaceOrganizationName_(configured, organizationName || '');
-  return 'Re: Un Race Book mobile pour ' + String(organizationName || 'Pace Yourself').trim();
+  return 'Re: Un Livret coureur mobile pour ' + String(organizationName || 'Pace Yourself').trim();
 }
 
 function subjectIncludesOrganization_(subject, organizationName) {
