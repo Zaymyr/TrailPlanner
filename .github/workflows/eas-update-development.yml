@@ -1,29 +1,32 @@
-name: EAS Update Preview
+name: EAS Update Development
 
 on:
   push:
     branches:
-      - main
+      - 'dev/**'
     paths:
       - 'apps/mobile/**'
       - 'packages/**'
       - 'package.json'
       - 'package-lock.json'
-      - '.github/workflows/eas-update-preview.yml'
+      - '.github/workflows/eas-update-development.yml'
   workflow_dispatch:
 
 concurrency:
-  group: eas-update-preview-${{ github.ref }}
+  group: eas-update-development-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  update-preview:
+  update-development:
     runs-on: ubuntu-latest
-    environment: preview
+    # EXPO_TOKEN is stored in this GitHub environment. The OTA itself targets
+    # the separate EAS development environment and channel below.
+    environment: Preview
     env:
+      APP_VARIANT: development
       npm_config_fetch_retries: "5"
       npm_config_fetch_retry_factor: "2"
       npm_config_fetch_retry_mintimeout: "20000"
@@ -70,8 +73,8 @@ jobs:
       - name: Expo version check
         run: npx expo install --check
 
-      - name: Publish preview OTA update
+      - name: Publish development OTA update
         env:
           EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
-          OTA_MESSAGE: ${{ github.event.head_commit.message || 'Preview OTA update' }}
-        run: eas update --branch preview --environment preview --message "$OTA_MESSAGE" --non-interactive
+          OTA_MESSAGE: ${{ github.event.head_commit.message || 'Development OTA update' }}
+        run: eas update --channel development --environment development --message "$OTA_MESSAGE" --non-interactive
