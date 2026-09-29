@@ -1,7 +1,7 @@
 ---
 title: Affiliate Partner Links
 scope: integration
-last_verified: 2026-09-28
+last_verified: 2026-09-29
 ai_priority: medium
 related_files:
   - apps/web/lib/partner-links.ts
@@ -28,6 +28,8 @@ related_tables:
 ---
 
 # Affiliate Partner Links
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 

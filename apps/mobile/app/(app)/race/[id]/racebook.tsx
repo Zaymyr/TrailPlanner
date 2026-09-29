@@ -1912,7 +1912,7 @@ export default function RaceRacebookScreen() {
           onPress={handleTabPress}
           exitAction={{
             label: locale === 'fr' ? 'Courses' : 'Races',
-            accessibilityLabel: locale === 'fr' ? 'Quitter le RaceBook et revenir aux courses' : 'Leave the RaceBook and return to races',
+            accessibilityLabel: locale === 'fr' ? 'Quitter le Livret coureur et revenir aux courses' : 'Leave the Race Book and return to races',
             onPress: exitRacebookToCatalog,
           }}
           theme={brandTheme}

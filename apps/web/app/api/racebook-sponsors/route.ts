@@ -51,10 +51,10 @@ export async function GET(request: NextRequest) {
     `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,is_live,racebook_is_live,racebook_preview_is_visible,participation_mode,organizer_details,race_events(is_live,organizer_details)&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
   );
-  if (!raceResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load RaceBook." }, { status: 502 }));
+  if (!raceResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load Race Book." }, { status: 502 }));
   const race = z.array(raceSchema).parse(await raceResponse.json())[0] ?? null;
   if (race?.racebook_preview_is_visible === false) {
-    return withSecurityHeaders(NextResponse.json({ message: "RaceBook not available." }, { status: 404 }));
+    return withSecurityHeaders(NextResponse.json({ message: "Race Book not available." }, { status: 404 }));
   }
   if (!race?.edition_id || !race.event_id) return withSecurityHeaders(NextResponse.json({
     loadingSponsors: [],
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   }
   const event = Array.isArray(race.race_events) ? race.race_events[0] ?? null : race.race_events;
   if (!hasOrganizerRacebookContent(event?.organizer_details, race.organizer_details, race.participation_mode, modules)) {
-    return withSecurityHeaders(NextResponse.json({ message: "RaceBook not available." }, { status: 404 }));
+    return withSecurityHeaders(NextResponse.json({ message: "Race Book not available." }, { status: 404 }));
   }
   const isPublic = race.is_live && race.racebook_is_live && event?.is_live === true;
   let canOpen = isPublic;
@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
     const user = token && anonConfig ? await fetchSupabaseUser(token, anonConfig) : null;
     canOpen = Boolean(user?.id && (await isOrganizerForEvent(serviceConfig, user.id, race.event_id)));
   }
-  if (!canOpen) return withSecurityHeaders(NextResponse.json({ message: "RaceBook not available." }, { status: 404 }));
+  if (!canOpen) return withSecurityHeaders(NextResponse.json({ message: "Race Book not available." }, { status: 404 }));
 
   const [sponsorResponse, brandingResponse] = await Promise.all([
     modules.sponsors ? fetch(

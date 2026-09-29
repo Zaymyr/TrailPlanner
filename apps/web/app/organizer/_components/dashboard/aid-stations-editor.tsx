@@ -296,7 +296,7 @@ export function AidStationsEditor({
             </div>
 
             {relayPoints.length === 0 ? (
-              <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point de relais : le Racebook indiquera un seul tronçon sur toute la course.</p>
+              <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point de relais : le Livret coureur indiquera un seul tronçon sur toute la course.</p>
             ) : (
               <div className="space-y-3">
                 {relayPoints.map((point, index) => {

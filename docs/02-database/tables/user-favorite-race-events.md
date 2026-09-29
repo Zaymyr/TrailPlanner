@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-09-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -22,6 +22,8 @@ related_tables:
 ---
 
 # `user_favorite_race_events`
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 

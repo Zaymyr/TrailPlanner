@@ -46,7 +46,7 @@ describe("organizer analytics presentation", () => {
       races: [],
       onOpenPricing: () => undefined,
     }));
-    expect(html).toContain("Suivez l’usage de votre RaceBook");
+    expect(html).toContain("Suivez l’usage de votre Livret coureur");
     expect(html).toContain("Découvrir l’offre Signature");
     expect(html).not.toContain("Chargement des statistiques");
   });

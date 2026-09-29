@@ -1,7 +1,7 @@
 ---
 title: racebook_gear_checks Table
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-09-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260924140119_add_racebook_gear_checks.sql
@@ -21,6 +21,8 @@ related_tables:
 ---
 
 # `racebook_gear_checks`
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 

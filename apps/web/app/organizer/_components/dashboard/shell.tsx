@@ -15,8 +15,8 @@ import type { RacebookVisibilityState } from "./controls";
 
 const FORMAT_VISIBILITY_LABEL: Record<RacebookVisibilityState, string> = {
   hidden: "Course masquée pour le public",
-  private: "RaceBook privé",
-  public: "Course et RaceBook publics",
+  private: "Livret coureur privé",
+  public: "Course et Livret coureur publics",
 };
 
 const getProgressTone = (score: number) => {
@@ -245,7 +245,7 @@ export function OrganizerSummaryHeader({
                 Notifier les coureurs
               </Button>
               {onImportWebsite ? (
-                <Button type="button" variant="ghost" onClick={onImportWebsite} className="!justify-start" title="Préremplir le RaceBook depuis les sources officielles.">{importWebsiteLabel}</Button>
+                <Button type="button" variant="ghost" onClick={onImportWebsite} className="!justify-start" title="Préremplir le Livret coureur depuis les sources officielles.">{importWebsiteLabel}</Button>
               ) : null}
               <Button
                 type="button"
@@ -351,7 +351,7 @@ export function OrganizerSummaryHeader({
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">Catalogue</p>
-              <ContextualHelp text="Masquer l’édition retire ses courses du catalogue et ses RaceBooks du public. Les données restent conservées." />
+              <ContextualHelp text="Masquer l’édition retire ses courses du catalogue et ses Livrets coureurs du public. Les données restent conservées." />
             </div>
             <LiveToggle checked={editionIsVisible} disabled={!selectedEdition || status !== "idle"} onChange={(checked) => void onEditionVisibilityChange(checked)} liveLabel="Visible" draftLabel="Masquée" description="Afficher ou masquer toutes les courses de cette édition dans le catalogue." />
           </div>
@@ -543,7 +543,7 @@ export function OrganizerSummaryHeader({
             <DialogHeader>
               <DialogTitle>Supprimer définitivement l’édition {selectedEditionYear} ?</DialogTitle>
               <DialogDescription>
-                Tous les formats de cette édition, leurs Racebooks, GPX et données organisateur seront supprimés. Les plans déjà créés resteront disponibles sans lien vers leur course source. Cette action est irréversible.
+                Tous les formats de cette édition, leurs Livrets coureurs, GPX et données organisateur seront supprimés. Les plans déjà créés resteront disponibles sans lien vers leur course source. Cette action est irréversible.
               </DialogDescription>
             </DialogHeader>
             <div>

@@ -6,5 +6,5 @@ export async function POST(request: NextRequest) {
   const auth = await requireOrganizerAuth(request);
   if ("error" in auth) return auth.error;
 
-  return jsonError("Les nouvelles publications passent désormais par l’offre RaceBook de l’édition.", 410);
+  return jsonError("Les nouvelles publications passent désormais par l’offre Livret coureur de l’édition.", 410);
 }

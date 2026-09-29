@@ -60,7 +60,7 @@ export const ORGANIZER_MODULES: readonly OrganizerModuleDefinition[] = [
   { key: "bib_pickup", label: "Dossard", description: "Lieux, créneaux et documents de retrait.", scope: "edition", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
   { key: "access", label: "Accès", description: "Départ, arrivée, parkings et informations pratiques.", scope: "edition", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
   { key: "services", label: "Services & alentours", description: "Hébergement, restauration et récupération.", scope: "edition", minimumTier: "complete", capability: "racebook_content.advanced.manage", defaultEnabled: false },
-  { key: "branding", label: "Identité visuelle", description: "Logo et couleurs du RaceBook.", scope: "edition", minimumTier: "signature", capability: "branding.manage", defaultEnabled: false },
+  { key: "branding", label: "Identité visuelle", description: "Logo et couleurs du Livret coureur.", scope: "edition", minimumTier: "signature", capability: "branding.manage", defaultEnabled: false },
   { key: "sponsors", label: "Sponsors", description: "Placements partenaires et clics agrégés.", scope: "edition", minimumTier: "signature", capability: "sponsors.manage", defaultEnabled: false },
   { key: "aid_stations", label: "Ravitos", description: "Ravitaillements et services disponibles.", scope: "race", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
   { key: "start_waves", label: "SAS", description: "Vagues, horaires et critères de départ.", scope: "race", minimumTier: "complete", capability: "racebook_content.advanced.manage", defaultEnabled: false },

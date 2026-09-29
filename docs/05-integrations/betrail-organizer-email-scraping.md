@@ -1,7 +1,7 @@
 ---
 title: BeTrail Organizer Email Scraping
 scope: integration
-last_verified: 2026-09-10
+last_verified: 2026-09-29
 ai_priority: medium
 related_files:
   - scripts/scrape-betrail-organizer-emails.mjs
@@ -48,6 +48,8 @@ related_tables:
 ---
 
 # BeTrail Organizer Email Scraping
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 

@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-09-24
+last_verified: 2026-09-29
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -22,6 +22,8 @@ related_tables:
 ---
 
 # Geocoding
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 

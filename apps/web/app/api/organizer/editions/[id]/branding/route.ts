@@ -111,7 +111,7 @@ export async function GET(request: NextRequest, context: { params: { id?: string
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(await loadBranding(auth.serviceConfig, auth.edition.id)) }));
   } catch (error) {
     console.error("Unable to load RaceBook branding", error);
-    return jsonError("Unable to load RaceBook branding.", 502);
+    return jsonError("Unable to load Race Book branding.", 502);
   }
 }
 
@@ -121,7 +121,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
   const auth = await authorize(request, parsed.data.id);
   if ("error" in auth) return auth.error;
   const draft = racebookBrandingDraftSchema.safeParse(await request.json().catch(() => null));
-  if (!draft.success) return jsonError(draft.error.issues[0]?.message ?? "Invalid RaceBook branding.", 400);
+  if (!draft.success) return jsonError(draft.error.issues[0]?.message ?? "Invalid Race Book branding.", 400);
   try {
     const row = await upsertDraft(auth.serviceConfig, auth.edition.id, {
       draft_primary_color: draft.data.primaryColor,
@@ -131,7 +131,7 @@ export async function PATCH(request: NextRequest, context: { params: { id?: stri
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(row) }));
   } catch (error) {
     console.error("Unable to save RaceBook branding", error);
-    return jsonError("Unable to save RaceBook branding.", 502);
+    return jsonError("Unable to save Race Book branding.", 502);
   }
 }
 
@@ -142,7 +142,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   if ("error" in auth) return auth.error;
   const formData = (await request.formData().catch(() => null)) as FormData | null;
   const image = formData?.get("image");
-  if (!(image instanceof File)) return jsonError("RaceBook logo is required.", 400);
+  if (!(image instanceof File)) return jsonError("Race Book logo is required.", 400);
   if (image.size === 0 || image.size > MAX_RACEBOOK_BRANDING_LOGO_SIZE_BYTES) {
     return jsonError(image.size === 0 ? "Logo is empty." : "Logo is too large (max 5 MB).", 400);
   }
@@ -156,7 +156,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     previous = await loadBranding(auth.serviceConfig, auth.edition.id);
   } catch (error) {
     console.error("Unable to load current RaceBook logo", error);
-    return jsonError("Unable to load current RaceBook logo.", 502);
+    return jsonError("Unable to load current Race Book logo.", 502);
   }
 
   const storagePath = `organizer-branding/${auth.edition.id}/${randomUUID()}-${Date.now()}.${extension}`;
@@ -166,7 +166,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
     body: image,
     cache: "no-store",
   });
-  if (!uploadResponse.ok) return jsonError("Unable to upload RaceBook logo.", 502);
+  if (!uploadResponse.ok) return jsonError("Unable to upload Race Book logo.", 502);
   const logoUrl = `${auth.serviceConfig.supabaseUrl}/storage/v1/object/public/race-images/${storagePath}`;
 
   try {
@@ -179,7 +179,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   } catch (error) {
     console.error("Unable to save RaceBook logo", error);
     await deleteLogoObject(auth.serviceConfig, logoUrl);
-    return jsonError("Unable to save RaceBook logo.", 502);
+    return jsonError("Unable to save Race Book logo.", 502);
   }
 }
 
@@ -198,7 +198,7 @@ export async function DELETE(request: NextRequest, context: { params: { id?: str
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(row) }));
   } catch (error) {
     console.error("Unable to remove RaceBook logo", error);
-    return jsonError("Unable to remove RaceBook logo.", 502);
+    return jsonError("Unable to remove Race Book logo.", 502);
   }
 }
 
@@ -208,7 +208,7 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
   const auth = await authorize(request, parsed.data.id);
   if ("error" in auth) return auth.error;
   const action = z.object({ action: z.literal("publish") }).safeParse(await request.json().catch(() => null));
-  if (!action.success) return jsonError("Invalid RaceBook branding action.", 400);
+  if (!action.success) return jsonError("Invalid Race Book branding action.", 400);
   if (!(await requireOrganizerEditionCapability(auth.serviceConfig, auth.edition.id, "branding.manage"))) {
     return jsonError("L’offre Signature est requise pour publier l’identité visuelle.", 403);
   }
@@ -235,6 +235,6 @@ export async function POST(request: NextRequest, context: { params: { id?: strin
     return withSecurityHeaders(NextResponse.json({ branding: toOrganizerBranding(row) }));
   } catch (error) {
     console.error("Unable to publish RaceBook branding", error);
-    return jsonError("Unable to publish RaceBook branding.", 502);
+    return jsonError("Unable to publish Race Book branding.", 502);
   }
 }

@@ -31,7 +31,7 @@ const demoViews: Array<{
     title: "Le parcours et ses points clés",
     description: "Trace, profil, horaires, barrières et ravitaillements restent réunis dans une vue conçue pour le jour de course.",
     image: "/landing/organisateurs/tst-course-ravitos.jpeg",
-    imageAlt: "Race Book TST affichant les horaires, barrières et ravitaillements du parcours Ultra des Cimes",
+    imageAlt: "Livret coureur TST affichant les horaires, barrières et ravitaillements du parcours Ultra des Cimes",
   },
   {
     key: "dossards",
@@ -39,7 +39,7 @@ const demoViews: Array<{
     title: "Les informations à retrouver avant le départ",
     description: "Adresses, créneaux de retrait, documents et horaires sont accessibles sans rechercher un ancien email ou un PDF.",
     image: "/landing/organisateurs/tst-dossards.jpeg",
-    imageAlt: "Race Book TST affichant les lieux, horaires et documents nécessaires au retrait du dossard",
+    imageAlt: "Livret coureur TST affichant les lieux, horaires et documents nécessaires au retrait du dossard",
   },
   {
     key: "materiel",
@@ -47,15 +47,15 @@ const demoViews: Array<{
     title: "Le matériel obligatoire clairement identifié",
     description: "Chaque équipement obligatoire ou conseillé reste facile à vérifier avant de préparer son sac.",
     image: "/landing/organisateurs/tst-materiel.jpeg",
-    imageAlt: "Race Book TST affichant la liste du matériel obligatoire et conseillé pour l’Ultra des Cimes",
+    imageAlt: "Livret coureur TST affichant la liste du matériel obligatoire et conseillé pour l’Ultra des Cimes",
   },
   {
     key: "acces",
     label: "Accès & navettes",
     title: "Les accès et transports réunis au même endroit",
-    description: "Départ, arrivée, parkings, navettes et restrictions sont consultables directement depuis le Race Book.",
+    description: "Départ, arrivée, parkings, navettes et restrictions sont consultables directement depuis le Livret coureur.",
     image: "/landing/organisateurs/tst-acces.jpeg",
-    imageAlt: "Race Book TST affichant les lieux de départ et d’arrivée, parkings, navettes et restrictions d’accès",
+    imageAlt: "Livret coureur TST affichant les lieux de départ et d’arrivée, parkings, navettes et restrictions d’accès",
   },
 ];
 
@@ -75,7 +75,7 @@ const scatteredSources = ["Site internet", "Règlement PDF", "Réseaux sociaux",
 const setupSteps = [
   { number: "01", title: "Créez votre événement", description: "Renseignez son nom, ses dates, son lieu et ses différents formats." },
   { number: "02", title: "Ajoutez les informations utiles", description: "Complétez parcours, horaires, ravitaillements, matériel et logistique à partir de vos contenus existants." },
-  { number: "03", title: "Publiez votre Race Book", description: "Après validation, vos coureurs retrouvent les informations directement dans Pace Yourself." },
+  { number: "03", title: "Publiez votre Livret coureur", description: "Après validation, vos coureurs retrouvent les informations directement dans Pace Yourself." },
 ];
 
 const tstDiscoverySteps = [
@@ -91,13 +91,13 @@ const tstDiscoverySteps = [
   },
   {
     number: "03",
-    title: "Ouvrez son RaceBook",
-    description: "Choisissez l’un des trois formats, puis appuyez sur « Racebook » pour parcourir toutes les informations.",
+    title: "Ouvrez son Livret coureur",
+    description: "Choisissez l’un des trois formats, puis appuyez sur « Livret coureur » pour parcourir toutes les informations.",
   },
 ] as const;
 
 const organizerOffers = [
-  { name: "Essentiel", price: "99 €", description: "Le RaceBook simple", features: ["Course et GPX", "Matériel et dossard", "Accès principal", "Ravitos simples"] },
+  { name: "Essentiel", price: "99 €", description: "Le Livret coureur simple", features: ["Course et GPX", "Matériel et dossard", "Accès principal", "Ravitos simples"] },
   { name: "Complet", price: "199 €", description: "La logistique avancée", features: ["Tout Essentiel", "SAS et barrières", "Services et navettes", "Podiums et notifications"] },
   { name: "Signature", price: "349 €", description: "L'expérience personnalisée", features: ["Tout Complet", "Relais et produits officiels", "Sponsors et clics", "Identité visuelle et import assisté"] },
 ] as const;
@@ -162,14 +162,14 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
             </p>
             <div className="space-y-4">
               <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Le Race Book de votre trail, directement dans la poche de vos coureurs
+                Le Livret coureur de votre trail, directement dans la poche de vos coureurs
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                Centralisez parcours, horaires, ravitaillements, matériel, retrait des dossards et informations pratiques dans un Race Book mobile clair et facile à consulter.
+                Centralisez parcours, horaires, ravitaillements, matériel, retrait des dossards et informations pratiques dans un Livret coureur mobile clair et facile à consulter.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
-              {primaryCta("hero", "Créer mon Race Book")}
+              {primaryCta("hero", "Créer mon Livret coureur")}
               {appCta("hero")}
             </div>
             <p className="text-sm text-muted-foreground">Vos informations existent déjà. Pace Yourself les rend simplement plus faciles à retrouver.</p>
@@ -178,7 +178,7 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
             <div className="overflow-hidden rounded-[2rem] border border-border bg-card p-2 shadow-2xl shadow-[rgba(45,80,22,0.14)] sm:p-3">
               <Image
                 src="/landing/organisateurs/tst-materiel.jpeg"
-                alt="Race Book TST affichant le matériel obligatoire et conseillé pour l’Ultra des Cimes"
+                alt="Livret coureur TST affichant le matériel obligatoire et conseillé pour l’Ultra des Cimes"
                 width={712}
                 height={1600}
                 priority
@@ -194,7 +194,7 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
         <div className="max-w-3xl space-y-3">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Côté coureur</p>
           <h2 id="runner-result-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Toutes les informations utiles avant le départ, au même endroit</h2>
-          <p className="text-base leading-7 text-muted-foreground">Un Race Book simple à parcourir sur téléphone, quand une question se pose à la maison, sur la route ou au village départ.</p>
+          <p className="text-base leading-7 text-muted-foreground">Un Livret coureur simple à parcourir sur téléphone, quand une question se pose à la maison, sur la route ou au village départ.</p>
         </div>
         <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {runnerInformation.map((item) => (
@@ -238,7 +238,7 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
           <div className="max-w-3xl space-y-3">
             <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Exemple complet · TST</p>
             <h2 id="demo-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Voyez concrètement ce que peuvent retrouver vos coureurs</h2>
-            <p className="leading-7 text-muted-foreground">Découvrez les informations réellement publiées dans le Race Book de notre course de démonstration.</p>
+            <p className="leading-7 text-muted-foreground">Découvrez les informations réellement publiées dans le Livret coureur de notre course de démonstration.</p>
           </div>
           {appCta("demo", "Télécharger l’app")}
         </div>
@@ -253,7 +253,7 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
           ))}
         </ol>
 
-        <div className="overflow-x-auto" role="tablist" aria-label="Vues du Race Book TST">
+        <div className="overflow-x-auto" role="tablist" aria-label="Vues du Livret coureur TST">
           <div className="flex min-w-max gap-2 border-b border-border pb-2">
             {demoViews.map((view) => (
               <button
@@ -294,7 +294,7 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
         <div className="max-w-3xl space-y-2">
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Informations importantes</p>
           <h2 className="text-2xl font-semibold text-foreground">Prévenez vos coureurs lorsqu’une information change</h2>
-          <p className="leading-7 text-muted-foreground">Modification de parcours, horaire, parking ou dernière consigne : l’organisation peut publier une information ciblée sans alourdir le Race Book.</p>
+          <p className="leading-7 text-muted-foreground">Modification de parcours, horaire, parking ou dernière consigne : l’organisation peut publier une information ciblée sans alourdir le Livret coureur.</p>
         </div>
         <div className="grid flex-none grid-cols-2 gap-2 text-xs font-medium text-foreground sm:grid-cols-3 lg:max-w-sm">
           {["Horaire", "Parcours", "Matériel", "Parking", "Navette", "Consigne"].map((item) => <span key={item} className="rounded-full border border-brand-border bg-card px-3 py-2 text-center dark:border-emerald-400/30">{item}</span>)}
@@ -323,10 +323,10 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
 
       <section className="rounded-3xl bg-foreground px-5 py-10 text-center text-background sm:px-10 sm:py-14 dark:bg-emerald-950 dark:text-emerald-50">
         <div className="mx-auto max-w-3xl space-y-5">
-          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Votre prochain Race Book peut être prêt en quelques minutes</h2>
+          <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl">Votre prochain Livret coureur peut être prêt en quelques minutes</h2>
           <p className="text-base leading-7 text-background/75 dark:text-emerald-100/80">Commencez avec les informations que vous possédez déjà, puis complétez votre événement à votre rythme.</p>
           <div className="flex flex-col justify-center gap-3 sm:flex-row">
-            {primaryCta("final", "Créer le Race Book de mon événement")}
+            {primaryCta("final", "Créer le Livret coureur de mon événement")}
             {appCta("final")}
           </div>
         </div>

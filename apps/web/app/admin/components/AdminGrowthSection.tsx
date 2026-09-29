@@ -46,8 +46,8 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     overview: "Trajectoire", trajectoryDescription: "Les volumes quotidiens permettent de distinguer une tendance d’un pic isolé.", productTrend: "Usage et création", newAccounts: "Nouveaux comptes", activated: "Activés en 24 h", activePlanUsers: "Utilisateurs actifs sur un plan", newPlans: "Nouveaux plans", premium: "Premium actifs",
     actions: "À surveiller et actions", noActions: "Aucune alerte notable sur cette période.",
     organizers: "Organisateurs", funnel: "Parcours de conversion", step: "Étape", users: "Personnes", conversion: "Conversion depuis l’étape précédente",
-    newOrganizers: "Nouveaux organisateurs", activeOrganizers: "Organisateurs connectés", returningOrganizers: "Revenus après 7 j", events: "Événements créés", editions: "Éditions créées", formats: "Formats créés", published: "RaceBooks publiés",
-    activatedRacebooks: "Accès RaceBook actifs", giftedRacebooks: "Accès offerts", paidRacebooks: "Accès payés",
+    newOrganizers: "Nouveaux organisateurs", activeOrganizers: "Organisateurs connectés", returningOrganizers: "Revenus après 7 j", events: "Événements créés", editions: "Éditions créées", formats: "Formats créés", published: "Livrets coureurs publiés",
+    activatedRacebooks: "Accès Livret coureur actifs", giftedRacebooks: "Accès offerts", paidRacebooks: "Accès payés",
     followUps: "Organisateurs à relancer", organizer: "Organisateur", event: "Événement", inactivity: "Inactivité", status: "Situation", days: "j",
     noFormat: "Aucun format", incomplete: "Format incomplet", ready: "Prêt à publier", publishedStatus: "Publié",
     projection: "Au rythme de la période : {value} sur 30 j", activationRate: "{value}% des nouveaux comptes", racebookStock: "Stock actuel par édition, hors comptes admin", sources: "Tous les chiffres de ce dashboard proviennent de Supabase et excluent les comptes admin. L’activité organisateur repose sur les connexions réelles, pas sur updated_at. Les parcours Web et App s’analysent directement dans PostHog.",
@@ -58,8 +58,8 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
     overview: "Trajectory", trajectoryDescription: "Daily volumes make sustained trends distinguishable from isolated spikes.", productTrend: "Usage and creation", newAccounts: "New accounts", activated: "Activated in 24h", activePlanUsers: "Active plan users", newPlans: "New plans", premium: "Active Premium",
     actions: "Watchlist & actions", noActions: "No notable alert for this period.",
     organizers: "Organizers", funnel: "Conversion journey", step: "Step", users: "People", conversion: "Conversion from previous step",
-    newOrganizers: "New organizers", activeOrganizers: "Signed-in organizers", returningOrganizers: "Returned after 7d", events: "Events created", editions: "Editions created", formats: "Formats created", published: "RaceBooks published",
-    activatedRacebooks: "Active RaceBook access", giftedRacebooks: "Complimentary access", paidRacebooks: "Paid access",
+    newOrganizers: "New organizers", activeOrganizers: "Signed-in organizers", returningOrganizers: "Returned after 7d", events: "Events created", editions: "Editions created", formats: "Formats created", published: "Race Books published",
+    activatedRacebooks: "Active Race Book access", giftedRacebooks: "Complimentary access", paidRacebooks: "Paid access",
     followUps: "Organizers to follow up", organizer: "Organizer", event: "Event", inactivity: "Inactive", status: "Situation", days: "d",
     noFormat: "No format", incomplete: "Incomplete format", ready: "Ready to publish", publishedStatus: "Published",
     projection: "At this period’s pace: {value} over 30d", activationRate: "{value}% of new accounts", racebookStock: "Current stock by edition, excluding admin accounts", sources: "Every metric in this dashboard comes from Supabase and excludes admin accounts. Organizer activity uses actual sign-ins, not updated_at. Web and App journeys are analyzed directly in PostHog.",
@@ -197,7 +197,7 @@ export default function AdminGrowthSection({ accessToken, t }: Props) {
                 <Kpi
                   label={isFrench ? "Mix des ventes" : "Sales mix"}
                   value={data.organizers.commercial.racebookSales + data.organizers.commercial.proDirectSales + data.organizers.commercial.proUpgradeSales}
-                  hint={`RaceBook ${data.organizers.commercial.racebookSales} · Pro ${data.organizers.commercial.proDirectSales} · Upgrade ${data.organizers.commercial.proUpgradeSales}`}
+                  hint={`${isFrench ? "Livret coureur" : "Race Book"} ${data.organizers.commercial.racebookSales} · Pro ${data.organizers.commercial.proDirectSales} · Upgrade ${data.organizers.commercial.proUpgradeSales}`}
                 />
               </div>
             </div>

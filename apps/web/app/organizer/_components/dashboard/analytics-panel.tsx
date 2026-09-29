@@ -100,7 +100,7 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
     return (
       <Card className="border-brand/30 bg-brand/5">
         <CardHeader>
-          <CardTitle>Suivez l’usage de votre RaceBook</CardTitle>
+          <CardTitle>Suivez l’usage de votre Livret coureur</CardTitle>
           <CardDescription>Les statistiques sont incluses dans l’offre Signature. Découvrez les consultations, la durée active et l’engagement de vos lecteurs.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -114,7 +114,7 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
     <section className="space-y-4" aria-labelledby="organizer-analytics-title">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h2 id="organizer-analytics-title" className="text-lg font-semibold text-foreground">Performance du RaceBook</h2>
+          <h2 id="organizer-analytics-title" className="text-lg font-semibold text-foreground">Performance du Livret coureur</h2>
           <p className="text-sm text-muted-foreground">
             {access.source === "complimentary" ? "Module offert pour cette édition." : "Module inclus dans votre offre Signature."}
           </p>
@@ -147,7 +147,7 @@ export function OrganizerAnalyticsPanel({ editionId, accessToken, access, races,
             <>
               <TimeSeriesLineChart
                 title="Consultations quotidiennes"
-                description="Lecteurs estimés et ouvertures du RaceBook."
+                description="Lecteurs estimés et ouvertures du Livret coureur."
                 points={data.daily.map((point) => ({
                   date: point.date,
                   values: { uniqueReaders: point.uniqueReaders, totalOpens: point.totalOpens },

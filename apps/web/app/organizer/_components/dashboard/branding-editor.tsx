@@ -175,7 +175,7 @@ export function BrandingEditor({
       const data = (await response.json().catch(() => null)) as { branding?: OrganizerBrandingState; message?: string } | null;
       if (!response.ok || !data?.branding) throw new Error(data?.message ?? "Impossible de publier la DA.");
       updateState(data.branding);
-      onToast("success", "Nouvelle DA publiée dans le RaceBook.");
+      onToast("success", "Nouvelle DA publiée dans le Livret coureur.");
     } catch (error) {
       onToast("error", error instanceof Error ? error.message : "Impossible de publier la DA.");
     } finally {
@@ -233,7 +233,7 @@ export function BrandingEditor({
         <div className="space-y-3 rounded-2xl bg-white p-4">
           <div className="flex items-start gap-3">
             {RACEBOOK_EDITION_LOGO_ENABLED && theme.logoUrl ? <Image src={theme.logoUrl} alt={`Logo ${eventName}`} width={56} height={56} sizes="56px" unoptimized className="h-14 w-14 rounded-xl border object-contain p-1" /> : null}
-            <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase" style={{ color: theme.primaryColor }}>{eventName}</p><p className="truncate text-lg font-bold">RaceBook</p><p className="text-xs text-muted-foreground">Édition sélectionnée</p></div>
+            <div className="min-w-0 flex-1"><p className="text-xs font-bold uppercase" style={{ color: theme.primaryColor }}>{eventName}</p><p className="truncate text-lg font-bold">Livret coureur</p><p className="text-xs text-muted-foreground">Édition sélectionnée</p></div>
           </div>
           <div className="flex gap-2"><span className="flex-1 rounded-xl px-2 py-2 text-center text-xs font-bold" style={{ backgroundColor: theme.primaryColor, color: theme.onPrimaryColor }}>Course</span><span className="flex-1 rounded-xl border px-2 py-2 text-center text-xs">Accès</span></div>
           <div className="rounded-xl border p-3" style={{ borderColor: theme.accentBorderColor, backgroundColor: theme.accentSurfaceColor }}><p className="text-xs font-bold">Informations importantes</p><p className="mt-1 text-xs text-muted-foreground">La couleur d’accent habille aussi les encarts non critiques.</p></div>

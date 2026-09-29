@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_entitlements
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-09-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -24,6 +24,8 @@ related_tables:
 ---
 
 # `organizer_edition_entitlements`
+
+> Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 
