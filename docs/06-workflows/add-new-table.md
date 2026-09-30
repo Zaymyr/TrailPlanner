@@ -48,7 +48,7 @@ A column-and-trigger migration on an existing table is outside this workflow too
 
 A function-only authorization repair, such as `20260911120508_fix_single_format_publication_admin_check.sql`, also belongs to the RLS workflow rather than this table workflow.
 
-A policy-only retirement such as `20260930100939_remove_personal_race_creation.sql` also belongs to the RLS workflow: it narrows `races_insert` without creating a table or changing organizer service-route ownership.
+A policy-only retirement such as `20260930104930_remove_personal_race_creation.sql` also belongs to the RLS workflow: it narrows `races_insert` without creating a table or changing organizer service-route ownership.
 
 A presentation-only change in a consumer listed by the schema documentation, such as the mobile race catalog card, its fourteen-day post-race window for existing favorites, its `edition_id`-based removal of an older edition after the same display window, or moving the existing race-request trigger beside search, does not require a migration. The same applies to a PostHog-only interaction such as `catalog create plan clicked`: it records intent before navigation without persisting a row. Keep the affected schema or table documentation aligned with the consumer's current read contract, then validate the application and documentation without applying the table-creation steps below.
 

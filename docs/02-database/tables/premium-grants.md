@@ -91,7 +91,7 @@ values ('<user-id>', now(), 30, 'manual support grant', '<admin-user-id>');
 
 ## Gotchas
 
-- The shared privileged-access SQL test now also verifies administrator-only race insertion; this does not change `premium_grants` entitlement semantics.
+- The shared privileged-access SQL test, run after `20260930104930_remove_personal_race_creation.sql`, also verifies administrator-only race insertion; this does not change `premium_grants` entitlement semantics.
 - Do not expose full grant management to normal authenticated users.
 - Admin checks use trusted app metadata or server-side Auth verification, never `user_profiles.role` or `user_metadata`.
 - Keep mobile and web entitlement logic aligned when changing grant semantics.

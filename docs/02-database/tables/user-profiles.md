@@ -114,7 +114,7 @@ where user_id = '<user-id>';
 
 ## Gotchas
 
-- The shared privileged-access SQL test now also verifies administrator-only race insertion; profile ownership and protected server-field behavior are unchanged.
+- The shared privileged-access SQL test, run after `20260930104930_remove_personal_race_creation.sql`, also verifies administrator-only race insertion; profile ownership and protected server-field behavior are unchanged.
 - Do not read `auth.users` from client code to get profile fields.
 - Use `birth_date` for new age-related work unless maintaining legacy `age`.
 - Trial fields can be missing for older users; server code repairs them.

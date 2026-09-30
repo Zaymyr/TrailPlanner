@@ -28,7 +28,7 @@ related_files:
   - supabase/migrations/20260911114106_expose_private_formats_in_visible_catalog.sql
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
-  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
+  - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql

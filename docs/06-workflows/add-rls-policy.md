@@ -6,7 +6,7 @@ ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
-  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
+  - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql

@@ -9,7 +9,7 @@ related_files:
   - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
-  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
+  - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -109,7 +109,7 @@ related_tables:
 
 `20260914055319_harden_privileged_database_access.sql` removes client-writable profile roles from database authorization, clears untrusted legacy admin labels, protects server-owned profile entitlement/analytics fields, restricts user-created races to private standalone rows, restricts privileged SECURITY DEFINER RPCs to `service_role`, enables invoker security on `product_brand_review`, pins advisor-reported function search paths, optimizes the replaced owner/admin RLS predicates, and adds five targeted foreign-key indexes. `supabase/tests/privileged_database_access_checks.sql` verifies profile-field and race-publication escalation denial, trusted-metadata-only admin resolution, view security, and RPC privileges in a rollback transaction.
 
-`20260930100939_remove_personal_race_creation.sql` retires runner-owned standalone race creation by restricting `races_insert` to trusted administrators. Legacy owner update/delete policies remain available for cleanup, and organizer authoring continues through service-role routes. The privileged-access rollback test now asserts that a normal authenticated user cannot insert even a private standalone race.
+`20260930104930_remove_personal_race_creation.sql` retires runner-owned standalone race creation by restricting `races_insert` to trusted administrators. Legacy owner update/delete policies remain available for cleanup, and organizer authoring continues through service-role routes. The privileged-access rollback test now asserts that a normal authenticated user cannot insert even a private standalone race. The repository version matches the production migration-history entry; its recorded statement and the effective `races_insert` policy were verified before reconciling the filename.
 
 `20260924140119_add_racebook_gear_checks.sql` adds the owner-scoped, per-format RaceBook equipment checklist. Authenticated clients receive only select/insert/delete grants under matching `auth.uid()` policies; `anon` receives none, and the composite key makes repeated checks idempotent. `supabase/tests/racebook_gear_checks.sql` verifies RLS, privileges, policies, and both cascading parents.
 
@@ -467,6 +467,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Do not add `user_metadata` admin checks in new policies.
 - Do not grant authority from `user_profiles.role`; the final security migration keeps it as server-managed legacy data only.
 - Do not use `supabase migration repair` merely to make a deployment continue. First reconcile the actual remote schema with repository history in a reviewed change; the production workflow intentionally fails on remote-only versions.
+- Never rename or regenerate the timestamp of a migration after applying it to a linked environment. If local and remote versions diverge, compare the recorded remote statement and effective schema first, then preserve the already-applied version in the repository when they describe the same change.
 - A clean local migration reset is not currently reproducible from this repository because the Supabase config and part of the schema baseline are absent. Static CI is a guard, not proof that all migrations or rollback tests execute successfully.
 - New `public` tables require explicit Data API privilege decisions. RLS without a `GRANT` can produce `42501 permission denied`; a `GRANT` without RLS can expose unintended rows.
 - If a migration references `auth.users`, prefer a SECURITY DEFINER function or server/service-role route for reads.

@@ -1,5 +1,5 @@
 -- Trusted admin authorization and privileged RPC access checks.
--- Run after 20260930100939_remove_personal_race_creation.sql in a privileged SQL session.
+-- Run after 20260930104930_remove_personal_race_creation.sql in a privileged SQL session.
 
 begin;
 

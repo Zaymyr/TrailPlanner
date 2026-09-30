@@ -6,7 +6,7 @@ ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
-  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
+  - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
