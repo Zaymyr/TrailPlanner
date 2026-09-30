@@ -245,10 +245,6 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
           </div>
 
           <div className="relative mx-auto w-full max-w-[390px] lg:justify-self-end">
-            <div className="absolute -left-8 top-24 hidden rounded-2xl border border-border bg-card/95 p-4 shadow-xl sm:block lg:-left-24" aria-hidden>
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">Tout au même endroit</p>
-              <p className="mt-1 max-w-40 text-sm leading-5 text-muted-foreground">Parcours, matériel, dossards et accès.</p>
-            </div>
             <div className="relative overflow-hidden rounded-[2.2rem] border border-foreground/10 bg-foreground p-2.5 shadow-2xl shadow-[rgba(45,80,22,0.22)] dark:border-emerald-300/15 dark:bg-emerald-950">
               <div className="flex items-center justify-between px-3 py-2 text-background dark:text-emerald-50">
                 <div>
@@ -293,10 +289,6 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
                   {isHeroVideoPlaying ? "Pause" : "Lire"}
                 </button>
               </div>
-            </div>
-            <div className="absolute -bottom-5 -right-3 rounded-2xl border border-brand-border bg-brand px-4 py-3 text-brand-foreground shadow-xl sm:-right-8 dark:bg-emerald-400 dark:text-slate-950">
-              <p className="text-xs font-semibold">Consultable sur mobile</p>
-              <p className="mt-0.5 text-[0.68rem] opacity-80">Avant et pendant la course</p>
             </div>
           </div>
         </div>

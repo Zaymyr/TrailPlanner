@@ -31,6 +31,8 @@ describe("organizer landing TST discovery", () => {
     expect(source).toContain("playsInline");
     expect(source).toContain("Mettre en pause la démonstration");
     expect(source).toContain('window.matchMedia("(prefers-reduced-motion: reduce)")');
+    expect(source).not.toContain("Tout au même endroit");
+    expect(source).not.toContain("Consultable sur mobile");
   });
 
   it("explains the complete path to the Trail TST Livret coureur", () => {
