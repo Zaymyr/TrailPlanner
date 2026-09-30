@@ -3,6 +3,7 @@ name: EAS Update Development
 on:
   push:
     branches:
+      - main
       - 'dev/**'
     paths:
       - 'apps/mobile/**'
