@@ -40,6 +40,8 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/module-settings/route.ts
   - apps/web/lib/public-races.ts
   - apps/web/lib/public-races.test.ts
+  - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
+  - supabase/tests/organizer_social_proofs_checks.sql
 related_tables:
   - race_event_editions
   - race_events
@@ -51,6 +53,7 @@ related_tables:
   - race_event_edition_sponsors
   - race_event_edition_branding
   - organizer_racebook_module_settings
+  - organizer_social_proofs
 ---
 
 # race_event_editions
@@ -99,6 +102,7 @@ related_tables:
 - `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`; sponsor hierarchy, contextual placement, and aggregate click/impression counters stay shared by every format in that edition and are mutated only through membership-checked server routes.
 - `race_event_edition_branding.edition_id -> race_event_editions(id) on delete cascade`
 - `organizer_racebook_module_settings.edition_id -> race_event_editions(id) on delete cascade`
+- `organizer_social_proofs.edition_id -> race_event_editions(id) on delete cascade`; at most one admin-curated proof snapshot may represent an edition on the organizer acquisition page.
 
 Deleting an event removes its editions. Deleting an edition removes its formats and their cascading source children; saved plans keep their snapshots because `race_plans.race_id` becomes null. The service-only deletion RPC rejects deletion of the event's only edition and promotes the newest remaining edition when the deleted row was current.
 Sponsor and branding rows follow the edition cascade. Organizer payments also cascade with the edition. The deletion routes read sponsor/branding image paths and private manual-invoice paths before deletion, then remove those Storage objects after the database transaction succeeds.
@@ -173,6 +177,7 @@ where ree.event_id = :event_id
 - Do not infer import scope from a year string. Use the session's validated `edition_id`, and reject expired sessions before confirming or applying fields.
 - Manual edition creation is free. Cloning a source edition requires Complete or Signature and copies edition and cloned-format module settings.
 - Branding belongs to the edition, not an individual format. Do not duplicate or resolve it from `races.id` once the canonical `edition_id` is known.
+- Social proof also belongs to the edition. Its aggregate usage spans every attached format and must not be duplicated per race or interpreted as official registration data.
 
 ## Related Docs
 

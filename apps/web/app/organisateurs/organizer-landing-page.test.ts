@@ -6,6 +6,12 @@ import { describe, expect, it } from "vitest";
 const source = readFileSync(resolve(process.cwd(), "app/organisateurs/organizer-landing-page.tsx"), "utf8");
 
 describe("organizer landing TST discovery", () => {
+  it("renders published RaceBook proof with explicitly estimated readers", () => {
+    expect(source).toContain("Ils l’ont utilisé en course");
+    expect(source).toContain("lecteurs uniques estimés");
+    expect(source).toContain("socialProofs.map");
+  });
+
   it("sends the secondary CTA to the production Android app", () => {
     expect(source).toContain("https://play.google.com/store/apps/details?id=com.paceyourself.app");
     expect(source).toContain("Télécharger l’app et voir TST");

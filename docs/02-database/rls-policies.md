@@ -68,6 +68,7 @@ related_tables:
   - race_event_claims
   - race_event_edition_requests
   - race_event_editions
+  - organizer_social_proofs
   - race_event_edition_sponsors
   - race_event_edition_branding
   - organizer_edition_capability_grants
@@ -272,6 +273,8 @@ Manual permission, constraint, draft-transition, and RPC checks live in `supabas
 
 `organizer_edition_capability_grants` is a separate RLS-enabled service-only projection with no client policies or privileges. Its `SECURITY INVOKER` grant/revoke RPC accepts only `racebook_analytics.view`, is executable only by `service_role`, and retains actor/timestamp audit fields. Organizer and admin APIs must authorize the caller before reading the projection or invoking the RPC.
 
+`organizer_social_proofs` is RLS-enabled and service-only, with explicit CRUD grants only for `service_role`. The protected admin route authorizes trusted `app_metadata` before capturing analytics or writing a row. The public organizer landing does not gain an anonymous table policy: its server component performs an explicit-column service read restricted to `status = published`, then maps a sanitized presentation DTO.
+
 ### Event Favorites and Organizer Updates
 
 Declared in `20260629123858_add_race_event_favorites_and_updates.sql`.
@@ -420,6 +423,7 @@ using ((auth.jwt() -> 'user_metadata' ->> 'role') = 'admin')
 - Data-only product image backfills do not require new policies when they only update public `image_url` values on existing live catalog rows.
 - The sponsor SQL fixture must exercise impression visibility against an already-live event and an already-published, preview-visible RaceBook. Directly forcing an arbitrary race live is not a valid RLS fixture because catalog-completeness and edition-visibility triggers may keep it private.
 - Data-only final-roadbook corrections on existing `race_events`, `race_event_editions`, and `races` rows reuse their current policies and grants; the Les Amaz’Eaunes 2026 synchronization adds no client access or policy branch.
+- A public rendering requirement does not imply a public table grant. Organizer social-proof drafts, consent times and audit actors remain behind the server; only the allowlisted published DTO reaches `/organisateurs`.
 - Admin organizer policies must be paired with SQL grants for the relevant action; RLS policies alone do not grant table privileges.
 - Organizer portal membership checks are event-based. Do not replace them with `races.created_by`.
 - Event-favorite ownership and organizer-update audience selection are separate concerns. Do not grant organizers direct read access to follower rows just because they can send updates.

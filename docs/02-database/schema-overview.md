@@ -89,6 +89,7 @@ related_tables:
   - organizer_edition_entitlements
   - organizer_edition_payments
   - organizer_edition_capability_grants
+  - organizer_social_proofs
   - race_event_claims
   - race_event_edition_requests
   - race_event_publication_requests
@@ -152,6 +153,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer edition entitlement: permanent Visibilité/Essential/Complete/Signature capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
 - Organizer edition capability grant: service-only active/revoked complimentary module projection that supplements an edition pack without changing it; V1 supports `racebook_analytics.view`.
 - Organizer bank-transfer invoicing: the canonical pack subtotal is server-owned and currently VAT-exempt under article 293 B CGI. Issuance stores a chronological number and immutable legal snapshot on the service-only payment ledger, while the PDF remains in private Storage.
+- Organizer social proof: one service-only editorial row per edition combines an optional consented testimonial with a server-captured aggregate RaceBook readership snapshot for the public organizer landing.
 
 ## Tables
 
@@ -172,6 +174,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `organizer_import_sessions` | Temporary service-only source snapshots and two-pass Organizer import state. |
 | `organizer_edition_entitlements` | Current commercial tier for one organizer event edition. |
 | `organizer_edition_capability_grants` | Current complimentary module access and grant/revoke audit for one organizer event edition. |
+| `organizer_social_proofs` | Admin-curated edition proof cards with consent and aggregate RaceBook usage snapshots. |
 | `organizer_edition_payments` | Stripe and paid-bank-transfer history, generated invoice identities/legal snapshots, private PDF references, and ledger used to derive organizer edition rights. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
 | `race_relay_points` | Ordered relay handover points, optionally linked to source aid stations. |
@@ -267,6 +270,7 @@ erDiagram
 - [organizer_import_sessions](tables/organizer-import-sessions.md)
 - [race_events](tables/race-events.md)
 - [race_event_editions](tables/race-event-editions.md)
+- [organizer_social_proofs](tables/organizer-social-proofs.md)
 - [race_event_edition_sponsors](tables/race-event-edition-sponsors.md)
 - [race_event_edition_branding](tables/race-event-edition-branding.md)
 - [organizer_edition_entitlements](tables/organizer-edition-entitlements.md)
@@ -300,7 +304,7 @@ erDiagram
 - Sponsor impression SQL checks select a race whose event, catalog visibility, RaceBook publication, and preview visibility are already live; schema triggers remain authoritative and are not bypassed by fixture updates.
 - Historical migrations contain unsafe administrator branches, but the final hardening migration replaces active privileged policies with trusted `app_metadata` checks. Never authorize from `user_profiles.role` or `user_metadata`.
 - `planner_values` is JSONB and intentionally broad; schema docs cannot enumerate all app-level planner fields.
-- Mobile catalog root actions are UI-only; keep create/request/help/feedback menu wiring separate from the `race_events` and `races` query contract documented here.
+- Mobile catalog root actions are UI-only; Courses now opens its existing `race_requests` form from a compact action beside search and no longer renders its floating ellipsis menu. Keep that presentation wiring separate from the `race_events` and `races` query contract documented here.
 - Mobile catalog and onboarding can share race-event presentation components, but those components must not change the `race_events` and `races` query contract documented here.
 - The mobile-only catalog filter may retain an event for its current runner through the fourteenth calendar day after `race_events.race_date` when its id is in that runner's favorite snapshot. This is presentation logic over existing rows; it adds no schema, RLS, or cross-user favorite access.
 - The same mobile query selects the existing `races.edition_id` so presentation can retire an older visible edition on day 15 after its latest visible format date when a newer edition is already online. This in-memory rollover adds no table, policy, mutation, or direct client access to `race_event_editions`.
@@ -323,6 +327,7 @@ erDiagram
 - RaceBook sponsors remain service-only rows. The database serializes edition writes to enforce ten total and two active loading sponsors; clients receive only server-filtered hierarchy/placement DTOs and counted redirect URLs. Clicks and viewable impressions remain aggregate counters, with the impression RPC repeating published race/edition and exact-placement validation.
 - Complete sponsor ordering and Organizer course-collection replacements are atomic RPC contracts. Keep their client execution revoked and their route-level membership/capability checks intact.
 - RaceBook branding also remains service-only. Never grant draft access to clients; runner payloads use only a complete explicitly published snapshot and otherwise return shared defaults.
+- Organizer social proofs remain service-only even though their published projection appears on a public page. The landing reads an explicit published DTO server-side; clients receive no table grant, draft, consent timestamp, or admin audit id.
 - Mobile sponsor prefetch is an ephemeral account/race-scoped request handoff between the Courses sheet and RaceBook screen; it adds no table, relationship, persisted cache, or broader Data API access.
 - Two-pass Organizer imports are the exception to the normal all-fields-at-create assumption: confirmation persists an incomplete format as a hidden draft, then atomic field application makes the course live only when its required missing-field list is empty. Racebook visibility remains false.
 - Temporary import sessions are not provenance history. Cleanup must remove Storage objects before deleting expired rows, and client roles must never receive direct table or RPC access.

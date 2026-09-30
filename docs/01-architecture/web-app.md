@@ -36,6 +36,9 @@ related_files:
   - apps/web/next.config.mjs
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/admin/page.tsx
+  - apps/web/app/admin/_components/AdminOrganizerSocialProofsTab.tsx
+  - apps/web/app/api/admin/organizer-social-proofs/route.ts
+  - apps/web/app/api/admin/organizer-social-proofs/route.test.ts
   - apps/web/app/admin/_components/AdminPartnerLinksTab.tsx
   - apps/web/app/api/admin/partner-links/route.ts
   - apps/web/app/api/admin/partner-links/route.test.ts
@@ -129,6 +132,9 @@ related_files:
   - apps/web/app/organisateurs/page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.test.ts
+  - apps/web/lib/organizer-social-proof.ts
+  - apps/web/lib/organizer-social-proof.test.ts
+  - apps/web/lib/organizer-social-proof-server.ts
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizers/layout.tsx
   - apps/web/app/(planner)/race-planner/print/assistance/page.tsx
@@ -293,6 +299,7 @@ related_tables:
   - race_slug_redirects
   - race_event_edition_sponsors
   - race_event_edition_branding
+  - organizer_social_proofs
 ---
 
 # Web App Architecture
@@ -353,6 +360,8 @@ The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` file
 ## Main Runtime Areas
 
 The public homepage hero offers two explicit audience routes without adding a blocking interstitial: runners continue to `/race-planner`, while organizers first reach the explanatory `/organisateurs` page. Desktop and mobile navigation call the latter destination `Espace organisateur`, and the planner's private-course form repeats that distinction before a user creates runner-owned race data. Server-rendered `WebSite` and `Organization` JSON-LD connect the canonical site and publisher identities without inventing social profiles or a site-search action.
+
+The `/organisateurs` server page also loads at most three published edition proof snapshots through a server-only service-role helper. The client landing receives only event identity, optional consented quote attribution and aggregate `racebook opened` counts. A dedicated trusted-admin tab selects an edition, captures its analytics from the first real RaceBook publication through today or edition end plus fourteen days, stores that snapshot in Supabase, and invalidates the five-minute landing cache after a successful upsert. PostHog credentials, drafts, consent timestamps and admin actor ids never enter the public component.
 
 ### Organizer Information Import
 
@@ -572,6 +581,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Keep article `seoTitle` at 60 characters or fewer and `seoDescription` at 160 or fewer. These snippets feed metadata and JSON-LD only; keep the editorial H1 and introduction in `title` and `description`.
 - Keep locale-specific paths authoritative over the saved language preference: `/en` and `/en/*` must hydrate in English, while `/partenaires` and `/links` must hydrate in French. The route-scoped `Content-Language` header and content-level `lang` remain the server-visible signals until a deliberate multi-root-layout migration can set a route-specific root `<html lang>` without making every page dynamic.
 - Keep `/organisateurs` as the indexable French acquisition page. `/organizers` is the authenticated creation workflow and `/race-planner/print/assistance` is a transient print view; both must remain `noindex`.
+- Keep organizer social proof fail-open for the acquisition page: an unavailable table or invalid response yields no proof cards, while publication/refresh in admin fails closed. Never call PostHog from the public page or label its distinct-person estimate as official participants.
 - Never render stale race content at a former slug. Resolve its stable race id, verify current public visibility, then issue the permanent redirect before loading discovery links.
 - Keep catalog, slug resolution, sitemap, detail visibility, and route ISR aligned to 15 minutes so a refreshed catalog cannot link to a longer-lived negative detail cache. Raw GPX bytes may use the durable one-year data cache only while upload/replacement paths remain immutable and versioned.
 - Keep every legacy/blog redirect target inside the route-or-canonical integrity test, and never introduce a redirect chain or a target without a real page.

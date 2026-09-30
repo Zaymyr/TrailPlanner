@@ -16,11 +16,10 @@ import { Text } from '../../components/themed/Text';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
-import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import { useGuestAccountPrompt } from '../../hooks/useGuestAccountPrompt';
-import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
+import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import {
   CatalogFiltersModal,
   CatalogLoadingCard,
@@ -405,7 +404,6 @@ export default function CatalogScreen() {
   const insets = useSafeAreaInsets();
   const { locale, t } = useI18n();
   const promptGuestAccount = useGuestAccountPrompt();
-  const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
   const [favoriteSortIds, setFavoriteSortIds] = useState<string[]>([]);
@@ -741,21 +739,6 @@ export default function CatalogScreen() {
     ],
     [insets.top],
   );
-  const actionItems = useMemo<FloatingActionMenuItem[]>(() => [], []);
-  const helpCopy = useMemo(
-    () =>
-      locale === 'fr'
-        ? {
-            title: 'Courses',
-            body: "Recherche une course, filtre par distance ou date, puis choisis le format qui servira de base au plan. Le menu permet aussi de demander l'ajout d'une course au catalogue.",
-          }
-        : {
-            title: 'Races',
-            body: 'Search races, filter by distance or date, then pick the format that will become the plan base. The menu also lets you request a catalog addition.',
-          },
-    [locale],
-  );
-
   const selectedEventDate = selectedEvent ? formatEventDate(selectedEvent.race_date, locale) : null;
   const selectedEventMeta = selectedEvent
     ? [selectedEvent.location, selectedEventDate].filter(Boolean).join(' • ')
@@ -977,19 +960,40 @@ export default function CatalogScreen() {
         ListHeaderComponent={
           <View style={styles.listHeader}>
             <View style={styles.filtersCard}>
-              <TextInput
-                value={nameFilter}
-                onChangeText={(value) => {
-                  setNameFilter(value);
-                  lastTrackedRacebookSearchRef.current = null;
-                }}
-                onSubmitEditing={captureRacebookOnboardingSearch}
-                placeholder={t.catalog.searchPlaceholder}
-                placeholderTextColor={Colors.textMuted}
-                autoFocus={onboardingMode === 'racebook'}
-                returnKeyType="search"
-                style={styles.filterInput}
-              />
+              <View style={styles.searchRow}>
+                <TextInput
+                  value={nameFilter}
+                  onChangeText={(value) => {
+                    setNameFilter(value);
+                    lastTrackedRacebookSearchRef.current = null;
+                  }}
+                  onSubmitEditing={captureRacebookOnboardingSearch}
+                  placeholder={t.catalog.searchPlaceholder}
+                  placeholderTextColor={Colors.textMuted}
+                  autoFocus={onboardingMode === 'racebook'}
+                  returnKeyType="search"
+                  style={styles.filterInput}
+                />
+                {!onboardingMode ? (
+                  <RaceRequestHeaderButton>
+                    {(openRaceRequest) => (
+                      <TouchableOpacity
+                        accessibilityLabel={t.raceRequests.triggerLabel}
+                        accessibilityRole="button"
+                        activeOpacity={0.78}
+                        onPress={openRaceRequest}
+                        style={styles.raceRequestButton}
+                        testID="catalog-request-race"
+                      >
+                        <Ionicons name="paper-plane-outline" size={17} color={Colors.brandPrimary} />
+                        <Text numberOfLines={1} style={styles.raceRequestButtonText}>
+                          {locale === 'fr' ? 'Demander' : 'Request'}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </RaceRequestHeaderButton>
+                ) : null}
+              </View>
               {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
                 <TouchableOpacity style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
                   <Ionicons name="options-outline" size={16} color={Colors.brandPrimary} />
@@ -1087,13 +1091,6 @@ export default function CatalogScreen() {
           />
         )}
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
-      />
-
-      <RootScreenActionMenu
-        actions={actionItems}
-        contextLabel={catalogLabel}
-        help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
-        includeRaceRequest
       />
 
       {onboardingMode ? (
@@ -1376,6 +1373,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   filterInput: {
+    flex: 1,
     backgroundColor: Colors.surfaceSecondary,
     borderRadius: 12,
     borderWidth: 1,
@@ -1384,6 +1382,28 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     color: Colors.textPrimary,
     fontSize: 15,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  raceRequestButton: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.brandBorder,
+    backgroundColor: Colors.brandSurface,
+    paddingHorizontal: 11,
+  },
+  raceRequestButtonText: {
+    color: Colors.brandPrimary,
+    fontSize: 13,
+    fontWeight: '700',
   },
   filterActionsRow: {
     flexDirection: 'row',

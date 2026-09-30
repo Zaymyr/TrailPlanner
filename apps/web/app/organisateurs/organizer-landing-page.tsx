@@ -7,10 +7,12 @@ import type { Route } from "next";
 
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
 import type { OrganizerAttribution } from "../../lib/organizer-acquisition";
+import type { OrganizerSocialProof } from "../../lib/organizer-social-proof";
 
 type OrganizerLandingPageProps = {
   attribution: OrganizerAttribution;
   creationHref: string;
+  socialProofs: OrganizerSocialProof[];
 };
 
 type DemoKey = "course" | "dossards" | "materiel" | "acces";
@@ -114,7 +116,7 @@ const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
-export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLandingPageProps) {
+export function OrganizerLandingPage({ attribution, creationHref, socialProofs }: OrganizerLandingPageProps) {
   const [activeDemo, setActiveDemo] = useState<DemoKey>("course");
   const selectedDemo = demoViews.find((view) => view.key === activeDemo) ?? demoViews[0];
 
@@ -189,6 +191,57 @@ export function OrganizerLandingPage({ attribution, creationHref }: OrganizerLan
           </div>
         </div>
       </section>
+
+      {socialProofs.length > 0 ? (
+        <section aria-labelledby="social-proof-title" className="space-y-7">
+          <div className="max-w-3xl space-y-3">
+            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Ils l’ont utilisé en course</p>
+            <h2 id="social-proof-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+              Des informations vraiment consultées par les coureurs
+            </h2>
+            <p className="text-base leading-7 text-muted-foreground">
+              Statistiques agrégées des Livrets coureur publiés, hors comptes internes et de test.
+            </p>
+          </div>
+          <div className={`grid gap-4 ${socialProofs.length > 1 ? "lg:grid-cols-3" : ""}`}>
+            {socialProofs.map((proof, index) => (
+              <article
+                key={proof.id}
+                className={`overflow-hidden rounded-2xl border bg-card shadow-sm ${index === 0 ? "border-brand-border shadow-[0_18px_45px_rgba(45,80,22,0.10)]" : "border-border"}`}
+              >
+                <div className="space-y-4 p-6">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand dark:text-emerald-200">
+                      {proof.eventName} · {proof.editionYear}
+                    </p>
+                    {proof.location ? <p className="mt-1 text-sm text-muted-foreground">{proof.location}</p> : null}
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-3xl font-semibold tracking-tight text-foreground">{proof.uniqueReaders.toLocaleString("fr-FR")}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">lecteurs uniques estimés</p>
+                    </div>
+                    <div>
+                      <p className="text-3xl font-semibold tracking-tight text-foreground">{proof.totalOpens.toLocaleString("fr-FR")}</p>
+                      <p className="mt-1 text-xs leading-5 text-muted-foreground">ouvertures du Livret</p>
+                    </div>
+                  </div>
+                  {proof.quoteText ? (
+                    <blockquote className="border-l-2 border-brand pl-4 text-sm italic leading-6 text-foreground">
+                      « {proof.quoteText} »
+                      {proof.quoteAuthorName || proof.quoteAuthorRole ? (
+                        <footer className="mt-2 text-xs not-italic text-muted-foreground">
+                          {[proof.quoteAuthorName, proof.quoteAuthorRole].filter(Boolean).join(" · ")}
+                        </footer>
+                      ) : null}
+                    </blockquote>
+                  ) : null}
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <section aria-labelledby="runner-result-title" className="space-y-7">
         <div className="max-w-3xl space-y-3">

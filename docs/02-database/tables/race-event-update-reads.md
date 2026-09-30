@@ -42,6 +42,7 @@ related_tables:
 
 ## Gotchas
 
+- Moving the Courses race-request action beside search and removing the floating ellipsis does not display an organizer announcement or create a read receipt.
 - Removing the personal-race section from Courses does not change announcement display or read-receipt persistence for catalog events.
 - Clicking `Créer un plan` emits product analytics only; it does not mark organizer announcements read or create a receipt.
 

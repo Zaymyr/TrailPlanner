@@ -99,6 +99,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Gotchas
 
+- The compact race-request action beside Courses search is independent from organizer announcements; opening or submitting it must not load, retarget, or mark an update.
 - Removing runner-owned races from Courses does not change event announcement loading, targeting, or history.
 - The catalog `Créer un plan` click event carries only bounded race and optional public event context; it neither stores announcement content nor changes update visibility/history.
 

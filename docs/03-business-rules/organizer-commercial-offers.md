@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -62,6 +62,8 @@ related_tables:
 One offer is purchased per event edition, independently of participant and format counts. Event membership authorizes every draft editor; the offer authorizes public output and costly operations. Disabling or losing publication access masks content without deleting it.
 
 The public `/organisateurs` page presents these edition offers alongside a separate Google Play CTA for inspecting the Trail TST example in the runner app. That demonstration path does not create an organizer entitlement or start a checkout.
+
+Published organizer proof cards on the same page are independent editorial records. Featuring or depublishing an edition neither grants nor revokes its commercial tier, and the aggregate usage snapshot is not a billable participant count.
 
 ## Offers
 
@@ -131,6 +133,7 @@ Recalculation requires a valid paid path and assigns `stripe` or `manual_payment
 - Offer and visibility consequences use contextual hover/focus help beside short controls. Hiding that explanatory copy visually does not weaken server-side readiness or entitlement checks, and errors remain visible inline.
 - Completing, skipping, or replaying the dashboard guide never creates or upgrades an organizer entitlement. `Terminer` closes it; its visually secondary configuration action only opens the existing section chooser.
 - The new-edition dialog's spinner, busy announcement, and disabled controls are request feedback only. They neither grant the Complet duplication capability nor weaken the server-side capability check, and empty-edition creation remains available without that capability.
+- Never infer a commercial entitlement from presence in the organizer proof section. Proof publication is trusted-admin editorial state backed by historical usage, not an offer source or payment path.
 
 ## Related Docs
 

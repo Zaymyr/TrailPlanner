@@ -63,6 +63,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [organizer_edition_capability_grants](02-database/tables/organizer-edition-capability-grants.md)
 - [organizer_edition_payments](02-database/tables/organizer-edition-payments.md)
 - [organizer_racebook_module_settings](02-database/tables/organizer-racebook-module-settings.md)
+- [organizer_social_proofs](02-database/tables/organizer-social-proofs.md)
 - [organizer_import_sessions](02-database/tables/organizer-import-sessions.md)
 - [race_event_claims](02-database/tables/race-event-claims.md)
 - [race_event_edition_requests](02-database/tables/race-event-edition-requests.md)

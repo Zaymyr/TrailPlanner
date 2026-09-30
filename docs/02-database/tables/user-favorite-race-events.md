@@ -100,6 +100,7 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
+- Moving the Courses race-request action beside search and removing that screen's floating ellipsis does not create, remove, reorder, or otherwise inspect event favorites.
 - The Courses catalog now contains catalog event formats only; removing its former personal-race section does not change event favorite ownership, ordering, or retention.
 - Clicking `Créer un plan` emits a separate catalog analytics event and does not create, remove, or reorder event favorites.
 

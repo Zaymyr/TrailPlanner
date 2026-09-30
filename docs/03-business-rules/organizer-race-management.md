@@ -79,6 +79,13 @@ related_files:
   - apps/web/app/organisateurs/page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.test.ts
+  - apps/web/lib/organizer-social-proof.ts
+  - apps/web/lib/organizer-social-proof-server.ts
+  - apps/web/app/admin/_components/AdminOrganizerSocialProofsTab.tsx
+  - apps/web/app/api/admin/organizer-social-proofs/route.ts
+  - apps/web/app/api/admin/organizer-social-proofs/route.test.ts
+  - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
+  - supabase/tests/organizer_social_proofs_checks.sql
   - apps/web/app/organizers/page.tsx
   - apps/web/lib/organizer-acquisition.ts
   - apps/web/lib/organizer-acquisition.test.ts
@@ -230,6 +237,7 @@ related_tables:
   - user_favorite_race_events
   - race_event_edition_sponsors
   - race_event_edition_branding
+  - organizer_social_proofs
 ---
 
 # Organizer Race Management
@@ -281,6 +289,8 @@ The public homepage and navigation label this route `Espace organisateur`. The h
 ## Direct Event Creation
 
 `/organisateurs` is the public French acquisition page. Its primary CTA forwards the supported campaign UTM parameters to `/organizers`; its secondary CTA opens the production Google Play listing so prospects can inspect the published Trail TST Racebook in the app. The embedded demonstration still presents four real TST Racebook screenshots and now explains the in-app route through Courses, the `Trail TST` search result, a format choice, and the `Racebook` action. The complete selected screenshot is constrained to a compact, viewport-relative height. Switching between the course, bib collection, equipment, and access views is presentational only. The landing does not create an event, claim, membership, or publication request.
+
+Trusted admins can additionally curate edition proof cards from the separate `Preuves sociales` tab. Selecting `PubliÃ©` requires confirmation that the race reference and optional testimonial may be displayed. The server derives the RaceBook window from the earliest attached `racebook_publication_approved_at`, bounds it at today or fourteen days after the edition end, excludes internal/test PostHog persons through the shared query, and persists aggregate unique-reader/open counts. The admin cannot type those counts. `/organisateurs` renders only published snapshots ordered by `display_order`; depublishing hides a card without deleting its quote or analytics snapshot.
 
 `/organizers` lets an authenticated user create an event from a name, optional location, and a required initial edition start/end range. The standard creation page does not expose the admin-only URL importer and does not send an official website URL. `POST /api/organizer/events` inserts the catalog-visible event, creates its initial current `race_event_editions` row, then creates the active owner membership. Its new formats remain private by default. Failure cleanup removes an event whose membership could not be created. After success, the page redirects to `/organizer` with only the new event selected; it does not bootstrap an import. Redirect bootstrap values remain passed from the `/organizer` server page as plain props for authorized admin/legacy links.
 
@@ -409,7 +419,7 @@ Access, ravito, and structured Course presentation now live in focused typed mob
 
 Within the permanent `Services` tab, every populated effective event service category uses its own localized titled card. The organizer value is rendered as plain text rather than an unlabeled bullet; disabling the organizer module leaves only the global Booking surface.
 
-Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top when the catalog loads or refreshes and remain visible through the fourteenth calendar day after the event date, while a toggle animates the heart and preserves the current order and viewport; unread previews add a `NEW` badge. Non-favorites still disappear after their event date, and every past event disappears from this catalog window on day 15. Guests can see and press the same heart, but the app opens the shared account creation/sign-in prompt before any favorite write. In the event sheet, every format stays ahead of one light-green organizer-update panel; that panel initially shows only the newest (or deep-link-targeted) announcement, then reveals the other messages and longer history through `View more`. Pushes deep-link with event, optional format, and update ids so the sheet opens directly on the targeted message and highlights the concerned format. Identified runners persist read receipts only for messages displayed in the panel.
+Outside the Racebook, the mobile Courses tab is now the first runner surface for these organizer updates: favorited events are pinned to the top when the catalog loads or refreshes and remain visible through the fourteenth calendar day after the event date, while a toggle animates the heart and preserves the current order and viewport; unread previews add a `NEW` badge. Non-favorites still disappear after their event date, and every past event disappears from this catalog window on day 15. Guests can see and press the same heart, but the app opens the shared account creation/sign-in prompt before any favorite write. The ordinary catalog keeps its existing race-request form in a compact action immediately to the right of search instead of a floating ellipsis; guided catalog routes hide that shortcut. In the event sheet, every format stays ahead of one light-green organizer-update panel; that panel initially shows only the newest (or deep-link-targeted) announcement, then reveals the other messages and longer history through `View more`. Pushes deep-link with event, optional format, and update ids so the sheet opens directly on the targeted message and highlights the concerned format. Identified runners persist read receipts only for messages displayed in the panel.
 
 ### Racebook Identity Presentation
 
@@ -542,6 +552,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - Do not leave approved claims in the admin pending-review queue; once membership exists, the request belongs only in the active-access list.
 - Verify the live `race_events` schema before adding new event-level columns; the create-table migration is not visible in this repo.
 - Direct organizer creation creates catalog-visible events and an immediate owner membership; this does not publish any Racebook.
+- Social-proof publication is an acquisition/editorial action, not RaceBook publication or organizer entitlement. It requires a previously published RaceBook plus trusted-admin authorization and never changes event, edition, format, membership, payment or module state.
 - Keep organizer import bootstrap query parsing in the `/organizer` server page unless the client dashboard is explicitly wrapped in Suspense; direct `useSearchParams` usage otherwise breaks the production static build.
 - Keep the initial Organizer bootstrap authorization tied to the active memberships already loaded in that request. A query-string `eventId` alone grants no access, and this response must stay free of GPX and module-specific sidecars.
 - Keep edition-level effective capabilities aligned between Organizer bootstrap and `GET /api/organizer/events/[id]`. The dashboard replaces its bootstrap event after selections and mutations; omitting a complimentary grant from the event-detail projection silently relocks Analytics for non-Signature editions.

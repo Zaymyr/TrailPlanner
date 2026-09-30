@@ -18,6 +18,13 @@ related_files:
   - apps/web/app/analytics.tsx
   - apps/web/app/organisateurs/organizer-landing-page.tsx
   - apps/web/app/organisateurs/organizer-landing-page.test.ts
+  - apps/web/lib/organizer-social-proof.ts
+  - apps/web/lib/organizer-social-proof-server.ts
+  - apps/web/app/api/admin/organizer-social-proofs/route.ts
+  - apps/web/app/api/admin/organizer-social-proofs/route.test.ts
+  - apps/web/app/admin/_components/AdminOrganizerSocialProofsTab.tsx
+  - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
+  - supabase/tests/organizer_social_proofs_checks.sql
   - apps/web/app/organizers/page.tsx
   - apps/web/app/organizer/_components/OrganizerDashboard.tsx
   - apps/web/lib/google-analytics.ts
@@ -63,6 +70,7 @@ related_tables:
   - race_event_edition_sponsors
   - race_event_edition_branding
   - organizer_edition_entitlements
+  - organizer_social_proofs
 ---
 
 # Analytics
@@ -238,6 +246,8 @@ The same query with representative variables substituted as literals was execute
 
 Unique readers and daily trends use `racebook opened`. Duration and engagement use `racebook closed`, so both are nullable when no completed close summary exists and remain estimates when the app is force-closed. The Endpoint must exclude current persons marked `$internal_or_test_user = true`, constrain `race_id` to the supplied edition allowlist, apply the selected race when non-empty, and constrain event timestamps to the supplied reporting dates. Its data freshness is 900 seconds; the application requests `refresh: cache` and exposes that TTL in the response.
 
+The admin social-proof route reuses the same server-only Endpoint with a wider edition-specific window. It starts at the earliest attached format's durable RaceBook publication timestamp and ends at the earlier of the current UTC date or fourteen days after the edition end. Only the summary's `uniqueReaders` and `totalOpens` are persisted to `organizer_social_proofs`; the landing reads that snapshot from Supabase and never queries PostHog. These values must be presented as estimated unique readers and successful opens, not registered participants. Refresh failure blocks publication instead of persisting a manufactured zero, and a successful save invalidates the five-minute public proof cache.
+
 The server uses `POSTHOG_API_KEY` with only `endpoint:read`, or the existing server-only alias `POSTHOG_PERSONAL_API_KEY`, together with `POSTHOG_PROJECT_ID` and the API origin in `POSTHOG_API_HOST`; `POSTHOG_ORGANIZER_ANALYTICS_ENDPOINT` optionally overrides the default endpoint name. `POSTHOG_API_HOST` is the private API application origin such as `https://eu.posthog.com`, not the public ingestion host ending in `.i.posthog.com`. Missing configuration, non-2xx responses, network failures, and malformed rows all become a generic 502 without returning upstream bodies or credentials.
 
 The production-connected PostHog project is id `176628`. Endpoint `organizer-racebook-analytics` was provisioned there on 2026-09-16 as active version 1 with a 900-second freshness target and validated against real edition-scoped events. Vercel already exposes `POSTHOG_PROJECT_ID`, `POSTHOG_API_HOST`, and the server secret under `POSTHOG_PERSONAL_API_KEY`; the application accepts that existing secret name without copying or exposing its value.
@@ -287,6 +297,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 
 ## Gotchas
 
+- Moving the existing Courses race-request trigger beside search and removing that screen's floating ellipsis is presentation-only. It adds no PostHog event; a submitted request keeps the existing Supabase mutation behavior.
 - Removing the runner-owned race section from Courses removes that source from catalog interactions; catalog plan analytics now describe event formats only.
 - Exposing preview-selected private formats in the runner mobile catalog, then removing masked formats before presentation, is a visibility/read change rather than a new analytics event. Existing course and RaceBook events keep stable event/race ids and must not record membership ids or private visibility state; masked rows must emit no selection or opening event because they have no mobile entry point.
 - Retiring an older edition from Courses after its 14-day display window is likewise presentation-only. It emits no rollover event and must not rewrite the stable event/race identifiers on later interactions with the newer edition.
@@ -308,6 +319,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not interpret paywall or checkout events as revenue. For mobile conversion funnels, count only `premium purchase verified` with `environment: production`, then reconcile against RevenueCat/App Store transactions.
 - Do not couple onboarding tab-bar visibility to analytics identity; it is a navigation-shell concern only.
 - Do not reinterpret sponsor click or impression counts as unique people or join them to runner analytics identities.
+- Do not reinterpret an organizer social-proof `unique_readers` snapshot as official participation. It is a distinct PostHog-person estimate over a documented window; only the trusted admin route may refresh it.
 - Keep the favorite KPI event-scoped and sourced from the current Supabase relationship count. It is a stock total, not a period flow or a format-specific metric.
 - Do not send edition logo URLs or arbitrary organizer colors as analytics properties.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.

@@ -41,6 +41,96 @@ type Props = {
   inline?: boolean;
 };
 
+type WaterBagCapacitySelectorProps = {
+  value: number;
+  options: number[];
+  onChange: (value: number) => void;
+};
+
+function WaterBagCapacitySelector({ value, options, onChange }: WaterBagCapacitySelectorProps) {
+  const isPresetValue = options.some((option) => option === value);
+  const [isEditingCustomValue, setIsEditingCustomValue] = useState(false);
+  const [customValueDraft, setCustomValueDraft] = useState(() => (isPresetValue ? '' : String(value)));
+  const customValueInputRef = useRef<TextInput>(null);
+  const skipCustomBlurCommitRef = useRef(false);
+
+  useEffect(() => {
+    if (!isEditingCustomValue) {
+      setCustomValueDraft(isPresetValue ? '' : String(value));
+    }
+  }, [isEditingCustomValue, isPresetValue, value]);
+
+  const parseCustomValue = (text: string) => {
+    const normalized = text.trim().replace(',', '.');
+    if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(normalized)) return null;
+    const parsed = Number.parseFloat(normalized);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  };
+
+  const handleCustomValueChange = (text: string) => {
+    setCustomValueDraft(text);
+    const parsed = parseCustomValue(text);
+    if (parsed !== null) {
+      onChange(parsed);
+    }
+  };
+
+  const handleCustomValueBlur = () => {
+    setIsEditingCustomValue(false);
+    if (skipCustomBlurCommitRef.current) {
+      skipCustomBlurCommitRef.current = false;
+      return;
+    }
+    const parsed = parseCustomValue(customValueDraft);
+    if (parsed === null) {
+      setCustomValueDraft(isPresetValue ? '' : String(value));
+      return;
+    }
+    setCustomValueDraft(String(parsed));
+    onChange(parsed);
+  };
+
+  return (
+    <>
+      <View style={styles.waterBagRow}>
+        {options.map((option) => (
+          <TouchableOpacity
+            key={option}
+            style={[styles.waterBagBtn, value === option && styles.waterBagBtnActive]}
+            onPress={() => {
+              if (isEditingCustomValue) {
+                skipCustomBlurCommitRef.current = true;
+                customValueInputRef.current?.blur();
+              }
+              setIsEditingCustomValue(false);
+              setCustomValueDraft('');
+              onChange(option);
+            }}
+          >
+            <Text style={[styles.waterBagBtnText, value === option && styles.waterBagBtnTextActive]}>{option}L</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={styles.waterBagCustomField}>
+        <Text style={styles.label}>Valeur personnalisée (L)</Text>
+        <TextInput
+          ref={customValueInputRef}
+          accessibilityLabel="Volume personnalisé de la poche à eau en litres"
+          inputAccessoryViewID="pace-yourself-numeric-keyboard"
+          keyboardType="decimal-pad"
+          onBlur={handleCustomValueBlur}
+          onChangeText={handleCustomValueChange}
+          onFocus={() => setIsEditingCustomValue(true)}
+          placeholder="Ex : 1,75"
+          placeholderTextColor={Colors.textMuted}
+          style={styles.textInput}
+          value={customValueDraft}
+        />
+      </View>
+    </>
+  );
+}
+
 export function PlanBasicsSection({
   values,
   expandedSections,
@@ -331,13 +421,11 @@ export function PlanBasicsSection({
             </View>
             <Text style={styles.label}>Volume de la poche à eau</Text>
             <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
-            <View style={styles.waterBagRow}>
-              {waterBagOptions.map((option) => (
-                <TouchableOpacity key={option} style={[styles.waterBagBtn, values.waterBagLiters === option && styles.waterBagBtnActive]} onPress={() => update('waterBagLiters', option)}>
-                  <Text style={[styles.waterBagBtnText, values.waterBagLiters === option && styles.waterBagBtnTextActive]}>{option}L</Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <WaterBagCapacitySelector
+              value={values.waterBagLiters}
+              options={waterBagOptions}
+              onChange={(value) => update('waterBagLiters', value)}
+            />
           </>
         </View>
       </View>
@@ -557,19 +645,11 @@ export function PlanBasicsSection({
 
                   <Text style={styles.label}>Volume de la poche à eau</Text>
                   <Text style={styles.waterBagHint}>Capacité de ta poche à eau, pas le volume total du sac/gilet.</Text>
-                  <View style={styles.waterBagRow}>
-                    {waterBagOptions.map((opt) => (
-                      <TouchableOpacity
-                        key={opt}
-                        style={[styles.waterBagBtn, values.waterBagLiters === opt && styles.waterBagBtnActive]}
-                        onPress={() => update('waterBagLiters', opt)}
-                      >
-                        <Text style={[styles.waterBagBtnText, values.waterBagLiters === opt && styles.waterBagBtnTextActive]}>
-                          {opt}L
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
+                  <WaterBagCapacitySelector
+                    value={values.waterBagLiters}
+                    options={waterBagOptions}
+                    onChange={(value) => update('waterBagLiters', value)}
+                  />
                 </>
               )}
 

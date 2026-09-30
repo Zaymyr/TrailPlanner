@@ -21,7 +21,6 @@ import {
 } from 'react-native';
 import {
   AidStationIcon,
-  TrailIcon,
   colors,
   radius,
   shadows,
@@ -1127,15 +1126,6 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
 
   return (
     <>
-      <View style={[styles.sectionHeader, { marginTop: 24 }]}>
-        <View style={planDetailStyles.sectionHeaderTitle}>
-          <TrailIcon color={colors.brand.forest} size={22} strokeWidth={2.2} />
-          <Heading variant="h2" style={planDetailStyles.sectionTitle} numberOfLines={1}>
-            Ravitaillements
-          </Heading>
-        </View>
-      </View>
-
       <View
         accessibilityElementsHidden={toolbarHidden}
         importantForAccessibility={toolbarHidden ? 'no-hide-descendants' : 'auto'}
@@ -1255,18 +1245,6 @@ const planDetailStyles = StyleSheet.create({
   },
   activeView: {
     paddingBottom: spacing[6],
-  },
-  sectionHeaderTitle: {
-    flex: 1,
-    minWidth: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing[2],
-    marginBottom: spacing[3],
-  },
-  sectionTitle: {
-    flexShrink: 1,
-    color: colors.brand.forest,
   },
   stationBadge: {
     flexDirection: 'row',

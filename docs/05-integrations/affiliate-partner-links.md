@@ -1,7 +1,7 @@
 ---
 title: Affiliate Partner Links
 scope: integration
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: medium
 related_files:
   - apps/web/lib/partner-links.ts
@@ -37,7 +37,7 @@ Centralize Booking and Decathlon outbound destinations, switch each partner from
 
 ## Key Concepts
 
-- The Admin `Liens partenaires` tab is the only current management surface.
+- The Admin `Liens partenaires` tab is the only current partner-link management surface; the separate `Preuves sociales` tab has no access to these destinations or flags.
 - Each partner has a standard URL, optional affiliate URL, affiliate-mode flag, and global enabled flag.
 - `resolvePartnerLinkUrl` defines the shared selection rule: disabled means no URL; otherwise use the affiliate URL only when explicitly enabled, falling back to the standard URL.
 - `GET /api/partner-links` is the public, read-only consumer contract. It returns only enabled resolved destinations plus the affiliation flag; raw configuration and disabled rows stay private.
@@ -73,6 +73,7 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 - The older `affiliate_offers` table is scoped to product catalog offers and is not a replacement for these global partner destinations.
 - Admin changes can take up to five minutes to leave the public CDN cache; pull-to-refresh then reloads the mobile partner contract.
 - The Services tab remains visible even if the partner request temporarily fails. That failure shows its ordinary empty state and does not re-enable organizer-authored services whose module is inactive.
+- Adding another Admin tab must not merge its persistence with the partner-link atomic upsert. Social proofs and partner destinations remain separate service-only contracts.
 
 ## Related Docs
 

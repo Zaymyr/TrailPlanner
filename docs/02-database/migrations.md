@@ -90,6 +90,7 @@ related_tables:
   - race_event_updates
   - race_event_update_reads
   - race_event_editions
+  - organizer_social_proofs
   - race_event_edition_sponsors
   - race_event_edition_branding
   - race_aid_station_products
@@ -169,6 +170,8 @@ Early migrations create:
 The two affiliate engagement tables are historical only: `20260912172415_decommission_affiliate_engagement_analytics.sql` drops `affiliate_click_events`, `affiliate_events`, their event enum, and the affiliate reporting RPC. `affiliate_offers` remains available for resolving outbound merchant links.
 
 `20260928123934_add_partner_link_settings.sql` adds a separate service-only two-row configuration for global Booking and Decathlon destinations. It seeds disabled standard URLs, permits an optional HTTPS affiliate URL only behind an explicit flag, records a nullable trusted-admin audit reference, and revokes all client privileges. `supabase/tests/partner_link_settings_checks.sql` verifies the privilege boundary and constraints without persisting fixtures.
+
+`20260930115641_add_organizer_social_proofs.sql` adds one service-only proof row per organizer edition. Publication requires recorded consent plus a complete aggregate analytics snapshot; a partial published-order index supports the public landing while all client privileges remain revoked. `supabase/tests/organizer_social_proofs_checks.sql` verifies RLS, explicit grants and the database publication constraint inside a rolled-back transaction.
 
 Important files:
 
@@ -473,6 +476,7 @@ Organizer import cleanup additionally uses `organizer-import-cleanup-hourly` at 
 - Normalized geography remains nullable. Exact catalog filters must exclude uncurated rows, and display-location edits must not leave old city/region codes attached.
 - `races.edition_group_id` groups a format series across years; `races.edition_id` identifies the canonical event-year row. Do not substitute one for the other.
 - `race_event_editions` is service-role-only. Organizer writes must remain behind active membership checks in server routes.
+- `organizer_social_proofs` is also service-role-only. Refresh its aggregate values through the trusted admin route; do not grant direct public reads merely because the sanitized published projection is displayed on a public page.
 - Name lateral/union-derived backfill columns explicitly when an outer query references them; PostgreSQL does not derive a stable business-facing alias from a cast literal.
 - Edition deletion must go through `delete_race_event_edition`; direct row deletion would lose the last-edition guard and replacement-current selection even though the format cascade would still apply.
 - Keep first Racebook approval provenance durable; current format and edition publication routes atomically manage catalog and RaceBook visibility after organizer/admin authorization and entitlement checks. Do not restore retired edition-review inserts.

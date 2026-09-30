@@ -48,6 +48,7 @@ related_tables:
   - race_aid_station_products
   - race_events
   - race_event_editions
+  - organizer_social_proofs
   - race_event_edition_sponsors
   - race_event_edition_branding
   - race_event_claims
@@ -116,6 +117,8 @@ User-owned tables include:
 `subscriptions.user_id` and `premium_grants.user_id` reference `auth.users(id)` directly. Client code must not query `auth.users`; use service routes or SECURITY DEFINER functions when auth-user data is needed.
 
 `partner_link_settings.updated_by` is a nullable admin-audit reference to `auth.users(id)` with `on delete set null`. It does not grant ownership or client access; the table remains service-only.
+
+`race_event_editions` has at most one `organizer_social_proofs` row. The edition foreign key cascades so an obsolete edition cannot leave a public acquisition claim behind. The proof's nullable `created_by` and `updated_by` references point to `auth.users(id)` with `on delete set null`; they are audit facts, not ownership or public attribution.
 
 ## Race and Plan Relationships
 
@@ -193,6 +196,7 @@ Organizer portal tables added by `20260528120000_add_organizer_portal.sql` relat
 - `race_event_edition_requests.event_id -> race_events(id) on delete cascade`
 - `race_event_edition_requests.user_id -> auth.users(id) on delete cascade`
 - `race_event_editions.event_id -> race_events(id) on delete cascade`
+- `organizer_social_proofs.edition_id -> race_event_editions(id) on delete cascade`
 - `races.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_edition_sponsors.edition_id -> race_event_editions(id) on delete cascade`
 - `race_event_edition_branding.edition_id -> race_event_editions(id) on delete cascade`

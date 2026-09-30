@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { extractOrganizerAttribution, buildOrganizerCreationHref } from "../../lib/organizer-acquisition";
+import { loadPublishedOrganizerSocialProofs } from "../../lib/organizer-social-proof-server";
 import { OrganizerLandingPage } from "./organizer-landing-page";
 import { SITE_URL } from "../seo";
 
@@ -32,13 +33,15 @@ type OrganizersLandingPageProps = {
   searchParams?: Record<string, string | string[] | undefined>;
 };
 
-export default function OrganizersLandingPage({ searchParams }: OrganizersLandingPageProps) {
+export default async function OrganizersLandingPage({ searchParams }: OrganizersLandingPageProps) {
   const attribution = extractOrganizerAttribution(searchParams);
+  const socialProofs = await loadPublishedOrganizerSocialProofs();
 
   return (
     <OrganizerLandingPage
       attribution={attribution}
       creationHref={buildOrganizerCreationHref(attribution)}
+      socialProofs={socialProofs}
     />
   );
 }
