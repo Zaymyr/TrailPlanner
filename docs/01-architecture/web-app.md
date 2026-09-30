@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -411,7 +411,7 @@ Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It req
 
 The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, and direct GPX download. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition.
 
-User-created private races live in `apps/web/app/api/races/route.ts`. They are inserted with `is_public: false`, `created_by` set to the authenticated user, `edition_group_id` set to their new id, and `series_name` set to their name.
+Runner-created private races are retired. `GET /api/races` returns only public live catalog formats and `POST /api/races` returns `410 Gone`; the planner selector no longer offers personal creation. Organizer and admin race authoring continue through their dedicated server routes.
 
 ### Public SEO Routes
 

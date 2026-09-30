@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-09-17
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -133,6 +133,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 
 ## Gotchas
 
+- Plan onboarding now selects an existing catalog format only; it no longer creates a private race from a GPX, and this removal does not change session conversion or onboarding-status persistence.
 - Token storage exists in browser localStorage, but session verification is server-backed.
 - Session readiness does not imply that premium entitlements have finished loading; consumers that require the resolved rights must also observe `isEntitlementsLoading`.
 - Do not render Supabase Auth `msg` values directly; provider messages are not localized and can expose technical details.

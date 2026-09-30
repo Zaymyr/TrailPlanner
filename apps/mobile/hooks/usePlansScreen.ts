@@ -31,11 +31,7 @@ export function usePlansScreen() {
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const initialBootstrapRef = useRef(readPlansScreenBootstrap());
   const [plans, setPlans] = useState<PlanRow[]>(() => initialBootstrapRef.current?.plans ?? []);
-  const [userId, setUserId] = useState<string | null>(() => initialBootstrapRef.current?.userId ?? null);
   const [isAnonymous, setIsAnonymous] = useState(() => initialBootstrapRef.current?.isAnonymous ?? false);
-  const [raceOwnership, setRaceOwnership] = useState<Record<string, string | null>>(
-    () => initialBootstrapRef.current?.raceOwnership ?? {},
-  );
   const [loading, setLoading] = useState(() => initialBootstrapRef.current == null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +53,8 @@ export function usePlansScreen() {
 
     try {
       const bootstrap = await fetchPlansScreenBootstrap();
-      setUserId(bootstrap.userId);
       setIsAnonymous(bootstrap.isAnonymous);
       setPlans(bootstrap.plans);
-      setRaceOwnership(bootstrap.raceOwnership);
 
       if (bootstrap.isAnonymous) {
         void syncLatestUnfinishedPlanReminder(bootstrap.plans, {
@@ -207,19 +201,16 @@ export function usePlansScreen() {
         t.plans.noCatalogRace;
       const raceIds = [...new Set(planList.map((plan) => plan.race_id).filter(Boolean))] as string[];
       const editableRaceId = raceIds.length === 1 ? raceIds[0] : null;
-      const createdBy = editableRaceId ? raceOwnership[editableRaceId] ?? null : null;
       result.push({
         sectionKey: key,
         raceId: editableRaceId,
         eventName,
-        isOwned: createdBy === userId,
+        isOwned: false,
         data: planList,
       });
     }
 
     result.sort((left, right) => {
-      if (left.isOwned && !right.isOwned) return -1;
-      if (!left.isOwned && right.isOwned) return 1;
       return left.eventName.localeCompare(right.eventName);
     });
 
@@ -235,7 +226,7 @@ export function usePlansScreen() {
     }
 
     return result;
-  }, [plans, raceOwnership, t.plans.noCatalogRace, t.plans.noRace, userId]);
+  }, [plans, t.plans.noCatalogRace, t.plans.noRace]);
 
   const accessiblePlanIds = useMemo(
     () => getAccessiblePlanIds(plans, isPremium, isAnonymous),
@@ -252,8 +243,8 @@ export function usePlansScreen() {
     void fetchData({ showLoading: false });
   }, [fetchData]);
 
-  const handleCreateFirstPlan = useCallback(() => {
-    router.push('/(app)/plan/new');
+  const handleBrowseRaces = useCallback(() => {
+    router.push('/(app)/catalog');
   }, [router]);
 
   const handleStartFreeTraining = useCallback(() => {
@@ -263,13 +254,6 @@ export function usePlansScreen() {
   const handleOpenGuestAccountUpgrade = useCallback(() => {
     router.push('/(auth)/signup');
   }, [router]);
-
-  const handleEditRace = useCallback(
-    (raceId: string) => {
-      router.push(`/(app)/race/${raceId}/edit` as any);
-    },
-    [router],
-  );
 
   const handleOpenEditPlan = useCallback(
     (planId: string) => {
@@ -434,10 +418,9 @@ export function usePlansScreen() {
     handleRefresh,
     handleDelete,
     toggleSection,
-    handleCreateFirstPlan,
+    handleBrowseRaces,
     handleStartFreeTraining,
     handleOpenGuestAccountUpgrade,
-    handleEditRace,
     handleOpenEditPlan,
     handleRenamePlan,
     handleOpenRacePlan,

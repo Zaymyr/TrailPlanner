@@ -1,18 +1,18 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
-  View,
+  ActivityIndicator,
+  FlatList,
+  Modal,
+  Pressable,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
-  FlatList,
-  ActivityIndicator,
-  Modal,
-  Pressable
+  View,
 } from 'react-native';
-import { Text } from './themed/Text';
-import { useRouter } from 'expo-router';
-import { supabase } from '../lib/supabase';
+
 import { useI18n } from '../lib/i18n';
+import { supabase } from '../lib/supabase';
+import { Text } from './themed/Text';
 
 type RaceRow = {
   id: string;
@@ -20,8 +20,6 @@ type RaceRow = {
   distance_km: number;
   elevation_gain_m: number | null;
   location_text: string | null;
-  is_public: boolean;
-  created_by: string | null;
 };
 
 type SelectableRaceRow = RaceRow & { elevation_gain_m: number };
@@ -33,9 +31,8 @@ type Props = {
   userId?: string | null;
 };
 
-export function RaceSelector({ visible, onClose, onSelect, userId }: Props) {
+export function RaceSelector({ visible, onClose, onSelect }: Props) {
   const { t } = useI18n();
-  const router = useRouter();
   const [races, setRaces] = useState<RaceRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState('');
@@ -43,65 +40,32 @@ export function RaceSelector({ visible, onClose, onSelect, userId }: Props) {
   const fetchRaces = useCallback(async () => {
     setLoading(true);
     try {
-      const publicRacesQuery = supabase
+      const { data, error } = await supabase
         .from('races')
-        .select('id, name, distance_km, elevation_gain_m, location_text, is_public, created_by')
+        .select('id, name, distance_km, elevation_gain_m, location_text')
         .eq('is_live', true)
         .eq('is_public', true)
         .order('name');
 
-      const [publicResult, personalResult] = await Promise.all([
-        publicRacesQuery,
-        userId
-          ? supabase
-              .from('races')
-              .select('id, name, distance_km, elevation_gain_m, location_text, is_public, created_by')
-              .eq('created_by', userId)
-              .eq('is_public', false)
-              .order('name')
-          : Promise.resolve({ data: [], error: null }),
-      ]);
-
-      if (publicResult.error) throw publicResult.error;
-      if (personalResult.error) throw personalResult.error;
-
-      const racesById = new Map<string, RaceRow>();
-      for (const race of [...(personalResult.data ?? []), ...(publicResult.data ?? [])] as RaceRow[]) {
-        racesById.set(race.id, race);
-      }
-      setRaces([...racesById.values()]);
+      if (error) throw error;
+      setRaces((data ?? []) as RaceRow[]);
     } catch {
-      // ignore
+      setRaces([]);
     } finally {
       setLoading(false);
     }
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
     if (visible) {
       setSearch('');
-      fetchRaces();
+      void fetchRaces();
     }
   }, [visible, fetchRaces]);
 
   const filtered = search.trim()
-    ? races.filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
+    ? races.filter((race) => race.name.toLowerCase().includes(search.trim().toLowerCase()))
     : races;
-
-  const myRaces = filtered.filter((r) => !r.is_public && r.created_by === userId);
-  const publicRaces = filtered.filter((r) => r.is_public);
-
-  const sections: Array<{ title: string; data: RaceRow[] }> = [];
-  if (myRaces.length > 0) sections.push({ title: t.races.myRaces, data: myRaces });
-  if (publicRaces.length > 0) sections.push({ title: t.races.publicRaces, data: publicRaces });
-
-  const flatData: Array<{ type: 'header'; title: string } | { type: 'item'; race: RaceRow }> = [];
-  for (const section of sections) {
-    flatData.push({ type: 'header', title: section.title });
-    for (const race of section.data) {
-      flatData.push({ type: 'item', race });
-    }
-  }
 
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
@@ -115,27 +79,21 @@ export function RaceSelector({ visible, onClose, onSelect, userId }: Props) {
             style={styles.searchInput}
             value={search}
             onChangeText={setSearch}
-            placeholder={t.common.search + '…'}
+            placeholder={`${t.common.search}…`}
             placeholderTextColor="#475569"
             autoFocus
           />
 
           {loading ? (
             <ActivityIndicator color="#22c55e" style={{ marginVertical: 24 }} />
-          ) : flatData.length === 0 ? (
+          ) : filtered.length === 0 ? (
             <Text style={styles.emptyText}>{t.races.noRaces}</Text>
           ) : (
             <FlatList
-              data={flatData}
-              keyExtractor={(item, i) =>
-                item.type === 'header' ? `h-${i}` : item.race.id
-              }
+              data={filtered}
+              keyExtractor={(race) => race.id}
               style={styles.list}
-              renderItem={({ item }) => {
-                if (item.type === 'header') {
-                  return <Text style={styles.sectionHeader}>{item.title}</Text>;
-                }
-                const race = item.race;
+              renderItem={({ item: race }) => {
                 const canSelectRace = race.elevation_gain_m !== null;
                 return (
                   <TouchableOpacity
@@ -155,27 +113,11 @@ export function RaceSelector({ visible, onClose, onSelect, userId }: Props) {
                         {race.location_text ? ` · ${race.location_text}` : ''}
                       </Text>
                     </View>
-                    {!race.is_public && (
-                      <View style={styles.badge}>
-                        <Text style={styles.badgeText}>{t.races.myBadge}</Text>
-                      </View>
-                    )}
                   </TouchableOpacity>
                 );
               }}
             />
           )}
-
-          {/* Create new race */}
-          <TouchableOpacity
-            style={styles.createButton}
-            onPress={() => {
-              onClose();
-              router.push('/(app)/race/new');
-            }}
-          >
-            <Text style={styles.createButtonText}>+ {t.races.newRace}</Text>
-          </TouchableOpacity>
         </Pressable>
       </Pressable>
     </Modal>
@@ -219,14 +161,6 @@ const styles = StyleSheet.create({
   },
   list: { maxHeight: 400 },
   emptyText: { color: '#94a3b8', textAlign: 'center', marginVertical: 24 },
-  sectionHeader: {
-    color: '#475569',
-    fontSize: 12,
-    fontWeight: '700',
-    letterSpacing: 0.5,
-    textTransform: 'uppercase',
-    paddingVertical: 8,
-  },
   raceCard: {
     backgroundColor: '#1e293b',
     borderRadius: 12,
@@ -234,26 +168,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
   },
-  raceInfo: { flex: 1, marginRight: 8 },
+  raceInfo: { flex: 1 },
   raceName: { color: '#f1f5f9', fontSize: 15, fontWeight: '600', marginBottom: 2 },
   raceMeta: { color: '#94a3b8', fontSize: 13 },
-  badge: {
-    backgroundColor: '#14532d',
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  badgeText: { color: '#22c55e', fontSize: 11, fontWeight: '700' },
-  createButton: {
-    marginTop: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#334155',
-    borderStyle: 'dashed',
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  createButtonText: { color: '#22c55e', fontSize: 15, fontWeight: '600' },
 });

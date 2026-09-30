@@ -4,7 +4,6 @@ import { colors } from '@pace-yourself/design-system';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import { PlansList } from '../../components/plans/PlansList';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
@@ -14,7 +13,6 @@ import { Screen } from '../../components/themed/Screen';
 import { Text } from '../../components/themed/Text';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
 import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
-import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
@@ -37,10 +35,9 @@ export default function PlansScreen() {
     handleRefresh,
     handleDelete,
     toggleSection,
-    handleCreateFirstPlan,
+    handleBrowseRaces,
     handleStartFreeTraining,
     handleOpenGuestAccountUpgrade,
-    handleEditRace,
     handleOpenEditPlan,
     handleRenamePlan,
     handleOpenRacePlan,
@@ -58,31 +55,6 @@ export default function PlansScreen() {
     ],
     [insets.top],
   );
-  const actionItems = useMemo<FloatingActionMenuItem[]>(
-    () => [
-      {
-        key: 'new-plan',
-        label: t.plans.newPlan,
-        icon: 'add-circle-outline',
-        onPress: handleCreateFirstPlan,
-      },
-    ],
-    [handleCreateFirstPlan, t.plans.newPlan],
-  );
-  const helpCopy = useMemo(
-    () =>
-      locale === 'fr'
-        ? {
-            title: t.plans.title,
-            body: "Retrouve tes plans par course avec leur temps prévu et le compte à rebours avant le départ. Touche une carte pour l'ouvrir et maintiens-la appuyée pour modifier son nom ou la supprimer. À droite, les icônes ouvrent le récapitulatif, partagent directement le plan et lancent le live.",
-          }
-        : {
-            title: t.plans.title,
-            body: 'Find plans grouped by race with their expected time and start countdown. Tap a card to open it and hold it to edit its name or delete it. The icons on the right open the recap, share the plan directly, and start live mode.',
-          },
-    [locale, t.plans.title],
-  );
-
   if (loading || premiumLoading) {
     return <PlanLoadingScreen progress={0.2} variant="list" />;
   }
@@ -136,8 +108,7 @@ export default function PlansScreen() {
       <PlansList
         activePlanId={activePlanId}
         collapsedSections={collapsedSections}
-        createFirstLabel={t.plans.createFirst}
-        editRaceLabel={t.races.editRace}
+        browseRacesLabel={t.plans.browseRaces}
         emptySubtitle={t.plans.emptySubtitle}
         emptyTitle={t.plans.empty}
         inProgressLabel={t.plans.inProgress}
@@ -146,10 +117,9 @@ export default function PlansScreen() {
         liveLabel={t.plans.live}
         locale={locale}
         noRaceWarningLabel={t.plans.noRaceWarning}
-        onCreateFirstPlan={handleCreateFirstPlan}
+        onBrowseRaces={handleBrowseRaces}
         onDeletePlan={handleDelete}
         onRenamePlan={handleRenamePlan}
-        onEditRace={handleEditRace}
         onOpenEditPlan={handleOpenEditPlan}
         onOpenLockedPlan={handleOpenLockedPlan}
         onOpenRacePlan={handleOpenRacePlan}
@@ -173,12 +143,6 @@ export default function PlansScreen() {
         onClose={closePremiumModal}
         title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
         visible={premiumModalCopy !== null}
-      />
-
-      <RootScreenActionMenu
-        actions={actionItems}
-        contextLabel={t.plans.title}
-        help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
       />
     </Screen>
   );

@@ -24,7 +24,6 @@ import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard
 import {
   CatalogFiltersModal,
   CatalogLoadingCard,
-  CatalogPersonalRacesSection,
   CatalogRaceRow,
 } from '../../components/catalog/CatalogPresentation';
 import { Colors } from '../../constants/colors';
@@ -408,7 +407,6 @@ export default function CatalogScreen() {
   const promptGuestAccount = useGuestAccountPrompt();
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
-  const [personalRaces, setPersonalRaces] = useState<Race[]>([]);
   const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
   const [favoriteSortIds, setFavoriteSortIds] = useState<string[]>([]);
   const [canFavoriteEvents, setCanFavoriteEvents] = useState(false);
@@ -436,12 +434,11 @@ export default function CatalogScreen() {
 
   async function handleCreatePlan(catalogRaceId: string) {
     const catalogEvent = eventGroups.find((event) => event.races.some((race) => race.id === catalogRaceId));
-    const catalogRace = catalogEvent?.races.find((race) => race.id === catalogRaceId)
-      ?? personalRaces.find((race) => race.id === catalogRaceId);
+    const catalogRace = catalogEvent?.races.find((race) => race.id === catalogRaceId);
 
     captureAnalyticsEvent('catalog create plan clicked', {
       action: 'create_plan',
-      catalog_section: catalogEvent ? 'event_formats' : 'personal_races',
+      catalog_section: 'event_formats',
       onboarding_kind: onboardingMode,
       event_id: catalogEvent?.id,
       event_name: catalogEvent?.name,
@@ -508,7 +505,6 @@ export default function CatalogScreen() {
         const [
           eventsResult,
           orphansResult,
-          personalResult,
           favoriteIdsResult,
           readUpdateIdsResult,
           eventUpdateRefsResult,
@@ -527,13 +523,6 @@ export default function CatalogScreen() {
             .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, racebook_preview_is_visible, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
             .eq('is_live', true)
             .is('event_id', null),
-          userId
-            ? supabase
-                .from('races')
-                .select('id, name, distance_km, elevation_gain_m, race_date, is_live, racebook_is_live, racebook_preview_is_visible, participation_mode, has_aid_stations, gpx_storage_path, thumbnail_url')
-                .eq('is_public', false)
-                .eq('created_by', userId)
-            : Promise.resolve({ data: [], error: null }),
           canUseFavorites ? fetchRaceFavoriteEventIds() : Promise.resolve([] as string[]),
           canUseFavorites && userId ? fetchReadRaceEventUpdateIds(userId) : Promise.resolve([] as string[]),
           canUseFavorites ? fetchRaceEventUpdateRefs() : Promise.resolve([] as RaceEventUpdateRef[]),
@@ -551,7 +540,6 @@ export default function CatalogScreen() {
         if (cancelled) return;
         if (eventsResult.error) throw eventsResult.error;
         if (orphansResult.error) throw orphansResult.error;
-        if (personalResult.error) throw personalResult.error;
         if (organizerEventsResult.error) throw organizerEventsResult.error;
 
         const favoriteIds = favoriteIdsResult ?? [];
@@ -600,7 +588,6 @@ export default function CatalogScreen() {
         }
 
         setEventGroups(groups);
-        setPersonalRaces(sortRaces((personalResult.data ?? []) as Race[]));
         setFavoriteEventIds(favoriteIds);
         setFavoriteSortIds(favoriteIds);
         setCurrentUserId(canUseFavorites ? userId : null);
@@ -668,24 +655,6 @@ export default function CatalogScreen() {
       favoriteSortIds
     );
   }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, eventGroups, favoriteEventIds, favoriteSortIds, nameFilter, quickFilter]);
-
-  const filteredPersonalRaces = useMemo(() => {
-    const normalizedName = nameFilter.trim().toLowerCase();
-
-    return personalRaces.filter((race) => {
-      const raceMatchesName =
-        normalizedName.length === 0 || race.name.toLowerCase().includes(normalizedName);
-
-      return (
-        quickFilter !== 'favorites' &&
-        isCatalogEventVisible(race.race_date, false) &&
-        raceMatchesName &&
-        matchesQuickDistance(race.distance_km, quickFilter) &&
-        matchesDistanceRange(race.distance_km, distanceMinFilter, distanceMaxFilter) &&
-        matchesDateRange(race.race_date, dateMinFilter, dateMaxFilter)
-      );
-    });
-  }, [dateMaxFilter, dateMinFilter, distanceMaxFilter, distanceMinFilter, nameFilter, personalRaces, quickFilter]);
 
   const racebookOnboardingEventGroups = useMemo(
     () => getRacebookOnboardingResults<Race, EventGroup>(
@@ -759,9 +728,9 @@ export default function CatalogScreen() {
         paddingBottom: 120,
         paddingTop: Math.max(16, insets.top + 12),
       },
-      visibleEventGroups.length === 0 && filteredPersonalRaces.length === 0 && styles.listEmpty,
+      visibleEventGroups.length === 0 && styles.listEmpty,
     ],
-    [filteredPersonalRaces.length, insets.top, visibleEventGroups.length],
+    [insets.top, visibleEventGroups.length],
   );
   const loadingListStyle = useMemo(
     () => [
@@ -772,27 +741,17 @@ export default function CatalogScreen() {
     ],
     [insets.top],
   );
-  const actionItems = useMemo<FloatingActionMenuItem[]>(
-    () => [
-      {
-        key: 'create-race',
-        label: locale === 'fr' ? 'Cr\u00e9er une course' : 'Create race',
-        icon: 'add-circle-outline',
-        onPress: () => router.push('/(app)/race/new'),
-      },
-    ],
-    [locale, router],
-  );
+  const actionItems = useMemo<FloatingActionMenuItem[]>(() => [], []);
   const helpCopy = useMemo(
     () =>
       locale === 'fr'
         ? {
             title: 'Courses',
-            body: "Recherche une course, filtre par distance ou date, puis choisis le format qui servira de base au plan. Le menu regroupe aussi la cr\u00e9ation d'une course et les demandes d'ajout.",
+            body: "Recherche une course, filtre par distance ou date, puis choisis le format qui servira de base au plan. Le menu permet aussi de demander l'ajout d'une course au catalogue.",
           }
         : {
             title: 'Races',
-            body: 'Search races, filter by distance or date, then pick the format that will become the plan base. The menu also groups race creation and catalog requests.',
+            body: 'Search races, filter by distance or date, then pick the format that will become the plan base. The menu also lets you request a catalog addition.',
           },
     [locale],
   );
@@ -1065,24 +1024,10 @@ export default function CatalogScreen() {
               </View> : null}
             </View>
 
-            {onboardingMode !== 'racebook' && filteredPersonalRaces.length > 0 ? (
-              <CatalogPersonalRacesSection
-                races={filteredPersonalRaces.map((race) => ({
-                  id: race.id,
-                  name: race.name,
-                  distanceKm: formatDistance(race.distance_km),
-                  elevationLabel: formatElevation(race.elevation_gain_m),
-                  canCreatePlan: race.elevation_gain_m !== null,
-                }))}
-                title={t.catalog.myRaces}
-                createPlanLabel={t.catalog.createPlan}
-                onCreatePlan={handleCreatePlan}
-              />
-            ) : null}
           </View>
         }
         ListEmptyComponent={
-          onboardingMode === 'racebook' || filteredPersonalRaces.length === 0 ? (
+          (
             <View style={styles.emptyContainer}>
               <View style={styles.emptyIconWrap}>
                 <Ionicons
@@ -1106,7 +1051,7 @@ export default function CatalogScreen() {
                   : t.catalog.noCatalogSubtitle}
               </Text>
             </View>
-          ) : null
+          )
         }
         renderItem={({ item: event }) => (
           <RaceEventSummaryCard

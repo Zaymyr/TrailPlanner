@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -494,6 +494,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
+- Retiring runner-owned standalone races does not change Organizer draft formats, GPX authoring, publication states, or membership checks; those writes remain service-mediated.
 - Catalog plan intent is measured by `catalog create plan clicked`; only event-backed formats carry public event context for organizer/report filtering. Personal races remain measurable globally without being attributed to an organizer event.
 
 - The admin publication manager exposes Visibilité plus the three paid packs through full-row radio targets, then four distinct origins for a paid pack: Admin, Paiement Stripe, Paiement par virement, and Offert. Admin/Offert are editable grants; selecting a new virement preloads read-only canonical HT and zero VAT, requires the customer's name and address, accepts an absent SIREN but validates it as nine digits when present, previews the PDF on demand, and writes its real ledger plus immutable invoice facts. Restoring Stripe or an already-recorded virement still requires a matching valid path.

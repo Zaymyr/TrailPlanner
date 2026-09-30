@@ -57,13 +57,6 @@ import {
   startOnboarding,
 } from '../../lib/onboardingStatus';
 import {
-  buildGpxImportErrorMessage,
-  createPrivateRace,
-  pickAndParseGpxDocument,
-  type GpxFeedback,
-  type ImportedGpxDocument
-} from '../../lib/race-import';
-import {
   clearPendingOnboardingTransition,
   getPendingOnboardingTransition,
   setPendingOnboardingTransition,
@@ -175,17 +168,12 @@ export default function OnboardingScreen() {
     useState<HydrationEstimatorLevel>('normal');
   const [estimatorSodiumLevel, setEstimatorSodiumLevel] = useState<SodiumEstimatorLevel>('normal');
   const [raceEventGroups, setRaceEventGroups] = useState<RaceEventGroup[]>([]);
-  const [personalRaceOptions, setPersonalRaceOptions] = useState<RaceOption[]>([]);
   const [selectedRaceId, setSelectedRaceId] = useState<string | null>(null);
   const [selectedRaceEvent, setSelectedRaceEvent] = useState<RaceEventGroup | null>(null);
   const [raceSearch, setRaceSearch] = useState('');
   const [loadingRaces, setLoadingRaces] = useState(false);
   const [raceLoadError, setRaceLoadError] = useState<string | null>(null);
   const [hasLoadedRaceOptions, setHasLoadedRaceOptions] = useState(false);
-  const [importingRaceGpx, setImportingRaceGpx] = useState(false);
-  const [raceImportFeedback, setRaceImportFeedback] = useState<GpxFeedback | null>(null);
-  const [pendingRaceGpxDocument, setPendingRaceGpxDocument] = useState<ImportedGpxDocument | null>(null);
-  const [pendingRaceGpxName, setPendingRaceGpxName] = useState('');
   const [nutritionProducts, setNutritionProducts] = useState<Product[]>([]);
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [expandedNutritionBrands, setExpandedNutritionBrands] = useState<string[]>([]);
@@ -245,8 +233,8 @@ export default function OnboardingScreen() {
     parsedEstimatorWeight,
   ]);
   const allRaceOptions = useMemo(
-    () => [...personalRaceOptions, ...raceEventGroups.flatMap((event) => event.races)],
-    [personalRaceOptions, raceEventGroups],
+    () => raceEventGroups.flatMap((event) => event.races),
+    [raceEventGroups],
   );
   const selectedRace = useMemo((): RaceOptionWithElevation | null => {
     const race = allRaceOptions.find((candidate) => candidate.id === selectedRaceId) ?? null;
@@ -265,7 +253,6 @@ export default function OnboardingScreen() {
 
     return `${parentEvent.name} • ${getRaceShortLabel(selectedRace.name, parentEvent.name)}`;
   }, [raceEventGroups, selectedRace]);
-  const publicRaceOptions = useMemo(() => [] as RaceOption[], []);
   const isOnboardingStatePristine = useMemo(
     () =>
       fullName.trim().length === 0 &&
@@ -532,10 +519,7 @@ export default function OnboardingScreen() {
     setRaceLoadError(null);
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const userId = sessionData?.session?.user?.id ?? null;
-
-      const [eventsResult, orphanRacesResult, personalRacesResult] = await Promise.all([
+      const [eventsResult, orphanRacesResult] = await Promise.all([
         supabase
           .from('race_events')
           .select(`
@@ -567,15 +551,6 @@ export default function OnboardingScreen() {
           .eq('is_public', true)
           .order('race_date', { ascending: true, nullsFirst: false })
           .order('name', { ascending: true }),
-        userId
-          ? supabase
-              .from('races')
-              .select('id, name, distance_km, elevation_gain_m, location_text, race_date, is_public, created_by, thumbnail_url')
-              .eq('is_public', false)
-              .eq('created_by', userId)
-              .order('race_date', { ascending: true, nullsFirst: false })
-              .order('name', { ascending: true })
-          : Promise.resolve({ data: [], error: null }),
       ]);
 
       if (eventsResult.error) {
@@ -584,10 +559,6 @@ export default function OnboardingScreen() {
 
       if (orphanRacesResult.error) {
         throw orphanRacesResult.error;
-      }
-
-      if (personalRacesResult.error) {
-        throw personalRacesResult.error;
       }
 
       const nextEvents = sortRaceEvents(
@@ -623,7 +594,6 @@ export default function OnboardingScreen() {
       }
 
       setRaceEventGroups(nextEvents);
-      setPersonalRaceOptions(sortRaceOptions((personalRacesResult.data as RaceOption[] | null) ?? []));
     } catch (error) {
       console.error('Unable to load onboarding races:', error);
       setRaceLoadError(t.onboarding.raceLoadingError);
@@ -1161,96 +1131,7 @@ export default function OnboardingScreen() {
   function handleSelectRace(raceId: string) {
     setSelectedRaceId(raceId);
     setSelectedRaceEvent(null);
-    setRaceImportFeedback(null);
     setStep(6);
-  }
-
-  async function handleImportRaceFromGpx() {
-    setImportingRaceGpx(true);
-    setRaceImportFeedback(null);
-
-    try {
-      const picked = await pickAndParseGpxDocument(t);
-      if (!picked) {
-        return;
-      }
-
-      if (picked.parsed.stats.distanceKm <= 0) {
-        setRaceImportFeedback({
-          tone: 'warning',
-          message: `${picked.feedback.message} ${t.races.validationDistancePositive}`,
-        });
-        return;
-      }
-      setPendingRaceGpxDocument(picked);
-      setPendingRaceGpxName(picked.suggestedRaceName);
-    } catch (error) {
-      setRaceImportFeedback({
-        tone: 'warning',
-        message: buildGpxImportErrorMessage(error, t),
-      });
-    } finally {
-      setImportingRaceGpx(false);
-    }
-  }
-
-  function handleCancelRaceGpxPreview() {
-    if (importingRaceGpx) return;
-    setPendingRaceGpxDocument(null);
-    setPendingRaceGpxName('');
-  }
-
-  async function handleConfirmRaceGpxImport() {
-    if (!pendingRaceGpxDocument) return;
-
-    setImportingRaceGpx(true);
-    setRaceImportFeedback(null);
-
-    try {
-      const { race } = await createPrivateRace({
-        name: pendingRaceGpxName.trim() || pendingRaceGpxDocument.suggestedRaceName,
-        distanceKm: pendingRaceGpxDocument.parsed.stats.distanceKm,
-        elevationGainM: Math.round(pendingRaceGpxDocument.parsed.stats.gainM),
-        elevationLossM: Math.round(pendingRaceGpxDocument.parsed.stats.lossM),
-        gpxContent: pendingRaceGpxDocument.content,
-        aidStations: [],
-      });
-
-      const nextRace: RaceOption = {
-        id: race.id,
-        name: race.name,
-        distance_km: race.distance_km,
-        elevation_gain_m: race.elevation_gain_m,
-        location_text: race.location_text ?? null,
-        race_date: null,
-        is_public: race.is_public,
-        created_by: race.created_by ?? null,
-        thumbnail_url: null,
-      };
-
-      setPersonalRaceOptions((current) =>
-        sortRaceOptions([nextRace, ...current.filter((raceOption) => raceOption.id !== nextRace.id)]),
-      );
-      setSelectedRaceId(nextRace.id);
-      setSelectedRaceEvent(null);
-      setRaceSearch('');
-      setRaceImportFeedback(
-        pendingRaceGpxDocument.feedback.tone === 'warning' ? pendingRaceGpxDocument.feedback : null,
-      );
-      setPendingRaceGpxDocument(null);
-      setPendingRaceGpxName('');
-      setStep(6);
-    } catch (error) {
-      const message =
-        error instanceof Error
-          ? error.message === 'Session expired.'
-            ? t.raceRequests.sessionExpired
-            : error.message
-          : t.races.createFailed;
-      setRaceImportFeedback({ tone: 'warning', message });
-    } finally {
-      setImportingRaceGpx(false);
-    }
   }
 
   function toggleProductSelection(productId: string) {
@@ -1659,23 +1540,13 @@ export default function OnboardingScreen() {
           setHasLoadedRaceOptions(false);
           void loadRaceOptions();
         }}
-        personalRaceOptions={personalRaceOptions}
         raceEventGroups={raceEventGroups}
-        publicRaceOptions={publicRaceOptions}
         selectedRaceId={selectedRaceId}
         selectedRaceSummary={selectedRaceSummary}
         selectedRaceEvent={selectedRaceEvent}
         onOpenRaceEvent={setSelectedRaceEvent}
         onCloseRaceEvent={() => setSelectedRaceEvent(null)}
         onSelectRace={handleSelectRace}
-        importingRaceGpx={importingRaceGpx}
-        raceImportFeedback={raceImportFeedback}
-        onImportRaceGpx={() => void handleImportRaceFromGpx()}
-        pendingRaceGpxDocument={pendingRaceGpxDocument}
-        pendingRaceGpxName={pendingRaceGpxName}
-        onChangePendingRaceGpxName={setPendingRaceGpxName}
-        onCancelRaceGpxPreview={handleCancelRaceGpxPreview}
-        onConfirmRaceGpxImport={() => void handleConfirmRaceGpxImport()}
       />
     );
   }
@@ -1689,7 +1560,6 @@ export default function OnboardingScreen() {
         onSkip={requestSkipOnboarding}
         selectedRaceSummary={selectedRaceSummary}
         onChangeRace={handleBackToRaceChoice}
-        raceImportFeedback={raceImportFeedback}
         products={nutritionProducts}
         selectedProductIds={selectedProductIds}
         expandedBrands={expandedNutritionBrands}

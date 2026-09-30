@@ -152,9 +152,10 @@ export function AidStationsToolbar({
       <TutorialTarget
         onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
         onRegisterRef={tutorial?.onTargetRegisterRef}
+        style={compact ? planDetailStyles.toolbarTabsTargetCompact : undefined}
         targetKey="views"
       >
-        <View accessibilityRole="tablist" style={[styles.toggleRow, planDetailStyles.toolbarTabs]}>
+        <View accessibilityRole="tablist" style={[styles.toggleRow, planDetailStyles.toolbarTabs, compact && planDetailStyles.toolbarTabsCompact]}>
           {([
             ['stations', 'Ravitos'],
             ['sections', 'Chronologie'],
@@ -165,41 +166,64 @@ export function AidStationsToolbar({
               accessibilityRole="tab"
               accessibilityState={{ selected: mode === key }}
               key={key}
-              style={[styles.toggleBtn, mode === key && styles.toggleBtnActive]}
+              style={[styles.toggleBtn, compact && planDetailStyles.toolbarTabCompact, mode === key && styles.toggleBtnActive]}
               onPress={() => onSelectMode(key)}
               activeOpacity={0.8}
             >
-              <Text style={[styles.toggleBtnText, mode === key && styles.toggleBtnTextActive]}>{label}</Text>
+              <Text
+                adjustsFontSizeToFit={compact}
+                minimumFontScale={0.82}
+                numberOfLines={1}
+                style={[styles.toggleBtnText, compact && planDetailStyles.toolbarTabTextCompact, mode === key && styles.toggleBtnTextActive]}
+              >
+                {label}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
       </TutorialTarget>
-      <View style={[styles.sectionActions, planDetailStyles.toolbarActions]}>
+      {compact ? <View style={planDetailStyles.toolbarDivider} /> : null}
+      <View style={[styles.sectionActions, planDetailStyles.toolbarActions, compact && planDetailStyles.toolbarActionsCompact]}>
         <TutorialTarget
           onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
           onRegisterRef={tutorial?.onTargetRegisterRef}
           targetKey="autoFill"
         >
           <TouchableOpacity
-            style={[styles.fillBtn, !isPremium && styles.fillBtnPremiumLocked, isAutoFilling && styles.fillBtnLoading]}
+            accessibilityLabel="Remplir automatiquement"
+            accessibilityRole="button"
+            style={[
+              styles.fillBtn,
+              compact && planDetailStyles.toolbarIconAction,
+              !isPremium && styles.fillBtnPremiumLocked,
+              isAutoFilling && styles.fillBtnLoading,
+            ]}
             onPress={fillSuppliesAuto}
             disabled={isAutoFilling}
             activeOpacity={0.88}
           >
             <View style={styles.fillBtnContent}>
               {isAutoFilling ? (
-                <>
-                  <ActivityIndicator size="small" color={colors.text.inverse} />
-                  <Text style={[styles.fillBtnText, styles.fillBtnTextLoading]} numberOfLines={1}>{autoFillLoadingMessage}</Text>
-                </>
+                compact
+                  ? <ActivityIndicator size="small" color={colors.text.inverse} />
+                  : <><ActivityIndicator size="small" color={colors.text.inverse} /><Text style={[styles.fillBtnText, styles.fillBtnTextLoading]} numberOfLines={1}>{autoFillLoadingMessage}</Text></>
               ) : (
-                <Text style={[styles.fillBtnText, !isPremium && styles.fillBtnTextPremiumLocked]}>Remplir auto</Text>
+                compact
+                  ? <Ionicons name="sparkles" size={18} color={isPremium ? colors.text.inverse : colors.accent.amber} />
+                  : <Text style={[styles.fillBtnText, !isPremium && styles.fillBtnTextPremiumLocked]}>Remplir auto</Text>
               )}
             </View>
           </TouchableOpacity>
         </TutorialTarget>
-        <TouchableOpacity style={styles.addBtn} onPress={addAidStation}>
-          <Text style={styles.addBtnText}>+ Ajouter</Text>
+        <TouchableOpacity
+          accessibilityLabel="Ajouter un ravitaillement"
+          accessibilityRole="button"
+          style={[styles.addBtn, compact && planDetailStyles.toolbarIconActionSecondary]}
+          onPress={addAidStation}
+        >
+          {compact
+            ? <Ionicons name="add" size={22} color={colors.brand.forest} />
+            : <Text style={styles.addBtnText}>+ Ajouter</Text>}
         </TouchableOpacity>
       </View>
     </View>
@@ -1165,6 +1189,9 @@ const planDetailStyles = StyleSheet.create({
     marginBottom: spacing[3],
   },
   toolbarCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing[2],
     marginBottom: 0,
   },
   hiddenToolbar: {
@@ -1173,9 +1200,58 @@ const planDetailStyles = StyleSheet.create({
   toolbarTabs: {
     marginBottom: 0,
   },
+  toolbarTabsTargetCompact: {
+    flex: 1,
+    minWidth: 0,
+  },
+  toolbarTabsCompact: {
+    flex: 1,
+    minWidth: 0,
+    padding: 3,
+  },
+  toolbarTabCompact: {
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+    paddingVertical: 7,
+  },
+  toolbarTabTextCompact: {
+    fontSize: 11,
+    lineHeight: 14,
+  },
+  toolbarDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: colors.border.subtle,
+  },
   toolbarActions: {
     flexWrap: 'nowrap',
     justifyContent: 'flex-end',
+  },
+  toolbarActionsCompact: {
+    gap: spacing[1],
+  },
+  toolbarIconAction: {
+    width: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 13,
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  toolbarIconActionSecondary: {
+    width: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    borderRadius: 13,
+    borderColor: colors.border.brand,
+    backgroundColor: colors.surface.cream,
   },
   activeView: {
     paddingBottom: spacing[6],

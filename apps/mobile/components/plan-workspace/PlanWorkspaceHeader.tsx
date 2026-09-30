@@ -9,7 +9,7 @@ import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 
 export const PLAN_WORKSPACE_HEADER_BODY_HEIGHT = 238;
-export const PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT = 68;
+export const PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT = 76;
 
 type Metric = { label: string; value: string };
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -60,7 +60,19 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
       <Animated.View pointerEvents={compact ? 'auto' : 'none'} style={[styles.compact, { top: topInset, opacity: compactOpacity }]}>
         <View style={styles.compactCopy}>
           <Text numberOfLines={1} style={styles.compactTitle}>{title}</Text>
-          <DataText numberOfLines={1} style={styles.compactMeta}>{totalTime} · {averagePace} min/km</DataText>
+          <View style={styles.compactMetrics}>
+            <View style={styles.compactMetric}>
+              <Ionicons name="time-outline" size={13} color={Colors.textOnBrand} />
+              <DataText numberOfLines={1} style={styles.compactMeta}>{totalTime}</DataText>
+            </View>
+            <View style={styles.compactMetricDivider} />
+            <View style={styles.compactMetric}>
+              <Ionicons name="speedometer-outline" size={13} color={Colors.textOnBrand} />
+              <DataText numberOfLines={1} style={styles.compactMeta}>
+                {averagePace === '—' ? '—' : `${averagePace}/km`}
+              </DataText>
+            </View>
+          </View>
         </View>
       </Animated.View>
 
@@ -77,8 +89,8 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
         <View style={styles.metrics}>
           {metrics.map((metric, index) => (
             <View key={metric.label} style={[styles.metric, index > 0 && styles.metricBorder]}>
-              <DataText numberOfLines={1} style={styles.metricValue}>{metric.value}</DataText>
               <Text numberOfLines={1} style={styles.metricLabel}>{metric.label}</Text>
+              <DataText numberOfLines={1} style={styles.metricValue}>{metric.value}</DataText>
             </View>
           ))}
         </View>
@@ -92,17 +104,20 @@ const styles = StyleSheet.create({
   action: { position: 'absolute', zIndex: 5, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   backAction: { borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.16)' },
   compact: { position: 'absolute', left: 64, right: 64, height: PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT, justifyContent: 'center' },
-  compactCopy: { minWidth: 0, alignItems: 'center' },
+  compactCopy: { minWidth: 0, alignItems: 'center', gap: 5 },
   compactTitle: { color: Colors.textOnBrand, fontSize: 17, lineHeight: 21, fontWeight: '800' },
-  compactMeta: { color: Colors.textOnBrand, fontSize: 11, lineHeight: 15, fontWeight: '700', opacity: 0.82 },
+  compactMetrics: { minHeight: 22, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  compactMetric: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
+  compactMetricDivider: { width: 1, height: 14, backgroundColor: 'rgba(255,255,255,0.32)' },
+  compactMeta: { color: Colors.textOnBrand, fontSize: 12, lineHeight: 16, fontWeight: '800', opacity: 0.92 },
   expanded: { flex: 1, gap: 18, paddingHorizontal: 16, paddingBottom: 16 },
   titleBlock: { minHeight: 78, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 48, gap: 5 },
   title: { color: Colors.textOnBrand, fontSize: 27, lineHeight: 31, fontWeight: '800', textAlign: 'center' },
   status: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statusText: { color: Colors.textOnBrand, fontSize: 11, lineHeight: 14, fontWeight: '700', opacity: 0.84 },
-  metrics: { minHeight: 82, flexDirection: 'row', alignItems: 'stretch', borderRadius: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)', backgroundColor: 'rgba(0,0,0,0.16)' },
-  metric: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 3, paddingHorizontal: 3, paddingVertical: 8 },
+  metrics: { minHeight: 82, flexDirection: 'row', alignItems: 'stretch', borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(0,0,0,0.16)', overflow: 'hidden' },
+  metric: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 5, paddingHorizontal: 3, paddingVertical: 9 },
   metricBorder: { borderLeftWidth: 1, borderLeftColor: 'rgba(255,255,255,0.2)' },
-  metricValue: { color: Colors.textOnBrand, fontSize: 13, lineHeight: 17, fontWeight: '800', textAlign: 'center' },
-  metricLabel: { color: Colors.textOnBrand, fontSize: 8, lineHeight: 11, fontWeight: '700', textAlign: 'center', opacity: 0.74 },
+  metricValue: { color: Colors.textOnBrand, fontSize: 14, lineHeight: 18, fontWeight: '800', textAlign: 'center' },
+  metricLabel: { color: Colors.textOnBrand, fontSize: 9, lineHeight: 12, fontWeight: '800', letterSpacing: 0.35, textAlign: 'center', textTransform: 'uppercase', opacity: 0.74 },
 });

@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -99,6 +99,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Gotchas
 
+- Removing runner-owned races from Courses does not change event announcement loading, targeting, or history.
 - The catalog `Créer un plan` click event carries only bounded race and optional public event context; it neither stores announcement content nor changes update visibility/history.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; announcement visibility, targeting, history, and push contracts remain unchanged.

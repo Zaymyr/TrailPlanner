@@ -17,16 +17,16 @@ describe("GET /api/races", () => {
     vi.restoreAllMocks();
   });
 
-  it("loads public live races and every race owned by the authenticated user", async () => {
+  it("loads only public live races", async () => {
     const response = await GET(new NextRequest("http://localhost/api/races", {
       headers: { authorization: "Bearer user-token" },
     }));
 
     expect(response.status).toBe(200);
     const requestUrl = new URL(String(vi.mocked(fetch).mock.calls[0]?.[0]));
-    expect(requestUrl.searchParams.get("or")).toBe(
-      "(and(is_live.eq.true,is_public.eq.true),created_by.eq.00000000-0000-4000-8000-000000000001)"
-    );
+    expect(requestUrl.searchParams.get("is_live")).toBe("eq.true");
+    expect(requestUrl.searchParams.get("is_public")).toBe("eq.true");
+    expect(requestUrl.searchParams.get("or")).toBeNull();
     expect(requestUrl.searchParams.get("order")).toBe("name.asc");
   });
 });
@@ -53,7 +53,7 @@ describe("POST /api/races", () => {
     vi.restoreAllMocks();
   });
 
-  it("initializes the required edition-group identity for a private race", async () => {
+  it("rejects retired personal race creation", async () => {
     const response = await POST(new NextRequest("http://localhost/api/races", {
       method: "POST",
       headers: { authorization: "Bearer user-token", "content-type": "application/json" },
@@ -65,23 +65,11 @@ describe("POST /api/races", () => {
       }),
     }));
 
-    expect(response.status).toBe(200);
-    const insertCall = vi.mocked(fetch).mock.calls[0];
-    const insertBody = JSON.parse(String(insertCall?.[1]?.body));
-    expect(insertBody).toMatchObject({
-      series_name: "Trail des Sources de l'Yvette",
-      name: "Trail des Sources de l'Yvette",
-      is_public: false,
-      is_published: false,
-      is_live: false,
-      event_id: null,
-      edition_id: null,
-      racebook_preview_is_visible: false,
-      racebook_is_live: false,
-      racebook_publication_approved_at: null,
-      racebook_publication_approved_by: null,
+    expect(response.status).toBe(410);
+    expect(await response.json()).toEqual({
+      message: "Personal race creation is no longer available.",
     });
-    expect(insertBody.edition_group_id).toBe(insertBody.id);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });
 

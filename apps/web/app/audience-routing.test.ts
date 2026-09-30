@@ -25,12 +25,12 @@ describe("runner and organizer routing", () => {
     expect(menu).not.toContain('"Mes courses"');
   });
 
-  it("redirects organizers away from private race creation", () => {
+  it("does not offer runner-owned race creation", () => {
     const selector = readSource("components/race-planner/RaceSelector.tsx");
 
-    expect(selector).toContain("Vous représentez l’organisation de cette course");
-    expect(selector).toContain('href="/organisateurs"');
-    expect(selector).toContain("Course personnelle");
+    expect(selector).not.toContain("Course personnelle");
+    expect(selector).not.toContain("Ajouter une course personnelle");
+    expect(selector).toContain("Aucune course disponible.");
   });
 
   it("uses event terminology on the organizer creation page", () => {

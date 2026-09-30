@@ -9,17 +9,9 @@ export default function RaceLayout() {
   const { locale, t } = useI18n();
 
   const getHeaderTitle = (routeName: string) =>
-    routeName === 'new'
-      ? locale === 'fr'
-        ? 'Nouvelle course'
-        : 'New race'
-      : routeName === '[id]/racebook'
+    routeName === '[id]/racebook'
         ? t.catalog.racebookTitle
-      : routeName === '[id]/edit'
-        ? locale === 'fr'
-          ? 'Modifier la course'
-          : 'Edit race'
-        : locale === 'fr'
+      : locale === 'fr'
           ? 'Course'
           : 'Race';
 

@@ -1,11 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
+
 import type { Race } from "../../app/(planner)/race-planner/types";
-import { CreateRaceForm, type CreateRaceFormValues } from "./CreateRaceForm";
-import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+
+type RetiredCreateRaceValues = {
+  name: string;
+  distance_km: number;
+  elevation_gain_m: number;
+  elevation_loss_m?: number | null;
+  location_text?: string | null;
+  race_date?: string | null;
+  aid_stations: Array<{ name: string; distanceKm: number; waterRefill: boolean }>;
+  gpx_content?: string | null;
+};
 
 type Props = {
   races: Race[];
@@ -13,41 +22,22 @@ type Props = {
   isOpen: boolean;
   onClose: () => void;
   onRaceSelected: (raceId: string) => void;
-  onCreateRace: (values: CreateRaceFormValues) => Promise<Race | null>;
+  onCreateRace: (values: RetiredCreateRaceValues) => Promise<Race | null>;
 };
 
-export function RaceSelector({ races, isOpen, onClose, onRaceSelected, onCreateRace }: Props) {
-  const [tab, setTab] = useState<"select" | "create">("select");
+export function RaceSelector({ races, isOpen, onClose, onRaceSelected }: Props) {
   const [search, setSearch] = useState("");
-  const [isCreating, setIsCreating] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  // Only show races that have a GPX file or were created by the current user
-  const available = races.filter((r) => r.gpxStoragePath || (!r.isPublic && r.createdBy));
-
+  const available = races.filter((race) => race.isPublic && race.gpxStoragePath);
   const filtered = search.trim()
-    ? available.filter((r) => r.name.toLowerCase().includes(search.trim().toLowerCase()))
+    ? available.filter((race) => race.name.toLowerCase().includes(search.trim().toLowerCase()))
     : available;
-
-  const handleCreate = async (values: CreateRaceFormValues) => {
-    setIsCreating(true);
-    setCreateError(null);
-    const newRace = await onCreateRace(values);
-    setIsCreating(false);
-    if (newRace) {
-      onRaceSelected(newRace.id);
-      onClose();
-    } else {
-      setCreateError("Impossible de créer la course. Veuillez réessayer.");
-    }
-  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-border bg-background shadow-2xl">
-        {/* Header */}
         <div className="flex items-center justify-between border-b border-border px-5 py-4">
           <h2 className="text-base font-semibold text-foreground">Choisir une course</h2>
           <button
@@ -56,114 +46,41 @@ export function RaceSelector({ races, isOpen, onClose, onRaceSelected, onCreateR
             className="text-muted-foreground hover:text-foreground"
             aria-label="Fermer"
           >
-            ✕
+            ×
           </button>
         </div>
 
-        {/* Tabs */}
-        <div className="flex gap-2 border-b border-border px-5 pt-3">
-          <button
-            type="button"
-            onClick={() => setTab("select")}
-            className={`pb-2 text-sm font-medium transition ${
-              tab === "select"
-                ? "border-b-2 border-[hsl(var(--brand))] text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Courses disponibles
-          </button>
-          <button
-            type="button"
-            onClick={() => setTab("create")}
-            className={`pb-2 text-sm font-medium transition ${
-              tab === "create"
-                ? "border-b-2 border-[hsl(var(--brand))] text-foreground"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            Course personnelle
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-5 py-4">
-          {tab === "select" && (
-            <div className="space-y-3">
-              <Input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder="Rechercher une course…"
-                autoFocus
-              />
-              {filtered.length === 0 && (
-                <p className="py-4 text-center text-sm text-muted-foreground dark:text-slate-400">
-                  {available.length === 0
-                    ? "Aucune course disponible. Créez votre première course."
-                    : "Aucune course correspondante."}
+        <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          <Input
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+            placeholder="Rechercher une course…"
+            autoFocus
+          />
+          {filtered.length === 0 ? (
+            <p className="py-4 text-center text-sm text-muted-foreground dark:text-slate-400">
+              {available.length === 0 ? "Aucune course disponible." : "Aucune course correspondante."}
+            </p>
+          ) : null}
+          <div className="space-y-2">
+            {filtered.map((race) => (
+              <button
+                key={race.id}
+                type="button"
+                onClick={() => {
+                  onRaceSelected(race.id);
+                  onClose();
+                }}
+                className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition hover:border-[hsl(var(--brand))] hover:bg-card/80"
+              >
+                <p className="truncate text-sm font-semibold text-foreground">{race.name}</p>
+                <p className="text-xs text-muted-foreground dark:text-slate-400">
+                  {race.distanceKm} km · D+ {race.elevationGainM}m
+                  {race.locationText ? ` · ${race.locationText}` : ""}
                 </p>
-              )}
-              <div className="space-y-2">
-                {filtered.map((race) => (
-                  <button
-                    key={race.id}
-                    type="button"
-                    onClick={() => {
-                      onRaceSelected(race.id);
-                      onClose();
-                    }}
-                    className="w-full rounded-lg border border-border bg-card px-4 py-3 text-left transition hover:border-[hsl(var(--brand))] hover:bg-card/80"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-semibold text-foreground">{race.name}</p>
-                        <p className="text-xs text-muted-foreground dark:text-slate-400">
-                          {race.distanceKm} km · D+ {race.elevationGainM}m
-                          {race.locationText ? ` · ${race.locationText}` : ""}
-                        </p>
-                      </div>
-                      {!race.isPublic && (
-                        <span className="shrink-0 rounded-full bg-emerald-900/40 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
-                          Ma course
-                        </span>
-                      )}
-                    </div>
-                  </button>
-                ))}
-              </div>
-              {available.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => setTab("create")}
-                  className="w-full rounded-lg border border-dashed border-border px-4 py-3 text-sm text-muted-foreground transition hover:border-[hsl(var(--brand))] hover:text-foreground dark:text-slate-400"
-                >
-                  + Ajouter une course personnelle
-                </button>
-              )}
-            </div>
-          )}
-
-          {tab === "create" && (
-            <div className="space-y-4">
-              <div className="rounded-lg border border-brand-border bg-brand-surface p-3 text-sm text-foreground dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-50">
-                <p className="font-semibold">Vous représentez l’organisation de cette course&nbsp;?</p>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground dark:text-emerald-100/80">
-                  Utilisez l’Espace organisateur pour publier les GPX, horaires, barrières et informations pratiques destinées aux coureurs.
-                </p>
-                <Link
-                  href="/organisateurs"
-                  className="mt-2 inline-flex font-semibold text-brand underline-offset-4 hover:underline dark:text-emerald-200"
-                >
-                  Découvrir l’Espace organisateur →
-                </Link>
-              </div>
-              <CreateRaceForm
-                onSubmit={handleCreate}
-                isSubmitting={isCreating}
-                error={createError}
-              />
-            </div>
-          )}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
     </div>

@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -287,6 +287,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 
 ## Gotchas
 
+- Removing the runner-owned race section from Courses removes that source from catalog interactions; catalog plan analytics now describe event formats only.
 - Exposing preview-selected private formats in the runner mobile catalog, then removing masked formats before presentation, is a visibility/read change rather than a new analytics event. Existing course and RaceBook events keep stable event/race ids and must not record membership ids or private visibility state; masked rows must emit no selection or opening event because they have no mobile entry point.
 - Retiring an older edition from Courses after its 14-day display window is likewise presentation-only. It emits no rollover event and must not rewrite the stable event/race identifiers on later interactions with the newer edition.
 - Never paste real PostHog keys into docs.

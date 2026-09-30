@@ -59,7 +59,7 @@ export const fr: MobileTranslations = {
     title: 'Mes plans',
     empty: 'Aucun plan pour le moment',
     emptySubtitle: 'Crée ton premier plan de course et évite la fringale.',
-    createFirst: 'Créer mon premier plan',
+    browseRaces: 'Choisir une course',
     noRace: 'Sans course',
     noRaceWarning: "Ce plan n'est pas associé à une course.",
     deleteTitle: 'Supprimer ce plan ?',

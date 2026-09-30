@@ -38,7 +38,6 @@ type PlansListProps = {
   locale: 'fr' | 'en';
   refreshing: boolean;
   sharingPlanId: string | null;
-  editRaceLabel: string;
   noRaceWarningLabel: string;
   liveLabel: string;
   inProgressLabel: string;
@@ -50,10 +49,9 @@ type PlansListProps = {
   deleteButtonLabel: string;
   emptyTitle: string;
   emptySubtitle: string;
-  createFirstLabel: string;
+  browseRacesLabel: string;
   onRefresh: () => void;
   onToggleSection: (key: string) => void;
-  onEditRace: (raceId: string) => void;
   onDeletePlan: (planId: string) => void;
   onRenamePlan: (planId: string, name: string) => Promise<boolean>;
   onOpenEditPlan: (planId: string) => void;
@@ -61,7 +59,7 @@ type PlansListProps = {
   onOpenSummary: (planId: string) => void;
   onSharePlan: (planId: string) => void;
   onOpenLockedPlan: () => void;
-  onCreateFirstPlan: () => void;
+  onBrowseRaces: () => void;
 };
 
 export const PlansList = memo(function PlansList({
@@ -73,7 +71,6 @@ export const PlansList = memo(function PlansList({
   locale,
   refreshing,
   sharingPlanId,
-  editRaceLabel,
   noRaceWarningLabel,
   liveLabel,
   inProgressLabel,
@@ -85,10 +82,9 @@ export const PlansList = memo(function PlansList({
   deleteButtonLabel,
   emptyTitle,
   emptySubtitle,
-  createFirstLabel,
+  browseRacesLabel,
   onRefresh,
   onToggleSection,
-  onEditRace,
   onDeletePlan,
   onRenamePlan,
   onOpenEditPlan,
@@ -96,7 +92,7 @@ export const PlansList = memo(function PlansList({
   onOpenSummary,
   onSharePlan,
   onOpenLockedPlan,
-  onCreateFirstPlan,
+  onBrowseRaces,
 }: PlansListProps) {
   const [managedPlan, setManagedPlan] = useState<PlanRow | null>(null);
   const [managedPlanName, setManagedPlanName] = useState('');
@@ -215,16 +211,6 @@ export const PlansList = memo(function PlansList({
                   />
                 </View>
               </View>
-              {section.isOwned && section.raceId ? (
-                <TouchableOpacity
-                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  onPress={() => onEditRace(section.raceId!)}
-                >
-                  <Text tone="secondary" size="xs" weight="semibold" style={styles.editRaceText}>
-                    {editRaceLabel}
-                  </Text>
-                </TouchableOpacity>
-              ) : null}
             </TouchableOpacity>
           );
         }}
@@ -244,7 +230,7 @@ export const PlansList = memo(function PlansList({
             <Text tone="secondary" size="base" lineHeight="normal" style={styles.emptySubtitle}>
               {emptySubtitle}
             </Text>
-            <Button onPress={onCreateFirstPlan}>{createFirstLabel}</Button>
+            <Button onPress={onBrowseRaces}>{browseRacesLabel}</Button>
           </View>
         }
       />
@@ -537,7 +523,7 @@ const styles = StyleSheet.create({
   list: {
     padding: spacing[4],
     gap: 0,
-    paddingBottom: 120,
+    paddingBottom: spacing[8],
   },
   listEmpty: {
     flex: 1,
@@ -564,9 +550,6 @@ const styles = StyleSheet.create({
     color: colors.brand.forest,
     fontSize: 21,
     lineHeight: 25,
-  },
-  editRaceText: {
-    textDecorationLine: 'underline',
   },
   orphanWarning: {
     paddingHorizontal: spacing[1],

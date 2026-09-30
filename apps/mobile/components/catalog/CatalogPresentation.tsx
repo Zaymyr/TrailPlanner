@@ -87,40 +87,6 @@ export function CatalogRaceRow({
   );
 }
 
-export function CatalogPersonalRacesSection({
-  races,
-  title,
-  createPlanLabel,
-  onCreatePlan,
-}: {
-  races: Array<{ id: string; name: string; distanceKm: string; elevationLabel: string; canCreatePlan: boolean }>;
-  title: string;
-  createPlanLabel: string;
-  onCreatePlan: (raceId: string) => void;
-}) {
-  return (
-    <View style={styles.personalSection}>
-      <View style={styles.personalSectionHeader}>
-        <View style={styles.eventBadge}>
-          <Ionicons name="person-outline" size={18} color={Colors.brandPrimary} />
-        </View>
-        <Text style={styles.personalSectionTitle}>{title}</Text>
-      </View>
-      <View style={styles.personalList}>
-        {races.map((race) => (
-          <CatalogRaceRow
-            key={race.id}
-            title={race.name}
-            subtitle={`${race.distanceKm} km • ${race.elevationLabel}`}
-            primaryActionLabel={race.canCreatePlan ? createPlanLabel : undefined}
-            onPrimaryPress={race.canCreatePlan ? () => onCreatePlan(race.id) : undefined}
-          />
-        ))}
-      </View>
-    </View>
-  );
-}
-
 type FilterText = {
   modalTitle: string;
   distanceTitle: string;
@@ -215,7 +181,6 @@ export function CatalogFiltersModal({
 
 const styles = StyleSheet.create({
   eventCard: { backgroundColor: Colors.surface, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3, gap: 14 },
-  eventBadge: { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.brandSurface, borderWidth: 1, borderColor: Colors.brandBorder },
   formatRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   formatRowDimmed: { opacity: 0.58 },
   formatRowContent: { flex: 1, gap: 4 },
@@ -228,10 +193,6 @@ const styles = StyleSheet.create({
   formatSecondaryActionButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   formatSecondaryActionButtonDimmed: { borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
   formatSecondaryActionButtonTextDimmed: { color: Colors.textMuted },
-  personalSection: { gap: 12 },
-  personalSectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  personalSectionTitle: { color: Colors.textPrimary, fontSize: 16, fontWeight: '700' },
-  personalList: { gap: 10 },
   skeletonHeaderRow: { flexDirection: 'row', gap: 12, alignItems: 'center' },
   skeletonBadge: { width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.surfaceSecondary },
   skeletonHeaderText: { flex: 1, gap: 8 },

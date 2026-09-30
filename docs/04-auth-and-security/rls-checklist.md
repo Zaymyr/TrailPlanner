@@ -1,11 +1,12 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-24
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
@@ -166,7 +167,7 @@ Use:
 - `supabase/tests/organizer_edition_entitlements_checks.sql` for Stripe/manual recalculation, complimentary-override conversion, duplicate/downgrade rejection, invoice-bucket privacy configuration, and bank-transfer RPC privileges;
 - `supabase/tests/organizer_edition_capability_grants_checks.sql` for service-only privileges, invoker execution, lifecycle audit, pack independence, and capability allowlisting;
 - `supabase/tests/organizer_generated_invoice_checks.sql` for client execute revocation, serialized invoice allocation, and issued-fact update/delete protection;
-- `supabase/tests/privileged_database_access_checks.sql` for profile-role self-promotion denial, trusted admin claims, privileged RPC revocations, and invoker-secured review views;
+- `supabase/tests/privileged_database_access_checks.sql` for profile-role self-promotion denial, trusted admin claims, privileged RPC revocations, invoker-secured review views, and denial of normal-user race inserts;
 - app route tests when policy behavior is exercised through Next.js APIs;
 - SQL editor/psql sessions with `set local role authenticated` and `request.jwt.claim.sub` for manual checks.
 

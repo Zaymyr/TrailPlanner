@@ -1,7 +1,7 @@
 ---
 title: race_aid_stations Table
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -13,8 +13,6 @@ related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
   - supabase/tests/organizer_import_sessions_checks.sql
   - apps/web/app/api/race-catalog/route.ts
-  - apps/web/app/api/races/route.ts
-  - apps/web/app/api/races/route.test.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.ts
   - apps/web/app/api/organizer/races/[id]/gpx/route.test.ts
   - apps/web/app/api/organizer/races/[id]/aid-stations/route.ts
@@ -37,7 +35,7 @@ related_tables:
 
 ## Purpose
 
-`race_aid_stations` stores source aid stations for rows in `races`. These rows feed catalog imports and private race setup before a plan-specific snapshot is created.
+`race_aid_stations` stores source aid stations for rows in `races`. These rows feed admin catalog and organizer formats before a plan-specific snapshot is created; runner-owned race creation is retired.
 
 ## Key Concepts
 
@@ -82,7 +80,7 @@ See [../rls-policies.md](../rls-policies.md).
 Summary:
 
 - Public/live race aid stations are readable through parent race visibility.
-- Private race aid stations are readable/manageable by the race owner.
+- Legacy private race aid stations remain readable/manageable by their owner, but current runner flows cannot create new parent races.
 - Admins can manage catalog aid stations.
 - Approved event organizers can manage source aid stations through service routes after an active event-membership check.
 - `organizer_details` inherits the same row policies as the station row; no separate JSONB grants or policies were added.

@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
@@ -9,6 +9,7 @@ related_files:
   - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -106,6 +107,8 @@ related_tables:
 # Migrations
 
 `20260914055319_harden_privileged_database_access.sql` removes client-writable profile roles from database authorization, clears untrusted legacy admin labels, protects server-owned profile entitlement/analytics fields, restricts user-created races to private standalone rows, restricts privileged SECURITY DEFINER RPCs to `service_role`, enables invoker security on `product_brand_review`, pins advisor-reported function search paths, optimizes the replaced owner/admin RLS predicates, and adds five targeted foreign-key indexes. `supabase/tests/privileged_database_access_checks.sql` verifies profile-field and race-publication escalation denial, trusted-metadata-only admin resolution, view security, and RPC privileges in a rollback transaction.
+
+`20260930100939_remove_personal_race_creation.sql` retires runner-owned standalone race creation by restricting `races_insert` to trusted administrators. Legacy owner update/delete policies remain available for cleanup, and organizer authoring continues through service-role routes. The privileged-access rollback test now asserts that a normal authenticated user cannot insert even a private standalone race.
 
 `20260924140119_add_racebook_gear_checks.sql` adds the owner-scoped, per-format RaceBook equipment checklist. Authenticated clients receive only select/insert/delete grants under matching `auth.uid()` policies; `anon` receives none, and the composite key makes repeated checks idempotent. `supabase/tests/racebook_gear_checks.sql` verifies RLS, privileges, policies, and both cascading parents.
 

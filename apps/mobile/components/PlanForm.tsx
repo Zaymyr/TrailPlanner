@@ -105,7 +105,7 @@ type Props = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 const AUTO_FILL_LOADING_MESSAGE = 'Calcul en cours';
-const STICKY_PLAN_CONTROLS_HEIGHT = 112;
+const STICKY_PLAN_CONTROLS_HEIGHT = 72;
 
 function getTargetCacheKey(target: PlanTarget) {
   return target === 'start' ? 'start' : String(target);

@@ -1,7 +1,7 @@
 ---
 title: premium_grants Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260301090000_add_premium_grants.sql
@@ -91,6 +91,7 @@ values ('<user-id>', now(), 30, 'manual support grant', '<admin-user-id>');
 
 ## Gotchas
 
+- The shared privileged-access SQL test now also verifies administrator-only race insertion; this does not change `premium_grants` entitlement semantics.
 - Do not expose full grant management to normal authenticated users.
 - Admin checks use trusted app metadata or server-side Auth verification, never `user_profiles.role` or `user_metadata`.
 - Keep mobile and web entitlement logic aligned when changing grant semantics.

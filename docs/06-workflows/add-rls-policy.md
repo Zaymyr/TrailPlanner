@@ -1,11 +1,12 @@
 ---
 title: Add RLS Policy
 scope: workflow
-last_verified: 2026-09-23
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260824114439_add_organizer_import_sessions_and_drafts.sql
   - supabase/migrations/20260828161008_add_race_slug_redirects.sql
@@ -87,7 +88,7 @@ Use `supabase/tests/race_slug_redirects_checks.sql` when a public child mapping 
 Use `supabase/tests/web_race_visibility_checks.sql` when a new publication column deliberately leaves client RLS unchanged; verify the server-visible state, direct-client denial for a masked row, and the application filter that must continue excluding it from mobile.
 Use `supabase/tests/organizer_edition_entitlements_checks.sql` with organizer offer route tests when a public child read depends on a service-only commercial entitlement.
 Use `supabase/tests/organizer_racebook_module_settings_checks.sql` to keep service-only publication functions restricted while verifying that trusted admins are resolved from app metadata, never user metadata, and that a service-role invoker RPC does not query `auth.users` directly.
-Use `supabase/tests/privileged_database_access_checks.sql` for global privileged-RPC grants, legacy profile-role self-promotion, and trusted admin metadata.
+Use `supabase/tests/privileged_database_access_checks.sql` for global privileged-RPC grants, legacy profile-role self-promotion, trusted admin metadata, and administrator-only race insertion.
 Use `supabase/tests/organizer_generated_invoice_checks.sql` for a service-role-only invoice-issuance RPC and a trigger that prevents mutation or deletion of issued financial facts without exposing the ledger to clients.
 Use `supabase/tests/organizer_edition_capability_grants_checks.sql` for a service-only grant projection whose invoker RPC allowlists capability keys and retains active/revoked audit state.
 Use `supabase/tests/racebook_gear_checks.sql` for a direct mobile owner table that grants authenticated select/insert/delete, denies `anon`, and keeps every operation scoped to `auth.uid()`.

@@ -1,7 +1,7 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-09-14
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
@@ -114,6 +114,7 @@ where user_id = '<user-id>';
 
 ## Gotchas
 
+- The shared privileged-access SQL test now also verifies administrator-only race insertion; profile ownership and protected server-field behavior are unchanged.
 - Do not read `auth.users` from client code to get profile fields.
 - Use `birth_date` for new age-related work unless maintaining legacy `age`.
 - Trial fields can be missing for older users; server code repairs them.

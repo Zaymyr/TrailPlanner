@@ -59,7 +59,7 @@ export const en: MobileTranslations = {
     title: 'My plans',
     empty: 'No plans yet',
     emptySubtitle: 'Create your first race plan and stop bonking.',
-    createFirst: 'Create my first plan',
+    browseRaces: 'Choose a race',
     noRace: 'No race',
     noRaceWarning: 'This plan is not linked to a race.',
     deleteTitle: 'Delete this plan?',

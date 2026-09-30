@@ -2,7 +2,6 @@ import { useMemo } from 'react';
 import { ActivityIndicator, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
-import type { GpxFeedback } from '../../lib/race-import';
 import { Colors } from '../../constants/colors';
 import type { FuelType, Product } from '../nutrition/types';
 import { Text } from '../themed/Text';
@@ -29,7 +28,6 @@ type OnboardingNutritionProductsStepProps = {
   onSkip: () => void;
   selectedRaceSummary: string | null;
   onChangeRace: () => void;
-  raceImportFeedback: GpxFeedback | null;
   products: Product[];
   selectedProductIds: string[];
   expandedBrands: string[];
@@ -121,7 +119,6 @@ export function OnboardingNutritionProductsStep({
   onSkip,
   selectedRaceSummary,
   onChangeRace,
-  raceImportFeedback,
   products,
   selectedProductIds,
   expandedBrands,
@@ -190,17 +187,6 @@ export function OnboardingNutritionProductsStep({
             <TouchableOpacity style={styles.retryButtonInline} onPress={onChangeRace}>
               <Text style={styles.retryButtonInlineText}>{copy.onboarding.changeRaceCta}</Text>
             </TouchableOpacity>
-          </View>
-        ) : null}
-
-        {raceImportFeedback ? (
-          <View
-            style={[
-              styles.importGpxFeedback,
-              raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
-            ]}
-          >
-            <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
           </View>
         ) : null}
 
@@ -333,9 +319,6 @@ const styles = StyleSheet.create({
   selectionCountText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700' },
   retryButtonInline: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 999, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
   retryButtonInlineText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
-  importGpxFeedback: { marginTop: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 10 },
-  importGpxFeedbackWarning: { borderColor: Colors.warning },
-  importGpxFeedbackText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
   noticeBox: { backgroundColor: Colors.surfaceSecondary, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 8, marginBottom: 24 },
   nutritionNoticeBox: { marginBottom: 14 },
   noticeTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 2 },

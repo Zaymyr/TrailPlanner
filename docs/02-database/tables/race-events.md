@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -276,6 +276,7 @@ where is_live = true
 
 ## Gotchas
 
+- Mobile Courses and onboarding now select only catalog event formats; the retired personal-race section does not change event grouping, visibility, favorites, or update behavior.
 - Event-backed `Créer un plan` clicks include the public event id/name in PostHog for reporting, but do not mutate `race_events`; personal-race clicks intentionally omit parent-event context.
 - Confirmed Material toggles and bounded per-item checked/missing snapshots reuse the existing public event/race analytics context but do not mutate `race_events`. Only published equipment identity/classification and item state accompany the event; persistence keys and notes stay out of PostHog.
 

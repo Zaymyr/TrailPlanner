@@ -1,11 +1,12 @@
 ---
 title: RLS Policies
 scope: database
-last_verified: 2026-09-24
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -170,10 +171,10 @@ Declared through old `race_catalog` policies and renamed/refined in `20260324000
 
 - Public-source races are readable by everyone while `is_live = true`; a preview-selected private format is also readable when its parent event and optional edition are visible, so runners can discover the event and create a plan without receiving a RaceBook.
 - Web-only source races are intentionally not added to the client policy. The server-rendered catalog uses a service-only explicit-column read for `web_catalog_is_live = true` and `is_public = true`; direct mobile/client queries keep their existing `is_live`/preview contract and cannot read a masked row merely because its factual web page persists.
-- Private races are readable by their creator.
+- Legacy private races remain readable by their creator.
 - Non-live organizer formats with `racebook_preview_is_visible = true` are readable by runners only under a visible parent event/edition. Masked rows remain limited to their creator, an active parent-event organizer, or a trusted admin.
 - Admins can manage catalog races.
-- Owners can manage private races through `created_by`.
+- New race inserts are restricted to trusted `app_metadata` administrators. Legacy standalone owners retain update/delete access through `created_by`; organizer writes stay service-mediated.
 - Non-admin inserts, updates, deletes, and direct child-station mutations require the complete standalone boundary: matching owner, private/non-live/non-published flags, null event and edition, disabled RaceBook preview/publication, null approval provenance, and `edition_group_id = id`.
 - Approved organizers mutate claimed races through service routes and `race_event_organizers`, not through `races.created_by`; the select policy separately permits their membership-bounded private reads.
 - `races.organizer_details` is a column on the existing table and inherits these row policies; organizer writes still go through service routes after event membership checks.

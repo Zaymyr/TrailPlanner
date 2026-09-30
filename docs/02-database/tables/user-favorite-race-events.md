@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -100,6 +100,7 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
+- The Courses catalog now contains catalog event formats only; removing its former personal-race section does not change event favorite ownership, ordering, or retention.
 - Clicking `Créer un plan` emits a separate catalog analytics event and does not create, remove, or reorder event favorites.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; favorite ownership, pinning, mutation confirmation, and notification audience contracts remain unchanged.

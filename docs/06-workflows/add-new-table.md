@@ -1,7 +1,7 @@
 ---
 title: Add New Table
 scope: workflow
-last_verified: 2026-09-28
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260915100443_add_generated_organizer_invoices.sql
@@ -47,6 +47,8 @@ Data-only catalog/showcase/roadbook migrations are outside this new-table workfl
 A column-and-trigger migration on an existing table is outside this workflow too. For example, `20260923070437_separate_web_and_mobile_race_visibility.sql` adds a `races` visibility column while deliberately preserving existing client policies; verify that RLS decision, update the existing table documentation, and add a focused rollback SQL check instead.
 
 A function-only authorization repair, such as `20260911120508_fix_single_format_publication_admin_check.sql`, also belongs to the RLS workflow rather than this table workflow.
+
+A policy-only retirement such as `20260930100939_remove_personal_race_creation.sql` also belongs to the RLS workflow: it narrows `races_insert` without creating a table or changing organizer service-route ownership.
 
 A presentation-only change in a consumer listed by the schema documentation, such as the mobile race catalog card, its fourteen-day post-race window for existing favorites, or its `edition_id`-based removal of an older edition after the same display window, does not require a migration. The same applies to a PostHog-only interaction such as `catalog create plan clicked`: it records intent before navigation without persisting a row. Keep the affected schema or table documentation aligned with the consumer's current read contract, then validate the application and documentation without applying the table-creation steps below.
 

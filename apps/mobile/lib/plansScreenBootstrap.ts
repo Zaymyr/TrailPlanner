@@ -11,7 +11,6 @@ type PlansScreenBootstrap = {
   fetchedAt: number;
   isAnonymous: boolean;
   plans: PlanRow[];
-  raceOwnership: Record<string, string | null>;
   userId: string | null;
 };
 
@@ -52,25 +51,14 @@ export async function fetchPlansScreenBootstrap(sessionOverride?: Session | null
 
   const plans = (data as PlanRow[] | null) ?? [];
   const raceIds = [...new Set(plans.filter((plan) => plan.race_id).map((plan) => plan.race_id!))];
-  const raceOwnership: Record<string, string | null> = {};
   const firstWaveStartByRace = new Map<string, string>();
 
-  if (raceIds.length > 0 && userId) {
-    const [{ data: racesData }, { data: waveData }] = await Promise.all([
-      supabase
-      .from('races')
-      .select('id, created_by')
-      .in('id', raceIds),
-      supabase
-        .from('race_start_waves')
-        .select('race_id,start_time,order_index')
-        .in('race_id', raceIds)
-        .order('order_index', { ascending: true }),
-    ]);
-
-    for (const race of racesData ?? []) {
-      raceOwnership[race.id] = race.created_by ?? null;
-    }
+  if (raceIds.length > 0) {
+    const { data: waveData } = await supabase
+      .from('race_start_waves')
+      .select('race_id,start_time,order_index')
+      .in('race_id', raceIds)
+      .order('order_index', { ascending: true });
 
     for (const wave of waveData ?? []) {
       if (!firstWaveStartByRace.has(wave.race_id) && typeof wave.start_time === 'string') {
@@ -99,7 +87,6 @@ export async function fetchPlansScreenBootstrap(sessionOverride?: Session | null
     fetchedAt: Date.now(),
     isAnonymous,
     plans: hydratedPlans,
-    raceOwnership,
     userId,
   };
 

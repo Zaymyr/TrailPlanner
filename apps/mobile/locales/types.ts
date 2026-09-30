@@ -59,7 +59,7 @@ export type MobileTranslations = {
     title: string;
     empty: string;
     emptySubtitle: string;
-    createFirst: string;
+    browseRaces: string;
     noRace: string;
     noRaceWarning: string;
     deleteTitle: string;

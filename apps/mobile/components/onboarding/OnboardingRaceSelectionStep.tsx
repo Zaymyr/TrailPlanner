@@ -13,9 +13,7 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { Locale, MobileTranslations } from '../../locales/types';
-import type { GpxFeedback, ImportedGpxDocument } from '../../lib/race-import';
 import { Colors } from '../../constants/colors';
-import { GpxImportPreviewModal } from '../race/GpxImportPreviewModal';
 import { RaceEventSummaryCard } from '../race/RaceEventSummaryCard';
 import { Text } from '../themed/Text';
 import { OnboardingShell } from './OnboardingIntroSteps';
@@ -52,37 +50,14 @@ type OnboardingRaceSelectionStepProps = {
   loadingRaces: boolean;
   raceLoadError: string | null;
   onRetryRaces: () => void;
-  personalRaceOptions: OnboardingRaceOption[];
   raceEventGroups: OnboardingRaceEventGroup[];
-  publicRaceOptions: OnboardingRaceOption[];
   selectedRaceId: string | null;
   selectedRaceSummary: string | null;
   selectedRaceEvent: OnboardingRaceEventGroup | null;
   onOpenRaceEvent: (event: OnboardingRaceEventGroup) => void;
   onCloseRaceEvent: () => void;
   onSelectRace: (raceId: string) => void;
-  importingRaceGpx: boolean;
-  raceImportFeedback: GpxFeedback | null;
-  onImportRaceGpx: () => void;
-  pendingRaceGpxDocument: ImportedGpxDocument | null;
-  pendingRaceGpxName: string;
-  onChangePendingRaceGpxName: (value: string) => void;
-  onCancelRaceGpxPreview: () => void;
-  onConfirmRaceGpxImport: () => void;
 };
-
-function formatRaceDate(isoDate: string | null, locale: Locale) {
-  if (!isoDate) return null;
-
-  const date = new Date(isoDate);
-  if (Number.isNaN(date.getTime())) return null;
-
-  return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
 
 function formatEventDate(isoDate: string | null, locale: Locale) {
   if (!isoDate) return null;
@@ -137,23 +112,13 @@ export function OnboardingRaceSelectionStep({
   loadingRaces,
   raceLoadError,
   onRetryRaces,
-  personalRaceOptions,
   raceEventGroups,
-  publicRaceOptions,
   selectedRaceId,
   selectedRaceSummary,
   selectedRaceEvent,
   onOpenRaceEvent,
   onCloseRaceEvent,
   onSelectRace,
-  importingRaceGpx,
-  raceImportFeedback,
-  onImportRaceGpx,
-  pendingRaceGpxDocument,
-  pendingRaceGpxName,
-  onChangePendingRaceGpxName,
-  onCancelRaceGpxPreview,
-  onConfirmRaceGpxImport,
 }: OnboardingRaceSelectionStepProps) {
   const filteredRaceEventGroups = useMemo(() => {
     const normalizedSearch = raceSearch.trim().toLowerCase();
@@ -174,15 +139,6 @@ export function OnboardingRaceSelectionStep({
       })
       .filter((event) => event.races.length > 0);
   }, [raceEventGroups, raceSearch]);
-  const filteredPersonalRaceOptions = useMemo(() => {
-    const normalizedSearch = raceSearch.trim().toLowerCase();
-    if (!normalizedSearch) return personalRaceOptions;
-
-    return personalRaceOptions.filter((race) => {
-      const location = race.location_text?.toLowerCase() ?? '';
-      return race.name.toLowerCase().includes(normalizedSearch) || location.includes(normalizedSearch);
-    });
-  }, [personalRaceOptions, raceSearch]);
   const selectedRaceEventDate = selectedRaceEvent
     ? formatEventDate(selectedRaceEvent.race_date, locale)
     : null;
@@ -199,36 +155,6 @@ export function OnboardingRaceSelectionStep({
       : copy.catalog.multipleFormatsLabel.replace('{count}', String(selectedRaceEvent.races.length))
     : null;
 
-  const renderRaceOption = (race: OnboardingRaceOption) => {
-    const selected = race.id === selectedRaceId;
-    const raceMeta = [race.location_text, formatRaceDate(race.race_date, locale)]
-      .filter(Boolean)
-      .join(' • ');
-
-    return (
-      <TouchableOpacity
-        key={race.id}
-        style={[styles.raceChoiceCard, selected && styles.raceChoiceCardSelected]}
-        disabled={race.elevation_gain_m === null}
-        onPress={() => onSelectRace(race.id)}
-      >
-        <View style={styles.raceChoiceHeader}>
-          <Text style={styles.raceChoiceTitle}>{race.name}</Text>
-          {selected ? (
-            <View style={styles.raceSelectedBadge}>
-              <Text style={styles.raceSelectedBadgeText}>{copy.onboarding.raceSelectedBadge}</Text>
-            </View>
-          ) : null}
-        </View>
-        <Text style={styles.raceChoiceStats}>
-          {race.distance_km} km •{' '}
-          {race.elevation_gain_m === null ? 'D+ non renseigné' : `D+ ${race.elevation_gain_m} m`}
-        </Text>
-        {raceMeta ? <Text style={styles.raceChoiceMeta}>{raceMeta}</Text> : null}
-      </TouchableOpacity>
-    );
-  };
-
   return (
     <>
       <OnboardingShell
@@ -244,35 +170,6 @@ export function OnboardingRaceSelectionStep({
         <Text style={styles.predictionHint}>{copy.onboarding.raceHint}</Text>
 
         <View style={styles.racePickerPanel}>
-          <View style={[styles.noticeBox, styles.raceImportNoticeBox]}>
-            <Text style={styles.noticeTitle}>{copy.onboarding.raceImportTitle}</Text>
-            <Text style={styles.noticeText}>{copy.onboarding.raceImportSubtitle}</Text>
-            <TouchableOpacity
-              style={[styles.importGpxButton, importingRaceGpx && styles.buttonDisabled]}
-              onPress={onImportRaceGpx}
-              disabled={importingRaceGpx}
-            >
-              {importingRaceGpx ? (
-                <ActivityIndicator color={Colors.brandPrimary} />
-              ) : (
-                <View style={styles.importGpxButtonContent}>
-                  <Ionicons name="document-attach-outline" size={18} color={Colors.brandPrimary} />
-                  <Text style={styles.importGpxButtonText}>{copy.onboarding.raceImportCta}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-            {raceImportFeedback ? (
-              <View
-                style={[
-                  styles.importGpxFeedback,
-                  raceImportFeedback.tone === 'warning' && styles.importGpxFeedbackWarning,
-                ]}
-              >
-                <Text style={styles.importGpxFeedbackText}>{raceImportFeedback.message}</Text>
-              </View>
-            ) : null}
-          </View>
-
           {selectedRaceSummary ? (
             <View style={styles.inlineInfoRow}>
               <View style={styles.selectionCountPill}>
@@ -302,20 +199,13 @@ export function OnboardingRaceSelectionStep({
                 <Text style={styles.retryButtonInlineText}>{copy.common.retry}</Text>
               </TouchableOpacity>
             </View>
-          ) : filteredPersonalRaceOptions.length === 0 && filteredRaceEventGroups.length === 0 ? (
+          ) : filteredRaceEventGroups.length === 0 ? (
             <View style={styles.raceCenteredState}>
               <Text style={styles.emptyTitle}>{copy.onboarding.raceEmptyTitle}</Text>
               <Text style={styles.emptySubtitle}>{copy.onboarding.raceEmptySubtitle}</Text>
             </View>
           ) : (
             <View style={styles.raceEventList}>
-              {filteredPersonalRaceOptions.length > 0 ? (
-                <View style={styles.raceGroup}>
-                  <Text style={styles.raceGroupLabel}>{copy.races.myRaces}</Text>
-                  {filteredPersonalRaceOptions.map(renderRaceOption)}
-                </View>
-              ) : null}
-
               {filteredRaceEventGroups.map((event) => (
                 <RaceEventSummaryCard
                   key={event.id}
@@ -329,26 +219,10 @@ export function OnboardingRaceSelectionStep({
                 />
               ))}
 
-              {publicRaceOptions.length > 0 ? (
-                <View style={styles.raceGroup}>
-                  <Text style={styles.raceGroupLabel}>{copy.races.publicRaces}</Text>
-                  {publicRaceOptions.map(renderRaceOption)}
-                </View>
-              ) : null}
             </View>
           )}
         </View>
       </OnboardingShell>
-
-      <GpxImportPreviewModal
-        visible={Boolean(pendingRaceGpxDocument)}
-        document={pendingRaceGpxDocument}
-        raceName={pendingRaceGpxName}
-        onRaceNameChange={onChangePendingRaceGpxName}
-        onCancel={onCancelRaceGpxPreview}
-        onConfirm={onConfirmRaceGpxImport}
-        confirming={importingRaceGpx}
-      />
 
       <Modal
         visible={Boolean(selectedRaceEvent)}
@@ -446,7 +320,6 @@ const styles = StyleSheet.create({
   predictionHint: { color: Colors.brandPrimary, fontSize: 13, lineHeight: 18, textAlign: 'center', marginTop: -8, marginBottom: 20, fontWeight: '600' },
   racePickerPanel: { gap: 14, marginBottom: 16 },
   textInput: { backgroundColor: Colors.surfaceSecondary, color: Colors.textPrimary, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 16, paddingVertical: 14, fontSize: 16, marginBottom: 8 },
-  buttonDisabled: { opacity: 0.6 },
   errorText: { color: Colors.danger, fontSize: 13, textAlign: 'center', marginTop: 4, marginBottom: 16 },
   raceCenteredState: { alignItems: 'center', justifyContent: 'center', paddingVertical: 28, gap: 10 },
   raceStateText: { color: Colors.textSecondary, fontSize: 14, textAlign: 'center' },
@@ -456,14 +329,6 @@ const styles = StyleSheet.create({
   emptySubtitle: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20, textAlign: 'center' },
   inlineInfoRow: { flexDirection: 'row', justifyContent: 'flex-start', marginBottom: 12 },
   raceEventList: { gap: 16 },
-  raceGroup: { gap: 0 },
-  raceGroupLabel: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8 },
-  raceChoiceCard: { borderLeftWidth: 3, borderLeftColor: 'transparent', borderBottomWidth: 1, borderBottomColor: Colors.border, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 13, gap: 5 },
-  raceChoiceCardSelected: { borderLeftColor: Colors.brandPrimary, borderBottomColor: 'transparent', backgroundColor: Colors.brandSurface },
-  raceChoiceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
-  raceChoiceTitle: { flex: 1, color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
-  raceChoiceStats: { color: Colors.textPrimary, fontSize: 14, fontWeight: '600' },
-  raceChoiceMeta: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
   eventSummaryRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
   summaryPill: { paddingHorizontal: 10, paddingVertical: 7, borderRadius: 999, backgroundColor: Colors.surfaceSecondary, borderWidth: 1, borderColor: Colors.border },
   summaryPillText: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
@@ -471,16 +336,6 @@ const styles = StyleSheet.create({
   selectionCountText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700' },
   raceSelectedBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 999, backgroundColor: Colors.brandPrimary },
   raceSelectedBadgeText: { color: Colors.textOnBrand, fontSize: 11, fontWeight: '700', textTransform: 'uppercase' },
-  noticeBox: { backgroundColor: Colors.surfaceSecondary, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 8, marginBottom: 24 },
-  raceImportNoticeBox: { backgroundColor: 'transparent', borderWidth: 0, padding: 0, marginBottom: 2 },
-  noticeTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700', marginBottom: 2 },
-  noticeText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
-  importGpxButton: { minHeight: 48, borderRadius: 14, borderWidth: 1, borderStyle: 'dashed', borderColor: Colors.brandBorder, backgroundColor: Colors.surfaceSecondary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 14, marginTop: 4 },
-  importGpxButtonContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  importGpxButtonText: { color: Colors.brandPrimary, fontSize: 14, fontWeight: '700' },
-  importGpxFeedback: { marginTop: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.surface, paddingHorizontal: 12, paddingVertical: 10 },
-  importGpxFeedbackWarning: { borderColor: Colors.warning },
-  importGpxFeedbackText: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
   modalBackdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(18, 24, 16, 0.24)' },
   sheetOverlay: { ...StyleSheet.absoluteFillObject },
   sheetCard: { maxHeight: '82%', backgroundColor: Colors.background, borderTopLeftRadius: 24, borderTopRightRadius: 24, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 20, paddingTop: 10, paddingBottom: 24, gap: 14 },

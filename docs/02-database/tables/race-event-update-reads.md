@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -42,6 +42,7 @@ related_tables:
 
 ## Gotchas
 
+- Removing the personal-race section from Courses does not change announcement display or read-receipt persistence for catalog events.
 - Clicking `Créer un plan` emits product analytics only; it does not mark organizer announcements read or create a receipt.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not create, remove, or broaden announcement read receipts.

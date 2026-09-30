@@ -1,5 +1,5 @@
 -- Trusted admin authorization and privileged RPC access checks.
--- Run after 20260914055319_harden_privileged_database_access.sql in a privileged SQL session.
+-- Run after 20260930100939_remove_personal_race_creation.sql in a privileged SQL session.
 
 begin;
 
@@ -76,15 +76,10 @@ begin
     and policy_row.tablename = 'races'
     and policy_row.policyname = 'races_insert';
 
-  if lower(policy_expression) not like '%created_by%'
-    or lower(policy_expression) not like '%auth.uid%'
-    or lower(policy_expression) not like '%is_public = false%'
-    or lower(policy_expression) not like '%is_live = false%'
-    or lower(policy_expression) not like '%is_published = false%'
-    or lower(policy_expression) not like '%event_id is null%'
-    or lower(policy_expression) not like '%edition_id is null%'
-    or lower(policy_expression) not like '%racebook_is_live = false%' then
-    raise exception 'races_insert does not enforce the private standalone owner boundary: %', policy_expression;
+  if lower(policy_expression) not like '%is_admin%'
+    or lower(policy_expression) like '%auth.uid%'
+    or lower(policy_expression) like '%created_by%' then
+    raise exception 'races_insert must be restricted to trusted administrators: %', policy_expression;
   end if;
 
   if not exists (
@@ -248,34 +243,26 @@ begin
       null;
   end;
 
-  insert into public.races (
-    id, slug, name, distance_km, elevation_gain_m, created_by,
-    is_public, is_live, is_published, event_id, edition_id,
-    edition_group_id, series_name, racebook_preview_is_visible,
-    racebook_is_live, racebook_publication_approved_at,
-    racebook_publication_approved_by
-  ) values (
-    '20000000-0000-4000-8000-000000000098',
-    'privileged-access-private-race-check',
-    'Allowed private race',
-    21,
-    500,
-    '10000000-0000-0000-0000-000000000098',
-    false, false, false, null, null,
-    '20000000-0000-4000-8000-000000000098',
-    'Allowed private race',
-    false, false, null, null
-  );
-
-  update public.races
-  set distance_km = 22
-  where id = '20000000-0000-4000-8000-000000000098';
-
   begin
-    update public.races
-    set is_public = true, is_live = true, is_published = true
-    where id = '20000000-0000-4000-8000-000000000098';
-    raise exception 'Expected normal user race publication to be rejected.';
+    insert into public.races (
+      id, slug, name, distance_km, elevation_gain_m, created_by,
+      is_public, is_live, is_published, event_id, edition_id,
+      edition_group_id, series_name, racebook_preview_is_visible,
+      racebook_is_live, racebook_publication_approved_at,
+      racebook_publication_approved_by
+    ) values (
+      '20000000-0000-4000-8000-000000000098',
+      'privileged-access-private-race-check',
+      'Forbidden private race',
+      21,
+      500,
+      '10000000-0000-0000-0000-000000000098',
+      false, false, false, null, null,
+      '20000000-0000-4000-8000-000000000098',
+      'Forbidden private race',
+      false, false, null, null
+    );
+    raise exception 'Expected normal user private race insert to be rejected.';
   exception
     when insufficient_privilege then
       null;

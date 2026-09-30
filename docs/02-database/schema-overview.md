@@ -1,11 +1,12 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-28
+last_verified: 2026-09-30
 ai_priority: high
 related_files:
   - supabase/migrations
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
+  - supabase/migrations/20260930100939_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260618160000_add_organizer_dashboard_details.sql
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -104,7 +105,7 @@ related_tables:
 
 # Schema Overview
 
-The September 14 security hardening makes Auth `app_metadata` the only database administrator source, protects profile role/trial/sign-in fields from client mutation, confines user-created races to private standalone rows, restricts privileged analytics/trial/cron/maintenance functions to `service_role`, and makes `product_brand_review` obey caller RLS. It also adds targeted Auth-FK indexes without changing table ownership or business semantics.
+The September 14 security hardening makes Auth `app_metadata` the only database administrator source, protects profile role/trial/sign-in fields from client mutation, confines legacy user-created races to private standalone rows, restricts privileged analytics/trial/cron/maintenance functions to `service_role`, and makes `product_brand_review` obey caller RLS. The September 30 follow-up closes new runner race inserts entirely while preserving administrator and service-mediated organizer authoring.
 
 RaceBook structured organizer content is normalized into `race_edition_services` (edition scope), `race_start_waves` and `race_awards` (format scope). Parent deletion cascades; clients read through RLS and mutate only through service-role replacement RPCs.
 
@@ -311,7 +312,7 @@ erDiagram
 - `products.created_by` is ownership only. Official/shared catalog status is explicit in `products.is_official`; do not reintroduce `created_by is null` heuristics in new code.
 - Organizer access to claimed public races is stored in `race_event_organizers`, not `races.created_by`.
 - Yearly organizer dates belong to `race_event_editions`. Use `races.edition_id` for the event-year membership and `edition_group_id` / `series_name` to group the same format across years.
-- Every `races` insertion path, including standalone private races and admin catalog imports, must initialize the required `edition_group_id` / `series_name` pair; for a new standalone series these default to the new race id and race name.
+- Every supported `races` insertion path (admin catalog or service-mediated organizer creation) must initialize the required `edition_group_id` / `series_name` pair; runner-owned standalone inserts are denied.
 - Dated event formats cannot remain orphaned from `race_event_editions`: an idempotent backfill repairs existing rows and an invoker trigger atomically assigns future service-side inserts that omit `edition_id`.
 - Edition visibility is a mobile parent invariant: a hidden edition forces attached mobile course and RaceBook flags off but preserves durable web visibility. Confirmed edition deletion still cascades its formats while saved plans retain snapshots with a null source link.
 - Organizer manual claims can create non-live `race_events` draft rows before approval; do not expose those rows as live catalog entries by default.
