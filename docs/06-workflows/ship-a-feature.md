@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-29
+last_verified: 2026-09-30
 ai_priority: medium
 related_files:
   - package.json
@@ -13,7 +13,7 @@ related_files:
   - scripts/check-related-docs.mjs
   - .github/workflows/web-ci.yml
   - .github/workflows/main.yml
-  - .github/workflows/eas-update-preview.yml
+  - .github/workflows/eas-update-development.yml
   - .github/workflows/eas-update-production.yml
   - .github/CODEOWNERS
   - .github/pull_request_template.md
@@ -85,7 +85,7 @@ git log --branches --not --remotes --oneline
 
 The web CI workflow runs on pull requests and on `main`. It fetches Git history and runs `npm run docs:check` against the pull-request base commit or the previous `main` commit, then runs lint, typecheck, the complete web Vitest suite, and the production build. The mobile pre-check runs on pull requests and on `main` when mobile code, shared packages, workspace manifests, the lockfile, Turbo configuration, or its workflow changes. It blocks on mobile lint, typecheck, unit tests, and Expo dependency compatibility. Keep targeted local tests for fast feedback, but do not remove these full gates from CI.
 
-Preview OTA publication runs only after the same mobile lint, typecheck, unit tests, and Expo dependency checks pass. Production OTA publication is never automatic on a push to `main`: dispatch it manually with the exact commit SHA already merged into `main`, confirm with `PROMOTE_TO_PRODUCTION`, and use the protected `production` GitHub environment for required reviewer approval. Promote only a commit already validated on preview.
+Development OTA publication runs on mobile-relevant pushes to `dev/**`, but only after the same mobile lint, typecheck, unit tests, and Expo dependency checks pass. It publishes to the EAS `development` channel and environment consumed by the installed `Pace Yourself Dev` build. The job still references the GitHub `Preview` environment solely because that existing environment stores `EXPO_TOKEN`; this GitHub secret boundary does not select the EAS OTA target. Production OTA publication is never automatic on a push to `main`: dispatch it manually with the exact commit SHA already merged into `main`, confirm with `PROMOTE_TO_PRODUCTION`, and use the protected `production` GitHub environment for required reviewer approval. Promote only changes already validated through the development OTA flow.
 
 Files under GitHub workflows, Supabase, auth, and payment boundaries have targeted CODEOWNERS review. Dependabot consolidates routine npm and GitHub Actions minor/patch maintenance into one monthly multi-ecosystem pull request, with an open-version-update limit of one per ecosystem as a fallback. Security updates can still open separate urgent pull requests and must not be delayed merely to preserve the monthly batch. Dependency pull requests must pass the same verification gates as feature changes, but `dependabot/**` branches do not create Vercel deployments; the approved merge on `main` is the single production build. npm and GitHub Actions major upgrades are excluded from automatic PRs and must be planned as explicit migrations. Expo SDK and native React Native dependencies are excluded from isolated Dependabot bumps and must be upgraded together through `npx expo install`. The Supabase client is capped below the release that drops Node 20 support until the repository deliberately migrates its CI and runtimes to Node 22.
 
@@ -107,7 +107,7 @@ The root `packageManager` pin is required by Turbo workspace discovery. Update i
 - Do not add generic SaaS prose to project docs.
 - Do not skip duplicate-event/idempotency checks for onboarding/auth flows.
 - Do not bypass a failing CI check by making it non-blocking.
-- Do not publish a production OTA from an unmerged ref or without validating it on preview first.
+- Do not publish a production OTA from an unmerged ref or without validating the changes through the development OTA flow first.
 
 ## Related Docs
 
