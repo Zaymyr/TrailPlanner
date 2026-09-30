@@ -61,7 +61,7 @@ related_tables:
 
 One offer is purchased per event edition, independently of participant and format counts. Event membership authorizes every draft editor; the offer authorizes public output and costly operations. Disabling or losing publication access masks content without deleting it.
 
-The public `/organisateurs` page presents these edition offers alongside a separate Google Play CTA for inspecting the Trail TST example in the runner app. That demonstration path does not create an organizer entitlement or start a checkout.
+The public `/organisateurs` page presents these edition offers after an acquisition hero whose secondary action scrolls to the Trail TST demonstration. Google Play remains available from that detailed demo and the final CTA surface. Neither demonstration path creates an organizer entitlement or starts a checkout.
 
 Published organizer proof cards on the same page are independent editorial records. Their highlighted acquisition surface, prominent usage metrics, and visually separated testimonial are presentation only. Featuring or depublishing an edition neither grants nor revokes its commercial tier, and the aggregate usage snapshot is not a billable participant count.
 

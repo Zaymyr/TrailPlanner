@@ -13,12 +13,24 @@ describe("organizer landing TST discovery", () => {
     expect(source).toContain('<dl className="grid grid-cols-2 gap-3">');
     expect(source).toContain("bg-gradient-to-br from-brand-surface");
     expect(source).toContain("socialProofs.map");
+    expect(source).toContain("Preuve terrain");
+    expect(source).toContain("featuredProof.uniqueReaders");
   });
 
-  it("sends the secondary CTA to the production Android app", () => {
+  it("keeps the hero demo on-page and the production Android CTA in the full demo", () => {
     expect(source).toContain("https://play.google.com/store/apps/details?id=com.paceyourself.app");
+    expect(source).toContain('href="#exemple-tst"');
+    expect(source).toContain("Voir la démo du Livret");
     expect(source).toContain("Télécharger l’app et voir TST");
-    expect(source).not.toContain("Voir un exemple complet");
+    expect(source).toContain("Une seule source d’information pour vos coureurs");
+  });
+
+  it("uses an optimized, controllable hero video with a static poster", () => {
+    expect(source).toContain("/landing/organisateurs/racebook-demo.mp4");
+    expect(source).toContain("/landing/organisateurs/racebook-demo-poster.webp");
+    expect(source).toContain("playsInline");
+    expect(source).toContain("Mettre en pause la démonstration");
+    expect(source).toContain('window.matchMedia("(prefers-reduced-motion: reduce)")');
   });
 
   it("explains the complete path to the Trail TST Livret coureur", () => {

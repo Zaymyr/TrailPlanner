@@ -28,7 +28,7 @@ related_tables:
 
 ## Purpose
 
-`organizer_social_proofs` stores the administrator-curated, edition-scoped proof cards published on `/organisateurs`. It combines optional consented organizer copy with a durable snapshot of aggregate RaceBook usage. The public landing gives this evidence a dedicated highlighted surface, presents the two aggregate values as semantic metrics, and sets an optional testimonial apart visually. The landing never queries PostHog directly and never receives runner identities.
+`organizer_social_proofs` stores the administrator-curated, edition-scoped proof cards published on `/organisateurs`. It combines optional consented organizer copy with a durable snapshot of aggregate RaceBook usage. The public landing summarizes the first ordered proof in its conversion hero, then gives the complete published selection a dedicated highlighted surface with semantic metrics and an optional visually distinct testimonial. The landing never queries PostHog directly and never receives runner identities.
 
 ## Key Concepts
 
@@ -102,6 +102,7 @@ limit 3;
 - Do not call PostHog from the landing request. Refresh the persisted snapshot from the protected admin route and invalidate the landing cache only after the database write succeeds.
 - Do not expose drafts or audit ids through an anonymous Data API grant. Public presentation remains server-only and allowlisted.
 - The event favorite count is event-scoped current stock and is intentionally not stored in an edition proof.
+- The hero and highlighted section intentionally reuse the same first ordered snapshot; do not compute a separate or fresher metric in the client.
 
 ## Related Docs
 

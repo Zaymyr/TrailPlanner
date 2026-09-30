@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useState, type SVGProps } from "react";
+import { useEffect, useRef, useState, type SVGProps } from "react";
 import type { Route } from "next";
 
 import { trackGoogleAnalyticsEvent } from "../../lib/google-analytics";
@@ -118,7 +118,33 @@ const CheckIcon = (props: SVGProps<SVGSVGElement>) => (
 
 export function OrganizerLandingPage({ attribution, creationHref, socialProofs }: OrganizerLandingPageProps) {
   const [activeDemo, setActiveDemo] = useState<DemoKey>("course");
+  const [isHeroVideoPlaying, setIsHeroVideoPlaying] = useState(true);
+  const heroVideoRef = useRef<HTMLVideoElement>(null);
   const selectedDemo = demoViews.find((view) => view.key === activeDemo) ?? demoViews[0];
+  const featuredProof = socialProofs[0] ?? null;
+
+  useEffect(() => {
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const syncMotionPreference = () => {
+      if (reducedMotion.matches) {
+        heroVideoRef.current?.pause();
+        setIsHeroVideoPlaying(false);
+      }
+    };
+    syncMotionPreference();
+    reducedMotion.addEventListener("change", syncMotionPreference);
+    return () => reducedMotion.removeEventListener("change", syncMotionPreference);
+  }, []);
+
+  const toggleHeroVideo = () => {
+    const video = heroVideoRef.current;
+    if (!video) return;
+    if (video.paused) {
+      void video.play().catch(() => setIsHeroVideoPlaying(false));
+    } else {
+      video.pause();
+    }
+  };
 
   const trackCta = (kind: "primary" | "secondary", placement: "hero" | "demo" | "final", destination: string) => {
     trackGoogleAnalyticsEvent("organizer_landing_cta_clicked", {
@@ -153,40 +179,124 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
     </a>
   );
 
+  const demoCta = () => (
+    <a
+      href="#exemple-tst"
+      onClick={() => trackCta("secondary", "hero", "#exemple-tst")}
+      className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-border bg-card/90 px-5 py-3 text-center text-sm font-semibold text-foreground transition hover:border-brand-border hover:bg-brand-surface hover:text-brand focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:border-emerald-300 dark:hover:text-emerald-100"
+    >
+      Voir la démo du Livret
+      <ArrowIcon className="h-4 w-4 rotate-90" />
+    </a>
+  );
+
   return (
     <div className="space-y-12 pb-12 sm:space-y-16 sm:pb-16">
-      <section className="relative overflow-hidden rounded-3xl border border-border bg-gradient-to-br from-card via-card to-muted p-5 shadow-[0_24px_70px_rgba(45,80,22,0.10)] sm:p-8 lg:p-12">
-        <div className="absolute -right-20 -top-20 h-72 w-72 rounded-full bg-brand-surface blur-3xl dark:bg-emerald-500/10" aria-hidden />
-        <div className="relative grid items-center gap-9 lg:grid-cols-[1.02fr_0.98fr] lg:gap-12">
-          <div className="space-y-6">
-            <p className="inline-flex rounded-full border border-brand-border bg-brand-surface px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-brand dark:border-emerald-400/30 dark:bg-emerald-400/10 dark:text-emerald-100">
-              Pour les organisateurs de courses
+      <section className="relative overflow-hidden rounded-3xl border border-brand-border bg-gradient-to-br from-brand-surface via-card to-muted p-5 shadow-[0_28px_80px_rgba(45,80,22,0.14)] sm:p-8 lg:p-12 dark:border-emerald-400/25 dark:from-emerald-400/10 dark:via-card dark:to-card">
+        <div className="absolute -left-24 -top-32 h-80 w-80 rounded-full bg-card/80 blur-3xl dark:bg-emerald-300/5" aria-hidden />
+        <div className="absolute -bottom-32 -right-20 h-96 w-96 rounded-full bg-brand/10 blur-3xl dark:bg-emerald-300/10" aria-hidden />
+        <div className="relative grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
+          <div className="space-y-7">
+            <p className="inline-flex rounded-full border border-brand-border bg-card/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-sm dark:border-emerald-400/30 dark:bg-emerald-950/50 dark:text-emerald-100">
+              Le Livret coureur mobile des trails
             </p>
-            <div className="space-y-4">
-              <h1 className="text-4xl font-semibold leading-[1.08] tracking-tight text-foreground sm:text-5xl lg:text-6xl">
-                Le Livret coureur de votre trail, directement dans la poche de vos coureurs
+            <div className="space-y-5">
+              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.04] tracking-[-0.035em] text-foreground sm:text-5xl lg:text-[3.65rem]">
+                Une seule source d’information pour vos coureurs. Jusqu’à la ligne de départ.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-                Centralisez parcours, horaires, ravitaillements, matériel, retrait des dossards et informations pratiques dans un Livret coureur mobile clair et facile à consulter.
+                Regroupez parcours, horaires, ravitaillements, matériel, dossards et accès dans un Livret mobile que vos coureurs peuvent consulter au bon moment.
               </p>
             </div>
             <div className="flex flex-col gap-3 sm:flex-row">
               {primaryCta("hero", "Créer mon Livret coureur")}
-              {appCta("hero")}
+              {demoCta()}
             </div>
-            <p className="text-sm text-muted-foreground">Vos informations existent déjà. Pace Yourself les rend simplement plus faciles à retrouver.</p>
+            <ul className="flex flex-wrap gap-x-5 gap-y-2 text-sm text-foreground/80" aria-label="Avantages de l’offre">
+              {["Présence au catalogue gratuite", "Tous vos formats inclus", "Dès 99 € HT par édition"].map((benefit) => (
+                <li key={benefit} className="flex items-center gap-2">
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand text-brand-foreground dark:bg-emerald-400 dark:text-slate-950">
+                    <CheckIcon className="h-3 w-3" />
+                  </span>
+                  {benefit}
+                </li>
+              ))}
+            </ul>
+            {featuredProof ? (
+              <div className="grid max-w-2xl gap-4 rounded-2xl border border-brand-border bg-card/90 p-4 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center dark:border-emerald-400/25 dark:bg-card/80">
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand dark:text-emerald-200">Preuve terrain · {featuredProof.eventName}</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Usage réel mesuré sur l’édition {featuredProof.editionYear}</p>
+                </div>
+                <dl className="grid grid-cols-2 gap-5 sm:text-right">
+                  <div>
+                    <dt className="text-[0.68rem] leading-4 text-muted-foreground">lecteurs uniques estimés</dt>
+                    <dd className="text-2xl font-semibold tracking-tight text-foreground">{featuredProof.uniqueReaders.toLocaleString("fr-FR")}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-[0.68rem] leading-4 text-muted-foreground">ouvertures</dt>
+                    <dd className="text-2xl font-semibold tracking-tight text-foreground">{featuredProof.totalOpens.toLocaleString("fr-FR")}</dd>
+                  </div>
+                </dl>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground">Vos informations existent déjà. Pace Yourself les rend simplement plus faciles à retrouver.</p>
+            )}
           </div>
-          <div className="mx-auto w-full max-w-[360px]">
-            <div className="overflow-hidden rounded-[2rem] border border-border bg-card p-2 shadow-2xl shadow-[rgba(45,80,22,0.14)] sm:p-3">
-              <Image
-                src="/landing/organisateurs/tst-materiel.jpeg"
-                alt="Livret coureur TST affichant le matériel obligatoire et conseillé pour l’Ultra des Cimes"
-                width={712}
-                height={1600}
-                priority
-                sizes="(min-width: 1024px) 360px, 82vw"
-                className="h-auto w-full rounded-[1.45rem]"
-              />
+
+          <div className="relative mx-auto w-full max-w-[390px] lg:justify-self-end">
+            <div className="absolute -left-8 top-24 hidden rounded-2xl border border-border bg-card/95 p-4 shadow-xl sm:block lg:-left-24" aria-hidden>
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-brand">Tout au même endroit</p>
+              <p className="mt-1 max-w-40 text-sm leading-5 text-muted-foreground">Parcours, matériel, dossards et accès.</p>
+            </div>
+            <div className="relative overflow-hidden rounded-[2.2rem] border border-foreground/10 bg-foreground p-2.5 shadow-2xl shadow-[rgba(45,80,22,0.22)] dark:border-emerald-300/15 dark:bg-emerald-950">
+              <div className="flex items-center justify-between px-3 py-2 text-background dark:text-emerald-50">
+                <div>
+                  <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-background/60 dark:text-emerald-100/60">Aperçu réel</p>
+                  <p className="text-sm font-semibold">Trail TST · Ultra des Cimes</p>
+                </div>
+                <span className="flex items-center gap-1.5 rounded-full bg-background/10 px-2.5 py-1 text-[0.68rem] font-medium">
+                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  Livret publié
+                </span>
+              </div>
+              <div className="relative aspect-[540/1212] overflow-hidden rounded-[1.55rem] bg-card">
+                <Image
+                  src="/landing/organisateurs/racebook-demo-poster.webp"
+                  alt="Aperçu du Livret coureur Trail TST affichant le tracé de l’Ultra des Cimes"
+                  fill
+                  priority
+                  sizes="(min-width: 1024px) 390px, 88vw"
+                  className="object-cover"
+                />
+                <video
+                  ref={heroVideoRef}
+                  className="absolute inset-0 h-full w-full object-cover"
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  poster="/landing/organisateurs/racebook-demo-poster.webp"
+                  aria-label="Démonstration du Livret coureur Trail TST, du catalogue aux informations de course"
+                  onPlay={() => setIsHeroVideoPlaying(true)}
+                  onPause={() => setIsHeroVideoPlaying(false)}
+                >
+                  <source src="/landing/organisateurs/racebook-demo.mp4" type="video/mp4" />
+                </video>
+                <button
+                  type="button"
+                  onClick={toggleHeroVideo}
+                  className="absolute bottom-3 right-3 inline-flex min-h-9 items-center justify-center rounded-full border border-white/30 bg-slate-950/75 px-3 text-xs font-semibold text-white shadow-lg backdrop-blur transition hover:bg-slate-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
+                  aria-label={isHeroVideoPlaying ? "Mettre en pause la démonstration" : "Lire la démonstration"}
+                >
+                  {isHeroVideoPlaying ? "Pause" : "Lire"}
+                </button>
+              </div>
+            </div>
+            <div className="absolute -bottom-5 -right-3 rounded-2xl border border-brand-border bg-brand px-4 py-3 text-brand-foreground shadow-xl sm:-right-8 dark:bg-emerald-400 dark:text-slate-950">
+              <p className="text-xs font-semibold">Consultable sur mobile</p>
+              <p className="mt-0.5 text-[0.68rem] opacity-80">Avant et pendant la course</p>
             </div>
           </div>
         </div>
