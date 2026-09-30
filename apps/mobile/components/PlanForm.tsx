@@ -65,6 +65,7 @@ import type { PlanEditTutorialTargetKey } from '../hooks/usePlanEditTutorial';
 import { Text } from './themed/Text';
 import {
   buildAutoFillPreview,
+  buildAutoFillUsedQuantities,
   type AutoFillPreview,
   type AutoFillResult,
 } from '../lib/autoFillPreview';
@@ -678,6 +679,7 @@ export default function PlanForm({
     if (!autoFillResult) return;
 
     clearAutoFillUndoTimer();
+    setAutoFillProductLimits(buildAutoFillUsedQuantities(autoFillResult));
     setAutoFillUndo({
       startSupplies: values.startSupplies ?? [],
       aidStations: values.aidStations,

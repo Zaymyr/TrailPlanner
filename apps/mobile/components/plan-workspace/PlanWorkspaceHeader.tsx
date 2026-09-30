@@ -50,7 +50,7 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
 
   return (
     <Animated.View style={[styles.header, { height }]}>
-      <Pressable accessibilityLabel={t.planWorkspace.backToPlans} accessibilityRole="button" onPress={onBack} style={[styles.action, { top: topInset + 8, left: 12 }]}>
+      <Pressable accessibilityLabel={t.planWorkspace.backToPlans} accessibilityRole="button" onPress={onBack} style={[styles.action, styles.backAction, { top: topInset + 8, left: 12 }]}>
         <Ionicons name="chevron-back" size={25} color={Colors.textOnBrand} />
       </Pressable>
       <Pressable accessibilityLabel={t.planWorkspace.openHelp} accessibilityRole="button" onPress={() => emitHelpTutorialRequest('planEdit')} style={[styles.action, { top: topInset + 8, right: 12 }]}>
@@ -89,7 +89,8 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
 
 const styles = StyleSheet.create({
   header: { position: 'absolute', zIndex: 30, top: 0, left: 0, right: 0, overflow: 'hidden', backgroundColor: Colors.brandPrimary, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
-  action: { position: 'absolute', zIndex: 5, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.16)' },
+  action: { position: 'absolute', zIndex: 5, width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  backAction: { borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.16)' },
   compact: { position: 'absolute', left: 64, right: 64, height: PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT, justifyContent: 'center' },
   compactCopy: { minWidth: 0, alignItems: 'center' },
   compactTitle: { color: Colors.textOnBrand, fontSize: 17, lineHeight: 21, fontWeight: '800' },
