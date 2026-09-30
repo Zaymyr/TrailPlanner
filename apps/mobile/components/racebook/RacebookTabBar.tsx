@@ -14,6 +14,8 @@ type Props<T extends string> = {
     label: string;
     accessibilityLabel: string;
     onPress: () => void;
+    icon?: keyof typeof Ionicons.glyphMap;
+    testID?: string;
   };
   theme: ResolvedRacebookTheme;
 };
@@ -58,10 +60,10 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress, exi
           accessibilityRole="button"
           onPress={exitAction.onPress}
           style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          testID="racebook-exit-to-catalog"
+          testID={exitAction.testID ?? 'racebook-exit-to-catalog'}
         >
           <View style={styles.iconSurface}>
-            <Ionicons name="trail-sign" size={24} color={Colors.textSecondary} />
+            <Ionicons name={exitAction.icon ?? 'trail-sign'} size={24} color={Colors.textSecondary} />
           </View>
           <Text numberOfLines={1} style={styles.exitText}>{exitAction.label}</Text>
         </Pressable>

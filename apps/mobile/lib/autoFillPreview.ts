@@ -20,6 +20,11 @@ export type AutoFillPreview = {
   worstShortage: AutoFillShortage | null;
 };
 
+export type AutoFillUsedQuantity = {
+  productId: string;
+  maxQuantity: number;
+};
+
 function supplySignature(supplies: Supply[] | undefined) {
   return [...(supplies ?? [])]
     .map((supply) => `${supply.productId}:${supply.quantity}`)
@@ -69,4 +74,22 @@ export function buildAutoFillPreview(
     changedLocationCount,
     worstShortage,
   };
+}
+
+export function buildAutoFillUsedQuantities(result: AutoFillResult): AutoFillUsedQuantity[] {
+  const quantities = new Map<string, number>();
+  const locations = [result.startSupplies, ...result.aidStations.map((station) => station.supplies ?? [])];
+
+  locations.forEach((supplies) => {
+    supplies.forEach((supply) => {
+      if (!supply.productId) return;
+      const quantity = Math.max(0, Math.floor(supply.quantity));
+      quantities.set(supply.productId, (quantities.get(supply.productId) ?? 0) + quantity);
+    });
+  });
+
+  return [...quantities.entries()]
+    .filter(([, quantity]) => quantity > 0)
+    .map(([productId, maxQuantity]) => ({ productId, maxQuantity }))
+    .sort((left, right) => left.productId.localeCompare(right.productId));
 }

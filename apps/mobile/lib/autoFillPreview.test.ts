@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAutoFillPreview, type AutoFillResult } from './autoFillPreview';
+import { buildAutoFillPreview, buildAutoFillUsedQuantities, type AutoFillResult } from './autoFillPreview';
 import type { AidStationFormItem } from '../components/plan-form/contracts';
 
 const station = (name: string, supplies: AidStationFormItem['supplies']): AidStationFormItem => ({
@@ -30,6 +30,26 @@ describe('buildAutoFillPreview', () => {
       changedLocationCount: 2,
       worstShortage: null,
     });
+  });
+
+  it('reuses the quantities applied by the previous auto-fill iteration', () => {
+    const result: AutoFillResult = {
+      startSupplies: [
+        { productId: 'gel', quantity: 2 },
+        { productId: 'bar', quantity: 1 },
+      ],
+      aidStations: [
+        station('Ravito 1', [{ productId: 'gel', quantity: 3 }]),
+        station('Ravito 2', [{ productId: 'drink', quantity: 2 }]),
+      ],
+      unresolvedShortages: [],
+    };
+
+    expect(buildAutoFillUsedQuantities(result)).toEqual([
+      { productId: 'bar', maxQuantity: 1 },
+      { productId: 'drink', maxQuantity: 2 },
+      { productId: 'gel', maxQuantity: 5 },
+    ]);
   });
 
   it('selects the most significant shortage for the compact warning', () => {
