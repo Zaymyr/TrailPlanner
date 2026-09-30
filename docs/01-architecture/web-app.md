@@ -37,6 +37,7 @@ related_files:
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/admin/page.tsx
   - apps/web/app/admin/_components/AdminOrganizerSocialProofsTab.tsx
+  - apps/web/app/admin/_components/AdminOrganizerSocialProofsTab.test.ts
   - apps/web/app/api/admin/organizer-social-proofs/route.ts
   - apps/web/app/api/admin/organizer-social-proofs/route.test.ts
   - apps/web/app/admin/_components/AdminPartnerLinksTab.tsx
@@ -361,7 +362,7 @@ The production web TypeScript project excludes `*.test.ts` and `*.test.tsx` file
 
 The public homepage hero offers two explicit audience routes without adding a blocking interstitial: runners continue to `/race-planner`, while organizers first reach the explanatory `/organisateurs` page. Desktop and mobile navigation call the latter destination `Espace organisateur`, and the planner's private-course form repeats that distinction before a user creates runner-owned race data. Server-rendered `WebSite` and `Organization` JSON-LD connect the canonical site and publisher identities without inventing social profiles or a site-search action.
 
-The `/organisateurs` server page also loads at most three published edition proof snapshots through a server-only service-role helper. The client landing receives only event identity, optional consented quote attribution and aggregate `racebook opened` counts. A dedicated trusted-admin tab selects an edition, captures its analytics from the first real RaceBook publication through today or edition end plus fourteen days, stores that snapshot in Supabase, and invalidates the five-minute landing cache after a successful upsert. PostHog credentials, drafts, consent timestamps and admin actor ids never enter the public component.
+The `/organisateurs` server page also loads at most three published edition proof snapshots through a server-only service-role helper. The client landing receives only event identity, optional consented quote attribution and aggregate `racebook opened` counts. It renders them in a dedicated highlighted section: the aggregate values use semantic description-list markup and stronger metric surfaces, while an optional testimonial uses a separate high-contrast block. A dedicated trusted-admin tab selects an edition through a keyboard-accessible local combobox that filters the authorized list by accent-insensitive trail name, year, and location, captures its analytics from the first real RaceBook publication through today or edition end plus fourteen days, stores that snapshot in Supabase, and invalidates the five-minute landing cache after a successful upsert. PostHog credentials, drafts, consent timestamps and admin actor ids never enter the public component.
 
 ### Organizer Information Import
 

@@ -1,16 +1,18 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 
 import { Button } from "../../../components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "../../../components/ui/card";
 import { Input } from "../../../components/ui/input";
 import { Label } from "../../../components/ui/label";
+import { cn } from "../../../components/utils";
 import {
   organizerSocialProofAdminResponseSchema,
   organizerSocialProofSchema,
   type OrganizerSocialProof,
+  type OrganizerSocialProofEdition,
 } from "../../../lib/organizer-social-proof";
 
 type Draft = {
@@ -39,8 +41,34 @@ const toDraft = (proof: OrganizerSocialProof | undefined): Draft => proof
     }
   : emptyDraft;
 
+const normalizeEditionSearch = (value: string) => value
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .toLocaleLowerCase("fr")
+  .trim();
+
+const formatEditionLabel = (edition: OrganizerSocialProofEdition) =>
+  `${edition.eventName} · ${edition.editionYear}${edition.location ? ` · ${edition.location}` : ""}`;
+
+export function filterOrganizerSocialProofEditions(
+  editions: OrganizerSocialProofEdition[],
+  query: string,
+) {
+  const terms = normalizeEditionSearch(query).split(/\s+/).filter(Boolean);
+  if (terms.length === 0) return editions;
+
+  return editions.filter((edition) => {
+    const searchableValue = normalizeEditionSearch(formatEditionLabel(edition));
+    return terms.every((term) => searchableValue.includes(term));
+  });
+}
+
 export function AdminOrganizerSocialProofsTab({ accessToken }: { accessToken: string | null }) {
+  const editionListboxId = useId();
   const [selectedEditionId, setSelectedEditionId] = useState("");
+  const [editionQuery, setEditionQuery] = useState("");
+  const [isEditionListOpen, setIsEditionListOpen] = useState(false);
+  const [highlightedEditionIndex, setHighlightedEditionIndex] = useState(0);
   const [draft, setDraft] = useState<Draft>(emptyDraft);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -68,6 +96,10 @@ export function AdminOrganizerSocialProofsTab({ accessToken }: { accessToken: st
     () => dataQuery.data?.editions.find((edition) => edition.id === selectedEditionId),
     [dataQuery.data?.editions, selectedEditionId],
   );
+  const filteredEditions = useMemo(
+    () => filterOrganizerSocialProofEditions(dataQuery.data?.editions ?? [], editionQuery),
+    [dataQuery.data?.editions, editionQuery],
+  );
 
   useEffect(() => {
     if (!selectedEditionId && dataQuery.data?.editions[0]) {
@@ -80,6 +112,31 @@ export function AdminOrganizerSocialProofsTab({ accessToken }: { accessToken: st
     setMessage(null);
     setError(null);
   }, [selectedEditionId, selectedProof]);
+
+  useEffect(() => {
+    if (!isEditionListOpen) {
+      setEditionQuery(selectedEdition ? formatEditionLabel(selectedEdition) : "");
+    }
+  }, [isEditionListOpen, selectedEdition]);
+
+  const openEditionList = () => {
+    if (isEditionListOpen) return;
+    setEditionQuery("");
+    setHighlightedEditionIndex(0);
+    setIsEditionListOpen(true);
+  };
+
+  const closeEditionList = () => {
+    setIsEditionListOpen(false);
+    setEditionQuery(selectedEdition ? formatEditionLabel(selectedEdition) : "");
+  };
+
+  const selectEdition = (edition: OrganizerSocialProofEdition) => {
+    setSelectedEditionId(edition.id);
+    setEditionQuery(formatEditionLabel(edition));
+    setHighlightedEditionIndex(0);
+    setIsEditionListOpen(false);
+  };
 
   const saveMutation = useMutation({
     mutationFn: async ({ status, refreshStats }: { status: "draft" | "published"; refreshStats: boolean }) => {
@@ -136,20 +193,103 @@ export function AdminOrganizerSocialProofsTab({ accessToken }: { accessToken: st
         </p>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="social-proof-edition">Édition</Label>
-        <select
-          id="social-proof-edition"
-          className="flex min-h-10 w-full max-w-2xl rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground"
-          value={selectedEditionId}
-          onChange={(event) => setSelectedEditionId(event.target.value)}
-        >
-          {dataQuery.data.editions.map((edition) => (
-            <option key={edition.id} value={edition.id}>
-              {edition.eventName} · {edition.editionYear}{edition.location ? ` · ${edition.location}` : ""}
-            </option>
-          ))}
-        </select>
+      <div className={cn("relative z-20 max-w-2xl space-y-2", isEditionListOpen && "z-50")}>
+        <Label htmlFor="social-proof-edition">Trail / édition</Label>
+        <div className="relative">
+          <Input
+            id="social-proof-edition"
+            type="search"
+            role="combobox"
+            autoComplete="off"
+            aria-autocomplete="list"
+            aria-expanded={isEditionListOpen}
+            aria-controls={editionListboxId}
+            aria-activedescendant={isEditionListOpen && filteredEditions[highlightedEditionIndex]
+              ? `${editionListboxId}-${filteredEditions[highlightedEditionIndex].id}`
+              : undefined}
+            value={editionQuery}
+            placeholder="Rechercher un trail, une année ou un lieu…"
+            className="pr-10"
+            onFocus={openEditionList}
+            onClick={openEditionList}
+            onBlur={closeEditionList}
+            onChange={(event) => {
+              setEditionQuery(event.target.value);
+              setHighlightedEditionIndex(0);
+              setIsEditionListOpen(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Escape") {
+                event.preventDefault();
+                closeEditionList();
+                event.currentTarget.blur();
+                return;
+              }
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                if (!isEditionListOpen) {
+                  openEditionList();
+                  return;
+                }
+                const direction = event.key === "ArrowDown" ? 1 : -1;
+                setHighlightedEditionIndex((current) => filteredEditions.length === 0
+                  ? 0
+                  : (current + direction + filteredEditions.length) % filteredEditions.length);
+                return;
+              }
+              if (event.key === "Enter" && isEditionListOpen && filteredEditions[highlightedEditionIndex]) {
+                event.preventDefault();
+                selectEdition(filteredEditions[highlightedEditionIndex]);
+              }
+            }}
+          />
+          <svg
+            viewBox="0 0 20 20"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+            className={cn(
+              "pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition",
+              isEditionListOpen && "rotate-180",
+            )}
+          >
+            <path d="m5 7.5 5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+        {isEditionListOpen ? (
+          <div
+            id={editionListboxId}
+            role="listbox"
+            aria-label="Trails et éditions"
+            className="absolute left-0 right-0 top-[calc(100%+0.35rem)] max-h-72 overflow-y-auto rounded-md border border-border bg-card p-1 shadow-xl"
+          >
+            {filteredEditions.length > 0 ? filteredEditions.map((edition, index) => (
+              <button
+                key={edition.id}
+                id={`${editionListboxId}-${edition.id}`}
+                type="button"
+                role="option"
+                aria-selected={edition.id === selectedEditionId}
+                onMouseDown={(event) => event.preventDefault()}
+                onMouseEnter={() => setHighlightedEditionIndex(index)}
+                onClick={() => selectEdition(edition)}
+                className={cn(
+                  "flex min-h-11 w-full items-center justify-between gap-4 rounded px-3 py-2 text-left text-sm text-foreground",
+                  index === highlightedEditionIndex ? "bg-brand-surface" : "hover:bg-muted/50",
+                )}
+              >
+                <span className="min-w-0">
+                  <span className="block truncate font-medium">{edition.eventName} · {edition.editionYear}</span>
+                  {edition.location ? <span className="block truncate text-xs text-muted-foreground">{edition.location}</span> : null}
+                </span>
+                {edition.id === selectedEditionId ? <span className="shrink-0 text-xs font-semibold text-brand">Sélectionné</span> : null}
+              </button>
+            )) : (
+              <p className="px-3 py-3 text-sm text-muted-foreground">Aucun trail trouvé.</p>
+            )}
+          </div>
+        ) : null}
       </div>
 
       {selectedEdition ? (

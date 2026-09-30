@@ -63,7 +63,7 @@ One offer is purchased per event edition, independently of participant and forma
 
 The public `/organisateurs` page presents these edition offers alongside a separate Google Play CTA for inspecting the Trail TST example in the runner app. That demonstration path does not create an organizer entitlement or start a checkout.
 
-Published organizer proof cards on the same page are independent editorial records. Featuring or depublishing an edition neither grants nor revokes its commercial tier, and the aggregate usage snapshot is not a billable participant count.
+Published organizer proof cards on the same page are independent editorial records. Their highlighted acquisition surface, prominent usage metrics, and visually separated testimonial are presentation only. Featuring or depublishing an edition neither grants nor revokes its commercial tier, and the aggregate usage snapshot is not a billable participant count.
 
 ## Offers
 

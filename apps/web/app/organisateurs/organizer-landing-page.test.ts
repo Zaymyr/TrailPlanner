@@ -8,7 +8,10 @@ const source = readFileSync(resolve(process.cwd(), "app/organisateurs/organizer-
 describe("organizer landing TST discovery", () => {
   it("renders published RaceBook proof with explicitly estimated readers", () => {
     expect(source).toContain("Ils l’ont utilisé en course");
+    expect(source).toContain("Usage mesuré");
     expect(source).toContain("lecteurs uniques estimés");
+    expect(source).toContain('<dl className="grid grid-cols-2 gap-3">');
+    expect(source).toContain("bg-gradient-to-br from-brand-surface");
     expect(source).toContain("socialProofs.map");
   });
 

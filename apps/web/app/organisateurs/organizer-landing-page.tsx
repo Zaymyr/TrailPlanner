@@ -193,52 +193,70 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
       </section>
 
       {socialProofs.length > 0 ? (
-        <section aria-labelledby="social-proof-title" className="space-y-7">
-          <div className="max-w-3xl space-y-3">
-            <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Ils l’ont utilisé en course</p>
-            <h2 id="social-proof-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
-              Des informations vraiment consultées par les coureurs
-            </h2>
-            <p className="text-base leading-7 text-muted-foreground">
-              Statistiques agrégées des Livrets coureur publiés, hors comptes internes et de test.
-            </p>
-          </div>
-          <div className={`grid gap-4 ${socialProofs.length > 1 ? "lg:grid-cols-3" : ""}`}>
-            {socialProofs.map((proof, index) => (
-              <article
-                key={proof.id}
-                className={`overflow-hidden rounded-2xl border bg-card shadow-sm ${index === 0 ? "border-brand-border shadow-[0_18px_45px_rgba(45,80,22,0.10)]" : "border-border"}`}
-              >
-                <div className="space-y-4 p-6">
-                  <div>
-                    <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand dark:text-emerald-200">
-                      {proof.eventName} · {proof.editionYear}
-                    </p>
-                    {proof.location ? <p className="mt-1 text-sm text-muted-foreground">{proof.location}</p> : null}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <p className="text-3xl font-semibold tracking-tight text-foreground">{proof.uniqueReaders.toLocaleString("fr-FR")}</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">lecteurs uniques estimés</p>
+        <section
+          aria-labelledby="social-proof-title"
+          className="relative overflow-hidden rounded-3xl border border-brand-border bg-gradient-to-br from-brand-surface via-card to-card p-5 shadow-[0_24px_70px_rgba(45,80,22,0.12)] sm:p-8 lg:p-10 dark:border-emerald-400/25 dark:from-emerald-400/10 dark:via-card dark:to-card"
+        >
+          <div className="absolute -right-16 -top-24 h-64 w-64 rounded-full bg-brand/10 blur-3xl dark:bg-emerald-300/10" aria-hidden />
+          <div className="relative space-y-7">
+            <div className="max-w-3xl space-y-3">
+              <p className="inline-flex rounded-full border border-brand-border bg-card/80 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-sm dark:border-emerald-400/30 dark:bg-emerald-950/50 dark:text-emerald-200">
+                Ils l’ont utilisé en course
+              </p>
+              <h2 id="social-proof-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">
+                Des informations vraiment consultées par les coureurs
+              </h2>
+              <p className="text-base leading-7 text-muted-foreground">
+                Statistiques agrégées des Livrets coureur publiés, hors comptes internes et de test.
+              </p>
+            </div>
+            <div className={`grid gap-5 ${socialProofs.length > 1 ? "lg:grid-cols-3" : ""}`}>
+              {socialProofs.map((proof, index) => (
+                <article
+                  key={proof.id}
+                  className={`overflow-hidden rounded-3xl border bg-card/95 shadow-sm ${index === 0 ? "border-brand-border shadow-[0_20px_50px_rgba(45,80,22,0.14)]" : "border-border"}`}
+                >
+                  <div className="space-y-5 p-5 sm:p-6">
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <h3 className="text-base font-semibold text-foreground">
+                          {proof.eventName} <span className="text-muted-foreground">· {proof.editionYear}</span>
+                        </h3>
+                        {proof.location ? <p className="mt-1 text-sm text-muted-foreground">{proof.location}</p> : null}
+                      </div>
+                      <span className="rounded-full bg-brand-surface px-2.5 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-brand dark:bg-emerald-400/10 dark:text-emerald-200">
+                        Usage mesuré
+                      </span>
                     </div>
-                    <div>
-                      <p className="text-3xl font-semibold tracking-tight text-foreground">{proof.totalOpens.toLocaleString("fr-FR")}</p>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">ouvertures du Livret</p>
-                    </div>
+                    <dl className="grid grid-cols-2 gap-3">
+                      <div className="flex flex-col rounded-2xl border border-brand-border/70 bg-brand-surface/70 p-4 dark:border-emerald-400/20 dark:bg-emerald-400/10">
+                        <dt className="order-2 mt-2 text-xs font-medium leading-5 text-foreground/75">lecteurs uniques estimés</dt>
+                        <dd className="order-1 text-4xl font-semibold tracking-[-0.04em] text-brand sm:text-5xl dark:text-emerald-200">
+                          {proof.uniqueReaders.toLocaleString("fr-FR")}
+                        </dd>
+                      </div>
+                      <div className="flex flex-col rounded-2xl border border-border bg-muted/55 p-4">
+                        <dt className="order-2 mt-2 text-xs font-medium leading-5 text-foreground/75">ouvertures du Livret</dt>
+                        <dd className="order-1 text-4xl font-semibold tracking-[-0.04em] text-foreground sm:text-5xl">
+                          {proof.totalOpens.toLocaleString("fr-FR")}
+                        </dd>
+                      </div>
+                    </dl>
+                    {proof.quoteText ? (
+                      <blockquote className="relative overflow-hidden rounded-2xl bg-foreground px-5 py-5 text-sm italic leading-6 text-background shadow-sm dark:bg-emerald-950 dark:text-emerald-50">
+                        <span className="absolute -right-1 -top-5 font-serif text-7xl leading-none text-background/10 dark:text-emerald-100/10" aria-hidden>“</span>
+                        <p className="relative">« {proof.quoteText} »</p>
+                        {proof.quoteAuthorName || proof.quoteAuthorRole ? (
+                          <footer className="relative mt-3 border-t border-background/15 pt-3 text-xs not-italic text-background/70 dark:text-emerald-100/70">
+                            {[proof.quoteAuthorName, proof.quoteAuthorRole].filter(Boolean).join(" · ")}
+                          </footer>
+                        ) : null}
+                      </blockquote>
+                    ) : null}
                   </div>
-                  {proof.quoteText ? (
-                    <blockquote className="border-l-2 border-brand pl-4 text-sm italic leading-6 text-foreground">
-                      « {proof.quoteText} »
-                      {proof.quoteAuthorName || proof.quoteAuthorRole ? (
-                        <footer className="mt-2 text-xs not-italic text-muted-foreground">
-                          {[proof.quoteAuthorName, proof.quoteAuthorRole].filter(Boolean).join(" · ")}
-                        </footer>
-                      ) : null}
-                    </blockquote>
-                  ) : null}
-                </div>
-              </article>
-            ))}
+                </article>
+              ))}
+            </div>
           </div>
         </section>
       ) : null}
