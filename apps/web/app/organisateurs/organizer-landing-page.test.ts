@@ -35,6 +35,15 @@ describe("organizer landing TST discovery", () => {
     expect(source).not.toContain("Consultable sur mobile");
   });
 
+  it("keeps the hero and information grid compact across short and narrow viewports", () => {
+    expect(source).toContain("md:grid-cols-[minmax(0,1.15fr)_minmax(240px,0.75fr)]");
+    expect(source).toContain("lg:max-w-[clamp(240px,calc(40svh-56px),290px)]");
+    expect(source).toContain("lg:text-[clamp(2.65rem,4vw,3.4rem)]");
+    expect(source).toContain("sm:flex-row md:flex-col md:items-start lg:flex-row");
+    expect(source).toContain('<ul className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">');
+    expect(source).toContain("snap-x snap-mandatory overflow-x-auto");
+  });
+
   it("explains the complete path to the Trail TST Livret coureur", () => {
     expect(source).toContain("Dans l’onglet Courses, utilisez la recherche et ouvrez la fiche Trail TST.");
     expect(source).toContain("Choisissez l’un des trois formats");

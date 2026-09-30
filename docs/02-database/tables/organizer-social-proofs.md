@@ -28,7 +28,7 @@ related_tables:
 
 ## Purpose
 
-`organizer_social_proofs` stores the administrator-curated, edition-scoped proof cards published on `/organisateurs`. It combines optional consented organizer copy with a durable snapshot of aggregate RaceBook usage. The public landing summarizes the first ordered proof in its conversion hero, independently of the now self-contained phone demonstration, then gives the complete published selection a dedicated highlighted surface with semantic metrics and an optional visually distinct testimonial. The landing never queries PostHog directly and never receives runner identities.
+`organizer_social_proofs` stores the administrator-curated, edition-scoped proof cards published on `/organisateurs`. It combines optional consented organizer copy with a durable snapshot of aggregate RaceBook usage. The public landing summarizes the first ordered proof in its conversion hero, independently of the now self-contained and viewport-height-constrained phone demonstration, then gives the complete published selection a dedicated highlighted surface with semantic metrics and an optional visually distinct testimonial. Responsive compaction changes only presentation; the landing never queries PostHog directly and never receives runner identities.
 
 ## Key Concepts
 

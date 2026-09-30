@@ -191,24 +191,24 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
   );
 
   return (
-    <div className="space-y-12 pb-12 sm:space-y-16 sm:pb-16">
-      <section className="relative overflow-hidden rounded-3xl border border-brand-border bg-gradient-to-br from-brand-surface via-card to-muted p-5 shadow-[0_28px_80px_rgba(45,80,22,0.14)] sm:p-8 lg:p-12 dark:border-emerald-400/25 dark:from-emerald-400/10 dark:via-card dark:to-card">
+    <div className="space-y-10 pb-10 sm:space-y-14 sm:pb-14 lg:space-y-16 lg:pb-16">
+      <section className="relative overflow-hidden rounded-3xl border border-brand-border bg-gradient-to-br from-brand-surface via-card to-muted p-5 shadow-[0_28px_80px_rgba(45,80,22,0.14)] sm:p-7 lg:p-8 xl:p-10 dark:border-emerald-400/25 dark:from-emerald-400/10 dark:via-card dark:to-card">
         <div className="absolute -left-24 -top-32 h-80 w-80 rounded-full bg-card/80 blur-3xl dark:bg-emerald-300/5" aria-hidden />
         <div className="absolute -bottom-32 -right-20 h-96 w-96 rounded-full bg-brand/10 blur-3xl dark:bg-emerald-300/10" aria-hidden />
-        <div className="relative grid items-center gap-10 lg:grid-cols-[1.08fr_0.92fr] lg:gap-14">
-          <div className="space-y-7">
+        <div className="relative grid items-start gap-8 md:grid-cols-[minmax(0,1.15fr)_minmax(240px,0.75fr)] md:gap-7 lg:grid-cols-[minmax(0,1.08fr)_minmax(240px,0.72fr)] lg:gap-9 xl:gap-12">
+          <div className="space-y-5 lg:space-y-6">
             <p className="inline-flex rounded-full border border-brand-border bg-card/85 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.18em] text-brand shadow-sm dark:border-emerald-400/30 dark:bg-emerald-950/50 dark:text-emerald-100">
               Le Livret coureur mobile des trails
             </p>
             <div className="space-y-5">
-              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.04] tracking-[-0.035em] text-foreground sm:text-5xl lg:text-[3.65rem]">
+              <h1 className="max-w-3xl text-4xl font-semibold leading-[1.04] tracking-[-0.035em] text-foreground sm:text-[2.65rem] lg:text-[clamp(2.65rem,4vw,3.4rem)]">
                 Une seule source d’information pour vos coureurs. Jusqu’à la ligne de départ.
               </h1>
               <p className="max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
                 Regroupez parcours, horaires, ravitaillements, matériel, dossards et accès dans un Livret mobile que vos coureurs peuvent consulter au bon moment.
               </p>
             </div>
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-3 sm:flex-row md:flex-col md:items-start lg:flex-row">
               {primaryCta("hero", "Créer mon Livret coureur")}
               {demoCta()}
             </div>
@@ -244,12 +244,12 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
             )}
           </div>
 
-          <div className="relative mx-auto w-full max-w-[390px] lg:justify-self-end">
+          <div className="relative mx-auto w-full max-w-[260px] sm:max-w-[280px] md:mt-1 md:max-w-[260px] md:justify-self-end lg:max-w-[clamp(240px,calc(40svh-56px),290px)]">
             <div className="relative overflow-hidden rounded-[2.2rem] border border-foreground/10 bg-foreground p-2.5 shadow-2xl shadow-[rgba(45,80,22,0.22)] dark:border-emerald-300/15 dark:bg-emerald-950">
               <div className="flex items-center justify-between px-3 py-2 text-background dark:text-emerald-50">
                 <div>
                   <p className="text-[0.65rem] font-semibold uppercase tracking-[0.16em] text-background/60 dark:text-emerald-100/60">Aperçu réel</p>
-                  <p className="text-sm font-semibold">Trail TST · Ultra des Cimes</p>
+                  <p className="text-sm font-semibold">Trail TST</p>
                 </div>
                 <span className="flex items-center gap-1.5 rounded-full bg-background/10 px-2.5 py-1 text-[0.68rem] font-medium">
                   <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
@@ -262,7 +262,7 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
                   alt="Aperçu du Livret coureur Trail TST affichant le tracé de l’Ultra des Cimes"
                   fill
                   priority
-                  sizes="(min-width: 1024px) 390px, 88vw"
+                  sizes="(min-width: 1024px) 290px, (min-width: 768px) 260px, 280px"
                   className="object-cover"
                 />
                 <video
@@ -369,10 +369,10 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
           <h2 id="runner-result-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Toutes les informations utiles avant le départ, au même endroit</h2>
           <p className="text-base leading-7 text-muted-foreground">Un Livret coureur simple à parcourir sur téléphone, quand une question se pose à la maison, sur la route ou au village départ.</p>
         </div>
-        <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <ul className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
           {runnerInformation.map((item) => (
-            <li key={item} className="flex items-center gap-3 rounded-xl border border-border bg-card p-4 text-sm font-medium text-foreground shadow-sm">
-              <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-brand-surface text-brand dark:bg-emerald-400/10 dark:text-emerald-200"><CheckIcon className="h-4 w-4" /></span>
+            <li key={item} className="flex items-center gap-2 rounded-xl border border-border bg-card p-3 text-xs font-medium text-foreground shadow-sm sm:gap-3 sm:p-4 sm:text-sm">
+              <span className="flex h-6 w-6 flex-none items-center justify-center rounded-full bg-brand-surface text-brand sm:h-7 sm:w-7 dark:bg-emerald-400/10 dark:text-emerald-200"><CheckIcon className="h-4 w-4" /></span>
               {item}
             </li>
           ))}
@@ -395,9 +395,9 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
           <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand dark:text-emerald-200">Une mise en place légère</p>
           <h2 id="setup-title" className="text-3xl font-semibold tracking-tight text-foreground sm:text-4xl">Vous avez déjà les informations. Il ne reste qu’à les rendre faciles à consulter.</h2>
         </div>
-        <ol className="grid gap-4 md:grid-cols-3">
+        <ol className="grid gap-3 sm:gap-4 md:grid-cols-3">
           {setupSteps.map((step) => (
-            <li key={step.number} className="rounded-2xl border border-border bg-card p-6 shadow-sm">
+            <li key={step.number} className="rounded-2xl border border-border bg-card p-5 shadow-sm sm:p-6">
               <span className="font-mono text-sm font-semibold text-brand dark:text-emerald-200">{step.number}</span>
               <h3 className="mt-5 text-xl font-semibold text-foreground">{step.title}</h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.description}</p>
@@ -416,9 +416,9 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
           {appCta("demo", "Télécharger l’app")}
         </div>
 
-        <ol className="grid gap-4 md:grid-cols-3">
+        <ol className="grid gap-3 sm:gap-4 md:grid-cols-3">
           {tstDiscoverySteps.map((step) => (
-            <li key={step.number} className="rounded-2xl border border-border bg-muted/40 p-5">
+            <li key={step.number} className="rounded-2xl border border-border bg-muted/40 p-4 sm:p-5">
               <span className="font-mono text-sm font-semibold text-brand dark:text-emerald-200">{step.number}</span>
               <h3 className="mt-3 text-lg font-semibold text-foreground">{step.title}</h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">{step.description}</p>
@@ -426,7 +426,7 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
           ))}
         </ol>
 
-        <div className="overflow-x-auto" role="tablist" aria-label="Vues du Livret coureur TST">
+        <div className="snap-x snap-mandatory overflow-x-auto" role="tablist" aria-label="Vues du Livret coureur TST">
           <div className="flex min-w-max gap-2 border-b border-border pb-2">
             {demoViews.map((view) => (
               <button
@@ -437,7 +437,7 @@ export function OrganizerLandingPage({ attribution, creationHref, socialProofs }
                 aria-controls={`demo-panel-${view.key}`}
                 id={`demo-tab-${view.key}`}
                 onClick={() => setActiveDemo(view.key)}
-                className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${activeDemo === view.key ? "bg-brand text-brand-foreground dark:bg-emerald-400 dark:text-slate-950" : "bg-muted text-muted-foreground hover:bg-brand-surface hover:text-brand"}`}
+                className={`snap-start rounded-lg px-4 py-2.5 text-sm font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${activeDemo === view.key ? "bg-brand text-brand-foreground dark:bg-emerald-400 dark:text-slate-950" : "bg-muted text-muted-foreground hover:bg-brand-surface hover:text-brand"}`}
               >
                 {view.label}
               </button>

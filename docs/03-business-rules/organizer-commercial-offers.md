@@ -63,7 +63,7 @@ One offer is purchased per event edition, independently of participant and forma
 
 The public `/organisateurs` page presents these edition offers after an acquisition hero whose secondary action scrolls to the Trail TST demonstration. Google Play remains available from that detailed demo and the final CTA surface. Neither demonstration path creates an organizer entitlement or starts a checkout.
 
-Published organizer proof cards on the same page are independent editorial records. Their highlighted acquisition surface, prominent usage metrics, and visually separated testimonial are presentation only. Simplifying the adjacent hero phone by removing its floating explanatory badges likewise changes no offer or entitlement. Featuring or depublishing an edition neither grants nor revokes its commercial tier, and the aggregate usage snapshot is not a billable participant count.
+Published organizer proof cards on the same page are independent editorial records. Their highlighted acquisition surface, prominent usage metrics, and visually separated testimonial are presentation only. Simplifying the adjacent hero phone by removing its floating explanatory badges, constraining it to the viewport height, or compacting the mobile information grid likewise changes no offer or entitlement. Featuring or depublishing an edition neither grants nor revokes its commercial tier, and the aggregate usage snapshot is not a billable participant count.
 
 ## Offers
 
