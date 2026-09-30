@@ -20,7 +20,7 @@ type Props<T extends string> = {
   theme: ResolvedRacebookTheme;
 };
 
-export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress, exitAction, theme }: Props<T>) {
+export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress, exitAction }: Props<T>) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -41,12 +41,12 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress, exi
                 <Ionicons
                   name={tab.icon}
                   size={24}
-                  color={active ? theme.primaryColor : Colors.textMuted}
+                  color={active ? Colors.brandPrimary : Colors.textMuted}
                 />
               </View>
               <Text
                 numberOfLines={1}
-                style={[styles.text, active && { color: theme.primaryColor }]}
+                style={[styles.text, active && styles.textActive]}
               >
                 {tab.label}
               </Text>
@@ -74,21 +74,20 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress, exi
 
 const styles = StyleSheet.create({
   safeArea: {
-    backgroundColor: Colors.surface,
+    backgroundColor: Colors.background,
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
   wrap: {
-    minHeight: 62,
+    minHeight: 60,
     flexDirection: 'row',
     alignItems: 'stretch',
     paddingHorizontal: 4,
-    paddingTop: 4,
   },
   button: {
     flex: 1,
     minWidth: 0,
-    minHeight: 56,
+    minHeight: 60,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 1,
@@ -102,6 +101,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   text: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700' },
+  textActive: { color: Colors.brandPrimary },
   exitText: { color: Colors.textSecondary, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   exitDivider: {
     width: 1,
