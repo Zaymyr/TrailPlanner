@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict 1PeyirxmlBTDzkksgZydplrAM13cDJeauUcCcFdQOv02RvgpFbwKCUA6vuMcM39
+\restrict kkckm2FvUpxkJNFaJBTZjPscfCmbN6m8Q9lHMrYnsPOXR6MFnBkdhKufkenZ2c3
 
 -- Dumped from database version 17.6
 -- Dumped by pg_dump version 17.11
@@ -9507,6 +9507,48 @@ COMMENT ON TABLE public.organizer_racebook_module_settings IS 'Edition and forma
 
 
 --
+-- Name: organizer_social_proofs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organizer_social_proofs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    edition_id uuid NOT NULL,
+    status text DEFAULT 'draft'::text NOT NULL,
+    display_order smallint DEFAULT 0 NOT NULL,
+    quote_text text,
+    quote_author_name text,
+    quote_author_role text,
+    consent_confirmed_at timestamp with time zone,
+    unique_readers integer DEFAULT 0 NOT NULL,
+    total_opens integer DEFAULT 0 NOT NULL,
+    analytics_from date,
+    analytics_to date,
+    analytics_captured_at timestamp with time zone,
+    published_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    created_by uuid,
+    updated_by uuid,
+    CONSTRAINT organizer_social_proofs_analytics_window_check CHECK ((((analytics_from IS NULL) AND (analytics_to IS NULL) AND (analytics_captured_at IS NULL)) OR ((analytics_from IS NOT NULL) AND (analytics_to IS NOT NULL) AND (analytics_captured_at IS NOT NULL) AND (analytics_to >= analytics_from)))),
+    CONSTRAINT organizer_social_proofs_display_order_check CHECK (((display_order >= 0) AND (display_order <= 999))),
+    CONSTRAINT organizer_social_proofs_metrics_check CHECK (((unique_readers >= 0) AND (total_opens >= 0) AND (total_opens >= unique_readers))),
+    CONSTRAINT organizer_social_proofs_publishable_check CHECK (((status = 'draft'::text) OR ((consent_confirmed_at IS NOT NULL) AND (analytics_captured_at IS NOT NULL) AND (published_at IS NOT NULL)))),
+    CONSTRAINT organizer_social_proofs_quote_attribution_check CHECK (((quote_text IS NOT NULL) OR ((quote_author_name IS NULL) AND (quote_author_role IS NULL)))),
+    CONSTRAINT organizer_social_proofs_quote_author_name_check CHECK (((quote_author_name IS NULL) OR ((char_length(quote_author_name) >= 1) AND (char_length(quote_author_name) <= 160)))),
+    CONSTRAINT organizer_social_proofs_quote_author_role_check CHECK (((quote_author_role IS NULL) OR ((char_length(quote_author_role) >= 1) AND (char_length(quote_author_role) <= 160)))),
+    CONSTRAINT organizer_social_proofs_quote_text_check CHECK (((quote_text IS NULL) OR ((char_length(quote_text) >= 1) AND (char_length(quote_text) <= 1000)))),
+    CONSTRAINT organizer_social_proofs_status_check CHECK ((status = ANY (ARRAY['draft'::text, 'published'::text])))
+);
+
+
+--
+-- Name: TABLE organizer_social_proofs; Type: COMMENT; Schema: public; Owner: -
+--
+
+COMMENT ON TABLE public.organizer_social_proofs IS 'Admin-curated edition social proof with immutable-at-display aggregate RaceBook analytics snapshots.';
+
+
+--
 -- Name: partner_link_settings; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -10859,6 +10901,22 @@ ALTER TABLE ONLY public.organizer_racebook_module_settings
 
 
 --
+-- Name: organizer_social_proofs organizer_social_proofs_edition_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_social_proofs
+    ADD CONSTRAINT organizer_social_proofs_edition_id_key UNIQUE (edition_id);
+
+
+--
+-- Name: organizer_social_proofs organizer_social_proofs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_social_proofs
+    ADD CONSTRAINT organizer_social_proofs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: partner_link_settings partner_link_settings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -11997,6 +12055,13 @@ CREATE UNIQUE INDEX organizer_racebook_module_settings_edition_key_idx ON public
 --
 
 CREATE UNIQUE INDEX organizer_racebook_module_settings_race_key_idx ON public.organizer_racebook_module_settings USING btree (race_id, module_key) WHERE (race_id IS NOT NULL);
+
+
+--
+-- Name: organizer_social_proofs_published_order_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX organizer_social_proofs_published_order_idx ON public.organizer_social_proofs USING btree (display_order, published_at DESC) WHERE (status = 'published'::text);
 
 
 --
@@ -13274,6 +13339,30 @@ ALTER TABLE ONLY public.organizer_racebook_module_settings
 
 
 --
+-- Name: organizer_social_proofs organizer_social_proofs_created_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_social_proofs
+    ADD CONSTRAINT organizer_social_proofs_created_by_fkey FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: organizer_social_proofs organizer_social_proofs_edition_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_social_proofs
+    ADD CONSTRAINT organizer_social_proofs_edition_id_fkey FOREIGN KEY (edition_id) REFERENCES public.race_event_editions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: organizer_social_proofs organizer_social_proofs_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organizer_social_proofs
+    ADD CONSTRAINT organizer_social_proofs_updated_by_fkey FOREIGN KEY (updated_by) REFERENCES auth.users(id) ON DELETE SET NULL;
+
+
+--
 -- Name: partner_link_settings partner_link_settings_updated_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -14466,6 +14555,12 @@ ALTER TABLE public.organizer_import_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.organizer_racebook_module_settings ENABLE ROW LEVEL SECURITY;
 
 --
+-- Name: organizer_social_proofs; Type: ROW SECURITY; Schema: public; Owner: -
+--
+
+ALTER TABLE public.organizer_social_proofs ENABLE ROW LEVEL SECURITY;
+
+--
 -- Name: partner_link_settings; Type: ROW SECURITY; Schema: public; Owner: -
 --
 
@@ -14684,7 +14779,7 @@ CREATE POLICY races_delete ON public.races FOR DELETE TO authenticated USING (((
 -- Name: races races_insert; Type: POLICY; Schema: public; Owner: -
 --
 
-CREATE POLICY races_insert ON public.races FOR INSERT TO authenticated WITH CHECK ((( SELECT public.is_admin() AS is_admin) OR ((created_by = ( SELECT auth.uid() AS uid)) AND (is_public = false) AND (is_live = false) AND (is_published = false) AND (event_id IS NULL) AND (edition_id IS NULL) AND (edition_group_id = id) AND (racebook_preview_is_visible = false) AND (racebook_is_live = false) AND (racebook_publication_approved_at IS NULL) AND (racebook_publication_approved_by IS NULL))));
+CREATE POLICY races_insert ON public.races FOR INSERT TO authenticated WITH CHECK (( SELECT public.is_admin() AS is_admin));
 
 
 --
@@ -17240,6 +17335,13 @@ GRANT ALL ON TABLE public.organizer_racebook_module_settings TO service_role;
 
 
 --
+-- Name: TABLE organizer_social_proofs; Type: ACL; Schema: public; Owner: -
+--
+
+GRANT ALL ON TABLE public.organizer_social_proofs TO service_role;
+
+
+--
 -- Name: TABLE partner_link_settings; Type: ACL; Schema: public; Owner: -
 --
 
@@ -17887,5 +17989,5 @@ CREATE EVENT TRIGGER pgrst_drop_watch ON sql_drop
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 1PeyirxmlBTDzkksgZydplrAM13cDJeauUcCcFdQOv02RvgpFbwKCUA6vuMcM39
+\unrestrict kkckm2FvUpxkJNFaJBTZjPscfCmbN6m8Q9lHMrYnsPOXR6MFnBkdhKufkenZ2c3
 

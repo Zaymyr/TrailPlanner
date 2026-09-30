@@ -979,6 +979,43 @@
 
 ---
 
+### Table `public.organizer_social_proofs`
+
+**Columns**
+
+| name | type | not null | default |
+|---|---|:---:|---|
+| `id` | `u` | ✅ | `` |
+| `edition_id` | `u` | ✅ | `` |
+| `status` | `t` | ✅ | `` |
+| `display_order` | `s` | ✅ | `` |
+| `quote_text` | `t` | ❌ | `` |
+| `quote_author_name` | `t` | ❌ | `` |
+| `quote_author_role` | `t` | ❌ | `` |
+| `consent_confirmed_at` | `t` | ❌ | `` |
+| `unique_readers` | `i` | ✅ | `` |
+| `total_opens` | `i` | ✅ | `` |
+| `analytics_from` | `d` | ❌ | `` |
+| `analytics_to` | `d` | ❌ | `` |
+| `analytics_captured_at` | `t` | ❌ | `` |
+| `published_at` | `t` | ❌ | `` |
+| `created_at` | `t` | ✅ | `` |
+| `updated_at` | `t` | ✅ | `` |
+| `created_by` | `u` | ❌ | `` |
+| `updated_by` | `u` | ❌ | `` |
+
+**Primary keys**
+- `organizer_social_proofs_pkey` on (id)
+
+**Foreign keys**
+- `organizer_social_proofs_created_by_fkey`: (created_by) → auth.users(id)
+- `organizer_social_proofs_edition_id_fkey`: (edition_id) → public.race_event_editions(id)
+- `organizer_social_proofs_updated_by_fkey`: (updated_by) → auth.users(id)
+
+**RLS**: ❌ disabled
+
+---
+
 ### Table `public.partner_link_settings`
 
 **Columns**
