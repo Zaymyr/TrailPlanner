@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  Animated,
   FlatList,
   Image,
   Modal,
@@ -20,6 +21,10 @@ import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuide
 import { useGuestAccountPrompt } from '../../hooks/useGuestAccountPrompt';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
 import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
+import {
+  ROOT_HEADER_EXPANDED_BODY_HEIGHT,
+  RootCollapsibleHeader,
+} from '../../components/navigation/RootCollapsibleHeader';
 import {
   CatalogFiltersModal,
   CatalogRaceRow,
@@ -404,6 +409,7 @@ export default function CatalogScreen() {
     onboarding?: 'plan' | 'racebook';
   }>();
   const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const { locale, t } = useI18n();
   const promptGuestAccount = useGuestAccountPrompt();
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
@@ -726,7 +732,7 @@ export default function CatalogScreen() {
       styles.list,
       {
         paddingBottom: 120,
-        paddingTop: Math.max(16, insets.top + 12),
+        paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + 16,
       },
       visibleEventGroups.length === 0 && styles.listEmpty,
     ],
@@ -908,21 +914,42 @@ export default function CatalogScreen() {
   }
 
   if (loading) {
-    return <LoadingState label={t.common.loading} style={styles.container} />;
+    return (
+      <View style={styles.container}>
+        <LoadingState
+          label={t.common.loading}
+          style={[styles.container, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+        />
+        <RootCollapsibleHeader
+          icon="trail-sign-outline"
+          scrollY={scrollY}
+          title={locale === 'fr' ? 'Courses' : 'Races'}
+          topInset={insets.top}
+        />
+      </View>
+    );
   }
 
   if (error) {
     return (
-      <ErrorState
-        title={t.catalog.loadError}
-        retryLabel={t.common.retry}
-        onRetry={() => {
-            setError(null);
-            setLoading(true);
-            fetchEvents();
-        }}
-        style={styles.container}
-      />
+      <View style={styles.container}>
+        <ErrorState
+          title={t.catalog.loadError}
+          retryLabel={t.common.retry}
+          onRetry={() => {
+              setError(null);
+              setLoading(true);
+              fetchEvents();
+          }}
+          style={[styles.container, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+        />
+        <RootCollapsibleHeader
+          icon="trail-sign-outline"
+          scrollY={scrollY}
+          title={locale === 'fr' ? 'Courses' : 'Races'}
+          topInset={insets.top}
+        />
+      </View>
     );
   }
 
@@ -932,8 +959,11 @@ export default function CatalogScreen() {
         data={visibleEventGroups}
         keyExtractor={(item) => item.id}
         contentContainerStyle={listContentStyle}
+        onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
+        scrollEventThrottle={16}
         refreshControl={
           <RefreshControl
+            progressViewOffset={insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT}
             refreshing={refreshing}
             onRefresh={() => {
               setRefreshing(true);
@@ -959,25 +989,6 @@ export default function CatalogScreen() {
                   returnKeyType="search"
                   style={styles.filterInput}
                 />
-                {!onboardingMode ? (
-                  <RaceRequestHeaderButton>
-                    {(openRaceRequest) => (
-                      <TouchableOpacity
-                        accessibilityLabel={t.raceRequests.triggerLabel}
-                        accessibilityRole="button"
-                        activeOpacity={0.78}
-                        onPress={openRaceRequest}
-                        style={styles.raceRequestButton}
-                        testID="catalog-request-race"
-                      >
-                        <Ionicons name="paper-plane-outline" size={17} color={Colors.brandPrimary} />
-                        <Text numberOfLines={1} style={styles.raceRequestButtonText}>
-                          {locale === 'fr' ? 'Demander' : 'Request'}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </RaceRequestHeaderButton>
-                ) : null}
               </View>
               {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
                 <TouchableOpacity style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
@@ -1076,6 +1087,32 @@ export default function CatalogScreen() {
         )}
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
       />
+
+      {!onboardingMode ? (
+        <RaceRequestHeaderButton>
+          {(openRaceRequest) => (
+            <RootCollapsibleHeader
+              action={{
+                accessibilityLabel: t.raceRequests.triggerLabel,
+                icon: 'paper-plane-outline',
+                onPress: openRaceRequest,
+                testID: 'catalog-request-race',
+              }}
+              icon="trail-sign-outline"
+              scrollY={scrollY}
+              title={locale === 'fr' ? 'Courses' : 'Races'}
+              topInset={insets.top}
+            />
+          )}
+        </RaceRequestHeaderButton>
+      ) : (
+        <RootCollapsibleHeader
+          icon="trail-sign-outline"
+          scrollY={scrollY}
+          title={locale === 'fr' ? 'Courses' : 'Races'}
+          topInset={insets.top}
+        />
+      )}
 
       {onboardingMode ? (
         <OnboardingGuideCard

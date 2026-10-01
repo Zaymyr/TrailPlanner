@@ -155,6 +155,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Anonymous Apple identity linking can return existing-account wording when the Apple ID was used in an earlier review attempt; keep that path recoverable through direct Apple ID-token sign-in plus the pending guest-merge flow.
 - A clean E2E install follows the real anonymous-session bootstrap before opening password login. Do not add a production auth bypass for tests; use a dedicated test account and keep test credentials out of `EXPO_PUBLIC_*` variables.
 - Keep Profile fetch retry local to the screen data bootstrap; do not turn it into a new global auth-state subscription or session side effect.
+- The app shell's route-derived light status-bar style for the four branded root headers is presentation-only; it must not become an auth gate, redirect condition, or session listener.
 
 ## Related Docs
 

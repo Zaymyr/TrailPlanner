@@ -1,4 +1,4 @@
-import { memo, useEffect, useState } from 'react';
+import { memo, useEffect, useState, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -9,7 +9,9 @@ import {
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getIntermediateAidStationCount } from '../../lib/planPersistence';
@@ -31,6 +33,9 @@ import { estimateDuration, getPlanCardTitle } from './plansHelpers';
 import type { PlanRow, RaceSection } from './types';
 
 type PlansListProps = {
+  contentTopInset?: number;
+  listHeaderComponent?: ReactNode;
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   sections: RaceSection[];
   collapsedSections: Set<string>;
   activePlanId: string | null;
@@ -64,6 +69,9 @@ type PlansListProps = {
 };
 
 export const PlansList = memo(function PlansList({
+  contentTopInset = 0,
+  listHeaderComponent,
+  onScroll,
   sections,
   collapsedSections,
   activePlanId,
@@ -126,11 +134,18 @@ export const PlansList = memo(function PlansList({
   return (
     <View style={styles.screen}>
       <SectionList
-        contentContainerStyle={[styles.list, sections.length === 0 && styles.listEmpty]}
+        contentContainerStyle={[
+          styles.list,
+          { paddingTop: contentTopInset + spacing[2] },
+          sections.length === 0 && styles.listEmpty,
+        ]}
         keyExtractor={(item) => item.id}
+        ListHeaderComponent={listHeaderComponent ? <View style={styles.listHeader}>{listHeaderComponent}</View> : null}
+        onScroll={onScroll}
         refreshControl={
           <RefreshControl
             onRefresh={onRefresh}
+            progressViewOffset={contentTopInset}
             refreshing={refreshing}
             tintColor={colors.brand.forest}
           />
@@ -213,6 +228,7 @@ export const PlansList = memo(function PlansList({
           );
         }}
         sections={sections.map((section) => ({ ...section, key: section.sectionKey }))}
+        scrollEventThrottle={16}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
           <EmptyState
@@ -515,6 +531,10 @@ const styles = StyleSheet.create({
     padding: spacing[4],
     gap: 0,
     paddingBottom: spacing[8],
+  },
+  listHeader: {
+    gap: spacing[3],
+    marginBottom: spacing[1],
   },
   listEmpty: {
     flex: 1,

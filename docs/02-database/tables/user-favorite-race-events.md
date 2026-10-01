@@ -102,7 +102,7 @@ where event_id = '<event-id>';
 
 - Courses retry and pull-to-refresh reload the favorite snapshot and may then apply its normal sort, but neither action creates or deletes a favorite. Only the existing explicit heart interaction mutates this table.
 
-- Moving the Courses race-request action beside search and removing that screen's floating ellipsis does not create, remove, reorder, or otherwise inspect event favorites.
+- Moving the Courses race-request action into the shared collapsible header does not create, remove, reorder, or otherwise inspect event favorites. Header collapse is scroll presentation only.
 - The Courses catalog now contains catalog event formats only; removing its former personal-race section does not change event favorite ownership, ordering, or retention.
 - Clicking `Créer un plan` emits a separate catalog analytics event and does not create, remove, or reorder event favorites.
 

@@ -96,7 +96,7 @@ This document describes how Pace Yourself allocates products to segment nutritio
 - Organizer station product: product proposed by the race organization for one source ravito.
 - Organizer supply source: selected official ravito products are stored in plan supplies with `source: "organizer"` so they remain available at that ravito even when crew assistance is not allowed.
 - Mobile catalog grouping: an explicit product brand or a recognized brand token creates a collapsible brand group; an unrecognized product name falls back to `Autres marques` / `Other brands` instead of being presented as a brand itself. This is presentation-only and does not alter product nutrition values or favorite ownership.
-- Mobile custom-product creation uses one brand combobox populated from the loaded catalog's explicit brands. Selecting a suggestion reuses its spelling; unmatched non-empty text is submitted as a new free-form `products.brand` value.
+- Mobile custom-product creation uses one scrollable brand combobox populated from the loaded catalog's explicit brands. Each typed character filters the visible options, selecting a suggestion reuses its spelling, and unmatched non-empty text is submitted as a new free-form `products.brand` value.
 
 ## Inputs
 

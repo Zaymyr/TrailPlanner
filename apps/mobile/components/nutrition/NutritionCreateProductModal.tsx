@@ -67,11 +67,9 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
   const [brandFieldFocused, setBrandFieldFocused] = useState(false);
   const normalizedBrand = brand.trim().toLocaleLowerCase();
   const matchingBrandOptions = useMemo(() => {
-    const matching = normalizedBrand
+    return normalizedBrand
       ? brandOptions.filter((option) => option.toLocaleLowerCase().includes(normalizedBrand))
       : brandOptions;
-
-    return matching.slice(0, 6);
   }, [brandOptions, normalizedBrand]);
   const matchesExistingBrand = brandOptions.some(
     (option) => option.toLocaleLowerCase() === normalizedBrand,
@@ -121,21 +119,35 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
               value={brand}
             />
             {brandFieldFocused && matchingBrandOptions.length > 0 ? (
-              <View style={styles.brandSuggestions}>
+              <ScrollView
+                bounces={false}
+                keyboardShouldPersistTaps="always"
+                nestedScrollEnabled
+                showsVerticalScrollIndicator
+                style={styles.brandSuggestions}
+              >
                 {matchingBrandOptions.map((option) => (
                   <TouchableOpacity
                     accessibilityRole="button"
                     key={option}
-                    onPressIn={() => {
+                    onPress={() => {
                       onChangeBrand(option);
                       setBrandFieldFocused(false);
                     }}
                     style={styles.brandSuggestion}
                   >
-                    <Text style={styles.brandSuggestionText}>{option}</Text>
+                    <Text
+                      style={[
+                        styles.brandSuggestionText,
+                        option.toLocaleLowerCase() === normalizedBrand &&
+                          styles.brandSuggestionTextSelected,
+                      ]}
+                    >
+                      {option}
+                    </Text>
                   </TouchableOpacity>
                 ))}
-              </View>
+              </ScrollView>
             ) : null}
             {brand.trim() && !matchesExistingBrand ? (
               <Text style={styles.brandCreateHint}>La marque « {brand.trim()} » sera créée.</Text>
@@ -293,6 +305,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   brandSuggestions: {
+    maxHeight: 220,
     borderWidth: 1,
     borderTopWidth: 0,
     borderColor: Colors.border,
@@ -311,6 +324,10 @@ const styles = StyleSheet.create({
   brandSuggestionText: {
     color: Colors.textPrimary,
     fontSize: 15,
+  },
+  brandSuggestionTextSelected: {
+    color: Colors.brandPrimary,
+    fontWeight: '700',
   },
   brandHint: {
     color: Colors.textMuted,

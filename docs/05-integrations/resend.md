@@ -135,6 +135,7 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - Invitation password creation waits for the shared verified-session refresh before entering `/organizer`; any resulting Resend contact sync remains fire-and-forget and cannot hold that navigation or session readiness open.
 - Keep web contact sync fire-and-forget after session verification; neither contact sync nor the independent entitlement refresh should delay verified-session readiness.
 - Do not tie Resend contact sync to onboarding tab-bar visibility; sync still depends on an identified, non-anonymous session.
+- Do not tie Resend contact sync to the route-derived status-bar style used by branded mobile root headers; that layout decision is visual only.
 - Resend custom contact properties must exist in Resend before syncing them. Keep `includeProperties: false` unless those fields are created in Resend.
 - Resend can return `429` during large syncs. Keep the default request delay or run batches with `startPage`/`maxPages`.
 - Do not add a Resend dependency unless SDK-specific behavior is needed; current code uses REST through `fetch`.

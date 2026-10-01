@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Animated,
   ScrollView,
   StyleSheet,
   View
@@ -13,6 +14,10 @@ import { LoadingState } from '../../components/themed/LoadingState';
 import { Colors } from '../../constants/colors';
 import { SpotlightTutorial, TutorialTarget } from '../../components/help/SpotlightTutorial';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
+import {
+  ROOT_HEADER_EXPANDED_BODY_HEIGHT,
+  RootCollapsibleHeader,
+} from '../../components/navigation/RootCollapsibleHeader';
 import { ProfileAccountSection } from '../../components/profile/ProfileAccountSection';
 import { ProfileChangelogModal } from '../../components/profile/ProfileChangelogModal';
 import { ProfileEstimatorModal } from '../../components/profile/ProfileEstimatorModal';
@@ -40,6 +45,7 @@ import {
 export default function ProfileScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const [onboardingStatuses, setOnboardingStatuses] = useState<OnboardingStatuses>(DEFAULT_ONBOARDING_STATUSES);
   const {
     locale,
@@ -210,7 +216,7 @@ export default function ProfileScreen() {
       styles.content,
       {
         paddingBottom: 120,
-        paddingTop: Math.max(16, insets.top + 12),
+        paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + 16,
       },
     ],
     [insets.top],
@@ -233,22 +239,44 @@ export default function ProfileScreen() {
     tutorialVisible,
   } = useProfileTutorial({
     activeTab: activeProfileTab,
+    minTargetTop: insets.top + 72,
     onActiveTabChange: setActiveProfileTab,
     steps: tutorialSteps,
   });
 
   if (loading) {
-    return <LoadingState label={t.common.loading} style={styles.screen} />;
+    return (
+      <View style={styles.screen}>
+        <LoadingState
+          label={t.common.loading}
+          style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+        />
+        <RootCollapsibleHeader
+          icon="person-outline"
+          scrollY={scrollY}
+          title={t.profile.title}
+          topInset={insets.top}
+        />
+      </View>
+    );
   }
 
   if (loadError) {
     return (
-      <ErrorState
-        title={t.common.error}
-        retryLabel={t.common.retry}
-        onRetry={handleRetryLoad}
-        style={styles.screen}
-      />
+      <View style={styles.screen}>
+        <ErrorState
+          title={t.common.error}
+          retryLabel={t.common.retry}
+          onRetry={handleRetryLoad}
+          style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+        />
+        <RootCollapsibleHeader
+          icon="person-outline"
+          scrollY={scrollY}
+          title={t.profile.title}
+          topInset={insets.top}
+        />
+      </View>
     );
   }
 
@@ -266,7 +294,10 @@ export default function ProfileScreen() {
         contentContainerStyle={contentStyle}
         onContentSizeChange={(_, height) => setTutorialContentHeight(height)}
         onMomentumScrollEnd={handleTutorialScrollSettled}
-        onScroll={handleTutorialScrollEvent}
+        onScroll={(event) => {
+          scrollY.setValue(event.nativeEvent.contentOffset.y);
+          handleTutorialScrollEvent(event);
+        }}
         onScrollEndDrag={handleTutorialScrollSettled}
         ref={scrollRef}
         scrollEventThrottle={16}
@@ -449,6 +480,19 @@ export default function ProfileScreen() {
       <RootScreenActionMenu
         contextLabel={t.profile.title}
         help={{ type: 'tutorial', screenKey: 'profile' }}
+      />
+
+      <RootCollapsibleHeader
+        action={{
+          accessibilityLabel: saveButtonLabel,
+          disabled: saving || !isProfileDirty,
+          icon: 'save-outline',
+          onPress: handleSave,
+        }}
+        icon="person-outline"
+        scrollY={scrollY}
+        title={t.profile.title}
+        topInset={insets.top}
       />
 
       <SpotlightTutorial

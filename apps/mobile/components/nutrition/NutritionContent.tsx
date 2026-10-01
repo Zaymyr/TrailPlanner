@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   View,
   type ListRenderItemInfo,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { Text } from '../themed/Text';
 import { DataText } from '../themed/DataText';
@@ -210,6 +212,7 @@ function buildCatalogRows(
 }
 
 type NutritionContentProps = {
+  contentTopInset?: number;
   locale: 'fr' | 'en';
   isPremium: boolean;
   isAdmin: boolean;
@@ -257,6 +260,7 @@ type NutritionContentProps = {
   onPickNewImage: () => void;
   onRemoveNewImage: () => void;
   onRefresh: () => void;
+  onScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onSubmitCreateProduct: () => void;
   onCancelCreateProduct: () => void;
   onOpenProductDetail: (product: Product) => void;
@@ -266,6 +270,7 @@ type NutritionContentProps = {
 };
 
 export const NutritionContent = memo(function NutritionContent({
+  contentTopInset = 0,
   locale,
   isPremium,
   isAdmin,
@@ -313,6 +318,7 @@ export const NutritionContent = memo(function NutritionContent({
   onPickNewImage,
   onRemoveNewImage,
   onRefresh,
+  onScroll,
   onSubmitCreateProduct,
   onCancelCreateProduct,
   onOpenProductDetail,
@@ -544,8 +550,8 @@ export const NutritionContent = memo(function NutritionContent({
   return (
     <View style={styles.container}>
       <FlatList
-        contentContainerStyle={styles.content}
-        contentInsetAdjustmentBehavior="automatic"
+        contentContainerStyle={[styles.content, { paddingTop: contentTopInset + 16 }]}
+        contentInsetAdjustmentBehavior="never"
         data={catalogRows}
         extraData={favoriteIds}
         initialNumToRender={18}
@@ -554,6 +560,7 @@ export const NutritionContent = memo(function NutritionContent({
         refreshControl={
           <RefreshControl
             onRefresh={onRefresh}
+            progressViewOffset={contentTopInset}
             refreshing={refreshing}
             tintColor={Colors.brandPrimary}
           />
@@ -570,6 +577,8 @@ export const NutritionContent = memo(function NutritionContent({
         maxToRenderPerBatch={14}
         removeClippedSubviews
         renderItem={renderCatalogRow}
+        onScroll={onScroll}
+        scrollEventThrottle={16}
         showsVerticalScrollIndicator={false}
         style={styles.list}
         updateCellsBatchingPeriod={32}

@@ -14,6 +14,7 @@ related_files:
   - apps/mobile/components/themed/LoadingState.tsx
   - apps/mobile/components/themed/ErrorState.tsx
   - apps/mobile/components/themed/EmptyState.tsx
+  - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
 related_tables: []
 ---
 
@@ -112,6 +113,13 @@ indicator and optional localized label. `ErrorState` provides a title,
 description, and optional retry action. `EmptyState` provides a title,
 description, optional illustration, and optional primary action. Screen-level
 callers own all visible strings so they can use the locale files.
+
+`RootCollapsibleHeader` is the shared header for the four primary mobile tabs.
+It uses the forest brand surface, respects the native top inset, progressively
+contracts from a 112-point body to a 60-point sticky body, and reserves one
+44-point trailing target for an essential screen action. Scrolling content owns
+the `Animated.Value` and begins below the expanded height; secondary help and
+feedback actions remain in the floating root action menu.
 
 ## Gotchas
 

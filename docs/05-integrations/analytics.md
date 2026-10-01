@@ -301,7 +301,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 
 ## Gotchas
 
-- Moving the existing Courses race-request trigger beside search and removing that screen's floating ellipsis is presentation-only. It adds no PostHog event; a submitted request keeps the existing Supabase mutation behavior.
+- Moving the existing Courses race-request trigger into the persistent action of the shared collapsible root header is presentation-only. Header expansion/collapse adds no PostHog event or scroll property; a submitted request keeps the existing Supabase mutation behavior.
 - Removing the runner-owned race section from Courses removes that source from catalog interactions; catalog plan analytics now describe event formats only.
 - Exposing preview-selected private formats in the runner mobile catalog, then removing masked formats before presentation, is a visibility/read change rather than a new analytics event. Existing course and RaceBook events keep stable event/race ids and must not record membership ids or private visibility state; masked rows must emit no selection or opening event because they have no mobile entry point.
 - Retiring an older edition from Courses after its 14-day display window is likewise presentation-only. It emits no rollover event and must not rewrite the stable event/race identifiers on later interactions with the newer edition.

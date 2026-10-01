@@ -70,6 +70,7 @@ The layout retains push registration and delegates trial, Resend contact sync, a
 Repeated PostHog identification is also safe: it refreshes the same person's properties and marks owner/admin identities as internal without creating a second application record.
 Presentation-only route configuration in the layout, such as hiding the bottom tab bar for required onboarding, is not part of this duplicate-event guard pattern.
 Likewise, the layout's light-system appearance and dark status-bar presentation are device UI configuration only; they must not be coupled to session listeners or auth-event guards.
+The four root tabs now switch to light status-bar icons over their forest collapsible header and restore dark icons on other routes; that route-derived styling still must not add or replay an auth event.
 Likewise, routing returning sessions to the Courses catalog without a Plans preload does not alter the session-event guards.
 The full-screen onboarding-to-plan loading transition is also presentation-only: changing its copy, animation, or determinate/indeterminate indicator must not add another auth listener, repeat plan creation, or alter the guarded transition state.
 

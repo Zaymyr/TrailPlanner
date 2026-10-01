@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     paddingBottom: 12,
     paddingRight: 14,
-    zIndex: 20,
+    zIndex: 40,
   },
   dismissLayer: {
     ...StyleSheet.absoluteFillObject,

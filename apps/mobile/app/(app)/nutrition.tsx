@@ -1,15 +1,18 @@
-import { useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { Animated, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ErrorState } from '../../components/themed/ErrorState';
 import { LoadingState } from '../../components/themed/LoadingState';
 import { NutritionContent } from '../../components/nutrition/NutritionContent';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
+import {
+  ROOT_HEADER_EXPANDED_BODY_HEIGHT,
+  RootCollapsibleHeader,
+} from '../../components/navigation/RootCollapsibleHeader';
 import { Colors } from '../../constants/colors';
 import { useNutritionScreen } from '../../hooks/useNutritionScreen';
 import { useI18n } from '../../lib/i18n';
-import type { FloatingActionMenuItem } from '../../components/navigation/FloatingActionMenu';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import {
   loadOnboardingProgress,
@@ -22,6 +25,7 @@ export default function NutritionScreen() {
   const { onboarding } = useLocalSearchParams<{ onboarding?: 'plan' }>();
   const [onboardingBusy, setOnboardingBusy] = useState(false);
   const insets = useSafeAreaInsets();
+  const scrollY = useRef(new Animated.Value(0)).current;
   const { locale } = useI18n();
   const {
     t,
@@ -78,26 +82,6 @@ export default function NutritionScreen() {
     handleUpdateSelectedProduct,
     handleDeleteSelectedProduct,
   } = useNutritionScreen();
-  const screenStyle = useMemo(
-    () => [
-      styles.screen,
-      {
-        paddingTop: Math.max(0, insets.top),
-      },
-    ],
-    [insets.top],
-  );
-  const actionItems = useMemo<FloatingActionMenuItem[]>(
-    () => [
-      {
-        key: 'new-product',
-        label: locale === 'fr' ? 'Nouveau produit' : 'New product',
-        icon: 'add-circle-outline',
-        onPress: () => setShowCreateModal(true),
-      },
-    ],
-    [locale, setShowCreateModal],
-  );
   const helpCopy = useMemo(
     () =>
       locale === 'fr'
@@ -142,23 +126,45 @@ export default function NutritionScreen() {
   }
 
   if (loading) {
-    return <LoadingState label={t.common.loading} style={styles.screen} />;
+    return (
+      <View style={styles.screen}>
+        <LoadingState
+          label={t.common.loading}
+          style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+        />
+        <RootCollapsibleHeader
+          icon="nutrition-outline"
+          scrollY={scrollY}
+          title="Nutrition"
+          topInset={insets.top}
+        />
+      </View>
+    );
   }
 
   if (error) {
     return (
-      <ErrorState
-        title={t.nutrition.loadError}
-        retryLabel={t.common.retry}
-        onRetry={handleRetry}
-        style={styles.screen}
-      />
+      <View style={styles.screen}>
+        <ErrorState
+          title={t.nutrition.loadError}
+          retryLabel={t.common.retry}
+          onRetry={handleRetry}
+          style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
+        />
+        <RootCollapsibleHeader
+          icon="nutrition-outline"
+          scrollY={scrollY}
+          title="Nutrition"
+          topInset={insets.top}
+        />
+      </View>
     );
   }
 
   return (
-    <View style={screenStyle}>
+    <View style={styles.screen}>
       <NutritionContent
+        contentTopInset={insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT}
         locale={locale}
         catalogSearch={catalogSearch}
         creating={creating}
@@ -197,6 +203,7 @@ export default function NutritionScreen() {
         onPickNewImage={() => void pickNewImage()}
         onRemoveNewImage={clearNewImage}
         onRefresh={handleRefresh}
+        onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
         onCloseFavoriteLimitModal={() => setShowFavoriteLimitModal(false)}
         onCloseProductDetail={closeProductDetail}
         onDeleteSelectedProduct={handleDeleteSelectedProduct}
@@ -215,9 +222,20 @@ export default function NutritionScreen() {
       />
 
       <RootScreenActionMenu
-        actions={actionItems}
         contextLabel="Nutrition"
         help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
+      />
+
+      <RootCollapsibleHeader
+        action={{
+          accessibilityLabel: locale === 'fr' ? 'Nouveau produit' : 'New product',
+          icon: 'add',
+          onPress: () => setShowCreateModal(true),
+        }}
+        icon="nutrition-outline"
+        scrollY={scrollY}
+        title="Nutrition"
+        topInset={insets.top}
       />
 
       {onboarding === 'plan' ? (

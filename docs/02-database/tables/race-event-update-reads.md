@@ -44,7 +44,7 @@ related_tables:
 
 - Retrying or refreshing the Courses root reloads receipt state but does not mark an announcement read. Receipt insertion remains tied to displaying the relevant event-sheet update.
 
-- Moving the Courses race-request action beside search and removing the floating ellipsis does not display an organizer announcement or create a read receipt.
+- Moving the Courses race-request action into the persistent collapsible header does not display an organizer announcement or create a read receipt; scrolling that header compact also leaves receipt behavior unchanged.
 - Removing the personal-race section from Courses does not change announcement display or read-receipt persistence for catalog events.
 - Clicking `Créer un plan` emits product analytics only; it does not mark organizer announcements read or create a receipt.
 

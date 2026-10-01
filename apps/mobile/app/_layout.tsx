@@ -193,6 +193,11 @@ function RootLayoutContent() {
     [segments],
   );
   const analyticsAuthState = session && !isAnonymousSession(session) ? 'authenticated' : 'guest';
+  const activeRouteSegments = segments as readonly string[];
+  const rootTabUsesBrandHeader =
+    activeRouteSegments[0] === '(app)' &&
+    activeRouteSegments.length === 2 &&
+    ['catalog', 'plans', 'nutrition', 'profile'].includes(activeRouteSegments[1] ?? '');
 
   useEffect(() => {
     if (!fontsLoaded && !fontLoadError) return;
@@ -924,7 +929,7 @@ function RootLayoutContent() {
 
   const appContent = (
     <>
-      <StatusBar style="dark" />
+      <StatusBar style={rootTabUsesBrandHeader ? 'light' : 'dark'} />
       <View style={{ flex: 1 }}>
         <Stack
           screenOptions={{

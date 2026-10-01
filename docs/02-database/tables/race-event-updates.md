@@ -101,7 +101,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 - The shared Courses loading/error/empty states and pull-to-refresh are presentation only. Retry and refresh repeat the same bounded preview/history reads and must not publish, delete, retarget, or mark an announcement.
 
-- The compact race-request action beside Courses search is independent from organizer announcements; opening or submitting it must not load, retarget, or mark an update.
+- The compact race-request action in the Courses collapsible header is independent from organizer announcements; opening or submitting it, and expanding or compacting the header, must not load, retarget, or mark an update.
 - Removing runner-owned races from Courses does not change event announcement loading, targeting, or history.
 - The catalog `Créer un plan` click event carries only bounded race and optional public event context; it neither stores announcement content nor changes update visibility/history.
 

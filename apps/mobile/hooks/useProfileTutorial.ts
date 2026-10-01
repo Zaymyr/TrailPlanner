@@ -33,12 +33,14 @@ type PendingTutorialScroll = {
 
 type UseProfileTutorialParams = {
   activeTab: ProfileTabKey;
+  minTargetTop?: number;
   onActiveTabChange: (nextTab: ProfileTabKey) => void;
   steps: TutorialStep<ProfileTutorialTargetKey>[];
 };
 
 export function useProfileTutorial({
   activeTab,
+  minTargetTop = TUTORIAL_MIN_TARGET_TOP,
   onActiveTabChange,
   steps,
 }: UseProfileTutorialParams) {
@@ -140,13 +142,13 @@ export function useProfileTutorial({
       const visibleTop = layout.y - currentOffset;
       const visibleBottom = visibleTop + layout.height;
       const maxTargetBottom = Math.max(
-        TUTORIAL_MIN_TARGET_TOP + layout.height,
+        minTargetTop + layout.height,
         tutorialViewport.height - TUTORIAL_MIN_BOTTOM_SPACE,
       );
 
       let desiredOffset = currentOffset;
-      if (visibleTop < TUTORIAL_MIN_TARGET_TOP) {
-        desiredOffset = layout.y - TUTORIAL_MIN_TARGET_TOP;
+      if (visibleTop < minTargetTop) {
+        desiredOffset = layout.y - minTargetTop;
       } else if (visibleBottom > maxTargetBottom) {
         desiredOffset = layout.y + layout.height - maxTargetBottom;
       }
@@ -172,6 +174,7 @@ export function useProfileTutorial({
     [
       clearPendingTutorialScroll,
       completeTutorialAlignment,
+      minTargetTop,
       tutorialContentHeight,
       tutorialTargets,
       tutorialViewport.height,
