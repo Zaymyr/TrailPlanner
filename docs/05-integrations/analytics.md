@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -151,6 +151,8 @@ Opening, replaying, stepping through, or closing the Organizer spotlight guide e
 
 Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. The optimistic heart animation, stable current ordering, in-memory quick-filter changes, and fourteen-day post-race visibility of an existing favorite emit no additional analytics event. Guest account gates emit `guest account prompt viewed` with a bounded `race_favorite` or `plan_limit` source, then `guest account conversion started` only when the runner chooses account creation or existing-account sign-in. Notification hrefs, message bodies, and guest-prompt copy are excluded.
 
+Courses root loading, retry, empty-result presentation, and pull-to-refresh emit no additional analytics event. A reload may update the ordinary catalog snapshot, but it must not be interpreted as a race selection, favorite mutation, or plan-creation click.
+
 Pressing an enabled `Créer un plan` action in Courses emits `catalog create plan clicked` before navigation. The event uses the bounded `create_plan` action and `event_formats|personal_races` catalog section, includes the selected race id/name, and includes the public parent event id/name only when the format belongs to a catalog event. `onboarding_kind` distinguishes guided Plan selection from ordinary use. This is a click-intent metric; keep `plan created` as the separate persisted-outcome metric.
 
 ## Mobile PostHog
@@ -194,6 +196,7 @@ The premium modal's VoiceOver isolation and labeled dismissal controls are prese
 The normal cold-start destination is the Courses catalog; that routing decision does not change analytics identity initialization.
 The Profile debug/admin presentation uses the same pure trusted-role helper: `app_metadata.role` or `app_metadata.roles` only. User-editable `user_metadata` never marks a mobile user as internal/admin.
 Profile dirty-state detection and moving runner onboarding shortcuts from personal information to Settings are presentation changes only. They emit no new analytics event; `profile saved` still fires only after a successful persisted profile mutation.
+Initial Profile loading and an explicit retry after a recoverable profile fetch failure are also presentation/data-retrieval actions. They emit no profile or Premium funnel event and do not repeat a persisted mutation.
 
 ## RaceBook Engagement
 

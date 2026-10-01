@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-09-28
+last_verified: 2026-10-01
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -13,6 +13,7 @@ related_files:
   - packages/design-system/src/branding.ts
   - apps/web/tailwind.config.ts
   - apps/web/app/globals.css
+  - apps/mobile/constants/colors.ts
 related_tables: []
 ---
 
@@ -47,13 +48,25 @@ Font metadata:
 
 Token groups:
 
-- `brand`: forest, forestLight, forestDark, secondary. The shared secondary is the alpine blue `#3F6F8F`.
-- `surface`: sand, sandLight, white, cream.
+- `brand`: forest, forestLight, forestDark, secondary, plus the shared soft `surface` and `border` selection tokens. The shared secondary is the alpine blue `#3F6F8F`.
+- `surface`: sand, sandLight, white, cream, muted.
 - `text`: primary, secondary, tertiary, inverse.
 - `accent`: terracotta, amber, olive.
 - `border`: subtle, strong, brand.
+- `semantic`: success, danger, dangerSurface, warning, warningSurface.
 
 The web app also defines HSL CSS variables in `apps/web/app/globals.css` for light/dark runtime themes.
+
+### Mobile compatibility palette
+
+`apps/mobile/constants/colors.ts` preserves the established `Colors` import
+shape for React Native callers, but every value is an alias of `colors` from
+`@pace-yourself/design-system`. New mobile UI may import the shared tokens
+directly; it must not add local hex values to `Colors`. Compatibility semantic
+names map to shared semantic, selection, and neutral-surface tokens, preserving
+their established visual roles.
+The deprecated `_dark*` aliases remain only so older callers continue to type
+check while their screens migrate to the shared light palette.
 
 ### RaceBook edition theme
 
@@ -99,6 +112,10 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 - Invalid colors and non-HTTPS logos must resolve to the Pace Yourself defaults without breaking the RaceBook.
 - Use the derived foreground or graphic variant when an organizer color is drawn on white; do not assume the raw color has sufficient contrast.
 - The design-system color tokens and web CSS variables are related but not identical.
+- Mobile `Colors` is an alias layer, not a second source of palette values; add
+  a shared token before a mobile screen needs a new color.
+- Use `semantic` tokens for application status UI and `brand.surface` /
+  `brand.border` for selected controls; neither is organizer-controlled.
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.
 - If tokens change, update Tailwind mapping and design docs together.
 - Existing web body background uses a brand-surface radial gradient in light mode and flat dark background in dark mode.

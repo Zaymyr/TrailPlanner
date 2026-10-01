@@ -1,7 +1,7 @@
 ---
 title: Schema Overview
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -295,6 +295,8 @@ erDiagram
 <!-- CONFLICT: code references race_events, races.event_id, races.race_date, races.has_aid_stations, race_aid_stations.needs_review, race_aid_stations.last_gpx_import_at, and plan_aid_stations.race_aid_station_id, but the visible migrations in this repo do not create all of those tables/columns. Verify against the live Supabase schema before writing migrations that depend on them. -->
 
 ## Gotchas
+
+- Shared loading, retry, empty-state, and pull-to-refresh presentation on the mobile root tabs adds no table, column, policy, or persistence path. Catalog and Nutrition retries repeat their existing bounded reads.
 
 - `catalog create plan clicked` is a PostHog interaction emitted before navigation; it does not create a database row or prove that a `race_plans` insert later succeeded.
 

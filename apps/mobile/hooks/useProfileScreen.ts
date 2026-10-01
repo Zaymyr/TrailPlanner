@@ -30,7 +30,6 @@ import type {
   ProfileTabKey,
   SodiumEstimatorLevel,
 } from '../components/profile/types';
-import { Colors } from '../constants/colors';
 import { isAnonymousSession } from '../lib/appSession';
 import { useI18n } from '../lib/i18n';
 import { captureAnalyticsEvent } from '../lib/posthog';
@@ -90,6 +89,8 @@ export function useProfileScreen() {
   } = usePremium();
   const billing = useRevenueCatBilling();
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [profileReloadKey, setProfileReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -110,7 +111,15 @@ export function useProfileScreen() {
     let cancelled = false;
 
     (async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
+      setLoadError(null);
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        if (!cancelled) {
+          setLoadError(sessionError.message);
+          setLoading(false);
+        }
+        return;
+      }
       const uid = sessionData?.session?.user?.id;
       setIsAnonymousAccount(isAnonymousSession(sessionData?.session));
       setIsAdminFromAuth(resolveIsAdminFromAuthUser(sessionData?.session?.user));
@@ -130,11 +139,13 @@ export function useProfileScreen() {
           'full_name, age, birth_date, weight_kg, height_cm, water_bag_liters, utmb_index, comfortable_flat_pace_min_per_km, default_carbs_g_per_hour, default_water_ml_per_hour, default_sodium_mg_per_hour, role, trial_ends_at, trial_started_at',
         )
         .eq('user_id', uid)
-        .single();
+        .maybeSingle();
 
       if (cancelled) return;
 
-      if (!profileResult.error && profileResult.data) {
+      if (profileResult.error) {
+        setLoadError(profileResult.error.message);
+      } else if (profileResult.data) {
         const nextProfile = profileResult.data as UserProfile;
         setProfile(nextProfile);
         setFullName(nextProfile.full_name ?? '');
@@ -184,6 +195,11 @@ export function useProfileScreen() {
     return () => {
       cancelled = true;
     };
+  }, [profileReloadKey]);
+
+  const handleRetryLoad = useCallback(() => {
+    setLoading(true);
+    setProfileReloadKey((current) => current + 1);
   }, []);
 
   useEffect(() => {
@@ -1174,6 +1190,7 @@ export function useProfileScreen() {
     t,
     isAnonymousAccount,
     loading,
+    loadError,
     saving,
     error,
     activeProfileTab,
@@ -1235,6 +1252,7 @@ export function useProfileScreen() {
     updatesRows,
     emergencyLaunchMessage: Updates.isEmergencyLaunch ? t.profile.updateEmergencyLaunch : null,
     handleChangeBirthDate,
+    handleRetryLoad,
     handleChangeWeightKg,
     handleChangeHeightCm,
     handleChangeUtmbIndex,
@@ -1263,6 +1281,5 @@ export function useProfileScreen() {
     handleCloseChangelog,
     resolveChangelogDetail,
     formatChangelogVersionMeta,
-    loadingSpinnerColor: Colors.brandPrimary,
   };
 }

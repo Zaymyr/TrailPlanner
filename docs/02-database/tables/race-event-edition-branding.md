@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -49,7 +49,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, the compact unframed partner-row geometry, and semantic danger/warning/info colors.
 - Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves. Accent surfaces and contrast-safe accent foreground/graphic variants identify checklist completion, decorative location/service actions, the Booking action in Services, the Decathlon action above required equipment, structured course cards, and the ravito chronology rail/segments; cutoff warnings, affiliation disclosure, and other semantic copy retain app-owned meaning.
 - Branding can recolor the linked bib address, but its two-line clamp and complete accessibility label remain app-owned presentation behavior.
-- The published primary identity also colors the scroll-driven hero that replaces the native RaceBook header. Its title/back alignment, persistent social actions, single-line emergency contact/number row and compact icon, long-title clipping, safe-area handling, and focus-time expansion reset remain app-owned and store no additional branding state.
+- The published primary identity also colors the scroll-driven hero that replaces the native RaceBook header. Its title/back alignment, persistent 44-point social actions, single-line emergency contact/number row with a 44-point call action and compact icon, long-title clipping, safe-area handling, and focus-time expansion reset remain app-owned and store no additional branding state.
 
 ## Columns
 
@@ -104,6 +104,7 @@ where edition_id = :edition_id;
 
 ## Gotchas
 
+- Do not reduce hero icon actions to their compact glyph dimensions: social and emergency controls keep a 44-point hit target while the title reserves their full horizontal footprint.
 - Material check/uncheck analytics and bounded per-item checked/missing snapshots contain no logo URL or color value. Checklist theming stays presentation-only even though confirmed checklist state emits bounded equipment metadata.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; it does not alter the resolved published-branding payload, service-only access boundary, or color semantics.

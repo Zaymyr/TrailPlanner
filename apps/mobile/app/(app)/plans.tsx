@@ -4,11 +4,12 @@ import { colors } from '@pace-yourself/design-system';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PlanLoadingScreen } from '../../components/PlanLoadingScreen';
 import { PlansList } from '../../components/plans/PlansList';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 import { Button } from '../../components/themed/Button';
 import { Card } from '../../components/themed/Card';
+import { ErrorState } from '../../components/themed/ErrorState';
+import { LoadingState } from '../../components/themed/LoadingState';
 import { Screen } from '../../components/themed/Screen';
 import { Text } from '../../components/themed/Text';
 import { usePlansScreen } from '../../hooks/usePlansScreen';
@@ -56,19 +57,17 @@ export default function PlansScreen() {
     [insets.top],
   );
   if (loading || premiumLoading) {
-    return <PlanLoadingScreen progress={0.2} variant="list" />;
+    return <LoadingState label={t.planLoading.listTitle} style={styles.screen} />;
   }
 
   if (error) {
     return (
-      <Screen style={styles.center}>
-        <Text tone="brand" size="base" weight="semibold" style={styles.errorText}>
-          {error}
-        </Text>
-        <Button onPress={handleRetry} variant="secondary">
-          {t.common.retry}
-        </Button>
-      </Screen>
+      <ErrorState
+        title={t.common.error}
+        retryLabel={t.common.retry}
+        onRetry={handleRetry}
+        style={styles.screen}
+      />
     );
   }
 
@@ -190,14 +189,5 @@ const styles = StyleSheet.create({
   },
   guestBannerButton: {
     alignSelf: 'flex-start',
-  },
-  center: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 24,
-  },
-  errorText: {
-    textAlign: 'center',
-    marginBottom: 16,
   },
 });

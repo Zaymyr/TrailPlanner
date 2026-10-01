@@ -1,38 +1,42 @@
+import { colors } from '@pace-yourself/design-system';
+
+/**
+ * Compatibility names for existing mobile callers.
+ *
+ * Values deliberately alias shared design-system tokens so the mobile app does
+ * not keep a diverging local palette.
+ */
 export const Colors = {
-  // Backgrounds
-  background: '#ECEAE3',        // warm sand — main screen background
-  surface: '#FFFFFF',           // card surface
-  surfaceSecondary: '#F5F3EE',  // subtle secondary surface
-  surfaceMuted: '#EAE8E1',      // muted areas, disabled states
+  background: colors.surface.sand,
+  surface: colors.surface.white,
+  surfaceSecondary: colors.surface.sandLight,
+  surfaceMuted: colors.surface.muted,
 
-  // Brand
-  brandPrimary: '#2D5016',      // forest green — primary actions, active states
-  brandLight: '#4A7C28',        // lighter green — hover, secondary brand
-  brandSurface: '#E8F0E0',      // very light green — badges, pills background
-  brandBorder: '#B5CC9A',       // green border for selected cards
+  brandPrimary: colors.brand.forest,
+  brandLight: colors.brand.forestLight,
+  brandSurface: colors.brand.surface,
+  brandBorder: colors.brand.border,
 
-  // Text
-  textPrimary: '#1A1A1A',       // main text
-  textSecondary: '#6B6B6B',     // labels, metadata
-  textMuted: '#9E9E9E',         // placeholder, disabled
-  textOnBrand: '#FFFFFF',       // text on green backgrounds
+  textPrimary: colors.text.primary,
+  textSecondary: colors.text.secondary,
+  textMuted: colors.text.tertiary,
+  textOnBrand: colors.text.inverse,
 
-  // Borders & Dividers
-  border: '#D9D6CE',            // default border
-  borderStrong: '#B0ADA5',      // stronger separator
+  border: colors.border.subtle,
+  borderStrong: colors.border.strong,
 
-  // Semantic
-  success: '#2D5016',
-  danger: '#C0392B',
-  dangerSurface: '#FDECEA',
-  warning: '#D97706',
-  warningSurface: '#FEF3C7',
+  success: colors.semantic.success,
+  danger: colors.semantic.danger,
+  dangerSurface: colors.semantic.dangerSurface,
+  warning: colors.semantic.warning,
+  warningSurface: colors.semantic.warningSurface,
 
-  // Legacy dark (keep temporarily for backward compat during migration)
-  // Remove once all screens are migrated
-  _darkBackground: '#0D1117',
-  _darkSurface: '#1E2530',
-  _darkGreen: '#22C55E',
+  /** @deprecated Prefer the shared light palette for new UI. */
+  _darkBackground: colors.text.primary,
+  /** @deprecated Prefer the shared light palette for new UI. */
+  _darkSurface: colors.brand.forestDark,
+  /** @deprecated Prefer the shared light palette for new UI. */
+  _darkGreen: colors.brand.forestLight,
 } as const;
 
 export type ColorKey = keyof typeof Colors;

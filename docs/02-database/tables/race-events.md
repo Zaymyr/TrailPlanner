@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -275,6 +275,8 @@ where is_live = true
 ```
 
 ## Gotchas
+
+- The shared Courses bootstrap, recoverable-error, empty-result, and pull-to-refresh presentation repeats the existing event/format query and visibility filters. It must not persist an empty result, alter event liveness, or turn a failed request into a catalog-empty conclusion.
 
 - Mobile Courses and onboarding now select only catalog event formats; the retired personal-race section does not change event grouping, visibility, favorites, or update behavior.
 - Event-backed `Créer un plan` clicks include the public event id/name in PostHog for reporting, but do not mutate `race_events`; personal-race clicks intentionally omit parent-event context.

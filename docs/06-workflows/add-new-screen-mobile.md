@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -80,8 +80,9 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - App-wide session side effect: behavior coordinated by `_layout.tsx` or its `useSessionSideEffects` helper, such as push registration or Resend contact sync, not inside an individual screen.
 - Mobile typography: user-facing copy should render through `components/themed/Text` or `Heading`; numeric metrics, timings, distances, and nutrition values should use `components/themed/DataText`. The root layout loads exact font-weight subpaths so unused package weights are not bundled.
 - Root tabs: primary tab screens rely on the bottom tab label for orientation and intentionally omit a duplicate header title; their established order is Courses, Plans, Nutrition, Profile. Pushed or hidden detail screens should keep a clear header title.
+- Root-tab content uses a 16-point horizontal gutter and the themed `LoadingState`, `ErrorState`, and `EmptyState` primitives. A recoverable initial fetch must expose localized retry copy. Add pull-to-refresh to read-oriented lists when it cannot discard in-progress edits; form roots such as Profile intentionally omit gesture refresh. Keep an empty result separate from a failed request, and add an empty-state CTA only when one clear next action exists.
 - Bottom tab safe area: keep the visible tab bar's height and bottom padding derived from `useSafeAreaInsets()` so Android three-button navigation cannot cover its actions.
-- A modal sheet must set `accessibilityViewIsModal`, expose its title as an accessibility header, and give each icon-only dismissal control a localized label plus a 44-point target or equivalent hit slop. Keep the backdrop out of the VoiceOver focus order.
+- A modal sheet must set `accessibilityViewIsModal`, expose its title as an accessibility header, distinguish a failed load from an empty result with a localized retry when it fetches data, and give each icon-only dismissal control a localized label plus a 44-point target or equivalent hit slop. Keep the backdrop out of the VoiceOver focus order.
 - Hidden detail headers with custom left/right actions should reserve title space through `headerTitleContainerStyle` in the parent layout or screen options. On narrow iPhones, prefer shared one-line truncation in `AppHeaderTitle` over wrapped titles that can collide with header icons.
 - Numeric, decimal, and pace `TextInput` controls must set `inputAccessoryViewID="pace-yourself-numeric-keyboard"`. The authenticated app shell mounts the matching shared iOS accessory so users always have a `Terminé` action; Android ignores it.
 - Root tab actions: primary tab screens hide the native header. When a root tab combines genuine contextual creation, interactive help, or feedback actions, place them in `components/navigation/RootScreenActionMenu.tsx`, backed by `FloatingActionMenu.tsx`; do not add an empty or static-copy-only menu merely for consistency. A single action that belongs to a local control may remain beside that control instead: Courses places its compact race-request action to the right of search, omits it during guided routes, and has no floating ellipsis. Add safe-area top padding in the screen content when the header is hidden; keep any floating menu close to the bottom tab bar and use its dimmed backdrop/neutral action surfaces for readable contrast. The shared root menu uses an ellipsis because it combines multiple action types. Plans deliberately omits it and routes its empty-state action to Courses because plan creation starts from a selected course.

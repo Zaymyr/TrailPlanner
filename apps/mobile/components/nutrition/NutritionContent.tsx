@@ -2,6 +2,7 @@ import { memo, useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Image,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -11,6 +12,7 @@ import {
 } from 'react-native';
 import { Text } from '../themed/Text';
 import { DataText } from '../themed/DataText';
+import { EmptyState } from '../themed/EmptyState';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
@@ -223,6 +225,8 @@ type NutritionContentProps = {
   showCreateModal: boolean;
   creating: boolean;
   newName: string;
+  newBrand: string;
+  availableBrands: string[];
   newFuelType: FuelType;
   newCarbsG: string;
   newSodiumMg: string;
@@ -234,6 +238,9 @@ type NutritionContentProps = {
   deletingProduct: boolean;
   favoriteLimitBannerLabel: string;
   favoriteLimitMessage: string;
+  emptyCatalogTitle: string;
+  emptyCatalogDescription: string;
+  refreshing: boolean;
   freeAccessTitle: string;
   otherBrandsLabel: string;
   onToggleFavorites: () => void;
@@ -242,12 +249,14 @@ type NutritionContentProps = {
   onChangeCatalogSearch: (value: string) => void;
   onCloseFavoriteLimitModal: () => void;
   onChangeNewName: (value: string) => void;
+  onChangeNewBrand: (value: string) => void;
   onChangeNewFuelType: (value: FuelType) => void;
   onChangeNewCarbsG: (value: string) => void;
   onChangeNewSodiumMg: (value: string) => void;
   onChangeNewCaloriesKcal: (value: string) => void;
   onPickNewImage: () => void;
   onRemoveNewImage: () => void;
+  onRefresh: () => void;
   onSubmitCreateProduct: () => void;
   onCancelCreateProduct: () => void;
   onOpenProductDetail: (product: Product) => void;
@@ -272,6 +281,8 @@ export const NutritionContent = memo(function NutritionContent({
   showCreateModal,
   creating,
   newName,
+  newBrand,
+  availableBrands,
   newFuelType,
   newCarbsG,
   newSodiumMg,
@@ -283,6 +294,9 @@ export const NutritionContent = memo(function NutritionContent({
   deletingProduct,
   favoriteLimitBannerLabel,
   favoriteLimitMessage,
+  emptyCatalogTitle,
+  emptyCatalogDescription,
+  refreshing,
   freeAccessTitle,
   otherBrandsLabel,
   onToggleFavorites,
@@ -291,12 +305,14 @@ export const NutritionContent = memo(function NutritionContent({
   onChangeCatalogSearch,
   onCloseFavoriteLimitModal,
   onChangeNewName,
+  onChangeNewBrand,
   onChangeNewFuelType,
   onChangeNewCarbsG,
   onChangeNewSodiumMg,
   onChangeNewCaloriesKcal,
   onPickNewImage,
   onRemoveNewImage,
+  onRefresh,
   onSubmitCreateProduct,
   onCancelCreateProduct,
   onOpenProductDetail,
@@ -535,10 +551,20 @@ export const NutritionContent = memo(function NutritionContent({
         initialNumToRender={18}
         keyboardShouldPersistTaps="handled"
         keyExtractor={(item) => item.key}
+        refreshControl={
+          <RefreshControl
+            onRefresh={onRefresh}
+            refreshing={refreshing}
+            tintColor={Colors.brandPrimary}
+          />
+        }
         ListEmptyComponent={
-          <View style={styles.emptyCategory}>
-            <Text style={styles.emptyFavText}>Aucun produit dans cette catégorie.</Text>
-          </View>
+          <EmptyState
+            description={emptyCatalogDescription}
+            icon={<Ionicons color={Colors.brandPrimary} name="nutrition-outline" size={32} />}
+            style={styles.emptyCategory}
+            title={emptyCatalogTitle}
+          />
         }
         ListHeaderComponent={listHeader}
         maxToRenderPerBatch={14}
@@ -559,6 +585,8 @@ export const NutritionContent = memo(function NutritionContent({
 
       <NutritionCreateProductModal
         caloriesKcal={newCaloriesKcal}
+        brand={newBrand}
+        brandOptions={availableBrands}
         carbsG={newCarbsG}
         creating={creating}
         fuelType={newFuelType}
@@ -567,6 +595,7 @@ export const NutritionContent = memo(function NutritionContent({
         name={newName}
         onCancel={onCancelCreateProduct}
         onChangeCaloriesKcal={onChangeNewCaloriesKcal}
+        onChangeBrand={onChangeNewBrand}
         onChangeCarbsG={onChangeNewCarbsG}
         onChangeName={onChangeNewName}
         onChangeSodiumMg={onChangeNewSodiumMg}
@@ -734,7 +763,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   emptyCategory: {
-    paddingVertical: 20,
+    paddingVertical: 48,
   },
   emptyFavText: {
     color: Colors.textMuted,

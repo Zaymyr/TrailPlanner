@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -127,6 +127,7 @@ Authenticated non-admin users can no longer insert races. Trusted `app_metadata`
 
 - `data_status = complete` requires an empty `missing_required_fields` array.
 - Runner-created standalone races are retired: current selectors load catalog formats only, the generic POST route returns `410`, and RLS rejects non-admin inserts.
+- The mobile plan selector may show a live public format with a null D+, but it must disable selection and label the missing value rather than coercing it to zero. A fetch failure is distinct from an empty catalog and must offer retry without changing stored race data.
 - A draft cannot have `is_live` or `racebook_is_live` enabled.
 - A runner-live RaceBook must also be selected for organizer preview. Turning preview off atomically clears `racebook_is_live`; turning it back on never publishes by itself.
 - `organizer_details.gpxDisplay.showRoute` and `showElevationProfile` default to `true` when absent. They independently hide RaceBook visuals without deleting the GPX object or changing parsed metrics.
@@ -180,6 +181,7 @@ where web_catalog_is_live = true
 
 ## Gotchas
 
+- A null `elevation_gain_m` means unknown, not a flat course. Keep it visibly unavailable to plan selection and do not substitute zero in mobile presentation.
 - Confirmed Material toggles and bounded per-item checked/missing snapshots reuse the stable `race_id` in PostHog for format analysis but do not mutate `races` or organizer equipment JSON. Analytics omits the persistence key and organizer notes.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; race fields, visibility-state transitions, organizer JSON, and RaceBook gates remain unchanged.

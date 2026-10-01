@@ -1,5 +1,6 @@
 import { colors, radius, spacing } from '@pace-yourself/design-system';
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   type PressableProps,
@@ -16,6 +17,7 @@ type Props = Omit<PressableProps, 'style'> & {
   children: string;
   variant?: ButtonVariant;
   fullWidth?: boolean;
+  isLoading?: boolean;
   style?: StyleProp<ViewStyle>;
   textStyle?: StyleProp<TextStyle>;
 };
@@ -24,6 +26,7 @@ export function Button({
   children,
   variant = 'primary',
   fullWidth = false,
+  isLoading = false,
   disabled,
   style,
   textStyle,
@@ -35,25 +38,30 @@ export function Button({
     <Pressable
       {...props}
       accessibilityRole="button"
-      disabled={disabled}
+      accessibilityState={{ disabled: Boolean(disabled || isLoading), busy: isLoading }}
+      disabled={disabled || isLoading}
       style={({ pressed }) => [
         styles.base,
         variantStyles[variant],
         fullWidth && styles.fullWidth,
-        pressed && !disabled && styles.pressed,
-        disabled && styles.disabled,
+        pressed && !disabled && !isLoading && styles.pressed,
+        (disabled || isLoading) && styles.disabled,
         style,
       ]}
     >
-      <Text
-        tone={isPrimary ? 'inverse' : 'brand'}
-        size="sm"
-        weight="bold"
-        letterSpacing={isPrimary ? 'wide' : 'normal'}
-        style={[isPrimary && styles.primaryLabel, textStyle]}
-      >
-        {children}
-      </Text>
+      {isLoading ? (
+        <ActivityIndicator color={isPrimary ? colors.text.inverse : colors.brand.forest} />
+      ) : (
+        <Text
+          tone={isPrimary ? 'inverse' : 'brand'}
+          size="sm"
+          weight="bold"
+          letterSpacing={isPrimary ? 'wide' : 'normal'}
+          style={[isPrimary && styles.primaryLabel, textStyle]}
+        >
+          {children}
+        </Text>
+      )}
     </Pressable>
   );
 }

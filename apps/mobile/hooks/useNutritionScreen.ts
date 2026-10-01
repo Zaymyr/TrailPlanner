@@ -90,12 +90,14 @@ export function useNutritionScreen() {
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [fuelFilter, setFuelFilter] = useState<FuelType | 'all'>('all');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [favoritesExpanded, setFavoritesExpanded] = useState(false);
   const [catalogSearch, setCatalogSearch] = useState('');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newBrand, setNewBrand] = useState('');
   const [newFuelType, setNewFuelType] = useState<FuelType>('gel');
   const [newCarbsG, setNewCarbsG] = useState('');
   const [newSodiumMg, setNewSodiumMg] = useState('');
@@ -111,48 +113,67 @@ export function useNutritionScreen() {
   const fetchData = useCallback(async () => {
     setError(null);
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    const uid = sessionData?.session?.user?.id;
-    const token = sessionData?.session?.access_token ?? null;
-    setIsAdmin(resolveIsAdminFromAuthUser(sessionData?.session?.user));
-    if (!uid) return;
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) throw sessionError;
 
-    setUserId(uid);
-    setAccessToken(token);
+      const uid = sessionData?.session?.user?.id;
+      const token = sessionData?.session?.access_token ?? null;
+      setIsAdmin(resolveIsAdminFromAuthUser(sessionData?.session?.user));
 
-    const [favoritesResult, productsResult] = await Promise.all([
-      supabase
-        .from('user_favorite_products')
-        .select('product_id, products(id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official)')
-        .eq('user_id', uid),
-      supabase
-        .from('products')
-        .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official')
-        .or(`is_live.eq.true,created_by.eq.${uid}`)
-        .eq('is_archived', false)
-        .order('name'),
-    ]);
+      if (!uid) {
+        setUserId(null);
+        setAccessToken(null);
+        setFavorites([]);
+        setFavoriteIds(new Set());
+        setProducts([]);
+        return;
+      }
 
-    if (favoritesResult.error) {
-      setError(favoritesResult.error.message);
-    } else {
+      setUserId(uid);
+      setAccessToken(token);
+
+      const [favoritesResult, productsResult] = await Promise.all([
+        supabase
+          .from('user_favorite_products')
+          .select('product_id, products(id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official)')
+          .eq('user_id', uid),
+        supabase
+          .from('products')
+          .select('id, name, brand, image_url, fuel_type, carbs_g, sodium_mg, calories_kcal, created_by, is_official')
+          .or(`is_live.eq.true,created_by.eq.${uid}`)
+          .eq('is_archived', false)
+          .order('name'),
+      ]);
+
+      if (favoritesResult.error) throw favoritesResult.error;
+      if (productsResult.error) throw productsResult.error;
+
       const nextFavorites = (favoritesResult.data as any[]).filter(
         (favorite) => favorite.products,
       ) as FavoriteRow[];
       setFavorites(nextFavorites);
       setFavoriteIds(new Set(nextFavorites.map((favorite) => favorite.product_id)));
-    }
-
-    if (productsResult.error) {
-      setError(productsResult.error.message);
-    } else {
       setProducts((productsResult.data as Product[]) ?? []);
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : t.common.error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
     }
-
-    setLoading(false);
-  }, []);
+  }, [t.common.error]);
 
   useEffect(() => {
+    void fetchData();
+  }, [fetchData]);
+
+  const handleRetry = useCallback(() => {
+    setLoading(true);
+    void fetchData();
+  }, [fetchData]);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
     void fetchData();
   }, [fetchData]);
 
@@ -289,6 +310,7 @@ export function useNutritionScreen() {
 
   const resetCreateForm = useCallback(() => {
     setNewName('');
+    setNewBrand('');
     setNewFuelType('gel');
     setNewCarbsG('');
     setNewSodiumMg('');
@@ -378,6 +400,7 @@ export function useNutritionScreen() {
         },
         body: JSON.stringify({
           name: newName.trim(),
+          brand: newBrand.trim() || null,
           fuelType: newFuelType,
           carbsGrams,
           sodiumMg,
@@ -463,6 +486,7 @@ export function useNutritionScreen() {
     newCarbsG,
     newFuelType,
     newImageDraft,
+    newBrand,
     newName,
     newSodiumMg,
     resetCreateForm,
@@ -485,6 +509,24 @@ export function useNutritionScreen() {
     },
     [catalogSearch, fuelFilter, products],
   );
+
+  const availableBrands = useMemo(() => {
+    const brandsByNormalizedName = new Map<string, string>();
+
+    products.forEach((product) => {
+      const brand = product.brand?.trim();
+      if (!brand) return;
+
+      const normalizedBrand = brand.toLocaleLowerCase();
+      if (!brandsByNormalizedName.has(normalizedBrand)) {
+        brandsByNormalizedName.set(normalizedBrand, brand);
+      }
+    });
+
+    return Array.from(brandsByNormalizedName.values()).sort((left, right) =>
+      left.localeCompare(right),
+    );
+  }, [products]);
 
   const handleCancelCreateProduct = useCallback(() => {
     resetCreateForm();
@@ -720,6 +762,7 @@ export function useNutritionScreen() {
     t,
     isPremium,
     loading,
+    refreshing,
     error,
     userId,
     isAdmin,
@@ -732,6 +775,7 @@ export function useNutritionScreen() {
     showCreateModal,
     creating,
     newName,
+    newBrand,
     newFuelType,
     newCarbsG,
     newSodiumMg,
@@ -743,14 +787,18 @@ export function useNutritionScreen() {
     savingProduct,
     deletingProduct,
     filteredProducts,
+    availableBrands,
     favoriteLimitBannerLabel,
     favoriteLimitMessage,
+    handleRetry,
+    handleRefresh,
     toggleFavorite,
     setFuelFilter,
     setFavoritesExpanded,
     setCatalogSearch,
     setShowCreateModal,
     setNewName,
+    setNewBrand,
     setNewFuelType,
     setNewCarbsG,
     setNewSodiumMg,

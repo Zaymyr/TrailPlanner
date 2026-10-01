@@ -763,11 +763,15 @@ export const fr: MobileTranslations = {
     favoriteLimitMessage: "Avec l'offre gratuite, tu peux garder {count} produits favoris. Passe en Premium pour débloquer les favoris illimités, tous tes plans et le remplissage automatique.",
     createProductPremiumHint: 'La création de produits personnalisés est réservée aux abonnés Premium.',
     otherBrandsLabel: 'Autres marques',
+    loadError: 'Impossible de charger les produits',
+    emptyCatalogTitle: 'Aucun produit trouv\u00e9',
+    emptyCatalogDescription: 'Modifie ta recherche ou tes filtres pour afficher d\u2019autres produits.',
   },
   planForm: {
     selectRaceTitle: 'Choisir une course',
     selectRaceSubtitle: 'Sélectionne une course pour créer un plan associé.',
     selectRaceCta: 'Choisir cette course',
+    elevationMissing: 'D+ non renseigné',
   },
   feedback: {
     triggerLabel: 'Reporter un bug ou envoyer un retour',

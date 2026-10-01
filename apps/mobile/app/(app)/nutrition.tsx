@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Text } from '../../components/themed/Text';
+import { ErrorState } from '../../components/themed/ErrorState';
+import { LoadingState } from '../../components/themed/LoadingState';
 import { NutritionContent } from '../../components/nutrition/NutritionContent';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { Colors } from '../../constants/colors';
@@ -26,6 +27,7 @@ export default function NutritionScreen() {
     t,
     isPremium,
     loading,
+    refreshing,
     error,
     userId,
     isAdmin,
@@ -42,6 +44,7 @@ export default function NutritionScreen() {
     deletingProduct,
     creating,
     newName,
+    newBrand,
     newFuelType,
     newCarbsG,
     newSodiumMg,
@@ -49,14 +52,18 @@ export default function NutritionScreen() {
     newImageDraft,
     showFavoriteLimitModal,
     filteredProducts,
+    availableBrands,
     favoriteLimitBannerLabel,
     favoriteLimitMessage,
+    handleRetry,
+    handleRefresh,
     toggleFavorite,
     setFuelFilter,
     setFavoritesExpanded,
     setCatalogSearch,
     setShowCreateModal,
     setNewName,
+    setNewBrand,
     setNewFuelType,
     setNewCarbsG,
     setNewSodiumMg,
@@ -135,18 +142,17 @@ export default function NutritionScreen() {
   }
 
   if (loading) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator color={Colors.brandPrimary} size="large" />
-      </View>
-    );
+    return <LoadingState label={t.common.loading} style={styles.screen} />;
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
+      <ErrorState
+        title={t.nutrition.loadError}
+        retryLabel={t.common.retry}
+        onRetry={handleRetry}
+        style={styles.screen}
+      />
     );
   }
 
@@ -157,9 +163,12 @@ export default function NutritionScreen() {
         catalogSearch={catalogSearch}
         creating={creating}
         deletingProduct={deletingProduct}
+        emptyCatalogDescription={t.nutrition.emptyCatalogDescription}
+        emptyCatalogTitle={t.nutrition.emptyCatalogTitle}
         favoriteIds={favoriteIds}
         favoriteLimitBannerLabel={favoriteLimitBannerLabel}
         favoriteLimitMessage={favoriteLimitMessage}
+        refreshing={refreshing}
         favorites={favorites}
         favoritesExpanded={favoritesExpanded}
         filteredProducts={filteredProducts}
@@ -169,6 +178,8 @@ export default function NutritionScreen() {
         isPremium={isPremium}
         otherBrandsLabel={t.nutrition.otherBrandsLabel}
         newCaloriesKcal={newCaloriesKcal}
+        newBrand={newBrand}
+        availableBrands={availableBrands}
         newCarbsG={newCarbsG}
         newFuelType={newFuelType}
         newImageDraft={newImageDraft}
@@ -178,12 +189,14 @@ export default function NutritionScreen() {
         onChangeCatalogSearch={setCatalogSearch}
         onChangeFuelFilter={setFuelFilter}
         onChangeNewCaloriesKcal={setNewCaloriesKcal}
+        onChangeNewBrand={setNewBrand}
         onChangeNewCarbsG={setNewCarbsG}
         onChangeNewFuelType={setNewFuelType}
         onChangeNewName={setNewName}
         onChangeNewSodiumMg={setNewSodiumMg}
         onPickNewImage={() => void pickNewImage()}
         onRemoveNewImage={clearNewImage}
+        onRefresh={handleRefresh}
         onCloseFavoriteLimitModal={() => setShowFavoriteLimitModal(false)}
         onCloseProductDetail={closeProductDetail}
         onDeleteSelectedProduct={handleDeleteSelectedProduct}
@@ -226,17 +239,5 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: Colors.background,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: 24,
-  },
-  errorText: {
-    color: Colors.danger,
-    fontSize: 15,
-    textAlign: 'center',
   },
 });

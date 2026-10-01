@@ -1,7 +1,7 @@
 ---
 title: race_event_updates Table
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -98,6 +98,8 @@ values ('<event-id>', null, auth.uid(), 'Retrait des dossards dès 17h.');
 Organizer deletion includes both `updateId` and `editionId`. The server verifies event membership, the edition/event relationship, Pro, and filters the service-role delete by update and event ids.
 
 ## Gotchas
+
+- The shared Courses loading/error/empty states and pull-to-refresh are presentation only. Retry and refresh repeat the same bounded preview/history reads and must not publish, delete, retarget, or mark an announcement.
 
 - The compact race-request action beside Courses search is independent from organizer announcements; opening or submitting it must not load, retarget, or mark an update.
 - Removing runner-owned races from Courses does not change event announcement loading, targeting, or history.

@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-07-28
+last_verified: 2026-10-01
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -10,6 +10,10 @@ related_files:
   - apps/web/components/ui/dialog.tsx
   - apps/web/components/ui/tabs.tsx
   - apps/web/components/utils.ts
+  - apps/mobile/components/themed/Button.tsx
+  - apps/mobile/components/themed/LoadingState.tsx
+  - apps/mobile/components/themed/ErrorState.tsx
+  - apps/mobile/components/themed/EmptyState.tsx
 related_tables: []
 ---
 
@@ -17,7 +21,7 @@ related_tables: []
 
 ## Purpose
 
-This document records the current web component primitives and styling conventions visible in the repo. The shared design-system package currently exports tokens/icons, while web UI primitives live under `apps/web/components/ui`.
+This document records the current web component primitives and styling conventions visible in the repo. The shared design-system package exports tokens/icons; web primitives live under `apps/web/components/ui` and mobile primitives live under `apps/mobile/components/themed`.
 
 ## Key Concepts
 
@@ -98,6 +102,17 @@ Card subcomponents:
 - border and card background;
 - focus-visible outline.
 
+## Mobile primitives
+
+The themed mobile folder provides small shared React Native building blocks.
+`Button` has primary, secondary, and ghost variants, a 48-point minimum action
+height, pressed and disabled states, and an `isLoading` state that disables the
+action with a native spinner. `LoadingState` presents an accessible busy
+indicator and optional localized label. `ErrorState` provides a title,
+description, and optional retry action. `EmptyState` provides a title,
+description, optional illustration, and optional primary action. Screen-level
+callers own all visible strings so they can use the locale files.
+
 ## Gotchas
 
 - Web UI primitives are not currently exported from `@pace-yourself/design-system`.
@@ -106,6 +121,8 @@ Card subcomponents:
 - Avoid duplicating primitives or route-local components without first checking whether an existing component can be reused or extended.
 - Do not introduce a new class merge library without a real collision problem; current `cn` only joins classes.
 - Since `cn` does not merge conflicting Tailwind utilities, route-specific dialogs that replace the primitive's default `grid` layout must use an explicit priority modifier such as `!flex`; otherwise constrained inner scroll regions can be clipped.
+- Do not create a local loading, error, or empty state when a themed state can
+  express the screen; pass localized labels and preserve the shared retry CTA.
 
 ## Related Docs
 

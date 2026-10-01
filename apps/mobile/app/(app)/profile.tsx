@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   ScrollView,
   StyleSheet,
   View
@@ -9,6 +8,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Text } from '../../components/themed/Text';
+import { ErrorState } from '../../components/themed/ErrorState';
+import { LoadingState } from '../../components/themed/LoadingState';
 import { Colors } from '../../constants/colors';
 import { SpotlightTutorial, TutorialTarget } from '../../components/help/SpotlightTutorial';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
@@ -46,6 +47,7 @@ export default function ProfileScreen() {
     t,
     isAnonymousAccount,
     loading,
+    loadError,
     saving,
     error,
     activeProfileTab,
@@ -106,6 +108,7 @@ export default function ProfileScreen() {
     updatesAdminRows,
     updatesRows,
     emergencyLaunchMessage,
+    handleRetryLoad,
     handleChangeBirthDate,
     handleChangeWeightKg,
     handleChangeHeightCm,
@@ -135,7 +138,6 @@ export default function ProfileScreen() {
     handleCloseChangelog,
     resolveChangelogDetail,
     formatChangelogVersionMeta,
-    loadingSpinnerColor,
   } = useProfileScreen();
 
   const refreshOnboardingStatuses = useCallback(() => {
@@ -208,7 +210,7 @@ export default function ProfileScreen() {
       styles.content,
       {
         paddingBottom: 120,
-        paddingTop: Math.max(20, insets.top + 12),
+        paddingTop: Math.max(16, insets.top + 12),
       },
     ],
     [insets.top],
@@ -236,10 +238,17 @@ export default function ProfileScreen() {
   });
 
   if (loading) {
+    return <LoadingState label={t.common.loading} style={styles.screen} />;
+  }
+
+  if (loadError) {
     return (
-      <View style={styles.center}>
-        <ActivityIndicator color={loadingSpinnerColor} size="large" />
-      </View>
+      <ErrorState
+        title={t.common.error}
+        retryLabel={t.common.retry}
+        onRetry={handleRetryLoad}
+        style={styles.screen}
+      />
     );
   }
 
@@ -524,15 +533,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.background,
   },
   content: {
-    padding: 20,
+    paddingHorizontal: 16,
     paddingBottom: 48,
     gap: 16,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
   },
   errorText: {
     color: Colors.danger,

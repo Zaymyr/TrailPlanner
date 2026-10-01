@@ -22,9 +22,11 @@ import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard
 import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import {
   CatalogFiltersModal,
-  CatalogLoadingCard,
   CatalogRaceRow,
 } from '../../components/catalog/CatalogPresentation';
+import { EmptyState } from '../../components/themed/EmptyState';
+import { ErrorState } from '../../components/themed/ErrorState';
+import { LoadingState } from '../../components/themed/LoadingState';
 import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
 import {
@@ -730,15 +732,6 @@ export default function CatalogScreen() {
     ],
     [insets.top, visibleEventGroups.length],
   );
-  const loadingListStyle = useMemo(
-    () => [
-      styles.list,
-      {
-        paddingTop: Math.max(16, insets.top + 12),
-      },
-    ],
-    [insets.top],
-  );
   const selectedEventDate = selectedEvent ? formatEventDate(selectedEvent.race_date, locale) : null;
   const selectedEventMeta = selectedEvent
     ? [selectedEvent.location, selectedEventDate].filter(Boolean).join(' • ')
@@ -915,29 +908,21 @@ export default function CatalogScreen() {
   }
 
   if (loading) {
-    return (
-      <ScrollView style={styles.container} contentContainerStyle={loadingListStyle}>
-        <CatalogLoadingCard />
-        <CatalogLoadingCard />
-      </ScrollView>
-    );
+    return <LoadingState label={t.common.loading} style={styles.container} />;
   }
 
   if (error) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.errorText}>{t.catalog.loadError}</Text>
-        <TouchableOpacity
-          style={styles.retryButton}
-          onPress={() => {
+      <ErrorState
+        title={t.catalog.loadError}
+        retryLabel={t.common.retry}
+        onRetry={() => {
             setError(null);
             setLoading(true);
             fetchEvents();
-          }}
-        >
-          <Text style={styles.retryButtonText}>{t.common.retry}</Text>
-        </TouchableOpacity>
-      </View>
+        }}
+        style={styles.container}
+      />
     );
   }
 
@@ -1031,31 +1016,30 @@ export default function CatalogScreen() {
           </View>
         }
         ListEmptyComponent={
-          (
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconWrap}>
-                <Ionicons
-                  name={onboardingMode === 'racebook' ? 'search-outline' : 'map-outline'}
-                  size={28}
-                  color={Colors.brandPrimary}
-                />
-              </View>
-              <Text style={styles.emptyTitle}>
-                {onboardingMode === 'racebook'
-                  ? isRacebookSearchReady
-                    ? t.onboarding.tours.searchRacebookEmptyTitle
-                    : t.onboarding.tours.searchRacebookTitle
-                  : t.catalog.noCatalogTitle}
-              </Text>
-              <Text style={styles.emptySubtitle}>
-                {onboardingMode === 'racebook'
-                  ? isRacebookSearchReady
-                    ? t.onboarding.tours.searchRacebookEmptyBody
-                    : t.onboarding.tours.searchRacebookBody
-                  : t.catalog.noCatalogSubtitle}
-              </Text>
-            </View>
-          )
+          <EmptyState
+            description={
+              onboardingMode === 'racebook'
+                ? isRacebookSearchReady
+                  ? t.onboarding.tours.searchRacebookEmptyBody
+                  : t.onboarding.tours.searchRacebookBody
+                : t.catalog.noCatalogSubtitle
+            }
+            icon={
+              <Ionicons
+                name={onboardingMode === 'racebook' ? 'search-outline' : 'map-outline'}
+                size={32}
+                color={Colors.brandPrimary}
+              />
+            }
+            style={styles.emptyState}
+            title={
+              onboardingMode === 'racebook'
+                ? isRacebookSearchReady
+                  ? t.onboarding.tours.searchRacebookEmptyTitle
+                  : t.onboarding.tours.searchRacebookTitle
+                : t.catalog.noCatalogTitle
+            }
+          />
         }
         renderItem={({ item: event }) => (
           <RaceEventSummaryCard
@@ -1328,31 +1312,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: Colors.background,
-    padding: 24,
-  },
-  errorText: {
-    color: Colors.danger,
-    fontSize: 15,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  retryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 15,
-  },
   list: {
     padding: 16,
     gap: 16,
@@ -1458,35 +1417,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.background,
   },
-  emptyContainer: {
+  emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 32,
     paddingVertical: 64,
-  },
-  emptyIconWrap: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: Colors.brandSurface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: Colors.textPrimary,
-    textAlign: 'center',
-    marginBottom: 8,
-  },
-  emptySubtitle: {
-    fontSize: 15,
-    color: Colors.textSecondary,
-    textAlign: 'center',
   },
   eventSummaryRow: {
     flexDirection: 'row',

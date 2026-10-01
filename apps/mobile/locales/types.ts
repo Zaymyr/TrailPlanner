@@ -735,11 +735,15 @@ export type MobileTranslations = {
     favoriteLimitMessage: string;
     createProductPremiumHint: string;
     otherBrandsLabel: string;
+    loadError: string;
+    emptyCatalogTitle: string;
+    emptyCatalogDescription: string;
   };
   planForm: {
     selectRaceTitle: string;
     selectRaceSubtitle: string;
     selectRaceCta: string;
+    elevationMissing: string;
   };
   feedback: {
     triggerLabel: string;

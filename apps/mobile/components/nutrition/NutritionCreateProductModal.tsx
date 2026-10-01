@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Image,
@@ -21,6 +21,8 @@ type NutritionCreateProductModalProps = {
   visible: boolean;
   creating: boolean;
   name: string;
+  brand: string;
+  brandOptions: string[];
   fuelType: FuelType;
   carbsG: string;
   sodiumMg: string;
@@ -28,6 +30,7 @@ type NutritionCreateProductModalProps = {
   imagePreviewUri: string | null;
   imageName: string | null;
   onChangeName: (value: string) => void;
+  onChangeBrand: (value: string) => void;
   onSelectFuelType: (value: FuelType) => void;
   onChangeCarbsG: (value: string) => void;
   onChangeSodiumMg: (value: string) => void;
@@ -42,6 +45,8 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
   visible,
   creating,
   name,
+  brand,
+  brandOptions,
   fuelType,
   carbsG,
   sodiumMg,
@@ -49,6 +54,7 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
   imagePreviewUri,
   imageName,
   onChangeName,
+  onChangeBrand,
   onSelectFuelType,
   onChangeCarbsG,
   onChangeSodiumMg,
@@ -58,6 +64,25 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
   onSubmit,
   onCancel,
 }: NutritionCreateProductModalProps) {
+  const [brandFieldFocused, setBrandFieldFocused] = useState(false);
+  const normalizedBrand = brand.trim().toLocaleLowerCase();
+  const matchingBrandOptions = useMemo(() => {
+    const matching = normalizedBrand
+      ? brandOptions.filter((option) => option.toLocaleLowerCase().includes(normalizedBrand))
+      : brandOptions;
+
+    return matching.slice(0, 6);
+  }, [brandOptions, normalizedBrand]);
+  const matchesExistingBrand = brandOptions.some(
+    (option) => option.toLocaleLowerCase() === normalizedBrand,
+  );
+
+  useEffect(() => {
+    if (!visible) {
+      setBrandFieldFocused(false);
+    }
+  }, [visible]);
+
   return (
     <Modal animationType="slide" onRequestClose={onCancel} transparent visible={visible}>
       <KeyboardAvoidingView
@@ -82,6 +107,41 @@ export const NutritionCreateProductModal = memo(function NutritionCreateProductM
               style={styles.textInput}
               value={name}
             />
+
+            <Text style={styles.inputLabel}>Marque</Text>
+            <TextInput
+              autoCapitalize="words"
+              autoCorrect={false}
+              onBlur={() => setBrandFieldFocused(false)}
+              onChangeText={onChangeBrand}
+              onFocus={() => setBrandFieldFocused(true)}
+              placeholder="Choisir ou saisir une marque"
+              placeholderTextColor={Colors.textMuted}
+              style={styles.textInput}
+              value={brand}
+            />
+            {brandFieldFocused && matchingBrandOptions.length > 0 ? (
+              <View style={styles.brandSuggestions}>
+                {matchingBrandOptions.map((option) => (
+                  <TouchableOpacity
+                    accessibilityRole="button"
+                    key={option}
+                    onPressIn={() => {
+                      onChangeBrand(option);
+                      setBrandFieldFocused(false);
+                    }}
+                    style={styles.brandSuggestion}
+                  >
+                    <Text style={styles.brandSuggestionText}>{option}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : null}
+            {brand.trim() && !matchesExistingBrand ? (
+              <Text style={styles.brandCreateHint}>La marque « {brand.trim()} » sera créée.</Text>
+            ) : (
+              <Text style={styles.brandHint}>Sélectionne une marque existante ou saisis-en une nouvelle.</Text>
+            )}
 
             <Text style={styles.inputLabel}>Image</Text>
             <View style={styles.imageCard}>
@@ -231,6 +291,39 @@ const styles = StyleSheet.create({
     fontSize: 15,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  brandSuggestions: {
+    borderWidth: 1,
+    borderTopWidth: 0,
+    borderColor: Colors.border,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
+  },
+  brandSuggestion: {
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.border,
+  },
+  brandSuggestionText: {
+    color: Colors.textPrimary,
+    fontSize: 15,
+  },
+  brandHint: {
+    color: Colors.textMuted,
+    fontSize: 12,
+    lineHeight: 17,
+    marginTop: 6,
+  },
+  brandCreateHint: {
+    color: Colors.brandPrimary,
+    fontSize: 12,
+    fontWeight: '600',
+    lineHeight: 17,
+    marginTop: 6,
   },
   imageCard: {
     flexDirection: 'row',

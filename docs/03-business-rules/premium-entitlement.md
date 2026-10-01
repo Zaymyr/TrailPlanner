@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-09-14
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -78,6 +78,7 @@ Important behavior:
 - RevenueCat customer info.
 
 `apps/mobile/hooks/useProfileScreen.ts` consumes this resolved entitlement only for Profile presentation and billing actions; its extracted profile diagnostic helpers do not alter purchase verification or entitlement resolution. The same hook compares editable profile fields with their last persisted values so the save action can remain disabled while the form is unchanged; that dirty-state presentation does not affect Premium resolution.
+Retrying the Profile row bootstrap after a recoverable read failure reloads only the existing session/profile form data. It does not grant Premium, bypass `usePremium`, or repeat a billing action.
 
 If RevenueCat reports an active entitlement but the server row is not synced, mobile calls the web RevenueCat sync endpoint.
 
@@ -115,6 +116,7 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 - Do not resolve organizer edition capabilities from `subscriptions`, RevenueCat, trial state, or `premium_grants`.
 - Do not move entitlement listeners back into individual hook instances; tab and detail screens frequently mount `usePremium` at the same time.
 - Keep accessibility semantics on the Premium upsell presentation-only. Modal focus and headings must not be treated as checkout progress, purchase success, or evidence of an active entitlement.
+- Do not couple Profile bootstrap retry to RevenueCat purchase or restore flows; entitlement verification remains owned by the existing Premium and billing hooks.
 
 ## Related Docs
 

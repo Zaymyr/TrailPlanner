@@ -4,12 +4,15 @@ export const colors = {
     forestLight: "#3F6B1F",
     forestDark: "#1F3810",
     secondary: "#3F6F8F",
+    surface: "#E8F0E0",
+    border: "#B5CC9A",
   },
   surface: {
     sand: "#ECEAE3",
     sandLight: "#F4F2EC",
     white: "#FFFFFF",
     cream: "#FAF8F2",
+    muted: "#EAE8E1",
   },
   text: {
     primary: "#1F2410",
@@ -26,6 +29,13 @@ export const colors = {
     subtle: "#E5E2D8",
     strong: "#C9C5B8",
     brand: "#2D5016",
+  },
+  semantic: {
+    success: "#2D5016",
+    danger: "#C0392B",
+    dangerSurface: "#FDECEA",
+    warning: "#D97706",
+    warningSurface: "#FEF3C7",
   },
 } as const;
 

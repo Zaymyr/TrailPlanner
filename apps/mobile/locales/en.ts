@@ -761,11 +761,15 @@ export const en: MobileTranslations = {
     favoriteLimitMessage: 'Free access includes {count} favorite products. Upgrade to Premium to unlock unlimited favorites, full plan access, and automatic aid-station filling.',
     createProductPremiumHint: 'Custom product creation is reserved for Premium subscribers.',
     otherBrandsLabel: 'Other brands',
+    loadError: 'Unable to load products',
+    emptyCatalogTitle: 'No products found',
+    emptyCatalogDescription: 'Adjust your search or filters to see other products.',
   },
   planForm: {
     selectRaceTitle: 'Select a race',
     selectRaceSubtitle: 'Pick a race to create a linked plan.',
     selectRaceCta: 'Choose this race',
+    elevationMissing: 'Elevation gain not provided',
   },
   feedback: {
     triggerLabel: 'Report a bug or send feedback',

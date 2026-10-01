@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -506,6 +506,8 @@ Manual empty edition creation remains free and unlimited. Only cloning the previ
 The pricing dialog snapshots and displays the selected event and canonical edition before checkout. A database backfill attaches legacy/imported dated formats that were created without `edition_id`, and an invoker trigger atomically creates or reuses the matching event/year edition for future service-side inserts.
 
 ## Gotchas
+
+- The mobile Courses root now shares the standard loading, recoverable-error, and empty-state presentation and retains pull-to-refresh. Retry and refresh must repeat the existing catalog/organizer-membership reads without weakening masked/private/public format gates or changing organizer preview access.
 
 - Retiring runner-owned standalone races does not change Organizer draft formats, GPX authoring, publication states, or membership checks; those writes remain service-mediated.
 - Catalog plan intent is measured by `catalog create plan clicked`; only event-backed formats carry public event context for organizer/report filtering. Personal races remain measurable globally without being attributed to an organizer event.

@@ -24,6 +24,7 @@ import {
 import { Button } from '../themed/Button';
 import { Card } from '../themed/Card';
 import { DataText } from '../themed/DataText';
+import { EmptyState } from '../themed/EmptyState';
 import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
@@ -98,9 +99,6 @@ export const PlansList = memo(function PlansList({
   const [managedPlanName, setManagedPlanName] = useState('');
   const [renamingPlan, setRenamingPlan] = useState(false);
   const [nowMs, setNowMs] = useState(Date.now());
-  const localizedEmptyTitle =
-    locale === 'fr' ? "Aucun plan à l'horizon" : 'The trail starts here';
-
   useEffect(() => {
     const hasUpcomingDeparture = sections.some((section) =>
       section.data.some((plan) => {
@@ -217,21 +215,14 @@ export const PlansList = memo(function PlansList({
         sections={sections.map((section) => ({ ...section, key: section.sectionKey }))}
         stickySectionHeadersEnabled={false}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <EmptyPlanIcon
-              color={colors.brand.forest}
-              size={96}
-              strokeWidth={1.8}
-              style={styles.emptyIcon}
-            />
-            <Heading accessibilityLabel={emptyTitle} variant="h2" style={styles.emptyTitle}>
-              {localizedEmptyTitle}
-            </Heading>
-            <Text tone="secondary" size="base" lineHeight="normal" style={styles.emptySubtitle}>
-              {emptySubtitle}
-            </Text>
-            <Button onPress={onBrowseRaces}>{browseRacesLabel}</Button>
-          </View>
+          <EmptyState
+            actionLabel={browseRacesLabel}
+            description={emptySubtitle}
+            icon={<EmptyPlanIcon color={colors.brand.forest} size={72} strokeWidth={1.8} />}
+            onActionPress={onBrowseRaces}
+            style={styles.emptyState}
+            title={emptyTitle}
+          />
         }
       />
 
@@ -735,23 +726,8 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: colors.accent.terracotta,
   },
-  emptyContainer: {
+  emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing[8],
     paddingVertical: spacing[16],
-  },
-  emptyIcon: {
-    opacity: 0.42,
-  },
-  emptyTitle: {
-    textAlign: 'center',
-    marginTop: spacing[5],
-    marginBottom: spacing[2],
-  },
-  emptySubtitle: {
-    textAlign: 'center',
-    marginBottom: spacing[8],
   },
 });

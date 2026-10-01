@@ -1,7 +1,7 @@
 ---
 title: race_event_update_reads Table
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260820130930_add_format_targeted_race_updates.sql
@@ -41,6 +41,8 @@ related_tables:
 - Anonymous sessions do not write read receipts.
 
 ## Gotchas
+
+- Retrying or refreshing the Courses root reloads receipt state but does not mark an announcement read. Receipt insertion remains tied to displaying the relevant event-sheet update.
 
 - Moving the Courses race-request action beside search and removing the floating ellipsis does not display an organizer announcement or create a read receipt.
 - Removing the personal-race section from Courses does not change announcement display or read-receipt persistence for catalog events.

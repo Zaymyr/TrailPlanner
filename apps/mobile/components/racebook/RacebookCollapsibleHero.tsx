@@ -144,7 +144,7 @@ export function RacebookCollapsibleHero({
           styles.compactContent,
           {
             top: topInset,
-            right: 14 + compactActionCount * 36,
+            right: 14 + compactActionCount * 48,
             height: RACEBOOK_HERO_COMPACT_BODY_HEIGHT,
             opacity: compactOpacity,
           },
@@ -159,7 +159,7 @@ export function RacebookCollapsibleHero({
       </Animated.View>
 
       {socialLinks.length > 0 ? (
-        <View style={[styles.persistentSocialActions, { top: topInset + 13 }]}>
+        <View style={[styles.persistentSocialActions, { top: topInset + 8 }]}>
           {isCompact && emergency && onCallEmergency ? (
             <Pressable
               accessibilityRole="button"
@@ -183,7 +183,7 @@ export function RacebookCollapsibleHero({
           ))}
         </View>
       ) : isCompact && emergency && onCallEmergency ? (
-        <View style={[styles.persistentSocialActions, { top: topInset + 13 }]}>
+        <View style={[styles.persistentSocialActions, { top: topInset + 8 }]}>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={emergency.accessibilityLabel}
@@ -196,7 +196,7 @@ export function RacebookCollapsibleHero({
       ) : null}
 
       <Animated.View style={[styles.expandedContent, { paddingTop: topInset + 10, opacity: expandedOpacity }]}>
-        <View style={[styles.topRow, { paddingRight: socialLinks.length * 36 }]}>
+        <View style={[styles.topRow, { paddingRight: socialLinks.length * 48 }]}>
           <View style={styles.heading}>
             {eventName && eventName !== raceName ? (
               <Text style={[styles.kicker, { color: theme.onPrimaryColor }]}>{eventName}</Text>
@@ -285,7 +285,7 @@ const styles = StyleSheet.create({
   logoSurface: { width: 62, height: 52, flexShrink: 0, padding: 5, borderRadius: 13, backgroundColor: Colors.surface },
   logo: { width: '100%', height: '100%' },
   persistentSocialActions: { position: 'absolute', zIndex: 5, right: 12, flexDirection: 'row', gap: 4 },
-  socialAction: { width: 32, height: 34, alignItems: 'center', justifyContent: 'center', borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)', backgroundColor: 'rgba(0,0,0,0.18)' },
+  socialAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)', backgroundColor: 'rgba(0,0,0,0.18)' },
   compactEmergencyAction: { backgroundColor: 'rgba(176,28,28,0.44)' },
   metaGroup: { flex: 1, minWidth: 0, gap: 5 },
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
@@ -296,10 +296,10 @@ const styles = StyleSheet.create({
   metricValue: { fontSize: 14, lineHeight: 18, fontWeight: '800', textAlign: 'center' },
   metricLabel: { fontSize: 9, lineHeight: 12, fontWeight: '700', textAlign: 'center', opacity: 0.76 },
   metricDivider: { width: 1, marginVertical: 10, opacity: 0.24 },
-  emergencyRow: { minHeight: 40, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)', backgroundColor: 'rgba(0,0,0,0.18)' },
+  emergencyRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)', backgroundColor: 'rgba(0,0,0,0.18)' },
   emergencyCopy: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 7 },
   emergencyLabel: { flexShrink: 1, minWidth: 0, fontSize: 11, lineHeight: 15, fontWeight: '700', opacity: 0.78 },
   emergencyPhone: { flexShrink: 0, fontSize: 13, lineHeight: 17, fontWeight: '800' },
-  emergencyCallButton: { minHeight: 32, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)', backgroundColor: 'rgba(255,255,255,0.1)' },
+  emergencyCallButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)', backgroundColor: 'rgba(255,255,255,0.1)' },
   emergencyCallLabel: { fontSize: 11, lineHeight: 14, fontWeight: '800' },
 });

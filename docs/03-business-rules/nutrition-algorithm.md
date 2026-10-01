@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-09-30
+last_verified: 2026-10-01
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -41,6 +41,7 @@ related_files:
   - apps/mobile/assets/verified-product.png
   - apps/mobile/components/nutrition/types.ts
   - apps/mobile/components/nutrition/NutritionContent.tsx
+  - apps/mobile/components/nutrition/NutritionCreateProductModal.tsx
   - apps/mobile/components/nutrition/ProductDetailModal.tsx
   - apps/mobile/components/plan-form/AidStationsSectionV3.tsx
   - apps/mobile/components/plan-form/AidStationCoveragePanel.tsx
@@ -95,6 +96,7 @@ This document describes how Pace Yourself allocates products to segment nutritio
 - Organizer station product: product proposed by the race organization for one source ravito.
 - Organizer supply source: selected official ravito products are stored in plan supplies with `source: "organizer"` so they remain available at that ravito even when crew assistance is not allowed.
 - Mobile catalog grouping: an explicit product brand or a recognized brand token creates a collapsible brand group; an unrecognized product name falls back to `Autres marques` / `Other brands` instead of being presented as a brand itself. This is presentation-only and does not alter product nutrition values or favorite ownership.
+- Mobile custom-product creation uses one brand combobox populated from the loaded catalog's explicit brands. Selecting a suggestion reuses its spelling; unmatched non-empty text is submitted as a new free-form `products.brand` value.
 
 ## Inputs
 
@@ -329,6 +331,8 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - Verified/official product badges are presentation only. They are derived from `products.is_official`, use the custom verified icon asset on product images in catalog and plan pickers, tint official mobile brand header names with the light brand green, and let a taller collapsed brand header reuse the first available official product image as its larger visual identifier. The tag icon remains the fallback when no official image exists; neither path changes allocation order or nutrition math.
 - Organizer ravito suggestions are presentation, explicit-selection, and web opt-in auto-fill data. For plans with `race_id`, suggestions are refreshed from the source race on `/api/plans` GET and the stored JSON is only a fallback snapshot. Do not let non-live organizer products enter the default auto-fill pool; only include them when the runner has favorited/selected them or has enabled the ravito-products auto-fill option. Persist selected official ravito products with `source: "organizer"` so no-assistance filtering removes personal supplies without removing products offered by the race.
 - Mobile nutrition catalog grouping and brand collapse are presentation only. They must not change allocation order, product eligibility, or nutrition math.
+- Mobile Nutrition loading, retry, pull-to-refresh, and filtered empty states are presentation/data-retrieval behavior only. Refresh reloads products and favorites together and must not run allocation, change product eligibility, or mutate plan supplies.
+- Keep custom-product brand suggestions derived from explicit `products.brand` values. Do not persist inferred catalog group labels such as `Autres marques` as a product brand.
 - Mobile plan recap/share should derive from the same saved supplies and live-section timing used by the planner/live screen. Public crew links may persist that derived recap as a bounded `plan_share_links.snapshot`, but the snapshot must not feed back into nutrition allocation. No-assistance checkpoints should stay visually muted in recaps and should not display a product handoff block.
 - Five-minute reminder scheduling is presentation/runtime rounding, not the displayed race-duration contract. Do not use rounded reminder section boundaries for recap totals or checkpoint passage times.
 - Mobile favorite toggles are presentation only. Product rows reuse the Courses heart vocabulary in a compact trailing action: inactive hearts use the light brand surface and active hearts use the filled brand circle. Carbohydrates, sodium, and calories remain visible together on one compact line whenever those values exist, including for favorite products.
