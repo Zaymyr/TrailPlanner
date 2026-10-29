@@ -76,3 +76,5 @@ Per-format GPX map/profile choices affect only the `Tracé` cards and do not cha
 Fullscreen course visuals and tappable ravito markers do not read, reorder, or replace edition-scoped nearby services.
 
 Format-scoped supporter directions and assistance permissions are not edition services. They are serialized from `race_supporter_points` only when that separate module is effective.
+
+The Livret/Mon plan switch may reuse an already saved owner plan without showing the plan-creation loader. This route-local warm state is separate from the edition-scoped services payload and its cache.

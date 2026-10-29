@@ -67,3 +67,5 @@ Global Booking and Decathlon actions are an independent partner payload. Booking
 Material check/uncheck analytics and bounded per-item checked/missing snapshots are independent from SAS selection and timing; they carry no wave fields and do not mutate start-wave rows.
 
 Supporter points intentionally carry no personalized or official passage time in the first version. Start-wave resolution therefore does not alter their chronology.
+
+The personal plan card may show planned ravito passage duration and a resolved clock from the current SAS/start time. Switching back to that already saved plan can reuse a local editor warm state, but neither action rewrites SAS rows or their time authority.

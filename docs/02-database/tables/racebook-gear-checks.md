@@ -65,6 +65,8 @@ This table remains the source of truth for current checked state. PostHog organi
 
 Opening supporter directions or an external access plan does not read or mutate personal equipment checks. Both datasets remain owner- and purpose-specific.
 
+When a saved plan exists, the Livret card can show its planned duration and pace beside this checklist completion and link to a warmed plan editor. Those plan-display/navigation values never change a checked row.
+
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)
 - [RLS Policies](../rls-policies.md)

@@ -64,3 +64,5 @@ Fullscreen course visuals and tappable ravito markers remain presentation-only a
 Global Booking and Decathlon actions are loaded through their own server-mediated contract. Booking renders in the permanent Services tab, while Decathlon renders in Matériel above required equipment. Neither action reads, filters, or alters award rows or the conditional Podiums view.
 
 Supporter points are an independent Course collection and module. Their presence does not enable, hide, reorder, or otherwise modify award rows or the Podiums sub-tab.
+
+Switching from the Livret to an already saved personal plan can pass an owner-scoped plan identifier and reuse a short-lived editor warm state. That navigation hint does not enter the public awards snapshot or change Podiums availability.

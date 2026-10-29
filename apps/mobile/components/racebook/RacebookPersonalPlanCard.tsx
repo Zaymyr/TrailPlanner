@@ -4,11 +4,13 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import type { PlanSummary } from '../../lib/planSummary';
 import { formatDuration } from '../../lib/planSummary';
+import { formatAveragePace } from '../../lib/planWorkspace';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 
 export function RacebookPersonalPlanCard({
   summary,
+  hasPlan,
   requiredGearCount,
   checkedRequiredGearCount,
   revisionPending,
@@ -16,6 +18,7 @@ export function RacebookPersonalPlanCard({
   onOpenPlan,
 }: {
   summary: PlanSummary | null;
+  hasPlan?: boolean;
   requiredGearCount: number;
   checkedRequiredGearCount: number;
   revisionPending: boolean;
@@ -25,25 +28,33 @@ export function RacebookPersonalPlanCard({
   const copy = locale === 'fr' ? {
     title: 'Mon plan pour cette course',
     empty: 'Crée ton plan personnel à partir des informations officielles, puis affine allure, pauses et nutrition.',
+    loading: 'Chargement des données de ton plan…',
     create: 'Créer mon plan',
     refine: 'Affiner mon plan',
     review: 'Revoir mon plan',
     revision: 'L’organisation a modifié des informations qui peuvent influencer ton plan. Tes choix personnels restent inchangés.',
     duration: 'Durée prévue',
+    averagePace: 'Allure moyenne',
     stations: 'Ravitos planifiés',
     gear: 'Matériel obligatoire',
   } : {
     title: 'My plan for this race',
     empty: 'Create your personal plan from the official information, then refine pace, stops and nutrition.',
+    loading: 'Loading your plan data…',
     create: 'Create my plan',
     refine: 'Refine my plan',
     review: 'Review my plan',
     revision: 'The organizer changed information that may affect your plan. Your personal choices remain unchanged.',
     duration: 'Expected duration',
+    averagePace: 'Average pace',
     stations: 'Planned aid stations',
     gear: 'Mandatory gear',
   };
   const plannedStations = summary?.checkpoints.filter((checkpoint) => !checkpoint.isStart && !checkpoint.isFinish).length ?? 0;
+  const averagePace = summary
+    ? formatAveragePace(summary.totalDurationMin, summary.distanceKm)
+    : '—';
+  const planExists = hasPlan ?? Boolean(summary);
 
   return (
     <View style={styles.card}>
@@ -60,12 +71,16 @@ export function RacebookPersonalPlanCard({
       {summary ? (
         <View style={styles.metrics}>
           <Metric label={copy.duration} value={formatDuration(summary.totalDurationMin)} />
+          <Metric
+            label={copy.averagePace}
+            value={averagePace === '—' ? averagePace : `${averagePace}/km`}
+          />
           <Metric label={copy.stations} value={String(plannedStations)} />
           <Metric label={copy.gear} value={`${Math.min(checkedRequiredGearCount, requiredGearCount)}/${requiredGearCount}`} />
         </View>
-      ) : <Text style={styles.body}>{copy.empty}</Text>}
+      ) : <Text style={styles.body}>{planExists ? copy.loading : copy.empty}</Text>}
       <Pressable accessibilityRole="button" onPress={onOpenPlan} style={styles.action}>
-        <Text style={styles.actionText}>{summary ? (revisionPending ? copy.review : copy.refine) : copy.create}</Text>
+        <Text style={styles.actionText}>{planExists ? (revisionPending ? copy.review : copy.refine) : copy.create}</Text>
         <Ionicons color={Colors.textOnBrand} name="arrow-forward" size={17} />
       </Pressable>
     </View>
@@ -88,8 +103,8 @@ const styles = StyleSheet.create({
   body: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   alert: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, borderRadius: 14, padding: 11, backgroundColor: Colors.warningSurface },
   alertText: { flex: 1, color: Colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '600' },
-  metrics: { flexDirection: 'row', gap: 8 },
-  metric: { flex: 1, gap: 3, borderRadius: 13, padding: 10, backgroundColor: Colors.surface },
+  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  metric: { flexGrow: 1, flexBasis: '46%', gap: 3, borderRadius: 13, padding: 10, backgroundColor: Colors.surface },
   metricLabel: { color: Colors.textSecondary, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   metricValue: { color: Colors.textPrimary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
   action: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderRadius: 22, paddingHorizontal: 16, backgroundColor: Colors.brandPrimary },

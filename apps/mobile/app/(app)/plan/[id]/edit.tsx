@@ -53,11 +53,13 @@ import {
   clearPlanEditDraft,
   clearPendingPlanEditHelp,
   clearPlanEditProductsBootstrap,
+  consumePlanWorkspaceWarmStart,
   getPendingPlanEditHelp,
   getPlanEditDraft,
   getPlanEditProductsBootstrap,
   setActivePlanEditSession,
-  setPlanEditDraft
+  setPlanEditDraft,
+  stagePlanWorkspaceWarmStart,
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 import {
@@ -160,7 +162,7 @@ function getUnsavedPlanEditDraft(planId: string) {
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
 
 export default function EditPlanScreen() {
-  const { id, showHelp, tab, share, racebookTab, racebookCourseTab, targetAidStationId } = useLocalSearchParams<{
+  const { id, showHelp, tab, share, racebookTab, racebookCourseTab, targetAidStationId, planWarmStartToken } = useLocalSearchParams<{
     id: string;
     showHelp?: string;
     tab?: string;
@@ -168,6 +170,7 @@ export default function EditPlanScreen() {
     racebookTab?: string;
     racebookCourseTab?: string;
     targetAidStationId?: string;
+    planWarmStartToken?: string;
   }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { locale, t } = useI18n();
@@ -175,8 +178,13 @@ export default function EditPlanScreen() {
   const navigation = useNavigation();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<PlanWorkspaceTab>(() => normalizePlanWorkspaceTab(tab));
-  const initialWarmStartDraft = id ? getUnsavedPlanEditDraft(id) : null;
-  const initialWarmStartProductData = id ? getPlanEditProductsBootstrap(id) : null;
+  const [initialWorkspaceWarmStart] = useState(() => (
+    id ? consumePlanWorkspaceWarmStart(id, planWarmStartToken) : null
+  ));
+  const initialWarmStartDraft = initialWorkspaceWarmStart?.draft
+    ?? (id ? getUnsavedPlanEditDraft(id) : null);
+  const initialWarmStartProductData = initialWorkspaceWarmStart?.products
+    ?? (id ? getPlanEditProductsBootstrap(id) : null);
   const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
   const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
     () => [
@@ -382,8 +390,8 @@ export default function EditPlanScreen() {
   useEffect(() => {
     if (!id) return;
 
-    const cachedDraft = getUnsavedPlanEditDraft(id);
-    const cachedProductData = getPlanEditProductsBootstrap(id);
+    const cachedDraft = initialWorkspaceWarmStart?.draft ?? getUnsavedPlanEditDraft(id);
+    const cachedProductData = initialWorkspaceWarmStart?.products ?? getPlanEditProductsBootstrap(id);
 
     activeRouteIdRef.current = id;
     loadRequestIdRef.current += 1;
@@ -429,7 +437,7 @@ export default function EditPlanScreen() {
     setDraftSnapshot(null);
     setPlanProductData(null);
     setElevationProfile([]);
-  }, [id]);
+  }, [id, initialWorkspaceWarmStart]);
 
   const loadPlan = useCallback(async () => {
     if (!id) return;
@@ -861,14 +869,28 @@ export default function EditPlanScreen() {
       Alert.alert(t.common.error, t.profile.saveFailed);
       return;
     }
-    captureAnalyticsEvent('race workspace switched', { direction: 'plan_to_racebook' });
     const params = new URLSearchParams();
+    const latestDraft = latestDraftRef.current;
+    if (id && latestDraft && planProductData) {
+      const planWarmStartToken = stagePlanWorkspaceWarmStart(id, {
+        draft: {
+          elevationProfile: elevationProfileRef.current,
+          lastSavedSnapshot: lastSavedSnapshotRef.current,
+          planName: latestDraft.name || planName,
+          values: latestDraft,
+        },
+        products: planProductData,
+      });
+      params.set('planWarmStartToken', planWarmStartToken);
+    }
+    captureAnalyticsEvent('race workspace switched', { direction: 'plan_to_racebook' });
     if (racebookTab) params.set('tab', racebookTab);
     if (racebookCourseTab) params.set('courseTab', racebookCourseTab);
     if (targetAidStationId) params.set('targetAidStationId', targetAidStationId);
+    if (id) params.set('planId', id);
     const query = params.toString();
     router.replace(`/(app)/race/${linkedRaceId}/racebook${query ? `?${query}` : ''}`);
-  }, [linkedRaceId, racebookAvailable, racebookCourseTab, racebookTab, router, saveLatestDraft, t.common.error, t.planWorkspace.racebookUnavailable, t.profile.saveFailed, targetAidStationId]);
+  }, [id, linkedRaceId, planName, planProductData, racebookAvailable, racebookCourseTab, racebookTab, router, saveLatestDraft, t.common.error, t.planWorkspace.racebookUnavailable, t.profile.saveFailed, targetAidStationId]);
 
   const handleWorkspaceScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.setValue(event.nativeEvent.contentOffset.y);

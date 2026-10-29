@@ -80,7 +80,7 @@ Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100
 
 Uploading, replacing, choosing the RaceBook visibility of, or deleting a format GPX remains part of the permanent Course/GPX editor and does not require an offer upgrade. Deletion preserves stored course metrics and aid stations.
 
-`event` and Course/GPX are permanent. Edition modules are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Format modules are `aid_stations`, `supporter_points`, `start_waves`, `awards`, `relay`, `official_products`. `supporter_points` belongs to Essentiel, defaults to enabled, and remains independent from `aid_stations`. Equipment, bib and access format overrides are centralized advanced groups requiring Complet; the editor marks them once with `Options avancées · Complet` instead of adding field badges.
+`event` and Course/GPX are permanent. Edition modules are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Format modules are `aid_stations`, `supporter_points`, `start_waves`, `awards`, `relay`, `official_products`. `supporter_points`, presented as **Suivi coureur**, belongs to Essentiel, defaults to enabled, participates in the Essentiel publication scope, and remains independent from `aid_stations`. Equipment, bib and access format overrides are centralized advanced groups requiring Complet; the editor marks them once with `Options avancées · Complet` instead of adding field badges.
 
 The states are:
 

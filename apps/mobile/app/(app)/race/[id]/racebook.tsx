@@ -90,10 +90,13 @@ import {
 } from '../../../../lib/racebookGearChecklist';
 import { supabase } from '../../../../lib/supabase';
 import { loadPlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
+import { stagePlanWorkspaceWarmStart } from '../../../../lib/planEditSession';
 import { addMinutes, buildPlanSummary, buildProductMap, buildStoredRacePlanFromRow, formatClock, formatDuration, getPlanSummaryDepartureTimeStorageKey, type PlanSummary, type PlanSummaryRow } from '../../../../lib/planSummary';
 import { buildLocalDepartureAt, normalizePlanClock } from '../../../../lib/planDeparture';
+import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
 import { matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
+import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
@@ -577,12 +580,14 @@ function HeroDetailGroup({ title, values }: { title: string; values: string[] })
 }
 
 export default function RaceRacebookScreen() {
-  const { id, onboarding, tab, courseTab, targetAidStationId } = useLocalSearchParams<{
+  const { id, onboarding, tab, courseTab, targetAidStationId, planId, planWarmStartToken } = useLocalSearchParams<{
     id?: string;
     onboarding?: 'racebook';
     tab?: string;
     courseTab?: string;
     targetAidStationId?: string;
+    planId?: string;
+    planWarmStartToken?: string;
   }>();
   const router = useRouter();
   const navigation = useNavigation();
@@ -594,7 +599,8 @@ export default function RaceRacebookScreen() {
   const [activeTab, setActiveTab] = useState<RacebookTabKey>(() => normalizeRacebookTab(tab));
   const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>(() => normalizeCourseTab(courseTab));
   const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(targetAidStationId ?? null);
-  const [linkedPlanId, setLinkedPlanId] = useState<string | null>(null);
+  const [linkedPlanId, setLinkedPlanId] = useState<string | null>(planId ?? null);
+  const [linkedPlanWarmStartToken, setLinkedPlanWarmStartToken] = useState<string | null>(planWarmStartToken ?? null);
   const [linkedPlan, setLinkedPlan] = useState<LinkedPlanSnapshot | null>(null);
   const [personalDepartureClock, setPersonalDepartureClock] = useState<string | null>(null);
   const [checkedGearItemKeys, setCheckedGearItemKeys] = useState<Set<string>>(new Set());
@@ -646,36 +652,68 @@ export default function RaceRacebookScreen() {
   }, [courseTab, tab, targetAidStationId]);
 
   useEffect(() => {
-    let cancelled = false;
-    setLinkedPlanId(null);
+    setLinkedPlanId(planId ?? null);
+    setLinkedPlanWarmStartToken(planWarmStartToken ?? null);
     setLinkedPlan(null);
     setPersonalDepartureClock(null);
+  }, [id, planId, planWarmStartToken]);
+
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
     if (!id) return () => { cancelled = true; };
 
     void (async () => {
       const sessionResult = await supabase.auth.getSession();
       const ownerId = sessionResult.data.session?.user?.id ?? null;
-      if (!ownerId || cancelled) return;
-      const { data: plan } = await supabase
+      if (cancelled) return;
+      if (!ownerId) {
+        setLinkedPlanId(null);
+        setLinkedPlanWarmStartToken(null);
+        setLinkedPlan(null);
+        return;
+      }
+      const { data: plan, error: planError } = await supabase
         .from('race_plans')
         .select('id,name,updated_at,planner_values,elevation_profile,source_revision_at_last_review')
         .eq('race_id', id)
         .eq('user_id', ownerId)
         .maybeSingle();
-      if (!plan || cancelled) {
-        if (!cancelled) setLinkedPlanId(null);
+      if (cancelled) return;
+      if (planError) return;
+      if (!plan) {
+        setLinkedPlanId(null);
+        setLinkedPlanWarmStartToken(null);
+        setLinkedPlan(null);
         return;
       }
-      const [productData, storedDepartureClock] = await Promise.all([
+      const [productData, storedDepartureClock, fetchedRaceElevationProfile] = await Promise.all([
         loadPlanProductsBootstrap(ownerId),
         AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(plan.id)).catch(() => null),
+        fetchRaceElevationProfile(id),
       ]);
       if (cancelled) return;
+      const storedPlan = buildStoredRacePlanFromRow(plan as PlanSummaryRow);
+      const planValues = normalizeStoredPlanValues(storedPlan);
+      const storedElevationProfile = storedPlan.elevationProfile ?? [];
+      const editElevationProfile = pickBestElevationProfile(
+        [storedElevationProfile, fetchedRaceElevationProfile],
+        planValues.raceDistanceKm,
+      );
+      const warmStartToken = stagePlanWorkspaceWarmStart(plan.id, {
+        draft: {
+          elevationProfile: editElevationProfile,
+          lastSavedSnapshot: createPlanPersistenceSnapshot(planValues, storedElevationProfile),
+          planName: plan.name,
+          values: planValues,
+        },
+        products: productData,
+      });
       const summary = buildPlanSummary(
-        buildStoredRacePlanFromRow(plan as PlanSummaryRow),
+        storedPlan,
         buildProductMap(productData.allProducts),
       );
       setLinkedPlanId(plan.id);
+      setLinkedPlanWarmStartToken(warmStartToken);
       setPersonalDepartureClock(normalizePlanClock(storedDepartureClock));
       setLinkedPlan({
         id: plan.id,
@@ -685,7 +723,7 @@ export default function RaceRacebookScreen() {
     })();
 
     return () => { cancelled = true; };
-  }, [id]);
+  }, [id]));
 
   useEffect(() => {
     let cancelled = false;
@@ -1150,7 +1188,7 @@ export default function RaceRacebookScreen() {
     ];
     if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
     if (sponsorPresentation.modules.supporter_points && (data?.supporterPoints.length ?? 0) > 0) {
-      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Supporters' : 'Supporters' });
+      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Suivi coureur' : 'Runner tracking' });
     }
 
     if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
@@ -1483,12 +1521,13 @@ export default function RaceRacebookScreen() {
       racebookCourseTab: activeCourseTab,
     });
     if (expandedAidStationId) params.set('targetAidStationId', expandedAidStationId);
+    if (linkedPlanWarmStartToken) params.set('planWarmStartToken', linkedPlanWarmStartToken);
     router.replace(
       linkedPlanId
         ? `/(app)/plan/${linkedPlanId}/edit?${params.toString()}`
         : `/(app)/plan/new?raceId=${id}&${params.toString()}`,
     );
-  }, [activeCourseTab, activeTab, expandedAidStationId, id, linkedPlanId, router]);
+  }, [activeCourseTab, activeTab, expandedAidStationId, id, linkedPlanId, linkedPlanWarmStartToken, router]);
 
   const openLinkedPlanAtStation = useCallback((stationId: string) => {
     if (!linkedPlanId) return;
@@ -1502,8 +1541,9 @@ export default function RaceRacebookScreen() {
       racebookCourseTab: 'aid-stations',
       targetAidStationId: stationId,
     });
+    if (linkedPlanWarmStartToken) params.set('planWarmStartToken', linkedPlanWarmStartToken);
     router.replace(`/(app)/plan/${linkedPlanId}/edit?${params.toString()}`);
-  }, [linkedPlanId, router]);
+  }, [linkedPlanId, linkedPlanWarmStartToken, router]);
 
   const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {
     if (!id) return;
@@ -1766,6 +1806,7 @@ export default function RaceRacebookScreen() {
                 </View>
 
                 <RacebookPersonalPlanCard
+                  hasPlan={Boolean(linkedPlanId)}
                   summary={linkedPlan?.summary ?? null}
                   requiredGearCount={requiredEquipment.length}
                   checkedRequiredGearCount={Math.max(0, requiredEquipment.length - missingRequiredEquipmentCount)}

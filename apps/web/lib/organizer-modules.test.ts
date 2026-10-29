@@ -11,6 +11,7 @@ describe("organizer module catalog", () => {
   });
 
   it("keeps modules outside the offer editable as private drafts", () => {
+    expect(ORGANIZER_MODULES.find((module) => module.key === "supporter_points")?.label).toBe("Suivi coureur");
     expect(getOrganizerModuleState("essential", "supporter_points", true)).toBe("active");
     expect(getOrganizerModuleState("essential", "services", true)).toBe("draftOnly");
     expect(getOrganizerModuleState("complete", "services", true)).toBe("active");

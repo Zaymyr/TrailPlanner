@@ -39,6 +39,7 @@ This is a retained legacy audit table. It previously gated yearly edition creati
 - Newly created canonical editions use the database's visible-by-default state. Later visibility changes or confirmed year-typed deletion use `/api/organizer/editions/[id]`, not this retired request table.
 - The compact edition/format summary starts collapsed; expanding it or selecting a format through the mobile selector is local presentation state and neither action creates nor consults this retired request table.
 - Batching section-switch drafts into one explicit module-settings save likewise does not create or consult this retired request table. The chooser's edition-common and per-format groups only expose the existing settings scopes.
+- `supporter_points` remains a default-enabled, Essential format module and is labelled **Suivi coureur** in the dashboard. A missing key in a legacy settings payload uses that default for its organizer sidecar, without creating or consulting this retired request table.
 - The per-event Organizer dashboard guide, its responsive spotlight, and its temporary visibility-panel expansion are presentation state on the organizer membership; none consults or recreates an edition request.
 - Legacy rows remain readable for audit and may still be returned by compatibility APIs.
 - `/api/organizer/claims` continues to return only the current user's legacy edition-request rows even when its event selector is expanded to the full catalog for an admin; selector access does not revive or broaden this retired workflow.
@@ -84,6 +85,7 @@ The table retains `id`, timestamps, `user_id`, `event_id`, `source_year`, `reque
 - The admin-only two-pass import binds its session directly to a canonical edition id. Format confirmation and signed field selections can affect only explicitly confirmed current rows under that edition; neither operation revives this retired request workflow.
 - Classifying additional official URLs or text PDFs may surface a date claim, but it never retargets the import session or creates a legacy edition request.
 - Do not couple the new edition branding tile or its completion signal to this retired workflow.
+- Do not reintroduce edition review merely because a legacy settings row lacks `supporter_points`: the default only controls the authorized format editor and its publication-module accounting.
 
 ## Related Docs
 

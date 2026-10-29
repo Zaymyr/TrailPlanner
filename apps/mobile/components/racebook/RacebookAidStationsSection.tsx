@@ -239,9 +239,19 @@ function AidStationCard({
             <Ionicons color={Colors.brandPrimary} name="person-outline" size={16} />
             <Text style={styles.personalPlanTitle}>{copy.personalPlan}</Text>
           </View>
-          <Text style={styles.personalPlanText}>
-            {personalPlan.arrivalLabel}{personalPlan.estimatedClock ? ` · ${personalPlan.estimatedClock}` : ''}
-          </Text>
+          <View
+            accessible
+            accessibilityLabel={[personalPlan.arrivalLabel, personalPlan.estimatedClock].filter(Boolean).join(', ')}
+            style={styles.personalPlanTiming}
+          >
+            <Ionicons color={Colors.brandPrimary} name="time-outline" size={18} />
+            <View style={styles.personalPlanTimingValues}>
+              <DataText style={styles.personalPlanPassage}>{personalPlan.arrivalLabel}</DataText>
+              {personalPlan.estimatedClock ? (
+                <DataText style={styles.personalPlanClock}>{personalPlan.estimatedClock}</DataText>
+              ) : null}
+            </View>
+          </View>
           <Text style={styles.personalPlanText}>{personalPlan.pauseLabel}</Text>
           {personalPlan.products.length > 0 ? <Text style={styles.personalPlanProducts}>{personalPlan.products.join(' · ')}</Text> : null}
           {onEditPersonalPlan ? (
@@ -551,6 +561,10 @@ const styles = StyleSheet.create({
   personalPlanBlock: { gap: 7, borderTopWidth: 1, borderTopColor: Colors.brandBorder, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: Colors.brandSurface },
   personalPlanTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   personalPlanTitle: { color: Colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '800' },
+  personalPlanTiming: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9, backgroundColor: Colors.surface },
+  personalPlanTimingValues: { flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
+  personalPlanPassage: { flexShrink: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800' },
+  personalPlanClock: { color: Colors.brandPrimary, fontSize: 16, lineHeight: 20, fontWeight: '800' },
   personalPlanText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
   personalPlanProducts: { color: Colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   personalPlanAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, alignSelf: 'flex-start', borderRadius: 22, borderWidth: 1, borderColor: Colors.brandBorder, paddingHorizontal: 13, backgroundColor: Colors.surface },

@@ -149,7 +149,7 @@ export function AidStationsEditor({
           tabs={[
             { id: "startWaves", label: "SAS" },
             { id: "aidStations", label: "Ravitos" },
-            ...(supporterPointsEnabled ? [{ id: "supporters", label: "Supporters" }] : []),
+            ...(supporterPointsEnabled ? [{ id: "supporters", label: "Suivi coureur" }] : []),
             ...(relayEnabled ? [{ id: "relay", label: "Relais" }] : []),
           ]}
           activeTab={activeView}
@@ -162,7 +162,7 @@ export function AidStationsEditor({
             </Button>
           ) : activeView === "supporters" ? (
             <Button type="button" variant="outline" onClick={onAddSupporterPoint}>
-              Ajouter un point supporter
+              Ajouter un point de suivi
             </Button>
           ) : (
             <Button type="button" variant="outline" onClick={onAddRelayPoint}>
@@ -379,7 +379,7 @@ function SupporterPointsEditor({
   onRemove: (index: number) => void;
 }) {
   if (points.length === 0) {
-    return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point supporter.</p>;
+    return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point de suivi coureur.</p>;
   }
 
   return (

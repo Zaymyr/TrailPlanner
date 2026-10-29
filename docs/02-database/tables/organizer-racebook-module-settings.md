@@ -31,7 +31,7 @@ Stores the organizer's durable enable/disable choice for optional RaceBook modul
 
 `edition_id`, optional `race_id`, `module_key`, `is_enabled`, `configured_by` and audit timestamps are stored. Edition keys are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Race keys are `aid_stations`, `supporter_points`, `start_waves`, `awards`, `relay`, `official_products`.
 
-`supporter_points` is an independent Essentiel format module. It is enabled by default for existing and newly created edition formats, is duplicated with the edition, and does not inherit the `aid_stations` switch. Disabling it retains organizer drafts but removes supporter points from public serialization and direct client reads.
+`supporter_points` is an independent Essentiel format module presented to organizers and runners as **Suivi coureur**. It is enabled by default for existing and newly created edition formats, is duplicated with the edition, and does not inherit the `aid_stations` switch. Disabling it retains organizer drafts but removes supporter points from public serialization and direct client reads.
 
 Partial unique indexes enforce one edition setting per edition/key and one race setting per race/key. A trigger rejects a `race_id` outside `edition_id` and maintains `updated_at`.
 

@@ -113,6 +113,8 @@ The independently loaded Booking action occupies the permanent Services tab, whi
 
 Supporter points are neither handover points nor aid stations. They have no relay-leg semantics and remain visible only through their independent format module.
 
+The owner-only Livret/Mon plan switch may warm an already saved plan editor, but it never turns a relay handover into a personalized passage or changes the `Relais` collection.
+
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)
 - [Relationships](../relationships.md)

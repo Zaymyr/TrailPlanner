@@ -61,4 +61,44 @@ describe("loadOrganizerPublicationRequirement", () => {
       `https://project.supabase.co/rest/v1/race_event_edition_branding?edition_id=eq.${editionId}&select=edition_id&limit=1`,
     );
   });
+
+  it("keeps selected runner-tracking points in the Essential publication scope", async () => {
+    const raceId = "33333333-3333-4333-8333-333333333333";
+    loadOrganizerModuleSettings.mockResolvedValue({
+      edition: {
+        equipment: false,
+        bib_pickup: false,
+        access: false,
+        services: false,
+        branding: false,
+        sponsors: false,
+      },
+      races: {
+        [raceId]: {
+          aid_stations: false,
+          supporter_points: true,
+          start_waves: false,
+          awards: false,
+          relay: false,
+          official_products: false,
+        },
+      },
+    });
+
+    vi.stubGlobal("fetch", vi.fn(async (input: string | URL | Request) => {
+      const url = String(input);
+      if (url.includes("/races?")) return Response.json([{ id: raceId, organizer_details: null }]);
+      if (url.includes("/race_event_editions?")) return Response.json([{ event_id: eventId }]);
+      if (url.includes("/race_events?")) return Response.json([{ organizer_details: null }]);
+      return Response.json([]);
+    }));
+
+    const result = await loadOrganizerPublicationRequirement({
+      supabaseUrl: "https://project.supabase.co",
+      supabaseServiceRoleKey: "service-role-key",
+    }, editionId);
+
+    expect(result.tier).toBe("essential");
+    expect(result.usedModules).toContain("supporter_points");
+  });
 });

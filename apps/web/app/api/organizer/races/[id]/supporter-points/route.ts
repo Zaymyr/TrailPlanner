@@ -103,7 +103,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, params.data.id);
   if ("error" in race) return race.error;
   if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, params.data.id, "supporter_points"))) {
-    return jsonError("Activez la section Points supporters pour modifier son brouillon.", 403);
+    return jsonError("Activez la section Suivi coureur pour modifier son brouillon.", 403);
   }
 
   const body = updateSchema.safeParse(await request.json().catch(() => null));
