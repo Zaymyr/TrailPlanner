@@ -4,6 +4,7 @@ import { z } from "zod";
 import { withSecurityHeaders } from "../../../lib/http";
 import { isOrganizerForEvent, serviceHeaders } from "../../../lib/organizer";
 import { hasOrganizerRacebookContent } from "../../../lib/racebook-sponsors";
+import { isOrganizerRaceModuleEnabled } from "../../../lib/organizer-module-settings";
 import { setPrivateRacebookCacheHeaders, setPublicRacebookCacheHeaders } from "../../../lib/racebook-cache";
 import {
   extractBearerToken,
@@ -65,6 +66,7 @@ const relaySelect = "id,race_aid_station_id,name,km,handover_time,cutoff_time,no
 const waveSelect = "id,name,start_time,eligibility_type,bib_number_min,bib_number_max,finish_minutes_min,finish_minutes_max,pace_seconds_min,pace_seconds_max,eligibility_note,order_index";
 const awardSelect = "id,category_key,category_label,audience,place_from,place_to,podium_time,podium_location,reward_note,order_index";
 const serviceSelect = "id,service_type,name,description,address,latitude,longitude,google_maps_url,website_url,phone,order_index";
+const supporterPointSelect = "id,name,km,order_index,encouragement_allowed,assistance_allowed,access_label,latitude,longitude,google_maps_url,access_note,plan_url";
 
 const jsonError = (message: string, status: number) =>
   withSecurityHeaders(NextResponse.json({ message }, { status }));
@@ -98,7 +100,7 @@ export async function GET(request: NextRequest) {
   }
 
   const event = Array.isArray(race.race_events) ? race.race_events[0] ?? null : race.race_events;
-  if (!event || !hasOrganizerRacebookContent(event.organizer_details, race.organizer_details, race.participation_mode)) {
+  if (!event) {
     return jsonError("Race Book not available.", 404);
   }
 
@@ -112,6 +114,9 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  const supporterPointsEnabled = race.edition_id
+    ? await isOrganizerRaceModuleEnabled(serviceConfig, race.edition_id, raceId, "supporter_points")
+    : false;
   const urls = [
     `${serviceConfig.supabaseUrl}/rest/v1/race_aid_stations?race_id=eq.${raceId}&select=${stationSelect}&order=order_index.asc`,
     `${serviceConfig.supabaseUrl}/rest/v1/race_relay_points?race_id=eq.${raceId}&select=${relaySelect}&order=order_index.asc`,
@@ -119,21 +124,42 @@ export async function GET(request: NextRequest) {
     `${serviceConfig.supabaseUrl}/rest/v1/race_awards?race_id=eq.${raceId}&select=${awardSelect}&order=podium_time.asc,order_index.asc`,
   ];
   const headers = serviceHeaders(serviceConfig, "");
-  const [stationsResponse, relayResponse, wavesResponse, awardsResponse, servicesResponse] = await Promise.all([
+  const [stationsResponse, relayResponse, wavesResponse, awardsResponse, servicesResponse, supporterPointsResponse] = await Promise.all([
     ...urls.map((url) => fetch(url, { headers, cache: "no-store" })),
     race.edition_id
       ? fetch(`${serviceConfig.supabaseUrl}/rest/v1/race_edition_services?edition_id=eq.${race.edition_id}&select=${serviceSelect}&order=service_type.asc,order_index.asc`, { headers, cache: "no-store" })
       : Promise.resolve(null),
+    supporterPointsEnabled
+      ? fetch(`${serviceConfig.supabaseUrl}/rest/v1/race_supporter_points?race_id=eq.${raceId}&select=${supporterPointSelect}&order=order_index.asc`, { headers, cache: "no-store" })
+      : Promise.resolve(null),
   ]);
 
   try {
-    const [stationRows, relayPointRows, startWaveRows, awardRows, editionServiceRows] = await Promise.all([
+    const [stationRows, relayPointRows, startWaveRows, awardRows, editionServiceRows, rawSupporterPointRows] = await Promise.all([
       readRows(stationsResponse, true),
       readRows(relayResponse, true),
       readRows(wavesResponse, false),
       readRows(awardsResponse, false),
       readRows(servicesResponse, false),
+      readRows(supporterPointsResponse, false),
     ]);
+    const supporterPointRows = rawSupporterPointRows.filter((point) =>
+      typeof point?.name === "string"
+      && point.name.trim().length > 0
+      && Number.isFinite(Number(point.km))
+      && Number(point.km) >= 0
+      && Number(point.km) <= race.distance_km
+      && Number.isFinite(Number(point.latitude))
+      && Number(point.latitude) >= -90
+      && Number(point.latitude) <= 90
+      && Number.isFinite(Number(point.longitude))
+      && Number(point.longitude) >= -180
+      && Number(point.longitude) <= 180
+      && (point.encouragement_allowed === true || point.assistance_allowed === true)
+    );
+    if (!hasOrganizerRacebookContent(event.organizer_details, race.organizer_details, race.participation_mode) && supporterPointRows.length === 0) {
+      return jsonError("Race Book not available.", 404);
+    }
     const response = withSecurityHeaders(NextResponse.json({
       raceRow: race,
       stationRows,
@@ -141,6 +167,7 @@ export async function GET(request: NextRequest) {
       startWaveRows,
       awardRows,
       editionServiceRows,
+      supporterPointRows,
       organizerPreview: !isPublic,
     }));
 

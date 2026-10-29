@@ -139,6 +139,8 @@ The authenticated organizer dashboard adds a separate commercial funnel: `organi
 
 Organizer content analytics use `organizer_event_created` for the initial event, then `organizer race created`, `organizer event updated`, and `organizer race updated` for successful dashboard writes. The creation event includes the edition year and calendar days remaining before its start. Update events expose only technical ids, edition year, calendar `days_until_race`, manual/background save mode, and a comma-separated allowlist of changed field categories. They never send field values, event/race names, contact details, locations, URLs, or announcement copy. Aid-station replacement is counted as the `aid_stations` category. PostHog dashboards must exclude `$internal_or_test_user = true`; newly added update insights remain empty until the updated Web client is deployed and consented organizers save content.
 
+Supporter-point replacement uses the aggregate `supporter_points` changed-field category. Mobile route openings emit only the aggregate action and technical context; supporter names, addresses, coordinates, access notes, Maps URLs, and plan URLs are prohibited analytics properties.
+
 Opening, replaying, stepping through, or closing the Organizer spotlight guide emits no organizer content event. The guide waits for a cookie decision before presentation and suppresses the mobile-app prompt while active; this UI coordination must not be interpreted as analytics consent or as a saved organizer action.
 
 ## Web Plan Value Events

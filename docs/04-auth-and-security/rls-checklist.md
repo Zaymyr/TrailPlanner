@@ -222,6 +222,8 @@ Use:
 
 ## Related Docs
 
+For `race_supporter_points`, tests verify grants separately from policies: clients receive SELECT only, incomplete rows fail the SELECT predicate, and only `service_role` can execute the atomic replacement RPC.
+
 - [RLS Policies](../02-database/rls-policies.md)
 - [Race Slug Redirects](../02-database/tables/race-slug-redirects.md)
 - [Add RLS Policy](../06-workflows/add-rls-policy.md)

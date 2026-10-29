@@ -541,7 +541,7 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
   const titles: Record<OrganizerModuleId, string> = {
     event: "Informations",
     formats: "Formats & GPX",
-    aidStations: "Départ, ravitos & relais",
+    aidStations: "Départ, ravitos, supporters & relais",
     equipment: "Matériel",
     bibPickup: "Dossard",
     access: "Accès",

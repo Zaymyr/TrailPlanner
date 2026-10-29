@@ -1,7 +1,7 @@
 ---
 title: organizer_racebook_module_settings
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260908093008_add_organizer_offer_modules_v2.sql
@@ -29,7 +29,9 @@ Stores the organizer's durable enable/disable choice for optional RaceBook modul
 
 ## Columns and Scope
 
-`edition_id`, optional `race_id`, `module_key`, `is_enabled`, `configured_by` and audit timestamps are stored. Edition keys are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Race keys are `aid_stations`, `start_waves`, `awards`, `relay`, `official_products`.
+`edition_id`, optional `race_id`, `module_key`, `is_enabled`, `configured_by` and audit timestamps are stored. Edition keys are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Race keys are `aid_stations`, `supporter_points`, `start_waves`, `awards`, `relay`, `official_products`.
+
+`supporter_points` is an independent Essentiel format module. It is enabled by default for existing and newly created edition formats, is duplicated with the edition, and does not inherit the `aid_stations` switch. Disabling it retains organizer drafts but removes supporter points from public serialization and direct client reads.
 
 Partial unique indexes enforce one edition setting per edition/key and one race setting per race/key. A trigger rejects a `race_id` outside `edition_id` and maintains `updated_at`.
 

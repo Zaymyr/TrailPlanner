@@ -109,6 +109,8 @@ Ravito point markers projected onto the route/profile represent `race_aid_statio
 
 The independently loaded Booking action occupies the permanent Services tab, while Decathlon appears in Matériel. Neither action affects relay-row reads, derived legs, or the conditional Relais sub-tab.
 
+Supporter points are neither handover points nor aid stations. They have no relay-leg semantics and remain visible only through their independent format module.
+
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)
 - [Relationships](../relationships.md)

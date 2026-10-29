@@ -343,6 +343,8 @@ where is_live = true
 
 ## Related Docs
 
+A format with at least one complete, effective supporter point counts as meaningful Livret coureur content. The points remain owned by the child `races` row and are removed through its cascade, not stored in event organizer JSON.
+
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)
 - [race_slug_redirects](race-slug-redirects.md)

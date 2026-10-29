@@ -293,8 +293,8 @@ const buildFormatProgressModules = (
     },
     {
       id: "aidStations",
-      title: "Départ, ravitos & relais",
-      description: "Départ, arrivée, ravitos, relais, barrières et produits du format.",
+      title: "Départ, ravitos, supporters & relais",
+      description: "Départ, arrivée, ravitos, points supporters, relais, barrières et produits du format.",
       level: "recommended",
       status: hasStartTime && hasFinishCutoff && hasAidStations
         ? "complete"
@@ -480,7 +480,7 @@ export function buildOrganizerCompletion(
     },
     {
       id: "aidStations",
-      title: "Départ, ravitos & relais",
+      title: "Départ, ravitos, supporters & relais",
       description: "Départ, arrivée, ravitos, relais, barrières et produits officiels.",
       level: "recommended",
       status: activeAidStationStatus,

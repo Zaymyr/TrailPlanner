@@ -1,6 +1,6 @@
 import type { FuelProduct } from "../../../../lib/product-types";
 
-import type { AidStationDraft, GpxPreview, RelayPointDraft, StationProduct } from "./types";
+import type { AidStationDraft, GpxPreview, RelayPointDraft, StationProduct, SupporterPointDraft } from "./types";
 
 export const ORGANIZER_PRODUCT_CATALOG_STALE_TIME_MS = 5 * 60 * 1000;
 export const ORGANIZER_RACE_SIDECARS_STALE_TIME_MS = 2 * 60 * 1000;
@@ -13,6 +13,7 @@ export type OrganizerRaceSidecars = {
   aidStations: AidStationDraft[];
   relayPoints: RelayPointDraft[];
   stationProducts: StationProduct[];
+  supporterPoints?: SupporterPointDraft[];
 };
 
 type CacheEntry<T> = {

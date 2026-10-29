@@ -50,6 +50,7 @@ import {
 } from '../../../../components/racebook/RacebookBibSection';
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
+import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
@@ -88,7 +89,7 @@ import {
 import { supabase } from '../../../../lib/supabase';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
-type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
+type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
 
 function normalizeRacebookTab(value: string | undefined): RacebookTabKey {
   return value === 'gear' || value === 'bib' || value === 'course' || value === 'access' || value === 'services'
@@ -97,7 +98,7 @@ function normalizeRacebookTab(value: string | undefined): RacebookTabKey {
 }
 
 function normalizeCourseTab(value: string | undefined): CourseTabKey {
-  return value === 'route' || value === 'start-waves' || value === 'aid-stations' || value === 'relay' || value === 'awards'
+  return value === 'route' || value === 'start-waves' || value === 'aid-stations' || value === 'supporters' || value === 'relay' || value === 'awards'
     ? value
     : 'route';
 }
@@ -1108,6 +1109,9 @@ export default function RaceRacebookScreen() {
       { key: 'route', label: t.catalog.racebookCourseTabRoute },
     ];
     if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
+    if (sponsorPresentation.modules.supporter_points && (data?.supporterPoints.length ?? 0) > 0) {
+      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Supporters' : 'Supporters' });
+    }
 
     if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
       availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
@@ -1120,6 +1124,8 @@ export default function RaceRacebookScreen() {
     relaySegments.length,
     data?.startWaves.length,
     data?.awards.length,
+    data?.supporterPoints.length,
+    locale,
     sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
     t.catalog.racebookCourseTabAwards,
@@ -1855,6 +1861,13 @@ export default function RaceRacebookScreen() {
                     onSponsorImpression={reportSponsorImpression}
                   />
                   </>
+                ) : null}
+                {activeCourseTab === 'supporters' ? (
+                  <RacebookSupporterPointsSection
+                    locale={locale}
+                    points={data.supporterPoints}
+                    onOpenUrl={(url, action) => openTrackedUrl(url, action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened')}
+                  />
                 ) : null}
 
               </>

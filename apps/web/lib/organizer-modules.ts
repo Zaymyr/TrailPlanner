@@ -12,6 +12,7 @@ export const organizerEditionModuleKeySchema = z.enum([
 ]);
 export const organizerRaceModuleKeySchema = z.enum([
   "aid_stations",
+  "supporter_points",
   "start_waves",
   "awards",
   "relay",
@@ -63,6 +64,7 @@ export const ORGANIZER_MODULES: readonly OrganizerModuleDefinition[] = [
   { key: "branding", label: "Identité visuelle", description: "Logo et couleurs du Livret coureur.", scope: "edition", minimumTier: "signature", capability: "branding.manage", defaultEnabled: false },
   { key: "sponsors", label: "Sponsors", description: "Placements partenaires et clics agrégés.", scope: "edition", minimumTier: "signature", capability: "sponsors.manage", defaultEnabled: false },
   { key: "aid_stations", label: "Ravitos", description: "Ravitaillements et services disponibles.", scope: "race", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
+  { key: "supporter_points", label: "Points supporters", description: "Zones autorisées pour encourager ou ravitailler les coureurs.", scope: "race", minimumTier: "essential", capability: "racebook_content.basic.manage", defaultEnabled: true },
   { key: "start_waves", label: "SAS", description: "Vagues, horaires et critères de départ.", scope: "race", minimumTier: "complete", capability: "racebook_content.advanced.manage", defaultEnabled: false },
   { key: "awards", label: "Podiums & récompenses", description: "Catégories, horaires et récompenses.", scope: "race", minimumTier: "complete", capability: "racebook_content.advanced.manage", defaultEnabled: false },
   { key: "relay", label: "Relais", description: "Passages de témoin et segments relais.", scope: "race", minimumTier: "signature", capability: "relay.manage", defaultEnabled: false },

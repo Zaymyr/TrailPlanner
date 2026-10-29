@@ -305,6 +305,8 @@ Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.s
 
 `supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql` extends `race_aid_stations` with `solid_available` and `assistance_allowed`, both defaulting to `true`. It adds no new table, grants, foreign keys, or RLS policies; existing aid-station policies continue to control the rows.
 
+`supabase/migrations/20261029091807_add_race_supporter_points.sql` creates format-scoped supporter points, their RLS/grants, and a service-only atomic replacement function. It also adds the independent Essential `supporter_points` module, enables it by default for existing and newly inserted edition formats, and leaves incomplete organizer drafts out of public reads.
+
 `supabase/migrations/20260824152859_add_relay_course_points.sql` adds nullable `races.participation_mode` plus normalized `race_relay_points`. A handover may link to a ravito with `on delete set null`; public reads require a published Racebook and mutations remain service-role-only.
 
 `supabase/migrations/20260618160000_add_organizer_dashboard_details.sql` extends existing organizer source tables with nullable JSONB:

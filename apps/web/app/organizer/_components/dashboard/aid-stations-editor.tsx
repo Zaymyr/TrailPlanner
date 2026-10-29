@@ -9,6 +9,7 @@ import type { FuelProduct } from "../../../../lib/product-types";
 import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
 import { formatKm, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
+import { AddressAutocompleteField } from "./address-autocomplete-field";
 import type {
   AidStationDraft,
   ProductFormValues,
@@ -16,15 +17,18 @@ import type {
   RaceParticipationMode,
   RelayPointDraft,
   StationProduct,
+  SupporterPointDraft,
 } from "./types";
 
-type EditorView = "startWaves" | "aidStations" | "relay";
+type EditorView = "startWaves" | "aidStations" | "supporters" | "relay";
 
 export function AidStationsEditor({
   activeRace,
   aidStations,
   participationMode,
   relayPoints,
+  supporterPoints,
+  supporterPointsEnabled,
   startTime,
   startWaveCount,
   finishCutoffTime,
@@ -35,6 +39,7 @@ export function AidStationsEditor({
   onExpandedStationKeyChange,
   onAddStation,
   onAddRelayPoint,
+  onAddSupporterPoint,
   onStartTimeChange,
   onFinishCutoffTimeChange,
   onCutoffNoteChange,
@@ -43,6 +48,8 @@ export function AidStationsEditor({
   onRemoveStation,
   onUpdateRelayPoint,
   onRemoveRelayPoint,
+  onUpdateSupporterPoint,
+  onRemoveSupporterPoint,
   onToggleStationRelayPoint,
   stationProducts,
   productsById,
@@ -59,6 +66,8 @@ export function AidStationsEditor({
   aidStations: AidStationDraft[];
   participationMode: RaceParticipationMode | "";
   relayPoints: RelayPointDraft[];
+  supporterPoints: SupporterPointDraft[];
+  supporterPointsEnabled: boolean;
   startTime: string;
   startWaveCount: number;
   finishCutoffTime: string;
@@ -69,6 +78,7 @@ export function AidStationsEditor({
   onExpandedStationKeyChange: (key: string | null) => void;
   onAddStation: () => void;
   onAddRelayPoint: () => void;
+  onAddSupporterPoint: () => void;
   onStartTimeChange: (value: string) => void;
   onFinishCutoffTimeChange: (value: string) => void;
   onCutoffNoteChange: (value: string) => void;
@@ -77,6 +87,8 @@ export function AidStationsEditor({
   onRemoveStation: (index: number) => void;
   onUpdateRelayPoint: (index: number, point: RelayPointDraft) => void;
   onRemoveRelayPoint: (index: number) => void;
+  onUpdateSupporterPoint: (index: number, point: SupporterPointDraft) => void;
+  onRemoveSupporterPoint: (index: number) => void;
   onToggleStationRelayPoint: (station: AidStationDraft, checked: boolean) => void;
   stationProducts: StationProduct[];
   productsById: Map<string, FuelProduct>;
@@ -137,6 +149,7 @@ export function AidStationsEditor({
           tabs={[
             { id: "startWaves", label: "SAS" },
             { id: "aidStations", label: "Ravitos" },
+            ...(supporterPointsEnabled ? [{ id: "supporters", label: "Supporters" }] : []),
             ...(relayEnabled ? [{ id: "relay", label: "Relais" }] : []),
           ]}
           activeTab={activeView}
@@ -147,6 +160,10 @@ export function AidStationsEditor({
             <Button type="button" variant="outline" onClick={onAddStation}>
               Ajouter un ravito
             </Button>
+          ) : activeView === "supporters" ? (
+            <Button type="button" variant="outline" onClick={onAddSupporterPoint}>
+              Ajouter un point supporter
+            </Button>
           ) : (
             <Button type="button" variant="outline" onClick={onAddRelayPoint}>
               Ajouter un point de relais
@@ -155,7 +172,15 @@ export function AidStationsEditor({
         ) : null}
       </div>
 
-      {activeView === "startWaves" ? startWavesSlot : activeView === "aidStations" ? (
+      {activeView === "startWaves" ? startWavesSlot : activeView === "supporters" ? (
+        <SupporterPointsEditor
+          activeRace={activeRace}
+          points={supporterPoints}
+          status={status}
+          onChange={onUpdateSupporterPoint}
+          onRemove={onRemoveSupporterPoint}
+        />
+      ) : activeView === "aidStations" ? (
         <>
           {aidStations.length === 0 ? (
             <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun ravito.</p>
@@ -336,6 +361,103 @@ export function AidStationsEditor({
           </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function SupporterPointsEditor({
+  activeRace,
+  points,
+  status,
+  onChange,
+  onRemove,
+}: {
+  activeRace: RaceFormat;
+  points: SupporterPointDraft[];
+  status: "idle" | "loading" | "saving" | "uploading";
+  onChange: (index: number, point: SupporterPointDraft) => void;
+  onRemove: (index: number) => void;
+}) {
+  if (points.length === 0) {
+    return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Aucun point supporter.</p>;
+  }
+
+  return (
+    <div className="space-y-4">
+      {points.map((point, index) => {
+        const publishable = Boolean(
+          point.name.trim()
+          && point.distanceKm !== null
+          && point.distanceKm >= 0
+          && point.distanceKm <= activeRace.distance_km
+          && point.latitude !== null
+          && point.longitude !== null
+          && (point.encouragementAllowed || point.assistanceAllowed)
+        );
+        return (
+          <article key={point.id ?? `supporter-${index}`} className="space-y-4 rounded-[1.5rem] border border-border bg-card p-4 shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <AidStationBadge step={index + 1} variant="ravito" />
+                <div>
+                  <p className="font-semibold text-foreground">{point.name || `Point supporter ${index + 1}`}</p>
+                  <p className="text-xs text-muted-foreground">Position du coureur : {point.distanceKm === null ? "non renseignée" : formatKm(point.distanceKm)}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={cn("rounded-full px-3 py-1 text-xs font-semibold", publishable ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700")}>
+                  {publishable ? "Publiable" : "Brouillon incomplet"}
+                </span>
+                <Button type="button" variant="ghost" className="text-red-700" onClick={() => onRemove(index)}>Retirer</Button>
+              </div>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <TextField label="Nom du point" value={point.name} onChange={(name) => onChange(index, { ...point, name })} invalid={!point.name.trim()} />
+              <TextField
+                label="Distance depuis le départ (km)"
+                type="number"
+                step="0.1"
+                value={point.distanceKm === null ? "" : String(point.distanceKm)}
+                onChange={(value) => onChange(index, { ...point, distanceKm: value.trim() === "" ? null : Number(value) })}
+                invalid={point.distanceKm === null || point.distanceKm < 0 || point.distanceKm > activeRace.distance_km}
+              />
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+              <StationServiceChip checked={point.encouragementAllowed} label="Encouragement autorisé" disabled={status === "saving"} onChange={(checked) => onChange(index, { ...point, encouragementAllowed: checked })} />
+              <StationServiceChip checked={point.assistanceAllowed} label="Ravitaillement / assistance autorisé" disabled={status === "saving"} onChange={(checked) => onChange(index, { ...point, assistanceAllowed: checked })} />
+            </div>
+            {!point.encouragementAllowed && !point.assistanceAllowed ? <p className="text-xs font-medium text-amber-700">Choisis au moins une autorisation pour publier ce point.</p> : null}
+
+            <AddressAutocompleteField
+              label="Adresse d’accès supporters"
+              value={point.accessLabel}
+              location={{
+                label: point.accessLabel || null,
+                lat: point.latitude,
+                lng: point.longitude,
+                googleMapsUrl: point.googleMapsUrl,
+                source: point.latitude !== null ? "autocomplete" : "manual",
+              }}
+              onChange={(accessLabel) => onChange(index, { ...point, accessLabel })}
+              onLocationChange={(location) => onChange(index, {
+                ...point,
+                accessLabel: location.label ?? "",
+                latitude: location.lat,
+                longitude: location.lng,
+                googleMapsUrl: location.googleMapsUrl,
+              })}
+              invalid={point.latitude === null || point.longitude === null}
+              placeholder="Rechercher une adresse ou un lieu"
+            />
+            <div className="grid gap-3 md:grid-cols-2">
+              <TextAreaField label="Consignes d’accès" value={point.accessNote} onChange={(accessNote) => onChange(index, { ...point, accessNote })} />
+              <TextField label="Lien vers un plan (optionnel)" type="url" value={point.planUrl} onChange={(planUrl) => onChange(index, { ...point, planUrl })} placeholder="https://…" />
+            </div>
+          </article>
+        );
+      })}
     </div>
   );
 }

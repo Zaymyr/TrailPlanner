@@ -133,6 +133,8 @@ Format-owned GPX route/profile choices do not change sponsor loading, placement,
 
 Opening a course visual fullscreen or selecting a ravito marker is not a sponsor presentation, click, or impression and does not restart the sponsor gate.
 
+The first supporter-points version has no dedicated sponsor placement. Showing or opening a supporter point must not create a sponsor impression or click.
+
 - [race_event_editions](race-event-editions.md)
 - [RLS Policies](../rls-policies.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

@@ -334,6 +334,8 @@ Primary colors style the image-backed identity hero, the softly tinted RaceBook 
 
 The same lightweight server bootstrap returns an effective boolean map for edition and format modules. Mobile entirely removes inactive or locked Matériel, Dossard and Accès tabs. Course and the global Services shell remain permanent; an inactive Services module removes organizer-authored service rows and its contextual sponsor surface but not the Booking action. Ravitos, SAS, Relais and Podiums sub-tabs follow their format settings; official products are removed from ravito cards independently. Sponsors and branding are returned only when effective. When an older server response omits the map during rolling deployment, normalization defaults every module to the historical visible behavior.
 
+`supporter_points` follows the same additive rolling-deployment contract. Missing `supporterPointRows` normalizes to an empty collection. Course shows `Supporters` only when the module is effective and at least one complete point exists; its S1/S2 chronology exposes permissions, access instructions, a Maps action and an optional external-plan action without adding a general map or runner-specific passage time.
+
 ## Plan Share Links
 
 `apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. Its screen-scoped synchronizer deduplicates identical background/share requests, refreshes the stable public snapshot when the recap opens or changes, and lets the explicit native-share action reuse the returned URL. The mobile app never generates database rows directly for public links and never handles service-role keys.

@@ -80,6 +80,7 @@ const raceAccessRowSchema = z.object({
   edition_id: z.string().uuid().nullable().optional(),
   name: z.string().optional(),
   race_date: z.string().nullable().optional(),
+  distance_km: z.coerce.number(),
   data_status: z.enum(["draft", "complete"]).optional().default("complete"),
   missing_required_fields: z.array(z.enum(["race_date", "location", "distance_km", "source_url"])).optional().default([]),
   racebook_is_live: z.boolean().optional(),
@@ -131,7 +132,7 @@ export async function loadRaceForOrganizer(
   raceId: string
 ): Promise<z.infer<typeof raceAccessRowSchema> | { error: NextResponse }> {
   const response = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,name,race_date,data_status,missing_required_fields,racebook_is_live,racebook_preview_is_visible,racebook_publication_approved_at,organizer_details&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,name,race_date,distance_km,data_status,missing_required_fields,racebook_is_live,racebook_preview_is_visible,racebook_publication_approved_at,organizer_details&limit=1`,
     {
       headers: serviceHeaders(serviceConfig, ""),
       cache: "no-store",
