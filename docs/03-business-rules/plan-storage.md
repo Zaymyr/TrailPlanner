@@ -66,6 +66,7 @@ This document explains where planner state lives before signup, during onboardin
 - Idempotency guard: client and server duplicate-save protection.
 - Aid station service flags: `waterRefill`, `solidRefill`, and `assistanceAllowed` are stored per station. Missing flags hydrate as enabled for backward compatibility on intermediate stations.
 - Organizer station products: optional source suggestions stored in planner JSON as a fallback snapshot, refreshed from the source race on read for plans linked to a `race_id`, and separate from station supplies until explicitly selected or auto-filled with the web opt-in.
+- RaceBook passage reflection: exact official-source matches retain their personal pause and products; an official ravito absent from a legacy or simplified plan receives an interpolated passage time without inventing a pause or product selection.
 
 ## Onboarding Stage
 

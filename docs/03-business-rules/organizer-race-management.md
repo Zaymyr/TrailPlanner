@@ -245,6 +245,8 @@ related_tables:
 
 # Organizer Race Management
 
+Personal passage interpolation is a runner-side RaceBook reflection only; organizer aid-station data remains the official source.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Structured RaceBook content

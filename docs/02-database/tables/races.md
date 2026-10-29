@@ -67,6 +67,8 @@ related_tables:
 
 # `races`
 
+RaceBook passage interpolation uses the existing format distance and official aid-station kilometers; it adds no race field.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

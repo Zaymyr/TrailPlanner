@@ -29,6 +29,8 @@ related_tables:
 
 # Affiliate Partner Links
 
+RaceBook personal passage interpolation emits no partner click and does not alter affiliate attribution.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

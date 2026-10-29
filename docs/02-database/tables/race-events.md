@@ -94,6 +94,8 @@ related_tables:
 
 # `race_events`
 
+RaceBook personal passage-time interpolation uses the existing event date for clock labels and introduces no event column.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

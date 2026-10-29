@@ -94,7 +94,7 @@ import { stagePlanWorkspaceWarmStart } from '../../../../lib/planEditSession';
 import { addMinutes, buildPlanSummary, buildProductMap, buildStoredRacePlanFromRow, formatClock, formatDuration, getPlanSummaryDepartureTimeStorageKey, type PlanSummary, type PlanSummaryRow } from '../../../../lib/planSummary';
 import { buildLocalDepartureAt, normalizePlanClock } from '../../../../lib/planDeparture';
 import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
-import { matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
+import { estimatePersonalPassageMinute, matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
 import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
@@ -1309,21 +1309,29 @@ export default function RaceRacebookScreen() {
     const departureValue = buildLocalDepartureAt(data.race.raceDate ?? data.event.raceDate, departureClock);
     const departure = departureValue ? new Date(departureValue) : null;
     const result: Record<string, RacebookPersonalAidStationPlan> = {};
+    const planCheckpoints = linkedPlan.summary.checkpoints;
+    const personalAidStationCheckpoints = planCheckpoints.filter(
+      (checkpoint) => !checkpoint.isStart && !checkpoint.isFinish,
+    );
     data.aidStations.forEach((station) => {
-      const match = matchPersonalAidStation(station, linkedPlan.summary.checkpoints.filter((checkpoint) => !checkpoint.isStart && !checkpoint.isFinish));
-      if (!match) return;
-      const checkpoint = match.checkpoint;
+      const match = matchPersonalAidStation(station, personalAidStationCheckpoints);
+      const checkpoint = match?.checkpoint ?? null;
+      const arrivalMinute = checkpoint?.arrivalMinute
+        ?? estimatePersonalPassageMinute(station.km, planCheckpoints);
+      if (arrivalMinute === null) return;
       result[station.id] = {
         arrivalLabel: locale === 'fr'
-          ? `Passage prévu après ${formatDuration(checkpoint.arrivalMinute)}`
-          : `Expected after ${formatDuration(checkpoint.arrivalMinute)}`,
+          ? `Passage prévu après ${formatDuration(arrivalMinute)}`
+          : `Expected after ${formatDuration(arrivalMinute)}`,
         estimatedClock: departure && Number.isFinite(departure.getTime())
-          ? formatClock(addMinutes(departure, checkpoint.arrivalMinute))
+          ? formatClock(addMinutes(departure, arrivalMinute))
           : null,
-        pauseLabel: locale === 'fr'
-          ? `Pause ${formatDuration(checkpoint.pauseMinutes)}`
-          : `Stop ${formatDuration(checkpoint.pauseMinutes)}`,
-        products: checkpoint.supplies.map((product) => `${product.quantity}× ${product.name}`),
+        pauseLabel: checkpoint
+          ? (locale === 'fr'
+              ? `Pause ${formatDuration(checkpoint.pauseMinutes)}`
+              : `Stop ${formatDuration(checkpoint.pauseMinutes)}`)
+          : (locale === 'fr' ? "Estimé depuis l'allure du plan" : 'Estimated from plan pace'),
+        products: checkpoint?.supplies.map((product) => `${product.quantity}× ${product.name}`) ?? [],
       };
     });
     return result;

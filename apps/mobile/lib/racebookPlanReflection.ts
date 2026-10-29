@@ -26,6 +26,59 @@ export type AidStationPlanMatch<T extends PersonalAidStationForReflection> = {
   matchedBy: 'sourceAidStationId' | 'legacyNameAndKm';
 };
 
+export type PersonalPassageCheckpoint = {
+  distanceKm: number;
+  arrivalMinute: number;
+  pauseMinutes?: number | null;
+};
+
+/**
+ * Estimates an official passage omitted by an older or simplified plan.
+ * Interpolation includes the pause at the preceding personal checkpoint.
+ */
+export function estimatePersonalPassageMinute(
+  distanceKm: number,
+  checkpoints: readonly PersonalPassageCheckpoint[] | null | undefined,
+) {
+  if (!Number.isFinite(distanceKm) || !Array.isArray(checkpoints)) return null;
+
+  const ordered = checkpoints
+    .filter((checkpoint) =>
+      Number.isFinite(checkpoint.distanceKm) && Number.isFinite(checkpoint.arrivalMinute),
+    )
+    .slice()
+    .sort((left, right) => left.distanceKm - right.distanceKm);
+  if (ordered.length === 0) return null;
+
+  const exact = ordered.find((checkpoint) => Math.abs(checkpoint.distanceKm - distanceKm) < 0.001);
+  if (exact) return Math.max(0, exact.arrivalMinute);
+
+  const upperIndex = ordered.findIndex((checkpoint) => checkpoint.distanceKm > distanceKm);
+  if (upperIndex === 0) {
+    const upper = ordered[0];
+    if (!upper || upper.distanceKm <= 0) return Math.max(0, upper?.arrivalMinute ?? 0);
+    return Math.max(0, upper.arrivalMinute * (distanceKm / upper.distanceKm));
+  }
+
+  if (upperIndex < 0) {
+    const last = ordered.at(-1);
+    const previous = ordered.at(-2);
+    if (!last) return null;
+    if (!previous || last.distanceKm <= previous.distanceKm) return Math.max(0, last.arrivalMinute);
+    const previousDepartureMinute = previous.arrivalMinute + Math.max(0, previous.pauseMinutes ?? 0);
+    const minutesPerKm = (last.arrivalMinute - previousDepartureMinute) / (last.distanceKm - previous.distanceKm);
+    return Math.max(0, last.arrivalMinute + Math.max(0, distanceKm - last.distanceKm) * minutesPerKm);
+  }
+
+  const lower = ordered[upperIndex - 1];
+  const upper = ordered[upperIndex];
+  if (!lower || !upper || upper.distanceKm <= lower.distanceKm) return null;
+
+  const lowerDepartureMinute = lower.arrivalMinute + Math.max(0, lower.pauseMinutes ?? 0);
+  const ratio = (distanceKm - lower.distanceKm) / (upper.distanceKm - lower.distanceKm);
+  return Math.max(0, lowerDepartureMinute + (upper.arrivalMinute - lowerDepartureMinute) * ratio);
+}
+
 export function resolvePersonalAidStationTargetIndex(
   checkpoints: readonly { id?: string | null; sourceAidStationId?: string | null }[],
   targetAidStationId: string,

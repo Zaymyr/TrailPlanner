@@ -22,6 +22,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+RaceBook personal passage-time interpolation does not affect the independent gear-check persistence flow.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

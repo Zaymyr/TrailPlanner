@@ -17,6 +17,8 @@ related_tables:
 
 # race_supporter_points
 
+When the deployed web snapshot predates `supporterPointRows`, mobile may read this table directly; the public-select RLS policy remains responsible for exposing only complete points from an effective module.
+
 ## Purpose
 
 Supporter points stay official, public RaceBook content. The user-facing section is named **Suivi coureur** while database and API identifiers keep `supporter_points`. They are not copied into a runner plan or personalized by the Livret plan reflection.

@@ -36,6 +36,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+RaceBook personal passage-time interpolation is client-only and does not alter sponsor selection or presentation.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

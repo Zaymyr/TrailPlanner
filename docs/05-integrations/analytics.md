@@ -77,6 +77,8 @@ related_tables:
 
 # Analytics
 
+Interpolated RaceBook passage labels contain no additional analytics payload or event.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

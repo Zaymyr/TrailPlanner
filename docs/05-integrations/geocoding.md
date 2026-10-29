@@ -23,6 +23,8 @@ related_tables:
 
 # Geocoding
 
+The mobile rolling-deployment fallback reads already geocoded supporter points through RLS and does not invoke geocoding from the runner client.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

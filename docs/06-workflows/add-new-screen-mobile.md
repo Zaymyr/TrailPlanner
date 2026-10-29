@@ -69,6 +69,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+RaceBook subviews may derive display-only personal values from cached plan summaries; missing official checkpoints must degrade to a deterministic estimate rather than hide the official row.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

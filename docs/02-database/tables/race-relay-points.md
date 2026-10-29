@@ -22,6 +22,8 @@ related_tables:
 
 # `race_relay_points`
 
+RaceBook personal passage-time interpolation applies to official aid stations only and does not change relay-point data.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

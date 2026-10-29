@@ -1,11 +1,30 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  estimatePersonalPassageMinute,
   LEGACY_AID_STATION_KM_TOLERANCE,
   matchPersonalAidStation,
   normalizeAidStationNameForReflection,
   resolvePersonalAidStationTargetIndex,
 } from './racebookPlanReflection';
+
+describe('estimatePersonalPassageMinute', () => {
+  const checkpoints = [
+    { distanceKm: 0, arrivalMinute: 0, pauseMinutes: 0 },
+    { distanceKm: 50, arrivalMinute: 300, pauseMinutes: 10 },
+    { distanceKm: 100, arrivalMinute: 610, pauseMinutes: 0 },
+  ];
+
+  it('interpolates official passages between sparse personal checkpoints', () => {
+    expect(estimatePersonalPassageMinute(25, checkpoints)).toBe(150);
+    expect(estimatePersonalPassageMinute(75, checkpoints)).toBe(460);
+  });
+
+  it('keeps exact checkpoint arrivals and handles missing data', () => {
+    expect(estimatePersonalPassageMinute(50, checkpoints)).toBe(300);
+    expect(estimatePersonalPassageMinute(50, [])).toBeNull();
+  });
+});
 
 describe('matchPersonalAidStation', () => {
   const official = { id: 'official-col', name: 'Col de l\'\u00c2ne', km: 22.4 };
