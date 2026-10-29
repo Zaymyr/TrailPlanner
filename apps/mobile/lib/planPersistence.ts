@@ -41,6 +41,7 @@ export function normalizeAidStationsForPersistence(aidStations: AidStationFormIt
     .map((station) => ({
       name: station.name,
       distanceKm: station.distanceKm,
+      ...(station.sourceAidStationId ? { sourceAidStationId: station.sourceAidStationId } : {}),
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.assistanceAllowed !== false,

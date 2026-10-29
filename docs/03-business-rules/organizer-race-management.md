@@ -1,7 +1,7 @@
 ---
 title: Organizer Race Management
 scope: business-rule
-last_verified: 2026-10-01
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql

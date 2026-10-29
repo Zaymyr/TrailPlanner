@@ -32,6 +32,10 @@ import {
   PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT,
 } from '../../../../components/plan-workspace/PlanWorkspaceHeader';
 import { PlanWorkspaceTabBar } from '../../../../components/plan-workspace/PlanWorkspaceTabBar';
+import {
+  RACE_WORKSPACE_SWITCH_HEIGHT,
+  RaceWorkspaceSwitch,
+} from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
@@ -90,6 +94,7 @@ type RacePlanRow = {
     segments?: Record<string, any[]>;
     sectionSegments?: Record<string, any[]>;
     aidStations?: {
+      sourceAidStationId?: string;
       name: string;
       distanceKm: number;
       waterRefill: boolean;
@@ -122,6 +127,7 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
     startSupplies: (pv.startSupplies ?? []).map((s): Supply => ({ productId: s.productId, quantity: s.quantity ?? 1 })),
     sectionSegments: (pv.sectionSegments ?? pv.segments) as PlanFormValues['sectionSegments'],
     aidStations: (pv.aidStations ?? []).map((s) => ({
+      ...(s.sourceAidStationId ? { sourceAidStationId: s.sourceAidStationId } : {}),
       name: s.name,
       distanceKm: s.distanceKm,
       waterRefill: s.waterRefill !== false,
@@ -152,7 +158,15 @@ function getUnsavedPlanEditDraft(planId: string) {
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
 
 export default function EditPlanScreen() {
-  const { id, showHelp, tab, share } = useLocalSearchParams<{ id: string; showHelp?: string; tab?: string; share?: string }>();
+  const { id, showHelp, tab, share, racebookTab, racebookCourseTab, targetAidStationId } = useLocalSearchParams<{
+    id: string;
+    showHelp?: string;
+    tab?: string;
+    share?: string;
+    racebookTab?: string;
+    racebookCourseTab?: string;
+    targetAidStationId?: string;
+  }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { locale, t } = useI18n();
   const insets = useSafeAreaInsets();
@@ -222,6 +236,8 @@ export default function EditPlanScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [linkedRaceId, setLinkedRaceId] = useState<string | null>(null);
+  const [racebookAvailable, setRacebookAvailable] = useState(false);
   const [draftSnapshot, setDraftSnapshot] = useState<string | null>(() =>
     initialWarmStartDraft
       ? serializePlanValues(initialWarmStartDraft.values, initialWarmStartDraft.elevationProfile)
@@ -266,6 +282,32 @@ export default function EditPlanScreen() {
   useEffect(() => {
     setActiveTab(normalizePlanWorkspaceTab(tab));
   }, [tab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLinkedRaceId(null);
+    setRacebookAvailable(false);
+    if (!id) return () => { cancelled = true; };
+
+    void (async () => {
+      const { data: plan } = await supabase
+        .from('race_plans')
+        .select('race_id')
+        .eq('id', id)
+        .maybeSingle();
+      if (cancelled || !plan?.race_id) return;
+
+      setLinkedRaceId(plan.race_id);
+      const { data: race } = await supabase
+        .from('races')
+        .select('id')
+        .eq('id', plan.race_id)
+        .maybeSingle();
+      if (!cancelled) setRacebookAvailable(Boolean(race?.id));
+    })();
+
+    return () => { cancelled = true; };
+  }, [id]);
 
   useEffect(() => {
     if (!tutorialVisible || !currentTutorialTargetKey) return;
@@ -770,7 +812,27 @@ export default function EditPlanScreen() {
   const averagePace = workspaceSummary
     ? formatAveragePace(workspaceSummary.totalDurationMin, workspaceSummary.distanceKm)
     : '—';
-  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + 16;
+  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 16;
+
+  const openLinkedRacebook = useCallback(async () => {
+    if (!linkedRaceId) return;
+    if (!racebookAvailable) {
+      Alert.alert(t.common.error, t.planWorkspace.racebookUnavailable);
+      return;
+    }
+    const saved = await saveLatestDraft(true);
+    if (!saved) {
+      Alert.alert(t.common.error, t.profile.saveFailed);
+      return;
+    }
+    captureAnalyticsEvent('race workspace switched', { direction: 'plan_to_racebook' });
+    const params = new URLSearchParams();
+    if (racebookTab) params.set('tab', racebookTab);
+    if (racebookCourseTab) params.set('courseTab', racebookCourseTab);
+    if (targetAidStationId) params.set('targetAidStationId', targetAidStationId);
+    const query = params.toString();
+    router.replace(`/(app)/race/${linkedRaceId}/racebook${query ? `?${query}` : ''}`);
+  }, [linkedRaceId, racebookAvailable, racebookCourseTab, racebookTab, router, saveLatestDraft, t.common.error, t.planWorkspace.racebookUnavailable, t.profile.saveFailed, targetAidStationId]);
 
   const handleWorkspaceScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.setValue(event.nativeEvent.contentOffset.y);
@@ -857,7 +919,7 @@ export default function EditPlanScreen() {
           id={id}
           onScroll={handleWorkspaceScroll}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + 16}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0)}
           onShareIntentConsumed={() => router.setParams({ share: undefined })}
           shareOnMount={share === '1'}
           summary={workspaceSummary}
@@ -893,7 +955,7 @@ export default function EditPlanScreen() {
           compactBasicsByDefault
           contentTopInset={headerTopInset}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0)}
           onMissingFavoriteProducts={handleMissingFavoriteProducts}
           onWorkspaceScroll={handleWorkspaceScroll}
           showActions={false}
@@ -924,6 +986,18 @@ export default function EditPlanScreen() {
         topInset={insets.top}
         totalTime={workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—'}
       />
+      {linkedRaceId ? (
+        <RaceWorkspaceSwitch
+          active="plan"
+          compactHeaderHeight={PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          expandedHeaderHeight={PLAN_WORKSPACE_HEADER_BODY_HEIGHT}
+          onOpenPlan={() => undefined}
+          onOpenRacebook={() => { void openLinkedRacebook(); }}
+          racebookDisabled={!racebookAvailable}
+          scrollY={scrollY}
+          topInset={insets.top}
+        />
+      ) : null}
       <PlanWorkspaceTabBar
         activeTab={activeTab}
         onExit={handleBackToPlans}

@@ -1,7 +1,7 @@
 ---
 title: race_plans Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -10,6 +10,8 @@ related_files:
   - supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql
   - supabase/migrations/20260609091933_add_plan_share_links.sql
   - supabase/migrations/20260618145940_remove_coach_features.sql
+  - supabase/migrations/20261029090122_link_racebook_plans.sql
+  - supabase/tests/race_plan_race_uniqueness_checks.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
@@ -69,6 +71,7 @@ Inbound references:
 ## Indexes
 
 - `race_plans_user_id_idx` on `user_id`
+- partial unique `race_plans_user_race_unique_idx` on `(user_id, race_id)` when `race_id is not null`
 
 ## RLS Policies
 
@@ -84,6 +87,7 @@ Summary:
 - `planner_values` is the main persisted planner state after signup.
 - Onboarding saves should be idempotent; do not save twice on email confirmation or duplicated auth events.
 - `race_id` can be null. Deleting a race must detach plans, not delete them.
+- A user, including an anonymous Supabase user, can have at most one linked plan per non-null `race_id`. Manual detached plans remain unrestricted.
 - `catalog_race_updated_at_at_import` is a source snapshot, not a live sync guarantee.
 - `plan_gpx_path` belongs to the copied plan GPX, not the source race GPX.
 - Organizer ravito products are suggestion metadata in `planner_values`, not automatic supplies. The stored JSON is a fallback snapshot when the plan has `race_id`; `/api/plans` overlays current source station-product links into read responses.

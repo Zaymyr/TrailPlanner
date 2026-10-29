@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-10-01
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts

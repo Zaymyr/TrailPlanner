@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
@@ -76,6 +76,8 @@ related_files:
   - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
+  - supabase/migrations/20261029090122_link_racebook_plans.sql
+  - supabase/tests/race_plan_race_uniqueness_checks.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -106,6 +108,8 @@ related_tables:
 ---
 
 # Migrations
+
+`20261029090122_link_racebook_plans.sql` enforces one linked plan per `(user_id, race_id)` with a partial unique index. Before creating the index it keeps the most recently updated duplicate linked and safely detaches older duplicates by setting `race_id = null`; no plan content is deleted. `supabase/tests/race_plan_race_uniqueness_checks.sql` verifies the index columns, uniqueness, and null-only predicate.
 
 `20260914055319_harden_privileged_database_access.sql` removes client-writable profile roles from database authorization, clears untrusted legacy admin labels, protects server-owned profile entitlement/analytics fields, restricts user-created races to private standalone rows, restricts privileged SECURITY DEFINER RPCs to `service_role`, enables invoker security on `product_brand_review`, pins advisor-reported function search paths, optimizes the replaced owner/admin RLS predicates, and adds five targeted foreign-key indexes. `supabase/tests/privileged_database_access_checks.sql` verifies profile-field and race-publication escalation denial, trusted-metadata-only admin resolution, view security, and RPC privileges in a rollback transaction.
 

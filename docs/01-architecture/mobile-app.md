@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-10-01
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -29,6 +29,7 @@ related_files:
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
   - apps/mobile/components/PlanLoadingScreen.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/RaceSelector.tsx
@@ -141,6 +142,10 @@ The mobile Plans screen groups saved plans by `races.race_events.id` and display
 ## Plan loading experience
 
 Plan creation, editing, recap, onboarding handoff, and live-mode preparation share `PlanLoadingScreen`. These operations combine network requests, local reads, entitlement checks, and synchronous calculations, so their percentage values are milestones rather than measurable elapsed progress. The UI must not expose a determinate progress bar or percentage: it uses an indeterminate branded trail animation, a context-specific title, the plan name once, and plain-language phase copy. Creation, editor, and recap routes also set their header while loading so a previous screen title or action cannot remain visible during navigation. When a load lasts longer than six seconds, a neutral reassurance appears without blaming the connection or promising a completion time. The component respects the system reduce-motion preference and exposes the active status as a polite busy accessibility announcement. The root Plans list uses the same shared indeterminate `LoadingState` as the other root tabs because it is a screen bootstrap rather than a plan calculation.
+
+## Linked race workspace
+
+A plan with a non-null `race_id` and its accessible Livret share a persistent segmented switch below their compact/collapsing headers. Navigation uses `replace`, so Android back and explicit exits keep their normal root destinations instead of building a Livret/plan loop. The Livret restores its main and Course sub-tabs from route parameters, and the same contract reserves a targeted official ravito id. Switching to the plan reuses the owner row or enters the standard race-seeded creation flow; switching back saves the current draft and remains in the plan on failure. Detached plans omit the switch, while an inaccessible source Livret is visually disabled and explains the condition when selected.
 
 ## Structured RaceBook modules
 

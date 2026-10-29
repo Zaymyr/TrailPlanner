@@ -139,6 +139,8 @@ export type MobileTranslations = {
   };
   planWorkspace: {
     myPlan: string;
+    officialRacebook: string;
+    racebookUnavailable: string;
     recap: string;
     settings: string;
     plans: string;

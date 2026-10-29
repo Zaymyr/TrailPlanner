@@ -64,6 +64,25 @@ const buildAuthHeaders = (supabaseKey: string, accessToken: string, contentType 
   ...(contentType ? { "Content-Type": contentType } : {}),
 });
 
+const loadExistingRacePlan = async (
+  supabaseUrl: string,
+  supabaseKey: string,
+  accessToken: string,
+  raceId: string
+) => {
+  const response = await fetch(
+    `${supabaseUrl}/rest/v1/race_plans?race_id=eq.${raceId}&select=id,name,created_at,updated_at,planner_values,elevation_profile&limit=1`,
+    {
+      headers: buildAuthHeaders(supabaseKey, accessToken, undefined),
+      cache: "no-store",
+    }
+  );
+  if (!response.ok) return null;
+  const rows = (await response.json().catch(() => [])) as Array<Record<string, unknown>>;
+  const parsed = planRowSchema.safeParse(rows[0]);
+  return parsed.success ? parsed.data : null;
+};
+
 const mapWaypointsToAidStations = (
   points: Array<{ lat: number; lng: number; distKmCum: number }>,
   waypoints: Array<{ lat: number; lng: number; name?: string | null; desc?: string | null }>
@@ -115,6 +134,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const existingRacePlan = await loadExistingRacePlan(
+    supabaseAnon.supabaseUrl,
+    supabaseAnon.supabaseAnonKey,
+    token,
+    parsedBody.data.catalogRaceId
+  );
+  if (existingRacePlan) {
+    return withSecurityHeaders(NextResponse.json({ plan: existingRacePlan }));
+  }
+
   const entitlements = await getUserEntitlements(supabaseUser.id);
 
   if (!entitlements.isPremium && Number.isFinite(entitlements.planLimit)) {
@@ -139,28 +168,6 @@ export async function POST(request: NextRequest) {
       return withSecurityHeaders(
         NextResponse.json({ message: "A premium plan is required to save additional plans." }, { status: 402 })
       );
-    }
-  }
-
-  // Idempotency guard: if the user already has a plan for this catalog race
-  // created in the last 90 seconds, return that plan instead of creating another.
-  // This prevents duplicates from page refresh, back navigation, or React Strict Mode
-  // double-invocations while the URL param is still present.
-  const recentPlanCutoff = new Date(Date.now() - 90_000).toISOString();
-  const recentPlanResponse = await fetch(
-    `${supabaseAnon.supabaseUrl}/rest/v1/race_plans?race_id=eq.${parsedBody.data.catalogRaceId}&created_at=gte.${recentPlanCutoff}&select=id,name,created_at,updated_at,planner_values,elevation_profile&order=created_at.desc&limit=1`,
-    {
-      headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined),
-      cache: "no-store",
-    }
-  );
-  if (recentPlanResponse.ok) {
-    const recentPlans = (await recentPlanResponse.json().catch(() => [])) as Array<Record<string, unknown>>;
-    if (recentPlans.length > 0) {
-      const existing = planRowSchema.safeParse(recentPlans[0]);
-      if (existing.success) {
-        return withSecurityHeaders(NextResponse.json({ plan: existing.data }));
-      }
     }
   }
 
@@ -340,7 +347,7 @@ export async function POST(request: NextRequest) {
   });
 
   if (!planResponse.ok) {
-    console.error("Unable to create catalog plan", await planResponse.text());
+    const errorBody = await planResponse.json().catch(() => null) as { code?: string } | null;
     await fetch(`${supabaseService.supabaseUrl}/storage/v1/object/plan-gpx/${planGpxPath}`, {
       method: "DELETE",
       headers: {
@@ -348,6 +355,18 @@ export async function POST(request: NextRequest) {
         Authorization: `Bearer ${supabaseService.supabaseServiceRoleKey}`,
       },
     });
+    if (planResponse.status === 409 || errorBody?.code === "23505") {
+      const concurrentPlan = await loadExistingRacePlan(
+        supabaseAnon.supabaseUrl,
+        supabaseAnon.supabaseAnonKey,
+        token,
+        parsedBody.data.catalogRaceId
+      );
+      if (concurrentPlan) {
+        return withSecurityHeaders(NextResponse.json({ plan: concurrentPlan }));
+      }
+    }
+    console.error("Unable to create catalog plan", errorBody);
     return withSecurityHeaders(NextResponse.json({ message: "Unable to create plan." }, { status: 502 }));
   }
 

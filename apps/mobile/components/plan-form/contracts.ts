@@ -11,6 +11,7 @@ export type Supply = {
 
 export type AidStationFormItem = {
   id?: string;
+  sourceAidStationId?: string;
   name: string;
   distanceKm: number;
   waterRefill: boolean;

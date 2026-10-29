@@ -140,6 +140,8 @@ export const en: MobileTranslations = {
   },
   planWorkspace: {
     myPlan: 'My plan',
+    officialRacebook: 'Official guide',
+    racebookUnavailable: 'The official race guide is no longer available for this format.',
     recap: 'Recap',
     settings: 'Settings',
     plans: 'Plans',
