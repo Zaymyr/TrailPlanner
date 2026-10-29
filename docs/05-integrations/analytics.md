@@ -151,6 +151,8 @@ Opening, replaying, stepping through, or closing the Organizer spotlight guide e
 
 Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. The optimistic heart animation, stable current ordering, in-memory quick-filter changes, and fourteen-day post-race visibility of an existing favorite emit no additional analytics event. Guest account gates emit `guest account prompt viewed` with a bounded `race_favorite` or `plan_limit` source, then `guest account conversion started` only when the runner chooses account creation or existing-account sign-in. Notification hrefs, message bodies, and guest-prompt copy are excluded.
 
+The linked mobile race workspace emits `race workspace switched` only after the user chooses a direction. Its payload is limited to `racebook_to_plan` or `plan_to_racebook` and, for the former, the bounded `open|create` action. It never contains plan values, an address, coordinates, notes, or free text.
+
 Courses root loading, retry, empty-result presentation, and pull-to-refresh emit no additional analytics event. A reload may update the ordinary catalog snapshot, but it must not be interpreted as a race selection, favorite mutation, or plan-creation click.
 Pinned search/quick-filter presentation, native date-filter entry, and the revised format action layout also emit no new event. The shared root `?` menu reuses the existing help, feedback, and race-request handlers so their established analytics boundaries remain unchanged.
 

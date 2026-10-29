@@ -1,7 +1,7 @@
 ---
 title: plan_aid_stations Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql

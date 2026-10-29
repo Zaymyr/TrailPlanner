@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
