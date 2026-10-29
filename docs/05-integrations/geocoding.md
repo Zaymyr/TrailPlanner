@@ -33,6 +33,8 @@ Structured restaurant and accommodation cards reuse the organizer address autoco
 
 Supporter points reuse the same organizer address autocomplete, but their access coordinates are intentionally independent from their course kilometer. A point is publishable only with valid paired coordinates; mobile opens the saved HTTP(S) Maps URL when present and otherwise builds directions from those coordinates. The optional external plan URL is validated separately and is never treated as geocoding input.
 
+Personal Livret reflection does not geocode runner plan checkpoints or use their products/timing as location data.
+
 The structured-editor SAS summary contains only the format id, wave count, and earliest departure time. It drives the common schedule card above the Organizer tabs and does not alter or duplicate any geocoded start/finish location.
 
 ## Key Concepts

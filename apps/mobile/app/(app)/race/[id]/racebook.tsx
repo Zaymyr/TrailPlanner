@@ -17,6 +17,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   RACEBOOK_EDITION_LOGO_ENABLED,
   resolveRacebookTheme,
@@ -42,7 +43,7 @@ import {
   type RacebookAccessLocation,
   type RacebookAccessTransport,
 } from '../../../../components/racebook/RacebookAccessSection';
-import { RacebookAidStationsSection } from '../../../../components/racebook/RacebookAidStationsSection';
+import { RacebookAidStationsSection, type RacebookPersonalAidStationPlan } from '../../../../components/racebook/RacebookAidStationsSection';
 import {
   RacebookBibSection,
   type RacebookBibPickupDayGroup,
@@ -51,6 +52,7 @@ import {
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
+import { RacebookPersonalPlanCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
@@ -87,9 +89,20 @@ import {
   saveRacebookGearCheck,
 } from '../../../../lib/racebookGearChecklist';
 import { supabase } from '../../../../lib/supabase';
+import { loadPlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
+import { addMinutes, buildPlanSummary, buildProductMap, buildStoredRacePlanFromRow, formatClock, formatDuration, getPlanSummaryDepartureTimeStorageKey, type PlanSummary, type PlanSummaryRow } from '../../../../lib/planSummary';
+import { buildLocalDepartureAt, normalizePlanClock } from '../../../../lib/planDeparture';
+import { matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
+import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
+
+type LinkedPlanSnapshot = {
+  id: string;
+  sourceRevisionAtLastReview: string | null;
+  summary: PlanSummary;
+};
 
 function normalizeRacebookTab(value: string | undefined): RacebookTabKey {
   return value === 'gear' || value === 'bib' || value === 'course' || value === 'access' || value === 'services'
@@ -582,6 +595,8 @@ export default function RaceRacebookScreen() {
   const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>(() => normalizeCourseTab(courseTab));
   const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(targetAidStationId ?? null);
   const [linkedPlanId, setLinkedPlanId] = useState<string | null>(null);
+  const [linkedPlan, setLinkedPlan] = useState<LinkedPlanSnapshot | null>(null);
+  const [personalDepartureClock, setPersonalDepartureClock] = useState<string | null>(null);
   const [checkedGearItemKeys, setCheckedGearItemKeys] = useState<Set<string>>(new Set());
   const [pendingGearItemKeys, setPendingGearItemKeys] = useState<Set<string>>(new Set());
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
@@ -633,15 +648,40 @@ export default function RaceRacebookScreen() {
   useEffect(() => {
     let cancelled = false;
     setLinkedPlanId(null);
+    setLinkedPlan(null);
+    setPersonalDepartureClock(null);
     if (!id) return () => { cancelled = true; };
 
     void (async () => {
+      const sessionResult = await supabase.auth.getSession();
+      const ownerId = sessionResult.data.session?.user?.id ?? null;
+      if (!ownerId || cancelled) return;
       const { data: plan } = await supabase
         .from('race_plans')
-        .select('id')
+        .select('id,name,updated_at,planner_values,elevation_profile,source_revision_at_last_review')
         .eq('race_id', id)
+        .eq('user_id', ownerId)
         .maybeSingle();
-      if (!cancelled) setLinkedPlanId(plan?.id ?? null);
+      if (!plan || cancelled) {
+        if (!cancelled) setLinkedPlanId(null);
+        return;
+      }
+      const [productData, storedDepartureClock] = await Promise.all([
+        loadPlanProductsBootstrap(ownerId),
+        AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(plan.id)).catch(() => null),
+      ]);
+      if (cancelled) return;
+      const summary = buildPlanSummary(
+        buildStoredRacePlanFromRow(plan as PlanSummaryRow),
+        buildProductMap(productData.allProducts),
+      );
+      setLinkedPlanId(plan.id);
+      setPersonalDepartureClock(normalizePlanClock(storedDepartureClock));
+      setLinkedPlan({
+        id: plan.id,
+        sourceRevisionAtLastReview: plan.source_revision_at_last_review ?? null,
+        summary,
+      });
     })();
 
     return () => { cancelled = true; };
@@ -1214,6 +1254,37 @@ export default function RaceRacebookScreen() {
     equipmentItems,
     checkedGearItemKeys,
   );
+  const officialRevisionPending = Boolean(linkedPlan) && isPlanSourceRevisionPending(
+    data?.race.planSourceUpdatedAt,
+    linkedPlan?.sourceRevisionAtLastReview,
+  );
+  const personalPlanByStationId = useMemo<Record<string, RacebookPersonalAidStationPlan>>(() => {
+    if (!linkedPlan || !data) return {};
+    const departureClock = personalDepartureClock
+      ?? normalizePlanClock(data.runnerDetails.schedule.startTime)
+      ?? normalizePlanClock(data.startWaves[0]?.startTime);
+    const departureValue = buildLocalDepartureAt(data.race.raceDate ?? data.event.raceDate, departureClock);
+    const departure = departureValue ? new Date(departureValue) : null;
+    const result: Record<string, RacebookPersonalAidStationPlan> = {};
+    data.aidStations.forEach((station) => {
+      const match = matchPersonalAidStation(station, linkedPlan.summary.checkpoints.filter((checkpoint) => !checkpoint.isStart && !checkpoint.isFinish));
+      if (!match) return;
+      const checkpoint = match.checkpoint;
+      result[station.id] = {
+        arrivalLabel: locale === 'fr'
+          ? `Passage prévu après ${formatDuration(checkpoint.arrivalMinute)}`
+          : `Expected after ${formatDuration(checkpoint.arrivalMinute)}`,
+        estimatedClock: departure && Number.isFinite(departure.getTime())
+          ? formatClock(addMinutes(departure, checkpoint.arrivalMinute))
+          : null,
+        pauseLabel: locale === 'fr'
+          ? `Pause ${formatDuration(checkpoint.pauseMinutes)}`
+          : `Stop ${formatDuration(checkpoint.pauseMinutes)}`,
+        products: checkpoint.supplies.map((product) => `${product.quantity}× ${product.name}`),
+      };
+    });
+    return result;
+  }, [data, linkedPlan, locale, personalDepartureClock]);
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
     () => resolveRacebookTheme(sponsorPresentation.branding),
@@ -1418,6 +1489,21 @@ export default function RaceRacebookScreen() {
         : `/(app)/plan/new?raceId=${id}&${params.toString()}`,
     );
   }, [activeCourseTab, activeTab, expandedAidStationId, id, linkedPlanId, router]);
+
+  const openLinkedPlanAtStation = useCallback((stationId: string) => {
+    if (!linkedPlanId) return;
+    exitingToCatalogRef.current = true;
+    captureAnalyticsEvent('race workspace switched', {
+      direction: 'racebook_to_plan',
+      plan_action: 'edit_aid_station',
+    });
+    const params = new URLSearchParams({
+      racebookTab: 'course',
+      racebookCourseTab: 'aid-stations',
+      targetAidStationId: stationId,
+    });
+    router.replace(`/(app)/plan/${linkedPlanId}/edit?${params.toString()}`);
+  }, [linkedPlanId, router]);
 
   const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {
     if (!id) return;
@@ -1679,6 +1765,15 @@ export default function RaceRacebookScreen() {
                   })}
                 </View>
 
+                <RacebookPersonalPlanCard
+                  summary={linkedPlan?.summary ?? null}
+                  requiredGearCount={requiredEquipment.length}
+                  checkedRequiredGearCount={Math.max(0, requiredEquipment.length - missingRequiredEquipmentCount)}
+                  revisionPending={officialRevisionPending}
+                  locale={locale}
+                  onOpenPlan={openLinkedPlan}
+                />
+
                 {(['route', 'start-waves', 'aid-stations'] as CourseTabKey[]).includes(activeCourseTab) &&
                 ((activeCourseTab !== 'aid-stations' && courseItems.length > 0) || courseConstraintLines.length > 0) ? (
                   <View style={styles.courseEssentials}>
@@ -1832,6 +1927,8 @@ export default function RaceRacebookScreen() {
                       }
                       setExpandedAidStationId((current) => (current === station.id ? null : station.id));
                     }}
+                    personalPlanByStationId={personalPlanByStationId}
+                    onEditPersonalPlanStation={(station) => openLinkedPlanAtStation(station.id)}
                     copy={{
                       sectionTitle: t.catalog.racebookSectionAidStations,
                       emptyMessage: t.catalog.racebookEmptyAidStations,
@@ -1849,6 +1946,8 @@ export default function RaceRacebookScreen() {
                       startTimeLabel: t.catalog.racebookFieldStartTime,
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
+                      personalPlan: locale === 'fr' ? 'Mon plan' : 'My plan',
+                      editPersonalPlan: locale === 'fr' ? 'Modifier dans mon plan' : 'Edit in my plan',
                     }}
                   />
                   <RacebookSponsorBanner

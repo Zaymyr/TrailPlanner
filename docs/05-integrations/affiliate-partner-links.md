@@ -33,6 +33,8 @@ related_tables:
 
 ## Purpose
 
+RaceBook owner-only plan reflection is separate from affiliate presentation. It must not pass personal timing, products, equipment completion, or official-revision state to a partner link or its analytics.
+
 Centralize Booking and Decathlon outbound destinations, switch each partner from its normal URL to its affiliate URL without changing mobile code, and expose them in the relevant RaceBook preparation surfaces.
 
 ## Key Concepts

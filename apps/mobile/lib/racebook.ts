@@ -196,6 +196,7 @@ export type RacebookScreenData = {
     elevationGainM: number;
     elevationLossM: number | null;
     raceDate: string | null;
+    planSourceUpdatedAt: string | null;
     isLive: boolean;
     thumbnailUrl: string | null;
     location: string | null;
@@ -915,7 +916,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
   } else {
     const { data: directRaceRow, error: raceError } = await supabase
       .from('races')
-      .select(`id,edition_id,name,distance_km,elevation_gain_m,elevation_loss_m,race_date,is_live,racebook_is_live,racebook_preview_is_visible,thumbnail_url,location_text,participation_mode,start_lat,start_lng,organizer_details,race_events(id,name,location,race_date,thumbnail_url,is_live,organizer_details)`)
+      .select(`id,edition_id,name,distance_km,elevation_gain_m,elevation_loss_m,race_date,plan_source_updated_at,is_live,racebook_is_live,racebook_preview_is_visible,thumbnail_url,location_text,participation_mode,start_lat,start_lng,organizer_details,race_events(id,name,location,race_date,thumbnail_url,is_live,organizer_details)`)
       .eq('id', raceId)
       .maybeSingle();
     if (raceError || !directRaceRow) return null;
@@ -1047,6 +1048,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       elevationGainM: readNumber(raceRow.elevation_gain_m) ?? 0,
       elevationLossM: readNumber(raceRow.elevation_loss_m),
       raceDate: readText(raceRow.race_date),
+      planSourceUpdatedAt: readText(raceRow.plan_source_updated_at),
       isLive: raceRow.is_live === true,
       thumbnailUrl: readText(raceRow.thumbnail_url),
       location: readText(raceRow.location_text),

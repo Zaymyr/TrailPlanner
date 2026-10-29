@@ -142,6 +142,8 @@ Calculator share links are stateless and accept only a complete `duration`, `tol
 
 When a runner imports a catalog race, `/api/plans/from-catalog` copies source station service flags into `planner_values.aidStations`, preserves the source station id as `sourceAidStationId` when available, loads organizer-provided `race_aid_station_products`, and stores product suggestions in `planner_values.organizerAidStationProducts` as a fallback snapshot.
 
+The Livret's personal ravito reflection resolves that same `sourceAidStationId` first so the runner's planned products and pause are shown beside the correct official station. Name/kilometer normalization is compatibility-only for older plan checkpoints that have no source id; it must not override a present source id.
+
 On saved-plan read, `/api/plans` refreshes `organizerAidStationProducts` for plans with `race_id` by reloading the current source `race_aid_station_products` with the service role. This refresh is injected only into the API response; it does not mutate `race_plans.planner_values`. If the refresh fails, the stored snapshot remains the fallback so plan hydration still works.
 
 Those products are displayed in the web planner at the matching ravito as organization suggestions. They are merged into the local product map so explicitly selected suggestions can render and participate in coverage math. The manual product picker for an aid station shows the normal product pool plus the official products for that same ravito, and excludes organizer products from other ravitos. When selected, they are persisted as station supplies with `source: "organizer"`.

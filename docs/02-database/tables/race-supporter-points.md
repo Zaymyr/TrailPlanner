@@ -19,6 +19,8 @@ related_tables:
 
 ## Purpose
 
+Supporter points stay official, public RaceBook content. They are not copied into a runner plan or personalized by the Livret plan reflection.
+
 Stores organizer-authored locations where supporters may encourage a runner, provide assistance, or both. The course kilometer and the supporter access location are deliberately separate: `km` positions the runner on the course while the coordinates and Maps URL describe how a supporter reaches the location.
 
 ## Contract

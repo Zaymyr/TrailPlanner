@@ -29,6 +29,8 @@ related_files:
   - supabase/migrations/20260911120508_fix_single_format_publication_admin_check.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
+  - supabase/migrations/20261029110000_add_plan_source_revisions.sql
+  - supabase/tests/plan_source_revision_checks.sql
   - supabase/migrations/20260923070437_separate_web_and_mobile_race_visibility.sql
   - supabase/migrations/20260829204139_ensure_race_event_editions_for_formats.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
@@ -94,6 +96,7 @@ The table originates as `race_catalog`; later migrations rename and extend it. I
 | `gpx_storage_path`, `gpx_sha256` | nullable text | Actual private Storage object and digest; null means no imported GPX. |
 | altitude/start/bounds columns | nullable numeric | GPX-derived geographic summary. |
 | `organizer_details` | nullable `jsonb` | Progressive format schedule, logistics, equipment override, notes, and `gpxDisplay` route/profile presentation preferences. |
+| `plan_source_updated_at` | `timestamptz` | Official-data revision used to warn linked-plan owners. |
 | `is_live`, `is_public` | boolean | Course catalog state. |
 | `web_catalog_is_live` | boolean | Durable web catalog/SEO visibility. First public mobile publication promotes it; later mobile hiding preserves it, while `is_public = false` clears it. |
 | `racebook_preview_is_visible` | boolean | Mobile course-catalog inclusion for a non-live organizer format and organizer RaceBook preview selection; false masks it and excludes it from edition publication. |
@@ -133,6 +136,8 @@ Authenticated non-admin users can no longer insert races. Trusted `app_metadata`
 - `organizer_details.gpxDisplay.showRoute` and `showElevationProfile` default to `true` when absent. They independently hide RaceBook visuals without deleting the GPX object or changing parsed metrics.
 - Mobile may compare the measured GPX/profile extent with `distance_km` and disclose materially incomplete coverage. It must not stretch the profile, change stored metrics, or clamp later ravito markers to the measured endpoint.
 - Mobile reads `organizer_details.schedule.startTime` and `finishCutoffTime` unchanged. In the `Ravitos` sub-tab it presents them inside the departure and arrival cards, including the source-station-at-finish case, while `Tracé` and `SAS` retain the compact timing summary; this changes no JSON or table contract.
+- The plan-source revision migration installs its baseline and all source triggers inside one explicit transaction under table locks, preventing concurrent official writes from escaping the initial revision.
+- `plan_source_updated_at` advances only when official plan-relevant data changes: format characteristics and GPX, organizer details, ravitos, ravito services/products, linked product details, or SAS. It is not a substitute for `updated_at`, nor an instruction to modify existing runner plans.
 - The service-only format publication function locks one row, authorizes either an active parent-event organizer or a trusted Auth `raw_app_meta_data` admin, and atomically restores `is_live`, `racebook_preview_is_visible`, and `racebook_is_live`; the admin lookup is isolated behind a private boolean-only helper because `service_role` cannot select `auth.users` directly. Its false branch produces the private state, while the route writes the masked state directly in one update. The edition publication function performs the same public transition for every selected complete public-source format and must not require `is_live` before that update.
 - Complete catalog formats require a name, slug, exact date, location, positive distance and official source. D+ and GPX are optional enrichments and remain null when unknown.
 - Unknown imported distance uses zero only while `distance_km` is listed missing; an explicitly known flat D+ may be zero, while an unknown D+ is null.

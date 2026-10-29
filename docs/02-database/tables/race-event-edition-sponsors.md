@@ -40,6 +40,8 @@ related_tables:
 
 ## Purpose
 
+The owner-only personal-plan reflection added to the mobile Livret is independent from sponsor surfaces and must not alter sponsor loading, placement, or reporting.
+
 `race_event_edition_sponsors` stores sponsor presentation plus aggregate click and viewable-impression counters for a canonical event edition. Every format attached to the edition reuses the same ordered sponsors.
 
 ## Columns

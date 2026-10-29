@@ -29,6 +29,11 @@ related_files:
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/lib/planSummary.ts
+  - apps/mobile/lib/racebookPlanReflection.ts
+  - apps/mobile/lib/racebookPlanReflection.test.ts
+  - apps/mobile/lib/planSourceRevision.ts
+  - apps/mobile/lib/planSourceRevision.test.ts
+  - apps/mobile/components/racebook/RacebookPersonalPlanCard.tsx
   - apps/mobile/lib/raceLivePlan.ts
   - apps/mobile/lib/planSummary.test.ts
   - apps/mobile/lib/planDeparture.ts
@@ -128,6 +133,10 @@ The mobile Plan onboarding now uses the ordinary Courses and Nutrition screens, 
 
 Linked plan creation first resolves the existing `(user_id, race_id)` row before applying the free-plan limit. This applies to identified and anonymous Supabase sessions. A concurrent uniqueness conflict reloads that row instead of surfacing a creation failure. The mobile Livret and linked-plan editor share a persistent `Livret officiel | Mon plan` switch below their collapsing headers. Both directions use route replacement; entering the plan preserves the Livret tab/course-tab context, leaving the plan flushes the current draft first, and native back/exit still targets Courses or Plans rather than the opposite workspace.
 
+The Livret keeps its public snapshot cache independent from owner data. In parallel, it may load the runner's linked plan to show a personal summary (expected duration, planned ravitos, and durable RaceBook equipment completion) and a distinct personal block on each official ravito. Matching uses `sourceAidStationId` first; legacy plans may only fall back to a normalized name/kilometer match. The personal block remains a reflection, never an edit of official content. Its targeted edit action returns to the same Livret Course/Ravitos context after the runner updates the matching station.
+
+Each source race has an official revision timestamp. When it is newer than the linked plan's `source_revision_at_last_review`, the Livret and plan editor warn the owner to review their choices. The explicit acknowledgement saves the durable draft before the owner-scoped `acknowledge_race_plan_source_revision` RPC atomically copies the linked race's current revision. Opening the Livret, opening the editor, or a normal autosave cannot acknowledge it; no organizer update automatically changes a runner's pace, pause, quantities, selected products, or `racebook_gear_checks` progress.
+
 When a guest reaches the one-plan limit, mobile opens the shared account prompt with separate account-creation and existing-account sign-in actions. The prompt runs before another insert and therefore does not create a duplicate or inaccessible `race_plans` row.
 
 When the in-app recap opens, mobile sends the regenerated recap snapshot to `apps/web/app/api/plan-shares/route.ts`; an explicit share reuses the same synchronization result. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token. Later recap refreshes update the existing snapshot and return the same URL, so previously distributed links immediately resolve to the latest regenerated values instead of becoming stale or requiring redirects. The mobile synchronizer deduplicates an in-flight or already completed request for an unchanged recap and retries after failure. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot remains separate from editable plan state and changes only when the authenticated recap is opened/refreshed or deliberately shared.
@@ -160,6 +169,7 @@ It:
 - Mobile persistence preserves `sourceAidStationId` through creation, hydration, editing, and canonical saves.
 - Source organizer edits after import do not mutate existing saved plans.
 - Source station service-flag, GPX, pacing, and distance edits affect only future catalog imports, not already-saved plan JSON.
+- The RaceBook personal reflection must not join a legacy station by name/kilometer when that checkpoint already carries a different `sourceAidStationId`; source identity wins over fuzzy compatibility matching.
 - Source station-product link edits are the exception: `/api/plans` overlays current official ravito product suggestions at read time for plans with `race_id`, with the stored planner JSON as fallback.
 - Public crew recap links are snapshots. Opening the in-app recap after meaningful changes recalculates the plan and refreshes the reusable crew URL; an explicit share uses that same synchronized snapshot.
 - Public crew tracking state is intentionally separate from the plan snapshot. It may persist confirmed assistance passages and corrected departure time, but it must not feed back into `race_plans.planner_values`.
@@ -172,6 +182,7 @@ It:
 - Do not assume every saved plan has current planner JSON shape.
 - Legacy mobile rows may contain `Départ` or `Arrivée`; normalize them on the next write and exclude them from intermediate-ravito counts meanwhile.
 - Treat missing `solidRefill`, `waterRefill`, and `assistanceAllowed` values as enabled on intermediate aid stations.
+- Do not copy required-equipment checklist completion into `planner_values`: it remains owner-scoped state in `racebook_gear_checks`.
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions. Older plans may not have this field, and plans without `sourceAidStationId` must keep matching official products by the legacy `name|km` key.

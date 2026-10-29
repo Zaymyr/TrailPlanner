@@ -28,6 +28,8 @@ related_tables:
 
 Stores ordered relay handover points. This runner-facing Racebook information remains separate from nutrition and saved-plan aid stations.
 
+Personal plan reflection does not infer a relay handover from a runner checkpoint: it only enriches official ravitos matched by their source station identity.
+
 ## Key Concepts
 
 - A point may stand alone or reference a source `race_aid_stations` row.

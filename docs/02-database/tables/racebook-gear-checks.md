@@ -28,6 +28,8 @@ related_tables:
 
 `racebook_gear_checks` stores the runner's per-format RaceBook equipment checklist. A signed-in account sees the same checked items on every device using that account.
 
+The Livret's personal plan summary reads this durable checklist completion directly. It never copies the completion into `race_plans.planner_values` or treats a source-revision acknowledgement as an equipment update.
+
 ## Columns
 
 | Column | Type | Constraints/default | Purpose |

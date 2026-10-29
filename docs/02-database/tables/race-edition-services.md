@@ -27,6 +27,8 @@ related_tables:
 
 Stores ordered, structured restaurants, accommodation, recovery and other nearby services shared by every format of an annual edition.
 
+The owner-only plan reflection in the mobile Livret is loaded separately from this edition-scoped public services collection and does not affect its cache or visibility.
+
 ## Contract
 
 - `service_type` is `restaurant`, `accommodation`, `recovery` or `other`.

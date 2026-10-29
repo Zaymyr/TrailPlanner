@@ -24,6 +24,15 @@ export type RacebookAidStationCopy = {
   startTimeLabel: string;
   startLabel: string;
   finishLabel: string;
+  personalPlan: string;
+  editPersonalPlan: string;
+};
+
+export type RacebookPersonalAidStationPlan = {
+  arrivalLabel: string;
+  estimatedClock: string | null;
+  pauseLabel: string;
+  products: string[];
 };
 
 type RacebookAidStationsSectionProps = {
@@ -41,6 +50,8 @@ type RacebookAidStationsSectionProps = {
   theme: ResolvedRacebookTheme;
   copy: RacebookAidStationCopy;
   onToggleStation: (station: RacebookAidStation) => void;
+  personalPlanByStationId?: Record<string, RacebookPersonalAidStationPlan>;
+  onEditPersonalPlanStation?: (station: RacebookAidStation) => void;
 };
 
 function formatDistance(distanceKm: number) {
@@ -97,6 +108,8 @@ function AidStationCard({
   expanded,
   onToggle,
   theme,
+  personalPlan,
+  onEditPersonalPlan,
 }: {
   station: RacebookAidStation;
   position: number;
@@ -105,6 +118,8 @@ function AidStationCard({
   expanded: boolean;
   onToggle: () => void;
   theme: ResolvedRacebookTheme;
+  personalPlan?: RacebookPersonalAidStationPlan;
+  onEditPersonalPlan?: () => void;
   copy: Omit<RacebookAidStationCopy, 'sectionTitle' | 'emptyMessage'>;
 }) {
   const cutoffTime = finishCutoffTime ?? station.organizerDetails.cutoffTime;
@@ -214,6 +229,26 @@ function AidStationCard({
                 {station.organizerDetails.organizerNote ?? station.notes}
               </Text>
             </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {personalPlan ? (
+        <View style={styles.personalPlanBlock}>
+          <View style={styles.personalPlanTitleRow}>
+            <Ionicons color={Colors.brandPrimary} name="person-outline" size={16} />
+            <Text style={styles.personalPlanTitle}>{copy.personalPlan}</Text>
+          </View>
+          <Text style={styles.personalPlanText}>
+            {personalPlan.arrivalLabel}{personalPlan.estimatedClock ? ` · ${personalPlan.estimatedClock}` : ''}
+          </Text>
+          <Text style={styles.personalPlanText}>{personalPlan.pauseLabel}</Text>
+          {personalPlan.products.length > 0 ? <Text style={styles.personalPlanProducts}>{personalPlan.products.join(' · ')}</Text> : null}
+          {onEditPersonalPlan ? (
+            <Pressable accessibilityRole="button" onPress={onEditPersonalPlan} style={styles.personalPlanAction}>
+              <Text style={styles.personalPlanActionText}>{copy.editPersonalPlan}</Text>
+              <Ionicons color={Colors.brandPrimary} name="arrow-forward" size={15} />
+            </Pressable>
           ) : null}
         </View>
       ) : null}
@@ -386,6 +421,8 @@ export function RacebookAidStationsSection({
   theme,
   copy,
   onToggleStation,
+  personalPlanByStationId = {},
+  onEditPersonalPlanStation,
 }: RacebookAidStationsSectionProps) {
   const lastStation = stations[stations.length - 1];
   const finishStation = lastStation && Math.abs(lastStation.km - finish.distanceKm) <= 0.2
@@ -460,6 +497,8 @@ export function RacebookAidStationsSection({
                   onToggle={() => onToggleStation(station)}
                   theme={theme}
                   copy={copy}
+                  personalPlan={personalPlanByStationId[station.id]}
+                  onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(station) : undefined}
                 />
               </View>
             </View>
@@ -488,6 +527,8 @@ export function RacebookAidStationsSection({
               onToggle={() => onToggleStation(finishStation)}
               theme={theme}
               copy={copy}
+              personalPlan={personalPlanByStationId[finishStation.id]}
+              onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(finishStation) : undefined}
             />
           ) : (
             <EndpointCard
@@ -507,6 +548,13 @@ export function RacebookAidStationsSection({
 }
 
 const styles = StyleSheet.create({
+  personalPlanBlock: { gap: 7, borderTopWidth: 1, borderTopColor: Colors.brandBorder, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: Colors.brandSurface },
+  personalPlanTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  personalPlanTitle: { color: Colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '800' },
+  personalPlanText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  personalPlanProducts: { color: Colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  personalPlanAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, alignSelf: 'flex-start', borderRadius: 22, borderWidth: 1, borderColor: Colors.brandBorder, paddingHorizontal: 13, backgroundColor: Colors.surface },
+  personalPlanActionText: { color: Colors.brandPrimary, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   emptyCard: {
     padding: 16,
     borderRadius: 16,

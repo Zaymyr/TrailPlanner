@@ -321,6 +321,8 @@ The edition-level RaceBook branding editor is another lazy event module. It keep
 
 ## Purpose
 
+`/api/racebook-data` remains a public, cacheable official snapshot. It can expose the current source revision for mobile warning presentation but must not include owner plan data; the mobile client loads that separately under runner ownership.
+
 The web app owns the browser planner, onboarding/account flows, admin catalog tools, server-side API routes, and most Supabase service-role operations. Read this before changing `apps/web` routes or planner state.
 
 ## Key Concepts

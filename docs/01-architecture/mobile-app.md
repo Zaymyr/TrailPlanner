@@ -58,6 +58,7 @@ related_files:
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
+  - apps/mobile/components/racebook/RacebookPersonalPlanCard.tsx
   - apps/mobile/components/racebook/RacebookBibSection.tsx
   - apps/mobile/components/racebook/RacebookGearSection.tsx
   - apps/mobile/components/racebook/RacebookServicesSection.tsx
@@ -111,6 +112,10 @@ related_files:
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/lib/planDeparture.ts
   - apps/mobile/lib/planDeparture.test.ts
+  - apps/mobile/lib/racebookPlanReflection.ts
+  - apps/mobile/lib/racebookPlanReflection.test.ts
+  - apps/mobile/lib/planSourceRevision.ts
+  - apps/mobile/lib/planSourceRevision.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/lib/racebookGearAnalytics.ts
@@ -146,6 +151,10 @@ Plan creation, editing, recap, onboarding handoff, and live-mode preparation sha
 ## Linked race workspace
 
 A plan with a non-null `race_id` and its accessible Livret share a persistent segmented switch below their compact/collapsing headers. Navigation uses `replace`, so Android back and explicit exits keep their normal root destinations instead of building a Livret/plan loop. The Livret restores its main and Course sub-tabs from route parameters, and the same contract reserves a targeted official ravito id. Switching to the plan reuses the owner row or enters the standard race-seeded creation flow; switching back saves the current draft and remains in the plan on failure. Detached plans omit the switch, while an inaccessible source Livret is visually disabled and explains the condition when selected.
+
+The public RaceBook snapshot stays cacheable and unpersonalized. The route loads the owner-linked plan separately to render a compact personal-plan card and optional personal ravito blocks: expected arrival/clock time, pause, and runner-selected products. Official stations match by `sourceAidStationId`; a normalized name plus kilometer fallback is only for older checkpoints without a source id. The targeted edit action opens the existing plan editor and restores `Course > Ravitos` when the runner returns. Equipment completion comes from `racebook_gear_checks`, not planner JSON.
+
+`races.plan_source_updated_at` is compared with the plan's explicitly acknowledged `source_revision_at_last_review`. A newer official revision shows a non-destructive alert in both workspaces. In the plan editor, `J'ai vérifié mon plan` first persists the current draft and only then records the acknowledgement; ordinary opening and autosave never dismiss the alert.
 
 ## Structured RaceBook modules
 

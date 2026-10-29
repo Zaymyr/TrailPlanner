@@ -1,7 +1,7 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations
@@ -53,6 +53,7 @@ related_files:
   - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
+  - supabase/tests/plan_source_revision_checks.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
@@ -162,6 +163,7 @@ Use:
 - `supabase/tests/web_race_visibility_checks.sql` for web/mobile separation, masked-row client denial, trigger security, and forced clearing of non-public web state;
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click/impression increments against an already-published, preview-visible fixture;
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
+- `supabase/tests/plan_source_revision_checks.sql` for client execute revocations on trigger helpers, authenticated owner-only acknowledgement, null-safe no-op guards, parent revision propagation, and plan review initialization;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
 - `supabase/tests/racebook_gear_checks.sql` for authenticated-only grants, owner-scoped select/insert/delete policies, immutable append/remove state, and user/race cascades;
 - `supabase/tests/organizer_edition_entitlements_checks.sql` for Stripe/manual recalculation, complimentary-override conversion, duplicate/downgrade rejection, invoice-bucket privacy configuration, and bank-transfer RPC privileges;

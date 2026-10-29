@@ -98,6 +98,8 @@ related_tables:
 
 ## Purpose
 
+The mobile Livret may separately load an owner's linked plan for personal reflection. That owner-specific read never changes event visibility, publication, or the shared public RaceBook snapshot contract.
+
 `race_events` groups races that share an event identity, location, image, and live status. Canonical yearly dates now live in `race_event_editions`; the visible migrations do not include the original `race_events` create-table migration.
 
 ## Key Concepts
