@@ -7,7 +7,7 @@ import { TabsList } from "../../../../components/ui/tabs";
 import { cn } from "../../../../components/utils";
 import type { FuelProduct } from "../../../../lib/product-types";
 import { ContextualHelp, NumberField, TextAreaField, TextField } from "./controls";
-import { formatKm, normalizeClockInputValue } from "./helpers";
+import { formatKm, getGpxCoordinateAtDistance, normalizeClockInputValue } from "./helpers";
 import { StationProductsBlock } from "./products-editor";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import type {
@@ -18,6 +18,7 @@ import type {
   RelayPointDraft,
   StationProduct,
   SupporterPointDraft,
+  GpxPreview,
 } from "./types";
 
 type EditorView = "startWaves" | "aidStations" | "supporters" | "relay";
@@ -29,6 +30,7 @@ export function AidStationsEditor({
   relayPoints,
   supporterPoints,
   supporterPointsEnabled,
+  gpxPreview,
   startTime,
   startWaveCount,
   finishCutoffTime,
@@ -68,6 +70,7 @@ export function AidStationsEditor({
   relayPoints: RelayPointDraft[];
   supporterPoints: SupporterPointDraft[];
   supporterPointsEnabled: boolean;
+  gpxPreview: GpxPreview | null;
   startTime: string;
   startWaveCount: number;
   finishCutoffTime: string;
@@ -175,6 +178,8 @@ export function AidStationsEditor({
       {activeView === "startWaves" ? startWavesSlot : activeView === "supporters" ? (
         <SupporterPointsEditor
           activeRace={activeRace}
+          aidStations={aidStations}
+          gpxPreview={gpxPreview}
           points={supporterPoints}
           status={status}
           onChange={onUpdateSupporterPoint}
@@ -367,12 +372,16 @@ export function AidStationsEditor({
 
 function SupporterPointsEditor({
   activeRace,
+  aidStations,
+  gpxPreview,
   points,
   status,
   onChange,
   onRemove,
 }: {
   activeRace: RaceFormat;
+  aidStations: AidStationDraft[];
+  gpxPreview: GpxPreview | null;
   points: SupporterPointDraft[];
   status: "idle" | "loading" | "saving" | "uploading";
   onChange: (index: number, point: SupporterPointDraft) => void;
@@ -385,6 +394,24 @@ function SupporterPointsEditor({
   return (
     <div className="space-y-4">
       {points.map((point, index) => {
+        const matchingStationIndex = aidStations.findIndex((station) =>
+          station.name.trim() === point.name.trim()
+          && point.distanceKm !== null
+          && Math.abs(station.distanceKm - point.distanceKm) < 0.001
+        );
+        const applyCourseAccess = (nextPoint: SupporterPointDraft) => {
+          if (!nextPoint.accessOnCourse || nextPoint.distanceKm === null) return nextPoint;
+          const coordinate = getGpxCoordinateAtDistance(gpxPreview, nextPoint.distanceKm);
+          return {
+            ...nextPoint,
+            accessLabel: nextPoint.name.trim() || `Point au km ${nextPoint.distanceKm}`,
+            latitude: coordinate?.latitude ?? null,
+            longitude: coordinate?.longitude ?? null,
+            googleMapsUrl: coordinate
+              ? `https://www.google.com/maps/dir/?api=1&destination=${coordinate.latitude},${coordinate.longitude}`
+              : null,
+          };
+        };
         const publishable = Boolean(
           point.name.trim()
           && point.distanceKm !== null
@@ -413,13 +440,40 @@ function SupporterPointsEditor({
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
-              <TextField label="Nom du point" value={point.name} onChange={(name) => onChange(index, { ...point, name })} invalid={!point.name.trim()} />
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-foreground" htmlFor={`supporter-source-${index}`}>Point de course</label>
+                <select
+                  id={`supporter-source-${index}`}
+                  className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm"
+                  value={matchingStationIndex >= 0 ? String(matchingStationIndex) : ""}
+                  onChange={(event) => {
+                    if (event.target.value === "") return;
+                    const stationIndex = Number(event.target.value);
+                    const station = Number.isInteger(stationIndex) ? aidStations[stationIndex] : null;
+                    if (!station) return;
+                    onChange(index, applyCourseAccess({
+                      ...point,
+                      name: station.name,
+                      distanceKm: station.distanceKm,
+                      accessOnCourse: true,
+                    }));
+                  }}
+                >
+                  <option value="">Créer un nouveau point</option>
+                  {aidStations.map((station, stationIndex) => (
+                    <option key={station.id ?? `${station.name}-${stationIndex}`} value={stationIndex}>
+                      {station.name} · {formatKm(station.distanceKm)}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <TextField label="Nom du point" value={point.name} onChange={(name) => onChange(index, applyCourseAccess({ ...point, name }))} invalid={!point.name.trim()} />
               <TextField
                 label="Distance depuis le départ (km)"
                 type="number"
                 step="0.1"
                 value={point.distanceKm === null ? "" : String(point.distanceKm)}
-                onChange={(value) => onChange(index, { ...point, distanceKm: value.trim() === "" ? null : Number(value) })}
+                onChange={(value) => onChange(index, applyCourseAccess({ ...point, distanceKm: value.trim() === "" ? null : Number(value) }))}
                 invalid={point.distanceKm === null || point.distanceKm < 0 || point.distanceKm > activeRace.distance_km}
               />
             </div>
@@ -430,27 +484,55 @@ function SupporterPointsEditor({
             </div>
             {!point.encouragementAllowed && !point.assistanceAllowed ? <p className="text-xs font-medium text-amber-700">Choisis au moins une autorisation pour publier ce point.</p> : null}
 
-            <AddressAutocompleteField
-              label="Adresse d’accès supporters"
-              value={point.accessLabel}
-              location={{
-                label: point.accessLabel || null,
-                lat: point.latitude,
-                lng: point.longitude,
-                googleMapsUrl: point.googleMapsUrl,
-                source: point.latitude !== null ? "autocomplete" : "manual",
-              }}
-              onChange={(accessLabel) => onChange(index, { ...point, accessLabel })}
-              onLocationChange={(location) => onChange(index, {
-                ...point,
-                accessLabel: location.label ?? "",
-                latitude: location.lat,
-                longitude: location.lng,
-                googleMapsUrl: location.googleMapsUrl,
-              })}
-              invalid={point.latitude === null || point.longitude === null}
-              placeholder="Rechercher une adresse ou un lieu"
-            />
+            <label className="flex items-start gap-3 rounded-xl border border-border bg-background p-3 text-sm text-foreground">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 accent-emerald-700"
+                checked={point.accessOnCourse === true}
+                disabled={status === "saving"}
+                onChange={(event) => onChange(index, event.target.checked
+                  ? applyCourseAccess({ ...point, accessOnCourse: true })
+                  : { ...point, accessOnCourse: false, accessLabel: "", latitude: null, longitude: null, googleMapsUrl: null })}
+              />
+              <span>
+                <span className="block font-semibold">Accès supporters au même endroit que le point de course</span>
+                <span className="mt-1 block text-xs text-muted-foreground">Les coordonnées sont prises automatiquement sur le tracé GPX à cette distance.</span>
+              </span>
+            </label>
+
+            {point.accessOnCourse ? (
+              point.latitude !== null && point.longitude !== null ? (
+                <p className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
+                  Accès positionné automatiquement sur le parcours au km {point.distanceKm === null ? "-" : formatKm(point.distanceKm)}.
+                </p>
+              ) : (
+                <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                  Impossible de trouver ce point sur le tracé GPX. Ajoute un GPX ou décoche cette option pour renseigner une adresse.
+                </p>
+              )
+            ) : (
+              <AddressAutocompleteField
+                label="Adresse d’accès supporters"
+                value={point.accessLabel}
+                location={{
+                  label: point.accessLabel || null,
+                  lat: point.latitude,
+                  lng: point.longitude,
+                  googleMapsUrl: point.googleMapsUrl,
+                  source: point.latitude !== null ? "autocomplete" : "manual",
+                }}
+                onChange={(accessLabel) => onChange(index, { ...point, accessLabel })}
+                onLocationChange={(location) => onChange(index, {
+                  ...point,
+                  accessLabel: location.label ?? "",
+                  latitude: location.lat,
+                  longitude: location.lng,
+                  googleMapsUrl: location.googleMapsUrl,
+                })}
+                invalid={point.latitude === null || point.longitude === null}
+                placeholder="Rechercher une adresse ou un lieu"
+              />
+            )}
             <div className="grid gap-3 md:grid-cols-2">
               <TextAreaField label="Consignes d’accès" value={point.accessNote} onChange={(accessNote) => onChange(index, { ...point, accessNote })} />
               <TextField label="Lien vers un plan (optionnel)" type="url" value={point.planUrl} onChange={(planUrl) => onChange(index, { ...point, planUrl })} placeholder="https://…" />

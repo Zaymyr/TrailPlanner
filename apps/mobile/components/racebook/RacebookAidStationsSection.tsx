@@ -61,21 +61,6 @@ function formatStationDistance(km: number) {
   return `${formatDistance(km)} km`;
 }
 
-function ProductList({ values, theme }: { values: string[]; theme: ResolvedRacebookTheme }) {
-  return (
-    <View style={styles.productList}>
-      {values.map((value, index) => (
-        <View key={`${value}-${index}`} style={styles.productRow}>
-          <View style={[styles.productDot, { backgroundColor: theme.primaryColor }]} />
-          <Text numberOfLines={2} style={styles.productText}>
-            {value}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function ServiceIcon({ icon, label, theme }: {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
@@ -131,9 +116,7 @@ function AidStationCard({
       : null,
   ].filter((value): value is NonNullable<typeof value> => Boolean(value));
 
-  const hasExpandedDetails = station.products.length > 0 || Boolean(
-    station.organizerDetails.organizerNote || station.notes,
-  );
+  const hasExpandedDetails = Boolean(station.organizerDetails.organizerNote || station.notes);
 
   return (
     <View style={styles.aidStationCard}>
@@ -207,16 +190,6 @@ function AidStationCard({
 
       {expanded && hasExpandedDetails ? (
         <View style={styles.aidStationExpandedContent}>
-          {station.products.length > 0 ? (
-            <View style={styles.inlineBlock}>
-              <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
-              <ProductList
-                theme={theme}
-                values={station.products.map((product) => product.label)}
-              />
-            </View>
-          ) : null}
-
           {station.organizerDetails.organizerNote || station.notes ? (
             <View style={styles.noteRow}>
               <Ionicons
@@ -239,7 +212,6 @@ function AidStationCard({
             personalPlan.arrivalLabel,
             personalPlan.estimatedClock,
             personalPlan.pauseLabel,
-            ...personalPlan.products,
           ].filter(Boolean).join(', ')}
           accessibilityRole={onEditPersonalPlan ? 'button' : undefined}
           disabled={!onEditPersonalPlan}
@@ -263,7 +235,6 @@ function AidStationCard({
             </View>
           </View>
           <Text style={styles.personalPlanText}>{personalPlan.pauseLabel}</Text>
-          {personalPlan.products.length > 0 ? <Text style={styles.personalPlanProducts}>{personalPlan.products.join(' · ')}</Text> : null}
         </Pressable>
       ) : null}
     </View>
@@ -431,7 +402,6 @@ export function RacebookAidStationsSection({
   startTime,
   finish,
   expandedStationId,
-  showOfficialProducts,
   theme,
   copy,
   onToggleStation,
@@ -505,7 +475,7 @@ export function RacebookAidStationsSection({
               </View>
               <View style={styles.timelineCard}>
                 <AidStationCard
-                  station={showOfficialProducts ? station : { ...station, products: [] }}
+                  station={station}
                   position={index + 1}
                   expanded={expandedStationId === station.id}
                   onToggle={() => onToggleStation(station)}
@@ -533,7 +503,7 @@ export function RacebookAidStationsSection({
         <View style={styles.timelineEndpointCard}>
           {finishStation ? (
             <AidStationCard
-              station={showOfficialProducts ? finishStation : { ...finishStation, products: [] }}
+              station={finishStation}
               position={aidStations.length + 1}
               isFinish
               finishCutoffTime={finish.cutoffTime}
@@ -571,7 +541,6 @@ const styles = StyleSheet.create({
   personalPlanPassage: { flexShrink: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800' },
   personalPlanClock: { color: Colors.brandPrimary, fontSize: 16, lineHeight: 20, fontWeight: '800' },
   personalPlanText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
-  personalPlanProducts: { color: Colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '600' },
   emptyCard: {
     padding: 16,
     borderRadius: 16,
@@ -673,18 +642,6 @@ const styles = StyleSheet.create({
   segmentMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   segmentMetricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   segmentMetric: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
-  inlineBlock: { gap: 8 },
-  inlineBlockTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
-  productList: { gap: 7 },
-  productRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
-  productDot: { width: 6, height: 6, marginTop: 7, borderRadius: 3 },
-  productText: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   noteText: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
 });

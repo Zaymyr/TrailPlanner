@@ -46,6 +46,8 @@ related_tables:
 
 # GPX Import
 
+The Organizer `Suivi coureur` editor may reuse the loaded GPX preview to interpolate an access coordinate at a supporter point's course kilometer. This is an authoring aid: it persists the resulting latitude/longitude and does not alter the source GPX. If the trace cannot cover the requested kilometer, the point stays an incomplete draft until a separate access address is selected or a usable GPX is provided.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

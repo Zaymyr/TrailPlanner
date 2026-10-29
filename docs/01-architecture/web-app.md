@@ -305,6 +305,8 @@ related_tables:
 
 # Web App Architecture
 
+The Organizer `Suivi coureur` editor can seed a point from an existing ravito or create an independent point. Same-course access interpolates and persists a coordinate from the active GPX; separate access continues through the existing address autocomplete. Writes still pass through the authenticated organizer route and the service-only atomic replacement RPC.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 The organizer dashboard code-splits its heavy module editors and review panels, then loads module data only when needed. Structured collection autosaves are serialized and revision-aware, so an older server response cannot overwrite edits made during the request. Late dashboard responses are abortable and scoped to the active event/race. Aid-station, station-product, relay-point and sponsor-order mutations use service-only atomic database functions instead of write loops. The bootstrap embeds only lightweight status projections, so every tile is correct on first render without downloading editable collections. The shared module catalog separates selected authoring state from effective public state: inactive tiles leave navigation, while `draftOnly` tiles remain editable and are filtered from runner responses until the required offer becomes active.

@@ -55,6 +55,8 @@ related_tables:
 
 # Organizer Commercial Offers
 
+The `supporter_points` module remains an independent Essentiel module. Selecting an existing ravito or deriving access from the course GPX is editor convenience only and does not couple its entitlement to `aid_stations`.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

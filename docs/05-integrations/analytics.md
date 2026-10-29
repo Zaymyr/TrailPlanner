@@ -144,6 +144,8 @@ Organizer content analytics use `organizer_event_created` for the initial event,
 
 Supporter-point replacement uses the aggregate `supporter_points` changed-field category. Mobile route openings emit only the aggregate action and technical context; supporter names, addresses, coordinates, access notes, Maps URLs, and plan URLs are prohibited analytics properties.
 
+Selecting a source ravito, deriving a same-course GPX access coordinate, and hiding nutrition products in the mobile ravito chronology are presentation/editor details only and add no analytics properties.
+
 Opening, replaying, stepping through, or closing the Organizer spotlight guide emits no organizer content event. The guide waits for a cookie decision before presentation and suppresses the mobile-app prompt while active; this UI coordination must not be interpreted as analytics consent or as a saved organizer action.
 
 ## Web Plan Value Events

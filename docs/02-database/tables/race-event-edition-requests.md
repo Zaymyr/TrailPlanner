@@ -24,6 +24,8 @@ related_tables:
 
 # `race_event_edition_requests`
 
+Supporter-point authoring remains format-scoped after an edition is selected. The ravito-source and same-course access helpers do not change edition-request lifecycle or selection rules.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

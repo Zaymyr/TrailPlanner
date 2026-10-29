@@ -5,6 +5,7 @@ last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20261029091807_add_race_supporter_points.sql
+  - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/tests/race_supporter_points_checks.sql
   - apps/web/app/api/organizer/races/[id]/supporter-points/route.ts
   - apps/web/app/api/racebook-data/route.ts
@@ -34,6 +35,7 @@ Stores organizer-authored locations where supporters may encourage a runner, pro
 | `km` | Distance from the start. A published point must be between zero and `races.distance_km`. |
 | `order_index` | Server-derived order after sorting by kilometer. |
 | `encouragement_allowed` / `assistance_allowed` | At least one must be true for public visibility. |
+| `access_on_course` | Organizer hint that access uses the GPX coordinate at `km`; the persisted coordinates remain the public routing source of truth. |
 | `access_label` | Human-readable address or access label. |
 | `latitude` / `longitude` | Optional as a pair in drafts; both are required and range-checked for public visibility. |
 | `google_maps_url` | Optional HTTP(S) directions URL. Mobile falls back to the coordinates when absent. |
@@ -44,7 +46,7 @@ Draft rows may be incomplete and remain visible through the authenticated organi
 
 ## Writes and ordering
 
-Clients cannot insert, update, or delete rows directly. `PUT /api/organizer/races/:id/supporter-points` verifies the organizer membership and effective module, then calls the service-only `replace_race_supporter_points` function. The function locks the format, validates the complete submitted collection, preserves submitted identifiers, sorts by kilometer, assigns zero-based `order_index` values, and replaces the collection atomically.
+Clients cannot insert, update, or delete rows directly. `PUT /api/organizer/races/:id/supporter-points` verifies the organizer membership and effective module, then calls the service-only `replace_race_supporter_points` function. The function locks the format, validates the complete submitted collection, preserves submitted identifiers, sorts by kilometer, preserves submitted order when kilometers are equal, assigns zero-based `order_index` values, and replaces the collection atomically. Its JSON input is enumerated with `jsonb_array_elements ... WITH ORDINALITY`, then parsed laterally; PostgreSQL does not allow the previous recordset column-definition form together with ordinality.
 
 ## Security
 

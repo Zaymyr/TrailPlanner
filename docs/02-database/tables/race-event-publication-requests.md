@@ -31,6 +31,8 @@ related_tables:
 
 # `race_event_publication_requests`
 
+Supporter points remain publishable content only when their module is effective and their required public fields are complete. Selecting a source ravito does not bypass publication readiness: a same-course point still needs a resolvable persisted GPX coordinate.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

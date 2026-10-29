@@ -142,6 +142,8 @@ related_tables:
 
 # Mobile App Architecture
 
+RaceBook ravito cards deliberately keep nutrition product lists out of the mobile chronology. They retain official service availability, cutoff/notes, segment metrics, and the runner's passage and pause timing; product data may remain in the snapshot for planner compatibility but is not rendered in this section.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Plan list hierarchy

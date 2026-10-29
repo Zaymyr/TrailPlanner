@@ -29,6 +29,8 @@ related_tables:
 
 # `race_event_claims`
 
+The `Suivi coureur` editor remains inside the existing Organizer dashboard authorization boundary. Seeding a supporter point from a ravito or deriving its GPX access coordinate does not broaden claim ownership or grant access to another event.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

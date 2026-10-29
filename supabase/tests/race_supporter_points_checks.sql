@@ -1,5 +1,5 @@
 -- Supporter point schema, RLS and service-only mutation checks.
--- Run after 20261029091807_add_race_supporter_points.sql.
+-- Run after 20261029155052_fix_supporter_point_replacement_ordinality.sql.
 
 begin;
 
@@ -50,6 +50,51 @@ begin
   if position('supporter_points' in pg_get_constraintdef(
     (select oid from pg_constraint where conname = 'organizer_racebook_module_settings_scope_check')
   )) = 0 then raise exception 'Organizer module constraint must accept supporter_points.'; end if;
+end;
+$$;
+
+create temp table _supporter_point_fixture (race_id uuid not null) on commit drop;
+
+insert into _supporter_point_fixture (race_id)
+select race_row.id
+from public.races race_row
+where race_row.distance_km >= 2
+limit 1;
+
+do $$
+begin
+  if not exists (select 1 from _supporter_point_fixture) then
+    raise exception 'Supporter point checks require one race of at least 2 km.';
+  end if;
+end;
+$$;
+
+select public.replace_race_supporter_points(
+  (select race_id from _supporter_point_fixture),
+  jsonb_build_array(
+    jsonb_build_object(
+      'name', 'Second submitted', 'km', 1, 'encouragement_allowed', true,
+      'latitude', 45.1, 'longitude', 4.1, 'access_on_course', true
+    ),
+    jsonb_build_object(
+      'name', 'First submitted', 'km', 1, 'assistance_allowed', true,
+      'latitude', 45.2, 'longitude', 4.2, 'access_on_course', false
+    )
+  )
+);
+
+do $$
+begin
+  if (select count(*) from public.race_supporter_points where race_id = (select race_id from _supporter_point_fixture)) <> 2 then
+    raise exception 'Atomic replacement must persist every submitted supporter point.';
+  end if;
+  if not exists (
+    select 1 from public.race_supporter_points
+    where race_id = (select race_id from _supporter_point_fixture)
+      and name = 'Second submitted' and order_index = 0 and access_on_course
+  ) then
+    raise exception 'Replacement must preserve equal-kilometer input order and access mode.';
+  end if;
 end;
 $$;
 

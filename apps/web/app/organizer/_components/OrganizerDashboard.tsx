@@ -3571,6 +3571,7 @@ export function OrganizerDashboard({
               aidStations={aidStations}
               supporterPoints={supporterPoints}
               supporterPointsEnabled={Boolean(activeRace && (moduleSettings?.races[activeRace.id]?.supporter_points ?? true))}
+              gpxPreview={gpxPreview}
               participationMode={raceForm.participationMode}
               relayPoints={relayPoints}
               startTime={currentStartTime}
@@ -3650,6 +3651,7 @@ export function OrganizerDashboard({
                     latitude: null,
                     longitude: null,
                     googleMapsUrl: null,
+                    accessOnCourse: false,
                     accessNote: "",
                     planUrl: "",
                   },

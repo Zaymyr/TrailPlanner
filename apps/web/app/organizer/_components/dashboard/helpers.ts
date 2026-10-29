@@ -524,6 +524,32 @@ export const syncAidStationWithGpxPreview = (station: AidStationDraft, preview: 
   };
 };
 
+export const getGpxCoordinateAtDistance = (
+  preview: GpxPreview | null,
+  distanceKm: number,
+): { latitude: number; longitude: number } | null => {
+  if (!Number.isFinite(distanceKm)) return null;
+  const points = (preview?.elevationProfile ?? [])
+    .filter((point) => Number.isFinite(point.distanceKm) && Number.isFinite(point.lat) && Number.isFinite(point.lon))
+    .slice()
+    .sort((left, right) => left.distanceKm - right.distanceKm);
+  if (points.length === 0) return null;
+
+  const first = points[0];
+  const last = points.at(-1) ?? first;
+  if (distanceKm < first.distanceKm || distanceKm > last.distanceKm) return null;
+  const upperIndex = points.findIndex((point) => point.distanceKm >= distanceKm);
+  const upper = points[Math.max(0, upperIndex)] ?? last;
+  const lower = points[Math.max(0, upperIndex - 1)] ?? upper;
+  const spanKm = upper.distanceKm - lower.distanceKm;
+  const ratio = spanKm > 0 ? (distanceKm - lower.distanceKm) / spanKm : 0;
+
+  return {
+    latitude: (lower.lat as number) + ((upper.lat as number) - (lower.lat as number)) * ratio,
+    longitude: (lower.lon as number) + ((upper.lon as number) - (lower.lon as number)) * ratio,
+  };
+};
+
 export const syncAidStationsWithGpxPreview = (stations: AidStationDraft[], preview: GpxPreview | null): AidStationDraft[] => {
   if (!preview?.elevationProfile?.length) return stations;
 

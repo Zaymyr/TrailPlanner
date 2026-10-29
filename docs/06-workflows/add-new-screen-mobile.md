@@ -69,6 +69,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+The RaceBook `Ravitos` chronology is timing-first: do not render official or personal nutrition product lists in its station cards. Keep service availability, organizer notes, passage estimates, and pauses accessible without duplicating the plan's nutrition editor.
+
 RaceBook subviews may derive display-only personal values from cached plan summaries; missing official checkpoints must degrade to a deterministic estimate rather than hide the official row.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

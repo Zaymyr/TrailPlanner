@@ -26,6 +26,8 @@ related_tables:
 
 # OpenAI Organizer Import Reconciliation
 
+The manual `Suivi coureur` helpers do not change organizer import reconciliation. Imported ravitos may be selected as a source in the editor, but supporter permissions and access location still require organizer confirmation and are never inferred by the import pipeline.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

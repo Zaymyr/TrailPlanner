@@ -185,6 +185,7 @@ export type SupporterPointDraft = {
   latitude: number | null;
   longitude: number | null;
   googleMapsUrl: string | null;
+  accessOnCourse: boolean;
   accessNote: string;
   planUrl: string;
   publishable?: boolean;
