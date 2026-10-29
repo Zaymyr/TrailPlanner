@@ -94,7 +94,7 @@ import { stagePlanWorkspaceWarmStart } from '../../../../lib/planEditSession';
 import { addMinutes, buildPlanSummary, buildProductMap, buildStoredRacePlanFromRow, formatClock, formatDuration, getPlanSummaryDepartureTimeStorageKey, type PlanSummary, type PlanSummaryRow } from '../../../../lib/planSummary';
 import { buildLocalDepartureAt, normalizePlanClock } from '../../../../lib/planDeparture';
 import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
-import { estimatePersonalPassageMinute, matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
+import { estimatePersonalPassageMinute, isPersonalPassageAfterCutoff, matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
 import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
@@ -1121,15 +1121,6 @@ export default function RaceRacebookScreen() {
 
     const schedule = data.runnerDetails.schedule;
     const items: (LabeledItem | null)[] = [
-      schedule.startTime
-        ? {
-            label: t.catalog.racebookFieldStartTime,
-            value: schedule.startTime,
-            actionUrl: null,
-            dataValue: true,
-            tone: 'positive' as const,
-          }
-        : null,
       schedule.finishCutoffTime
         ? {
             label: t.catalog.racebookFieldFinishCutoff,
@@ -1145,7 +1136,6 @@ export default function RaceRacebookScreen() {
   }, [
     data,
     t.catalog.racebookFieldFinishCutoff,
-    t.catalog.racebookFieldStartTime,
   ]);
 
   const courseConstraintLines = useMemo(() => {
@@ -1301,8 +1291,14 @@ export default function RaceRacebookScreen() {
   const linkedPlanAveragePace = linkedPlan
     ? formatAveragePace(linkedPlan.summary.totalDurationMin, linkedPlan.summary.distanceKm)
     : null;
-  const personalPlanByStationId = useMemo<Record<string, RacebookPersonalAidStationPlan>>(() => {
-    if (!linkedPlan || !data) return {};
+  const resolvedStartTime = personalDepartureClock
+    ?? normalizePlanClock(data?.runnerDetails.schedule.startTime)
+    ?? normalizePlanClock(data?.startWaves[0]?.startTime);
+  const personalPlanReflection = useMemo<{
+    byStationId: Record<string, RacebookPersonalAidStationPlan>;
+    finish: RacebookPersonalAidStationPlan | null;
+  }>(() => {
+    if (!linkedPlan || !data) return { byStationId: {}, finish: null };
     const departureClock = personalDepartureClock
       ?? normalizePlanClock(data.runnerDetails.schedule.startTime)
       ?? normalizePlanClock(data.startWaves[0]?.startTime);
@@ -1322,14 +1318,38 @@ export default function RaceRacebookScreen() {
       const estimatedClock = departure && Number.isFinite(departure.getTime())
         ? formatClock(addMinutes(departure, arrivalMinute))
         : null;
-      if (!estimatedClock) return;
+      const stationCutoffTime = Math.abs(station.km - data.race.distanceKm) <= 0.2
+        ? data.runnerDetails.schedule.finishCutoffTime ?? station.organizerDetails.cutoffTime
+        : station.organizerDetails.cutoffTime;
       result[station.id] = {
         passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
         estimatedClock,
+        arrivalMinute,
+        pauseMinutes: Math.max(0, checkpoint?.pauseMinutes ?? 0),
+        isAfterCutoff: isPersonalPassageAfterCutoff(departureClock, arrivalMinute, stationCutoffTime),
       };
     });
-    return result;
+    const finishCheckpoint = planCheckpoints.find((checkpoint) => checkpoint.isFinish)
+      ?? planCheckpoints.at(-1)
+      ?? null;
+    const finishArrivalMinute = finishCheckpoint?.arrivalMinute
+      ?? estimatePersonalPassageMinute(data.race.distanceKm, planCheckpoints);
+    const finish = finishArrivalMinute === null ? null : {
+      passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+      estimatedClock: departure && Number.isFinite(departure.getTime())
+        ? formatClock(addMinutes(departure, finishArrivalMinute))
+        : null,
+      arrivalMinute: finishArrivalMinute,
+      pauseMinutes: 0,
+      isAfterCutoff: isPersonalPassageAfterCutoff(
+        departureClock,
+        finishArrivalMinute,
+        data.runnerDetails.schedule.finishCutoffTime,
+      ),
+    };
+    return { byStationId: result, finish };
   }, [data, linkedPlan, locale, personalDepartureClock]);
+  const personalPlanByStationId = personalPlanReflection.byStationId;
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
     () => resolveRacebookTheme(sponsorPresentation.branding),
@@ -1614,6 +1634,8 @@ export default function RaceRacebookScreen() {
           locationLabel={headerLocation}
           participationLabel={participationLabels.join(' + ') || null}
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
+          startTimeLabel={locale === 'fr' ? 'Départ' : 'Start'}
+          startTimeValue={resolvedStartTime}
           distanceLabel={`${formatDistance(data.race.distanceKm)} km`}
           elevationGainLabel={`D+ ${formatElevation(data.race.elevationGainM, locale)} m`}
           elevationLossLabel={data.race.elevationLossM !== null ? `D- ${formatElevation(data.race.elevationLossM, locale)} m` : null}
@@ -1958,7 +1980,6 @@ export default function RaceRacebookScreen() {
                   <>
                   <RacebookAidStationsSection
                     stations={data.aidStations}
-                    startTime={data.runnerDetails.schedule.startTime}
                     finish={{
                       label: t.catalog.racebookMapFinish,
                       distanceKm: data.race.distanceKm,
@@ -1980,6 +2001,7 @@ export default function RaceRacebookScreen() {
                       setExpandedAidStationId((current) => (current === station.id ? null : station.id));
                     }}
                     personalPlanByStationId={personalPlanByStationId}
+                    finishPersonalPlan={personalPlanReflection.finish}
                     onEditPersonalPlanStation={(station) => openLinkedPlanAtStation(station.id)}
                     copy={{
                       sectionTitle: t.catalog.racebookSectionAidStations,
@@ -1995,9 +2017,12 @@ export default function RaceRacebookScreen() {
                       aidCutoffTime: t.catalog.racebookAidCutoffTime,
                       aidFromStart: locale === 'fr' ? 'Depuis le départ' : 'From the start',
                       aidFromPrevious: locale === 'fr' ? 'Depuis {name}' : 'From {name}',
-                      startTimeLabel: t.catalog.racebookFieldStartTime,
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
+                      plannedDuration: locale === 'fr' ? 'Temps prévu' : 'Expected',
+                      cutoffExceededWarning: locale === 'fr'
+                        ? 'Attention, passage prévu après la barrière horaire.'
+                        : 'Warning: expected passage is after the cutoff time.',
                     }}
                   />
                   <RacebookSponsorBanner

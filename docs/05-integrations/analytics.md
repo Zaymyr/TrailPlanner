@@ -77,7 +77,7 @@ related_tables:
 
 # Analytics
 
-The compact `Passage prévu à : HH:mm` reflection, variable-height identity hero, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
+The compact aligned passage/cutoff reflection, late-warning disclosure, plan-derived segment duration, hero departure clock, title-aligned supporter permissions, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -233,7 +233,7 @@ The companion `racebook_gear_state_2026_09_28` import uses `scripts/backfill-rac
 
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
-The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, endpoint-integrated start/finish times, equally spaced right-indented distance/elevation connectors, identity-metric duration/pace, and prominent owner-only elapsed/clock passage reflection are presentation-only. Pressing a personal ravito block uses the existing bounded targeted-edit action, without a second CTA event. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint, connector, and personal timing visibility add no new analytics event or property.
+The always-visible ravito chronology, full-width departure/arrival cards, hero-only departure clock, equally spaced distance/elevation/plan-duration connectors, identity duration/pace, aligned owner-only passage/cutoff rows, and late-warning disclosure are presentation-only. Pressing the personal passage row uses the existing bounded targeted-edit action, without a second CTA event; pressing the warning adds no event. Expanding a station still emits the existing `racebook aid station opened` event only when notes make that station expandable; endpoint, connector, and personal timing visibility add no new analytics event or property.
 
 Ravito points on the map/profile, their local detail selection or cursor-hover state, the below-chart cumulative distance/D+/D- cards, the compact fullscreen ravito-detail row, the map/profile fullscreen controls, the taller rotated landscape profile, and incomplete-GPX coverage warnings are presentation-only. They add no station name, note, cutoff, geometry, cursor position/totals, fullscreen state, or GPX completeness property to identified analytics events.
 

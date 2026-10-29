@@ -42,7 +42,7 @@ RaceBook personal passage-time interpolation is client-only and does not alter s
 
 ## Purpose
 
-Owner-specific plan duration and pace in the mobile Livret hero, and the tappable compact passage-clock row on a ravito, are independent from sponsor surfaces and must not alter sponsor loading, placement, or reporting.
+Owner-specific plan duration, pace and departure in the mobile Livret hero, plus compact ravito passage/segment timing and its late-cutoff disclosure, are independent from sponsor surfaces and must not alter sponsor loading, placement, or reporting.
 
 `race_event_edition_sponsors` stores sponsor presentation plus aggregate click and viewable-impression counters for a canonical event edition. Every format attached to the edition reuses the same ordered sponsors.
 

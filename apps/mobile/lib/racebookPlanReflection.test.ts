@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 
 import {
   estimatePersonalPassageMinute,
+  estimatePersonalSegmentDuration,
+  isPersonalPassageAfterCutoff,
   LEGACY_AID_STATION_KM_TOLERANCE,
   matchPersonalAidStation,
   normalizeAidStationNameForReflection,
@@ -23,6 +25,41 @@ describe('estimatePersonalPassageMinute', () => {
   it('keeps exact checkpoint arrivals and handles missing data', () => {
     expect(estimatePersonalPassageMinute(50, checkpoints)).toBe(300);
     expect(estimatePersonalPassageMinute(50, [])).toBeNull();
+  });
+});
+
+describe('estimatePersonalSegmentDuration', () => {
+  it('subtracts the previous checkpoint arrival and pause', () => {
+    expect(estimatePersonalSegmentDuration(
+      { arrivalMinute: 240 },
+      { arrivalMinute: 150, pauseMinutes: 10 },
+    )).toBe(80);
+  });
+
+  it('uses departure as the first segment origin', () => {
+    expect(estimatePersonalSegmentDuration({ arrivalMinute: 75 }, null)).toBe(75);
+    expect(estimatePersonalSegmentDuration(null, null)).toBeNull();
+  });
+});
+
+describe('isPersonalPassageAfterCutoff', () => {
+  it('detects a passage after a same-day cutoff', () => {
+    expect(isPersonalPassageAfterCutoff('06:00', 185, '09:00')).toBe(true);
+    expect(isPersonalPassageAfterCutoff('06:00', 175, '09:00')).toBe(false);
+  });
+
+  it('rolls an overnight cutoff after the departure day', () => {
+    expect(isPersonalPassageAfterCutoff('18:00', 485, '02:00')).toBe(true);
+    expect(isPersonalPassageAfterCutoff('18:00', 475, '02:00')).toBe(false);
+  });
+
+  it('ignores incomplete clock data', () => {
+    expect(isPersonalPassageAfterCutoff(null, 200, '09:00')).toBe(false);
+    expect(isPersonalPassageAfterCutoff('06:00', 200, 'matin')).toBe(false);
+  });
+
+  it('accepts legacy hour notation', () => {
+    expect(isPersonalPassageAfterCutoff('6h', 181, '9h')).toBe(true);
   });
 });
 

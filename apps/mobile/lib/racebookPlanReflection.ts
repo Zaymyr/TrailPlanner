@@ -32,6 +32,46 @@ export type PersonalPassageCheckpoint = {
   pauseMinutes?: number | null;
 };
 
+export function estimatePersonalSegmentDuration(
+  target: Pick<PersonalPassageCheckpoint, 'arrivalMinute' | 'pauseMinutes'> | null | undefined,
+  previous: Pick<PersonalPassageCheckpoint, 'arrivalMinute' | 'pauseMinutes'> | null | undefined,
+) {
+  if (!target || !Number.isFinite(target.arrivalMinute)) return null;
+  const previousDepartureMinute = previous
+    ? previous.arrivalMinute + Math.max(0, previous.pauseMinutes ?? 0)
+    : 0;
+  return Math.max(0, target.arrivalMinute - previousDepartureMinute);
+}
+
+function clockToMinutes(value: string | null | undefined) {
+  const match = /^(\d{1,2})(?:(?::|h)(\d{0,2}))?(?::\d{2})?$/i.exec(value?.trim() ?? '');
+  if (!match) return null;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] || 0);
+  if (!Number.isInteger(hours) || !Number.isInteger(minutes) || hours > 23 || minutes > 59) return null;
+  return hours * 60 + minutes;
+}
+
+/**
+ * Compares a plan passage with the first occurrence of an official cutoff
+ * after departure. The organizer contract currently stores clock values only,
+ * so an explicit day cannot be inferred for cutoffs beyond 24 hours.
+ */
+export function isPersonalPassageAfterCutoff(
+  departureClock: string | null | undefined,
+  passageMinute: number,
+  cutoffClock: string | null | undefined,
+) {
+  const departureClockMinute = clockToMinutes(departureClock);
+  const cutoffClockMinute = clockToMinutes(cutoffClock);
+  if (departureClockMinute === null || cutoffClockMinute === null || !Number.isFinite(passageMinute)) return false;
+
+  const cutoffMinuteAfterDeparture = cutoffClockMinute >= departureClockMinute
+    ? cutoffClockMinute - departureClockMinute
+    : cutoffClockMinute + 24 * 60 - departureClockMinute;
+  return passageMinute > cutoffMinuteAfterDeparture;
+}
+
 /**
  * Estimates an official passage omitted by an older or simplified plan.
  * Interpolation includes the pause at the preceding personal checkpoint.

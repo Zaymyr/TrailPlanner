@@ -20,6 +20,11 @@ export function RacebookSupporterPointsSection({
     <View style={styles.list}>
       {points.map((point, index) => {
         const directionsUrl = buildSupporterDirectionsUrl(point);
+        const normalizedName = point.name.trim().toLocaleLowerCase(locale);
+        const accessLabel = point.accessLabel?.trim();
+        const showAccessLabel = Boolean(
+          accessLabel && accessLabel.toLocaleLowerCase(locale) !== normalizedName,
+        );
         return (
           <View key={point.id} style={styles.row}>
             <View style={styles.rail}>
@@ -28,7 +33,13 @@ export function RacebookSupporterPointsSection({
             </View>
             <View style={styles.card}>
               <View style={styles.titleRow}>
-                <Text style={styles.title}>{point.name}</Text>
+                <View style={styles.titleContent}>
+                  <Text numberOfLines={2} style={styles.title}>{point.name}</Text>
+                  <View style={styles.chips}>
+                    {point.encouragementAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{locale === 'fr' ? 'Encouragement' : 'Cheering'}</Text></View> : null}
+                    {point.assistanceAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{locale === 'fr' ? 'Ravitaillement' : 'Crew assistance'}</Text></View> : null}
+                  </View>
+                </View>
                 <View style={styles.titleActions}>
                   <DataText style={styles.km}>{point.km.toLocaleString(locale, { maximumFractionDigits: 1 })} km</DataText>
                   {point.planUrl ? (
@@ -51,11 +62,7 @@ export function RacebookSupporterPointsSection({
                   </Pressable>
                 </View>
               </View>
-              <View style={styles.chips}>
-                {point.encouragementAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{locale === 'fr' ? 'Encouragement' : 'Cheering'}</Text></View> : null}
-                {point.assistanceAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{locale === 'fr' ? 'Ravitaillement' : 'Crew assistance'}</Text></View> : null}
-              </View>
-              {point.accessLabel ? <Text style={styles.access}>{point.accessLabel}</Text> : null}
+              {showAccessLabel ? <Text style={styles.access}>{accessLabel}</Text> : null}
               {point.accessNote ? <Text style={styles.note}>{point.accessNote}</Text> : null}
             </View>
           </View>
@@ -73,8 +80,9 @@ const styles = StyleSheet.create({
   badgeText: { color: Colors.textOnBrand, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   line: { flex: 1, width: 2, minHeight: 18, backgroundColor: Colors.brandBorder },
   card: { flex: 1, marginLeft: 8, marginBottom: 12, gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, padding: 12, backgroundColor: Colors.surface },
-  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
-  title: { flex: 1, color: Colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '800' },
+  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
+  titleContent: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  title: { flexShrink: 1, color: Colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '800' },
   km: { color: Colors.brandPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800' },
   titleActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },

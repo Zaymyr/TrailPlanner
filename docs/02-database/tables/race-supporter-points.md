@@ -45,6 +45,8 @@ Stores organizer-authored locations where supporters may encourage a runner, pro
 
 Draft rows may be incomplete and remain visible through the authenticated organizer route. Direct client reads are restricted by RLS to complete points whose `supporter_points` module is effective. Completeness requires a non-empty name, an in-range kilometer, valid paired coordinates, and at least one permission flag.
 
+Mobile presents permission chips inside the title/distance header, hides `access_label` only when its normalized value repeats `name`, and keeps directions plus the optional external plan as right-aligned icon actions. A distinct access label and access note remain visible beneath the header.
+
 Organizer GET responses normalize nullable editable text and URL fields to empty strings. PUT accepts both those strings and legacy `null` values, so re-saving an existing point cannot fail before the atomic RPC. Mobile keeps directions and an optional external plan as right-aligned, icon-only 44-point actions with explicit accessibility labels.
 
 ## Writes and ordering
