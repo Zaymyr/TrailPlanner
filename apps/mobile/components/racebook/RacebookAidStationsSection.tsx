@@ -25,7 +25,6 @@ export type RacebookAidStationCopy = {
   startLabel: string;
   finishLabel: string;
   personalPlan: string;
-  editPersonalPlan: string;
 };
 
 export type RacebookPersonalAidStationPlan = {
@@ -234,16 +233,27 @@ function AidStationCard({
       ) : null}
 
       {personalPlan ? (
-        <View style={styles.personalPlanBlock}>
+        <Pressable
+          accessibilityLabel={[
+            copy.personalPlan,
+            personalPlan.arrivalLabel,
+            personalPlan.estimatedClock,
+            personalPlan.pauseLabel,
+            ...personalPlan.products,
+          ].filter(Boolean).join(', ')}
+          accessibilityRole={onEditPersonalPlan ? 'button' : undefined}
+          disabled={!onEditPersonalPlan}
+          onPress={onEditPersonalPlan}
+          style={({ pressed }) => [styles.personalPlanBlock, pressed ? styles.personalPlanBlockPressed : null]}
+        >
           <View style={styles.personalPlanTitleRow}>
             <Ionicons color={Colors.brandPrimary} name="person-outline" size={16} />
             <Text style={styles.personalPlanTitle}>{copy.personalPlan}</Text>
+            {onEditPersonalPlan ? (
+              <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={17} />
+            ) : null}
           </View>
-          <View
-            accessible
-            accessibilityLabel={[personalPlan.arrivalLabel, personalPlan.estimatedClock].filter(Boolean).join(', ')}
-            style={styles.personalPlanTiming}
-          >
+          <View style={styles.personalPlanTiming}>
             <Ionicons color={Colors.brandPrimary} name="time-outline" size={18} />
             <View style={styles.personalPlanTimingValues}>
               <DataText style={styles.personalPlanPassage}>{personalPlan.arrivalLabel}</DataText>
@@ -254,13 +264,7 @@ function AidStationCard({
           </View>
           <Text style={styles.personalPlanText}>{personalPlan.pauseLabel}</Text>
           {personalPlan.products.length > 0 ? <Text style={styles.personalPlanProducts}>{personalPlan.products.join(' · ')}</Text> : null}
-          {onEditPersonalPlan ? (
-            <Pressable accessibilityRole="button" onPress={onEditPersonalPlan} style={styles.personalPlanAction}>
-              <Text style={styles.personalPlanActionText}>{copy.editPersonalPlan}</Text>
-              <Ionicons color={Colors.brandPrimary} name="arrow-forward" size={15} />
-            </Pressable>
-          ) : null}
-        </View>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -559,16 +563,15 @@ export function RacebookAidStationsSection({
 
 const styles = StyleSheet.create({
   personalPlanBlock: { gap: 7, borderTopWidth: 1, borderTopColor: Colors.brandBorder, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: Colors.brandSurface },
+  personalPlanBlockPressed: { opacity: 0.72 },
   personalPlanTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  personalPlanTitle: { color: Colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '800' },
+  personalPlanTitle: { flex: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '800' },
   personalPlanTiming: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9, backgroundColor: Colors.surface },
   personalPlanTimingValues: { flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
   personalPlanPassage: { flexShrink: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800' },
   personalPlanClock: { color: Colors.brandPrimary, fontSize: 16, lineHeight: 20, fontWeight: '800' },
   personalPlanText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
   personalPlanProducts: { color: Colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '600' },
-  personalPlanAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 7, alignSelf: 'flex-start', borderRadius: 22, borderWidth: 1, borderColor: Colors.brandBorder, paddingHorizontal: 13, backgroundColor: Colors.surface },
-  personalPlanActionText: { color: Colors.brandPrimary, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   emptyCard: {
     padding: 16,
     borderRadius: 16,

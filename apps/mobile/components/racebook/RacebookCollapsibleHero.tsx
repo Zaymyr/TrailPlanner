@@ -35,6 +35,10 @@ type Props = {
   elevationLossLabel: string | null;
   elevationCaption: string;
   descentCaption: string;
+  planDurationLabel: string | null;
+  planDurationCaption: string;
+  planPaceLabel: string | null;
+  planPaceCaption: string;
   backLabel: string;
   theme: ResolvedRacebookTheme;
   socialLinks: SocialLink[];
@@ -67,6 +71,10 @@ export function RacebookCollapsibleHero({
   elevationLossLabel,
   elevationCaption,
   descentCaption,
+  planDurationLabel,
+  planDurationCaption,
+  planPaceLabel,
+  planPaceCaption,
   backLabel,
   theme,
   socialLinks,
@@ -230,6 +238,18 @@ export function RacebookCollapsibleHero({
             <>
               <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
               <Metric value={elevationLossLabel} label={descentCaption} color={theme.onPrimaryColor} />
+            </>
+          ) : null}
+          {planDurationLabel ? (
+            <>
+              <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
+              <Metric value={planDurationLabel} label={planDurationCaption} color={theme.onPrimaryColor} />
+            </>
+          ) : null}
+          {planPaceLabel ? (
+            <>
+              <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
+              <Metric value={planPaceLabel} label={planPaceCaption} color={theme.onPrimaryColor} />
             </>
           ) : null}
         </View>

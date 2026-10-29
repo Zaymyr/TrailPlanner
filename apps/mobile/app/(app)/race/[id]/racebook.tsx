@@ -95,8 +95,10 @@ import { addMinutes, buildPlanSummary, buildProductMap, buildStoredRacePlanFromR
 import { buildLocalDepartureAt, normalizePlanClock } from '../../../../lib/planDeparture';
 import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
 import { matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
+import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
+import { formatAveragePace } from '../../../../lib/planWorkspace';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
@@ -1118,7 +1120,7 @@ export default function RaceRacebookScreen() {
     if (!data) return [];
 
     const schedule = data.runnerDetails.schedule;
-    const items: Array<LabeledItem | null> = [
+    const items: (LabeledItem | null)[] = [
       schedule.startTime
         ? {
             label: t.catalog.racebookFieldStartTime,
@@ -1183,11 +1185,11 @@ export default function RaceRacebookScreen() {
         : [];
 
   const courseTabs = useMemo(() => {
-    const availableTabs: Array<{ key: CourseTabKey; label: string }> = [
+    const availableTabs: { key: CourseTabKey; label: string }[] = [
       { key: 'route', label: t.catalog.racebookCourseTabRoute },
     ];
     if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
-    if (sponsorPresentation.modules.supporter_points && (data?.supporterPoints.length ?? 0) > 0) {
+    if (hasVisibleRacebookSupporterPoints(data?.supporterPoints ?? [])) {
       availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Suivi coureur' : 'Runner tracking' });
     }
 
@@ -1202,7 +1204,7 @@ export default function RaceRacebookScreen() {
     relaySegments.length,
     data?.startWaves.length,
     data?.awards.length,
-    data?.supporterPoints.length,
+    data?.supporterPoints,
     locale,
     sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
@@ -1296,6 +1298,9 @@ export default function RaceRacebookScreen() {
     data?.race.planSourceUpdatedAt,
     linkedPlan?.sourceRevisionAtLastReview,
   );
+  const linkedPlanAveragePace = linkedPlan
+    ? formatAveragePace(linkedPlan.summary.totalDurationMin, linkedPlan.summary.distanceKm)
+    : null;
   const personalPlanByStationId = useMemo<Record<string, RacebookPersonalAidStationPlan>>(() => {
     if (!linkedPlan || !data) return {};
     const departureClock = personalDepartureClock
@@ -1609,6 +1614,10 @@ export default function RaceRacebookScreen() {
           elevationLossLabel={data.race.elevationLossM !== null ? `D- ${formatElevation(data.race.elevationLossM, locale)} m` : null}
           elevationCaption={locale === 'fr' ? 'Dénivelé' : 'Elevation gain'}
           descentCaption={locale === 'fr' ? 'Descente' : 'Elevation loss'}
+          planDurationLabel={linkedPlan ? formatDuration(linkedPlan.summary.totalDurationMin) : null}
+          planDurationCaption={locale === 'fr' ? 'Temps prévu' : 'Expected time'}
+          planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
+          planPaceCaption={locale === 'fr' ? 'Allure' : 'Pace'}
           backLabel={t.common.back}
           theme={brandTheme}
           emergency={emergencyContact?.phone && emergencyTelephoneUrl ? {
@@ -1807,9 +1816,6 @@ export default function RaceRacebookScreen() {
 
                 <RacebookPersonalPlanCard
                   hasPlan={Boolean(linkedPlanId)}
-                  summary={linkedPlan?.summary ?? null}
-                  requiredGearCount={requiredEquipment.length}
-                  checkedRequiredGearCount={Math.max(0, requiredEquipment.length - missingRequiredEquipmentCount)}
                   revisionPending={officialRevisionPending}
                   locale={locale}
                   onOpenPlan={openLinkedPlan}
@@ -1988,7 +1994,6 @@ export default function RaceRacebookScreen() {
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
                       personalPlan: locale === 'fr' ? 'Mon plan' : 'My plan',
-                      editPersonalPlan: locale === 'fr' ? 'Modifier dans mon plan' : 'Edit in my plan',
                     }}
                   />
                   <RacebookSponsorBanner

@@ -161,7 +161,7 @@ Authenticated non-admin users can no longer insert races. Trusted `app_metadata`
 - Web catalog, slug, and SEO detail reads are server-only service calls requiring `web_catalog_is_live = true`, `is_public = true`, and a live optional parent event. They select only explicit public columns for the lightweight catalog, do not consult the mobile edition-visibility flag, and do not grant masked rows to direct clients. Service reads enrich details from edition dates, sanitized `organizer_details`, ravitos, and private `gpx_storage_path`. Catalog, sitemap, detail visibility, and route ISR share a 15-minute revalidation window; raw GPX bytes use a one-year persistent cache because replacement uploads use immutable versioned paths. RaceBook practical fields additionally require `racebook_is_live` and an effective module under the active edition tier; uncovered draft subtrees are replaced by empty public values.
 - RaceBook branding is resolved from the format's `edition_id`, not stored on `races`; changing or publishing the edition identity never changes catalog or Racebook visibility columns.
 - Global Booking and Decathlon availability is resolved independently of `races`. Services remains a permanent tab for Booking, while Decathlon is placed in Matériel; neither partner can make a RaceBook accessible, publish a format, or alter any race visibility column.
-- The owner-only Livret summary may show the saved plan's projected duration, average pace, and ravito passages. Returning to that plan may reuse short-lived local editor state; these presentation values do not modify race metrics, start times, or the public RaceBook snapshot.
+- The owner-only Livret adds a saved plan's projected duration and average pace to its identity metrics, while matched ravito blocks show personal passages and open the targeted editor on press. Returning to that plan may reuse short-lived local editor state; these presentation values do not modify race metrics, start times, or the public RaceBook snapshot.
 
 ## Common Queries
 
@@ -206,6 +206,7 @@ where web_catalog_is_live = true
 - Do not infer relay participation from ravitos; use `participation_mode` and `race_relay_points`.
 - Do not bulk-update slugs without reviewing the read-only audit and using the service-only rename RPC after its migration is deployed.
 - Never expose `gpx_storage_path` or raw `organizer_details` from a public client contract. The public route may receive only the server-parsed, bounded GPX preview and allowlisted practical fields.
+- The server-filtered supporter-point collection is the mobile authority for showing `Suivi coureur`; do not hide complete public points again from a separately cached module presentation response.
 - Admin thumbnail replacement writes a bounded versioned WebP with long-cache metadata. The reference migration script updates only rows still pointing at the source URL and preserves old Storage objects for rollback.
 - Do not add per-format logo/color columns to `races`; all formats in one canonical edition deliberately share the branding projection.
 - Do not parse `location_text` into geographic filters. It may describe a start-to-finish route crossing several communes; use the parent event's normalized geography for broad catalog filters.

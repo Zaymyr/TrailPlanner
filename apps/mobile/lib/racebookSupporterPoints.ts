@@ -30,6 +30,16 @@ export function parseRacebookSupporterPoints(rows: unknown): RacebookSupporterPo
     .sort((left, right) => left.orderIndex - right.orderIndex || left.km - right.km);
 }
 
+/**
+ * The normalized collection is the visibility authority for the mobile tab.
+ * The snapshot endpoint and the direct-read RLS policy already apply the
+ * effective organizer-module and completeness checks, so a second modules
+ * response must not be able to hide points from a newer snapshot.
+ */
+export function hasVisibleRacebookSupporterPoints(points: readonly RacebookSupporterPoint[]) {
+  return points.length > 0;
+}
+
 export function buildSupporterDirectionsUrl(point: Pick<RacebookSupporterPoint, 'googleMapsUrl' | 'latitude' | 'longitude'>) {
   return point.googleMapsUrl
     ?? `https://www.google.com/maps/dir/?api=1&destination=${point.latitude},${point.longitude}`;

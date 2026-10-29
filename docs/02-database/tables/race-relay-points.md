@@ -44,6 +44,8 @@ Relay participation badges stay in the identity hero beside the course-date, loc
 
 The compact runner-progress and unified sponsor loading composition is presentation-only and remains independent from relay-point reads and derived legs.
 
+An owner's linked-plan duration and pace may appear in the Livret hero, while personal ravito reflection is tappable; neither behavior adds relay timing, changes derived-leg boundaries, or changes the conditional `Relais` tab.
+
 The stable post-load sponsor surface uses compact tiered rows, and contextual sponsor placements likewise remain independent from relay ordering and the conditional `Relais` sub-tab. Moving start/finish times into the Ravitos endpoint cards does not change relay-derived boundaries or times.
 
 The two-line clamp for bib-pickup address links likewise remains independent from relay ordering, rows, and derived legs.

@@ -38,7 +38,7 @@ related_tables:
 
 ## Purpose
 
-The owner-only personal-plan card and ravito reflection use the existing published RaceBook presentation context; they introduce no edition branding field or separate runner-specific branding state.
+Owner-specific plan duration and pace in the Livret hero, plus the tappable personal reflection on an official ravito, use the existing published RaceBook presentation context; they introduce no edition branding field or separate runner-specific branding state.
 
 Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published colors and module switch; no per-format activation is required. A valid published logo is runner-visible in the RaceBook hero and loading composition.
 

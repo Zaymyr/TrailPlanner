@@ -68,4 +68,4 @@ Material check/uncheck analytics and bounded per-item checked/missing snapshots 
 
 Supporter points intentionally carry no personalized or official passage time in the first version. Start-wave resolution therefore does not alter their chronology.
 
-The personal plan card may show planned ravito passage duration and a resolved clock from the current SAS/start time. Switching back to that already saved plan can reuse a local editor warm state, but neither action rewrites SAS rows or their time authority.
+When a linked plan exists, its duration-based pace belongs with the Livret identity metrics; matched ravito passage duration and a resolved clock remain in the personal station block. Tapping that block opens the targeted plan editor without a second CTA. Switching back to that already saved plan can reuse a local editor warm state, but none of these presentation actions rewrites SAS rows or their time authority.

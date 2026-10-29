@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSupporterDirectionsUrl, parseRacebookSupporterPoints } from './racebookSupporterPoints';
+import {
+  buildSupporterDirectionsUrl,
+  hasVisibleRacebookSupporterPoints,
+  parseRacebookSupporterPoints,
+} from './racebookSupporterPoints';
 
 describe('supporter point directions', () => {
   it('prefers the organizer Maps link', () => {
@@ -20,5 +24,14 @@ describe('supporter point directions', () => {
       { id: 's2', name: 'Village', km: 20, order_index: 1, latitude: 45.2, longitude: 6.2, encouragement_allowed: false, assistance_allowed: true },
       { id: 's1', name: 'Col', km: 10, order_index: 0, latitude: 45.1, longitude: 6.1, encouragement_allowed: true, assistance_allowed: false },
     ]).map((point) => point.id)).toEqual(['s1', 's2']);
+  });
+
+  it('uses the server-filtered collection as the tab visibility authority', () => {
+    const points = parseRacebookSupporterPoints([
+      { id: 's1', name: 'Col', km: 10, order_index: 0, latitude: 45.1, longitude: 6.1, encouragement_allowed: true },
+    ]);
+
+    expect(hasVisibleRacebookSupporterPoints(points)).toBe(true);
+    expect(hasVisibleRacebookSupporterPoints([])).toBe(false);
   });
 });

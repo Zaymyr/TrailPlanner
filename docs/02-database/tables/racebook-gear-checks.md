@@ -28,7 +28,7 @@ related_tables:
 
 `racebook_gear_checks` stores the runner's per-format RaceBook equipment checklist. A signed-in account sees the same checked items on every device using that account.
 
-The Livret's personal plan summary reads this durable checklist completion directly. It never copies the completion into `race_plans.planner_values` or treats a source-revision acknowledgement as an equipment update.
+The Livret may read this durable completion when no linked plan is available to offer creation, but it never copies completion into `race_plans.planner_values` or treats a source-revision acknowledgement as an equipment update. A linked plan instead contributes its duration and pace to the course identity metrics; it does not restore a separate equipment summary card.
 
 ## Columns
 
@@ -65,7 +65,7 @@ This table remains the source of truth for current checked state. PostHog organi
 
 Opening supporter directions or an external access plan does not read or mutate personal equipment checks. Both datasets remain owner- and purpose-specific.
 
-When a saved plan exists, the Livret card can show its planned duration and pace beside this checklist completion and link to a warmed plan editor. Those plan-display/navigation values never change a checked row.
+When a saved plan exists, the Livret shows its planned duration and pace in the identity metrics and each matched ravito block can open the warmed plan editor. Those plan-display/navigation values never change a checked row.
 
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)
