@@ -23,6 +23,7 @@ describe('plan workspace warm start', () => {
     });
 
     expect(consumePlanWorkspaceWarmStart('plan-1', token)).toEqual({
+      planId: 'plan-1',
       draft: {
         elevationProfile: [],
         lastSavedSnapshot: 'saved-snapshot',
@@ -44,6 +45,9 @@ describe('plan workspace warm start', () => {
 
     expect(consumePlanWorkspaceWarmStart('plan-b', token)).toBeNull();
     expect(consumePlanWorkspaceWarmStart('plan-a', 'wrong-token')).toBeNull();
-    expect(consumePlanWorkspaceWarmStart('plan-a', token)?.draft.planName).toBe('Plan A');
+    expect(consumePlanWorkspaceWarmStart('plan-a', token)).toMatchObject({
+      planId: 'plan-a',
+      draft: { planName: 'Plan A' },
+    });
   });
 });

@@ -77,7 +77,7 @@ related_tables:
 
 # Analytics
 
-Interpolated RaceBook passage labels contain no additional analytics payload or event.
+The compact `Passage prévu à : HH:mm` reflection, variable-height identity hero, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 

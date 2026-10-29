@@ -73,7 +73,7 @@ export function consumePlanWorkspaceWarmStart(planId: string, token: string | nu
   const warmStart = workspaceWarmStartsByPlanId.get(planId) ?? null;
   if (!warmStart || !token || warmStart.token !== token) return null;
   workspaceWarmStartsByPlanId.delete(planId);
-  return { draft: warmStart.draft, products: warmStart.products };
+  return { planId, draft: warmStart.draft, products: warmStart.products };
 }
 
 export function setPendingPlanEditHelp(planId: string | null) {

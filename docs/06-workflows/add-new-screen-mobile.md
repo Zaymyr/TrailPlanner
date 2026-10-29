@@ -69,7 +69,11 @@ related_tables:
 
 # Add New Mobile Screen
 
-The RaceBook `Ravitos` chronology is timing-first: do not render official or personal nutrition product lists in its station cards. Keep service availability, organizer notes, passage estimates, and pauses accessible without duplicating the plan's nutrition editor.
+The RaceBook `Ravitos` chronology is timing-first: do not render official or personal nutrition product lists or pauses in its station cards. When a dated departure exists, integrate one compact green `Passage prévu à : HH:mm` row immediately above the red cutoff row; pressing it opens the matching plan station. Keep service availability and organizer notes accessible without duplicating the plan's nutrition editor.
+
+Dynamic plan editor routes must scope every in-memory warm start to the exact plan id as well as its one-use token. When `[id]` changes, discard the previous route's warm start before initializing draft refs or autosave state.
+
+Supporter-point cards keep Maps actions as right-aligned 44-point icon-only controls. Text labels remain in accessibility names; access notes and permissions stay in the compact card body.
 
 RaceBook subviews may derive display-only personal values from cached plan summaries; missing official checkpoints must degrade to a deterministic estimate rather than hide the official row.
 

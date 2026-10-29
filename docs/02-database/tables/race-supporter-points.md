@@ -10,6 +10,7 @@ related_files:
   - apps/web/app/api/organizer/races/[id]/supporter-points/route.ts
   - apps/web/app/api/racebook-data/route.ts
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/components/racebook/RacebookSupporterPointsSection.tsx
 related_tables:
   - races
   - organizer_racebook_module_settings
@@ -43,6 +44,8 @@ Stores organizer-authored locations where supporters may encourage a runner, pro
 | `plan_url` | Optional HTTP(S) link to an external access plan. |
 
 Draft rows may be incomplete and remain visible through the authenticated organizer route. Direct client reads are restricted by RLS to complete points whose `supporter_points` module is effective. Completeness requires a non-empty name, an in-range kilometer, valid paired coordinates, and at least one permission flag.
+
+Organizer GET responses normalize nullable editable text and URL fields to empty strings. PUT accepts both those strings and legacy `null` values, so re-saving an existing point cannot fail before the atomic RPC. Mobile keeps directions and an optional external plan as right-aligned, icon-only 44-point actions with explicit accessibility labels.
 
 ## Writes and ordering
 

@@ -22,6 +22,7 @@ type SocialLink = {
 type Props = {
   scrollY: Animated.Value;
   topInset: number;
+  expandedBodyHeight?: number;
   eventName: string | null;
   raceName: string;
   imageUrl: string | null;
@@ -58,6 +59,7 @@ type Props = {
 export function RacebookCollapsibleHero({
   scrollY,
   topInset,
+  expandedBodyHeight = RACEBOOK_HERO_BODY_HEIGHT,
   eventName,
   raceName,
   imageUrl,
@@ -85,7 +87,7 @@ export function RacebookCollapsibleHero({
   onOpenSocial,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
-  const expandedHeight = topInset + RACEBOOK_HERO_BODY_HEIGHT;
+  const expandedHeight = topInset + expandedBodyHeight;
   const compactHeight = topInset + RACEBOOK_HERO_COMPACT_BODY_HEIGHT;
   const collapseDistance = expandedHeight - compactHeight;
   const heroHeight = scrollY.interpolate({

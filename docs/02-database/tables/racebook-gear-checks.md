@@ -67,7 +67,7 @@ This table remains the source of truth for current checked state. PostHog organi
 
 Opening supporter directions or an external access plan does not read or mutate personal equipment checks. Both datasets remain owner- and purpose-specific.
 
-When a saved plan exists, the Livret shows its planned duration and pace in the identity metrics and each matched ravito block can open the warmed plan editor. Those plan-display/navigation values never change a checked row.
+When a saved plan exists, the Livret shows its planned duration and pace in the identity metrics and each matched ravito's compact passage-clock row can open the editor. Warm state is accepted only for the exact plan id, and none of these display/navigation values changes a checked row.
 
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)

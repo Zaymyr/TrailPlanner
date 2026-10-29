@@ -1319,19 +1319,13 @@ export default function RaceRacebookScreen() {
       const arrivalMinute = checkpoint?.arrivalMinute
         ?? estimatePersonalPassageMinute(station.km, planCheckpoints);
       if (arrivalMinute === null) return;
+      const estimatedClock = departure && Number.isFinite(departure.getTime())
+        ? formatClock(addMinutes(departure, arrivalMinute))
+        : null;
+      if (!estimatedClock) return;
       result[station.id] = {
-        arrivalLabel: locale === 'fr'
-          ? `Passage prévu après ${formatDuration(arrivalMinute)}`
-          : `Expected after ${formatDuration(arrivalMinute)}`,
-        estimatedClock: departure && Number.isFinite(departure.getTime())
-          ? formatClock(addMinutes(departure, arrivalMinute))
-          : null,
-        pauseLabel: checkpoint
-          ? (locale === 'fr'
-              ? `Pause ${formatDuration(checkpoint.pauseMinutes)}`
-              : `Stop ${formatDuration(checkpoint.pauseMinutes)}`)
-          : (locale === 'fr' ? "Estimé depuis l'allure du plan" : 'Estimated from plan pace'),
-        products: checkpoint?.supplies.map((product) => `${product.quantity}× ${product.name}`) ?? [],
+        passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+        estimatedClock,
       };
     });
     return result;
@@ -1343,7 +1337,9 @@ export default function RaceRacebookScreen() {
   );
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
-  const heroExpandedHeight = insets.top + RACEBOOK_HERO_BODY_HEIGHT;
+  const hasEmergencyHeader = Boolean(emergencyContact?.phone && emergencyTelephoneUrl);
+  const heroBodyHeight = hasEmergencyHeader ? RACEBOOK_HERO_BODY_HEIGHT : 220;
+  const heroExpandedHeight = insets.top + heroBodyHeight;
 
   useEffect(() => {
     if (
@@ -1609,6 +1605,7 @@ export default function RaceRacebookScreen() {
         <RacebookCollapsibleHero
           scrollY={scrollY}
           topInset={insets.top}
+          expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
           imageUrl={heroImageUrl}
@@ -1650,7 +1647,7 @@ export default function RaceRacebookScreen() {
         <RaceWorkspaceSwitch
           active="racebook"
           compactHeaderHeight={60}
-          expandedHeaderHeight={RACEBOOK_HERO_BODY_HEIGHT}
+          expandedHeaderHeight={heroBodyHeight}
           onOpenPlan={openLinkedPlan}
           onOpenRacebook={() => undefined}
           scrollY={scrollY}
@@ -2001,7 +1998,6 @@ export default function RaceRacebookScreen() {
                       startTimeLabel: t.catalog.racebookFieldStartTime,
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
-                      personalPlan: locale === 'fr' ? 'Mon plan' : 'My plan',
                     }}
                   />
                   <RacebookSponsorBanner

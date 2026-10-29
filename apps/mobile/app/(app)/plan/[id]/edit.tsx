@@ -178,12 +178,23 @@ export default function EditPlanScreen() {
   const navigation = useNavigation();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<PlanWorkspaceTab>(() => normalizePlanWorkspaceTab(tab));
-  const [initialWorkspaceWarmStart] = useState(() => (
-    id ? consumePlanWorkspaceWarmStart(id, planWarmStartToken) : null
-  ));
-  const initialWarmStartDraft = initialWorkspaceWarmStart?.draft
+  const workspaceWarmStartRef = useRef<{
+    routeKey: string;
+    value: ReturnType<typeof consumePlanWorkspaceWarmStart>;
+  } | null>(null);
+  const workspaceWarmStartRouteKey = `${id ?? ''}:${planWarmStartToken ?? ''}`;
+  if (workspaceWarmStartRef.current?.routeKey !== workspaceWarmStartRouteKey) {
+    workspaceWarmStartRef.current = {
+      routeKey: workspaceWarmStartRouteKey,
+      value: id ? consumePlanWorkspaceWarmStart(id, planWarmStartToken) : null,
+    };
+  }
+  const routeWorkspaceWarmStart = workspaceWarmStartRef.current.value?.planId === id
+    ? workspaceWarmStartRef.current.value
+    : null;
+  const initialWarmStartDraft = routeWorkspaceWarmStart?.draft
     ?? (id ? getUnsavedPlanEditDraft(id) : null);
-  const initialWarmStartProductData = initialWorkspaceWarmStart?.products
+  const initialWarmStartProductData = routeWorkspaceWarmStart?.products
     ?? (id ? getPlanEditProductsBootstrap(id) : null);
   const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
   const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
@@ -390,8 +401,8 @@ export default function EditPlanScreen() {
   useEffect(() => {
     if (!id) return;
 
-    const cachedDraft = initialWorkspaceWarmStart?.draft ?? getUnsavedPlanEditDraft(id);
-    const cachedProductData = initialWorkspaceWarmStart?.products ?? getPlanEditProductsBootstrap(id);
+    const cachedDraft = routeWorkspaceWarmStart?.draft ?? getUnsavedPlanEditDraft(id);
+    const cachedProductData = routeWorkspaceWarmStart?.products ?? getPlanEditProductsBootstrap(id);
 
     activeRouteIdRef.current = id;
     loadRequestIdRef.current += 1;
@@ -437,7 +448,7 @@ export default function EditPlanScreen() {
     setDraftSnapshot(null);
     setPlanProductData(null);
     setElevationProfile([]);
-  }, [id, initialWorkspaceWarmStart]);
+  }, [id, routeWorkspaceWarmStart]);
 
   const loadPlan = useCallback(async () => {
     if (!id) return;

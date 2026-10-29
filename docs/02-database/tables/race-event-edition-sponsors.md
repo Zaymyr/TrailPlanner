@@ -42,7 +42,7 @@ RaceBook personal passage-time interpolation is client-only and does not alter s
 
 ## Purpose
 
-Owner-specific plan duration and pace in the mobile Livret hero, and the tappable personal reflection on a ravito, are independent from sponsor surfaces and must not alter sponsor loading, placement, or reporting.
+Owner-specific plan duration and pace in the mobile Livret hero, and the tappable compact passage-clock row on a ravito, are independent from sponsor surfaces and must not alter sponsor loading, placement, or reporting.
 
 `race_event_edition_sponsors` stores sponsor presentation plus aggregate click and viewable-impression counters for a canonical event edition. Every format attached to the edition reuses the same ordered sponsors.
 
@@ -130,7 +130,7 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - The loading runner has no opaque backing tile: it moves directly above the progress track, including for a customized edition theme. This polish change does not affect the sponsor gate or impression timing.
 - The account-owned Material checklist and broader decorative use of edition accent colors do not create sponsor impressions or mutate sponsor placement.
 - The global Booking action in Services and Decathlon action in Matériel are not edition sponsor placements. Their presses use bounded RaceBook action analytics and must not increment sponsor click/impression counters or inherit sponsor redirect behavior.
-- Returning from the Livret to an already saved owner plan can reuse the editor's short-lived warm state. It must not replay the sponsor gate or create a sponsor view/click event.
+- Returning from the Livret to an already saved owner plan can reuse the editor's short-lived warm state only for that exact plan id. It must not replay the sponsor gate or create a sponsor view/click event.
 
 ## Related Docs
 

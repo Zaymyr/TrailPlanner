@@ -24,14 +24,11 @@ export type RacebookAidStationCopy = {
   startTimeLabel: string;
   startLabel: string;
   finishLabel: string;
-  personalPlan: string;
 };
 
 export type RacebookPersonalAidStationPlan = {
-  arrivalLabel: string;
-  estimatedClock: string | null;
-  pauseLabel: string;
-  products: string[];
+  passageLabel: string;
+  estimatedClock: string;
 };
 
 type RacebookAidStationsSectionProps = {
@@ -147,29 +144,18 @@ function AidStationCard({
             </Text>
           </View>
 
-          {serviceItems.length > 0 || cutoffTime ? (
+          {serviceItems.length > 0 ? (
             <View style={styles.aidStationSummaryMeta}>
-              {serviceItems.length > 0 ? (
-                <View style={styles.serviceRow}>
-                  {serviceItems.map((item) => (
-                    <ServiceIcon
-                      key={`${station.id}-${item.label}`}
-                      icon={item.icon}
-                      label={item.label}
-                      theme={theme}
-                    />
-                  ))}
-                </View>
-              ) : null}
-
-              {cutoffTime ? (
-                <View style={styles.cutoffSummary}>
-                  <Ionicons color={Colors.danger} name="time-outline" size={13} />
-                  <DataText numberOfLines={1} style={styles.cutoffSummaryText}>
-                    {copy.aidCutoffTime} {cutoffTime}
-                  </DataText>
-                </View>
-              ) : null}
+              <View style={styles.serviceRow}>
+                {serviceItems.map((item) => (
+                  <ServiceIcon
+                    key={`${station.id}-${item.label}`}
+                    icon={item.icon}
+                    label={item.label}
+                    theme={theme}
+                  />
+                ))}
+              </View>
             </View>
           ) : null}
         </View>
@@ -188,6 +174,33 @@ function AidStationCard({
         </View>
       </Pressable>
 
+      {personalPlan || cutoffTime ? (
+        <View style={styles.timingRows}>
+          {personalPlan ? (
+            <Pressable
+              accessibilityLabel={`${personalPlan.passageLabel} ${personalPlan.estimatedClock}`}
+              accessibilityRole={onEditPersonalPlan ? 'button' : undefined}
+              disabled={!onEditPersonalPlan}
+              onPress={onEditPersonalPlan}
+              style={({ pressed }) => [styles.passageSummary, pressed ? styles.timingRowPressed : null]}
+            >
+              <Ionicons color={Colors.success} name="time-outline" size={14} />
+              <Text numberOfLines={1} style={styles.passageSummaryLabel}>{personalPlan.passageLabel}</Text>
+              <DataText numberOfLines={1} style={styles.passageSummaryClock}>{personalPlan.estimatedClock}</DataText>
+              {onEditPersonalPlan ? <Ionicons color={Colors.success} name="chevron-forward" size={15} /> : null}
+            </Pressable>
+          ) : null}
+          {cutoffTime ? (
+            <View style={styles.cutoffSummary}>
+              <Ionicons color={Colors.danger} name="time-outline" size={13} />
+              <DataText numberOfLines={1} style={styles.cutoffSummaryText}>
+                {copy.aidCutoffTime} {cutoffTime}
+              </DataText>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {expanded && hasExpandedDetails ? (
         <View style={styles.aidStationExpandedContent}>
           {station.organizerDetails.organizerNote || station.notes ? (
@@ -205,38 +218,6 @@ function AidStationCard({
         </View>
       ) : null}
 
-      {personalPlan ? (
-        <Pressable
-          accessibilityLabel={[
-            copy.personalPlan,
-            personalPlan.arrivalLabel,
-            personalPlan.estimatedClock,
-            personalPlan.pauseLabel,
-          ].filter(Boolean).join(', ')}
-          accessibilityRole={onEditPersonalPlan ? 'button' : undefined}
-          disabled={!onEditPersonalPlan}
-          onPress={onEditPersonalPlan}
-          style={({ pressed }) => [styles.personalPlanBlock, pressed ? styles.personalPlanBlockPressed : null]}
-        >
-          <View style={styles.personalPlanTitleRow}>
-            <Ionicons color={Colors.brandPrimary} name="person-outline" size={16} />
-            <Text style={styles.personalPlanTitle}>{copy.personalPlan}</Text>
-            {onEditPersonalPlan ? (
-              <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={17} />
-            ) : null}
-          </View>
-          <View style={styles.personalPlanTiming}>
-            <Ionicons color={Colors.brandPrimary} name="time-outline" size={18} />
-            <View style={styles.personalPlanTimingValues}>
-              <DataText style={styles.personalPlanPassage}>{personalPlan.arrivalLabel}</DataText>
-              {personalPlan.estimatedClock ? (
-                <DataText style={styles.personalPlanClock}>{personalPlan.estimatedClock}</DataText>
-              ) : null}
-            </View>
-          </View>
-          <Text style={styles.personalPlanText}>{personalPlan.pauseLabel}</Text>
-        </Pressable>
-      ) : null}
     </View>
   );
 }
@@ -532,15 +513,11 @@ export function RacebookAidStationsSection({
 }
 
 const styles = StyleSheet.create({
-  personalPlanBlock: { gap: 7, borderTopWidth: 1, borderTopColor: Colors.brandBorder, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: Colors.brandSurface },
-  personalPlanBlockPressed: { opacity: 0.72 },
-  personalPlanTitleRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
-  personalPlanTitle: { flex: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 17, fontWeight: '800' },
-  personalPlanTiming: { flexDirection: 'row', alignItems: 'center', gap: 9, borderRadius: 12, paddingHorizontal: 11, paddingVertical: 9, backgroundColor: Colors.surface },
-  personalPlanTimingValues: { flex: 1, flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
-  personalPlanPassage: { flexShrink: 1, color: Colors.textPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800' },
-  personalPlanClock: { color: Colors.brandPrimary, fontSize: 16, lineHeight: 20, fontWeight: '800' },
-  personalPlanText: { color: Colors.textSecondary, fontSize: 12, lineHeight: 17 },
+  timingRows: { gap: 5, paddingHorizontal: 14, paddingBottom: 10 },
+  passageSummary: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  passageSummaryLabel: { flexShrink: 1, color: Colors.success, fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  passageSummaryClock: { color: Colors.success, fontSize: 13, lineHeight: 17, fontWeight: '900' },
+  timingRowPressed: { opacity: 0.62 },
   emptyCard: {
     padding: 16,
     borderRadius: 16,

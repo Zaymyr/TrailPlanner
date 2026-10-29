@@ -36,7 +36,7 @@ Existing `organizer_details.schedule.startTime` values are backfilled as `Dépar
 
 Public/preview read and mutation rules are identical to other RaceBook content: published RaceBook or authorized organizer for reads, and service-role API plus `racebook_content.manage` for writes.
 
-A SAS change advances the linked-plan official revision because it can change a displayed personal passage clock; it warns the runner but does not recalculate their personal durations or pauses.
+A SAS change advances the linked-plan official revision because it can change a displayed personal passage clock; it warns the runner but does not recalculate their personal durations or pauses. The Livret renders only `Passage prévu à : HH:mm` above the cutoff row; pause details stay in the plan.
 
 The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table. Published primary surfaces may style SAS cards and accent-tinted positive information rows may highlight the schedule, but neither changes time authority or ordering.
 
@@ -70,4 +70,4 @@ Material check/uncheck analytics and bounded per-item checked/missing snapshots 
 
 Supporter points intentionally carry no personalized or official passage time in the first version. Start-wave resolution therefore does not alter their chronology.
 
-When a linked plan exists, its duration-based pace belongs with the Livret identity metrics; matched ravito passage duration and a resolved clock remain in the personal station block. Tapping that block opens the targeted plan editor without a second CTA. Switching back to that already saved plan can reuse a local editor warm state, but none of these presentation actions rewrites SAS rows or their time authority.
+When a linked plan exists, its duration-based pace belongs with the Livret identity metrics; each matched ravito shows only a resolved clock in a compact green row above the red cutoff. Tapping that row opens the targeted plan editor without a second CTA. Switching back can reuse a local editor warm state only for the exact plan id; none of these presentation actions rewrites SAS rows or their time authority.

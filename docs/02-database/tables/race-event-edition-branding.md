@@ -36,7 +36,7 @@ related_tables:
 
 RaceBook ravito cards continue to consume the resolved edition theme, but no longer render official or personal nutrition product lists. This presentation change does not alter the branding contract or its fallback rules.
 
-RaceBook personal passage-time interpolation preserves the edition branding contract and requires no new branding field.
+RaceBook personal passage-time interpolation preserves the edition branding contract and requires no new branding field. Its compact green passage row and the red official cutoff keep application-owned semantic colors, while the emergency-dependent hero height is layout-only.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 

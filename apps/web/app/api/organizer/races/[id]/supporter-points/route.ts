@@ -15,6 +15,9 @@ import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 const nullableHttpUrl = z.union([z.string().trim().url().refine((value) => /^https?:\/\//i.test(value)), z.literal(""), z.null()])
   .optional()
   .transform((value) => value || null);
+const nullableDraftText = (max: number) => z.union([z.string().trim().max(max), z.null()])
+  .optional()
+  .transform((value) => value || null);
 
 const supporterPointRowSchema = z.object({
   id: z.string().uuid(),
@@ -39,12 +42,12 @@ const supporterPointInputSchema = z.object({
   distanceKm: z.number().min(0).nullable(),
   encouragementAllowed: z.boolean().default(false),
   assistanceAllowed: z.boolean().default(false),
-  accessLabel: z.string().trim().max(240).optional().transform((value) => value || null),
+  accessLabel: nullableDraftText(240),
   latitude: z.number().min(-90).max(90).nullable(),
   longitude: z.number().min(-180).max(180).nullable(),
   googleMapsUrl: nullableHttpUrl,
   accessOnCourse: z.boolean().default(false),
-  accessNote: z.string().trim().max(2_000).optional().transform((value) => value || null),
+  accessNote: nullableDraftText(2_000),
   planUrl: nullableHttpUrl,
 }).superRefine((point, context) => {
   if ((point.latitude === null) !== (point.longitude === null)) {
@@ -61,13 +64,13 @@ const serializePoint = (point: z.infer<typeof supporterPointRowSchema>, raceDist
   distanceKm: point.km,
   encouragementAllowed: point.encouragement_allowed,
   assistanceAllowed: point.assistance_allowed,
-  accessLabel: point.access_label,
+  accessLabel: point.access_label ?? "",
   latitude: point.latitude,
   longitude: point.longitude,
   googleMapsUrl: point.google_maps_url,
   accessOnCourse: point.access_on_course,
-  accessNote: point.access_note,
-  planUrl: point.plan_url,
+  accessNote: point.access_note ?? "",
+  planUrl: point.plan_url ?? "",
   publishable: Boolean(
     point.name.trim()
     && point.km !== null
