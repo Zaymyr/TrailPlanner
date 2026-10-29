@@ -77,6 +77,8 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 
 ## Related Docs
 
+Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored access URLs directly. They are not affiliate destinations and must not pass through partner redirects or counters.
+
 - [`partner_link_settings`](../02-database/tables/partner-link-settings.md)
 - [Web App Architecture](../01-architecture/web-app.md)
 - [Analytics](analytics.md)

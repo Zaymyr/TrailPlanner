@@ -50,6 +50,7 @@ export type RacebookModuleVisibility = {
   branding: boolean;
   sponsors: boolean;
   aid_stations: boolean;
+  supporter_points: boolean;
   start_waves: boolean;
   awards: boolean;
   relay: boolean;
@@ -64,6 +65,7 @@ export const LEGACY_RACEBOOK_MODULES: RacebookModuleVisibility = {
   branding: true,
   sponsors: true,
   aid_stations: true,
+  supporter_points: true,
   start_waves: true,
   awards: true,
   relay: true,

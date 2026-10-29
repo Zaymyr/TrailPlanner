@@ -237,6 +237,8 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 
 Moving a format between Masqué, Privé, and Public changes neither its GPX object nor parsed metrics; preview and runner publication reuse the same trace. A failed Public transition under an already-active organizer offer remains an operational error rather than reopening checkout.
 
+Supporter-point `km` values may position the runner conceptually along the format, but GPX import never creates supporter points and never treats their access coordinates as course geometry. Replacing a GPX preserves the collection; the organizer must review any kilometer that no longer fits the updated distance.
+
 - [race_aid_stations](../02-database/tables/race-aid-stations.md)
 - [plan_aid_stations](../02-database/tables/plan-aid-stations.md)
 - [Plan Storage](plan-storage.md)

@@ -61,6 +61,8 @@ related_tables:
 
 This table remains the source of truth for current checked state. PostHog organizer rankings use the latest observed state per person, race, and published analytics item inside the selected reporting window; they exclude runners who never started the checklist and must not be presented as a live table snapshot. The marker-guarded `racebook_gear_state_2026_09_28` import seeded checked and missing states only for users represented by existing rows.
 
+Opening supporter directions or an external access plan does not read or mutate personal equipment checks. Both datasets remain owner- and purpose-specific.
+
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)
 - [RLS Policies](../rls-policies.md)

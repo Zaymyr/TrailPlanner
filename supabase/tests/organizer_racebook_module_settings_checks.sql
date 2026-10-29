@@ -74,10 +74,13 @@ end $$;
 
 delete from public.organizer_racebook_module_settings
 where edition_id = (select edition_id from _module_fixture)
-  and module_key = 'services';
+  and module_key in ('services', 'supporter_points');
 
 insert into public.organizer_racebook_module_settings (edition_id, module_key, is_enabled)
 select edition_id, 'services', true from _module_fixture;
+
+insert into public.organizer_racebook_module_settings (edition_id, race_id, module_key, is_enabled)
+select edition_id, race_id, 'supporter_points', true from _module_fixture;
 
 do $$
 begin
@@ -101,6 +104,16 @@ begin
     raise exception 'Expected a race-scoped key without race_id to fail.';
   exception when check_violation then null;
   end;
+
+  if not exists (
+    select 1 from public.organizer_racebook_module_settings
+    where edition_id = (select edition_id from _module_fixture)
+      and race_id = (select race_id from _module_fixture)
+      and module_key = 'supporter_points'
+      and is_enabled
+  ) then
+    raise exception 'Supporter points must be accepted as an enabled race-scoped module.';
+  end if;
 end $$;
 
 rollback;

@@ -114,6 +114,8 @@ For visibility-gated aggregate RPCs such as sponsor impressions, select an exist
 
 ## Related Docs
 
+The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.
+
 - [Migrations](../02-database/migrations.md)
 - [RLS Checklist](../04-auth-and-security/rls-checklist.md)
 - [Add RLS Policy](add-rls-policy.md)

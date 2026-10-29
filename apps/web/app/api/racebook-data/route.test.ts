@@ -20,6 +20,10 @@ vi.mock("../../../lib/organizer", () => ({
   serviceHeaders: () => ({}),
 }));
 
+vi.mock("../../../lib/organizer-module-settings", () => ({
+  isOrganizerRaceModuleEnabled: () => Promise.resolve(true),
+}));
+
 const raceId = "11111111-1111-4111-8111-111111111111";
 const eventId = "22222222-2222-4222-8222-222222222222";
 const editionId = "33333333-3333-4333-8333-333333333333";
@@ -66,13 +70,14 @@ describe("GET /api/racebook-data", () => {
       .mockResolvedValueOnce(new Response("[]", { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }));
 
     const response = await GET(new NextRequest(`http://localhost/api/racebook-data?raceId=${raceId}`));
     const payload = await response.json();
 
     expect(response.status).toBe(200);
-    expect(payload).toMatchObject({ organizerPreview: false, stationRows: [], relayPointRows: [] });
+    expect(payload).toMatchObject({ organizerPreview: false, stationRows: [], relayPointRows: [], supporterPointRows: [] });
     expect(response.headers.get("Vercel-CDN-Cache-Control")).toContain("max-age=300");
     expect(response.headers.get("Vercel-Cache-Tag")).toContain(`racebook:edition:${editionId}`);
   });
@@ -82,6 +87,7 @@ describe("GET /api/racebook-data", () => {
     mocks.isOrganizerForEvent.mockResolvedValue(true);
     vi.spyOn(global, "fetch")
       .mockResolvedValueOnce(new Response(JSON.stringify(racePayload(false)), { status: 200 }))
+      .mockResolvedValueOnce(new Response("[]", { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }))
       .mockResolvedValueOnce(new Response("[]", { status: 200 }))

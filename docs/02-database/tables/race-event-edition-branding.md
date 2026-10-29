@@ -126,6 +126,8 @@ Format-owned GPX visibility may omit a branded route or profile card; it does no
 
 The same resolved accent colors decorate fullscreen route/profile visuals and ravito point markers. Marker details and incomplete-GPX warnings keep application-owned semantic and accessibility behavior and add no branding state.
 
+The supporter chronology inherits the published RaceBook theme like other Course content, but branding configuration neither controls supporter visibility nor stores supporter access data.
+
 - [race_event_editions](race-event-editions.md)
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)

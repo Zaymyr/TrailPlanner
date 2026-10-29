@@ -127,6 +127,7 @@ User-owned tables include:
 Important relationships:
 
 - `race_aid_stations.race_id` references `races(id)` with cascade delete from the original catalog aid station table.
+- `race_supporter_points.race_id` references `races(id)` with `on delete cascade`; supporter access data is format-scoped and has no dependency on aid stations.
 - `race_relay_points.race_id` references `races(id)` with cascade delete.
 - `race_relay_points.race_aid_station_id` optionally references `race_aid_stations(id)` with `on delete set null`.
 - `race_plans.race_id` references `races(id)` with `on delete set null` after `supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql`.
@@ -261,6 +262,7 @@ Organizer access should be checked through an active `race_event_organizers` row
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
 - [race_aid_stations](tables/race-aid-stations.md)
+- [race_supporter_points](tables/race-supporter-points.md)
 - [race_relay_points](tables/race-relay-points.md)
 - [race_slug_redirects](tables/race-slug-redirects.md)
 - [race_event_organizers](tables/race-event-organizers.md)

@@ -72,3 +72,5 @@ Confirmed Material check/uncheck analytics and the bounded per-item checked/miss
 Per-format GPX map/profile choices affect only the `Tracé` cards and do not change edition-scoped services or their conditional tab.
 
 Fullscreen course visuals and tappable ravito markers do not read, reorder, or replace edition-scoped nearby services.
+
+Format-scoped supporter directions and assistance permissions are not edition services. They are serialized from `race_supporter_points` only when that separate module is effective.

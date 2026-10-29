@@ -48,6 +48,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [plan_aid_stations](02-database/tables/plan-aid-stations.md)
 - [plan_share_links](02-database/tables/plan-share-links.md)
 - [race_aid_stations](02-database/tables/race-aid-stations.md)
+- [race_supporter_points](02-database/tables/race-supporter-points.md)
 - [race_relay_points](02-database/tables/race-relay-points.md)
 - [race_start_waves](02-database/tables/race-start-waves.md)
 - [race_awards](02-database/tables/race-awards.md)
