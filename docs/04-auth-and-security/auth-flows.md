@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-10-01
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -112,6 +112,7 @@ The password-login inputs and submit action expose stable `auth-login-*` test id
 Login uses the same scrollable keyboard-avoidance layout as signup, so account actions remain reachable when the iOS keyboard is open or Dynamic Type enlarges the form. Its content starts near the top instead of vertically centering a long guest notice, and the social-auth separator is localized.
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 The Profile root may retry its own `getSession()` plus `user_profiles` bootstrap after a recoverable read failure. That retry reuses the existing session and does not create a second auth listener, navigation gate, guest conversion, or onboarding lifecycle.
+The Profile admin access selector sends the current bearer token to the protected web API and never changes Auth metadata. A missing/expired admin session or an API deployment that does not yet expose the selector route produces a localized actionable message instead of silently changing local access state.
 
 Non-auth onboarding steps, such as the extracted race/catalog and nutrition-product presentation components, must not add separate session side effects; their callbacks remain owned by the onboarding route, while session, analytics identity, push registration, and Resend sync behavior stay in `_layout.tsx` or the existing dedicated helpers.
 The onboarding race chooser inner-filters event formats to `races.is_live = true`. This visibility filter is catalog behavior only and must not add a new authentication/session side effect.
@@ -162,6 +163,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Anonymous Apple identity linking can return existing-account wording when the Apple ID was used in an earlier review attempt; keep that path recoverable through direct Apple ID-token sign-in plus the pending guest-merge flow.
 - A clean E2E install follows the real anonymous-session bootstrap before opening password login. Do not add a production auth bypass for tests; use a dedicated test account and keep test credentials out of `EXPO_PUBLIC_*` variables.
 - Keep Profile fetch retry local to the screen data bootstrap; do not turn it into a new global auth-state subscription or session side effect.
+- Keep admin access simulation server-verified. The mobile selector may explain an unavailable route or stale administrator session, but it must not fall back to a client-only Premium/free override.
 - The app shell's route-derived light status-bar style for the four branded root headers is presentation-only; it must not become an auth gate, redirect condition, or session listener.
 
 ## Related Docs

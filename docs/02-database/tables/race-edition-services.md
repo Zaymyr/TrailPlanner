@@ -21,6 +21,8 @@ related_tables:
 
 # `race_edition_services`
 
+> CTA scope: the RaceBook plan CTA resolves only the current runner's saved plan for the exact format; it does not read, filter, or change edition-service rows or their external links.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

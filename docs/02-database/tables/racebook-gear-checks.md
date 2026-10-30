@@ -22,6 +22,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+> CTA scope: the RaceBook plan CTA resolves a runner-owned plan independently of the gear checklist. It never reads or mutates `racebook_gear_checks`.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

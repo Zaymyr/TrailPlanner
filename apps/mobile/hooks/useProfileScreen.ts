@@ -38,6 +38,7 @@ import {
   type PushRegistrationStatus,
 } from '../lib/pushRegistration';
 import { supabase } from '../lib/supabase';
+import { getRunnerAccessModeErrorMessage } from '../lib/runnerPlanAccess';
 import { WEB_API_BASE_URL } from '../lib/webApi';
 import { usePremium } from './usePremium';
 import { useRevenueCatBilling } from './useRevenueCatBilling';
@@ -126,12 +127,29 @@ export function useProfileScreen() {
     try {
       const { data } = await supabase.auth.getSession();
       const token = data.session?.access_token;
-      if (!token) return;
+      if (!token) {
+        Alert.alert(
+          locale === 'fr' ? 'Mode de test' : 'Test mode',
+          getRunnerAccessModeErrorMessage(401, locale),
+        );
+        return;
+      }
       const response = await fetch(`${WEB_API_BASE_URL}/api/admin/runner-access-mode`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
-      if (!response.ok) throw new Error('Simulation unavailable');
+      if (!response.ok) {
+        Alert.alert(
+          locale === 'fr' ? 'Mode de test' : 'Test mode',
+          getRunnerAccessModeErrorMessage(response.status, locale),
+        );
+        return;
+      }
       setRunnerAccessMode(mode);
-    } catch { Alert.alert('Mode de test', 'Impossible de changer le mode.'); } finally { setRunnerAccessModeSaving(false); }
-  }, []);
+    } catch {
+      Alert.alert(
+        locale === 'fr' ? 'Mode de test' : 'Test mode',
+        getRunnerAccessModeErrorMessage(0, locale),
+      );
+    } finally { setRunnerAccessModeSaving(false); }
+  }, [locale]);
 
   useEffect(() => { void loadRunnerAccessMode(); }, [loadRunnerAccessMode]);
 

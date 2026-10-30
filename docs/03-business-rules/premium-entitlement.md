@@ -83,6 +83,7 @@ Important behavior:
 
 `apps/mobile/hooks/useProfileScreen.ts` consumes this resolved entitlement only for Profile presentation and billing actions; its extracted profile diagnostic helpers do not alter purchase verification or entitlement resolution. The same hook compares editable profile fields with their last persisted values so the save action can remain disabled while the form is unchanged; that dirty-state presentation does not affect Premium resolution.
 Retrying the Profile row bootstrap after a recoverable read failure reloads only the existing session/profile form data. It does not grant Premium, bypass `usePremium`, or repeat a billing action.
+For trusted admins, the Profile access-mode selector remains a server round trip bound to the current bearer session. Its localized 404/auth failure messages are diagnostic only; the hook updates the displayed mode only after the protected API accepts the change.
 
 If RevenueCat reports an active entitlement but the server row is not synced, mobile calls the web RevenueCat sync endpoint.
 
@@ -130,6 +131,7 @@ RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It
 - Do not move entitlement listeners back into individual hook instances; tab and detail screens frequently mount `usePremium` at the same time.
 - Keep accessibility semantics on the Premium upsell presentation-only. Modal focus and headings must not be treated as checkout progress, purchase success, or evidence of an active entitlement.
 - Do not couple Profile bootstrap retry to RevenueCat purchase or restore flows; entitlement verification remains owned by the existing Premium and billing hooks.
+- Do not make the mobile admin selector optimistic or client-authoritative. API deployment/auth failures must leave the last verified mode unchanged and cannot grant Premium.
 
 ## Related Docs
 

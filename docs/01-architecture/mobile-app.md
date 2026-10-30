@@ -4,6 +4,7 @@ scope: architecture
 last_verified: 2026-10-30
 ai_priority: high
 related_files:
+  - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
   - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/raceProfile.ts
   - apps/mobile/locales/fr.ts
@@ -284,6 +285,8 @@ Its reusable loading card, race row, and filter modal live in `apps/mobile/compo
 - it preloads up to three recent manual organizer updates per live event, renders only the newest (or deep-link-targeted) announcement after every format row inside one light-green panel, and reveals the other messages plus fuller history only when the runner taps `View more`;
 - it reads `eventId`, `updateId`, and optional `raceId` route params so a push opens the matching event, message, and format context directly;
 - it loads the identified runner's `race_event_update_reads` plus lightweight update id/event references, displays `NEW` on event cards even when the unread item is older than the three-message preview, and persists receipts after messages are displayed.
+
+The Livret coureur resolves an existing plan by current user and exact format on focus and again before navigation. Its visible create/refine action opens plan creation or the existing workspace without a purchase gate. LockedPlanContent preserves the workspace header and bottom tabs; its Ravitos/Chronology/Paces views show course context and estimated needs with contextual unlock overlays over decorative placeholders. Paid forms are not mounted for locked access, and historical detailed Recap remains readable. Admin free/premium simulation precedes the rollout-disabled compatibility path; the real mode retains that compatibility. A development build must target the updated backend through EXPO_PUBLIC_API_URL to exercise these routes.
 
 ## Premium and Purchases
 

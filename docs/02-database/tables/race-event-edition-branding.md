@@ -34,6 +34,8 @@ related_tables:
 
 # `race_event_edition_branding`
 
+> CTA scope: the RaceBook plan CTA uses the resolved published theme only for presentation. Its runner-owned plan lookup neither reads nor changes edition branding.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

@@ -65,6 +65,8 @@ related_tables:
 
 # `races`
 
+> CTA scope: the RaceBook plan CTA resolves only the current runner's plan for this exact `races.id`; it never changes course metrics, visibility, or organizer details.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose

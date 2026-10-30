@@ -22,6 +22,8 @@ related_tables:
 
 # `race_start_waves`
 
+> CTA scope: the RaceBook plan CTA is runner-owned and format-scoped; it does not read, create, or alter SAS rows or their time authority.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose and invariants

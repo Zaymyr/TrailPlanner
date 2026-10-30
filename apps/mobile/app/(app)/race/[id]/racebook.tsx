@@ -81,6 +81,7 @@ import {
   loadRacebookGearChecks,
   saveRacebookGearCheck,
 } from '../../../../lib/racebookGearChecklist';
+import { supabase } from '../../../../lib/supabase';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
@@ -574,6 +575,8 @@ export default function RaceRacebookScreen() {
   const [sponsorLookupDone, setSponsorLookupDone] = useState(false);
   const [loadingProgress, setLoadingProgress] = useState(0.06);
   const [loadingExitDone, setLoadingExitDone] = useState(false);
+  const [existingPlan, setExistingPlan] = useState<{ raceId: string; planId: string | null } | null>(null);
+  const [planCtaBusy, setPlanCtaBusy] = useState(false);
   const [expandedAccessTransport, setExpandedAccessTransport] = useState<Record<RacebookAccessTransport['key'], boolean>>({
     parking: false,
     shuttles: false,
@@ -589,6 +592,49 @@ export default function RaceRacebookScreen() {
   const lastGearStateSignatureRef = useRef<{ raceId: string; signature: string } | null>(null);
   const activeRaceIdRef = useRef(id);
   activeRaceIdRef.current = id;
+
+  const findExistingPlanId = useCallback(async (raceId: string) => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const userId = sessionData.session?.user.id;
+    if (!userId) return null;
+
+    const { data: plan, error } = await supabase
+      .from('race_plans')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('race_id', raceId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    return typeof plan?.id === 'string' ? plan.id : null;
+  }, []);
+
+  const refreshExistingPlan = useCallback(async () => {
+    if (!id) {
+      setExistingPlan(null);
+      return;
+    }
+
+    try {
+      const planId = await findExistingPlanId(id);
+      if (activeRaceIdRef.current === id) {
+        setExistingPlan({ raceId: id, planId });
+      }
+    } catch (error) {
+      console.warn('Unable to resolve the existing RaceBook plan.', error);
+      if (activeRaceIdRef.current === id) setExistingPlan({ raceId: id, planId: null });
+    }
+  }, [findExistingPlanId, id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshExistingPlan();
+      return undefined;
+    }, [refreshExistingPlan]),
+  );
 
   if (!sponsorViewRef.current || sponsorViewRef.current.raceId !== (id ?? null)) {
     sponsorViewRef.current = { raceId: id ?? null, viewId: createRacebookSponsorViewId() };
@@ -1296,6 +1342,59 @@ export default function RaceRacebookScreen() {
     [],
   );
 
+  const existingPlanId = existingPlan && existingPlan.raceId === id ? existingPlan.planId : null;
+  const planCtaLabel = locale === 'fr'
+    ? (existingPlanId ? 'Affiner mon plan' : 'Créer mon plan')
+    : (existingPlanId ? 'Refine my plan' : 'Create my plan');
+  const planCtaDescription = locale === 'fr'
+    ? (existingPlanId
+      ? 'Retrouve ton estimation et personnalise ta préparation.'
+      : 'Obtiens ton estimation personnalisée pour cette course.')
+    : (existingPlanId
+      ? 'Review your estimate and personalize your preparation.'
+      : 'Get your personalized estimate for this race.');
+
+  const handlePlanCtaPress = useCallback(async () => {
+    if (!id || planCtaBusy) return;
+
+    const raceId = id;
+    setPlanCtaBusy(true);
+    try {
+      // Re-check immediately before navigation: a plan may have been created in
+      // another screen while the RaceBook remained mounted.
+      const currentPlanId = await findExistingPlanId(raceId);
+      if (activeRaceIdRef.current !== raceId) return;
+
+      setExistingPlan({ raceId, planId: currentPlanId });
+      captureRacebookInteraction('racebook action clicked', {
+        action: currentPlanId ? 'refine_plan' : 'create_plan',
+      });
+
+      if (currentPlanId) {
+        router.push(`/(app)/plan/${currentPlanId}/edit`);
+        return;
+      }
+
+      // The creation route remains responsible for the identified-account and
+      // profile-completion gates. A locked plan is intentionally opened in its
+      // editor; the editor owns the upgrade prompts for paid modifications.
+      router.push({
+        pathname: '/(app)/plan/new',
+        params: { catalogRaceId: raceId },
+      });
+    } catch (error) {
+      console.warn('Unable to open the RaceBook plan action.', error);
+      Alert.alert(
+        t.common.error,
+        locale === 'fr'
+          ? 'Impossible de vérifier ton plan pour le moment. Réessaie dans un instant.'
+          : 'We could not check your plan right now. Please try again shortly.',
+      );
+    } finally {
+      if (activeRaceIdRef.current === raceId) setPlanCtaBusy(false);
+    }
+  }, [captureRacebookInteraction, findExistingPlanId, id, locale, planCtaBusy, router, t.common.error]);
+
   const handleTabPress = useCallback((tab: RacebookTabKey) => {
     if (tab === activeTab) return;
 
@@ -1488,6 +1587,35 @@ export default function RaceRacebookScreen() {
             theme={brandTheme}
             onSponsorImpression={reportSponsorImpression}
           />
+          <Card style={styles.planCtaCard}>
+            <View style={styles.planCtaCopy}>
+              <View style={[styles.planCtaIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
+                <Ionicons name={existingPlanId ? 'options-outline' : 'map-outline'} size={21} color={brandTheme.primaryColor} />
+              </View>
+              <View style={styles.planCtaText}>
+                <Text style={styles.planCtaTitle}>{planCtaLabel}</Text>
+                <Text style={styles.planCtaDescription}>{planCtaDescription}</Text>
+              </View>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel={planCtaLabel}
+              disabled={planCtaBusy}
+              onPress={() => void handlePlanCtaPress()}
+              style={({ pressed }) => [
+                styles.planCtaButton,
+                { backgroundColor: brandTheme.primaryColor },
+                pressed && styles.planCtaButtonPressed,
+                planCtaBusy && styles.planCtaButtonDisabled,
+              ]}
+              testID="racebook-plan-cta"
+            >
+              <Text style={[styles.planCtaButtonText, { color: brandTheme.onPrimaryColor }]}>
+                {planCtaBusy ? (locale === 'fr' ? 'Ouverture…' : 'Opening…') : planCtaLabel}
+              </Text>
+              <Ionicons name="arrow-forward" size={17} color={brandTheme.onPrimaryColor} />
+            </Pressable>
+          </Card>
           {runnerInfoLines.length > 0 ? (
             <Card style={styles.heroCard}>
               <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
@@ -1998,6 +2126,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 22,
     paddingBottom: 20,
+  },
+  planCtaCard: {
+    gap: 14,
+    padding: 16,
+  },
+  planCtaCopy: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  planCtaIcon: {
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  planCtaText: {
+    flex: 1,
+    gap: 3,
+  },
+  planCtaTitle: {
+    color: Colors.textPrimary,
+    fontSize: 16,
+    fontWeight: '800',
+  },
+  planCtaDescription: {
+    color: Colors.textSecondary,
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  planCtaButton: {
+    minHeight: 46,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  planCtaButtonPressed: {
+    opacity: 0.88,
+  },
+  planCtaButtonDisabled: {
+    opacity: 0.65,
+  },
+  planCtaButtonText: {
+    fontSize: 14,
+    fontWeight: '800',
   },
   alertCard: {
     gap: 8,

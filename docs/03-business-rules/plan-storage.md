@@ -131,6 +131,8 @@ When the in-app recap opens, mobile sends the regenerated recap snapshot to `app
 
 The public shared page can persist limited crew-side tracking data through `apps/web/app/api/plan-shares/crew-state/route.ts`. That route validates the secret URL token, hashes it server-side, and updates only `plan_share_links.departure_time` plus `plan_share_links.crew_state`. The crew marks assistance points as done; the page records the current clock time, recalculates the next crew point from that confirmed passage, and treats no-assistance checkpoints as planned-time passages by default. If the crew validates too early, the tracking card can clear confirmed passages and return calculations to the planned snapshot values while keeping the entered departure time.
 
+Locked mobile plans use the ordinary workspace route and tabs, with paid inputs replaced by contextual unlock surfaces. Browsing these surfaces does not mutate planner JSON, save a draft, create a crew link or record a successful save. Detailed historical Recap remains readable when separately authorized. The canonical save pipeline still protects all actual edits.
+
 ## Hydration on Read
 
 `apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts` maps saved rows into planner state.

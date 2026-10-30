@@ -203,6 +203,8 @@ The Profile debug/admin presentation uses the same pure trusted-role helper: `ap
 Profile dirty-state detection and moving runner onboarding shortcuts from personal information to Settings are presentation changes only. They emit no new analytics event; `profile saved` still fires only after a successful persisted profile mutation.
 Initial Profile loading and an explicit retry after a recoverable profile fetch failure are also presentation/data-retrieval actions. They emit no profile or Premium funnel event and do not repeat a persisted mutation.
 
+The Livret coureur plan entry emits racebook action clicked with the bounded create_plan or refine_plan action after resolving the current owned plan. These are navigation intents only; neither an existing-plan lookup, a blurred placeholder, nor an admin simulation is a persisted plan or purchase outcome.
+
 ## RaceBook Engagement
 
 The guided RaceBook catalog emits explicit selection events before the RaceBook screen opens, plus an optional search event:

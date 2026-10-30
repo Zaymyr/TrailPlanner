@@ -57,12 +57,14 @@ These tables are the server-side authority for runner monetisation. The rollout 
 - Purchase intents are serialized per user and store, expire after 24 hours, and record whether the native store sheet started. After an app restart, a started intent is reconciled without opening a second charge; an intent that crashed before the store call may safely resume. A store transaction must have been purchased after the intent was created.
 - Stripe course Checkout also creates a durable intent and places only its id in signed provider metadata. If the saved plan is deleted while Checkout/store UI is open, fulfillment uses the intent's immutable canonical key, stores a nullable `plan_id`, and applies to a recreated same-edition plan.
 - Admin simulation is tied to the authenticated JWT session and trusted Auth `app_metadata`; it cannot create durable billing access.
+- The session-scoped `free` and `premium` simulations intentionally take precedence over the rollout compatibility fallback. Trusted admins can therefore exercise both states while `monetization_enabled = false`; `real` mode retains the normal legacy-open behavior until rollout.
 - With monetisation enabled, anonymous users cannot create plans. Identified users must have the required planning defaults before creation.
 
 ## Gotchas
 
 - Do not use `subscriptions` alone to infer a one-time course purchase; it is a global entitlement snapshot.
 - Do not enable the rollout flag before Stripe/RevenueCat products, webhook verification, and server credentials are configured and tested.
+- Do not move the rollout-disabled compatibility return ahead of admin simulation resolution. Doing so makes the `free` selector appear broken during pre-rollout testing.
 - Do not grant table writes to mobile or browser clients, including for restore flows.
 - The RevenueCat course product must be a repeat-purchasable consumable in both stores. A non-consumable supports only the first course and breaks the per-race model.
 - RevenueCat webhook authorization is mandatory and fails closed when its server secret is absent. A recognized event whose database persistence fails returns a retryable non-2xx response.

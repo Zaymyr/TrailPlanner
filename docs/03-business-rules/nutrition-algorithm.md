@@ -37,6 +37,7 @@ related_files:
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/components/PlanForm.tsx
+  - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
   - apps/mobile/components/plan-form/PlanBasicsSection.tsx
   - apps/mobile/assets/verified-product.png
   - apps/mobile/components/nutrition/types.ts
@@ -184,6 +185,7 @@ Mobile implementation:
 - `apps/mobile/components/plan-form/usePlanSupplies.ts` uses the same carryover rule when auto-filling supplies.
 - `apps/mobile/components/plan-form/AidStationCoveragePanel.tsx` presents the existing cumulative gauge result and deficit guidance; it receives computed metrics and does not introduce a second allocation path.
 - `apps/mobile/components/plan-form/AidStationProfileSegmentCard.tsx` and `aidStationPresentationHelpers.ts` isolate pace/profile presentation and formatting from the Ravitos/Chronologie/Allures view switcher. They receive already computed section data and must not introduce nutrition or hydration allocation logic.
+- The locked mobile workspace derives free section needs from the same saved summary targets and section durations: Ravitos exposes estimated carbohydrate grams and water milliliters, while Chronologie/Allures replaces paid timing and pace detail with decorative, inaccessible placeholders plus a contextual unlock action. Paid product choices, quantities, gauges, auto-fill and editing controls are not mounted. This is a presentation gate only and introduces no allocation path or persisted nutrition value.
 - Section duration presentation rounds the total minute value before splitting hours and minutes. This carries a rounded `60` minutes into the next hour, so values near 120 minutes render as `2h00`, never `1h60`.
 - Numeric plan inputs use the app-wide iOS keyboard accessory so the runner can dismiss number/decimal keyboards without abandoning the editor or modal. The aid-station editor and the recap-time dialog additionally avoid the keyboard, remain scrollable on compact screens, preserve taps while it is visible, respect safe-area insets where needed, and expose modal titles, fields, service checkboxes, and close actions to VoiceOver.
 - Mobile plan settings expose common water-capacity presets plus a non-negative custom decimal value in liters. Both controls update the same persisted `waterBagLiters` value and therefore feed the existing carryover, gauge, recap, and live calculations without a parallel hydration path. When the inline custom field receives focus, the single parent plan scroll reveals it above the keyboard after layout settles; this visibility behavior does not commit or recalculate a value by itself.
@@ -320,6 +322,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - A product that covers a small remaining carb or sodium deficit must still count even if it overshoots; do not discard it because of an overshoot penalty.
 - Mobile gauge values must use available carried inventory, not only consumed inventory, so manual oversupply remains visible.
 - Mobile gauge targets must follow resource refill windows, not only the immediate next section; water and solid windows are independent.
+- Keep locked-workspace nutrition numbers limited to genuine aggregate section needs. Never fabricate product allocations behind a blur, mount disabled paid controls under the overlay, or feed placeholders back into carryover, auto-fill or persistence.
 - Nutrient surplus from a consumed whole unit carries forward; it is not discarded at aid stations.
 - Mobile auto-fill product stock limits are global for one calculation, not per ravito. Keep the planned-unit counter and optimizer caps in sync so a limited product cannot be allocated by both the fluid/carb pass and the sodium top-up pass.
 - A manually created or generated mobile ravito may assume water availability, but must not assume official solid food or crew assistance. Those two services require explicit runner confirmation.

@@ -56,9 +56,12 @@ export const getRunnerPlanAccess = async (
 ): Promise<RunnerPlanAccess> => {
   const enabled = await getRunnerMonetizationEnabled();
   const base: RunnerPlanAccess = { enabled, isPremium: false, hasPlanUnlock: false, canEdit: false, canViewDetails: false, source: "free", mode: options?.adminMode ?? "real" };
-  if (!enabled) return { ...base, canEdit: true, canViewDetails: true };
+  // A trusted, session-scoped admin simulation must remain observable while the
+  // production rollout switch is off. Otherwise the legacy compatibility path
+  // below would make the "free" selector indistinguishable from real access.
   if (options?.adminMode === "premium") return { ...base, isPremium: true, canEdit: true, canViewDetails: true, source: "admin" };
   if (options?.adminMode === "free") return base;
+  if (!enabled) return { ...base, canEdit: true, canViewDetails: true };
   const entitlement = options?.subscriptionActive === undefined ? await getUserEntitlements(userId) : null;
   const subscriptions = await runnerRest<Array<{ current_period_end: string | null }>>(`runner_subscription_accounts?user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing)&select=current_period_end`);
   const paid = options?.subscriptionActive || entitlement?.isPremium || subscriptions?.some((row) => row.current_period_end !== null && Date.parse(row.current_period_end) > Date.now());

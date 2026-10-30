@@ -76,6 +76,8 @@ Use these severities:
 
 ## Validation
 
+For runner monetization regressions, verify the Livret coureur create/refine action, then enter an existing locked plan. Its workspace tabs and Ravitos/Chronology/Paces views must remain navigable, estimated nutrition needs must remain readable, and each paid zone must expose a contextual unlock action over decorative placeholders. Confirm that no paid input or fake paid value is focusable. Test admin Free and Premium against the updated backend, including when the global rollout flag remains off, then restore the initial session mode. An installed OTA is not evidence for local code: confirm that Metro received and built the Android bundle before recording the result.
+
 Before accepting changes to the harness:
 
 ```bash

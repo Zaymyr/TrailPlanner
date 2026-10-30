@@ -33,6 +33,7 @@ import {
   PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT,
 } from '../../../../components/plan-workspace/PlanWorkspaceHeader';
 import { PlanWorkspaceTabBar } from '../../../../components/plan-workspace/PlanWorkspaceTabBar';
+import { LockedPlanContent } from '../../../../components/plan-workspace/LockedPlanContent';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
@@ -725,18 +726,20 @@ export default function EditPlanScreen() {
     const saved = await saveLatestDraft(false);
 
     if (saved) {
-      await noteReviewPlanSaved();
-      captureAnalyticsEvent('plan saved', {
-        aid_station_count: getIntermediateAidStationCount(draft.aidStations),
-        segment_count: draft.sectionSegments?.length ?? 0,
-      });
+      if (planCanEdit) {
+        await noteReviewPlanSaved();
+        captureAnalyticsEvent('plan saved', {
+          aid_station_count: getIntermediateAidStationCount(draft.aidStations),
+          segment_count: draft.sectionSegments?.length ?? 0,
+        });
+      }
       clearActivePlanEditSession(id);
       router.replace('/(app)/plans');
       return;
     }
 
     Alert.alert(t.common.error, t.profile.saveFailed);
-  }, [id, leaveToPlans, router, saveLatestDraft, t.common.error, t.profile.saveFailed]);
+  }, [id, leaveToPlans, planCanEdit, router, saveLatestDraft, t.common.error, t.profile.saveFailed]);
 
   const promptUnsavedChanges = useCallback(() => {
     Alert.alert(t.plans.editUnsavedTitle, t.plans.editUnsavedMessage, [
@@ -887,46 +890,6 @@ export default function EditPlanScreen() {
     );
   }
 
-  if (!planCanViewDetails) {
-    const total = workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—';
-    const distance = workspaceSummary?.distanceKm ?? liveValues?.raceDistanceKm ?? 0;
-    return (
-      <View style={styles.screen}>
-        <Stack.Screen options={{ headerShown: false }} />
-        <ScrollView contentContainerStyle={styles.previewContainer}>
-          <Text style={styles.previewTitle}>Aperçu gratuit</Text>
-          {runnerAccessMode !== 'real' ? <Text accessibilityRole="alert">Simulation : {runnerAccessMode}</Text> : null}
-          <Text style={styles.previewMetric}>Temps total : {total}</Text>
-          <Text style={styles.previewMetric}>Allure moyenne : {averagePace}/km</Text>
-          <Text style={styles.previewMetric}>Distance : {distance.toFixed(1)} km</Text>
-          <Text style={styles.previewBody}>Tes besoins nutritionnels sont calculés à partir de ton profil. Débloque le plan pour adapter les allures et les ravitos section par section.</Text>
-          {workspaceSummary?.checkpoints.slice(1).map((checkpoint, index) => {
-            const previous = workspaceSummary.checkpoints[index];
-            const hours = Math.max(0, checkpoint.arrivalMinute - previous.arrivalMinute - previous.pauseMinutes) / 60;
-            return <View key={`${checkpoint.index}-${checkpoint.name}`} style={{ paddingVertical: 10 }}>
-              <Text>{previous.name} → {checkpoint.name}</Text>
-              <Text>{Math.round(hours * workspaceSummary.targetCarbsPerHour)} g · {Math.round(hours * workspaceSummary.targetWaterPerHour)} ml · {Math.round(hours * workspaceSummary.targetSodiumPerHour)} mg sodium</Text>
-            </View>;
-          })}
-          <Pressable accessibilityRole="button" onPress={() => router.replace('/(app)/plans')}><Text>{t.planWorkspace.backToPlans}</Text></Pressable>
-          <Pressable style={styles.previewCta} onPress={() => setPreviewPaywallVisible(true)}><Text style={styles.previewCtaText}>Débloquer cette course · 9,99 €</Text></Pressable>
-          <Pressable style={styles.previewCtaSecondary} onPress={() => setPreviewPaywallVisible(true)}><Text style={styles.previewCtaSecondaryText}>Toutes mes courses · 29,99 €/an</Text></Pressable>
-          <PremiumUpsellModal visible={previewPaywallVisible} title="Débloque ton plan" message="Construis ta préparation complète course par course." planId={id} onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }} />
-        </ScrollView>
-      </View>
-    );
-  }
-
-  if (!planCanEdit && workspaceSummary) return <View style={styles.screen}>
-    <Stack.Screen options={{ headerShown: false }} />
-    <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16 }}>
-      <Pressable accessibilityRole="button" onPress={() => router.replace('/(app)/plans')}><Text>{t.planWorkspace.backToPlans}</Text></Pressable>
-      <Text>{locale === 'fr' ? 'Plan conservé en lecture seule' : 'Saved plan · read only'}</Text>
-      <Pressable onPress={() => setPreviewPaywallVisible(true)}><Text>{locale === 'fr' ? 'Débloquer la modification' : 'Unlock editing'}</Text></Pressable>
-    </View>
-    <PlanRecapContent id={id} summary={workspaceSummary} contentTopInset={16} stickyTopInset={insets.top} stickyRevealOffset={0} onScroll={handleWorkspaceScroll} />
-    <PremiumUpsellModal visible={previewPaywallVisible} title={t.profile.subscriptionLabel} message={locale === 'fr' ? 'Retrouve tous les outils de préparation.' : 'Unlock all preparation tools.'} planId={id} onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }} />
-  </View>;
 
   return (
     <View
@@ -941,7 +904,16 @@ export default function EditPlanScreen() {
       style={styles.screen}
     >
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-      {activeTab === 'recap' && workspaceSummary ? (
+      {!planCanEdit && workspaceSummary && (!planCanViewDetails || activeTab !== 'recap') ? (
+        <LockedPlanContent
+          summary={workspaceSummary}
+          tab={activeTab}
+          contentTopInset={headerTopInset}
+          onScroll={handleWorkspaceScroll}
+          onUnlock={() => setPreviewPaywallVisible(true)}
+          simulation={runnerAccessMode}
+        />
+      ) : activeTab === 'recap' && workspaceSummary ? (
         <PlanRecapContent
           contentTopInset={headerTopInset}
           id={id}
@@ -1021,6 +993,13 @@ export default function EditPlanScreen() {
         onExit={handleBackToPlans}
         onSelectTab={(nextTab) => { void handleTabSelect(nextTab); }}
       />
+      <PremiumUpsellModal
+        visible={previewPaywallVisible}
+        title={locale === 'fr' ? 'D?bloque ton plan' : 'Unlock your plan'}
+        message={locale === 'fr' ? 'Adapte ton allure section par section et construis ta nutrition ravito par ravito.' : 'Fine-tune each section and plan your nutrition at every aid station.'}
+        planId={id}
+        onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }}
+      />
       <SpotlightTutorial
         activeStepIndex={tutorialStepIndex}
         closeLabel={t.helpTutorial.close}
@@ -1035,21 +1014,13 @@ export default function EditPlanScreen() {
         targetRect={tutorialTargetRect}
         viewportHeight={tutorialViewport.height}
         viewportWidth={tutorialViewport.width}
-        visible={tutorialVisible}
+        visible={tutorialVisible && planCanEdit}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  previewContainer: { flexGrow: 1, padding: 24, justifyContent: 'center', gap: 12, backgroundColor: Colors.background },
-  previewTitle: { color: Colors.textPrimary, fontSize: 26, fontWeight: '800' },
-  previewMetric: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
-  previewBody: { color: Colors.textSecondary, fontSize: 15, lineHeight: 22, marginVertical: 8 },
-  previewCta: { minHeight: 48, borderRadius: 14, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
-  previewCtaText: { color: Colors.textOnBrand, fontWeight: '800' },
-  previewCtaSecondary: { minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
-  previewCtaSecondaryText: { color: Colors.brandPrimary, fontWeight: '800' },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,

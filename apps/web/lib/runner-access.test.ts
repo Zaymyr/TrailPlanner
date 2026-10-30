@@ -16,6 +16,31 @@ describe("runner plan access", () => {
     expect(access.canEdit).toBe(true);
   });
 
+  it("honors free admin simulation while monetization is disabled", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify([{ monetization_enabled: false }])));
+    const access = await getRunnerPlanAccess("u", "plan", { adminMode: "free" });
+    expect(access).toMatchObject({
+      enabled: false,
+      mode: "free",
+      source: "free",
+      canEdit: false,
+      canViewDetails: false,
+    });
+  });
+
+  it("honors premium admin simulation while monetization is disabled", async () => {
+    vi.spyOn(global, "fetch").mockResolvedValue(new Response(JSON.stringify([{ monetization_enabled: false }])));
+    const access = await getRunnerPlanAccess("u", "plan", { adminMode: "premium" });
+    expect(access).toMatchObject({
+      enabled: false,
+      mode: "premium",
+      source: "admin",
+      isPremium: true,
+      canEdit: true,
+      canViewDetails: true,
+    });
+  });
+
   it("grants premium access when the server entitlement is active", async () => {
     vi.spyOn(global, "fetch").mockImplementation(async (input) => {
       const url = String(input);

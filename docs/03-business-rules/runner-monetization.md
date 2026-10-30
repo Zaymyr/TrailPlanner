@@ -4,6 +4,7 @@ scope: business-rule
 last_verified: 2026-10-30
 ai_priority: high
 related_files:
+  - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
   - apps/web/lib/runner-access.ts
   - apps/web/lib/runner-access.test.ts
   - apps/web/app/api/plans/[id]/access/route.ts
@@ -55,11 +56,13 @@ The algorithm uses its actual pace/capacity/target inputs; it must not claim tha
 
 The legacy web onboarding routes defer to the new planner while monetization is enabled. The authenticated profile API includes `birthDate`, `heightCm`, `weightKg` and `defaultCarbsGPerHour` alongside existing fields.
 
+The mobile Livret coureur always exposes its plan entry: create when absent, refine when an owned plan exists for the format. Entry opens the same workspace even without a purchase. Mon plan, Recap and Settings remain navigable, with Ravitos/Chronology/Paces inside Mon plan. Genuine total duration, average pace and section nutrition needs stay readable. Paid pacing, supply and settings zones render decorative blurred placeholders with contextual unlock actions, never active editing controls or fabricated paid values. Historical detailed read access remains available in Recap.
+
 ## Access and simulation
 
 `GET /api/plans/{id}/access` verifies ownership, resolves the canonical `race:<race_id>:edition:<edition_id>` key (using `legacy` when no edition exists), and falls back to `plan:<id>` for unlinked historical plans. It returns editing and detailed-reading capabilities separately. Both UI and persistence must use those capabilities rather than treating every purchase as Premium.
 
-The admin selector uses `GET/PUT /api/admin/runner-access-mode` with `real`, `free`, or `premium`. Only trusted Auth admins can change their own current session mode. Simulated access must neither charge real money nor record durable paid history. It does not change Auth metadata, subscriptions or trial timestamps.
+Trusted admin free/premium modes remain observable even when the global monetization flag is off; the real mode retains legacy access. The admin selector uses `GET/PUT /api/admin/runner-access-mode` with `real`, `free`, or `premium`. Only trusted Auth admins can change their own current session mode. Simulated access must neither charge real money nor record durable paid history. It does not change Auth metadata, subscriptions or trial timestamps.
 
 Database policies gate updates and require identified/profile-ready creation. Free initial JSON removes paid timing/supply customization while retaining official station context. Owner reads retain the runner's own stored data; the paywall controls paid editing and app tools, not confidentiality of personal planning JSON.
 
