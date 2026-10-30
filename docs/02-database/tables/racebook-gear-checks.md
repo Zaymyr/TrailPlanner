@@ -48,6 +48,8 @@ related_tables:
 
 ## Business Invariants
 
+- Catalog plan CTAs, preview scrolling, and the RaceBook/Mon plan switch do not mutate a gear check. Gear rows remain a deliberate owner checklist interaction only.
+
 - State is isolated by both user and exact `race_id`; two formats of one event never share completion.
 - Organizer equipment changes do not rewrite runner rows. The UI counts only keys that still match currently published items, so removed items become harmless dormant rows.
 - Items with a persisted organizer id use it. Legacy items without an id use a deterministic normalized-label key scoped by required/recommended/weather group.

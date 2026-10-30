@@ -183,6 +183,8 @@ where web_catalog_is_live = true
 
 ## Gotchas
 
+- An existing owned plan changes the runner-facing catalog/RaceBook action to refine; it does not change the race's visibility, source facts, or `race_id` association.
+
 - A null `elevation_gain_m` means unknown, not a flat course. Keep it visibly unavailable to plan selection and do not substitute zero in mobile presentation.
 - Confirmed Material toggles and bounded per-item checked/missing snapshots reuse the stable `race_id` in PostHog for format analysis but do not mutate `races` or organizer equipment JSON. Analytics omits the persistence key and organizer notes.
 

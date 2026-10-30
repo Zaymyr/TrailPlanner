@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Animated,
@@ -14,7 +14,7 @@ import {
   View
 } from 'react-native';
 import { Text } from '../../components/themed/Text';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
@@ -420,6 +420,7 @@ export default function CatalogScreen() {
   const [organizerEventIds, setOrganizerEventIds] = useState<Set<string>>(() => new Set());
   const [readUpdateIds, setReadUpdateIds] = useState<Set<string>>(() => new Set());
   const [eventUpdateRefs, setEventUpdateRefs] = useState<RaceEventUpdateRef[]>([]);
+  const [ownedPlanIdsByRaceId, setOwnedPlanIdsByRaceId] = useState<Record<string, string>>({});
   const [selectedEvent, setSelectedEvent] = useState<EventGroup | null>(null);
   const [selectedEventUpdates, setSelectedEventUpdates] = useState<RaceEventUpdate[]>([]);
   const [updatesExpanded, setUpdatesExpanded] = useState(false);
@@ -437,13 +438,95 @@ export default function CatalogScreen() {
   const [error, setError] = useState<string | null>(null);
   const openingEventFromParamRef = useRef<string | null>(null);
   const lastTrackedRacebookSearchRef = useRef<string | null>(null);
+  const ownedPlansRequestRef = useRef(0);
+
+  const loadOwnedPlans = useCallback(async () => {
+    const requestId = ++ownedPlansRequestRef.current;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      const userId = session?.user.id;
+      if (!userId || isAnonymousSession(session)) {
+        if (ownedPlansRequestRef.current === requestId) setOwnedPlanIdsByRaceId({});
+        return;
+      }
+
+      const { data: plans, error } = await supabase
+        .from('race_plans')
+        .select('id,race_id')
+        .eq('user_id', userId)
+        .not('race_id', 'is', null)
+        .order('updated_at', { ascending: false });
+
+      if (error) throw error;
+
+      const { data: latestSessionData } = await supabase.auth.getSession();
+      const latestSession = latestSessionData.session;
+      if (
+        ownedPlansRequestRef.current !== requestId ||
+        latestSession?.user.id !== userId ||
+        isAnonymousSession(latestSession)
+      ) {
+        return;
+      }
+
+      const planRows = (plans ?? []) as { id: string; race_id: string | null }[];
+      const planIdsByRaceId: Record<string, string> = {};
+      for (const plan of planRows) {
+        if (plan.race_id && !planIdsByRaceId[plan.race_id]) {
+          planIdsByRaceId[plan.race_id] = plan.id;
+        }
+      }
+      setOwnedPlanIdsByRaceId(planIdsByRaceId);
+    } catch (error) {
+      console.warn('Unable to resolve catalog plans.', error);
+      if (ownedPlansRequestRef.current === requestId) setOwnedPlanIdsByRaceId({});
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadOwnedPlans();
+      return () => {
+        ownedPlansRequestRef.current += 1;
+      };
+    }, [loadOwnedPlans]),
+  );
 
   async function handleCreatePlan(catalogRaceId: string) {
     const catalogEvent = eventGroups.find((event) => event.races.some((race) => race.id === catalogRaceId));
     const catalogRace = catalogEvent?.races.find((race) => race.id === catalogRaceId);
 
+    let existingPlanId: string | null = null;
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      const userId = session?.user.id;
+      if (userId && !isAnonymousSession(session)) {
+        const { data: plan, error } = await supabase
+          .from('race_plans')
+          .select('id')
+          .eq('user_id', userId)
+          .eq('race_id', catalogRaceId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        existingPlanId = typeof plan?.id === 'string' ? plan.id : null;
+      }
+    } catch (error) {
+      console.warn('Unable to resolve the catalog plan action.', error);
+      Alert.alert(
+        t.common.error,
+        locale === 'fr'
+          ? 'Impossible de vérifier ton plan pour le moment. Réessaie dans un instant.'
+          : 'We could not check your plan right now. Please try again shortly.',
+      );
+      return;
+    }
+
     captureAnalyticsEvent('catalog create plan clicked', {
-      action: 'create_plan',
+      action: existingPlanId ? 'refine_plan' : 'create_plan',
       catalog_section: 'event_formats',
       onboarding_kind: onboardingMode,
       event_id: catalogEvent?.id,
@@ -451,6 +534,11 @@ export default function CatalogScreen() {
       race_id: catalogRaceId,
       race_name: catalogRace?.name,
     });
+
+    if (existingPlanId) {
+      router.push(`/(app)/plan/${existingPlanId}/edit`);
+      return;
+    }
 
     if (onboardingMode === 'plan') {
       await saveOnboardingProgress({ kind: 'plan', stage: 'nutrition', selectedRaceId: catalogRaceId });
@@ -1277,7 +1365,11 @@ export default function CatalogScreen() {
                     });
                   }}
                   subtitle={`${formatDistance(race.distance_km)} km • ${formatElevation(race.elevation_gain_m)}${race.id === selectedRaceIdParam ? ' • Format concerné' : ''}`}
-                  primaryActionLabel={onboardingMode === 'racebook' || race.elevation_gain_m === null ? undefined : t.catalog.createPlan}
+                  primaryActionLabel={onboardingMode === 'racebook' || race.elevation_gain_m === null
+                    ? undefined
+                    : ownedPlanIdsByRaceId[race.id]
+                      ? (locale === 'fr' ? 'Affiner mon plan' : 'Refine my plan')
+                      : t.catalog.createPlan}
                   onPrimaryPress={onboardingMode === 'racebook' || race.elevation_gain_m === null ? undefined : () => {
                     setSelectedEvent(null);
                     handleCreatePlan(race.id);

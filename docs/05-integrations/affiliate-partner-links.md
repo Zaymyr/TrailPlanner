@@ -68,6 +68,8 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 
 ## Gotchas
 
+- Catalog plan CTAs and the RaceBook/Mon plan workspace switch do not resolve, display, or track a partner link. Partner disclosure remains limited to the existing eligible mobile partner surfaces.
+
 - The RaceBook plan CTA is independent from the partner-link contract. Opening or refining a runner plan never changes a Booking or Decathlon destination.
 - Affiliate-network URLs may use a tracking-network host rather than the merchant host, so validation requires HTTPS but does not hard-code Booking or Decathlon hostnames.
 - Do not display cached prices or stock from these configuration rows; they store destinations only.

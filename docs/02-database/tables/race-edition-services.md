@@ -41,6 +41,8 @@ The shared web editor file also reports SAS count and earliest time to the forma
 
 ## Access
 
+Catalog plan CTA wording and contextual workspace navigation are presentation-only. They do not alter effective service-module resolution or expose an unpublished edition service.
+
 The Organizer section chooser lists this setting under edition-common sections, making explicit that one switch applies to every format attached to the selected canonical edition.
 
 Service draft writes require membership plus a selected edition `services` module. Complete or Signature is required only for public/mobile visibility. Disabling or downgrading masks rows without deleting them.

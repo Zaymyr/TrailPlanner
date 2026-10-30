@@ -5,6 +5,9 @@ last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
+  - apps/mobile/lib/planPreviewBoundary.ts
+  - apps/mobile/lib/planPreviewBoundary.test.ts
   - apps/web/lib/runner-access.ts
   - apps/web/lib/runner-access.test.ts
   - apps/web/app/api/plans/[id]/access/route.ts
@@ -56,7 +59,7 @@ The algorithm uses its actual pace/capacity/target inputs; it must not claim tha
 
 The legacy web onboarding routes defer to the new planner while monetization is enabled. The authenticated profile API includes `birthDate`, `heightCm`, `weightKg` and `defaultCarbsGPerHour` alongside existing fields.
 
-The mobile Livret coureur always exposes its plan entry: create when absent, refine when an owned plan exists for the format. Entry opens the same workspace even without a purchase. Mon plan, Recap and Settings remain navigable, with Ravitos/Chronology/Paces inside Mon plan. Genuine total duration, average pace and section nutrition needs stay readable. Paid pacing, supply and settings zones render decorative blurred placeholders with contextual unlock actions, never active editing controls or fabricated paid values. Historical detailed read access remains available in Recap.
+The mobile Livret coureur always exposes its plan entry: create when absent, `Affiner mon plan` when an owned plan exists for the format. Entry opens the same workspace even without a purchase. The shared workspace switch remains below the collapsing RaceBook/plan hero. In a locked free plan, Mon plan begins with genuine total/average context, then only the first two intermediate ravitos and their first section cards. Departure and arrival system stations do not count toward those two. The third intermediate ravito is a single boundary: later paid content is not reachable by scroll and paid controls are not mounted. If the course has no third intermediate ravito, its real finish remains visible and only a manual CTA follows. Deliberate continuation at the third-ravito boundary opens a dismissible auto paywall once per plan-workspace visit, shared across Mon plan/Recap/Settings and reset by a route reopen or plan/access change; contextual unlock CTAs remain available manually. The preview is read-only and cannot mutate the plan. Historical detailed read access remains available in Recap.
 
 ## Access and simulation
 

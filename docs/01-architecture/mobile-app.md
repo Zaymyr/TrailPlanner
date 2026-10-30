@@ -5,6 +5,9 @@ last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
+  - apps/mobile/lib/planPreviewBoundary.ts
+  - apps/mobile/lib/planPreviewBoundary.test.ts
   - apps/mobile/lib/racebook.ts
   - apps/mobile/lib/raceProfile.ts
   - apps/mobile/locales/fr.ts
@@ -286,7 +289,9 @@ Its reusable loading card, race row, and filter modal live in `apps/mobile/compo
 - it reads `eventId`, `updateId`, and optional `raceId` route params so a push opens the matching event, message, and format context directly;
 - it loads the identified runner's `race_event_update_reads` plus lightweight update id/event references, displays `NEW` on event cards even when the unread item is older than the three-message preview, and persists receipts after messages are displayed.
 
-The Livret coureur resolves an existing plan by current user and exact format on focus and again before navigation. Its visible create/refine action opens plan creation or the existing workspace without a purchase gate. LockedPlanContent preserves the workspace header and bottom tabs; its Ravitos/Chronology/Paces views show course context and estimated needs with contextual unlock overlays over decorative placeholders. Paid forms are not mounted for locked access, and historical detailed Recap remains readable. Admin free/premium simulation precedes the rollout-disabled compatibility path; the real mode retains that compatibility. A development build must target the updated backend through EXPO_PUBLIC_API_URL to exercise these routes.
+The Livret coureur resolves an existing plan by current user and exact format on focus and again before navigation. Its visible action is `Affiner mon plan` when that plan exists and opens the workspace without a purchase gate; RaceBook no longer shows a competing large create action in that case. `RaceWorkspaceSwitch` sits below the collapsing hero for both Mon plan and Livret coureur and retains the correct safe-area/header inset as the hero contracts.
+
+For a locked free plan, the workspace starts directly with useful calculated content, never an introductory estimate card: genuine total/average summary, the first two intermediate ravitos and the first section cards are read-only. The preview boundary excludes system departure/arrival stations from that count and renders one third-ravito boundary; later paid content is not reachable by scroll. Short courses with two or fewer intermediate ravitos retain their genuine arrival followed by a manual CTA, with no automatic popup. A deliberate attempt to continue at a third-ravito boundary opens one dismissible contextual unlock sheet once per plan-workspace visit (shared across Mon plan, Recap and Settings; reset on route reopen or plan/access change); the unlock CTA remains available manually. Paid controls are not mounted for locked access, and the preview does not write a plan. Historical detailed Recap remains readable. Admin free/premium simulation precedes the rollout-disabled compatibility path; the real mode retains that compatibility. A development build must target the updated backend through `EXPO_PUBLIC_API_URL` to exercise these routes.
 
 ## Premium and Purchases
 

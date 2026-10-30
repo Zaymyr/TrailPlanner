@@ -12,6 +12,7 @@ type Props = {
   onIncreaseQty: (productId: string) => void;
   onDecreaseQty: (productId: string) => void;
   onRemoveSupply: (productId: string) => void;
+  readOnly?: boolean;
 };
 
 export const SuppliesList = React.memo(function SuppliesList({
@@ -22,14 +23,17 @@ export const SuppliesList = React.memo(function SuppliesList({
   onIncreaseQty,
   onDecreaseQty,
   onRemoveSupply,
+  readOnly = false,
 }: Props) {
   return (
     <View style={styles.suppliesSection}>
       <View style={styles.suppliesHeader}>
         <Text style={styles.suppliesLabel}>Produits</Text>
-        <TouchableOpacity onPress={onOpenPicker}>
-          <Text style={styles.suppliesAddBtn}>+ Ajouter</Text>
-        </TouchableOpacity>
+        {!readOnly ? (
+          <TouchableOpacity onPress={onOpenPicker}>
+            <Text style={styles.suppliesAddBtn}>+ Ajouter</Text>
+          </TouchableOpacity>
+        ) : null}
       </View>
 
       {supplies.length === 0 ? (
@@ -56,7 +60,7 @@ export const SuppliesList = React.memo(function SuppliesList({
                 ) : null}
               </View>
 
-              <View style={styles.supplyControls}>
+              {!readOnly ? <View style={styles.supplyControls}>
                 <TouchableOpacity
                   style={[styles.qtyBtn, supply.quantity <= 1 && styles.qtyBtnDisabled]}
                   onPress={() => onDecreaseQty(supply.productId)}
@@ -71,7 +75,7 @@ export const SuppliesList = React.memo(function SuppliesList({
                 <TouchableOpacity style={styles.removeSupplyBtn} onPress={() => onRemoveSupply(supply.productId)}>
                   <Text style={styles.removeSupplyText}>×</Text>
                 </TouchableOpacity>
-              </View>
+              </View> : <Text style={styles.qtyText}>× {supply.quantity}</Text>}
             </View>
           );
         })

@@ -24,6 +24,9 @@ related_files:
   - apps/mobile/components/racebook/RacebookSponsorExperience.tsx
   - apps/mobile/components/racebook/RacebookTabBar.tsx
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
+  - apps/mobile/lib/planPreviewBoundary.ts
+  - apps/mobile/lib/planPreviewBoundary.test.ts
   - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
   - apps/mobile/components/race/RacebookLeafletMap.tsx
   - apps/mobile/components/racebook/RacebookElevationProfile.tsx
@@ -144,6 +147,8 @@ The expanded identity hero displays the formatted course date beneath the race n
 14. When the screen belongs to a critical user journey, add stable, semantic `testID` hooks to the smallest actionable elements and extend `apps/mobile/.maestro/flows/authenticated-shell.yaml` or add a focused flow. Do not target translated copy when a stable id is available.
 
 ## Validation
+
+For a locked runner-plan preview, smoke-test the exact boundary: start/finish system stations do not count; the first two intermediate ravitos and first sections are readable; and the third intermediate ravito is a single terminal boundary. A course with at most two intermediates retains the actual finish and a manual CTA, without an automatic popup. Attempting to continue at the third-ravito boundary may show one dismissible automatic paywall per plan-workspace visit, shared across workspace tabs, but later paid content must not become scrollable and paid controls must not mount. Confirm the preview does not autosave, mutate supplies or create another plan; then confirm paid access restores the unrestricted workspace. Check `RaceWorkspaceSwitch` below both the RaceBook and Mon plan heroes in expanded and compact states, including safe-area insets.
 
 For Courses visibility work, verify both roles across all three states: runners never see masked formats, see private formats with plan creation but no RaceBook action, and see public formats normally; active organizers also see no masked formats, see private formats with a dimmed functional RaceBook action, and see public formats normally. Keep the organizer merge bounded by membership event ids, filter masked rows after merging, and deduplicate stable race ids. Also cover both date boundaries: non-favorites disappear after their event date while favorites remain through day 14 and disappear on day 15; when a newer edition is online, the older edition remains through day 14 after its latest visible format date and only the newer edition remains on day 15. Preserve legacy or malformed rows whose edition boundary cannot be established.
 

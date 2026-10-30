@@ -33,6 +33,7 @@ import {
   PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT,
 } from '../../../../components/plan-workspace/PlanWorkspaceHeader';
 import { PlanWorkspaceTabBar } from '../../../../components/plan-workspace/PlanWorkspaceTabBar';
+import { RaceWorkspaceSwitch, RACE_WORKSPACE_SWITCH_HEIGHT } from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import { LockedPlanContent } from '../../../../components/plan-workspace/LockedPlanContent';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
@@ -237,11 +238,16 @@ export default function EditPlanScreen() {
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>(
     () => initialWarmStartDraft?.elevationProfile ?? [],
   );
+  const [linkedRaceId, setLinkedRaceId] = useState<string | null>(null);
   const [officialElevationLossM, setOfficialElevationLossM] = useState<number | null>(null);
   const [planCanEdit, setPlanCanEdit] = useState(false);
   const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
   const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
   const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
+  const previewScrollPromptedRef = useRef(false);
+  useEffect(() => {
+    previewScrollPromptedRef.current = false;
+  }, [id, planCanEdit]);
   const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
   const lastSavedSnapshotRef = useRef<string | null>(initialWarmStartDraft?.lastSavedSnapshot ?? null);
   const elevationProfileRef = useRef<ElevationPoint[]>(initialWarmStartDraft?.elevationProfile ?? []);
@@ -308,17 +314,19 @@ export default function EditPlanScreen() {
   useEffect(() => {
     let cancelled = false;
     setOfficialElevationLossM(null);
+    setLinkedRaceId(null);
 
     if (!id) return () => { cancelled = true; };
 
     void supabase
       .from('race_plans')
-      .select('races(elevation_loss_m)')
+      .select('race_id, races(elevation_loss_m)')
       .eq('id', id)
       .maybeSingle()
       .then((result: { data: unknown }) => {
         if (cancelled) return;
-        const row = result.data as { races?: { elevation_loss_m?: number | null } | null } | null;
+        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null } | null } | null;
+        setLinkedRaceId(row?.race_id ?? null);
         const officialValue = row?.races?.elevation_loss_m;
         setOfficialElevationLossM(
           typeof officialValue === 'number' && Number.isFinite(officialValue) && officialValue >= 0
@@ -635,10 +643,7 @@ export default function EditPlanScreen() {
 
   const saveLatestDraft = useCallback(
     async (silent = false) => {
-      // Free previews are intentionally editable in-memory so users can
-      // explore the workspace, but only a purchased plan/subscription may
-      // persist changes. The PlanForm surfaces the upgrade CTA for locked
-      // actions; leaving simply discards this transient draft.
+      // Read-only previews can navigate the workspace but never persist a draft.
       if (!planCanEdit) return true;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const draft = latestDraftRef.current;
@@ -822,7 +827,8 @@ export default function EditPlanScreen() {
   const averagePace = workspaceSummary
     ? formatAveragePace(workspaceSummary.totalDurationMin, workspaceSummary.distanceKm)
     : '—';
-  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + 16;
+  const workspaceSwitchHeight = linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0;
+  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + workspaceSwitchHeight + 16;
 
   const handleWorkspaceScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.setValue(event.nativeEvent.contentOffset.y);
@@ -904,7 +910,7 @@ export default function EditPlanScreen() {
       style={styles.screen}
     >
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-      {!planCanEdit && workspaceSummary && (!planCanViewDetails || activeTab !== 'recap') ? (
+      {!planCanEdit && activeTab !== 'plan' && workspaceSummary && (!planCanViewDetails || activeTab !== 'recap') ? (
         <LockedPlanContent
           summary={workspaceSummary}
           tab={activeTab}
@@ -919,7 +925,7 @@ export default function EditPlanScreen() {
           id={id}
           onScroll={handleWorkspaceScroll}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + 16}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + workspaceSwitchHeight}
           onShareIntentConsumed={() => router.setParams({ share: undefined })}
           shareOnMount={share === '1'}
           summary={workspaceSummary}
@@ -933,7 +939,15 @@ export default function EditPlanScreen() {
           isPremium={planCanEdit}
           planId={id}
           previewMode={!planCanEdit}
+          onPreviewLimitReached={(reason) => {
+            if (reason === 'scroll') {
+              if (previewScrollPromptedRef.current) return;
+              previewScrollPromptedRef.current = true;
+            }
+            setPreviewPaywallVisible(true);
+          }}
           onValuesChange={(values) => {
+            if (!planCanEdit) return;
             latestDraftRef.current = values;
             setLiveValues(values);
             const nextSnapshot = serializePlanValues(values, elevationProfileRef.current);
@@ -957,7 +971,7 @@ export default function EditPlanScreen() {
           compactBasicsByDefault
           contentTopInset={headerTopInset}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + workspaceSwitchHeight}
           onMissingFavoriteProducts={handleMissingFavoriteProducts}
           onWorkspaceScroll={handleWorkspaceScroll}
           showActions={false}
@@ -988,6 +1002,21 @@ export default function EditPlanScreen() {
         topInset={insets.top}
         totalTime={workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—'}
       />
+      {linkedRaceId ? (
+        <RaceWorkspaceSwitch
+          active="plan"
+          expandedHeaderHeight={PLAN_WORKSPACE_HEADER_BODY_HEIGHT}
+          compactHeaderHeight={PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          topInset={insets.top}
+          scrollY={scrollY}
+          onOpenPlan={() => undefined}
+          onOpenRacebook={() => {
+            void saveLatestDraft().then((saved) => {
+              if (saved) router.replace(`/(app)/race/${linkedRaceId}/racebook`);
+            });
+          }}
+        />
+      ) : null}
       <PlanWorkspaceTabBar
         activeTab={activeTab}
         onExit={handleBackToPlans}
@@ -995,7 +1024,7 @@ export default function EditPlanScreen() {
       />
       <PremiumUpsellModal
         visible={previewPaywallVisible}
-        title={locale === 'fr' ? 'D?bloque ton plan' : 'Unlock your plan'}
+        title={locale === 'fr' ? 'Débloque ton plan' : 'Unlock your plan'}
         message={locale === 'fr' ? 'Adapte ton allure section par section et construis ta nutrition ravito par ravito.' : 'Fine-tune each section and plan your nutrition at every aid station.'}
         planId={id}
         onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }}

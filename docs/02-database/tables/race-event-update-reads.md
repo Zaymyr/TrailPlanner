@@ -42,6 +42,8 @@ related_tables:
 
 ## Gotchas
 
+- The catalog's plan create/refine CTA and the RaceBook workspace switch do not create a read receipt. A receipt remains tied only to an identified runner actually displaying the applicable organizer update.
+
 - Retrying or refreshing the Courses root reloads receipt state but does not mark an announcement read. Receipt insertion remains tied to displaying the relevant event-sheet update.
 
 - Moving the Courses race-request action into the persistent collapsible header does not display an organizer announcement or create a read receipt; scrolling that header compact also leaves receipt behavior unchanged.

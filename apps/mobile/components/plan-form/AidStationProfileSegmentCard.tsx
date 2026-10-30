@@ -22,6 +22,7 @@ type Props = {
   onIncreasePace: () => void;
   onSplit: () => void;
   onRemove: () => void;
+  readOnly?: boolean;
 };
 
 export function AidStationProfileSegmentCard({
@@ -39,6 +40,7 @@ export function AidStationProfileSegmentCard({
   onIncreasePace,
   onSplit,
   onRemove,
+  readOnly = false,
 }: Props) {
   return (
     <View
@@ -62,7 +64,9 @@ export function AidStationProfileSegmentCard({
         </View>
         <View style={styles.profilePaceWrap}>
           <Text style={styles.profilePaceLabel}>Allure</Text>
-          <View style={styles.profilePaceControlRow}>
+          {readOnly ? (
+            <DataText tone="brand" size="xl" weight="bold">{paceValue}</DataText>
+          ) : <View style={styles.profilePaceControlRow}>
             <TouchableOpacity
               accessibilityLabel="Accélérer l’allure"
               accessibilityRole="button"
@@ -94,7 +98,7 @@ export function AidStationProfileSegmentCard({
             >
               <Text style={styles.profilePaceStepBtnText}>+</Text>
             </TouchableOpacity>
-          </View>
+          </View>}
           <Text style={styles.profilePaceHint}>min/km</Text>
         </View>
       </View>
@@ -123,7 +127,7 @@ export function AidStationProfileSegmentCard({
         </View>
       </View>
 
-      <View style={styles.profileSegmentControls}>
+      {!readOnly ? <View style={styles.profileSegmentControls}>
         <View style={styles.profileSegmentActions}>
           <TouchableOpacity
             accessibilityLabel={canSplit ? `Découper ${title}` : `Découpage indisponible pour ${title}`}
@@ -150,7 +154,7 @@ export function AidStationProfileSegmentCard({
             </TouchableOpacity>
           ) : null}
         </View>
-      </View>
+      </View> : null}
     </View>
   );
 }

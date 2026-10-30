@@ -103,7 +103,7 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 - The compact race-request action in the Courses collapsible header is independent from organizer announcements; opening or submitting it, and expanding or compacting the header, must not load, retarget, or mark an update.
 - Removing runner-owned races from Courses does not change event announcement loading, targeting, or history.
-- The catalog `Créer un plan` click event carries only bounded race and optional public event context; it neither stores announcement content nor changes update visibility/history.
+- The catalog create/refine-plan click event carries only bounded race and optional public event context; it neither stores announcement content nor changes update visibility/history.
 
 - The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; announcement visibility, targeting, history, and push contracts remain unchanged.
 - The runner catalog may reuse the same bounded event update preview when a visible event has only private plan-capable formats, but it removes masked formats after deduplicating stable event and format ids; this presentation filter does not change announcement audience or visibility policies.

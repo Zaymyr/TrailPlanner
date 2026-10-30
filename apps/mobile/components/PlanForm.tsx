@@ -71,6 +71,10 @@ import {
   type AutoFillPreview,
   type AutoFillResult,
 } from '../lib/autoFillPreview';
+import {
+  shouldTriggerPreviewLimit,
+  type PreviewLimitReason,
+} from '../lib/planPreviewBoundary';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };
 export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset };
@@ -86,6 +90,7 @@ type Props = {
   isPremium: boolean;
   planId?: string;
   previewMode?: boolean;
+  onPreviewLimitReached?: (reason: PreviewLimitReason) => void;
   saveLabel?: string;
   productData?: PlanProductsBootstrap | null;
   elevationProfile?: ElevationPoint[];
@@ -134,6 +139,7 @@ export default function PlanForm({
   isPremium,
   planId,
   previewMode = false,
+  onPreviewLimitReached,
   saveLabel,
   productData,
   elevationProfile = [],
@@ -147,7 +153,7 @@ export default function PlanForm({
   showActions = true,
   onWorkspaceScroll,
 }: Props) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const debouncedValues = useDebounced(values, 300);
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
@@ -175,10 +181,29 @@ export default function PlanForm({
   const [stickyControlsVisible, setStickyControlsVisible] = useState(false);
   const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardFocusScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewBoundaryRef = useRef<{ top: number; height: number } | null>(null);
+  const previewScrollStartedRef = useRef(false);
+  const previewLimitReportedRef = useRef(false);
 
   useEffect(() => {
-    setValues(buildInitialPlanValues(initialValues));
-    setExpandedStations(new Set());
+    previewBoundaryRef.current = null;
+    previewScrollStartedRef.current = false;
+    previewLimitReportedRef.current = false;
+  }, [planId]);
+
+  useEffect(() => {
+    if (surface !== 'plan') previewBoundaryRef.current = null;
+  }, [surface]);
+
+  useEffect(() => {
+    const nextInitialValues = buildInitialPlanValues(initialValues);
+    setValues(nextInitialValues);
+    const firstPreviewStationIndex = nextInitialValues.aidStations.findIndex(
+      (station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID,
+    );
+    setExpandedStations(previewMode && firstPreviewStationIndex >= 0
+      ? new Set([nextInitialValues.aidStations[firstPreviewStationIndex].id ?? String(firstPreviewStationIndex)])
+      : new Set());
     setExpandedSections({
       course: false,
       pace: false,
@@ -196,7 +221,7 @@ export default function PlanForm({
     setAutoFillUndo(null);
     setAidStationsViewMode('stations');
     setStickyControlsVisible(false);
-  }, [compactBasicsByDefault, initialValues]);
+  }, [compactBasicsByDefault, initialValues, previewMode]);
 
   useEffect(() => {
     if (surface !== 'settings') return;
@@ -237,6 +262,11 @@ export default function PlanForm({
   const openPremiumUpsell = useCallback(() => {
     setShowPremiumUpsell(true);
   }, []);
+
+  const requestPreviewUnlock = useCallback((reason: PreviewLimitReason = 'press') => {
+    if (onPreviewLimitReached) onPreviewLimitReached(reason);
+    else openPremiumUpsell();
+  }, [onPreviewLimitReached, openPremiumUpsell]);
 
   useEffect(() => {
     onValuesChange?.(values);
@@ -832,6 +862,9 @@ export default function PlanForm({
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
+        onScrollBeginDrag={() => {
+          previewScrollStartedRef.current = true;
+        }}
         onContentSizeChange={(_, height) => tutorial?.onContentSizeChange(height)}
         onScroll={(event) => {
           const nextScrollY = event.nativeEvent.contentOffset.y;
@@ -843,21 +876,22 @@ export default function PlanForm({
           setStickyControlsVisible((current) => current === shouldShowStickyControls ? current : shouldShowStickyControls);
           tutorial?.onScroll(event);
           onWorkspaceScroll?.(event);
+          const previewBoundary = previewBoundaryRef.current;
+          if (previewMode && shouldTriggerPreviewLimit({
+            boundaryTop: previewBoundary ? aidStationsSectionYRef.current + previewBoundary.top : null,
+            hasDeliberateScroll: previewScrollStartedRef.current,
+            hasReported: previewLimitReportedRef.current,
+            scrollY: nextScrollY,
+            viewportHeight: event.nativeEvent.layoutMeasurement.height,
+          })) {
+            previewLimitReportedRef.current = true;
+            requestPreviewUnlock('scroll');
+          }
         }}
         onMomentumScrollEnd={tutorial?.onScrollSettled}
         onScrollEndDrag={tutorial?.onScrollSettled}
       >
-        {previewMode ? (
-          <View style={styles.previewCard}>
-            <Text style={styles.previewTitle}>Aperçu gratuit de ton plan</Text>
-            <Text style={styles.previewBody}>Temps total, allure moyenne et besoins nutritionnels estimés sont disponibles. Débloque ta course pour adapter chaque section et chaque ravito.</Text>
-            <View style={styles.previewActions}>
-              <TouchableOpacity style={styles.previewPrimary} onPress={() => setShowPremiumUpsell(true)}><Text style={styles.previewPrimaryText}>Débloquer cette course · 9,99 €</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.previewSecondary} onPress={() => setShowPremiumUpsell(true)}><Text style={styles.previewSecondaryText}>Toutes mes courses · 29,99 €/an</Text></TouchableOpacity>
-            </View>
-          </View>
-        ) : null}
-        <View pointerEvents={previewMode ? 'none' : 'auto'} style={previewMode ? styles.previewContent : undefined}>
+        <>
         {surface === 'settings' ? (
           <TutorialTarget
             onMeasure={handleTutorialTargetMeasure}
@@ -865,7 +899,17 @@ export default function PlanForm({
             targetKey="basics"
           >
             <View>
-              <PlanBasicsSection
+              {previewMode ? (
+                <View style={styles.previewCard}>
+                  <Text style={styles.previewTitle}>{locale === 'fr' ? 'Tes paramètres actuels' : 'Your current settings'}</Text>
+                  <Text style={styles.previewBody}>{values.raceDistanceKm.toLocaleString()} km · {values.elevationGain.toLocaleString()} m D+</Text>
+                  <Text style={styles.previewBody}>{values.targetIntakePerHour} g/h · {values.waterIntakePerHour} ml/h · {values.sodiumIntakePerHour} mg/h</Text>
+                  <Text style={styles.previewBody}>{locale === 'fr' ? 'Poche à eau' : 'Water bladder'} : {values.waterBagLiters} L</Text>
+                  <TouchableOpacity style={styles.previewPrimary} onPress={() => requestPreviewUnlock('press')}>
+                    <Text style={styles.previewPrimaryText}>{locale === 'fr' ? 'Modifier mes paramètres' : 'Edit my settings'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : <PlanBasicsSection
                 values={values}
                 expandedSections={expandedSections}
                 toggleSection={toggleSection}
@@ -879,7 +923,7 @@ export default function PlanForm({
                 waterBagOptions={WATER_BAG_OPTIONS}
                 onCustomWaterBagFocus={handleCustomWaterBagFocus}
                 inline
-              />
+              />}
             </View>
           </TutorialTarget>
         ) : (
@@ -898,8 +942,8 @@ export default function PlanForm({
             toggleStation={toggleStation}
             setEditingStation={setEditingStation}
             removeAidStation={removeAidStation}
-            addAidStation={handleAddAidStationPress}
-            fillSuppliesAuto={handleFillSuppliesAuto}
+            addAidStation={previewMode ? () => requestPreviewUnlock('press') : handleAddAidStationPress}
+            fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
             isPremium={isPremium}
@@ -930,6 +974,13 @@ export default function PlanForm({
               aidStationsToolbarYRef.current = top;
             }}
             toolbarHidden={stickyControlsVisible}
+            previewMode={previewMode}
+            onPreviewBoundaryLayout={(top, height) => {
+              previewBoundaryRef.current = top === null
+                ? null
+                : { top, height };
+            }}
+            onPreviewLimitReached={requestPreviewUnlock}
             tutorial={
               tutorial
                 ? {
@@ -943,7 +994,7 @@ export default function PlanForm({
         )}
 
         <View style={styles.saveSpacer} />
-        </View>
+        </>
       </ScrollView>
 
       {surface === 'plan' ? (
@@ -956,8 +1007,8 @@ export default function PlanForm({
             compact
             mode={aidStationsViewMode}
             onSelectMode={(mode) => aidStationsSectionRef.current?.selectViewMode(mode)}
-            addAidStation={handleAddAidStationPress}
-            fillSuppliesAuto={handleFillSuppliesAuto}
+            addAidStation={previewMode ? () => requestPreviewUnlock('press') : handleAddAidStationPress}
+            fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
             isPremium={isPremium}
@@ -974,14 +1025,14 @@ export default function PlanForm({
         </View>
       ) : null}
 
-      {showActions ? <FloatingActionMenu
+      {showActions && !previewMode ? <FloatingActionMenu
         accessibilityLabel={t.planSummary.openActions}
         actions={planActions}
         closedIcon="ellipsis-horizontal"
         dismissAccessibilityLabel={t.planSummary.closeActions}
       /> : null}
 
-      <ProductPickerModal
+      {!previewMode ? <ProductPickerModal
         visible={pickerTarget !== null}
         pickerSearch={pickerSearch}
         setPickerSearch={setPickerSearch}
@@ -994,9 +1045,9 @@ export default function PlanForm({
         fuelLabels={FUEL_LABELS}
         onClose={() => setPickerTarget(null)}
         onAddProduct={handleAddProductFromPicker}
-      />
+      /> : null}
 
-      <AutoFillLimitsModal
+      {!previewMode ? <AutoFillLimitsModal
         visible={autoFillLimitsVisible}
         products={autoFillLimitProducts}
         productsLoading={productsLoading}
@@ -1011,9 +1062,9 @@ export default function PlanForm({
         onPreview={handlePreviewAutoFill}
         onBack={() => setAutoFillResult(null)}
         onConfirm={handleConfirmAutoFill}
-      />
+      /> : null}
 
-      <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} />
+      {!previewMode ? <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} /> : null}
       {showPremiumUpsell ? (
         <PremiumUpsellModal
           visible={showPremiumUpsell}

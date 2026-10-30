@@ -507,7 +507,7 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
-- The RaceBook plan CTA resolves only the runner's plan for the exact format and opens its editor even when editing is locked; it does not change organizer publication, source data, or module access.
+- The RaceBook and catalog plan CTAs resolve only the runner's plan for the exact format and open its editor even when editing is locked; they do not change organizer publication, source data, or module access.
 - Runner monetisation does not alter organizer catalog, RaceBook, GPX, or official aid-station visibility. Free previews may use those source facts; paid runner access applies only to personalized plan detail.
 
 - The mobile Courses root now shares the standard loading, recoverable-error, and empty-state presentation and retains pull-to-refresh. Retry and refresh must repeat the existing catalog/organizer-membership reads without weakening masked/private/public format gates or changing organizer preview access.

@@ -57,6 +57,12 @@ import {
 import { styles } from './styles';
 import type { PlanEditTutorialTargetKey } from '../../hooks/usePlanEditTutorial';
 import { findPlanViewAnchorAtFocus, getPlanViewScrollTarget } from '../../lib/planWorkspace';
+import {
+  getPreviewBoundaryTop,
+  resolvePlanPreviewBoundary,
+  type PreviewLimitReason,
+} from '../../lib/planPreviewBoundary';
+import { useI18n } from '../../lib/i18n';
 
 type Props = {
   values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel'>;
@@ -110,6 +116,9 @@ type Props = {
   onViewModeChange?: (mode: PlanViewMode) => void;
   onToolbarLayout?: (top: number, height: number) => void;
   toolbarHidden?: boolean;
+  previewMode?: boolean;
+  onPreviewBoundaryLayout?: (top: number | null, height: number) => void;
+  onPreviewLimitReached?: (reason: PreviewLimitReason) => void;
   tutorial?: {
     onTargetMeasure: (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => void;
     onTargetRegisterRef: (targetKey: PlanEditTutorialTargetKey, ref: TutorialMeasurableTarget) => void;
@@ -268,11 +277,41 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   onViewModeChange,
   onToolbarLayout,
   toolbarHidden = false,
+  previewMode = false,
+  onPreviewBoundaryLayout,
+  onPreviewLimitReached,
   tutorial,
 }: Props, ref) {
+  const { locale } = useI18n();
   const pendingSyncRef = useRef<null | { mode: PlanViewMode; stationId: string | null }>(null);
   const activeViewTopRef = useRef(0);
+  const previewBoundaryLocalRef = useRef<{ top: number; height: number } | null>(null);
   const focusedAidStationIdRef = useRef<string | null>(values.aidStations[0]?.id ?? null);
+  const previewBoundary = useMemo(
+    () => resolvePlanPreviewBoundary(values.aidStations, departId, arriveeId),
+    [arriveeId, departId, values.aidStations],
+  );
+  const visiblePreviewIndexes = useMemo(
+    () => new Set(previewBoundary.visibleStationIndexes),
+    [previewBoundary.visibleStationIndexes],
+  );
+  const reportPreviewBoundaryLayout = useCallback(() => {
+    if (!previewBoundary.hasHiddenCourse) {
+      onPreviewBoundaryLayout?.(null, 0);
+      return;
+    }
+    const local = previewBoundaryLocalRef.current;
+    if (!local) return;
+    onPreviewBoundaryLayout?.(
+      getPreviewBoundaryTop(activeViewTopRef.current, local.top),
+      local.height,
+    );
+  }, [onPreviewBoundaryLayout, previewBoundary.hasHiddenCourse]);
+  useEffect(() => {
+    if (previewMode && previewBoundary.hasHiddenCourse) return;
+    previewBoundaryLocalRef.current = null;
+    onPreviewBoundaryLayout?.(null, 0);
+  }, [onPreviewBoundaryLayout, previewBoundary.hasHiddenCourse, previewMode]);
   const viewAnchorsRef = useRef<
     Record<
       PlanViewMode,
@@ -565,6 +604,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     const elements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
+      if (previewMode && !visiblePreviewIndexes.has(index)) return;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const stationKey = station.id ?? String(index);
@@ -626,6 +666,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                   onIncreaseQty={(productId) => increaseQty('start', productId)}
                   onDecreaseQty={(productId) => decreaseQty('start', productId)}
                   onRemoveSupply={(productId) => removeSupply('start', productId)}
+                  readOnly={previewMode}
                 />
               </>
             )}
@@ -692,6 +733,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                 {station.name}
               </Heading>
               {renderPauseBadge(station.pauseMinutes)}
+              {!previewMode ? <>
               <TouchableOpacity
                 accessibilityLabel={`Modifier ${station.name}`}
                 accessibilityRole="button"
@@ -721,6 +763,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
               >
                 <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
+              </> : null}
               <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
                 {station.distanceKm} km
               </DataText>
@@ -752,6 +795,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     onIncreaseQty={(productId) => increaseQty(index, productId)}
                     onDecreaseQty={(productId) => decreaseQty(index, productId)}
                     onRemoveSupply={(productId) => removeSupply(index, productId)}
+                    readOnly={previewMode}
                   />
                 )}
               </>
@@ -775,7 +819,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
 
       elements.push(card);
 
-      if (index < values.aidStations.length - 1 && summary) {
+      if (index < values.aidStations.length - 1 && summary && (!previewMode || visiblePreviewIndexes.has(index + 1))) {
         elements.push(
           <View key={`sep-${index}`} style={styles.separator}>
             <View style={styles.separatorLine} />
@@ -788,6 +832,8 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       }
     });
 
+    if (previewMode) elements.push(renderPreviewBoundary('stations'));
+
     return elements;
   }
 
@@ -795,6 +841,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     const elements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
+      if (previewMode && !visiblePreviewIndexes.has(index)) return;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
@@ -819,7 +866,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         </View>,
       );
 
-      if (!nextStation || isArrivee || !summary) return;
+      if (!nextStation || isArrivee || !summary || (previewMode && !visiblePreviewIndexes.has(index + 1))) return;
 
       const sectionTimeline = getSectionIntakeTimeline(targetKey, Math.max(0, summary.durationMin), formatSectionTarget(summary));
       const sectionDPlus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dPlus), 0);
@@ -893,6 +940,8 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       );
     });
 
+    if (previewMode) elements.push(renderPreviewBoundary('sections'));
+
     return elements;
   }
 
@@ -900,6 +949,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     const elements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
+      if (previewMode && !visiblePreviewIndexes.has(index)) return;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
@@ -924,7 +974,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         </View>,
       );
 
-      if (!nextStation || isArrivee || !summary) return;
+      if (!nextStation || isArrivee || !summary || (previewMode && !visiblePreviewIndexes.has(index + 1))) return;
       const segmentControls = getSectionSegmentControls(targetKey);
 
       elements.push(
@@ -1025,6 +1075,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     }}
                     onSplit={() => onSplitSectionSegment(targetKey, segmentIndex)}
                     onRemove={() => onRemoveSectionSegment(targetKey, segmentIndex)}
+                    readOnly={previewMode}
                   />
                 );
               })}
@@ -1034,7 +1085,56 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       );
     });
 
+    if (previewMode) elements.push(renderPreviewBoundary('profile'));
+
     return elements;
+  }
+
+  function renderPreviewBoundary(mode: PlanViewMode) {
+    const boundaryStation = previewBoundary.boundaryStationIndex === null
+      ? null
+      : values.aidStations[previewBoundary.boundaryStationIndex];
+    return (
+      <View
+        key={`preview-boundary-${mode}`}
+        accessibilityRole="summary"
+        onLayout={(event) => {
+          if (!previewBoundary.hasHiddenCourse) return;
+          previewBoundaryLocalRef.current = {
+            top: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          };
+          reportPreviewBoundaryLayout();
+        }}
+        style={planDetailStyles.previewBoundary}
+      >
+        <Heading variant="h3" style={planDetailStyles.previewBoundaryTitle}>
+          {previewBoundary.hasHiddenCourse
+            ? (locale === 'fr'
+              ? `La suite de ton plan commence à ${boundaryStation?.name ?? 'ce ravito'}`
+              : `The rest of your plan starts at ${boundaryStation?.name ?? 'this aid station'}`)
+            : (locale === 'fr' ? 'Prêt à adapter ton plan ?' : 'Ready to tailor your plan?')}
+        </Heading>
+        <ThemedText tone="secondary" size="sm" style={planDetailStyles.previewBoundaryBody}>
+          {previewBoundary.hasHiddenCourse
+            ? (locale === 'fr'
+              ? 'Débloque les prochains ravitos, les allures détaillées et toute ta stratégie nutrition.'
+              : 'Unlock the next aid stations, detailed pacing, and your complete nutrition strategy.')
+            : (locale === 'fr'
+              ? 'Débloque les modifications d’allure et construis ta nutrition ravito par ravito.'
+              : 'Unlock pace changes and build your nutrition plan aid station by aid station.')}
+        </ThemedText>
+        <TouchableOpacity
+          accessibilityRole="button"
+          onPress={() => onPreviewLimitReached?.('press')}
+          style={planDetailStyles.previewBoundaryButton}
+        >
+          <ThemedText weight="bold" style={planDetailStyles.previewBoundaryButtonText}>
+            {locale === 'fr' ? 'Débloquer mon plan' : 'Unlock my plan'}
+          </ThemedText>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   const stationsElements = useMemo(() => renderStationsView(), [
@@ -1060,6 +1160,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     getSectionSummary,
     getGaugeAnimateSignal,
     registerAnchor,
+    previewMode,
+    visiblePreviewIndexes,
+    previewBoundary,
+    reportPreviewBoundaryLayout,
+    onPreviewBoundaryLayout,
+    onPreviewLimitReached,
+    locale,
   ]);
 
   const sectionsElements = useMemo(() => renderSectionsView(), [
@@ -1070,6 +1177,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     getSectionSummary,
     getSectionIntakeTimeline,
     registerAnchor,
+    previewMode,
+    visiblePreviewIndexes,
+    previewBoundary,
+    reportPreviewBoundaryLayout,
+    onPreviewBoundaryLayout,
+    onPreviewLimitReached,
+    locale,
   ]);
 
   const profileElements = useMemo(() => renderProfileView(), [
@@ -1085,6 +1199,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     onRemoveSectionSegment,
     onUpdateSectionSegmentPaceAdjustment,
     registerAnchor,
+    previewMode,
+    visiblePreviewIndexes,
+    previewBoundary,
+    reportPreviewBoundaryLayout,
+    onPreviewBoundaryLayout,
+    onPreviewLimitReached,
+    locale,
   ]);
 
   function renderViewForMode(mode: PlanViewMode) {
@@ -1156,16 +1277,15 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       </View>
 
       <TutorialTarget
-        onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
+        onMeasure={(targetKey, layout) => {
+          activeViewTopRef.current = layout.y;
+          reportPreviewBoundaryLayout();
+          tutorial?.onTargetMeasure(targetKey, layout);
+        }}
         onRegisterRef={tutorial?.onTargetRegisterRef}
         targetKey="aidStations"
       >
-        <View
-          onLayout={(event) => {
-            activeViewTopRef.current = event.nativeEvent.layout.y;
-          }}
-          style={planDetailStyles.activeView}
-        >
+        <View style={planDetailStyles.activeView}>
           {renderViewForMode(selectedViewMode)}
         </View>
       </TutorialTarget>
@@ -1246,6 +1366,27 @@ const planDetailStyles = StyleSheet.create({
   activeView: {
     paddingBottom: spacing[6],
   },
+  previewBoundary: {
+    marginTop: spacing[2],
+    padding: spacing[4],
+    gap: spacing[2],
+    alignItems: 'center',
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.border.brand,
+    backgroundColor: colors.surface.cream,
+  },
+  previewBoundaryTitle: { textAlign: 'center', color: colors.text.primary },
+  previewBoundaryBody: { textAlign: 'center' },
+  previewBoundaryButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[4],
+    borderRadius: 12,
+    backgroundColor: colors.brand.forest,
+  },
+  previewBoundaryButtonText: { color: colors.text.inverse },
   stationBadge: {
     flexDirection: 'row',
     alignItems: 'center',

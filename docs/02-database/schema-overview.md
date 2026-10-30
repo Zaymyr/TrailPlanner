@@ -304,6 +304,8 @@ erDiagram
 
 ## Gotchas
 
+- Catalog/RaceBook plan CTAs and the restored contextual workspace switch are mobile presentation/navigation behavior. They do not create, update, or broaden visibility of race, event, sponsor, service, relay, award, wave, favorite, checklist, or update-read rows.
+
 - Shared loading, retry, empty-state, and pull-to-refresh presentation on the mobile root tabs adds no table, column, policy, or persistence path. Catalog and Nutrition retries repeat their existing bounded reads.
 
 - `catalog create plan clicked` is a PostHog interaction emitted before navigation; it does not create a database row or prove that a `race_plans` insert later succeeded.

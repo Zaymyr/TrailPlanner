@@ -78,7 +78,7 @@ related_tables:
 
 ## Runner monetisation events
 
-Analytics may record preview/paywall impressions and a purchase result only after server verification. It must distinguish annual subscription from a per-course unlock, and must never include provider transaction ids, secret share tokens, health/profile values, or a simulated admin mode as a real purchase. Opening a Premium upsell, account prompt, or profile retry is not an entitlement event.
+Analytics may record a paywall impression only when its sheet is actually shown and a purchase result only after server verification. It must distinguish annual subscription from a per-course unlock, and must never include provider transaction ids, secret share tokens, health/profile values, exact scroll offsets, preview-boundary station ids, or a simulated admin mode as a real purchase. The locked preview's read-only cards, its boundary, and manual dismissal create no plan mutation event. Opening an account prompt or profile retry is not an entitlement event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -187,7 +187,7 @@ The root layout emits `app session started` once per process with the landing sc
 
 The mobile Premium funnel uses explicit events instead of treating a store callback as accounting truth:
 
-- `premium paywall viewed` is emitted when the inline Profile offer or a feature-gate modal is actually displayed. `paywall_type` distinguishes `inline` from `modal`, and `placement` distinguishes `profile` from `feature_gate`.
+- `premium paywall viewed` is emitted when the inline Profile offer or a feature-gate modal is actually displayed. `paywall_type` distinguishes `inline` from `modal`, and `placement` distinguishes `profile`, `feature_gate`, and the locked-plan preview boundary. The automatic preview sheet may appear once per plan-workspace visit only at the third-ravito boundary; a short-course finish has a manual CTA only. Neither display is a successful unlock.
 - `premium checkout started` is emitted when the runner presses the upgrade CTA. RevenueCat attempts use `billing_provider: revenuecat`; browser fallbacks use `billing_provider: web_fallback`.
 - `premium purchase verified` is emitted only after RevenueCat returns an active Premium entitlement whose product matches the completed transaction. It includes the product/package and transaction identifiers, purchase date, RevenueCat store, entitlement id, period/ownership types, expiration, and `environment: sandbox|production`.
 - `premium purchase unverified` records a returned purchase result whose Premium entitlement is inactive or missing. Cancellation, unavailable checkout, and thrown failures use `premium checkout cancelled`, `premium checkout unavailable`, and `premium purchase failed` respectively.

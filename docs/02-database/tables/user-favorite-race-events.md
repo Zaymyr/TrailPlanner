@@ -100,6 +100,8 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
+- Replacing a large RaceBook plan CTA with `Affiner mon plan` for an existing owned plan neither reads nor writes favorites. The existing heart remains the only favorite mutation surface.
+
 - Courses retry and pull-to-refresh reload the favorite snapshot and may then apply its normal sort, but neither action creates or deletes a favorite. Only the existing explicit heart interaction mutates this table.
 
 - Moving the Courses race-request action into the shared collapsible header does not create, remove, reorder, or otherwise inspect event favorites. Header collapse is scroll presentation only.

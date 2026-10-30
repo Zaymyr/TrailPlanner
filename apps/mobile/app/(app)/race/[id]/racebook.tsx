@@ -35,8 +35,13 @@ import {
 } from '../../../../components/racebook/RacebookSponsorExperience';
 import {
   RACEBOOK_HERO_BODY_HEIGHT,
+  RACEBOOK_HERO_COMPACT_BODY_HEIGHT,
   RacebookCollapsibleHero,
 } from '../../../../components/racebook/RacebookCollapsibleHero';
+import {
+  RACE_WORKSPACE_SWITCH_HEIGHT,
+  RaceWorkspaceSwitch,
+} from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import {
   RacebookAccessSection,
   type RacebookAccessLocation,
@@ -1530,12 +1535,24 @@ export default function RaceRacebookScreen() {
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
         />
       ) : null}
+      {!showLoading && !unavailable && data ? (
+        <RaceWorkspaceSwitch
+          active="racebook"
+          expandedHeaderHeight={RACEBOOK_HERO_BODY_HEIGHT}
+          compactHeaderHeight={RACEBOOK_HERO_COMPACT_BODY_HEIGHT}
+          scrollY={scrollY}
+          topInset={insets.top}
+          onOpenPlan={() => void handlePlanCtaPress()}
+          onOpenRacebook={() => undefined}
+          planDisabled={planCtaBusy}
+        />
+      ) : null}
       <Animated.ScrollView
         ref={scrollRef}
         contentContainerStyle={[
           styles.container,
           { backgroundColor: brandTheme.primarySurfaceColor },
-          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + 16 } : null,
+          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + RACE_WORKSPACE_SWITCH_HEIGHT + 16 } : null,
           showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
@@ -1587,35 +1604,57 @@ export default function RaceRacebookScreen() {
             theme={brandTheme}
             onSponsorImpression={reportSponsorImpression}
           />
-          <Card style={styles.planCtaCard}>
-            <View style={styles.planCtaCopy}>
-              <View style={[styles.planCtaIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
-                <Ionicons name={existingPlanId ? 'options-outline' : 'map-outline'} size={21} color={brandTheme.primaryColor} />
-              </View>
-              <View style={styles.planCtaText}>
-                <Text style={styles.planCtaTitle}>{planCtaLabel}</Text>
-                <Text style={styles.planCtaDescription}>{planCtaDescription}</Text>
-              </View>
-            </View>
+          {existingPlanId ? (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel={planCtaLabel}
               disabled={planCtaBusy}
               onPress={() => void handlePlanCtaPress()}
               style={({ pressed }) => [
-                styles.planCtaButton,
-                { backgroundColor: brandTheme.primaryColor },
+                styles.refinePlanAction,
+                { borderColor: brandTheme.primaryColor },
                 pressed && styles.planCtaButtonPressed,
                 planCtaBusy && styles.planCtaButtonDisabled,
               ]}
               testID="racebook-plan-cta"
             >
-              <Text style={[styles.planCtaButtonText, { color: brandTheme.onPrimaryColor }]}>
+              <Ionicons name="options-outline" size={18} color={brandTheme.primaryColor} />
+              <Text style={[styles.refinePlanActionText, { color: brandTheme.primaryColor }]}>
                 {planCtaBusy ? (locale === 'fr' ? 'Ouverture…' : 'Opening…') : planCtaLabel}
               </Text>
-              <Ionicons name="arrow-forward" size={17} color={brandTheme.onPrimaryColor} />
+              <Ionicons name="arrow-forward" size={17} color={brandTheme.primaryColor} />
             </Pressable>
-          </Card>
+          ) : (
+            <Card style={styles.planCtaCard}>
+              <View style={styles.planCtaCopy}>
+                <View style={[styles.planCtaIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
+                  <Ionicons name="map-outline" size={21} color={brandTheme.primaryColor} />
+                </View>
+                <View style={styles.planCtaText}>
+                  <Text style={styles.planCtaTitle}>{planCtaLabel}</Text>
+                  <Text style={styles.planCtaDescription}>{planCtaDescription}</Text>
+                </View>
+              </View>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={planCtaLabel}
+                disabled={planCtaBusy}
+                onPress={() => void handlePlanCtaPress()}
+                style={({ pressed }) => [
+                  styles.planCtaButton,
+                  { backgroundColor: brandTheme.primaryColor },
+                  pressed && styles.planCtaButtonPressed,
+                  planCtaBusy && styles.planCtaButtonDisabled,
+                ]}
+                testID="racebook-plan-cta"
+              >
+                <Text style={[styles.planCtaButtonText, { color: brandTheme.onPrimaryColor }]}>
+                  {planCtaBusy ? (locale === 'fr' ? 'Ouverture…' : 'Opening…') : planCtaLabel}
+                </Text>
+                <Ionicons name="arrow-forward" size={17} color={brandTheme.onPrimaryColor} />
+              </Pressable>
+            </Card>
+          )}
           {runnerInfoLines.length > 0 ? (
             <Card style={styles.heroCard}>
               <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
@@ -2174,6 +2213,20 @@ const styles = StyleSheet.create({
   },
   planCtaButtonText: {
     fontSize: 14,
+    fontWeight: '800',
+  },
+  refinePlanAction: {
+    minHeight: 44,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderRadius: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  refinePlanActionText: {
+    fontSize: 13,
     fontWeight: '800',
   },
   alertCard: {

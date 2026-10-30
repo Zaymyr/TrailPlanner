@@ -21,6 +21,8 @@ related_files:
   - apps/web/lib/race-planner-storage.ts
   - apps/web/lib/auth-storage.ts
   - apps/mobile/app/(app)/plan/[id]/edit.tsx
+  - apps/mobile/lib/planPreviewBoundary.ts
+  - apps/mobile/lib/planPreviewBoundary.test.ts
   - apps/mobile/app/(app)/plan/[id]/summary.tsx
   - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
   - apps/mobile/lib/planWorkspace.ts
@@ -131,7 +133,7 @@ When the in-app recap opens, mobile sends the regenerated recap snapshot to `app
 
 The public shared page can persist limited crew-side tracking data through `apps/web/app/api/plan-shares/crew-state/route.ts`. That route validates the secret URL token, hashes it server-side, and updates only `plan_share_links.departure_time` plus `plan_share_links.crew_state`. The crew marks assistance points as done; the page records the current clock time, recalculates the next crew point from that confirmed passage, and treats no-assistance checkpoints as planned-time passages by default. If the crew validates too early, the tracking card can clear confirmed passages and return calculations to the planned snapshot values while keeping the entered departure time.
 
-Locked mobile plans use the ordinary workspace route and tabs, with paid inputs replaced by contextual unlock surfaces. Browsing these surfaces does not mutate planner JSON, save a draft, create a crew link or record a successful save. Detailed historical Recap remains readable when separately authorized. The canonical save pipeline still protects all actual edits.
+Locked mobile plans use the ordinary workspace route and tabs, with paid inputs replaced by contextual unlock surfaces. The free preview itself renders only the first two intermediate ravitos/sections; departure and arrival system stations are excluded and the next ravito is the terminal scroll boundary. A short course instead retains its real finish and a manual CTA, without an automatic popup. Browsing the preview, trying to cross a third-ravito boundary, or dismissing its once-per-workspace-visit unlock sheet does not mutate planner JSON, save a draft, create a crew link or record a successful save. Detailed historical Recap remains readable when separately authorized. The canonical save pipeline still protects all actual edits.
 
 ## Hydration on Read
 

@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSyntheticEvent } from 'react-native';
 
@@ -8,7 +7,6 @@ import type { PlanSummary } from '../../lib/planSummary';
 import type { PlanWorkspaceTab } from '../../lib/planWorkspace';
 import { Button } from '../themed/Button';
 import { Text } from '../themed/Text';
-import { AidStationsToolbar, type PlanViewMode } from '../plan-form/AidStationsSectionV3';
 
 type Props = {
   summary: PlanSummary;
@@ -44,12 +42,6 @@ function LockedArea({ title, description, action, onUnlock }: {
 export function LockedPlanContent({ summary, tab, contentTopInset, onScroll, onUnlock, simulation = 'real' }: Props) {
   const { locale } = useI18n();
   const fr = locale === 'fr';
-  const [mode, setMode] = useState<PlanViewMode>('stations');
-  const sections = summary.checkpoints.slice(1).map((checkpoint, index) => {
-    const previous = summary.checkpoints[index];
-    const hours = Math.max(0, checkpoint.arrivalMinute - previous.arrivalMinute - previous.pauseMinutes) / 60;
-    return { checkpoint, previous, carbs: Math.round(hours * summary.targetCarbsPerHour), water: Math.round(hours * summary.targetWaterPerHour) };
-  });
   const action = fr ? 'Débloquer mon plan' : 'Unlock my plan';
   const lock = (kind: 'pace' | 'nutrition' | 'recap' | 'settings') => {
     const copy = {
@@ -63,24 +55,8 @@ export function LockedPlanContent({ summary, tab, contentTopInset, onScroll, onU
 
   return (
     <ScrollView contentContainerStyle={[styles.content, { paddingTop: contentTopInset }]} onScroll={onScroll} scrollEventThrottle={16} testID="locked-plan-workspace">
-      <View style={styles.intro}>
-        <Text weight="bold">{fr ? 'Ton estimation est prête' : 'Your estimate is ready'}</Text>
-        <Text tone="secondary" size="sm">{fr ? 'Explore ton parcours et tes besoins gratuitement. Personnalise ensuite chaque section avec ton plan complet.' : 'Explore your course and nutrition needs for free. Then personalize every section with your complete plan.'}</Text>
-        {simulation !== 'real' ? <Text size="sm" accessibilityRole="alert">{fr ? 'Mode de test' : 'Test mode'} : {simulation}</Text> : null}
-      </View>
-      {tab === 'plan' ? <>
-        <AidStationsToolbar mode={mode} onSelectMode={setMode} addAidStation={onUnlock} fillSuppliesAuto={onUnlock} isAutoFilling={false} autoFillLoadingMessage="" isPremium={false} />
-        {sections.map(({ checkpoint, previous, carbs, water }) => <View key={`${checkpoint.index}-${checkpoint.name}`} style={styles.card}>
-          <Text tone="secondary" size="xs">{previous.distanceKm.toLocaleString(locale)} → {checkpoint.distanceKm.toLocaleString(locale)} km</Text>
-          <Text weight="bold">{previous.name} → {checkpoint.name}</Text>
-          {mode === 'stations' ? <>
-            <Text size="sm" tone="secondary">{fr ? 'Besoins estimés sur cette section' : 'Estimated needs for this section'}</Text>
-            <View style={styles.metrics}><Text weight="bold">{carbs} g {fr ? 'glucides' : 'carbs'}</Text><Text weight="bold">{water} ml {fr ? 'eau' : 'water'}</Text></View>
-            {lock('nutrition')}
-          </> : lock('pace')}
-        </View>)}
-        {sections.length === 0 ? lock(mode === 'stations' ? 'nutrition' : 'pace') : null}
-      </> : tab === 'settings' ? <View style={styles.card}>
+      {simulation !== 'real' ? <Text size="sm">{fr ? 'Mode de test' : 'Test mode'} : {simulation}</Text> : null}
+      {tab === 'settings' ? <View style={styles.card}>
         <Text weight="bold">{fr ? 'Tes objectifs actuels' : 'Your current targets'}</Text>
         <Text>{summary.targetCarbsPerHour} g/h · {summary.targetWaterPerHour} ml/h</Text>
         <Text>{fr ? 'Poche à eau' : 'Water bladder'} : {summary.waterBagLiters} L</Text>
@@ -96,9 +72,7 @@ export function LockedPlanContent({ summary, tab, contentTopInset, onScroll, onU
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingBottom: 120, gap: 16 },
-  intro: { gap: 6, paddingVertical: 8 },
   card: { backgroundColor: Colors.surface, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 16, gap: 10 },
-  metrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 16, paddingVertical: 4 },
   lockedArea: { minHeight: 218, borderRadius: 14, overflow: 'hidden', backgroundColor: Colors.surfaceSecondary, justifyContent: 'center' },
   blurredPreview: { ...StyleSheet.absoluteFillObject, padding: 14, justifyContent: 'space-around', opacity: 0.45 },
   placeholderRow: { gap: 10 },

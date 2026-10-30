@@ -28,6 +28,8 @@ related_tables:
 
 ## Purpose and invariants
 
+The locked-plan preview boundary and catalog plan CTA are independent of start-wave storage. A short preview course retains its genuine arrival; neither manual unlock CTA nor workspace navigation changes selected start-wave data.
+
 SAS require Complete or Signature plus an active `start_waves` format module. Disabling masks published rows and blocks organizer writes without deleting them.
 
 Stores ordered start waves (SAS) for a format. Each row has a name, native departure time, ordering and one criterion: all runners, bib range, estimated finish-time range, pace range or custom rule. Database checks require only the bounds relevant to that criterion and reserve free text for `custom`.
