@@ -53,22 +53,83 @@ function clockToMinutes(value: string | null | undefined) {
 }
 
 /**
- * Compares a plan passage with the first occurrence of an official cutoff
- * after departure. The organizer contract currently stores clock values only,
- * so an explicit day cannot be inferred for cutoffs beyond 24 hours.
+ * Returns a display-safe 24-hour clock only for a standalone clock value.
+ * Rich organizer wording deliberately remains unparsed so callers can retain
+ * it verbatim instead of guessing which time within it is the cutoff.
+ */
+export function normalizeSimpleClock(value: string | null | undefined) {
+  const minutes = clockToMinutes(value);
+  if (minutes === null) return null;
+  const hours = Math.floor(minutes / 60);
+  return `${String(hours).padStart(2, '0')}:${String(minutes % 60).padStart(2, '0')}`;
+}
+
+/**
+ * Formats a plan arrival without creating a Date, so race timezone and device
+ * timezone cannot change the displayed day. Day zero is the race departure
+ * day; later passages receive an explicit J+N prefix.
+ */
+export function formatPersonalPassageClock(
+  departureClock: string | null | undefined,
+  passageMinute: number,
+) {
+  const departureMinute = clockToMinutes(departureClock);
+  if (departureMinute === null || !Number.isFinite(passageMinute) || passageMinute < 0) return null;
+
+  const absoluteMinute = departureMinute + passageMinute;
+  const dayOffset = Math.floor(absoluteMinute / (24 * 60));
+  const clockMinute = absoluteMinute % (24 * 60);
+  const hours = Math.floor(clockMinute / 60);
+  const clock = `${String(hours).padStart(2, '0')}:${String(clockMinute % 60).padStart(2, '0')}`;
+  return dayOffset === 0 ? clock : `J+${dayOffset} · ${clock}`;
+}
+
+/**
+ * Resolves a standalone organizer cutoff clock to elapsed race minutes.
+ * Clock-only cutoffs recur every 24 hours for multi-day races, so the
+ * occurrence closest to the planned-passage anchor wins. It is never allowed
+ * before the first chronological cutoff following departure; exact ties keep
+ * the earlier occurrence. Rich cutoff text intentionally returns null.
+ */
+export function resolveCutoffMinuteAfterDeparture(
+  departureClock: string | null | undefined,
+  cutoffClock: string | null | undefined,
+  passageMinute?: number | null,
+) {
+  const departureClockMinute = clockToMinutes(departureClock);
+  const cutoffClockMinute = clockToMinutes(cutoffClock);
+  if (departureClockMinute === null || cutoffClockMinute === null) return null;
+
+  const dayMinutes = 24 * 60;
+  const firstOccurrence = (cutoffClockMinute - departureClockMinute + dayMinutes) % dayMinutes;
+  if (typeof passageMinute !== 'number' || !Number.isFinite(passageMinute) || passageMinute < 0) {
+    return firstOccurrence;
+  }
+
+  const anchor = passageMinute;
+  const approximateDay = Math.max(0, Math.floor((anchor - firstOccurrence) / dayMinutes));
+  const candidates = [approximateDay, approximateDay + 1]
+    .map((day) => firstOccurrence + day * dayMinutes)
+    .sort((left, right) => Math.abs(left - anchor) - Math.abs(right - anchor) || left - right);
+  return candidates[0] ?? firstOccurrence;
+}
+
+/**
+ * Compares a plan passage with the cutoff occurrence whose race day is closest
+ * to that passage. The organizer contract stores standalone clocks only, so
+ * richer cutoff wording intentionally remains non-comparable.
  */
 export function isPersonalPassageAfterCutoff(
   departureClock: string | null | undefined,
   passageMinute: number,
   cutoffClock: string | null | undefined,
 ) {
-  const departureClockMinute = clockToMinutes(departureClock);
-  const cutoffClockMinute = clockToMinutes(cutoffClock);
-  if (departureClockMinute === null || cutoffClockMinute === null || !Number.isFinite(passageMinute)) return false;
-
-  const cutoffMinuteAfterDeparture = cutoffClockMinute >= departureClockMinute
-    ? cutoffClockMinute - departureClockMinute
-    : cutoffClockMinute + 24 * 60 - departureClockMinute;
+  const cutoffMinuteAfterDeparture = resolveCutoffMinuteAfterDeparture(
+    departureClock,
+    cutoffClock,
+    passageMinute,
+  );
+  if (cutoffMinuteAfterDeparture === null || !Number.isFinite(passageMinute)) return false;
   return passageMinute > cutoffMinuteAfterDeparture;
 }
 

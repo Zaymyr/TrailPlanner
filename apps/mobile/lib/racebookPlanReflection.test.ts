@@ -3,9 +3,12 @@ import { describe, expect, it } from 'vitest';
 import {
   estimatePersonalPassageMinute,
   estimatePersonalSegmentDuration,
+  formatPersonalPassageClock,
   isPersonalPassageAfterCutoff,
   LEGACY_AID_STATION_KM_TOLERANCE,
   matchPersonalAidStation,
+  normalizeSimpleClock,
+  resolveCutoffMinuteAfterDeparture,
   normalizeAidStationNameForReflection,
   resolvePersonalAidStationTargetIndex,
 } from './racebookPlanReflection';
@@ -60,6 +63,39 @@ describe('isPersonalPassageAfterCutoff', () => {
 
   it('accepts legacy hour notation', () => {
     expect(isPersonalPassageAfterCutoff('6h', 181, '9h')).toBe(true);
+  });
+
+  it('compares a multi-day passage with the cutoff on the matching race day', () => {
+    expect(isPersonalPassageAfterCutoff('06:00', 31 * 60, '12:00')).toBe(true);
+    expect(isPersonalPassageAfterCutoff('06:00', 29 * 60, '12:00')).toBe(false);
+  });
+});
+
+describe('multi-day RaceBook timing', () => {
+  it('normalizes standalone organizer clocks to a consistent 24-hour representation', () => {
+    expect(normalizeSimpleClock('9h')).toBe('09:00');
+    expect(normalizeSimpleClock('9:00')).toBe('09:00');
+    expect(normalizeSimpleClock('09:00')).toBe('09:00');
+    expect(normalizeSimpleClock('10h15')).toBe('10:15');
+  });
+
+  it('formats overnight and multi-day planned passages without timezone-dependent dates', () => {
+    expect(formatPersonalPassageClock('06:00', 180)).toBe('09:00');
+    expect(formatPersonalPassageClock('23:30', 90)).toBe('J+1 · 01:00');
+    expect(formatPersonalPassageClock('06:00', 43 * 60)).toBe('J+2 · 01:00');
+  });
+
+  it('resolves a cutoff to the closest chronological day around the passage anchor', () => {
+    expect(resolveCutoffMinuteAfterDeparture('06:00', '12:00', 29 * 60)).toBe(30 * 60);
+    expect(resolveCutoffMinuteAfterDeparture('06:00', '12:00', 31 * 60)).toBe(30 * 60);
+    expect(resolveCutoffMinuteAfterDeparture('06:00', '12:00', 54 * 60)).toBe(54 * 60);
+  });
+
+  it('keeps incomplete or rich organizer clocks out of timing calculations', () => {
+    expect(normalizeSimpleClock('samedi à 09:00')).toBeNull();
+    expect(formatPersonalPassageClock('matin', 90)).toBeNull();
+    expect(formatPersonalPassageClock('06:00', -1)).toBeNull();
+    expect(resolveCutoffMinuteAfterDeparture('06:00', 'samedi à 09:00', 90)).toBeNull();
   });
 });
 

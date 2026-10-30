@@ -166,8 +166,13 @@ export function RacebookCollapsibleHero({
       >
         <View style={styles.compactTitleWrap}>
           <Text numberOfLines={1} style={[styles.compactTitle, { color: theme.onPrimaryColor }]}>{raceName}</Text>
-          {eventName && eventName !== raceName ? (
-            <Text numberOfLines={1} style={[styles.compactKicker, { color: theme.onPrimaryColor }]}>{eventName}</Text>
+          {(Boolean(eventName && eventName !== raceName) || Boolean(startTimeValue)) ? (
+            <Text numberOfLines={1} style={[styles.compactKicker, { color: theme.onPrimaryColor }]}>
+              {[
+                eventName && eventName !== raceName ? eventName : null,
+                startTimeValue ? `${startTimeLabel} ${startTimeValue}` : null,
+              ].filter(Boolean).join(' · ')}
+            </Text>
           ) : null}
         </View>
       </Animated.View>

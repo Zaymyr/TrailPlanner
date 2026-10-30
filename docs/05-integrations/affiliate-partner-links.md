@@ -1,7 +1,7 @@
 ---
 title: Affiliate Partner Links
 scope: integration
-last_verified: 2026-10-29
+last_verified: 2026-10-30
 ai_priority: medium
 related_files:
   - apps/web/lib/partner-links.ts

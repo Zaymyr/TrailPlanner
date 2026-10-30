@@ -41,20 +41,24 @@ export function RaceWorkspaceSwitch({
     <Animated.View style={[styles.shell, { top }]}>
       <View style={styles.segmentedControl}>
         <Pressable
+          accessibilityLabel={t.planWorkspace.officialRacebook}
           accessibilityRole="tab"
           accessibilityState={{ selected: active === 'racebook', disabled: racebookDisabled }}
           disabled={active === 'racebook'}
           onPress={onOpenRacebook}
           style={[styles.segment, active === 'racebook' && styles.activeSegment, racebookDisabled && styles.disabled]}
+          testID="race-workspace-racebook"
         >
           <Text style={[styles.label, active === 'racebook' && styles.activeLabel]}>{t.planWorkspace.officialRacebook}</Text>
         </Pressable>
         <Pressable
+          accessibilityLabel={t.planWorkspace.myPlan}
           accessibilityRole="tab"
           accessibilityState={{ selected: active === 'plan', disabled: planDisabled }}
           disabled={active === 'plan'}
           onPress={onOpenPlan}
           style={[styles.segment, active === 'plan' && styles.activeSegment, planDisabled && styles.disabled]}
+          testID="race-workspace-plan"
         >
           <Text style={[styles.label, active === 'plan' && styles.activeLabel]}>{t.planWorkspace.myPlan}</Text>
         </Pressable>

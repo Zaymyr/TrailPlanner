@@ -1,7 +1,7 @@
 ---
 title: racebook_gear_checks Table
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - supabase/migrations/20260924140119_add_racebook_gear_checks.sql

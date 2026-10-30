@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  Animated,
+  ActivityIndicator,
   Dimensions,
-  Easing,
   Image,
   Linking,
   Pressable,
@@ -15,7 +14,6 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { RACEBOOK_EDITION_LOGO_ENABLED, type ResolvedRacebookTheme } from '@pace-yourself/design-system';
 
 import { Colors } from '../../constants/colors';
-import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
 import {
@@ -56,27 +54,14 @@ function FeaturedSponsor({ sponsor, onLogoLoad }: { sponsor: RacebookSponsor; on
   return <Pressable accessibilityRole="link" accessibilityLabel={sponsor.name} onPress={() => Linking.openURL(sponsor.clickUrl!).catch(() => {})} style={({ pressed }) => [styles.featuredSponsorPressable, pressed && styles.sponsorPressed]}>{content}</Pressable>;
 }
 
-export function RacebookLoadingScreen({ progress, sponsors, sponsorLabel, loadingLabel, viewportHeight, sponsorLookupDone, title, theme, onSponsorImpression }: { progress: number; sponsors: RacebookSponsor[]; sponsorLabel: string; loadingLabel: string; viewportHeight: number; sponsorLookupDone: boolean; title: string; theme: ResolvedRacebookTheme; onSponsorImpression?: RacebookSponsorImpressionReporter }) {
-  const animatedProgress = useRef(new Animated.Value(progress)).current;
-  const highestProgress = useRef(progress);
-  const [trackWidth, setTrackWidth] = useState(0);
+export function RacebookLoadingScreen({ sponsors, sponsorLabel, loadingLabel, viewportHeight, sponsorLookupDone, title, theme, onSponsorImpression }: { progress: number; sponsors: RacebookSponsor[]; sponsorLabel: string; loadingLabel: string; viewportHeight: number; sponsorLookupDone: boolean; title: string; theme: ResolvedRacebookTheme; onSponsorImpression?: RacebookSponsorImpressionReporter }) {
   const [loadedSponsorIds, setLoadedSponsorIds] = useState<Set<string>>(() => new Set());
-  const safeProgress = Math.max(0, Math.min(1, progress));
   const sponsorAreaHeight = Math.max(228, Math.min(292, viewportHeight * 0.31));
 
-  useEffect(() => {
-    const nextProgress = Math.max(highestProgress.current, safeProgress);
-    highestProgress.current = nextProgress;
-    const animation = Animated.timing(animatedProgress, { toValue: nextProgress, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: false });
-    animation.start();
-    return () => animation.stop();
-  }, [animatedProgress, safeProgress]);
   const reportImpression = useRef(onSponsorImpression ? createRacebookSponsorImpressionReporter(onSponsorImpression) : null);
   useEffect(() => { sponsors.filter((sponsor) => loadedSponsorIds.has(sponsor.id)).forEach((sponsor) => reportImpression.current?.(sponsor, 'loading')); }, [loadedSponsorIds, sponsors]);
 
-  const progressWidth = animatedProgress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'], extrapolate: 'clamp' });
-  const runnerTranslateX = animatedProgress.interpolate({ inputRange: [0, 1], outputRange: [0, Math.max(0, trackWidth - 34)], extrapolate: 'clamp' });
-  return <View style={styles.loadingScreen}><View style={styles.loadingIntro}>{RACEBOOK_EDITION_LOGO_ENABLED ? <RacebookBrandLogo uri={theme.logoUrl} style={[styles.loadingBrandLogo, { borderColor: theme.primaryBorderColor }]} accessibilityLabel={title} /> : null}<Heading variant="h3" style={styles.loadingTitle}>{title}</Heading></View><View style={styles.loadingProgressBlock}><View style={styles.loadingProgressTrack} onLayout={(event) => setTrackWidth(event.nativeEvent.layout.width)} accessible accessibilityRole="progressbar" accessibilityValue={{ min: 0, max: 100, now: Math.round(safeProgress * 100) }}><Animated.View style={[styles.loadingProgressFill, { width: progressWidth, backgroundColor: theme.accentGraphicColor }]} /><Animated.View style={[styles.loadingRunner, { transform: [{ translateX: runnerTranslateX }] }]}><Ionicons name="walk" size={27} color={Colors.brandPrimary} /></Animated.View></View><View style={styles.loadingProgressCopy}><Text style={styles.loadingText}>{loadingLabel}</Text><DataText style={styles.loadingPercent}>{Math.round(safeProgress * 100)}%</DataText></View></View>{sponsors.length > 0 || !sponsorLookupDone ? <View style={[styles.featuredSponsors, { minHeight: sponsorAreaHeight }]}><Text style={styles.sponsorLoadingLabel}>{sponsorLabel}</Text><View style={styles.featuredSponsorPanel}>{sponsors.length > 0 ? sponsors.map((sponsor, index) => <View key={sponsor.id} style={styles.featuredSponsorSlot}>{index > 0 ? <View style={styles.featuredSponsorDivider} /> : null}<FeaturedSponsor sponsor={sponsor} onLogoLoad={() => setLoadedSponsorIds((current) => current.has(sponsor.id) ? current : new Set(current).add(sponsor.id))} /></View>) : <><View style={styles.featuredSponsorSlot}><View style={styles.featuredSponsorPlaceholder} /></View><View style={styles.featuredSponsorSlot}><View style={styles.featuredSponsorDivider} /><View style={styles.featuredSponsorPlaceholder} /></View></>}</View></View> : null}</View>;
+  return <View style={styles.loadingScreen}><View style={styles.loadingIntro}>{RACEBOOK_EDITION_LOGO_ENABLED ? <RacebookBrandLogo uri={theme.logoUrl} style={[styles.loadingBrandLogo, { borderColor: theme.primaryBorderColor }]} accessibilityLabel={title} /> : null}<Heading variant="h3" style={styles.loadingTitle}>{title}</Heading></View><View accessible accessibilityLabel={`${title}. ${loadingLabel}`} accessibilityLiveRegion="polite" accessibilityState={{ busy: true }} style={styles.loadingProgressBlock}><ActivityIndicator color={theme.accentGraphicColor} size="small" /><Text style={styles.loadingText}>{loadingLabel}</Text></View>{sponsors.length > 0 || !sponsorLookupDone ? <View style={[styles.featuredSponsors, { minHeight: sponsorAreaHeight }]}><Text style={styles.sponsorLoadingLabel}>{sponsorLabel}</Text><View style={styles.featuredSponsorPanel}>{sponsors.length > 0 ? sponsors.map((sponsor, index) => <View key={sponsor.id} style={styles.featuredSponsorSlot}>{index > 0 ? <View style={styles.featuredSponsorDivider} /> : null}<FeaturedSponsor sponsor={sponsor} onLogoLoad={() => setLoadedSponsorIds((current) => current.has(sponsor.id) ? current : new Set(current).add(sponsor.id))} /></View>) : <><View style={styles.featuredSponsorSlot}><View style={styles.featuredSponsorPlaceholder} /></View><View style={styles.featuredSponsorSlot}><View style={styles.featuredSponsorDivider} /><View style={styles.featuredSponsorPlaceholder} /></View></>}</View></View> : null}</View>;
 }
 
 export type SponsorBannerProps = {
@@ -128,7 +113,7 @@ export function SponsorBanner({ sponsors, label, discoverLabel = 'Découvrir', p
 }
 
 const styles = StyleSheet.create({
-  loadingScreen: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 8, paddingTop: 28, paddingBottom: 20, gap: 26 }, loadingIntro: { width: '100%', alignItems: 'center', paddingHorizontal: 16, gap: 12 }, loadingBrandLogo: { width: 84, height: 64, borderRadius: 16, borderWidth: 1, backgroundColor: Colors.surface, padding: 8 }, loadingTitle: { color: Colors.textPrimary, textAlign: 'center' }, loadingProgressBlock: { width: '100%', gap: 12 }, loadingProgressTrack: { width: '100%', height: 7, borderRadius: 999, backgroundColor: Colors.surfaceMuted }, loadingProgressFill: { height: '100%', borderRadius: 999, backgroundColor: Colors.brandLight }, loadingRunner: { position: 'absolute', top: -24, left: 0, width: 34, height: 34, alignItems: 'center', justifyContent: 'center' }, loadingProgressCopy: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 }, loadingText: { color: Colors.textSecondary, fontSize: 14 }, loadingPercent: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' }, featuredSponsors: { width: '100%', alignItems: 'center', gap: 10, marginTop: 8 }, sponsorLoadingLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }, featuredSponsorPanel: { width: '100%', flex: 1, overflow: 'hidden', borderRadius: 24, backgroundColor: Colors.surface, shadowColor: '#1A1A1A', shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 7 }, elevation: 3 }, featuredSponsorSlot: { flex: 1, width: '100%' }, featuredSponsorPressable: { flex: 1, width: '100%' }, featuredSponsorRow: { flex: 1, width: '100%', minHeight: 104, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 24, paddingVertical: 10 }, featuredSponsorDivider: { height: 1, marginHorizontal: 24, backgroundColor: Colors.border }, featuredSponsorLogo: { width: '88%', maxWidth: 280, flex: 1, minHeight: 72 }, featuredSponsorName: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textAlign: 'center' }, featuredSponsorPlaceholder: { flex: 1, minHeight: 78, marginHorizontal: 24, marginVertical: 14, borderRadius: 16, backgroundColor: Colors.surfaceSecondary, opacity: 0.7 },
+  loadingScreen: { flex: 1, width: '100%', alignItems: 'center', justifyContent: 'flex-start', paddingHorizontal: 8, paddingTop: 28, paddingBottom: 20, gap: 26 }, loadingIntro: { width: '100%', alignItems: 'center', paddingHorizontal: 16, gap: 12 }, loadingBrandLogo: { width: 84, height: 64, borderRadius: 16, borderWidth: 1, backgroundColor: Colors.surface, padding: 8 }, loadingTitle: { color: Colors.textPrimary, textAlign: 'center' }, loadingProgressBlock: { minHeight: 52, width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 16, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface }, loadingText: { color: Colors.textSecondary, fontSize: 14 }, featuredSponsors: { width: '100%', alignItems: 'center', gap: 10, marginTop: 8 }, sponsorLoadingLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase' }, featuredSponsorPanel: { width: '100%', flex: 1, overflow: 'hidden', borderRadius: 24, backgroundColor: Colors.surface, shadowColor: '#1A1A1A', shadowOpacity: 0.08, shadowRadius: 16, shadowOffset: { width: 0, height: 7 }, elevation: 3 }, featuredSponsorSlot: { flex: 1, width: '100%' }, featuredSponsorPressable: { flex: 1, width: '100%' }, featuredSponsorRow: { flex: 1, width: '100%', minHeight: 104, alignItems: 'center', justifyContent: 'center', gap: 4, paddingHorizontal: 24, paddingVertical: 10 }, featuredSponsorDivider: { height: 1, marginHorizontal: 24, backgroundColor: Colors.border }, featuredSponsorLogo: { width: '88%', maxWidth: 280, flex: 1, minHeight: 72 }, featuredSponsorName: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700', textAlign: 'center' }, featuredSponsorPlaceholder: { flex: 1, minHeight: 78, marginHorizontal: 24, marginVertical: 14, borderRadius: 16, backgroundColor: Colors.surfaceSecondary, opacity: 0.7 },
   sponsorSurface: { gap: 8, paddingVertical: 4 },
   sponsorSurfaceHeading: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   sponsorSurfaceEyebrow: { color: Colors.textSecondary, fontSize: 12, fontWeight: '800', letterSpacing: 0.45, textTransform: 'uppercase' },

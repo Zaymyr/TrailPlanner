@@ -6,7 +6,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { formatDuration } from '../../lib/planSummary';
 import type { RacebookAidStation } from '../../lib/racebook';
-import { estimatePersonalSegmentDuration } from '../../lib/racebookPlanReflection';
+import { resolveRacebookFinishStation } from '../../lib/racebookAidStationPresentation';
+import { estimatePersonalSegmentDuration, normalizeSimpleClock } from '../../lib/racebookPlanReflection';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 
@@ -35,6 +36,7 @@ export type RacebookPersonalAidStationPlan = {
   estimatedClock: string | null;
   arrivalMinute: number;
   pauseMinutes: number;
+  cutoffDisplay?: string | null;
   isAfterCutoff: boolean;
 };
 
@@ -92,6 +94,7 @@ function AidStationCard({
   position,
   isFinish = false,
   finishCutoffTime,
+  displayDistanceKm,
   copy,
   expanded,
   onToggle,
@@ -103,6 +106,7 @@ function AidStationCard({
   position: number;
   isFinish?: boolean;
   finishCutoffTime?: string | null;
+  displayDistanceKm?: number;
   expanded: boolean;
   onToggle: () => void;
   theme: ResolvedRacebookTheme;
@@ -110,7 +114,11 @@ function AidStationCard({
   onEditPersonalPlan?: () => void;
   copy: Omit<RacebookAidStationCopy, 'sectionTitle' | 'emptyMessage'>;
 }) {
-  const cutoffTime = finishCutoffTime ?? station.organizerDetails.cutoffTime;
+  const officialCutoffTime = finishCutoffTime ?? station.organizerDetails.cutoffTime;
+  const cutoffTime = personalPlan?.cutoffDisplay
+    ?? normalizeSimpleClock(officialCutoffTime)
+    ?? officialCutoffTime;
+  const distanceKm = displayDistanceKm ?? station.km;
   const serviceItems = [
     station.waterAvailable ? { icon: 'water-outline' as const, label: copy.aidWater } : null,
     station.solidAvailable ? { icon: 'restaurant-outline' as const, label: copy.aidFood } : null,
@@ -131,7 +139,7 @@ function AidStationCard({
         accessibilityLabel={[
           isFinish ? copy.finishLabel : `R${position}`,
           station.name,
-          formatStationDistance(station.km),
+          formatStationDistance(distanceKm),
           ...serviceItems.map((item) => item.label),
           cutoffTime
             ? `${copy.aidCutoffTime} ${cutoffTime}`
@@ -171,7 +179,7 @@ function AidStationCard({
 
         <View style={styles.aidStationSummaryAction}>
           <DataText style={styles.aidStationSummaryDistance}>
-            {formatStationDistance(station.km)}
+            {formatStationDistance(distanceKm)}
           </DataText>
           {hasExpandedDetails ? (
             <Ionicons
@@ -216,7 +224,7 @@ function AidStationCard({
             <View style={styles.cutoffSummary}>
               <View style={styles.timingIcon}><Ionicons color={Colors.danger} name="time-outline" size={14} /></View>
               <Text numberOfLines={1} style={styles.cutoffSummaryLabel}>{copy.aidCutoffTime}</Text>
-              <DataText numberOfLines={1} style={styles.cutoffSummaryClock}>{cutoffTime}</DataText>
+              <DataText style={styles.cutoffSummaryClock}>{cutoffTime}</DataText>
               <View style={styles.timingTrailingSpace} />
             </View>
           ) : null}
@@ -429,10 +437,7 @@ export function RacebookAidStationsSection({
   finishPersonalPlan = null,
   onEditPersonalPlanStation,
 }: RacebookAidStationsSectionProps) {
-  const lastStation = stations[stations.length - 1];
-  const finishStation = lastStation && Math.abs(lastStation.km - finish.distanceKm) <= 0.2
-    ? lastStation
-    : null;
+  const finishStation = resolveRacebookFinishStation(stations);
   const aidStations = finishStation ? stations.slice(0, -1) : stations;
   const previousStation = aidStations[aidStations.length - 1];
   const finishSegmentLabel = previousStation
@@ -537,6 +542,7 @@ export function RacebookAidStationsSection({
               position={aidStations.length + 1}
               isFinish
               finishCutoffTime={finish.cutoffTime}
+              displayDistanceKm={finish.distanceKm}
               expanded={expandedStationId === finishStation.id}
               onToggle={() => onToggleStation(finishStation)}
               theme={theme}
@@ -550,7 +556,7 @@ export function RacebookAidStationsSection({
               distanceKm={finish.distanceKm}
               time={finish.cutoffTime ? {
                 label: copy.aidCutoffTime,
-                value: finish.cutoffTime,
+                value: normalizeSimpleClock(finish.cutoffTime) ?? finish.cutoffTime,
                 tone: 'critical',
               } : null}
             />
@@ -644,9 +650,9 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     borderWidth: 1,
   },
-  cutoffSummary: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cutoffSummary: { minHeight: 24, flexDirection: 'row', alignItems: 'flex-start', gap: 5 },
   cutoffSummaryLabel: { flex: 1, color: Colors.danger, fontSize: 12, lineHeight: 16, fontWeight: '700' },
-  cutoffSummaryClock: { minWidth: 44, color: Colors.danger, fontSize: 13, lineHeight: 17, fontWeight: '900', textAlign: 'right' },
+  cutoffSummaryClock: { minWidth: 44, maxWidth: '55%', flexShrink: 1, color: Colors.danger, fontSize: 13, lineHeight: 17, fontWeight: '900', textAlign: 'right' },
   endpointTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   endpointTimeLabel: { flexShrink: 1, color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
   endpointTimeValue: { color: Colors.success, fontSize: 12, fontWeight: '800' },
