@@ -81,6 +81,8 @@ Rollback: turn the canonical switch off to return to compatible editing behavior
 
 ## Validation and gotchas
 
+On 2026-10-30 the owner explicitly authorized applying the three runner migrations to the existing production database. The CLI dry run first found remote-only historical migrations `20261029090122`, `20261029091807` and `20261029110000`; their recorded SQL was recovered with the original versions rather than repairing history or replaying them. Only the three runner migrations were then applied. Post-deployment checks confirmed all seven runner tables have RLS, no existing plan lacks history, clients cannot grant purchases, internal billing functions are not publicly executable, and `monetization_enabled` remains false. New-account automatic trials are stopped; historical trial dates were not rewritten. A follow-up migration pins the unlock timestamp trigger's search path after an advisor warning. Full fixture-based SQL tests remain intended for an isolated database; production verification used read-only checks and a rolled-back caller-predicate smoke test.
+
 - Verify guest denial, profile validation, multiple previews, same-course recreated-plan access, cross-course denial and historical readonly.
 - Verify real/free/premium admin sessions, including no real charges and no durable simulated access.
 - Exercise sandbox annual purchase, two different course purchases using the same consumable SKU, cancellation, restart recovery, restore, refunds and event reordering on both stores and Stripe.
