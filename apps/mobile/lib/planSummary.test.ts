@@ -6,6 +6,7 @@ import {
   applyStoredDepartureTime,
   buildPlanSummary,
   buildStoredRacePlanFromValues,
+  formatCheckpointTime,
   getPlanSummaryDepartureTimeStorageKey,
 } from './planSummary';
 import { normalizeStoredPlanValues } from './raceLivePlan';
@@ -97,6 +98,12 @@ describe('buildPlanSummary', () => {
       (withPauses.checkpoints.at(-1)?.arrivalMinute ?? 0) -
         (withoutPauses.checkpoints.at(-1)?.arrivalMinute ?? 0),
     ).toBeCloseTo(18);
+
+    const secondPassage = withPauses.checkpoints[2];
+    expect(secondPassage).toBeDefined();
+    expect(formatCheckpointTime(secondPassage!, new Date(2026, 9, 29, 6, 0))).toMatch(
+      /^T\+.+ \/ \d{2}:\d{2}$/,
+    );
   });
 
   it('keeps the saved fatigue level when rebuilding card and recap durations', () => {

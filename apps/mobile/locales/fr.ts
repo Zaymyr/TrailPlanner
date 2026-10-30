@@ -140,6 +140,8 @@ export const fr: MobileTranslations = {
   },
   planWorkspace: {
     myPlan: 'Mon plan',
+    officialRacebook: 'Livret officiel',
+    racebookUnavailable: 'Le Livret officiel n\u2019est plus accessible pour ce format.',
     recap: 'Récap',
     settings: 'Paramètres',
     plans: 'Plans',

@@ -17,6 +17,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   RACEBOOK_EDITION_LOGO_ENABLED,
   resolveRacebookTheme,
@@ -42,7 +43,7 @@ import {
   type RacebookAccessLocation,
   type RacebookAccessTransport,
 } from '../../../../components/racebook/RacebookAccessSection';
-import { RacebookAidStationsSection } from '../../../../components/racebook/RacebookAidStationsSection';
+import { RacebookAidStationsSection, type RacebookPersonalAidStationPlan } from '../../../../components/racebook/RacebookAidStationsSection';
 import {
   RacebookBibSection,
   type RacebookBibPickupDayGroup,
@@ -50,9 +51,15 @@ import {
 } from '../../../../components/racebook/RacebookBibSection';
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
+import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
+import { RacebookPersonalPlanCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
+import {
+  RACE_WORKSPACE_SWITCH_HEIGHT,
+  RaceWorkspaceSwitch,
+} from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
@@ -81,9 +88,38 @@ import {
   loadRacebookGearChecks,
   saveRacebookGearCheck,
 } from '../../../../lib/racebookGearChecklist';
+import { supabase } from '../../../../lib/supabase';
+import { loadPlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
+import { stagePlanWorkspaceWarmStart } from '../../../../lib/planEditSession';
+import { addMinutes, buildPlanSummary, buildProductMap, buildStoredRacePlanFromRow, formatClock, formatDuration, getPlanSummaryDepartureTimeStorageKey, type PlanSummary, type PlanSummaryRow } from '../../../../lib/planSummary';
+import { buildLocalDepartureAt, normalizePlanClock } from '../../../../lib/planDeparture';
+import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
+import { estimatePersonalPassageMinute, isPersonalPassageAfterCutoff, matchPersonalAidStation } from '../../../../lib/racebookPlanReflection';
+import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
+import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
+import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
+import { formatAveragePace } from '../../../../lib/planWorkspace';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
-type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
+type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
+
+type LinkedPlanSnapshot = {
+  id: string;
+  sourceRevisionAtLastReview: string | null;
+  summary: PlanSummary;
+};
+
+function normalizeRacebookTab(value: string | undefined): RacebookTabKey {
+  return value === 'gear' || value === 'bib' || value === 'course' || value === 'access' || value === 'services'
+    ? value
+    : 'gear';
+}
+
+function normalizeCourseTab(value: string | undefined): CourseTabKey {
+  return value === 'route' || value === 'start-waves' || value === 'aid-stations' || value === 'supporters' || value === 'relay' || value === 'awards'
+    ? value
+    : 'route';
+}
 
 type RacebookAnalyticsSession = {
   properties: ReturnType<typeof buildRacebookAnalyticsProperties>;
@@ -546,7 +582,15 @@ function HeroDetailGroup({ title, values }: { title: string; values: string[] })
 }
 
 export default function RaceRacebookScreen() {
-  const { id, onboarding } = useLocalSearchParams<{ id?: string; onboarding?: 'racebook' }>();
+  const { id, onboarding, tab, courseTab, targetAidStationId, planId, planWarmStartToken } = useLocalSearchParams<{
+    id?: string;
+    onboarding?: 'racebook';
+    tab?: string;
+    courseTab?: string;
+    targetAidStationId?: string;
+    planId?: string;
+    planWarmStartToken?: string;
+  }>();
   const router = useRouter();
   const navigation = useNavigation();
   const { locale, t } = useI18n();
@@ -554,9 +598,13 @@ export default function RaceRacebookScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
-  const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
-  const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>('route');
-  const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<RacebookTabKey>(() => normalizeRacebookTab(tab));
+  const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>(() => normalizeCourseTab(courseTab));
+  const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(targetAidStationId ?? null);
+  const [linkedPlanId, setLinkedPlanId] = useState<string | null>(planId ?? null);
+  const [linkedPlanWarmStartToken, setLinkedPlanWarmStartToken] = useState<string | null>(planWarmStartToken ?? null);
+  const [linkedPlan, setLinkedPlan] = useState<LinkedPlanSnapshot | null>(null);
+  const [personalDepartureClock, setPersonalDepartureClock] = useState<string | null>(null);
   const [checkedGearItemKeys, setCheckedGearItemKeys] = useState<Set<string>>(new Set());
   const [pendingGearItemKeys, setPendingGearItemKeys] = useState<Set<string>>(new Set());
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
@@ -598,6 +646,86 @@ export default function RaceRacebookScreen() {
   analyticsDataRef.current = data;
   activeTabRef.current = activeTab;
   activeCourseTabRef.current = activeCourseTab;
+
+  useEffect(() => {
+    setActiveTab(normalizeRacebookTab(tab));
+    setActiveCourseTab(normalizeCourseTab(courseTab));
+    setExpandedAidStationId(targetAidStationId ?? null);
+  }, [courseTab, tab, targetAidStationId]);
+
+  useEffect(() => {
+    setLinkedPlanId(planId ?? null);
+    setLinkedPlanWarmStartToken(planWarmStartToken ?? null);
+    setLinkedPlan(null);
+    setPersonalDepartureClock(null);
+  }, [id, planId, planWarmStartToken]);
+
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    if (!id) return () => { cancelled = true; };
+
+    void (async () => {
+      const sessionResult = await supabase.auth.getSession();
+      const ownerId = sessionResult.data.session?.user?.id ?? null;
+      if (cancelled) return;
+      if (!ownerId) {
+        setLinkedPlanId(null);
+        setLinkedPlanWarmStartToken(null);
+        setLinkedPlan(null);
+        return;
+      }
+      const { data: plan, error: planError } = await supabase
+        .from('race_plans')
+        .select('id,name,updated_at,planner_values,elevation_profile,source_revision_at_last_review')
+        .eq('race_id', id)
+        .eq('user_id', ownerId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (planError) return;
+      if (!plan) {
+        setLinkedPlanId(null);
+        setLinkedPlanWarmStartToken(null);
+        setLinkedPlan(null);
+        return;
+      }
+      const [productData, storedDepartureClock, fetchedRaceElevationProfile] = await Promise.all([
+        loadPlanProductsBootstrap(ownerId),
+        AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(plan.id)).catch(() => null),
+        fetchRaceElevationProfile(id),
+      ]);
+      if (cancelled) return;
+      const storedPlan = buildStoredRacePlanFromRow(plan as PlanSummaryRow);
+      const planValues = normalizeStoredPlanValues(storedPlan);
+      const storedElevationProfile = storedPlan.elevationProfile ?? [];
+      const editElevationProfile = pickBestElevationProfile(
+        [storedElevationProfile, fetchedRaceElevationProfile],
+        planValues.raceDistanceKm,
+      );
+      const warmStartToken = stagePlanWorkspaceWarmStart(plan.id, {
+        draft: {
+          elevationProfile: editElevationProfile,
+          lastSavedSnapshot: createPlanPersistenceSnapshot(planValues, storedElevationProfile),
+          planName: plan.name,
+          values: planValues,
+        },
+        products: productData,
+      });
+      const summary = buildPlanSummary(
+        storedPlan,
+        buildProductMap(productData.allProducts),
+      );
+      setLinkedPlanId(plan.id);
+      setLinkedPlanWarmStartToken(warmStartToken);
+      setPersonalDepartureClock(normalizePlanClock(storedDepartureClock));
+      setLinkedPlan({
+        id: plan.id,
+        sourceRevisionAtLastReview: plan.source_revision_at_last_review ?? null,
+        summary,
+      });
+    })();
+
+    return () => { cancelled = true; };
+  }, [id]));
 
   useEffect(() => {
     let cancelled = false;
@@ -992,16 +1120,7 @@ export default function RaceRacebookScreen() {
     if (!data) return [];
 
     const schedule = data.runnerDetails.schedule;
-    const items: Array<LabeledItem | null> = [
-      schedule.startTime
-        ? {
-            label: t.catalog.racebookFieldStartTime,
-            value: schedule.startTime,
-            actionUrl: null,
-            dataValue: true,
-            tone: 'positive' as const,
-          }
-        : null,
+    const items: (LabeledItem | null)[] = [
       schedule.finishCutoffTime
         ? {
             label: t.catalog.racebookFieldFinishCutoff,
@@ -1017,7 +1136,6 @@ export default function RaceRacebookScreen() {
   }, [
     data,
     t.catalog.racebookFieldFinishCutoff,
-    t.catalog.racebookFieldStartTime,
   ]);
 
   const courseConstraintLines = useMemo(() => {
@@ -1057,10 +1175,13 @@ export default function RaceRacebookScreen() {
         : [];
 
   const courseTabs = useMemo(() => {
-    const availableTabs: Array<{ key: CourseTabKey; label: string }> = [
+    const availableTabs: { key: CourseTabKey; label: string }[] = [
       { key: 'route', label: t.catalog.racebookCourseTabRoute },
     ];
     if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
+    if (hasVisibleRacebookSupporterPoints(data?.supporterPoints ?? [])) {
+      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Suivi coureur' : 'Runner tracking' });
+    }
 
     if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
       availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
@@ -1073,6 +1194,8 @@ export default function RaceRacebookScreen() {
     relaySegments.length,
     data?.startWaves.length,
     data?.awards.length,
+    data?.supporterPoints,
+    locale,
     sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
     t.catalog.racebookCourseTabAwards,
@@ -1161,6 +1284,72 @@ export default function RaceRacebookScreen() {
     equipmentItems,
     checkedGearItemKeys,
   );
+  const officialRevisionPending = Boolean(linkedPlan) && isPlanSourceRevisionPending(
+    data?.race.planSourceUpdatedAt,
+    linkedPlan?.sourceRevisionAtLastReview,
+  );
+  const linkedPlanAveragePace = linkedPlan
+    ? formatAveragePace(linkedPlan.summary.totalDurationMin, linkedPlan.summary.distanceKm)
+    : null;
+  const resolvedStartTime = personalDepartureClock
+    ?? normalizePlanClock(data?.runnerDetails.schedule.startTime)
+    ?? normalizePlanClock(data?.startWaves[0]?.startTime);
+  const personalPlanReflection = useMemo<{
+    byStationId: Record<string, RacebookPersonalAidStationPlan>;
+    finish: RacebookPersonalAidStationPlan | null;
+  }>(() => {
+    if (!linkedPlan || !data) return { byStationId: {}, finish: null };
+    const departureClock = personalDepartureClock
+      ?? normalizePlanClock(data.runnerDetails.schedule.startTime)
+      ?? normalizePlanClock(data.startWaves[0]?.startTime);
+    const departureValue = buildLocalDepartureAt(data.race.raceDate ?? data.event.raceDate, departureClock);
+    const departure = departureValue ? new Date(departureValue) : null;
+    const result: Record<string, RacebookPersonalAidStationPlan> = {};
+    const planCheckpoints = linkedPlan.summary.checkpoints;
+    const personalAidStationCheckpoints = planCheckpoints.filter(
+      (checkpoint) => !checkpoint.isStart && !checkpoint.isFinish,
+    );
+    data.aidStations.forEach((station) => {
+      const match = matchPersonalAidStation(station, personalAidStationCheckpoints);
+      const checkpoint = match?.checkpoint ?? null;
+      const arrivalMinute = checkpoint?.arrivalMinute
+        ?? estimatePersonalPassageMinute(station.km, planCheckpoints);
+      if (arrivalMinute === null) return;
+      const estimatedClock = departure && Number.isFinite(departure.getTime())
+        ? formatClock(addMinutes(departure, arrivalMinute))
+        : null;
+      const stationCutoffTime = Math.abs(station.km - data.race.distanceKm) <= 0.2
+        ? data.runnerDetails.schedule.finishCutoffTime ?? station.organizerDetails.cutoffTime
+        : station.organizerDetails.cutoffTime;
+      result[station.id] = {
+        passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+        estimatedClock,
+        arrivalMinute,
+        pauseMinutes: Math.max(0, checkpoint?.pauseMinutes ?? 0),
+        isAfterCutoff: isPersonalPassageAfterCutoff(departureClock, arrivalMinute, stationCutoffTime),
+      };
+    });
+    const finishCheckpoint = planCheckpoints.find((checkpoint) => checkpoint.isFinish)
+      ?? planCheckpoints.at(-1)
+      ?? null;
+    const finishArrivalMinute = finishCheckpoint?.arrivalMinute
+      ?? estimatePersonalPassageMinute(data.race.distanceKm, planCheckpoints);
+    const finish = finishArrivalMinute === null ? null : {
+      passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+      estimatedClock: departure && Number.isFinite(departure.getTime())
+        ? formatClock(addMinutes(departure, finishArrivalMinute))
+        : null,
+      arrivalMinute: finishArrivalMinute,
+      pauseMinutes: 0,
+      isAfterCutoff: isPersonalPassageAfterCutoff(
+        departureClock,
+        finishArrivalMinute,
+        data.runnerDetails.schedule.finishCutoffTime,
+      ),
+    };
+    return { byStationId: result, finish };
+  }, [data, linkedPlan, locale, personalDepartureClock]);
+  const personalPlanByStationId = personalPlanReflection.byStationId;
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
     () => resolveRacebookTheme(sponsorPresentation.branding),
@@ -1168,7 +1357,9 @@ export default function RaceRacebookScreen() {
   );
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
-  const heroExpandedHeight = insets.top + RACEBOOK_HERO_BODY_HEIGHT;
+  const hasEmergencyHeader = Boolean(emergencyContact?.phone && emergencyTelephoneUrl);
+  const heroBodyHeight = hasEmergencyHeader ? RACEBOOK_HERO_BODY_HEIGHT : 220;
+  const heroExpandedHeight = insets.top + heroBodyHeight;
 
   useEffect(() => {
     if (
@@ -1347,6 +1538,42 @@ export default function RaceRacebookScreen() {
     router.replace('/(app)/catalog');
   }, [captureRacebookInteraction, router]);
 
+  const openLinkedPlan = useCallback(() => {
+    if (!id) return;
+    exitingToCatalogRef.current = true;
+    captureAnalyticsEvent('race workspace switched', {
+      direction: 'racebook_to_plan',
+      plan_action: linkedPlanId ? 'open' : 'create',
+    });
+    const params = new URLSearchParams({
+      racebookTab: activeTab,
+      racebookCourseTab: activeCourseTab,
+    });
+    if (expandedAidStationId) params.set('targetAidStationId', expandedAidStationId);
+    if (linkedPlanWarmStartToken) params.set('planWarmStartToken', linkedPlanWarmStartToken);
+    router.replace(
+      linkedPlanId
+        ? `/(app)/plan/${linkedPlanId}/edit?${params.toString()}`
+        : `/(app)/plan/new?raceId=${id}&${params.toString()}`,
+    );
+  }, [activeCourseTab, activeTab, expandedAidStationId, id, linkedPlanId, linkedPlanWarmStartToken, router]);
+
+  const openLinkedPlanAtStation = useCallback((stationId: string) => {
+    if (!linkedPlanId) return;
+    exitingToCatalogRef.current = true;
+    captureAnalyticsEvent('race workspace switched', {
+      direction: 'racebook_to_plan',
+      plan_action: 'edit_aid_station',
+    });
+    const params = new URLSearchParams({
+      racebookTab: 'course',
+      racebookCourseTab: 'aid-stations',
+      targetAidStationId: stationId,
+    });
+    if (linkedPlanWarmStartToken) params.set('planWarmStartToken', linkedPlanWarmStartToken);
+    router.replace(`/(app)/plan/${linkedPlanId}/edit?${params.toString()}`);
+  }, [linkedPlanId, linkedPlanWarmStartToken, router]);
+
   const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {
     if (!id) return;
     void reportRacebookSponsorImpression(id, sponsorViewId, impression);
@@ -1398,6 +1625,7 @@ export default function RaceRacebookScreen() {
         <RacebookCollapsibleHero
           scrollY={scrollY}
           topInset={insets.top}
+          expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
           imageUrl={heroImageUrl}
@@ -1406,11 +1634,17 @@ export default function RaceRacebookScreen() {
           locationLabel={headerLocation}
           participationLabel={participationLabels.join(' + ') || null}
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
+          startTimeLabel={locale === 'fr' ? 'Départ' : 'Start'}
+          startTimeValue={resolvedStartTime}
           distanceLabel={`${formatDistance(data.race.distanceKm)} km`}
           elevationGainLabel={`D+ ${formatElevation(data.race.elevationGainM, locale)} m`}
           elevationLossLabel={data.race.elevationLossM !== null ? `D- ${formatElevation(data.race.elevationLossM, locale)} m` : null}
           elevationCaption={locale === 'fr' ? 'Dénivelé' : 'Elevation gain'}
           descentCaption={locale === 'fr' ? 'Descente' : 'Elevation loss'}
+          planDurationLabel={linkedPlan ? formatDuration(linkedPlan.summary.totalDurationMin) : null}
+          planDurationCaption={locale === 'fr' ? 'Temps prévu' : 'Expected time'}
+          planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
+          planPaceCaption={locale === 'fr' ? 'Allure' : 'Pace'}
           backLabel={t.common.back}
           theme={brandTheme}
           emergency={emergencyContact?.phone && emergencyTelephoneUrl ? {
@@ -1431,12 +1665,23 @@ export default function RaceRacebookScreen() {
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
         />
       ) : null}
+      {!showLoading && !unavailable && data ? (
+        <RaceWorkspaceSwitch
+          active="racebook"
+          compactHeaderHeight={60}
+          expandedHeaderHeight={heroBodyHeight}
+          onOpenPlan={openLinkedPlan}
+          onOpenRacebook={() => undefined}
+          scrollY={scrollY}
+          topInset={insets.top}
+        />
+      ) : null}
       <Animated.ScrollView
         ref={scrollRef}
         contentContainerStyle={[
           styles.container,
           { backgroundColor: brandTheme.primarySurfaceColor },
-          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + 16 } : null,
+          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + RACE_WORKSPACE_SWITCH_HEIGHT + 16 } : null,
           showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
@@ -1596,6 +1841,13 @@ export default function RaceRacebookScreen() {
                   })}
                 </View>
 
+                <RacebookPersonalPlanCard
+                  hasPlan={Boolean(linkedPlanId)}
+                  revisionPending={officialRevisionPending}
+                  locale={locale}
+                  onOpenPlan={openLinkedPlan}
+                />
+
                 {(['route', 'start-waves', 'aid-stations'] as CourseTabKey[]).includes(activeCourseTab) &&
                 ((activeCourseTab !== 'aid-stations' && courseItems.length > 0) || courseConstraintLines.length > 0) ? (
                   <View style={styles.courseEssentials}>
@@ -1728,7 +1980,6 @@ export default function RaceRacebookScreen() {
                   <>
                   <RacebookAidStationsSection
                     stations={data.aidStations}
-                    startTime={data.runnerDetails.schedule.startTime}
                     finish={{
                       label: t.catalog.racebookMapFinish,
                       distanceKm: data.race.distanceKm,
@@ -1749,6 +2000,9 @@ export default function RaceRacebookScreen() {
                       }
                       setExpandedAidStationId((current) => (current === station.id ? null : station.id));
                     }}
+                    personalPlanByStationId={personalPlanByStationId}
+                    finishPersonalPlan={personalPlanReflection.finish}
+                    onEditPersonalPlanStation={(station) => openLinkedPlanAtStation(station.id)}
                     copy={{
                       sectionTitle: t.catalog.racebookSectionAidStations,
                       emptyMessage: t.catalog.racebookEmptyAidStations,
@@ -1763,9 +2017,12 @@ export default function RaceRacebookScreen() {
                       aidCutoffTime: t.catalog.racebookAidCutoffTime,
                       aidFromStart: locale === 'fr' ? 'Depuis le départ' : 'From the start',
                       aidFromPrevious: locale === 'fr' ? 'Depuis {name}' : 'From {name}',
-                      startTimeLabel: t.catalog.racebookFieldStartTime,
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
+                      plannedDuration: locale === 'fr' ? 'Temps prévu' : 'Expected',
+                      cutoffExceededWarning: locale === 'fr'
+                        ? 'Attention, passage prévu après la barrière horaire.'
+                        : 'Warning: expected passage is after the cutoff time.',
                     }}
                   />
                   <RacebookSponsorBanner
@@ -1778,6 +2035,13 @@ export default function RaceRacebookScreen() {
                     onSponsorImpression={reportSponsorImpression}
                   />
                   </>
+                ) : null}
+                {activeCourseTab === 'supporters' ? (
+                  <RacebookSupporterPointsSection
+                    locale={locale}
+                    points={data.supporterPoints}
+                    onOpenUrl={(url, action) => openTrackedUrl(url, action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened')}
+                  />
                 ) : null}
 
               </>

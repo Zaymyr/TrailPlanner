@@ -1,7 +1,7 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -22,6 +22,8 @@ related_tables:
 
 # `race_start_waves`
 
+RaceBook passage clock labels continue to resolve departure time from existing runner or start-wave data.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose and invariants
@@ -34,9 +36,11 @@ Existing `organizer_details.schedule.startTime` values are backfilled as `Dépar
 
 Public/preview read and mutation rules are identical to other RaceBook content: published RaceBook or authorized organizer for reads, and service-role API plus `racebook_content.manage` for writes.
 
+A SAS change advances the linked-plan official revision because it can change a displayed personal passage clock; it warns the runner but does not recalculate their personal durations or pauses. The Livret renders only `Passage prévu à : HH:mm` above the cutoff row; pause details stay in the plan.
+
 The collection is additive on mobile: a temporary Data API/table-unavailable error is treated as no SAS so legacy RaceBooks remain readable during staggered deployment. Its public policy resolves publication solely through `races`; it must not join the service-role-only `race_event_editions` table. Published primary surfaces may style SAS cards and accent-tinted positive information rows may highlight the schedule, but neither changes time authority or ordering.
 
-The typed `RacebookStructuredCourseSections` component owns only SAS-card presentation; the route keeps tab availability and the normalized ordered collection. Mobile renders the ordered rows directly below the compact Course timing summary in `SAS`, with an `S1`, `S2`, etc. marker, name, start time, and eligibility criterion. In the sibling `Ravitos` view, the same authoritative common start time appears directly in the departure card instead of in a duplicated summary; this presentation adds no stored sequence or derived schedule authority.
+The typed `RacebookStructuredCourseSections` component owns only SAS-card presentation; the route keeps tab availability and the normalized ordered collection. Mobile renders the ordered rows in `SAS`, with an `S1`, `S2`, etc. marker, name, start time, and eligibility criterion. The resolved personal/common/first-SAS departure is presented once in the Livret hero instead of being repeated in Course summaries or the Ravitos departure card; this adds no stored sequence or derived schedule authority.
 
 The expanded identity hero displays course-level date, distance and elevation metrics but not a derived SAS departure; its compact sticky state keeps course identity, back navigation, emergency and social actions. Start-wave time authority remains in the Course section and is unaffected by hero focus reset, branding, collapse state, or sponsor placement.
 
@@ -63,3 +67,7 @@ Fullscreen course visuals and tappable ravito markers remain independent from SA
 Global Booking and Decathlon actions are an independent partner payload. Booking renders in the permanent Services tab and Decathlon in Matériel; their availability and presses do not change SAS rows, the authoritative common start time, or Course sub-tab visibility.
 
 Material check/uncheck analytics and bounded per-item checked/missing snapshots are independent from SAS selection and timing; they carry no wave fields and do not mutate start-wave rows.
+
+Supporter points intentionally carry no personalized or official passage time in the first version. Start-wave resolution therefore does not alter their chronology.
+
+When a linked plan exists, its duration-based pace belongs with the Livret identity metrics; each matched ravito shows a resolved clock aligned above the red cutoff and each blue connector may show its pause-excluded expected duration. A late passage exposes a disclosure icon. Tapping the clock row opens the targeted plan editor without a second CTA. Switching back can reuse local editor warm state only for the exact plan id; none of these presentation actions rewrites SAS rows or their time authority.

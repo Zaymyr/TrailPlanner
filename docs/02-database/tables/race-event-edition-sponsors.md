@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -36,9 +36,13 @@ related_tables:
 
 # race_event_edition_sponsors
 
+RaceBook personal passage-time interpolation is client-only and does not alter sponsor selection or presentation.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
+
+Owner-specific plan duration, pace and departure in the mobile Livret hero, plus compact ravito passage/segment timing and its late-cutoff disclosure, are independent from sponsor surfaces and must not alter sponsor loading, placement, or reporting.
 
 `race_event_edition_sponsors` stores sponsor presentation plus aggregate click and viewable-impression counters for a canonical event edition. Every format attached to the edition reuses the same ordered sponsors.
 
@@ -126,12 +130,15 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 - The loading runner has no opaque backing tile: it moves directly above the progress track, including for a customized edition theme. This polish change does not affect the sponsor gate or impression timing.
 - The account-owned Material checklist and broader decorative use of edition accent colors do not create sponsor impressions or mutate sponsor placement.
 - The global Booking action in Services and Decathlon action in Matériel are not edition sponsor placements. Their presses use bounded RaceBook action analytics and must not increment sponsor click/impression counters or inherit sponsor redirect behavior.
+- Returning from the Livret to an already saved owner plan can reuse the editor's short-lived warm state only for that exact plan id. It must not replay the sponsor gate or create a sponsor view/click event.
 
 ## Related Docs
 
 Format-owned GPX route/profile choices do not change sponsor loading, placement, redirect counting, or edition scope.
 
 Opening a course visual fullscreen or selecting a ravito marker is not a sponsor presentation, click, or impression and does not restart the sponsor gate.
+
+The first supporter-points version has no dedicated sponsor placement. Showing or opening a supporter point must not create a sponsor impression or click.
 
 - [race_event_editions](race-event-editions.md)
 - [RLS Policies](../rls-policies.md)

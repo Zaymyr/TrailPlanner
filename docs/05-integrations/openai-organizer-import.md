@@ -1,7 +1,7 @@
 ---
 title: OpenAI Organizer Import Reconciliation
 scope: integration
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-source-intelligence.ts
@@ -25,6 +25,8 @@ related_tables:
 ---
 
 # OpenAI Organizer Import Reconciliation
+
+The manual `Suivi coureur` helpers do not change organizer import reconciliation. Imported ravitos may be selected as a source in the editor, but supporter permissions and access location still require organizer confirmation and are never inferred by the import pipeline.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -77,6 +79,7 @@ Edition branding is also outside import reconciliation. The import model cannot 
 - Keep resumable uploads on the direct Supabase Storage origin (`*.storage.supabase.co`) and retain completed-object cleanup on cancellation or failure; sending 25 MB files through the Next.js route reintroduces platform payload limits.
 
 - The Organizer section chooser's edition-common/per-format grouping, local draft, and batched save are independent from assisted-import sessions; opening, toggling, saving, or discarding module switches must not start or cancel an OpenAI reconciliation workflow.
+- The default-enabled Essential `supporter_points` module is labelled **Suivi coureur**. Its compatibility sidecar load for a legacy settings payload without an explicit key is ordinary authorized organizer data loading, not an import source, claim, or model invocation.
 - Replaying or completing the Organizer dashboard guide does not start website discovery, upload documents, or invoke OpenAI reconciliation. Its temporary visibility-panel expansion and compact editor highlight are presentation-only; assisted import remains an explicit admin-only action.
 - Grey masked-format choices and the compact private/public labels in Organizer navigation reflect persisted visibility only. They neither invoke reconciliation nor alter imported claims, and a masked imported draft remains editable by an authorized organizer/admin.
 - Bulk or single-format publication with an already-active organizer tier does not reopen checkout because imported drafts use higher-tier sections; operational failures stay visible, and those sections remain private unless their entitlement becomes effective, without changing any import claim.

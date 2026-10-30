@@ -135,6 +135,7 @@ import type {
   RaceFormValues,
   RelayPointDraft,
   StationProduct,
+  SupporterPointDraft,
   WebsiteImportDiscoveryWorkflow,
   WebsiteImportFieldSelection,
   WebsiteImportFormatDecision,
@@ -316,6 +317,7 @@ export function OrganizerDashboard({
   const [newEditionEndDate, setNewEditionEndDate] = useState("");
   const [aidStations, setAidStations] = useState<AidStationDraft[]>([]);
   const [relayPoints, setRelayPoints] = useState<RelayPointDraft[]>([]);
+  const [supporterPoints, setSupporterPoints] = useState<SupporterPointDraft[]>([]);
   const [expandedStationKey, setExpandedStationKey] = useState<string | null>(null);
   const [stationProducts, setStationProducts] = useState<StationProduct[]>([]);
   const [catalogProducts, setCatalogProducts] = useState<FuelProduct[]>([]);
@@ -486,7 +488,7 @@ export function OrganizerDashboard({
       const raceSettings = moduleSettings?.races[race.id];
       const raceEnabled = (key: OrganizerRaceModuleKey) =>
         moduleSettings ? raceSettings?.[key] ?? false : true;
-      if (raceEnabled("aid_stations")) enabled.add("aidStations");
+      if (raceEnabled("aid_stations") || raceEnabled("supporter_points")) enabled.add("aidStations");
       if (raceEnabled("awards")) enabled.add("awards");
       races[race.id] = enabled;
     }
@@ -1131,6 +1133,7 @@ export function OrganizerDashboard({
     if (activeRaceIdRef.current !== raceId) return;
     setAidStations(syncAidStationsWithGpxPreview(sidecars.aidStations, previewOverride));
     setRelayPoints(sidecars.relayPoints);
+    setSupporterPoints(sidecars.supporterPoints);
     setStationProducts(sidecars.stationProducts);
     setSidecarLoadedRaceId(raceId);
   }, []);
@@ -1154,12 +1157,15 @@ export function OrganizerDashboard({
           let relayPoints: RelayPointDraft[] = [];
           let products: StationProduct[] = [];
           const raceModules = moduleSettings?.races[raceId];
-          const [relayResponse, productsResponse] = await Promise.all([
+          const [relayResponse, productsResponse, supporterResponse] = await Promise.all([
             raceModules?.relay
               ? fetch(`/api/organizer/races/${raceId}/relay-points`, { headers: authHeaders, cache: "no-store" })
               : Promise.resolve(null),
             raceModules?.official_products
               ? fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" })
+              : Promise.resolve(null),
+            (raceModules?.supporter_points ?? true)
+              ? fetch(`/api/organizer/races/${raceId}/supporter-points`, { headers: authHeaders, cache: "no-store" })
               : Promise.resolve(null),
           ]);
           if (relayResponse) {
@@ -1172,10 +1178,17 @@ export function OrganizerDashboard({
             const productsData = (await productsResponse.json()) as { products?: StationProduct[] };
             products = productsData.products ?? [];
           }
+          let supporterPoints: SupporterPointDraft[] = [];
+          if (supporterResponse) {
+            if (!supporterResponse.ok) return null;
+            const supporterData = (await supporterResponse.json()) as { supporterPoints?: SupporterPointDraft[] };
+            supporterPoints = supporterData.supporterPoints ?? [];
+          }
           const sidecars: OrganizerRaceSidecars = {
             aidStations: aidStationRowsToDrafts(aidData.aidStations ?? []),
             relayPoints,
             stationProducts: products,
+            supporterPoints,
           };
           if (cacheGenerationRef.current !== requestGeneration) return null;
           writeOrganizerRaceSidecarsCache(raceId, sidecars);
@@ -1266,6 +1279,7 @@ export function OrganizerDashboard({
       setAidStations([]);
       setRelayPoints([]);
       setStationProducts([]);
+      setSupporterPoints([]);
       setGpxPreview(null);
       setSidecarLoadedRaceId(null);
       setGpxLoadedRaceKey(null);
@@ -1274,6 +1288,7 @@ export function OrganizerDashboard({
     setAidStations([]);
     setRelayPoints([]);
     setStationProducts([]);
+    setSupporterPoints([]);
     setGpxPreview(null);
     setSidecarLoadedRaceId(null);
     setGpxLoadedRaceKey(null);
@@ -1972,18 +1987,23 @@ export function OrganizerDashboard({
       setError(null);
     }
     try {
-      const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-stations`, {
-        method: "PUT",
-        headers: { ...authHeaders, "Content-Type": "application/json" },
-        body: JSON.stringify({ aidStations }),
-      });
-      const data = (await response.json().catch(() => null)) as { aidStations?: OrganizerAidStationRow[]; message?: string } | null;
-      if (!response.ok) {
-        showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
-        return false;
+      const raceModules = moduleSettings?.races[activeRace.id];
+      let savedAidStations = aidStations;
+      if (raceModules?.aid_stations ?? true) {
+        const response = await fetch(`/api/organizer/races/${activeRace.id}/aid-stations`, {
+          method: "PUT",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ aidStations }),
+        });
+        const data = (await response.json().catch(() => null)) as { aidStations?: OrganizerAidStationRow[]; message?: string } | null;
+        if (!response.ok) {
+          showToast("error", data?.message ?? "Impossible d'enregistrer les ravitos.");
+          return false;
+        }
+        savedAidStations = aidStationRowsToDrafts(data?.aidStations ?? []);
       }
       let savedRelayPoints: RelayPointDraft[] = [];
-      if (moduleSettings?.races[activeRace.id]?.relay) {
+      if (raceModules?.relay) {
         const relayResponse = await fetch(`/api/organizer/races/${activeRace.id}/relay-points`, {
           method: "PUT",
           headers: { ...authHeaders, "Content-Type": "application/json" },
@@ -1996,6 +2016,20 @@ export function OrganizerDashboard({
         }
         savedRelayPoints = relayData?.relayPoints ?? [];
       }
+      let savedSupporterPoints = supporterPoints;
+      if (raceModules?.supporter_points ?? true) {
+        const supporterResponse = await fetch(`/api/organizer/races/${activeRace.id}/supporter-points`, {
+          method: "PUT",
+          headers: { ...authHeaders, "Content-Type": "application/json" },
+          body: JSON.stringify({ supporterPoints }),
+        });
+        const supporterData = (await supporterResponse.json().catch(() => null)) as { supporterPoints?: SupporterPointDraft[]; message?: string } | null;
+        if (!supporterResponse.ok) {
+          showToast("error", supporterData?.message ?? "Impossible d'enregistrer les points supporters.");
+          return false;
+        }
+        savedSupporterPoints = supporterData?.supporterPoints ?? [];
+      }
       setEventDetail((current) =>
         current?.id === selectedEventId
           ? {
@@ -2006,13 +2040,13 @@ export function OrganizerDashboard({
             }
           : current
       );
-      if (!options.background) showToast("success", "Ravitos mis à jour.");
-      const savedAidStations = aidStationRowsToDrafts(data?.aidStations ?? []);
+      if (!options.background) showToast("success", "Points de course mis à jour.");
       const savedStationIds = new Set(savedAidStations.map((station) => station.id).filter(Boolean));
       const sidecars: OrganizerRaceSidecars = {
         aidStations: savedAidStations,
         relayPoints: savedRelayPoints,
         stationProducts: stationProducts.filter((link) => savedStationIds.has(link.aidStationId)),
+        supporterPoints: savedSupporterPoints,
       };
       writeOrganizerRaceSidecarsCache(activeRace.id, sidecars);
       applyRaceSidecars(activeRace.id, sidecars, gpxPreview);
@@ -2021,7 +2055,10 @@ export function OrganizerDashboard({
         raceId: activeRace.id,
         editionYear: getRaceEditionYear(activeRace, eventDetail?.editions),
         daysUntilRace: getDaysUntilDate(activeRace.race_date),
-        changedFields: ["aid_stations"],
+        changedFields: [
+          ...(raceModules?.aid_stations ?? true ? ["aid_stations"] : []),
+          ...(raceModules?.supporter_points ?? true ? ["supporter_points"] : []),
+        ],
         saveMode: options.background ? "background" : "manual",
       });
       clearDirty(["aidStations"], options.scopeRevision);
@@ -2044,7 +2081,7 @@ export function OrganizerDashboard({
       return false;
     }
     const data = (await response.json().catch(() => null)) as { products?: StationProduct[] } | null;
-    const currentSidecars = readOrganizerRaceSidecarsCache(activeRace.id) ?? { aidStations, relayPoints, stationProducts };
+    const currentSidecars = readOrganizerRaceSidecarsCache(activeRace.id) ?? { aidStations, relayPoints, stationProducts, supporterPoints };
     const productsById = new Map([
       ...catalogProducts.map((product) => [product.id, product] as const),
       ...currentSidecars.stationProducts.flatMap((link) => (link.product ? [[link.productId, link.product] as const] : [])),
@@ -2110,7 +2147,7 @@ export function OrganizerDashboard({
         return;
       }
       if (data?.product && data.stationProduct) {
-        const currentSidecars = readOrganizerRaceSidecarsCache(activeRace.id) ?? { aidStations, relayPoints, stationProducts };
+        const currentSidecars = readOrganizerRaceSidecarsCache(activeRace.id) ?? { aidStations, relayPoints, stationProducts, supporterPoints };
         const sidecars = {
           ...currentSidecars,
           stationProducts: [...currentSidecars.stationProducts, { ...data.stationProduct, product: data.product }],
@@ -3005,6 +3042,7 @@ export function OrganizerDashboard({
     branding: "branding",
     sponsors: "sponsors",
     aid_stations: "aidStations",
+    supporter_points: "aidStations",
     awards: "awards",
     official_products: "products",
   };
@@ -3012,6 +3050,7 @@ export function OrganizerDashboard({
     if (!module.enabled) return [];
     if (module.key === "start_waves") return currentStartWaveCount > 0 ? [module.key] : [];
     if (module.key === "relay") return relayPoints.length > 0 ? [module.key] : [];
+    if (module.key === "supporter_points") return supporterPoints.length > 0 ? [module.key] : [];
     if (module.key === "official_products") return stationProducts.length > 0 ? [module.key] : [];
     const moduleId = moduleIdByKey[module.key];
     const summaries = module.scope === "edition" ? completion?.eventModules : completion?.formatModules;
@@ -3042,7 +3081,7 @@ export function OrganizerDashboard({
             : null;
   const activeModuleChoice = activeModule === "aidStations"
     ? visibleModuleChoices
-        .filter((module) => ["aid_stations", "start_waves", "relay"].includes(module.key) && module.state === "draftOnly")
+        .filter((module) => ["aid_stations", "supporter_points", "start_waves", "relay"].includes(module.key) && module.state === "draftOnly")
         .sort((left, right) => ORGANIZER_TIER_RANK[right.minimumTier] - ORGANIZER_TIER_RANK[left.minimumTier])[0]
       ?? visibleModuleChoices.find((module) => module.key === "aid_stations")
       ?? null
@@ -3530,6 +3569,9 @@ export function OrganizerDashboard({
             <AidStationsEditor
               activeRace={activeRace}
               aidStations={aidStations}
+              supporterPoints={supporterPoints}
+              supporterPointsEnabled={Boolean(activeRace && (moduleSettings?.races[activeRace.id]?.supporter_points ?? true))}
+              gpxPreview={gpxPreview}
               participationMode={raceForm.participationMode}
               relayPoints={relayPoints}
               startTime={currentStartTime}
@@ -3597,12 +3639,39 @@ export function OrganizerDashboard({
                 ]);
                 markDirty("aidStations");
               }}
+              onAddSupporterPoint={() => {
+                setSupporterPoints((current) => [
+                  ...current,
+                  {
+                    name: `Point supporter ${current.length + 1}`,
+                    distanceKm: null,
+                    encouragementAllowed: true,
+                    assistanceAllowed: false,
+                    accessLabel: "",
+                    latitude: null,
+                    longitude: null,
+                    googleMapsUrl: null,
+                    accessOnCourse: false,
+                    accessNote: "",
+                    planUrl: "",
+                  },
+                ]);
+                markDirty("aidStations");
+              }}
               onUpdateRelayPoint={(index, point) => {
                 setRelayPoints((current) => current.map((item, pointIndex) => pointIndex === index ? point : item));
                 markDirty("aidStations");
               }}
               onRemoveRelayPoint={(index) => {
                 setRelayPoints((current) => current.filter((_, pointIndex) => pointIndex !== index));
+                markDirty("aidStations");
+              }}
+              onUpdateSupporterPoint={(index, point) => {
+                setSupporterPoints((current) => current.map((item, pointIndex) => pointIndex === index ? point : item));
+                markDirty("aidStations");
+              }}
+              onRemoveSupporterPoint={(index) => {
+                setSupporterPoints((current) => current.filter((_, pointIndex) => pointIndex !== index));
                 markDirty("aidStations");
               }}
               onToggleStationRelayPoint={(station, checked) => {

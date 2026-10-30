@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -55,6 +55,8 @@ related_tables:
 
 # Organizer Commercial Offers
 
+The `supporter_points` module remains an independent Essentiel module. Selecting an existing ravito or deriving access from the course GPX is editor convenience only and does not couple its entitlement to `aid_stations`.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
@@ -70,7 +72,7 @@ Published organizer proof cards on the same page are independent editorial recor
 | Offer | HT per edition | Main rights |
 | --- | ---: | --- |
 | Visibilité | Free | Public catalog only. |
-| Essentiel | 99 € | RaceBook publication, basic equipment/bib/access, simple aid stations. |
+| Essentiel | 99 € | RaceBook publication, basic equipment/bib/access, simple aid stations and supporter points. |
 | Complet | 199 € | Essential plus advanced fields and per-format overrides, SAS, detailed aid stations, services, awards, notifications and duplication. |
 | Signature | 349 € | Complete plus relay, official products, sponsors/clicks, branding, assisted import and RaceBook analytics. |
 
@@ -80,7 +82,7 @@ Direct purchases are 99/199/349 €. Valid upgrades are Essential→Complete 100
 
 Uploading, replacing, choosing the RaceBook visibility of, or deleting a format GPX remains part of the permanent Course/GPX editor and does not require an offer upgrade. Deletion preserves stored course metrics and aid stations.
 
-`event` and Course/GPX are permanent. Edition modules are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Format modules are `aid_stations`, `start_waves`, `awards`, `relay`, `official_products`. Equipment, bib and access format overrides are centralized advanced groups requiring Complet; the editor marks them once with `Options avancées · Complet` instead of adding field badges.
+`event` and Course/GPX are permanent. Edition modules are `equipment`, `bib_pickup`, `access`, `services`, `branding`, `sponsors`. Format modules are `aid_stations`, `supporter_points`, `start_waves`, `awards`, `relay`, `official_products`. `supporter_points`, presented as **Suivi coureur**, belongs to Essentiel, defaults to enabled, participates in the Essentiel publication scope, and remains independent from `aid_stations`. Equipment, bib and access format overrides are centralized advanced groups requiring Complet; the editor marks them once with `Options avancées · Complet` instead of adding field badges.
 
 The states are:
 

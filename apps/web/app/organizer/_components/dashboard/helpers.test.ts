@@ -10,6 +10,7 @@ import {
   createRaceFormFromEventDefaults,
   filterRaceSeriesGroupsForWorkspace,
   getGpxElevationTotalsAtDistance,
+  getGpxCoordinateAtDistance,
   getOrganizerDirtyScopeKey,
   getRaceEditionYear,
   isOrganizerScopeSavePending,
@@ -216,6 +217,23 @@ describe("organizer dashboard helpers", () => {
       cumulativeElevationGainM: 550,
       cumulativeElevationLossM: 175,
     });
+  });
+
+  it("interpolates the course coordinate used by same-place supporter access", () => {
+    const coordinatePreview: GpxPreview = {
+      ...preview,
+      elevationProfile: [
+        { distanceKm: 0, elevationM: 500, lat: 45, lon: 4 },
+        { distanceKm: 10, elevationM: 900, lat: 46, lon: 6 },
+      ],
+    };
+
+    expect(getGpxCoordinateAtDistance(coordinatePreview, 2.5)).toEqual({
+      latitude: 45.25,
+      longitude: 4.5,
+    });
+    expect(getGpxCoordinateAtDistance(coordinatePreview, 10.1)).toBeNull();
+    expect(getGpxCoordinateAtDistance(preview, 5)).toBeNull();
   });
 
   it("clamps cumulative elevation totals before start and after finish", () => {

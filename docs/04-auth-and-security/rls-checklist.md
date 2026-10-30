@@ -1,10 +1,11 @@
 ---
 title: RLS Checklist
 scope: auth
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations
+  - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
@@ -53,6 +54,7 @@ related_files:
   - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
+  - supabase/tests/plan_source_revision_checks.sql
   - supabase/migrations/20260910204823_add_organizer_dashboard_onboarding.sql
   - supabase/tests/organizer_dashboard_onboarding_checks.sql
   - supabase/tests/organizer_edition_entitlements_checks.sql
@@ -162,6 +164,7 @@ Use:
 - `supabase/tests/web_race_visibility_checks.sql` for web/mobile separation, masked-row client denial, trigger security, and forced clearing of non-public web state;
 - `supabase/tests/racebook_sponsors_checks.sql` for sponsor-table RLS/privileges, edition limits, loading limits, and atomic aggregate click/impression increments against an already-published, preview-visible fixture;
 - `supabase/tests/organizer_atomic_course_collections_checks.sql` for client execute revocations, parent ownership validation and rollback of Organizer collection/product mutations;
+- `supabase/tests/plan_source_revision_checks.sql` for client execute revocations on trigger helpers, authenticated owner-only acknowledgement, null-safe no-op guards, parent revision propagation, and plan review initialization;
 - `supabase/tests/racebook_branding_checks.sql` for service-only branding privileges, one-row edition scope, cascade, checked colors, and atomic draft publication;
 - `supabase/tests/racebook_gear_checks.sql` for authenticated-only grants, owner-scoped select/insert/delete policies, immutable append/remove state, and user/race cascades;
 - `supabase/tests/organizer_edition_entitlements_checks.sql` for Stripe/manual recalculation, complimentary-override conversion, duplicate/downgrade rejection, invoice-bucket privacy configuration, and bank-transfer RPC privileges;
@@ -221,6 +224,8 @@ Use:
 - `organizer_social_proofs` is intentionally service-only. Its public use is a sanitized server-rendered projection; never expose drafts, consent timestamps, actor ids, or direct client table access.
 
 ## Related Docs
+
+For `race_supporter_points`, tests verify grants separately from policies: clients receive SELECT only, incomplete rows fail the SELECT predicate, and only `service_role` can execute the atomic replacement RPC.
 
 - [RLS Policies](../02-database/rls-policies.md)
 - [Race Slug Redirects](../02-database/tables/race-slug-redirects.md)

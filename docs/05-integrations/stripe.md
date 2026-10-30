@@ -1,7 +1,7 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-09-11
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
@@ -122,6 +122,8 @@ Checkout enables Stripe Tax, billing address and tax-id collection, and invoice 
 The authenticated organizer invoice download route retrieves `invoice_pdf` from the stored Invoice id. For historical rows without that id, it retrieves the bound Checkout Session once, persists its Invoice reference, then resolves the PDF. A missing Invoice or `invoice_pdf` is returned as “still being prepared”; Stripe identifiers are never returned in the organizer list DTO.
 
 Before creating the Checkout Session, the server recomputes the minimum publication tier from selected, populated persisted modules and records that recommendation in Checkout and PaymentIntent metadata. The requested target tier still determines the server-owned Price: choosing a lower paid tier is valid, with higher-tier draft sections retained but excluded from public responses.
+
+`supporter_points`, presented to organizers as **Suivi coureur**, is a default-enabled Essential format module. Its inclusion in the server-side module set, including the compatibility default for an omitted legacy setting, does not create a distinct Price or raise the publication recommendation above Essential.
 
 Any refund event, including partial, marks its organizer transaction refunded; a new dispute marks a paid transaction disputed. Both recalculate the edition and can hide modules or the complete RaceBook without hiding catalog formats. An upgrade is valid only while its paid base path remains valid. A dispute closed as won restores only a currently disputed transaction; a lost dispute remains invalid. Duplicate or out-of-order webhook delivery is safe because transitions are status-filtered and recalculation derives state from the complete valid ledger.
 

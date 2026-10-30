@@ -291,6 +291,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     );
 
     expect(source).toContain('{ id: "aidStations", label: "Ravitos" }');
+    expect(source).toContain('{ id: "supporters", label: "Suivi coureur" }');
     expect(source).toContain('{ id: "relay", label: "Relais" }');
     expect(source.match(/view: "aidStations"/g)).toHaveLength(2);
     expect(source).toContain('viewState.view : "aidStations"');
@@ -305,6 +306,12 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).not.toContain('label="Passage prévu"');
     expect(source).not.toContain('label="Note de passage"');
     expect(source).not.toContain('" - Barrière à définir"');
+
+    const dashboardSource = readFileSync(
+      resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"),
+      "utf8",
+    );
+    expect(dashboardSource).toContain("(raceModules?.supporter_points ?? true)");
   });
 
   it("keeps the earliest SAS synchronized with the shared start-time card", () => {

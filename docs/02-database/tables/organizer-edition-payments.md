@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-09-16
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -91,6 +91,7 @@ The atomic `record_admin_organizer_bank_transfer_invoice` wrapper is likewise ex
 
 - Server code selects the Price and expected amount; clients never supply a Price id or amount.
 - Checkout recomputes the populated-module publication requirement server-side and records it in Stripe metadata; it does not create extra entitlement rows for private draft access. When checkout started from `Publier`, its success URL also carries a non-authoritative publication intent: the dashboard waits for webhook-confirmed entitlement, then calls the protected edition publication route for preview-selected formats.
+- The default-enabled `supporter_points` format module (labelled **Suivi coureur**) is included in the server-side module set as an Essential capability. It therefore does not change the Essential price or create a separate payment path, including for legacy settings payloads that omit its key.
 - Existence probes used by that recomputation parse only the response array and select an actual table column; edition branding must project its `edition_id` primary key rather than a nonexistent `id`.
 - Any refund event, including partial, and any open/lost dispute invalidates the complete transaction. A dispute closed as won restores only a row currently marked `disputed`.
 - Recalculation uses valid paid transaction paths, so a refunded/disputed base invalidates its dependent upgrade, and preserves admin overrides.

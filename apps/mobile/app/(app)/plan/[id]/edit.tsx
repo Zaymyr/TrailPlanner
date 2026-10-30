@@ -19,6 +19,7 @@ import {
 import { Text } from '../../../../components/themed/Text';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter, Stack } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { supabase } from '../../../../lib/supabase';
 import PlanForm, { PlanFormValues, Supply, type ElevationPoint } from '../../../../components/PlanForm';
 import type { PlanProduct } from '../../../../components/plan-form/contracts';
@@ -32,6 +33,10 @@ import {
   PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT,
 } from '../../../../components/plan-workspace/PlanWorkspaceHeader';
 import { PlanWorkspaceTabBar } from '../../../../components/plan-workspace/PlanWorkspaceTabBar';
+import {
+  RACE_WORKSPACE_SWITCH_HEIGHT,
+  RaceWorkspaceSwitch,
+} from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
@@ -48,11 +53,13 @@ import {
   clearPlanEditDraft,
   clearPendingPlanEditHelp,
   clearPlanEditProductsBootstrap,
+  consumePlanWorkspaceWarmStart,
   getPendingPlanEditHelp,
   getPlanEditDraft,
   getPlanEditProductsBootstrap,
   setActivePlanEditSession,
-  setPlanEditDraft
+  setPlanEditDraft,
+  stagePlanWorkspaceWarmStart,
 } from '../../../../lib/planEditSession';
 import { clearPendingOnboardingTransition } from '../../../../lib/onboardingTransition';
 import {
@@ -62,6 +69,7 @@ import {
   formatDuration,
 } from '../../../../lib/planSummary';
 import { calculateElevationLoss, formatAveragePace, normalizePlanWorkspaceTab, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
+import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import {
   buildPersistedPlannerValues,
   createPlanPersistenceSnapshot,
@@ -90,6 +98,7 @@ type RacePlanRow = {
     segments?: Record<string, any[]>;
     sectionSegments?: Record<string, any[]>;
     aidStations?: {
+      sourceAidStationId?: string;
       name: string;
       distanceKm: number;
       waterRefill: boolean;
@@ -122,6 +131,7 @@ function planRowToFormValues(plan: RacePlanRow): PlanFormValues {
     startSupplies: (pv.startSupplies ?? []).map((s): Supply => ({ productId: s.productId, quantity: s.quantity ?? 1 })),
     sectionSegments: (pv.sectionSegments ?? pv.segments) as PlanFormValues['sectionSegments'],
     aidStations: (pv.aidStations ?? []).map((s) => ({
+      ...(s.sourceAidStationId ? { sourceAidStationId: s.sourceAidStationId } : {}),
       name: s.name,
       distanceKm: s.distanceKm,
       waterRefill: s.waterRefill !== false,
@@ -152,15 +162,40 @@ function getUnsavedPlanEditDraft(planId: string) {
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
 
 export default function EditPlanScreen() {
-  const { id, showHelp, tab, share } = useLocalSearchParams<{ id: string; showHelp?: string; tab?: string; share?: string }>();
+  const { id, showHelp, tab, share, racebookTab, racebookCourseTab, targetAidStationId, planWarmStartToken } = useLocalSearchParams<{
+    id: string;
+    showHelp?: string;
+    tab?: string;
+    share?: string;
+    racebookTab?: string;
+    racebookCourseTab?: string;
+    targetAidStationId?: string;
+    planWarmStartToken?: string;
+  }>();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { locale, t } = useI18n();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [activeTab, setActiveTab] = useState<PlanWorkspaceTab>(() => normalizePlanWorkspaceTab(tab));
-  const initialWarmStartDraft = id ? getUnsavedPlanEditDraft(id) : null;
-  const initialWarmStartProductData = id ? getPlanEditProductsBootstrap(id) : null;
+  const workspaceWarmStartRef = useRef<{
+    routeKey: string;
+    value: ReturnType<typeof consumePlanWorkspaceWarmStart>;
+  } | null>(null);
+  const workspaceWarmStartRouteKey = `${id ?? ''}:${planWarmStartToken ?? ''}`;
+  if (workspaceWarmStartRef.current?.routeKey !== workspaceWarmStartRouteKey) {
+    workspaceWarmStartRef.current = {
+      routeKey: workspaceWarmStartRouteKey,
+      value: id ? consumePlanWorkspaceWarmStart(id, planWarmStartToken) : null,
+    };
+  }
+  const routeWorkspaceWarmStart = workspaceWarmStartRef.current.value?.planId === id
+    ? workspaceWarmStartRef.current.value
+    : null;
+  const initialWarmStartDraft = routeWorkspaceWarmStart?.draft
+    ?? (id ? getUnsavedPlanEditDraft(id) : null);
+  const initialWarmStartProductData = routeWorkspaceWarmStart?.products
+    ?? (id ? getPlanEditProductsBootstrap(id) : null);
   const hasInitialWarmStart = Boolean(initialWarmStartDraft && initialWarmStartProductData);
   const tutorialSteps = useMemo<TutorialStep<PlanEditTutorialTargetKey>[]>(
     () => [
@@ -222,6 +257,10 @@ export default function EditPlanScreen() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [linkedRaceId, setLinkedRaceId] = useState<string | null>(null);
+  const [racebookAvailable, setRacebookAvailable] = useState(false);
+  const [sourceRevisionAtLastReview, setSourceRevisionAtLastReview] = useState<string | null>(null);
+  const [currentSourceRevision, setCurrentSourceRevision] = useState<string | null>(null);
   const [draftSnapshot, setDraftSnapshot] = useState<string | null>(() =>
     initialWarmStartDraft
       ? serializePlanValues(initialWarmStartDraft.values, initialWarmStartDraft.elevationProfile)
@@ -266,6 +305,38 @@ export default function EditPlanScreen() {
   useEffect(() => {
     setActiveTab(normalizePlanWorkspaceTab(tab));
   }, [tab]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLinkedRaceId(null);
+    setRacebookAvailable(false);
+    setSourceRevisionAtLastReview(null);
+    setCurrentSourceRevision(null);
+    if (!id) return () => { cancelled = true; };
+
+    void (async () => {
+      const { data: plan } = await supabase
+        .from('race_plans')
+        .select('race_id,source_revision_at_last_review')
+        .eq('id', id)
+        .maybeSingle();
+      if (cancelled || !plan?.race_id) return;
+
+      setLinkedRaceId(plan.race_id);
+      setSourceRevisionAtLastReview(plan.source_revision_at_last_review ?? null);
+      const { data: race } = await supabase
+        .from('races')
+        .select('id,plan_source_updated_at')
+        .eq('id', plan.race_id)
+        .maybeSingle();
+      if (!cancelled) {
+        setRacebookAvailable(Boolean(race?.id));
+        setCurrentSourceRevision(race?.plan_source_updated_at ?? null);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [id]);
 
   useEffect(() => {
     if (!tutorialVisible || !currentTutorialTargetKey) return;
@@ -330,8 +401,8 @@ export default function EditPlanScreen() {
   useEffect(() => {
     if (!id) return;
 
-    const cachedDraft = getUnsavedPlanEditDraft(id);
-    const cachedProductData = getPlanEditProductsBootstrap(id);
+    const cachedDraft = routeWorkspaceWarmStart?.draft ?? getUnsavedPlanEditDraft(id);
+    const cachedProductData = routeWorkspaceWarmStart?.products ?? getPlanEditProductsBootstrap(id);
 
     activeRouteIdRef.current = id;
     loadRequestIdRef.current += 1;
@@ -377,7 +448,7 @@ export default function EditPlanScreen() {
     setDraftSnapshot(null);
     setPlanProductData(null);
     setElevationProfile([]);
-  }, [id]);
+  }, [id, routeWorkspaceWarmStart]);
 
   const loadPlan = useCallback(async () => {
     if (!id) return;
@@ -767,10 +838,70 @@ export default function EditPlanScreen() {
     );
   }, [elevationProfile, id, liveValues, summaryProductMap]);
   const elevationLoss = useMemo(() => calculateElevationLoss(elevationProfile), [elevationProfile]);
+  const officialRevisionPending = Boolean(linkedRaceId) && isPlanSourceRevisionPending(
+    currentSourceRevision,
+    sourceRevisionAtLastReview,
+  );
   const averagePace = workspaceSummary
     ? formatAveragePace(workspaceSummary.totalDurationMin, workspaceSummary.distanceKm)
     : '—';
-  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + 16;
+  const revisionBannerHeight = officialRevisionPending ? 116 : 0;
+  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + revisionBannerHeight + 16;
+
+  const acknowledgeOfficialRevision = useCallback(async () => {
+    if (!id || !linkedRaceId) return;
+    const saved = await saveLatestDraft(false);
+    if (!saved) {
+      Alert.alert(t.common.error, t.profile.saveFailed);
+      return;
+    }
+    const { data: acknowledgedRevision, error: reviewError } = await supabase
+      .rpc('acknowledge_race_plan_source_revision', { p_plan_id: id });
+    const revisionToAcknowledge = typeof acknowledgedRevision === 'string'
+      ? acknowledgedRevision
+      : null;
+    if (reviewError || !revisionToAcknowledge) {
+      Alert.alert(t.common.error, t.profile.saveFailed);
+      return;
+    }
+    setCurrentSourceRevision(revisionToAcknowledge);
+    setSourceRevisionAtLastReview(revisionToAcknowledge);
+    captureAnalyticsEvent('official plan revision acknowledged', { race_id: linkedRaceId });
+  }, [id, linkedRaceId, saveLatestDraft, t.common.error, t.profile.saveFailed]);
+
+  const openLinkedRacebook = useCallback(async () => {
+    if (!linkedRaceId) return;
+    if (!racebookAvailable) {
+      Alert.alert(t.common.error, t.planWorkspace.racebookUnavailable);
+      return;
+    }
+    const saved = await saveLatestDraft(true);
+    if (!saved) {
+      Alert.alert(t.common.error, t.profile.saveFailed);
+      return;
+    }
+    const params = new URLSearchParams();
+    const latestDraft = latestDraftRef.current;
+    if (id && latestDraft && planProductData) {
+      const planWarmStartToken = stagePlanWorkspaceWarmStart(id, {
+        draft: {
+          elevationProfile: elevationProfileRef.current,
+          lastSavedSnapshot: lastSavedSnapshotRef.current,
+          planName: latestDraft.name || planName,
+          values: latestDraft,
+        },
+        products: planProductData,
+      });
+      params.set('planWarmStartToken', planWarmStartToken);
+    }
+    captureAnalyticsEvent('race workspace switched', { direction: 'plan_to_racebook' });
+    if (racebookTab) params.set('tab', racebookTab);
+    if (racebookCourseTab) params.set('courseTab', racebookCourseTab);
+    if (targetAidStationId) params.set('targetAidStationId', targetAidStationId);
+    if (id) params.set('planId', id);
+    const query = params.toString();
+    router.replace(`/(app)/race/${linkedRaceId}/racebook${query ? `?${query}` : ''}`);
+  }, [id, linkedRaceId, planName, planProductData, racebookAvailable, racebookCourseTab, racebookTab, router, saveLatestDraft, t.common.error, t.planWorkspace.racebookUnavailable, t.profile.saveFailed, targetAidStationId]);
 
   const handleWorkspaceScroll = useCallback((event: NativeSyntheticEvent<NativeScrollEvent>) => {
     scrollY.setValue(event.nativeEvent.contentOffset.y);
@@ -857,7 +988,7 @@ export default function EditPlanScreen() {
           id={id}
           onScroll={handleWorkspaceScroll}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + 16}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0)}
           onShareIntentConsumed={() => router.setParams({ share: undefined })}
           shareOnMount={share === '1'}
           summary={workspaceSummary}
@@ -893,10 +1024,11 @@ export default function EditPlanScreen() {
           compactBasicsByDefault
           contentTopInset={headerTopInset}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0)}
           onMissingFavoriteProducts={handleMissingFavoriteProducts}
           onWorkspaceScroll={handleWorkspaceScroll}
           showActions={false}
+          targetAidStationId={targetAidStationId}
           surface={activeTab === 'settings' ? 'settings' : 'plan'}
           tutorial={{
             scrollRef,
@@ -924,6 +1056,38 @@ export default function EditPlanScreen() {
         topInset={insets.top}
         totalTime={workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—'}
       />
+      {linkedRaceId ? (
+        <RaceWorkspaceSwitch
+          active="plan"
+          compactHeaderHeight={PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          expandedHeaderHeight={PLAN_WORKSPACE_HEADER_BODY_HEIGHT}
+          onOpenPlan={() => undefined}
+          onOpenRacebook={() => { void openLinkedRacebook(); }}
+          racebookDisabled={!racebookAvailable}
+          scrollY={scrollY}
+          topInset={insets.top}
+        />
+      ) : null}
+      {officialRevisionPending ? (
+        <View
+          style={[
+            styles.revisionAlert,
+            { top: insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 8 },
+          ]}
+        >
+          <View style={styles.revisionAlertCopy}>
+            <Ionicons color={Colors.warning} name="alert-circle-outline" size={18} />
+            <Text style={styles.revisionAlertText}>
+              {locale === 'fr'
+                ? 'Les informations officielles ont changé. Vérifie ton plan : aucun choix personnel ne sera modifié automatiquement.'
+                : 'Official race information changed. Review your plan: no personal choice will be changed automatically.'}
+            </Text>
+          </View>
+          <Pressable accessibilityRole="button" onPress={() => { void acknowledgeOfficialRevision(); }} style={styles.revisionAlertAction}>
+            <Text style={styles.revisionAlertActionText}>{locale === 'fr' ? 'J’ai vérifié mon plan' : 'I reviewed my plan'}</Text>
+          </Pressable>
+        </View>
+      ) : null}
       <PlanWorkspaceTabBar
         activeTab={activeTab}
         onExit={handleBackToPlans}
@@ -950,6 +1114,11 @@ export default function EditPlanScreen() {
 }
 
 const styles = StyleSheet.create({
+  revisionAlert: { position: 'absolute', left: 16, right: 16, zIndex: 8, gap: 8, borderWidth: 1, borderColor: Colors.warning, borderRadius: 16, padding: 11, backgroundColor: Colors.warningSurface },
+  revisionAlertCopy: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  revisionAlertText: { flex: 1, color: Colors.textPrimary, fontSize: 12, lineHeight: 17, fontWeight: '600' },
+  revisionAlertAction: { minHeight: 38, alignItems: 'center', justifyContent: 'center', alignSelf: 'flex-end', borderRadius: 19, paddingHorizontal: 13, backgroundColor: Colors.brandPrimary },
+  revisionAlertActionText: { color: Colors.textOnBrand, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,

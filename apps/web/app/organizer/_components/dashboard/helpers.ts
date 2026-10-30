@@ -524,6 +524,32 @@ export const syncAidStationWithGpxPreview = (station: AidStationDraft, preview: 
   };
 };
 
+export const getGpxCoordinateAtDistance = (
+  preview: GpxPreview | null,
+  distanceKm: number,
+): { latitude: number; longitude: number } | null => {
+  if (!Number.isFinite(distanceKm)) return null;
+  const points = (preview?.elevationProfile ?? [])
+    .filter((point) => Number.isFinite(point.distanceKm) && Number.isFinite(point.lat) && Number.isFinite(point.lon))
+    .slice()
+    .sort((left, right) => left.distanceKm - right.distanceKm);
+  if (points.length === 0) return null;
+
+  const first = points[0];
+  const last = points.at(-1) ?? first;
+  if (distanceKm < first.distanceKm || distanceKm > last.distanceKm) return null;
+  const upperIndex = points.findIndex((point) => point.distanceKm >= distanceKm);
+  const upper = points[Math.max(0, upperIndex)] ?? last;
+  const lower = points[Math.max(0, upperIndex - 1)] ?? upper;
+  const spanKm = upper.distanceKm - lower.distanceKm;
+  const ratio = spanKm > 0 ? (distanceKm - lower.distanceKm) / spanKm : 0;
+
+  return {
+    latitude: (lower.lat as number) + ((upper.lat as number) - (lower.lat as number)) * ratio,
+    longitude: (lower.lon as number) + ((upper.lon as number) - (lower.lon as number)) * ratio,
+  };
+};
+
 export const syncAidStationsWithGpxPreview = (stations: AidStationDraft[], preview: GpxPreview | null): AidStationDraft[] => {
   if (!preview?.elevationProfile?.length) return stations;
 
@@ -541,7 +567,7 @@ export function getModuleTitle(moduleId: OrganizerModuleId) {
   const titles: Record<OrganizerModuleId, string> = {
     event: "Informations",
     formats: "Formats & GPX",
-    aidStations: "Départ, ravitos & relais",
+    aidStations: "Départ, ravitos, suivi coureur & relais",
     equipment: "Matériel",
     bibPickup: "Dossard",
     access: "Accès",
@@ -558,7 +584,7 @@ export function getModuleDescription(moduleId: OrganizerModuleId) {
   const descriptions: Record<OrganizerModuleId, string> = {
     event: "Les informations principales qui cadrent l'événement.",
     formats: "Les formats restent en onglets, avec résumé et actions rapides.",
-    aidStations: "SAS, départ, arrivée, ravitos et relais dans une même vue.",
+    aidStations: "SAS, départ, arrivée, ravitos, suivi coureur et relais dans une même vue.",
     equipment: "Le matériel partagé se gère depuis l'événement, puis chaque course peut l'ajuster.",
     bibPickup: "Retrait dossard commun à tous les formats.",
     access: "Accès et sections optionnelles selon l'onglet actif.",

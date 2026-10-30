@@ -1,7 +1,7 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -21,6 +21,8 @@ related_tables:
 
 # `race_awards`
 
+RaceBook personal passage-time interpolation is client-only and does not alter this table's awards contract.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose and invariants
@@ -28,6 +30,8 @@ related_tables:
 Awards require Complete or Signature plus an active `awards` format module. Disabling masks published rows and blocks organizer writes without deleting them.
 
 Stores the podium programme for a format, not finisher results. A row records a preset (`scratch`, `u18`, `u20`, `u23`, `senior`, `master`) or custom category, its persisted display label, audience, inclusive rewarded-place range, required podium time, optional location and reward/note.
+
+The owner-only plan reflection in the mobile Livret does not personalize, reorder, or otherwise change the public awards collection.
 
 Rows are ordered, replaced atomically with stable submitted ids, cascade with their format and are copied during Pro edition duplication. Public and organizer-preview reads use RLS; mutations only pass through the Organizer API after `racebook_content.manage` authorization.
 
@@ -60,3 +64,7 @@ Per-format GPX map/profile choices affect only the `Tracé` cards and remain ind
 Fullscreen course visuals and tappable ravito markers remain presentation-only and do not change podium grouping, ordering, or persistence.
 
 Global Booking and Decathlon actions are loaded through their own server-mediated contract. Booking renders in the permanent Services tab, while Decathlon renders in Matériel above required equipment. Neither action reads, filters, or alters award rows or the conditional Podiums view.
+
+Supporter points are an independent Course collection and module. Their presence does not enable, hide, reorder, or otherwise modify award rows or the Podiums sub-tab.
+
+Switching from the Livret to an already saved personal plan can pass an owner-scoped plan identifier and reuse a short-lived editor warm state scoped to that exact plan id. The plan's duration, pace and resolved departure render in the owner-specific hero, while ravito passage, segment duration and late-cutoff warning remain Course presentation; none enters the public awards snapshot or changes Podiums availability.

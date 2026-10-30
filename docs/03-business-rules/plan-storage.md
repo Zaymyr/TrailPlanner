@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -25,10 +25,17 @@ related_files:
   - apps/mobile/components/plan-workspace/PlanRecapContent.tsx
   - apps/mobile/lib/planWorkspace.ts
   - apps/mobile/lib/planWorkspace.test.ts
+  - apps/mobile/lib/planEditSession.ts
+  - apps/mobile/lib/planEditSession.test.ts
   - apps/mobile/lib/planShareLinks.ts
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/app/(app)/plan/new.tsx
   - apps/mobile/lib/planSummary.ts
+  - apps/mobile/lib/racebookPlanReflection.ts
+  - apps/mobile/lib/racebookPlanReflection.test.ts
+  - apps/mobile/lib/planSourceRevision.ts
+  - apps/mobile/lib/planSourceRevision.test.ts
+  - apps/mobile/components/racebook/RacebookPersonalPlanCard.tsx
   - apps/mobile/lib/raceLivePlan.ts
   - apps/mobile/lib/planSummary.test.ts
   - apps/mobile/lib/planDeparture.ts
@@ -59,6 +66,7 @@ This document explains where planner state lives before signup, during onboardin
 - Idempotency guard: client and server duplicate-save protection.
 - Aid station service flags: `waterRefill`, `solidRefill`, and `assistanceAllowed` are stored per station. Missing flags hydrate as enabled for backward compatibility on intermediate stations.
 - Organizer station products: optional source suggestions stored in planner JSON as a fallback snapshot, refreshed from the source race on read for plans linked to a `race_id`, and separate from station supplies until explicitly selected or auto-filled with the web opt-in.
+- RaceBook passage reflection: exact official-source matches and compatible interpolated stations expose the estimated clock passage plus pause-excluded expected segment durations in the Livret; pauses and products remain available in the plan workspace and are not duplicated in the ravito chronology.
 
 ## Onboarding Stage
 
@@ -90,6 +98,7 @@ On successful save, the flow stores `trailplanner.pendingPlanId`, marks `onboard
 Idempotency behavior:
 
 - if `catalogRaceId` exists, it checks for an existing plan by `user_id + race_id`;
+- the partial unique database index is the final concurrency guard, and a conflicting insert reloads the winning plan;
 - without a race id, it checks plans created in the last 60 seconds;
 - it inserts `race_plans` with `user_id`, `name`, `planner_values`, `elevation_profile`, and optional `race_id`.
 
@@ -125,6 +134,14 @@ Successful Web persistence emits the consent-gated `plan created` or `plan saved
 
 The mobile Plan onboarding now uses the ordinary Courses and Nutrition screens, then calls the standard `plan/new` catalog import. A successful `race_plans` insert marks the Plan tour completed and opens the existing editor tutorial; a failed insert leaves the tour in progress and does not create a false completion.
 
+Linked plan creation first resolves the existing `(user_id, race_id)` row before applying the free-plan limit. This applies to identified and anonymous Supabase sessions. A concurrent uniqueness conflict reloads that row instead of surfacing a creation failure. The mobile Livret and linked-plan editor share a persistent `Livret officiel | Mon plan` switch below their collapsing headers. Both directions use route replacement; entering the plan preserves the Livret tab/course-tab context, leaving the plan flushes the current draft first, and native back/exit still targets Courses or Plans rather than the opposite workspace. The editor may include its plan id as a return-route hint so the Livret can open that row immediately, but the Livret still reloads the `(user_id, race_id)` owner row on every focus and clears an invalid hint instead of entering the creation route.
+
+The general rule that a saved local draft must not bypass a fresh database read still applies to entries from Plans and other unrelated routes. The workspace switch is a narrow, one-use exception: after the plan-to-Livret save succeeds, mobile stages the current draft and product bootstrap in memory for the immediate return to that same plan. When the Livret was instead opened directly, it first reloads the owner-scoped row and then stages the persisted values, best available elevation profile and product bootstrap. Consuming either handoff avoids a second loading screen; the handoff is never persisted and its token plus returned `planId` must both match the current dynamic editor route. A route change therefore discards the previous format's warm start before any draft state or autosave target is initialized.
+
+The Livret keeps its public snapshot cache independent from owner data. In parallel, it may load the runner's linked plan to add expected duration and average pace, derived from the same total duration as the plan workspace, to the course identity metrics. The resolved personal/common/SAS departure appears once in the hero. The larger creation card remains only while no linked plan is known; an official-revision warning may still offer the explicit review action without recreating the removed summary card. Each matched official ravito shows a green `Passage prévu à : HH:mm` row aligned immediately above the official cutoff when a dated departure can be resolved. Consecutive plan arrival values also provide the blue connector's expected moving duration after subtracting the previous matched pause. When passage exceeds the first cutoff clock after departure, a semantic warning icon reveals a short explanation. Pressing the passage row is the targeted edit action and returns to the same Livret Course/Ravitos context; pause and product details remain only in the plan. Matching uses `sourceAidStationId` first; legacy plans may only fall back to a normalized name/kilometer match.
+
+Each source race has an official revision timestamp. When it is newer than the linked plan's `source_revision_at_last_review`, the Livret and plan editor warn the owner to review their choices. The explicit acknowledgement saves the durable draft before the owner-scoped `acknowledge_race_plan_source_revision` RPC atomically copies the linked race's current revision. Opening the Livret, opening the editor, or a normal autosave cannot acknowledge it; no organizer update automatically changes a runner's pace, pause, quantities, selected products, or `racebook_gear_checks` progress.
+
 When a guest reaches the one-plan limit, mobile opens the shared account prompt with separate account-creation and existing-account sign-in actions. The prompt runs before another insert and therefore does not create a duplicate or inaccessible `race_plans` row.
 
 When the in-app recap opens, mobile sends the regenerated recap snapshot to `apps/web/app/api/plan-shares/route.ts`; an explicit share reuses the same synchronization result. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token. Later recap refreshes update the existing snapshot and return the same URL, so previously distributed links immediately resolve to the latest regenerated values instead of becoming stale or requiring redirects. The mobile synchronizer deduplicates an in-flight or already completed request for an unchanged recap and retries after failure. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot remains separate from editable plan state and changes only when the authenticated recap is opened/refreshed or deliberately shared.
@@ -153,8 +170,11 @@ It:
 - `elevation_profile` is stored outside `planner_values`.
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
+- At most one non-detached plan exists for a user and source race; pre-index duplicates retain the most recently updated linked row and are detached without content deletion.
+- Mobile persistence preserves `sourceAidStationId` through creation, hydration, editing, and canonical saves.
 - Source organizer edits after import do not mutate existing saved plans.
 - Source station service-flag, GPX, pacing, and distance edits affect only future catalog imports, not already-saved plan JSON.
+- The RaceBook personal reflection must not join a legacy station by name/kilometer when that checkpoint already carries a different `sourceAidStationId`; source identity wins over fuzzy compatibility matching.
 - Source station-product link edits are the exception: `/api/plans` overlays current official ravito product suggestions at read time for plans with `race_id`, with the stored planner JSON as fallback.
 - Public crew recap links are snapshots. Opening the in-app recap after meaningful changes recalculates the plan and refreshes the reusable crew URL; an explicit share uses that same synchronized snapshot.
 - Public crew tracking state is intentionally separate from the plan snapshot. It may persist confirmed assistance passages and corrected departure time, but it must not feed back into `race_plans.planner_values`.
@@ -167,11 +187,13 @@ It:
 - Do not assume every saved plan has current planner JSON shape.
 - Legacy mobile rows may contain `Départ` or `Arrivée`; normalize them on the next write and exclude them from intermediate-ravito counts meanwhile.
 - Treat missing `solidRefill`, `waterRefill`, and `assistanceAllowed` values as enabled on intermediate aid stations.
+- Do not copy required-equipment checklist completion into `planner_values`: it remains owner-scoped state in `racebook_gear_checks`.
 - Clearing auth/session state should clear race planner local storage.
 - Updating by plan name in `/api/plans` can patch an existing plan rather than creating a new one.
 - Missing `organizerAidStationProducts` should be treated as no organizer suggestions. Older plans may not have this field, and plans without `sourceAidStationId` must keep matching official products by the legacy `name|km` key.
 - Mobile recap/share should save or read the current draft before deriving the checklist. Persist only the deliberate `plan_share_links.snapshot` public share record, not another editable plan-summary source of truth.
 - Do not compare mobile draft dirtiness from `planner_values` alone. A changed `elevation_profile` must trigger the same durable save, and a saved local cache must not bypass a fresh database load on the next editor opening.
+- Never reuse a workspace warm start after the route plan id changes. The token and returned `planId` are a pair; accepting content scoped to another plan can display and then autosave one format over another.
 - The in-app recap must reload the saved plan when it regains focus, then synchronize the recalculated public snapshot while keeping the stable share URL.
 - Do not derive recap totals or checkpoint passage times from the five-minute-rounded nutrition reminder timeline; use the exact section durations shared with the plan editor.
 - When rebuilding a stored mobile plan, preserve `planner_values.fatigueLevel`; defaulting it changes cards and recaps without changing the editor.

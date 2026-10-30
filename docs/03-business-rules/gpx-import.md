@@ -1,7 +1,7 @@
 ---
 title: GPX Import
 scope: business-rule
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/lib/gpx/parseGpx.ts
@@ -45,6 +45,8 @@ related_tables:
 ---
 
 # GPX Import
+
+The Organizer `Suivi coureur` editor may reuse the loaded GPX preview to interpolate an access coordinate at a supporter point's course kilometer. This is an authoring aid: it persists the resulting latitude/longitude and does not alter the source GPX. If the trace cannot cover the requested kilometer, the point stays an incomplete draft until a separate access address is selected or a usable GPX is provided.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -208,6 +210,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - The organizer Ravitos module mixes GPX-derived station rows with race-level start/finish schedule fields. Its save routing must persist the race details before the aid-station rows; the aid-station route cannot store `races.organizer_details.schedule`.
 - The shared organizer dashboard helper also normalizes unambiguous legacy departure clocks for the native time input. That form-only normalization must not alter GPX metrics, preview geometry, station interpolation, or save ordering.
 - Drafting several section switches in the Organizer chooser does not parse, upload, or reload GPX data; only the single successful module-settings save changes whether GPX-adjacent module UI is shown.
+- The default-enabled `supporter_points` module is labelled **Suivi coureur**. Loading its organizer sidecar when a legacy settings payload has no explicit key must not parse, alter, or derive GPX geometry.
 - The Organizer spotlight guide highlights only the active editor header, not the complete potentially oversized editor. This remains presentation-only and never parses, uploads, replaces, or reloads a GPX.
 - Separating edition-common and per-format switches in that chooser does not change GPX ownership: route geometry and its related controls remain attached to the targeted format.
 - Race-scoped autosave also includes format-specific bib-pickup, equipment, and access overrides; keep that metadata in the shared race-details save set when changing GPX or ravito navigation behavior.
@@ -236,6 +239,8 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 ## Related Docs
 
 Moving a format between Masqué, Privé, and Public changes neither its GPX object nor parsed metrics; preview and runner publication reuse the same trace. A failed Public transition under an already-active organizer offer remains an operational error rather than reopening checkout.
+
+Supporter-point `km` values may position the runner conceptually along the format, but GPX import never creates supporter points and never treats their access coordinates as course geometry. The organizer labels this default-enabled Essential module **Suivi coureur**; replacing a GPX preserves the collection, and the organizer must review any kilometer that no longer fits the updated distance.
 
 - [race_aid_stations](../02-database/tables/race-aid-stations.md)
 - [plan_aid_stations](../02-database/tables/plan-aid-stations.md)

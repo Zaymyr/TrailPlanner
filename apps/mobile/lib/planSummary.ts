@@ -24,6 +24,7 @@ export type PlanSummaryProduct = {
 
 export type PlanSummaryCheckpoint = {
   index: number;
+  sourceAidStationId: string | null;
   name: string;
   distanceKm: number;
   isStart: boolean;
@@ -309,6 +310,7 @@ export function buildPlanSummary(
 
     return {
       index,
+      sourceAidStationId: station.sourceAidStationId ?? null,
       name: station.name,
       distanceKm: station.distanceKm,
       isStart: station.id === DEPART_ID || index === 0,

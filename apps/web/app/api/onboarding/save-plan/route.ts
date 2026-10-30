@@ -67,6 +67,22 @@ export async function POST(request: Request) {
 
     const result = await response.json().catch(() => null);
     if (!response.ok || !result?.[0]) {
+      if (catalogRaceId && (response.status === 409 || result?.code === "23505")) {
+        const concurrentRes = await fetch(
+          `${serviceConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${userId}&race_id=eq.${catalogRaceId}&select=*&limit=1`,
+          {
+            headers: {
+              apikey: serviceConfig.supabaseServiceRoleKey,
+              Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+            },
+            cache: "no-store",
+          }
+        );
+        const concurrent = await concurrentRes.json().catch(() => []);
+        if (concurrentRes.ok && Array.isArray(concurrent) && concurrent[0]) {
+          return NextResponse.json({ plan: concurrent[0] }, { status: 200 });
+        }
+      }
       const errorText = !response.ok ? JSON.stringify(result) : "no row returned";
       console.error("[save-plan] Supabase insert failed:", response.status, errorText);
       return NextResponse.json({ message: "Unable to save plan." }, { status: 500 });

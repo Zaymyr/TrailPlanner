@@ -293,8 +293,8 @@ const buildFormatProgressModules = (
     },
     {
       id: "aidStations",
-      title: "Départ, ravitos & relais",
-      description: "Départ, arrivée, ravitos, relais, barrières et produits du format.",
+      title: "Départ, ravitos, suivi coureur & relais",
+      description: "Départ, arrivée, ravitos, points de suivi coureur, relais, barrières et produits du format.",
       level: "recommended",
       status: hasStartTime && hasFinishCutoff && hasAidStations
         ? "complete"
@@ -480,8 +480,8 @@ export function buildOrganizerCompletion(
     },
     {
       id: "aidStations",
-      title: "Départ, ravitos & relais",
-      description: "Départ, arrivée, ravitos, relais, barrières et produits officiels.",
+      title: "Départ, ravitos, suivi coureur & relais",
+      description: "Départ, arrivée, ravitos, suivi coureur, relais, barrières et produits officiels.",
       level: "recommended",
       status: activeAidStationStatus,
       countLabel: `${startWaveCount} SAS · ${activeAidStationCount} ravito${activeAidStationCount > 1 ? "s" : ""}${activeAidStationCount > 0 && linkedStationProductCount !== null ? ` · ${linkedStationProductCount} produit${linkedStationProductCount > 1 ? "s" : ""}` : ""}`,

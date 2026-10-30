@@ -1,10 +1,12 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-10-01
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
+  - apps/mobile/lib/racebookSupporterPoints.ts
+  - apps/mobile/lib/racebookSupporterPoints.test.ts
   - apps/mobile/lib/raceProfile.ts
   - apps/mobile/locales/fr.ts
   - apps/mobile/locales/en.ts
@@ -29,6 +31,7 @@ related_files:
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
   - apps/mobile/components/PlanLoadingScreen.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/RaceSelector.tsx
@@ -57,6 +60,8 @@ related_files:
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
+  - apps/mobile/components/racebook/RacebookSupporterPointsSection.tsx
+  - apps/mobile/components/racebook/RacebookPersonalPlanCard.tsx
   - apps/mobile/components/racebook/RacebookBibSection.tsx
   - apps/mobile/components/racebook/RacebookGearSection.tsx
   - apps/mobile/components/racebook/RacebookServicesSection.tsx
@@ -92,6 +97,8 @@ related_files:
   - apps/mobile/components/plan-workspace/PlanWorkspaceStickyBar.tsx
   - apps/mobile/lib/planWorkspace.ts
   - apps/mobile/lib/planWorkspace.test.ts
+  - apps/mobile/lib/planEditSession.ts
+  - apps/mobile/lib/planEditSession.test.ts
   - apps/mobile/lib/plansScreenBootstrap.ts
   - apps/mobile/components/plans/PlansList.tsx
   - apps/mobile/components/plans/plansHelpers.ts
@@ -110,6 +117,10 @@ related_files:
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/lib/planDeparture.ts
   - apps/mobile/lib/planDeparture.test.ts
+  - apps/mobile/lib/racebookPlanReflection.ts
+  - apps/mobile/lib/racebookPlanReflection.test.ts
+  - apps/mobile/lib/planSourceRevision.ts
+  - apps/mobile/lib/planSourceRevision.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/lib/racebookGearAnalytics.ts
@@ -132,6 +143,8 @@ related_tables:
 
 # Mobile App Architecture
 
+RaceBook ravito cards deliberately keep nutrition product lists and pause details out of the mobile chronology. They retain official service availability, cutoff/notes, segment metrics, and one compact green `Passage prévu à : HH:mm` row aligned with the red cutoff row beneath it. A matched plan adds its pause-excluded expected duration to each blue segment connector. When the passage is later than the cutoff, a semantic warning icon toggles a short explanation; product and pause data remain in the plan.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Plan list hierarchy
@@ -141,6 +154,14 @@ The mobile Plans screen groups saved plans by `races.race_events.id` and display
 ## Plan loading experience
 
 Plan creation, editing, recap, onboarding handoff, and live-mode preparation share `PlanLoadingScreen`. These operations combine network requests, local reads, entitlement checks, and synchronous calculations, so their percentage values are milestones rather than measurable elapsed progress. The UI must not expose a determinate progress bar or percentage: it uses an indeterminate branded trail animation, a context-specific title, the plan name once, and plain-language phase copy. Creation, editor, and recap routes also set their header while loading so a previous screen title or action cannot remain visible during navigation. When a load lasts longer than six seconds, a neutral reassurance appears without blaming the connection or promising a completion time. The component respects the system reduce-motion preference and exposes the active status as a polite busy accessibility announcement. The root Plans list uses the same shared indeterminate `LoadingState` as the other root tabs because it is a screen bootstrap rather than a plan calculation.
+
+## Linked race workspace
+
+A plan with a non-null `race_id` and its accessible Livret share a persistent segmented switch below their compact/collapsing headers. Navigation uses `replace`, so Android back and explicit exits keep their normal root destinations instead of building a Livret/plan loop. The Livret restores its main and Course sub-tabs from route parameters, and the same contract reserves a targeted official ravito id. Switching to the plan reuses the owner row or enters the standard race-seeded creation flow; switching back saves the current draft and remains in the plan on failure. The return route may carry the known plan id as an optimistic navigation hint, while the Livret revalidates the owner-scoped row every time it regains focus. After that owner check, the Livret prepares a one-use in-memory warm start from the persisted plan, best available elevation profile and product bootstrap; a just-saved editor handoff can provide the same data immediately. Every handoff carries and revalidates its exact plan id when a dynamic editor route changes, so a warm start from another format can never hydrate or overwrite the current plan. Both paths avoid another plan loading screen without becoming durable state or replacing the Supabase ownership check. Detached plans omit the switch, while an inaccessible source Livret is visually disabled and explains the condition when selected.
+
+The public RaceBook snapshot stays cacheable and unpersonalized. The route loads the owner-linked plan separately and adds its expected duration plus the same total-duration average pace as the plan workspace to the identity hero's course metrics. The resolved personal/common/SAS departure clock is shown once as a prominent hero value and removed from the Course summary and Ravitos departure card. The expanded hero removes unused lower space when no emergency contact is present while preserving the taller emergency layout. The larger personal-plan card is reserved for plan creation when no linked plan exists; a pending official revision uses a compact warning/review surface instead of restoring that summary. A matched ravito exposes only its estimated clock passage in a compact green row aligned immediately above the official cutoff; pressing that row opens the targeted existing-plan edit. Blue connectors derive their expected moving duration from consecutive plan arrivals after subtracting the previous checkpoint pause. A passage later than the first cutoff occurrence after departure exposes a semantic warning toggle. Pause and product details stay in the plan workspace. Official stations match by `sourceAidStationId`; a normalized name plus kilometer fallback is only for older checkpoints without a source id. Equipment completion remains in `racebook_gear_checks`, not planner JSON, even though it is no longer repeated in a course summary card.
+
+`races.plan_source_updated_at` is compared with the plan's explicitly acknowledged `source_revision_at_last_review`. A newer official revision shows a non-destructive alert in both workspaces. In the plan editor, `J'ai vérifié mon plan` first persists the current draft and only then records the acknowledgement; ordinary opening and autosave never dismiss the alert.
 
 ## Structured RaceBook modules
 
@@ -329,6 +350,10 @@ Primary colors style the image-backed identity hero, the softly tinted RaceBook 
 
 The same lightweight server bootstrap returns an effective boolean map for edition and format modules. Mobile entirely removes inactive or locked Matériel, Dossard and Accès tabs. Course and the global Services shell remain permanent; an inactive Services module removes organizer-authored service rows and its contextual sponsor surface but not the Booking action. Ravitos, SAS, Relais and Podiums sub-tabs follow their format settings; official products are removed from ravito cards independently. Sponsors and branding are returned only when effective. When an older server response omits the map during rolling deployment, normalization defaults every module to the historical visible behavior.
 
+`supporter_points` follows the same additive rolling-deployment contract. Missing `supporterPointRows` triggers a direct Supabase fallback during a staggered web/mobile rollout; its public RLS policy still returns only complete points for an effective module. The normalized, server-filtered collection is the sole mobile visibility authority: Course shows `Suivi coureur` when at least one complete point exists, without applying a second potentially stale module gate from the separately cached sponsor presentation. This does not broaden access because the snapshot endpoint and direct-read RLS already require the module to be effective. Its S1/S2 chronology aligns permission chips with the title/distance header, suppresses an access label that merely repeats the point name, and keeps Maps/external-plan controls icon-only without adding a general map or runner-specific passage time.
+
+The RaceBook reflects a direct personal checkpoint when an official ravito keeps its source id (or the bounded legacy name/kilometer match). For older or simplified plans that omit some official ravitos, passage times are interpolated between the surrounding personal checkpoints; personal pauses and products remain attached only to an actual matched checkpoint.
+
 ## Plan Share Links
 
 `apps/mobile/lib/planShareLinks.ts` calls `/api/plan-shares` through `WEB_API_BASE_URL`. The helper sends the current Supabase bearer token, the generated plan recap snapshot, locale, and departure time. Its screen-scoped synchronizer deduplicates identical background/share requests, refreshes the stable public snapshot when the recap opens or changes, and lets the explicit native-share action reuse the returned URL. The mobile app never generates database rows directly for public links and never handles service-role keys.
@@ -378,7 +403,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - Format-specific runner information is visible only when `access.overrideEnabled` and `access.enabledSections.runnerInfo` are both true; disabling either flag preserves the saved JSON while removing the identity-card block.
 - The always-present mobile Racebook `Services` tab groups effective structured rows by category. Each compact row keeps name, approximate distance, address and a two-line description beside icon-only 44-point actions for directions, website and phone; legacy category text shares one light card instead of creating one card per paragraph. Its partner card renders only the enabled server-resolved Booking destination. The enabled Decathlon destination is rendered in Matériel above the required checklist with its own affiliation disclosure and missing-required count.
 - For relay or mixed formats, `Course` reads published `race_relay_points` and derives successive legs from start to finish. It displays handover time, cutoff, and notes in a conditional `Relais` course sub-tab without importing those points into nutrition or a saved plan.
-- The mobile Racebook uses an image-backed identity hero with a primary-color overlay for event/format identity, course date, linked location, participation, distance, D+ and optional D-. The format image takes precedence over the event image, and a valid published edition logo sits on a neutral surface above the photograph. Participation is plain icon-led metadata rather than a second badge row. The title shares the return-action row, while official website, Instagram and Facebook actions stay at the right edge in both hero states. Scrolling progressively reduces the hero into the safe-area-aware sticky top header; focus resets the screen to its expanded top position. A valid emergency number occupies the expanded hero's lower free space with an explicit call action, then becomes one telephone icon before social actions when compact. Long compact titles truncate before this fixed action group. The available read-only sections use an inset-aware contextual bottom bar with a separated Courses exit. `Matériel` is an accessible checkbox list with an accent-colored completion summary; checks persist per account and exact race through owner-scoped Supabase rows, update optimistically, and roll back on failure. `Course` separates longer content into `Tracé`, `Ravitos`, and conditional sub-tabs. In `Ravitos`, the common start time is rendered directly below the departure title and the schedule finish cutoff directly below the arrival title, so the duplicated timing summary is omitted from that sub-tab. The ravito list uses one continuous chronology with equal vertical spacing around every segment: full-width unmarked departure and arrival cards sit at the content edge, while the rail leaves the first card, passes through indented numbered stations and segment distance/D+/D- summaries, then enters the finish card. A station already at race distance becomes that finish instead of another numbered ravito and still receives the schedule-level finish cutoff; otherwise the final segment is derived from race totals. Theme contrast-safe accent variants color checklist completion, non-semantic rail/structured-course cards, and decorative location/service actions across tabs, while warnings and information states keep app-owned semantic colors. Only stations with products or notes expand, one at a time. `Accès` retains its enabled-flag filtering, deduplicated locations, Maps actions, and collapsed parking/shuttle rows. Runner information stays in a neutral card only when present. Pull-to-refresh reloads RaceBook, profile, and route data while preserving successful content on refresh failure.
+- The mobile Racebook uses an image-backed identity hero with a primary-color overlay for event/format identity, course date, linked location, participation, distance, D+, optional D-, and the resolved departure clock. The format image takes precedence over the event image, and a valid published edition logo sits on a neutral surface above the photograph. Participation is plain icon-led metadata rather than a second badge row. The title shares the return-action row, while official website, Instagram and Facebook actions stay at the right edge in both hero states. Scrolling progressively reduces the hero into the safe-area-aware sticky top header; focus resets the screen to its expanded top position. A valid emergency number occupies the expanded hero's lower free space with an explicit call action, then becomes one telephone icon before social actions when compact. Long compact titles truncate before this fixed action group. The available read-only sections use an inset-aware contextual bottom bar with a separated Courses exit. `Matériel` is an accessible checkbox list with an accent-colored completion summary; checks persist per account and exact race through owner-scoped Supabase rows, update optimistically, and roll back on failure. `Course` separates longer content into `Tracé`, `Ravitos`, and conditional sub-tabs. The resolved departure is not repeated in Course summaries or the Ravitos start card; the schedule finish cutoff remains on arrival. The ravito list uses one continuous chronology with equal vertical spacing around every segment: full-width departure and arrival cards sit at the content edge, while the rail passes through indented numbered stations and segment distance/D+/D-/optional plan-duration summaries. A station already at race distance becomes that finish instead of another numbered ravito and still receives the schedule-level finish cutoff; otherwise the final segment is derived from race totals. Theme contrast-safe accent variants color checklist completion, non-semantic rail/structured-course cards, and decorative location/service actions across tabs, while warnings and information states keep app-owned semantic colors. Only stations with notes expand, one at a time. `Accès` retains its enabled-flag filtering, deduplicated locations, Maps actions, and collapsed parking/shuttle rows. Runner information stays in a neutral card only when present. Pull-to-refresh reloads RaceBook, profile, and route data while preserving successful content on refresh failure.
 - Guided onboarding must reuse the real Courses, Nutrition, plan, and RaceBook routes. Keep its contextual behavior behind the `onboarding` route parameter so ordinary navigation remains unchanged.
 - Keep onboarding skip durable in the per-tour status columns. `onboarding_completed_at` remains a legacy Plan-completion marker and must not be used to treat a skipped new tour as completed.
 - Favorite writes are available only for identified, non-anonymous sessions. Anonymous users can still browse the catalog and see the heart; pressing it opens the shared account prompt with separate create-account and existing-account actions, without calling the favorite API.
@@ -412,7 +437,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 
 ## Racebook Identity Presentation
 
-The identity hero shows the event and format names, the formatted course date, linked location, icon-led participation metadata, distance, D+ and optional D-. It uses the format thumbnail before the event thumbnail, then a strong primary-color overlay so `onPrimaryColor` remains readable. Accessible icon-only social actions remain at the right edge in both expanded and compact states with 44-point effective targets. `RacebookCollapsibleHero` owns its scroll-driven transition into the top safe area, uses the return row for its title, and keeps back navigation plus compact identity visible after the detailed metadata is clipped. When a valid emergency number exists, the expanded hero uses its lower free space for one aligned emergency label/contact/number line and a 44-point call action; the compact state keeps only a telephone icon immediately before social actions. Long compact titles truncate before that fixed action group. Runner information remains in a neutral detail card only when present.
+The identity hero shows the event and format names, the formatted course date, linked location, icon-led participation metadata, distance, D+ and optional D-. It uses the format thumbnail before the event thumbnail, then a strong primary-color overlay so `onPrimaryColor` remains readable. Accessible icon-only social actions remain at the right edge in both expanded and compact states with 44-point effective targets. `RacebookCollapsibleHero` owns its scroll-driven transition into the top safe area, uses the return row for its title, and keeps back navigation plus compact identity visible after the detailed metadata is clipped. Its expanded body is shorter when no emergency contact exists, keeping the switch close to the last metric; a valid emergency number retains the taller body for one aligned emergency label/contact/number line and a 44-point call action. The compact state keeps only a telephone icon immediately before social actions. Long compact titles truncate before that fixed action group. Runner information remains in a neutral detail card only when present.
 
 ## Related Docs
 

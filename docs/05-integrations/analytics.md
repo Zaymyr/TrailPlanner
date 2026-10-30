@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-10-01
+last_verified: 2026-10-29
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -50,6 +50,7 @@ related_files:
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/hooks/useGuestAccountPrompt.ts
   - apps/mobile/app/(app)/race/[id]/racebook.tsx
+  - apps/mobile/app/(app)/plan/[id]/edit.tsx
   - apps/mobile/components/racebook/RacebookAccessSection.tsx
   - apps/mobile/components/racebook/RacebookAidStationsSection.tsx
   - apps/mobile/components/racebook/RacebookElevationProfile.tsx
@@ -75,6 +76,8 @@ related_tables:
 ---
 
 # Analytics
+
+The compact aligned passage/cutoff reflection, late-warning disclosure, plan-derived segment duration, hero departure clock, title-aligned supporter permissions, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -139,6 +142,10 @@ The authenticated organizer dashboard adds a separate commercial funnel: `organi
 
 Organizer content analytics use `organizer_event_created` for the initial event, then `organizer race created`, `organizer event updated`, and `organizer race updated` for successful dashboard writes. The creation event includes the edition year and calendar days remaining before its start. Update events expose only technical ids, edition year, calendar `days_until_race`, manual/background save mode, and a comma-separated allowlist of changed field categories. They never send field values, event/race names, contact details, locations, URLs, or announcement copy. Aid-station replacement is counted as the `aid_stations` category. PostHog dashboards must exclude `$internal_or_test_user = true`; newly added update insights remain empty until the updated Web client is deployed and consented organizers save content.
 
+Supporter-point replacement uses the aggregate `supporter_points` changed-field category. Mobile route openings emit only the aggregate action and technical context; supporter names, addresses, coordinates, access notes, Maps URLs, and plan URLs are prohibited analytics properties.
+
+Selecting a source ravito, deriving a same-course GPX access coordinate, and hiding nutrition products in the mobile ravito chronology are presentation/editor details only and add no analytics properties.
+
 Opening, replaying, stepping through, or closing the Organizer spotlight guide emits no organizer content event. The guide waits for a cookie decision before presentation and suppresses the mobile-app prompt while active; this UI coordination must not be interpreted as analytics consent or as a saved organizer action.
 
 ## Web Plan Value Events
@@ -150,6 +157,8 @@ Opening, replaying, stepping through, or closing the Organizer spotlight guide e
 - public crew links emit `plan crew link opened` and `plan crew state updated` with aggregate checkpoint counts and a bounded action. They never include the secret URL token, plan name, or another direct identifier.
 
 Mobile additionally emits `race favorite updated` only after the server returns the persisted favorite set, and `push notification opened` after a notification interaction with a bounded notification kind/action. The optimistic heart animation, stable current ordering, in-memory quick-filter changes, and fourteen-day post-race visibility of an existing favorite emit no additional analytics event. Guest account gates emit `guest account prompt viewed` with a bounded `race_favorite` or `plan_limit` source, then `guest account conversion started` only when the runner chooses account creation or existing-account sign-in. Notification hrefs, message bodies, and guest-prompt copy are excluded.
+
+The linked mobile race workspace emits `race workspace switched` only after the user chooses a direction. Its payload is limited to `racebook_to_plan` or `plan_to_racebook` and, for the former, the bounded `open|create` action. It never contains plan values, an address, coordinates, notes, or free text.
 
 Courses root loading, retry, empty-result presentation, and pull-to-refresh emit no additional analytics event. A reload may update the ordinary catalog snapshot, but it must not be interpreted as a race selection, favorite mutation, or plan-creation click.
 
@@ -212,6 +221,8 @@ The mobile RaceBook emits `racebook opened` only after an accessible RaceBook ha
 
 The screen also emits `racebook tab viewed`, `racebook refreshed`, `racebook aid station opened`, `racebook access detail opened`, and `racebook action clicked` for Maps, official-site, social, emergency-call, Booking, and Decathlon actions. Partner presses use only the bounded `partner_booking` or `partner_decathlon` action; Booking uses the `services` context and Decathlon uses `equipment`. Neither the resolved destination, affiliation parameters, nor the derived missing-required count enters identified analytics. `racebook closed` summarizes foreground-only active duration, visited tab counts, action count, and an engagement flag when the focused screen is left. Force-closing the process may prevent that final summary from being delivered, so opening/retention analysis must use `racebook opened` as its durable base event. Resolved inaccessible routes emit `racebook unavailable viewed` with the requested race id.
 
+Linked-workspace navigation stays aggregate: the switch records only its direction and whether it opened or created the linked plan. The targeted personal-ravito edit carries the official station id, not name, kilometer, products, timing, or free text. `official plan revision acknowledged` carries only the stable `race_id`; it must never include the revision timestamp, the runner's plan contents, equipment state, or organizer-authored notes.
+
 After an owner-scoped Material insert/delete succeeds, mobile emits `racebook gear item toggled` with `checked`, `action: checked|unchecked`, `gear_group`, nullable organizer item id, a trimmed 160-character public item label, required state, and bounded weather context. It inherits the stable RaceBook event/race context. Failed optimistic writes emit nothing, and the event never includes the durable `item_key`, organizer note, or total checked count. The general RaceBook usage dashboard counts unique people from successful checks.
 
 For organizer reporting, mobile additionally emits one `racebook gear item state synced` event per currently published item after a successful non-empty checklist load and after persisted modifications settle. Each event carries `checked`, `state: checked|missing`, the same bounded public metadata, and a label-free `item_analytics_id`; it never carries the durable persistence key or organizer note. A zero-state load is not emitted until the runner has successfully interacted, so merely opening the Material tab does not classify every item as missing. The two organizer rankings take the latest observed state per person, race, and analytics item, then count unique people by item. They therefore describe checklist starters observed in the selected PostHog period, not every RaceBook reader or a transactional live snapshot.
@@ -222,7 +233,7 @@ The companion `racebook_gear_state_2026_09_28` import uses `scripts/backfill-rac
 
 Access and ravito UI now delegate interaction callbacks to focused presentational components. The route remains the analytics boundary: those components receive callbacks and must not import PostHog or attach organizer-authored content to events.
 
-The always-visible ravito segment chronology, full-width unmarked departure/arrival cards, endpoint-integrated start/finish times, and equally spaced right-indented distance/elevation connectors are presentation-only. The rail visually leaves the departure card and enters the finish card. Expanding a station still emits the existing `racebook aid station opened` event only when products or notes make that station expandable; endpoint and connector visibility add no new analytics event or property.
+The always-visible ravito chronology, full-width departure/arrival cards, hero-only departure clock, equally spaced distance/elevation/plan-duration connectors, identity duration/pace, aligned owner-only passage/cutoff rows, and late-warning disclosure are presentation-only. Pressing the personal passage row uses the existing bounded targeted-edit action, without a second CTA event; pressing the warning adds no event. Expanding a station still emits the existing `racebook aid station opened` event only when notes make that station expandable; endpoint, connector, and personal timing visibility add no new analytics event or property.
 
 Ravito points on the map/profile, their local detail selection or cursor-hover state, the below-chart cumulative distance/D+/D- cards, the compact fullscreen ravito-detail row, the map/profile fullscreen controls, the taller rotated landscape profile, and incomplete-GPX coverage warnings are presentation-only. They add no station name, note, cutoff, geometry, cursor position/totals, fullscreen state, or GPX completeness property to identified analytics events.
 
@@ -330,6 +341,7 @@ Sponsor reporting is deliberately separate from PostHog and Google Analytics. A 
 - Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require event selection, format selection, and successful-open events; search is optional because the initial eligible-course list is directly selectable.
 - Primary section selections from the contextual RaceBook bottom bar keep emitting `racebook tab viewed`. The hero return action, contextual Courses exit, and Android hardware back share the deterministic route replacement to Courses and emit `racebook action clicked` with the bounded action `exit_to_catalog`; they carry no organizer-authored content or sponsor identity.
 - RaceBook useful-action dashboards must exclude `racebook action clicked.action = exit_to_catalog`. They may include `catalog create plan clicked.action = create_plan` as the higher-value Courses follow-up, while retaining `plan created` for successful persistence rather than button intent.
+- Do not turn a source-revision acknowledgement into a content telemetry event. It is limited to a race identifier and proves neither that the runner altered their plan nor that an organizer change was accepted.
 - The scroll-driven identity hero height/collapse, focus-time scroll reset, title clipping, single-line emergency label/number layout, and persistent emergency/social-action placement are presentation state only. They emit no event and add no scroll offset, phone number, image URL, color, or logo property to RaceBook analytics; an actual emergency or social press keeps its existing bounded action event.
 - Material checklist state sync is limited to one bounded event per currently published item for users who started the checklist. Never attach persistence keys, notes, arbitrary organizer text, or aggregate checked totals. PostHog's latest observed state is period reporting, not the authoritative current state in `racebook_gear_checks`; users with no checklist row are intentionally absent from both organizer rankings. Expanded use of the published accent color across decorative RaceBook surfaces remains presentation-only.
 

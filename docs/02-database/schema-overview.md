@@ -177,6 +177,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 | `organizer_social_proofs` | Admin-curated edition proof cards with consent and aggregate RaceBook usage snapshots. |
 | `organizer_edition_payments` | Stripe and paid-bank-transfer history, generated invoice identities/legal snapshots, private PDF references, and ledger used to derive organizer edition rights. |
 | `race_aid_stations` | Aid stations attached to `races`, with service availability flags and optional organizer details. |
+| `race_supporter_points` | Format-scoped supporter encouragement and assistance locations, ordered by course kilometer with distinct access coordinates. |
 | `race_relay_points` | Ordered relay handover points, optionally linked to source aid stations. |
 | `race_event_claims` | User requests to claim management of a `race_events` row, including draft events created for missing organizer submissions. |
 | `race_event_edition_requests` | Retired audit rows from the former yearly-edition review gate. |
@@ -263,6 +264,7 @@ erDiagram
 - [plan_aid_stations](tables/plan-aid-stations.md)
 - [plan_share_links](tables/plan-share-links.md)
 - [race_aid_stations](tables/race-aid-stations.md)
+- [race_supporter_points](tables/race-supporter-points.md)
 - [race_relay_points](tables/race-relay-points.md)
 - [race_aid_station_products](tables/race-aid-station-products.md)
 - [races](tables/races.md)

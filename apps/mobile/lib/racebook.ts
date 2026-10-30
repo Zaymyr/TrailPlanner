@@ -1,5 +1,6 @@
 import { WEB_API_BASE_URL } from './webApi';
 import { fetchWithTimeout } from './fetchWithTimeout';
+import { parseRacebookSupporterPoints } from './racebookSupporterPoints';
 
 type OrganizerEquipmentItem = {
   id: string | null;
@@ -172,6 +173,21 @@ export type RacebookAidStation = {
   products: AidStationProduct[];
 };
 
+export type RacebookSupporterPoint = {
+  id: string;
+  name: string;
+  km: number;
+  encouragementAllowed: boolean;
+  assistanceAllowed: boolean;
+  accessLabel: string | null;
+  latitude: number;
+  longitude: number;
+  googleMapsUrl: string | null;
+  accessNote: string | null;
+  planUrl: string | null;
+  orderIndex: number;
+};
+
 export type RacebookScreenData = {
   race: {
     id: string;
@@ -180,6 +196,7 @@ export type RacebookScreenData = {
     elevationGainM: number;
     elevationLossM: number | null;
     raceDate: string | null;
+    planSourceUpdatedAt: string | null;
     isLive: boolean;
     thumbnailUrl: string | null;
     location: string | null;
@@ -214,6 +231,7 @@ export type RacebookScreenData = {
     runnerInfo: OrganizerRunnerInfoDetails;
   };
   aidStations: RacebookAidStation[];
+  supporterPoints: RacebookSupporterPoint[];
   relayPoints: RacebookRelayPoint[];
   startWaves: RacebookStartWave[];
   awards: RacebookAward[];
@@ -227,6 +245,7 @@ export type RacebookSignals = {
   racebookPreviewIsVisible?: boolean | null;
   hasOrganizerAccess?: boolean;
   hasAidStations: boolean | null | undefined;
+  hasSupporterPoints?: boolean | null;
   hasRelayCourse?: boolean | null;
   eventOrganizerDetails: unknown;
   raceOrganizerDetails: unknown;
@@ -828,12 +847,13 @@ export function canShowRacebook(signals: RacebookSignals): boolean {
   const eventDetails = parseEventDetails(signals.eventOrganizerDetails);
   const raceDetails = parseRaceDetails(signals.raceOrganizerDetails);
 
-  return hasOrganizerContent(eventDetails, raceDetails) || signals.hasRelayCourse === true;
+  return hasOrganizerContent(eventDetails, raceDetails) || signals.hasRelayCourse === true || signals.hasSupporterPoints === true;
 }
 
 type RacebookApiPayload = {
   raceRow: any;
   stationRows: any[];
+  supporterPointRows: any[];
   relayPointRows: any[];
   startWaveRows: any[];
   awardRows: any[];
@@ -866,6 +886,7 @@ async function fetchRacebookApiPayload(raceId: string): Promise<RacebookApiPaylo
     return {
       raceRow: payload.raceRow,
       stationRows: payload.stationRows,
+      supporterPointRows: Array.isArray(payload.supporterPointRows) ? payload.supporterPointRows : [],
       relayPointRows: payload.relayPointRows,
       startWaveRows: Array.isArray(payload.startWaveRows) ? payload.startWaveRows : [],
       awardRows: Array.isArray(payload.awardRows) ? payload.awardRows : [],
@@ -883,6 +904,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
   const apiPayload = await fetchRacebookApiPayload(raceId);
   let raceRow: any;
   let stationRows: any[];
+  let supporterPointRows: any[];
   let relayPointRows: any[];
   let startWaveRows: any[];
   let awardRows: any[];
@@ -890,18 +912,31 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
   let organizerPreview = false;
 
   if (apiPayload) {
-    ({ raceRow, stationRows, relayPointRows, startWaveRows, awardRows, editionServiceRows, organizerPreview } = apiPayload);
+    ({ raceRow, stationRows, supporterPointRows, relayPointRows, startWaveRows, awardRows, editionServiceRows, organizerPreview } = apiPayload);
+
+    // During a staggered web/mobile rollout, the production snapshot may not
+    // expose the additive collection yet. The public RLS policy remains the
+    // authority and returns only complete points for an effective module.
+    if (supporterPointRows.length === 0) {
+      const supporterPointsResult = await supabase
+        .from('race_supporter_points')
+        .select('id,name,km,order_index,encouragement_allowed,assistance_allowed,access_label,latitude,longitude,google_maps_url,access_note,plan_url')
+        .eq('race_id', raceId)
+        .order('order_index', { ascending: true });
+      if (!supporterPointsResult.error) supporterPointRows = supporterPointsResult.data ?? [];
+    }
   } else {
     const { data: directRaceRow, error: raceError } = await supabase
       .from('races')
-      .select(`id,edition_id,name,distance_km,elevation_gain_m,elevation_loss_m,race_date,is_live,racebook_is_live,racebook_preview_is_visible,thumbnail_url,location_text,participation_mode,start_lat,start_lng,organizer_details,race_events(id,name,location,race_date,thumbnail_url,is_live,organizer_details)`)
+      .select(`id,edition_id,name,distance_km,elevation_gain_m,elevation_loss_m,race_date,plan_source_updated_at,is_live,racebook_is_live,racebook_preview_is_visible,thumbnail_url,location_text,participation_mode,start_lat,start_lng,organizer_details,race_events(id,name,location,race_date,thumbnail_url,is_live,organizer_details)`)
       .eq('id', raceId)
       .maybeSingle();
     if (raceError || !directRaceRow) return null;
     raceRow = directRaceRow;
 
-    const [stationsResult, relayResult, wavesResult, awardsResult, servicesResult] = await Promise.all([
+    const [stationsResult, supporterPointsResult, relayResult, wavesResult, awardsResult, servicesResult] = await Promise.all([
       supabase.from('race_aid_stations').select(`id,name,km,water_available,solid_available,assistance_allowed,notes,order_index,organizer_details,race_aid_station_products(id,notes,order_index,products(id,name,brand))`).eq('race_id', raceId).order('order_index', { ascending: true }),
+      supabase.from('race_supporter_points').select('id,name,km,order_index,encouragement_allowed,assistance_allowed,access_label,latitude,longitude,google_maps_url,access_note,plan_url').eq('race_id', raceId).order('order_index', { ascending: true }),
       supabase.from('race_relay_points').select('id,race_aid_station_id,name,km,handover_time,cutoff_time,notes,order_index').eq('race_id', raceId).order('order_index', { ascending: true }),
       supabase.from('race_start_waves').select('id,name,start_time,eligibility_type,bib_number_min,bib_number_max,finish_minutes_min,finish_minutes_max,pace_seconds_min,pace_seconds_max,eligibility_note,order_index').eq('race_id', raceId).order('order_index'),
       supabase.from('race_awards').select('id,category_key,category_label,audience,place_from,place_to,podium_time,podium_location,reward_note,order_index').eq('race_id', raceId).order('podium_time').order('order_index'),
@@ -914,6 +949,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     if (awardsResult.error) console.warn('Unable to load RaceBook awards', awardsResult.error.code);
     if (servicesResult.error) console.warn('Unable to load RaceBook edition services', servicesResult.error.code);
     stationRows = stationsResult.data ?? [];
+    supporterPointRows = supporterPointsResult.error ? [] : supporterPointsResult.data ?? [];
     relayPointRows = relayResult.data ?? [];
     startWaveRows = wavesResult.data ?? [];
     awardRows = awardsResult.data ?? [];
@@ -976,6 +1012,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
         .filter((row) => row.name.length > 0 && Number.isFinite(row.km))
         .sort((left: RacebookAidStation, right: RacebookAidStation) => left.orderIndex - right.orderIndex || left.km - right.km)
     : [];
+  const supporterPoints = parseRacebookSupporterPoints(supporterPointRows);
 
   const canOpen = canShowRacebook({
     raceIsLive: raceRow.is_live,
@@ -983,6 +1020,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     racebookPreviewIsVisible: raceRow.racebook_preview_is_visible,
     hasOrganizerAccess,
     hasAidStations: aidStations.length > 0,
+    hasSupporterPoints: supporterPoints.length > 0,
     hasRelayCourse:
       raceRow.participation_mode === 'relay' || raceRow.participation_mode === 'solo_and_relay',
     eventOrganizerDetails: eventRelation?.organizer_details,
@@ -1022,6 +1060,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
       elevationGainM: readNumber(raceRow.elevation_gain_m) ?? 0,
       elevationLossM: readNumber(raceRow.elevation_loss_m),
       raceDate: readText(raceRow.race_date),
+      planSourceUpdatedAt: readText(raceRow.plan_source_updated_at),
       isLive: raceRow.is_live === true,
       thumbnailUrl: readText(raceRow.thumbnail_url),
       location: readText(raceRow.location_text),
@@ -1041,6 +1080,7 @@ export async function fetchRaceRacebookData(raceId: string): Promise<RacebookScr
     },
     runnerDetails,
     aidStations,
+    supporterPoints,
     relayPoints,
     startWaves,
     awards,

@@ -1,9 +1,12 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
+import { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
+import { formatDuration } from '../../lib/planSummary';
 import type { RacebookAidStation } from '../../lib/racebook';
+import { estimatePersonalSegmentDuration } from '../../lib/racebookPlanReflection';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 
@@ -21,14 +24,22 @@ export type RacebookAidStationCopy = {
   aidCutoffTime: string;
   aidFromStart: string;
   aidFromPrevious: string;
-  startTimeLabel: string;
   startLabel: string;
   finishLabel: string;
+  plannedDuration: string;
+  cutoffExceededWarning: string;
+};
+
+export type RacebookPersonalAidStationPlan = {
+  passageLabel: string;
+  estimatedClock: string | null;
+  arrivalMinute: number;
+  pauseMinutes: number;
+  isAfterCutoff: boolean;
 };
 
 type RacebookAidStationsSectionProps = {
   stations: RacebookAidStation[];
-  startTime: string | null;
   finish: {
     label: string;
     distanceKm: number;
@@ -41,6 +52,9 @@ type RacebookAidStationsSectionProps = {
   theme: ResolvedRacebookTheme;
   copy: RacebookAidStationCopy;
   onToggleStation: (station: RacebookAidStation) => void;
+  personalPlanByStationId?: Record<string, RacebookPersonalAidStationPlan>;
+  finishPersonalPlan?: RacebookPersonalAidStationPlan | null;
+  onEditPersonalPlanStation?: (station: RacebookAidStation) => void;
 };
 
 function formatDistance(distanceKm: number) {
@@ -49,21 +63,6 @@ function formatDistance(distanceKm: number) {
 
 function formatStationDistance(km: number) {
   return `${formatDistance(km)} km`;
-}
-
-function ProductList({ values, theme }: { values: string[]; theme: ResolvedRacebookTheme }) {
-  return (
-    <View style={styles.productList}>
-      {values.map((value, index) => (
-        <View key={`${value}-${index}`} style={styles.productRow}>
-          <View style={[styles.productDot, { backgroundColor: theme.primaryColor }]} />
-          <Text numberOfLines={2} style={styles.productText}>
-            {value}
-          </Text>
-        </View>
-      ))}
-    </View>
-  );
 }
 
 function ServiceIcon({ icon, label, theme }: {
@@ -97,6 +96,8 @@ function AidStationCard({
   expanded,
   onToggle,
   theme,
+  personalPlan,
+  onEditPersonalPlan,
 }: {
   station: RacebookAidStation;
   position: number;
@@ -105,6 +106,8 @@ function AidStationCard({
   expanded: boolean;
   onToggle: () => void;
   theme: ResolvedRacebookTheme;
+  personalPlan?: RacebookPersonalAidStationPlan;
+  onEditPersonalPlan?: () => void;
   copy: Omit<RacebookAidStationCopy, 'sectionTitle' | 'emptyMessage'>;
 }) {
   const cutoffTime = finishCutoffTime ?? station.organizerDetails.cutoffTime;
@@ -117,9 +120,9 @@ function AidStationCard({
       : null,
   ].filter((value): value is NonNullable<typeof value> => Boolean(value));
 
-  const hasExpandedDetails = station.products.length > 0 || Boolean(
-    station.organizerDetails.organizerNote || station.notes,
-  );
+  const hasExpandedDetails = Boolean(station.organizerDetails.organizerNote || station.notes);
+  const [showCutoffWarning, setShowCutoffWarning] = useState(false);
+  const personalClock = personalPlan?.estimatedClock ?? null;
 
   return (
     <View style={styles.aidStationCard}>
@@ -150,29 +153,18 @@ function AidStationCard({
             </Text>
           </View>
 
-          {serviceItems.length > 0 || cutoffTime ? (
+          {serviceItems.length > 0 ? (
             <View style={styles.aidStationSummaryMeta}>
-              {serviceItems.length > 0 ? (
-                <View style={styles.serviceRow}>
-                  {serviceItems.map((item) => (
-                    <ServiceIcon
-                      key={`${station.id}-${item.label}`}
-                      icon={item.icon}
-                      label={item.label}
-                      theme={theme}
-                    />
-                  ))}
-                </View>
-              ) : null}
-
-              {cutoffTime ? (
-                <View style={styles.cutoffSummary}>
-                  <Ionicons color={Colors.danger} name="time-outline" size={13} />
-                  <DataText numberOfLines={1} style={styles.cutoffSummaryText}>
-                    {copy.aidCutoffTime} {cutoffTime}
-                  </DataText>
-                </View>
-              ) : null}
+              <View style={styles.serviceRow}>
+                {serviceItems.map((item) => (
+                  <ServiceIcon
+                    key={`${station.id}-${item.label}`}
+                    icon={item.icon}
+                    label={item.label}
+                    theme={theme}
+                  />
+                ))}
+              </View>
             </View>
           ) : null}
         </View>
@@ -191,18 +183,51 @@ function AidStationCard({
         </View>
       </Pressable>
 
-      {expanded && hasExpandedDetails ? (
-        <View style={styles.aidStationExpandedContent}>
-          {station.products.length > 0 ? (
-            <View style={styles.inlineBlock}>
-              <Text style={styles.inlineBlockTitle}>{copy.aidProducts}</Text>
-              <ProductList
-                theme={theme}
-                values={station.products.map((product) => product.label)}
-              />
+      {personalClock || cutoffTime ? (
+        <View style={styles.timingRows}>
+          {personalPlan && personalClock ? (
+            <Pressable
+              accessibilityLabel={`${personalPlan.passageLabel} ${personalClock}`}
+              accessibilityRole={onEditPersonalPlan ? 'button' : undefined}
+              disabled={!onEditPersonalPlan}
+              onPress={onEditPersonalPlan}
+              style={({ pressed }) => [styles.passageSummary, pressed ? styles.timingRowPressed : null]}
+            >
+              <View style={styles.timingIcon}><Ionicons color={Colors.success} name="time-outline" size={14} /></View>
+              <Text numberOfLines={1} style={styles.passageSummaryLabel}>{personalPlan.passageLabel}</Text>
+              <DataText numberOfLines={1} style={styles.passageSummaryClock}>{personalClock}</DataText>
+              {personalPlan.isAfterCutoff ? (
+                <Pressable
+                  accessibilityLabel={copy.cutoffExceededWarning}
+                  accessibilityRole="button"
+                  hitSlop={8}
+                  onPress={(event) => {
+                    event.stopPropagation();
+                    setShowCutoffWarning((current) => !current);
+                  }}
+                  style={({ pressed }) => [styles.cutoffWarningAction, pressed ? styles.timingRowPressed : null]}
+                >
+                  <Ionicons color={Colors.danger} name="warning" size={16} />
+                </Pressable>
+              ) : <View style={styles.timingTrailingSpace} />}
+            </Pressable>
+          ) : null}
+          {cutoffTime ? (
+            <View style={styles.cutoffSummary}>
+              <View style={styles.timingIcon}><Ionicons color={Colors.danger} name="time-outline" size={14} /></View>
+              <Text numberOfLines={1} style={styles.cutoffSummaryLabel}>{copy.aidCutoffTime}</Text>
+              <DataText numberOfLines={1} style={styles.cutoffSummaryClock}>{cutoffTime}</DataText>
+              <View style={styles.timingTrailingSpace} />
             </View>
           ) : null}
+          {showCutoffWarning && personalPlan?.isAfterCutoff ? (
+            <Text accessibilityLiveRegion="polite" style={styles.cutoffWarningText}>{copy.cutoffExceededWarning}</Text>
+          ) : null}
+        </View>
+      ) : null}
 
+      {expanded && hasExpandedDetails ? (
+        <View style={styles.aidStationExpandedContent}>
           {station.organizerDetails.organizerNote || station.notes ? (
             <View style={styles.noteRow}>
               <Ionicons
@@ -217,6 +242,7 @@ function AidStationCard({
           ) : null}
         </View>
       ) : null}
+
     </View>
   );
 }
@@ -284,6 +310,8 @@ function SegmentConnector({
   elevationGainLabel,
   elevationLossLabel,
   theme,
+  plannedDurationMinutes,
+  plannedDurationLabel,
 }: {
   targetKm: number;
   targetElevationGainM: number | null;
@@ -293,6 +321,8 @@ function SegmentConnector({
   elevationGainLabel: string;
   elevationLossLabel: string;
   theme: ResolvedRacebookTheme;
+  plannedDurationMinutes?: number | null;
+  plannedDurationLabel: string;
 }) {
   const segmentDistance = Math.max(0, targetKm - (previousStation?.km ?? 0));
   const segmentGain = getSegmentElevation(
@@ -314,6 +344,9 @@ function SegmentConnector({
         formatStationDistance(segmentDistance),
         segmentGain !== null ? `${elevationGainLabel} ${segmentGain} m` : null,
         segmentLoss !== null ? `${elevationLossLabel} ${segmentLoss} m` : null,
+        plannedDurationMinutes !== null && plannedDurationMinutes !== undefined
+          ? `${plannedDurationLabel} ${formatDuration(plannedDurationMinutes)}`
+          : null,
       ].filter(Boolean).join(', ')}
       style={styles.segmentRow}
     >
@@ -371,6 +404,14 @@ function SegmentConnector({
               </DataText>
             </View>
           ) : null}
+          {plannedDurationMinutes !== null && plannedDurationMinutes !== undefined ? (
+            <View style={styles.segmentMetricItem}>
+              <Ionicons color={Colors.success} name="time-outline" size={13} />
+              <DataText style={[styles.segmentMetric, styles.segmentPlannedMetric]}>
+                {plannedDurationLabel} {formatDuration(plannedDurationMinutes)}
+              </DataText>
+            </View>
+          ) : null}
         </View>
       </View>
     </View>
@@ -379,13 +420,14 @@ function SegmentConnector({
 
 export function RacebookAidStationsSection({
   stations,
-  startTime,
   finish,
   expandedStationId,
-  showOfficialProducts,
   theme,
   copy,
   onToggleStation,
+  personalPlanByStationId = {},
+  finishPersonalPlan = null,
+  onEditPersonalPlanStation,
 }: RacebookAidStationsSectionProps) {
   const lastStation = stations[stations.length - 1];
   const finishStation = lastStation && Math.abs(lastStation.km - finish.distanceKm) <= 0.2
@@ -404,7 +446,6 @@ export function RacebookAidStationsSection({
           <EndpointCard
             label={copy.startLabel}
             distanceKm={0}
-            time={startTime ? { label: copy.startTimeLabel, value: startTime, tone: 'positive' } : null}
           />
         </View>
       </View>
@@ -429,6 +470,11 @@ export function RacebookAidStationsSection({
               segmentLabel={segmentLabel}
               elevationGainLabel={copy.aidElevationGain}
               elevationLossLabel={copy.aidElevationLoss}
+              plannedDurationLabel={copy.plannedDuration}
+              plannedDurationMinutes={estimatePersonalSegmentDuration(
+                personalPlanByStationId[station.id],
+                previousStation ? personalPlanByStationId[previousStation.id] : null,
+              )}
               theme={theme}
             />
             <View style={styles.timelineStationRow}>
@@ -454,12 +500,14 @@ export function RacebookAidStationsSection({
               </View>
               <View style={styles.timelineCard}>
                 <AidStationCard
-                  station={showOfficialProducts ? station : { ...station, products: [] }}
+                  station={station}
                   position={index + 1}
                   expanded={expandedStationId === station.id}
                   onToggle={() => onToggleStation(station)}
                   theme={theme}
                   copy={copy}
+                  personalPlan={personalPlanByStationId[station.id]}
+                  onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(station) : undefined}
                 />
               </View>
             </View>
@@ -474,13 +522,18 @@ export function RacebookAidStationsSection({
         segmentLabel={finishSegmentLabel}
         elevationGainLabel={copy.aidElevationGain}
         elevationLossLabel={copy.aidElevationLoss}
+        plannedDurationLabel={copy.plannedDuration}
+        plannedDurationMinutes={estimatePersonalSegmentDuration(
+          finishPersonalPlan,
+          previousStation ? personalPlanByStationId[previousStation.id] : null,
+        )}
         theme={theme}
       />
       <View style={styles.timelineEndpointRow}>
         <View style={styles.timelineEndpointCard}>
           {finishStation ? (
             <AidStationCard
-              station={showOfficialProducts ? finishStation : { ...finishStation, products: [] }}
+              station={finishStation}
               position={aidStations.length + 1}
               isFinish
               finishCutoffTime={finish.cutoffTime}
@@ -488,6 +541,8 @@ export function RacebookAidStationsSection({
               onToggle={() => onToggleStation(finishStation)}
               theme={theme}
               copy={copy}
+              personalPlan={personalPlanByStationId[finishStation.id]}
+              onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(finishStation) : undefined}
             />
           ) : (
             <EndpointCard
@@ -507,6 +562,15 @@ export function RacebookAidStationsSection({
 }
 
 const styles = StyleSheet.create({
+  timingRows: { gap: 5, paddingHorizontal: 14, paddingBottom: 10 },
+  passageSummary: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  timingIcon: { width: 14, alignItems: 'center', justifyContent: 'center' },
+  passageSummaryLabel: { flex: 1, color: Colors.success, fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  passageSummaryClock: { minWidth: 44, color: Colors.success, fontSize: 13, lineHeight: 17, fontWeight: '900', textAlign: 'right' },
+  cutoffWarningAction: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: Colors.dangerSurface },
+  timingTrailingSpace: { width: 28, height: 1 },
+  cutoffWarningText: { marginLeft: 19, color: Colors.danger, fontSize: 11, lineHeight: 15, fontWeight: '700' },
+  timingRowPressed: { opacity: 0.62 },
   emptyCard: {
     padding: 16,
     borderRadius: 16,
@@ -580,8 +644,9 @@ const styles = StyleSheet.create({
     borderRadius: 13,
     borderWidth: 1,
   },
-  cutoffSummary: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cutoffSummaryText: { color: Colors.danger, fontSize: 11, fontWeight: '700' },
+  cutoffSummary: { minHeight: 24, flexDirection: 'row', alignItems: 'center', gap: 5 },
+  cutoffSummaryLabel: { flex: 1, color: Colors.danger, fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  cutoffSummaryClock: { minWidth: 44, color: Colors.danger, fontSize: 13, lineHeight: 17, fontWeight: '900', textAlign: 'right' },
   endpointTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   endpointTimeLabel: { flexShrink: 1, color: Colors.textSecondary, fontSize: 12, fontWeight: '600' },
   endpointTimeValue: { color: Colors.success, fontSize: 12, fontWeight: '800' },
@@ -608,18 +673,7 @@ const styles = StyleSheet.create({
   segmentMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   segmentMetricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   segmentMetric: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
-  inlineBlock: { gap: 8 },
-  inlineBlockTitle: { color: Colors.textPrimary, fontSize: 13, fontWeight: '700' },
-  productList: { gap: 7 },
-  productRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
-  productDot: { width: 6, height: 6, marginTop: 7, borderRadius: 3 },
-  productText: {
-    flex: 1,
-    color: Colors.textPrimary,
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: '600',
-  },
+  segmentPlannedMetric: { color: Colors.success },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   noteText: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
 });

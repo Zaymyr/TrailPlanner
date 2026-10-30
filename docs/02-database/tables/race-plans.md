@@ -1,7 +1,7 @@
 ---
 title: race_plans Table
 scope: database
-last_verified: 2026-08-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20241215010000_create_race_plans.sql
@@ -10,6 +10,10 @@ related_files:
   - supabase/migrations/20260408110000_set_race_plans_race_fk_on_delete_set_null.sql
   - supabase/migrations/20260609091933_add_plan_share_links.sql
   - supabase/migrations/20260618145940_remove_coach_features.sql
+  - supabase/migrations/20261029090122_link_racebook_plans.sql
+  - supabase/migrations/20261029110000_add_plan_source_revisions.sql
+  - supabase/tests/race_plan_race_uniqueness_checks.sql
+  - supabase/tests/plan_source_revision_checks.sql
   - apps/web/app/api/plans/route.ts
   - apps/web/app/api/plans/from-catalog/route.ts
   - apps/web/app/api/plans/from-catalog/route.test.ts
@@ -51,6 +55,7 @@ related_tables:
 | `elevation_profile` | `jsonb` | not null, default `[]` | Elevation data stored separately from planner JSON. |
 | `race_id` | `uuid` | nullable, references `races(id)` on delete set null | Source race link after catalog import. |
 | `catalog_race_updated_at_at_import` | `timestamptz` | nullable | Snapshot of source race update time when imported. |
+| `source_revision_at_last_review` | `timestamptz` | nullable | Official source revision explicitly acknowledged by the runner. |
 | `plan_gpx_path` | `text` | nullable | Private copied GPX object path in `plan-gpx`. |
 | `plan_course_stats` | `jsonb` | not null, default `{}` | Parsed GPX stats for imported plans. |
 
@@ -69,6 +74,7 @@ Inbound references:
 ## Indexes
 
 - `race_plans_user_id_idx` on `user_id`
+- partial unique `race_plans_user_race_unique_idx` on `(user_id, race_id)` when `race_id is not null`
 
 ## RLS Policies
 
@@ -84,7 +90,11 @@ Summary:
 - `planner_values` is the main persisted planner state after signup.
 - Onboarding saves should be idempotent; do not save twice on email confirmation or duplicated auth events.
 - `race_id` can be null. Deleting a race must detach plans, not delete them.
+- A user, including an anonymous Supabase user, can have at most one linked plan per non-null `race_id`. Manual detached plans remain unrestricted.
 - `catalog_race_updated_at_at_import` is a source snapshot, not a live sync guarantee.
+- `source_revision_at_last_review` is an acknowledgement, not a synchronization cursor: a newer official revision warns the owner to review the plan but never rewrites pacing, pauses, quantities, products, or equipment checks. The authenticated owner records it through `acknowledge_race_plan_source_revision`, which copies the linked race's current revision atomically under RLS.
+- New linked plans start reviewed against the current source revision. Historical linked plans use their recorded import revision when available, otherwise the migration's current revision; this avoids inventing a historical merge.
+- The revision backfill and trigger installation run in one explicit transaction while the relevant source tables are locked, so an organizer write cannot slip between the baseline and trigger activation.
 - `plan_gpx_path` belongs to the copied plan GPX, not the source race GPX.
 - Organizer ravito products are suggestion metadata in `planner_values`, not automatic supplies. The stored JSON is a fallback snapshot when the plan has `race_id`; `/api/plans` overlays current source station-product links into read responses.
 - Catalog imports copy `race_aid_stations` service flags into `planner_values.aidStations`; existing plans do not resync after source edits.
@@ -113,6 +123,7 @@ where race_id = '<race-id>';
 ## Gotchas
 
 - A source edition downgrade suppresses current official ravito-product overlays but must not delete the saved plan or rewrite its stored fallback snapshot.
+- A plan review must save its current draft before acknowledging the source revision. Merely opening or autosaving a plan must not clear the official-change warning.
 
 - `catalog_race_id` is the old column name. Current migrations rename it to `race_id`.
 - `planner_values` can contain older shape variants. Hydration code must tolerate missing fields.

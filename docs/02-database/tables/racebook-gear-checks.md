@@ -1,7 +1,7 @@
 ---
 title: racebook_gear_checks Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260924140119_add_racebook_gear_checks.sql
@@ -22,11 +22,15 @@ related_tables:
 
 # `racebook_gear_checks`
 
+RaceBook personal passage-time interpolation does not affect the independent gear-check persistence flow.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 
 `racebook_gear_checks` stores the runner's per-format RaceBook equipment checklist. A signed-in account sees the same checked items on every device using that account.
+
+The Livret may read this durable completion when no linked plan is available to offer creation, but it never copies completion into `race_plans.planner_values` or treats a source-revision acknowledgement as an equipment update. A linked plan instead contributes its duration and pace to the course identity metrics; it does not restore a separate equipment summary card.
 
 ## Columns
 
@@ -60,6 +64,10 @@ related_tables:
 ## Related Docs
 
 This table remains the source of truth for current checked state. PostHog organizer rankings use the latest observed state per person, race, and published analytics item inside the selected reporting window; they exclude runners who never started the checklist and must not be presented as a live table snapshot. The marker-guarded `racebook_gear_state_2026_09_28` import seeded checked and missing states only for users represented by existing rows.
+
+Opening supporter directions or an external access plan does not read or mutate personal equipment checks. Both datasets remain owner- and purpose-specific.
+
+When a saved plan exists, the Livret shows planned duration, pace and departure in the identity hero; matched ravito passage/segment timing and late-cutoff disclosure stay separate from equipment state. Warm state is accepted only for the exact plan id, and none of these display/navigation values changes a checked row.
 
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)

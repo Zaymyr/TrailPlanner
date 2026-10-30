@@ -1,7 +1,7 @@
 ---
 title: race_event_organizers Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260528120000_add_organizer_portal.sql
@@ -54,6 +54,8 @@ related_tables:
 ---
 
 # `race_event_organizers`
+
+The Organizer dashboard may assist supporter-point entry from the selected format's ravitos and GPX, but every read/write remains constrained by the caller's active event membership and the existing route authorization checks.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 

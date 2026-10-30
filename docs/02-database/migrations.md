@@ -1,13 +1,14 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
   - .github/workflows/db-verify.yml
   - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
+  - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql
@@ -76,6 +77,8 @@ related_files:
   - supabase/tests/web_race_visibility_checks.sql
   - supabase/tests/racebook_sponsors_checks.sql
   - supabase/tests/organizer_atomic_course_collections_checks.sql
+  - supabase/migrations/20261029090122_link_racebook_plans.sql
+  - supabase/tests/race_plan_race_uniqueness_checks.sql
 related_tables:
   - race_plans
   - plan_share_links
@@ -106,6 +109,8 @@ related_tables:
 ---
 
 # Migrations
+
+`20261029090122_link_racebook_plans.sql` enforces one linked plan per `(user_id, race_id)` with a partial unique index. Before creating the index it keeps the most recently updated duplicate linked and safely detaches older duplicates by setting `race_id = null`; no plan content is deleted. `supabase/tests/race_plan_race_uniqueness_checks.sql` verifies the index columns, uniqueness, and null-only predicate.
 
 `20260914055319_harden_privileged_database_access.sql` removes client-writable profile roles from database authorization, clears untrusted legacy admin labels, protects server-owned profile entitlement/analytics fields, restricts user-created races to private standalone rows, restricts privileged SECURITY DEFINER RPCs to `service_role`, enables invoker security on `product_brand_review`, pins advisor-reported function search paths, optimizes the replaced owner/admin RLS predicates, and adds five targeted foreign-key indexes. `supabase/tests/privileged_database_access_checks.sql` verifies profile-field and race-publication escalation denial, trusted-metadata-only admin resolution, view security, and RPC privileges in a rollback transaction.
 
@@ -300,6 +305,8 @@ The migration deliberately does not use `races.created_by` for claimed public ra
 Manual relationship-policy checks live in `supabase/tests/organizer_rls_checks.sql`.
 
 `supabase/migrations/20260618120000_add_race_aid_station_service_flags.sql` extends `race_aid_stations` with `solid_available` and `assistance_allowed`, both defaulting to `true`. It adds no new table, grants, foreign keys, or RLS policies; existing aid-station policies continue to control the rows.
+
+`supabase/migrations/20261029091807_add_race_supporter_points.sql` creates format-scoped supporter points, their RLS/grants, and a service-only atomic replacement function. It also adds the independent Essential `supporter_points` module, enables it by default for existing and newly inserted edition formats, and leaves incomplete organizer drafts out of public reads.
 
 `supabase/migrations/20260824152859_add_relay_course_points.sql` adds nullable `races.participation_mode` plus normalized `race_relay_points`. A handover may link to a ravito with `on delete set null`; public reads require a published Racebook and mutations remain service-role-only.
 

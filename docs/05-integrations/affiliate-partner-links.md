@@ -1,7 +1,7 @@
 ---
 title: Affiliate Partner Links
 scope: integration
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: medium
 related_files:
   - apps/web/lib/partner-links.ts
@@ -29,9 +29,13 @@ related_tables:
 
 # Affiliate Partner Links
 
+RaceBook personal passage interpolation emits no partner click and does not alter affiliate attribution.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
+
+RaceBook owner-only plan reflection is separate from affiliate presentation. It must not pass personal timing, products, equipment completion, or official-revision state to a partner link or its analytics.
 
 Centralize Booking and Decathlon outbound destinations, switch each partner from its normal URL to its affiliate URL without changing mobile code, and expose them in the relevant RaceBook preparation surfaces.
 
@@ -74,8 +78,11 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 - Admin changes can take up to five minutes to leave the public CDN cache; pull-to-refresh then reloads the mobile partner contract.
 - The Services tab remains visible even if the partner request temporarily fails. That failure shows its ordinary empty state and does not re-enable organizer-authored services whose module is inactive.
 - Adding another Admin tab must not merge its persistence with the partner-link atomic upsert. Social proofs and partner destinations remain separate service-only contracts.
+- The owner-only Livret/Mon plan switch can reuse a saved-plan editor warm state only for the exact plan id; personal duration, pace and departure appear in the Livret hero, while compact ravito passage/segment timing and its late warning remain local presentation. None of those values may become partner-link parameters, destinations, or analytics properties.
 
 ## Related Docs
+
+Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored access URLs directly. They are not affiliate destinations and must not pass through partner redirects or counters.
 
 - [`partner_link_settings`](../02-database/tables/partner-link-settings.md)
 - [Web App Architecture](../01-architecture/web-app.md)

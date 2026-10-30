@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_branding
 scope: database
-last_verified: 2026-10-01
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260907171043_add_racebook_edition_branding.sql
@@ -34,9 +34,15 @@ related_tables:
 
 # `race_event_edition_branding`
 
+RaceBook ravito cards continue to consume the resolved edition theme, but no longer render official or personal nutrition product lists. This presentation change does not alter the branding contract or its fallback rules.
+
+RaceBook personal passage-time interpolation preserves the edition branding contract and requires no new branding field. Its compact green passage/segment timing, red official cutoff, and late-warning icon keep application-owned semantic colors. The prominent departure clock and emergency-dependent hero height are layout-only.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
+
+Owner-specific plan duration and pace in the Livret hero, plus the tappable personal reflection on an official ravito, use the existing published RaceBook presentation context; they introduce no edition branding field or separate runner-specific branding state.
 
 Stores one draft and one published RaceBook identity for a canonical event edition. Every format attached to that edition uses the same published colors and module switch; no per-format activation is required. A valid published logo is runner-visible in the RaceBook hero and loading composition.
 
@@ -47,7 +53,7 @@ Stores one draft and one published RaceBook identity for a canonical event editi
 - Runner and mobile preview payloads expose only published values, including a valid HTTPS logo, and return no RaceBook payload for a format explicitly masked from the organizer demo. The shared resolver remains the final URL and color validation boundary.
 - Editing the draft requires active event membership and a selected `branding` module. Copying the draft to the published snapshot requires the Signature `branding.manage` capability and an effectively active module. A downgrade masks the published identity without deleting either snapshot.
 - Pace Yourself keeps typography, neutral surfaces, navigation, layout, sponsor placements, the compact unframed partner-row geometry, and semantic danger/warning/info colors.
-- Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves. Accent surfaces and contrast-safe accent foreground/graphic variants identify checklist completion, decorative location/service actions, the Booking action in Services, the Decathlon action above required equipment, structured course cards, and the ravito chronology rail/segments; cutoff warnings, affiliation disclosure, and other semantic copy retain app-owned meaning.
+- Focused Matériel, Dossard, access, ravito, Services and structured Course components receive the already-resolved theme explicitly; they neither fetch nor resolve draft branding themselves. Accent surfaces and contrast-safe accent foreground/graphic variants identify checklist completion, decorative location/service actions, partner actions, structured course cards, and the ravito chronology rail/segments; cutoff warnings, late-passage disclosure, owner-only personal timing, and other semantic copy retain app-owned meaning.
 - Branding can recolor the linked bib address, but its two-line clamp and complete accessibility label remain app-owned presentation behavior.
 - The published primary identity also colors the scroll-driven hero that replaces the native RaceBook header. Its title/back alignment, persistent 44-point social actions, single-line emergency contact/number row with a 44-point call action and compact icon, long-title clipping, safe-area handling, and focus-time expansion reset remain app-owned and store no additional branding state.
 
@@ -125,6 +131,8 @@ where edition_id = :edition_id;
 Format-owned GPX visibility may omit a branded route or profile card; it does not change edition color resolution or the branding table contract.
 
 The same resolved accent colors decorate fullscreen route/profile visuals and ravito point markers. Marker details and incomplete-GPX warnings keep application-owned semantic and accessibility behavior and add no branding state.
+
+The supporter chronology inherits the published RaceBook theme like other Course content, but branding configuration neither controls supporter visibility nor stores supporter access data.
 
 - [race_event_editions](race-event-editions.md)
 - [Organizer Commercial Offers](../../03-business-rules/organizer-commercial-offers.md)

@@ -33,6 +33,7 @@ describe('plan persistence', () => {
       { id: DEPART_ID, name: 'Départ', distanceKm: 0, waterRefill: true },
       {
         id: 'station-1',
+        sourceAidStationId: 'official-station-1',
         name: 'Col du Test',
         distanceKm: 18,
         waterRefill: true,
@@ -48,6 +49,7 @@ describe('plan persistence', () => {
       {
         name: 'Col du Test',
         distanceKm: 18,
+        sourceAidStationId: 'official-station-1',
         waterRefill: true,
         solidRefill: false,
         assistanceAllowed: false,

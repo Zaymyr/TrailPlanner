@@ -22,6 +22,7 @@ type SocialLink = {
 type Props = {
   scrollY: Animated.Value;
   topInset: number;
+  expandedBodyHeight?: number;
   eventName: string | null;
   raceName: string;
   imageUrl: string | null;
@@ -30,11 +31,17 @@ type Props = {
   locationLabel: string | null;
   participationLabel: string | null;
   participationIcon: keyof typeof Ionicons.glyphMap;
+  startTimeLabel: string;
+  startTimeValue: string | null;
   distanceLabel: string;
   elevationGainLabel: string;
   elevationLossLabel: string | null;
   elevationCaption: string;
   descentCaption: string;
+  planDurationLabel: string | null;
+  planDurationCaption: string;
+  planPaceLabel: string | null;
+  planPaceCaption: string;
   backLabel: string;
   theme: ResolvedRacebookTheme;
   socialLinks: SocialLink[];
@@ -54,6 +61,7 @@ type Props = {
 export function RacebookCollapsibleHero({
   scrollY,
   topInset,
+  expandedBodyHeight = RACEBOOK_HERO_BODY_HEIGHT,
   eventName,
   raceName,
   imageUrl,
@@ -62,11 +70,17 @@ export function RacebookCollapsibleHero({
   locationLabel,
   participationLabel,
   participationIcon,
+  startTimeLabel,
+  startTimeValue,
   distanceLabel,
   elevationGainLabel,
   elevationLossLabel,
   elevationCaption,
   descentCaption,
+  planDurationLabel,
+  planDurationCaption,
+  planPaceLabel,
+  planPaceCaption,
   backLabel,
   theme,
   socialLinks,
@@ -77,7 +91,7 @@ export function RacebookCollapsibleHero({
   onOpenSocial,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
-  const expandedHeight = topInset + RACEBOOK_HERO_BODY_HEIGHT;
+  const expandedHeight = topInset + expandedBodyHeight;
   const compactHeight = topInset + RACEBOOK_HERO_COMPACT_BODY_HEIGHT;
   const collapseDistance = expandedHeight - compactHeight;
   const heroHeight = scrollY.interpolate({
@@ -215,6 +229,15 @@ export function RacebookCollapsibleHero({
             ) : locationLabel ? <Meta icon="location-outline" label={locationLabel} color={theme.onPrimaryColor} /> : null}
             {participationLabel ? <Meta icon={participationIcon} label={participationLabel} color={theme.onPrimaryColor} /> : null}
           </View>
+          {startTimeValue ? (
+            <View style={styles.startTimeBadge}>
+              <Ionicons name="time-outline" size={17} color={theme.onPrimaryColor} />
+              <View style={styles.startTimeCopy}>
+                <Text numberOfLines={1} style={[styles.startTimeLabel, { color: theme.onPrimaryColor }]}>{startTimeLabel}</Text>
+                <DataText numberOfLines={1} style={[styles.startTimeValue, { color: theme.onPrimaryColor }]}>{startTimeValue}</DataText>
+              </View>
+            </View>
+          ) : null}
           {logoUrl ? (
             <View style={styles.logoSurface}>
               <RacebookBrandLogo uri={logoUrl} style={styles.logo} accessibilityLabel={eventName ?? raceName} />
@@ -230,6 +253,18 @@ export function RacebookCollapsibleHero({
             <>
               <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
               <Metric value={elevationLossLabel} label={descentCaption} color={theme.onPrimaryColor} />
+            </>
+          ) : null}
+          {planDurationLabel ? (
+            <>
+              <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
+              <Metric value={planDurationLabel} label={planDurationCaption} color={theme.onPrimaryColor} />
+            </>
+          ) : null}
+          {planPaceLabel ? (
+            <>
+              <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
+              <Metric value={planPaceLabel} label={planPaceCaption} color={theme.onPrimaryColor} />
             </>
           ) : null}
         </View>
@@ -291,6 +326,10 @@ const styles = StyleSheet.create({
   metaItem: { flexDirection: 'row', alignItems: 'center', gap: 7 },
   meta: { flexShrink: 1, fontSize: 13, lineHeight: 18, fontWeight: '600' },
   metaLink: { textDecorationLine: 'underline' },
+  startTimeBadge: { flexShrink: 0, minWidth: 82, minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 9, borderRadius: 13, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(0,0,0,0.18)' },
+  startTimeCopy: { alignItems: 'flex-start' },
+  startTimeLabel: { fontSize: 9, lineHeight: 12, fontWeight: '700', opacity: 0.76 },
+  startTimeValue: { fontSize: 15, lineHeight: 18, fontWeight: '900' },
   metrics: { minHeight: 54, flexDirection: 'row', alignItems: 'stretch', overflow: 'hidden', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.24)', backgroundColor: 'rgba(0,0,0,0.18)' },
   metric: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5, paddingVertical: 7 },
   metricValue: { fontSize: 14, lineHeight: 18, fontWeight: '800', textAlign: 'center' },

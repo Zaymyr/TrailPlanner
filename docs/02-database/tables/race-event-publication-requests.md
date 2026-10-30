@@ -1,7 +1,7 @@
 ---
 title: race_event_publication_requests Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260729110000_add_race_event_publication_requests.sql
@@ -30,6 +30,8 @@ related_tables:
 ---
 
 # `race_event_publication_requests`
+
+Supporter points remain publishable content only when their module is effective and their required public fields are complete. Selecting a source ravito does not bypass publication readiness: a same-course point still needs a resolvable persisted GPX coordinate.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -71,6 +73,7 @@ This table is retained publication-review history. New organizer publication use
 - The authorized format navigation mirrors that state without writing it: masked formats remain editable but appear grey with `Course masquée pour le public`, while private/public formats show compact status text. These labels neither publish a RaceBook nor create a publication-request row.
 - The dashboard guide only explains those visibility states. It temporarily opens the real controls without selecting one; completing, skipping, or replaying it does not create a publication request.
 - Staged section switches affect publication and completion only after their single module-settings PATCH succeeds; their edition-common/per-format grouping never inserts a row in this legacy publication queue.
+- `supporter_points` is an Essential format module, presented as **Suivi coureur**. Its selected/default-enabled state is included in the persisted module set used to calculate the publication recommendation, but it cannot raise that recommendation above Essential and never creates a legacy publication request.
 - Legacy pending requests remain reviewable in admin. Their approval grants a permanent Pro admin entitlement to the corresponding edition for backward compatibility.
 - A newly created empty edition is therefore editable but not publishable until the organizer adds at least one complete format.
 - The busy spinner and locked controls shown while a new edition is created or duplicated are creation feedback only. They do not create, approve, or consult a publication-request row.
@@ -115,6 +118,7 @@ This table is retained publication-review history. New organizer publication use
 - Admin-only claim reconciliation and the signed per-field import snapshot are pre-publication controls. Confirming formats may create hidden incomplete drafts, and applying selected claims may complete source fields, but neither action establishes Racebook readiness or approval; the publication route revalidates persisted data independently.
 - Source-role classification for additional URLs and PDFs is likewise review evidence only. It cannot publish a course, approve a Racebook, or create a publication request.
 - Do not treat `published_at` on edition branding as RaceBook content approval; it records only which visual snapshot runner payloads may use.
+- An absent `supporter_points` key in a legacy settings payload retains the default-enabled module for authorized organizer loading and Essential accounting; it is not evidence of publication approval.
 
 ## Related Docs
 
