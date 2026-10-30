@@ -68,6 +68,8 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 
 ## Gotchas
 
+- Central plan paywall CTAs are not partner-link surfaces and must not resolve or track affiliate destinations.
+
 - Catalog plan CTAs and the RaceBook/Mon plan workspace switch do not resolve, display, or track a partner link. Partner disclosure remains limited to the existing eligible mobile partner surfaces.
 
 - The RaceBook plan CTA is independent from the partner-link contract. Opening or refining a runner plan never changes a Booking or Decathlon destination.

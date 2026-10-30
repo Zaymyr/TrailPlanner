@@ -28,6 +28,7 @@ type Props = {
   imageUrl: string | null;
   logoUrl: string | null;
   dateLabel: string | null;
+  startTimeLabel?: string | null;
   locationLabel: string | null;
   participationLabel: string | null;
   participationIcon: keyof typeof Ionicons.glyphMap;
@@ -60,6 +61,7 @@ export function RacebookCollapsibleHero({
   imageUrl,
   logoUrl,
   dateLabel,
+  startTimeLabel,
   locationLabel,
   participationLabel,
   participationIcon,
@@ -102,6 +104,10 @@ export function RacebookCollapsibleHero({
     extrapolate: 'clamp',
   });
   const compactActionCount = socialLinks.length + (isCompact && emergency && onCallEmergency ? 1 : 0);
+  const compactContextLabel = [
+    eventName && eventName !== raceName ? eventName : null,
+    startTimeLabel,
+  ].filter((value): value is string => Boolean(value)).join(' · ');
 
   useEffect(() => {
     const listenerId = scrollY.addListener(({ value }) => {
@@ -154,9 +160,7 @@ export function RacebookCollapsibleHero({
       >
         <View style={styles.compactTitleWrap}>
           <Text numberOfLines={1} style={[styles.compactTitle, { color: theme.onPrimaryColor }]}>{raceName}</Text>
-          {eventName && eventName !== raceName ? (
-            <Text numberOfLines={1} style={[styles.compactKicker, { color: theme.onPrimaryColor }]}>{eventName}</Text>
-          ) : null}
+          {compactContextLabel ? <Text numberOfLines={1} style={[styles.compactKicker, { color: theme.onPrimaryColor }]}>{compactContextLabel}</Text> : null}
         </View>
       </Animated.View>
 
@@ -210,6 +214,7 @@ export function RacebookCollapsibleHero({
         <View style={styles.detailsRow}>
           <View style={styles.metaGroup}>
             {dateLabel ? <Meta icon="calendar-outline" label={dateLabel} color={theme.onPrimaryColor} /> : null}
+            {startTimeLabel ? <Meta icon="flag-outline" label={startTimeLabel} color={theme.onPrimaryColor} /> : null}
             {locationLabel && onOpenLocation ? (
               <Pressable accessibilityRole="link" onPress={onOpenLocation} style={({ pressed }) => [pressed && styles.pressed]}>
                 <Meta icon="location-outline" label={locationLabel} color={theme.onPrimaryColor} underlined />

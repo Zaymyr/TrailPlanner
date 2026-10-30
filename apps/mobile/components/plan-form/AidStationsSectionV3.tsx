@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   LayoutChangeEvent,
   type LayoutRectangle,
+  Platform,
   Pressable,
   StyleSheet,
   TouchableOpacity,
@@ -126,6 +127,46 @@ type Props = {
 };
 
 export type PlanViewMode = 'stations' | 'sections' | 'profile';
+
+type PreviewUnlockCtaProps = {
+  compact?: boolean;
+  locale: string;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  onPress: () => void;
+};
+
+export function PreviewUnlockCta({
+  compact = false,
+  locale,
+  onLayout,
+  onPress,
+}: PreviewUnlockCtaProps) {
+  return (
+    <View
+      accessibilityRole="summary"
+      onLayout={onLayout}
+      style={[planDetailStyles.previewBoundary, compact && planDetailStyles.previewBoundaryCompact]}
+    >
+      {!compact ? (
+        <>
+          <Heading variant="h3" style={planDetailStyles.previewBoundaryTitle}>
+            {locale === 'fr' ? 'Ton plan complet est juste en dessous' : 'Your complete plan is just below'}
+          </Heading>
+          <ThemedText tone="secondary" size="sm" style={planDetailStyles.previewBoundaryBody}>
+            {locale === 'fr'
+              ? 'Débloque les ravitos, les allures détaillées et toute ta stratégie nutrition.'
+              : 'Unlock every aid station, detailed pacing, and your complete nutrition strategy.'}
+          </ThemedText>
+        </>
+      ) : null}
+      <TouchableOpacity accessibilityRole="button" onPress={onPress} style={planDetailStyles.previewBoundaryButton}>
+        <ThemedText weight="bold" style={planDetailStyles.previewBoundaryButtonText}>
+          {locale === 'fr' ? 'Débloquer mon plan' : 'Unlock my plan'}
+        </ThemedText>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export type AidStationsSectionHandle = {
   selectViewMode: (mode: PlanViewMode) => void;
@@ -288,30 +329,22 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   const previewBoundaryLocalRef = useRef<{ top: number; height: number } | null>(null);
   const focusedAidStationIdRef = useRef<string | null>(values.aidStations[0]?.id ?? null);
   const previewBoundary = useMemo(
-    () => resolvePlanPreviewBoundary(values.aidStations, departId, arriveeId),
-    [arriveeId, departId, values.aidStations],
-  );
-  const visiblePreviewIndexes = useMemo(
-    () => new Set(previewBoundary.visibleStationIndexes),
-    [previewBoundary.visibleStationIndexes],
+    () => resolvePlanPreviewBoundary(values.aidStations, departId),
+    [departId, values.aidStations],
   );
   const reportPreviewBoundaryLayout = useCallback(() => {
-    if (!previewBoundary.hasHiddenCourse) {
-      onPreviewBoundaryLayout?.(null, 0);
-      return;
-    }
     const local = previewBoundaryLocalRef.current;
     if (!local) return;
     onPreviewBoundaryLayout?.(
       getPreviewBoundaryTop(activeViewTopRef.current, local.top),
       local.height,
     );
-  }, [onPreviewBoundaryLayout, previewBoundary.hasHiddenCourse]);
+  }, [onPreviewBoundaryLayout]);
   useEffect(() => {
-    if (previewMode && previewBoundary.hasHiddenCourse) return;
+    if (previewMode) return;
     previewBoundaryLocalRef.current = null;
     onPreviewBoundaryLayout?.(null, 0);
-  }, [onPreviewBoundaryLayout, previewBoundary.hasHiddenCourse, previewMode]);
+  }, [onPreviewBoundaryLayout, previewMode]);
   const viewAnchorsRef = useRef<
     Record<
       PlanViewMode,
@@ -507,6 +540,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   }, []);
 
   function getTopVisibleAnchor(mode: PlanViewMode, parentScrollY = getParentScrollY()) {
+    // Ghost cards are a visual teaser, not navigation targets or editable context.
+    if (previewMode) {
+      return {
+        index: previewBoundary.departureIndex,
+        stationId: getStationIdAtIndex(previewBoundary.departureIndex),
+      };
+    }
     const focusLineY = parentScrollY + parentFocusOffset - getSectionTop() - activeViewTopRef.current;
 
     const anchors = Object.entries(viewAnchorsRef.current[mode])
@@ -601,10 +641,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   }
 
   function renderStationsView() {
-    const elements: ReactElement[] = [];
+    const clearElements: ReactElement[] = [];
+    const ghostElements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
-      if (previewMode && !visiblePreviewIndexes.has(index)) return;
+      const targetElements = previewMode && index !== previewBoundary.departureIndex
+        ? ghostElements
+        : clearElements;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const stationKey = station.id ?? String(index);
@@ -666,7 +709,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                   onIncreaseQty={(productId) => increaseQty('start', productId)}
                   onDecreaseQty={(productId) => decreaseQty('start', productId)}
                   onRemoveSupply={(productId) => removeSupply('start', productId)}
-                  readOnly={previewMode}
+                  previewIntent={previewMode ? () => onPreviewLimitReached?.('press') : undefined}
                 />
               </>
             )}
@@ -716,7 +759,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         card = (
           <Pressable
             key={stationKey}
-            onPress={() => toggleStation(stationKey)}
+            {...(!previewMode ? { onPress: () => toggleStation(stationKey) } : {})}
             style={[
               styles.stationCard,
               planDetailStyles.stationCard,
@@ -763,7 +806,12 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
               >
                 <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
-              </> : null}
+              </> : (
+                <View style={styles.headerIconBtn}>
+                  <Ionicons name="create-outline" size={16} color={colors.text.secondary} />
+                  <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
+                </View>
+              )}
               <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
                 {station.distanceKm} km
               </DataText>
@@ -817,10 +865,10 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         );
       }
 
-      elements.push(card);
+      targetElements.push(card);
 
-      if (index < values.aidStations.length - 1 && summary && (!previewMode || visiblePreviewIndexes.has(index + 1))) {
-        elements.push(
+      if (index < values.aidStations.length - 1 && summary) {
+        targetElements.push(
           <View key={`sep-${index}`} style={styles.separator}>
             <View style={styles.separatorLine} />
             <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.separatorText}>
@@ -832,23 +880,24 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       }
     });
 
-    if (previewMode) elements.push(renderPreviewBoundary('stations'));
-
-    return elements;
+    return renderPreviewComposition('stations', clearElements, ghostElements);
   }
 
   function renderSectionsView() {
-    const elements: ReactElement[] = [];
+    const clearElements: ReactElement[] = [];
+    const ghostElements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
-      if (previewMode && !visiblePreviewIndexes.has(index)) return;
+      const targetElements = previewMode && index !== previewBoundary.firstSectionStartIndex
+        ? ghostElements
+        : clearElements;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
       const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
-      elements.push(
+      targetElements.push(
         <View
           key={`station-line-${station.id ?? index}`}
           style={[styles.sectionStationRow, index === contextAnchorIndex && styles.sectionStationRowFocused]}
@@ -866,13 +915,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         </View>,
       );
 
-      if (!nextStation || isArrivee || !summary || (previewMode && !visiblePreviewIndexes.has(index + 1))) return;
+      if (!nextStation || isArrivee || !summary) return;
 
       const sectionTimeline = getSectionIntakeTimeline(targetKey, Math.max(0, summary.durationMin), formatSectionTarget(summary));
       const sectionDPlus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dPlus), 0);
       const sectionDMinus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dMinus), 0);
 
-      elements.push(
+      targetElements.push(
         <View
           key={`section-card-${station.id ?? index}`}
           style={[
@@ -940,23 +989,23 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       );
     });
 
-    if (previewMode) elements.push(renderPreviewBoundary('sections'));
-
-    return elements;
+    return renderPreviewComposition('sections', clearElements, ghostElements);
   }
 
   function renderProfileView() {
-    const elements: ReactElement[] = [];
+    const clearElements: ReactElement[] = [];
+    const ghostElements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
-      if (previewMode && !visiblePreviewIndexes.has(index)) return;
+      const isClearPreviewSection = index === previewBoundary.firstSectionStartIndex;
+      const targetElements = previewMode && !isClearPreviewSection ? ghostElements : clearElements;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
       const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
-      elements.push(
+      targetElements.push(
         <View
           key={`profile-station-line-${station.id ?? index}`}
           style={[styles.sectionStationRow, index === contextAnchorIndex && styles.sectionStationRowFocused]}
@@ -974,10 +1023,10 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         </View>,
       );
 
-      if (!nextStation || isArrivee || !summary || (previewMode && !visiblePreviewIndexes.has(index + 1))) return;
+      if (!nextStation || isArrivee || !summary) return;
       const segmentControls = getSectionSegmentControls(targetKey);
 
-      elements.push(
+      targetElements.push(
         <View key={`profile-section-${station.id ?? index}`} style={styles.profileSectionBlock}>
           <View style={styles.profileSectionHeader}>
             <Heading variant="h3" style={planDetailStyles.profileTitle} numberOfLines={1}>
@@ -1075,7 +1124,10 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     }}
                     onSplit={() => onSplitSectionSegment(targetKey, segmentIndex)}
                     onRemove={() => onRemoveSectionSegment(targetKey, segmentIndex)}
-                    readOnly={previewMode}
+                    readOnly={previewMode && !isClearPreviewSection}
+                    previewIntent={previewMode && isClearPreviewSection
+                      ? () => onPreviewLimitReached?.('press')
+                      : undefined}
                   />
                 );
               })}
@@ -1085,55 +1137,49 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       );
     });
 
-    if (previewMode) elements.push(renderPreviewBoundary('profile'));
+    return renderPreviewComposition('profile', clearElements, ghostElements);
+  }
 
-    return elements;
+  function renderPreviewComposition(
+    mode: PlanViewMode,
+    clearElements: ReactElement[],
+    ghostElements: ReactElement[],
+  ) {
+    if (!previewMode) return clearElements;
+    return [
+      ...clearElements,
+      renderPreviewBoundary(mode),
+      ghostElements.length > 0 ? (
+        <View
+          key={`preview-ghost-${mode}`}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          pointerEvents="none"
+          style={planDetailStyles.previewGhost}
+        >
+          {ghostElements.map((element, index) => (
+            <View key={element.key ?? index} style={planDetailStyles.previewGhostBody}>{element}</View>
+          ))}
+          <View pointerEvents="none" style={planDetailStyles.previewGhostVeil} />
+        </View>
+      ) : null,
+    ].filter((element): element is ReactElement => element !== null);
   }
 
   function renderPreviewBoundary(mode: PlanViewMode) {
-    const boundaryStation = previewBoundary.boundaryStationIndex === null
-      ? null
-      : values.aidStations[previewBoundary.boundaryStationIndex];
     return (
-      <View
+      <PreviewUnlockCta
         key={`preview-boundary-${mode}`}
-        accessibilityRole="summary"
         onLayout={(event) => {
-          if (!previewBoundary.hasHiddenCourse) return;
           previewBoundaryLocalRef.current = {
             top: event.nativeEvent.layout.y,
             height: event.nativeEvent.layout.height,
           };
           reportPreviewBoundaryLayout();
         }}
-        style={planDetailStyles.previewBoundary}
-      >
-        <Heading variant="h3" style={planDetailStyles.previewBoundaryTitle}>
-          {previewBoundary.hasHiddenCourse
-            ? (locale === 'fr'
-              ? `La suite de ton plan commence à ${boundaryStation?.name ?? 'ce ravito'}`
-              : `The rest of your plan starts at ${boundaryStation?.name ?? 'this aid station'}`)
-            : (locale === 'fr' ? 'Prêt à adapter ton plan ?' : 'Ready to tailor your plan?')}
-        </Heading>
-        <ThemedText tone="secondary" size="sm" style={planDetailStyles.previewBoundaryBody}>
-          {previewBoundary.hasHiddenCourse
-            ? (locale === 'fr'
-              ? 'Débloque les prochains ravitos, les allures détaillées et toute ta stratégie nutrition.'
-              : 'Unlock the next aid stations, detailed pacing, and your complete nutrition strategy.')
-            : (locale === 'fr'
-              ? 'Débloque les modifications d’allure et construis ta nutrition ravito par ravito.'
-              : 'Unlock pace changes and build your nutrition plan aid station by aid station.')}
-        </ThemedText>
-        <TouchableOpacity
-          accessibilityRole="button"
-          onPress={() => onPreviewLimitReached?.('press')}
-          style={planDetailStyles.previewBoundaryButton}
-        >
-          <ThemedText weight="bold" style={planDetailStyles.previewBoundaryButtonText}>
-            {locale === 'fr' ? 'Débloquer mon plan' : 'Unlock my plan'}
-          </ThemedText>
-        </TouchableOpacity>
-      </View>
+        locale={locale}
+        onPress={() => onPreviewLimitReached?.('press')}
+      />
     );
   }
 
@@ -1161,7 +1207,6 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     getGaugeAnimateSignal,
     registerAnchor,
     previewMode,
-    visiblePreviewIndexes,
     previewBoundary,
     reportPreviewBoundaryLayout,
     onPreviewBoundaryLayout,
@@ -1178,7 +1223,6 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     getSectionIntakeTimeline,
     registerAnchor,
     previewMode,
-    visiblePreviewIndexes,
     previewBoundary,
     reportPreviewBoundaryLayout,
     onPreviewBoundaryLayout,
@@ -1200,7 +1244,6 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     onUpdateSectionSegmentPaceAdjustment,
     registerAnchor,
     previewMode,
-    visiblePreviewIndexes,
     previewBoundary,
     reportPreviewBoundaryLayout,
     onPreviewBoundaryLayout,
@@ -1377,6 +1420,12 @@ const planDetailStyles = StyleSheet.create({
     backgroundColor: colors.surface.cream,
   },
   previewBoundaryTitle: { textAlign: 'center', color: colors.text.primary },
+  previewBoundaryCompact: {
+    marginTop: 0,
+    paddingVertical: spacing[2],
+    borderRadius: 0,
+    borderWidth: 0,
+  },
   previewBoundaryBody: { textAlign: 'center' },
   previewBoundaryButton: {
     minHeight: 44,
@@ -1387,6 +1436,18 @@ const planDetailStyles = StyleSheet.create({
     backgroundColor: colors.brand.forest,
   },
   previewBoundaryButtonText: { color: colors.text.inverse },
+  previewGhost: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  previewGhostBody: {
+    opacity: 0.42,
+    filter: Platform.OS === 'android' ? [{ blur: 1.5 }] : undefined,
+  },
+  previewGhostVeil: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(250, 247, 240, 0.28)',
+  },
   stationBadge: {
     flexDirection: 'row',
     alignItems: 'center',

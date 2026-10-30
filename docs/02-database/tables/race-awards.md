@@ -27,6 +27,8 @@ related_tables:
 
 ## Purpose and invariants
 
+Mobile preview veiling, CTA placement, and normalized start-time display are read-only presentation; they do not change award rows or access.
+
 Catalog plan CTAs and the RaceBook/Mon plan workspace switch do not affect award selection, publication, or row access; awards remain read-only course context.
 
 Awards require Complete or Signature plus an active `awards` format module. Disabling masks published rows and blocks organizer writes without deleting them.

@@ -885,6 +885,11 @@ export default function RaceRacebookScreen() {
     locale,
   );
   const formattedRaceDate = formatDate(data?.race.raceDate ?? null, locale);
+  const formattedRaceStartTime = formatBibPickupTime(data?.runnerDetails.schedule.startTime ?? null, locale)
+    ?? formatBibPickupTime(data?.startWaves[0]?.startTime ?? null, locale);
+  const raceStartTimeLabel = formattedRaceStartTime
+    ? (locale === 'fr' ? `Départ ${formattedRaceStartTime}` : `Start ${formattedRaceStartTime}`)
+    : null;
   const heroImageUrl = data?.race.thumbnailUrl ?? data?.event.thumbnailUrl ?? null;
   const eventLocationDetails = data?.event.organizerDetails.eventLocation;
   const raceLocationDetails = data?.race.organizerDetails.raceLocation;
@@ -1507,6 +1512,7 @@ export default function RaceRacebookScreen() {
           imageUrl={heroImageUrl}
           logoUrl={RACEBOOK_EDITION_LOGO_ENABLED ? brandTheme.logoUrl : null}
           dateLabel={formattedRaceDate ?? eventDateRange}
+          startTimeLabel={raceStartTimeLabel}
           locationLabel={headerLocation}
           participationLabel={participationLabels.join(' + ') || null}
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
@@ -1544,6 +1550,7 @@ export default function RaceRacebookScreen() {
           topInset={insets.top}
           onOpenPlan={() => void handlePlanCtaPress()}
           onOpenRacebook={() => undefined}
+          planExists={Boolean(existingPlanId)}
           planDisabled={planCtaBusy}
         />
       ) : null}
@@ -1604,27 +1611,7 @@ export default function RaceRacebookScreen() {
             theme={brandTheme}
             onSponsorImpression={reportSponsorImpression}
           />
-          {existingPlanId ? (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={planCtaLabel}
-              disabled={planCtaBusy}
-              onPress={() => void handlePlanCtaPress()}
-              style={({ pressed }) => [
-                styles.refinePlanAction,
-                { borderColor: brandTheme.primaryColor },
-                pressed && styles.planCtaButtonPressed,
-                planCtaBusy && styles.planCtaButtonDisabled,
-              ]}
-              testID="racebook-plan-cta"
-            >
-              <Ionicons name="options-outline" size={18} color={brandTheme.primaryColor} />
-              <Text style={[styles.refinePlanActionText, { color: brandTheme.primaryColor }]}>
-                {planCtaBusy ? (locale === 'fr' ? 'Ouverture…' : 'Opening…') : planCtaLabel}
-              </Text>
-              <Ionicons name="arrow-forward" size={17} color={brandTheme.primaryColor} />
-            </Pressable>
-          ) : (
+          {!existingPlanId ? (
             <Card style={styles.planCtaCard}>
               <View style={styles.planCtaCopy}>
                 <View style={[styles.planCtaIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
@@ -1654,7 +1641,7 @@ export default function RaceRacebookScreen() {
                 <Ionicons name="arrow-forward" size={17} color={brandTheme.onPrimaryColor} />
               </Pressable>
             </Card>
-          )}
+          ) : null}
           {runnerInfoLines.length > 0 ? (
             <Card style={styles.heroCard}>
               <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
@@ -2213,20 +2200,6 @@ const styles = StyleSheet.create({
   },
   planCtaButtonText: {
     fontSize: 14,
-    fontWeight: '800',
-  },
-  refinePlanAction: {
-    minHeight: 44,
-    alignSelf: 'flex-start',
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderRadius: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  refinePlanActionText: {
-    fontSize: 13,
     fontWeight: '800',
   },
   alertCard: {

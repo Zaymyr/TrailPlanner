@@ -13,6 +13,7 @@ type Props = {
   onDecreaseQty: (productId: string) => void;
   onRemoveSupply: (productId: string) => void;
   readOnly?: boolean;
+  previewIntent?: () => void;
 };
 
 export const SuppliesList = React.memo(function SuppliesList({
@@ -24,13 +25,18 @@ export const SuppliesList = React.memo(function SuppliesList({
   onDecreaseQty,
   onRemoveSupply,
   readOnly = false,
+  previewIntent,
 }: Props) {
+  const openPicker = previewIntent ?? onOpenPicker;
+  const increaseQty = previewIntent ?? onIncreaseQty;
+  const decreaseQty = previewIntent ?? onDecreaseQty;
+  const removeSupply = previewIntent ?? onRemoveSupply;
   return (
     <View style={styles.suppliesSection}>
       <View style={styles.suppliesHeader}>
         <Text style={styles.suppliesLabel}>Produits</Text>
         {!readOnly ? (
-          <TouchableOpacity onPress={onOpenPicker}>
+          <TouchableOpacity onPress={openPicker}>
             <Text style={styles.suppliesAddBtn}>+ Ajouter</Text>
           </TouchableOpacity>
         ) : null}
@@ -63,16 +69,16 @@ export const SuppliesList = React.memo(function SuppliesList({
               {!readOnly ? <View style={styles.supplyControls}>
                 <TouchableOpacity
                   style={[styles.qtyBtn, supply.quantity <= 1 && styles.qtyBtnDisabled]}
-                  onPress={() => onDecreaseQty(supply.productId)}
-                  disabled={supply.quantity <= 1}
+                  onPress={() => decreaseQty(supply.productId)}
+                  disabled={!previewIntent && supply.quantity <= 1}
                 >
                   <Text style={styles.qtyBtnText}>-</Text>
                 </TouchableOpacity>
                 <Text style={styles.qtyText}>{supply.quantity}</Text>
-                <TouchableOpacity style={styles.qtyBtn} onPress={() => onIncreaseQty(supply.productId)}>
+                <TouchableOpacity style={styles.qtyBtn} onPress={() => increaseQty(supply.productId)}>
                   <Text style={styles.qtyBtnText}>+</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.removeSupplyBtn} onPress={() => onRemoveSupply(supply.productId)}>
+                <TouchableOpacity style={styles.removeSupplyBtn} onPress={() => removeSupply(supply.productId)}>
                   <Text style={styles.removeSupplyText}>×</Text>
                 </TouchableOpacity>
               </View> : <Text style={styles.qtyText}>× {supply.quantity}</Text>}

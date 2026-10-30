@@ -79,6 +79,8 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 
 ## Gotchas
 
+- The scrollable preview veil is unrelated to relay-point boundaries and does not change legs or publication.
+
 - The plan preview boundary counts only intermediate ravitos; it is not a relay-point boundary and does not alter relay publication or legs.
 
 - Material check/uncheck analytics and bounded per-item checked/missing snapshots are independent from relay legs and handovers; they carry no relay-point fields and do not mutate this table.

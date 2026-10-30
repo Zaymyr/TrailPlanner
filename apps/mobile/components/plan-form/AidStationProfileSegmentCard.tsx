@@ -23,6 +23,7 @@ type Props = {
   onSplit: () => void;
   onRemove: () => void;
   readOnly?: boolean;
+  previewIntent?: () => void;
 };
 
 export function AidStationProfileSegmentCard({
@@ -41,7 +42,13 @@ export function AidStationProfileSegmentCard({
   onSplit,
   onRemove,
   readOnly = false,
+  previewIntent,
 }: Props) {
+  const showControls = !readOnly || Boolean(previewIntent);
+  const paceDecrease = previewIntent ?? onDecreasePace;
+  const paceIncrease = previewIntent ?? onIncreasePace;
+  const split = previewIntent ?? onSplit;
+  const remove = previewIntent ?? onRemove;
   return (
     <View
       style={[
@@ -64,19 +71,28 @@ export function AidStationProfileSegmentCard({
         </View>
         <View style={styles.profilePaceWrap}>
           <Text style={styles.profilePaceLabel}>Allure</Text>
-          {readOnly ? (
+          {!showControls ? (
             <DataText tone="brand" size="xl" weight="bold">{paceValue}</DataText>
           ) : <View style={styles.profilePaceControlRow}>
             <TouchableOpacity
               accessibilityLabel="Accélérer l’allure"
               accessibilityRole="button"
               style={styles.profilePaceStepBtn}
-              onPress={onDecreasePace}
+              onPress={paceDecrease}
               activeOpacity={0.8}
             >
               <Text style={styles.profilePaceStepBtnText}>-</Text>
             </TouchableOpacity>
-            <TextInput
+            {previewIntent ? (
+              <TouchableOpacity
+                accessibilityLabel={`Allure ${title}`}
+                accessibilityRole="button"
+                onPress={previewIntent}
+                style={[styles.profilePaceInput, localStyles.previewPaceButton]}
+              >
+                <DataText tone="brand" size="lg" weight="bold">{paceValue}</DataText>
+              </TouchableOpacity>
+            ) : <TextInput
               accessibilityLabel={`Allure ${title}`}
               style={styles.profilePaceInput}
               value={paceValue}
@@ -88,12 +104,12 @@ export function AidStationProfileSegmentCard({
               placeholderTextColor={colors.text.tertiary}
               autoCapitalize="none"
               autoCorrect={false}
-            />
+            />}
             <TouchableOpacity
               accessibilityLabel="Ralentir l’allure"
               accessibilityRole="button"
               style={styles.profilePaceStepBtn}
-              onPress={onIncreasePace}
+              onPress={paceIncrease}
               activeOpacity={0.8}
             >
               <Text style={styles.profilePaceStepBtnText}>+</Text>
@@ -127,27 +143,27 @@ export function AidStationProfileSegmentCard({
         </View>
       </View>
 
-      {!readOnly ? <View style={styles.profileSegmentControls}>
+      {showControls ? <View style={styles.profileSegmentControls}>
         <View style={styles.profileSegmentActions}>
           <TouchableOpacity
-            accessibilityLabel={canSplit ? `Découper ${title}` : `Découpage indisponible pour ${title}`}
+            accessibilityLabel={canSplit || previewIntent ? `Découper ${title}` : `Découpage indisponible pour ${title}`}
             accessibilityRole="button"
-            style={[styles.profileActionBtn, !canSplit && styles.profileActionBtnDisabled]}
-            onPress={onSplit}
+            style={[styles.profileActionBtn, !previewIntent && !canSplit && styles.profileActionBtnDisabled]}
+            onPress={split}
             activeOpacity={0.8}
-            disabled={!canSplit}
+            disabled={!previewIntent && !canSplit}
           >
             <Text style={styles.profileActionBtnText}>
-              {canSplit ? 'Decouper plus finement' : 'Decoupage indisponible sur ce segment'}
+              {canSplit || previewIntent ? 'Decouper plus finement' : 'Decoupage indisponible sur ce segment'}
             </Text>
           </TouchableOpacity>
 
-          {canRemove ? (
+          {canRemove || previewIntent ? (
             <TouchableOpacity
               accessibilityLabel={`Supprimer ${title} et fusionner`}
               accessibilityRole="button"
               style={[styles.profileActionBtn, styles.profileDeleteBtn]}
-              onPress={onRemove}
+              onPress={remove}
               activeOpacity={0.8}
             >
               <Text style={styles.profileDeleteBtnText}>Supprimer et fusionner</Text>
@@ -183,5 +199,9 @@ const localStyles = StyleSheet.create({
   },
   profileSegmentTime: {
     marginTop: spacing[0.5],
+  },
+  previewPaceButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

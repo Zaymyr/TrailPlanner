@@ -106,6 +106,8 @@ where edition_id = :edition_id;
 
 ## Gotchas
 
+- The light preview veil and sticky CTA are app-owned presentation and do not expose or modify edition branding.
+
 - The restored RaceBook/Mon plan workspace switch uses app-owned contextual navigation styling and does not read, write, or expose edition branding beyond the existing RaceBook contract.
 
 - Do not reduce hero icon actions to their compact glyph dimensions: social and emergency controls keep a 44-point hit target while the title reserves their full horizontal footprint.

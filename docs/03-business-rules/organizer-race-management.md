@@ -507,6 +507,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
+- Mobile plan preview/paywall UI consumes existing course facts only. Its start-time display resolves organizer schedule then ordered waves and does not modify organizer data.
+
 - The RaceBook and catalog plan CTAs resolve only the runner's plan for the exact format and open its editor even when editing is locked; they do not change organizer publication, source data, or module access.
 - Runner monetisation does not alter organizer catalog, RaceBook, GPX, or official aid-station visibility. Free previews may use those source facts; paid runner access applies only to personalized plan detail.
 

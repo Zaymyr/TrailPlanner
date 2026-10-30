@@ -118,6 +118,8 @@ RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It
 
 ## Gotchas
 
+- A plan-scoped mobile paywall may prioritize the course purchase, but provider-returned pricing remains authoritative. The annual offer stays secondary there and primary when no plan scope exists; no CTA or modal state grants access.
+
 - Do not use archived 14-day trial docs.
 - Do not fork mobile purchases into a new table unless changing the entitlement model deliberately.
 - Do not treat the existence of a RevenueCat purchase result as a verified Premium purchase; require the active configured entitlement from the returned `CustomerInfo`.

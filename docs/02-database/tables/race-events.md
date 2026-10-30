@@ -278,6 +278,8 @@ where is_live = true
 
 ## Gotchas
 
+- Catalog create/refine wording and RaceBook start-time rendering are presentation only; they do not alter event data or visibility.
+
 - Showing `Affiner mon plan` for a runner-owned format instead of another create CTA is a catalog/RaceBook presentation decision. It does not change event visibility, event ownership, or organizer content.
 
 - The shared Courses bootstrap, recoverable-error, empty-result, and pull-to-refresh presentation repeats the existing event/format query and visibility filters. It must not persist an empty result, alter event liveness, or turn a failed request into a catalog-empty conclusion.

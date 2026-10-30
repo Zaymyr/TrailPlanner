@@ -48,6 +48,8 @@ related_tables:
 
 ## Business Invariants
 
+- Preview scrolling and paywall CTAs do not mutate a gear checklist.
+
 - Catalog plan CTAs, preview scrolling, and the RaceBook/Mon plan switch do not mutate a gear check. Gear rows remain a deliberate owner checklist interaction only.
 
 - State is isolated by both user and exact `race_id`; two formats of one event never share completion.

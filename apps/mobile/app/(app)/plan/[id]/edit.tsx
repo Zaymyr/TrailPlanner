@@ -36,6 +36,7 @@ import { PlanWorkspaceTabBar } from '../../../../components/plan-workspace/PlanW
 import { RaceWorkspaceSwitch, RACE_WORKSPACE_SWITCH_HEIGHT } from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import { LockedPlanContent } from '../../../../components/plan-workspace/LockedPlanContent';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
+import { readOrganizerStartTime, normalizePlanClock } from '../../../../lib/planDeparture';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
@@ -239,15 +240,12 @@ export default function EditPlanScreen() {
     () => initialWarmStartDraft?.elevationProfile ?? [],
   );
   const [linkedRaceId, setLinkedRaceId] = useState<string | null>(null);
+  const [officialStartTime, setOfficialStartTime] = useState<string | null>(null);
   const [officialElevationLossM, setOfficialElevationLossM] = useState<number | null>(null);
   const [planCanEdit, setPlanCanEdit] = useState(false);
   const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
   const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
   const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
-  const previewScrollPromptedRef = useRef(false);
-  useEffect(() => {
-    previewScrollPromptedRef.current = false;
-  }, [id, planCanEdit]);
   const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
   const lastSavedSnapshotRef = useRef<string | null>(initialWarmStartDraft?.lastSavedSnapshot ?? null);
   const elevationProfileRef = useRef<ElevationPoint[]>(initialWarmStartDraft?.elevationProfile ?? []);
@@ -314,18 +312,19 @@ export default function EditPlanScreen() {
   useEffect(() => {
     let cancelled = false;
     setOfficialElevationLossM(null);
+    setOfficialStartTime(null);
     setLinkedRaceId(null);
 
     if (!id) return () => { cancelled = true; };
 
     void supabase
       .from('race_plans')
-      .select('race_id, races(elevation_loss_m)')
+      .select('race_id, races(elevation_loss_m, organizer_details)')
       .eq('id', id)
       .maybeSingle()
-      .then((result: { data: unknown }) => {
+      .then(async (result: { data: unknown }) => {
         if (cancelled) return;
-        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null } | null } | null;
+        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null; organizer_details?: unknown } | null } | null;
         setLinkedRaceId(row?.race_id ?? null);
         const officialValue = row?.races?.elevation_loss_m;
         setOfficialElevationLossM(
@@ -333,6 +332,17 @@ export default function EditPlanScreen() {
             ? officialValue
             : null,
         );
+        let startTime = readOrganizerStartTime(row?.races?.organizer_details);
+        if (!startTime && row?.race_id) {
+          const { data: wave } = await supabase.from('race_start_waves')
+            .select('start_time').eq('race_id', row.race_id)
+            .order('order_index', { ascending: true }).limit(1).maybeSingle();
+          startTime = normalizePlanClock(wave?.start_time);
+        }
+        if (!cancelled) setOfficialStartTime(startTime);
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) console.warn('Unable to load linked race header context.', caught);
       });
 
     return () => { cancelled = true; };
@@ -939,13 +949,7 @@ export default function EditPlanScreen() {
           isPremium={planCanEdit}
           planId={id}
           previewMode={!planCanEdit}
-          onPreviewLimitReached={(reason) => {
-            if (reason === 'scroll') {
-              if (previewScrollPromptedRef.current) return;
-              previewScrollPromptedRef.current = true;
-            }
-            setPreviewPaywallVisible(true);
-          }}
+          onPreviewLimitReached={() => setPreviewPaywallVisible(true)}
           onValuesChange={(values) => {
             if (!planCanEdit) return;
             latestDraftRef.current = values;
@@ -987,6 +991,7 @@ export default function EditPlanScreen() {
         />
       )}
       <PlanWorkspaceHeader
+        startTime={officialStartTime}
         averagePace={averagePace}
         metrics={[
           { label: t.planWorkspace.estimatedTime, value: workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—' },
@@ -1005,6 +1010,7 @@ export default function EditPlanScreen() {
       {linkedRaceId ? (
         <RaceWorkspaceSwitch
           active="plan"
+          planExists
           expandedHeaderHeight={PLAN_WORKSPACE_HEADER_BODY_HEIGHT}
           compactHeaderHeight={PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
           topInset={insets.top}

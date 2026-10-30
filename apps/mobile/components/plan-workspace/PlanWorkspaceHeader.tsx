@@ -21,13 +21,15 @@ type Props = {
   title: string;
   totalTime: string;
   averagePace: string;
+  startTime?: string | null;
   metrics: Metric[];
   saveStatus: SaveStatus;
   onBack: () => void;
 };
 
-export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, averagePace, metrics, saveStatus, onBack }: Props) {
-  const { t } = useI18n();
+export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, averagePace, metrics, saveStatus, onBack, startTime }: Props) {
+  const { t, locale } = useI18n();
+  const startLabel = locale === 'fr' ? 'Départ' : 'Start';
   const [compact, setCompact] = useState(false);
   const expandedHeight = topInset + PLAN_WORKSPACE_HEADER_BODY_HEIGHT;
   const compactHeight = topInset + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT;
@@ -75,6 +77,7 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
               </DataText>
             </View>
           </View>
+          {startTime ? <Text style={styles.startTime}>{startLabel} {startTime}</Text> : null}
         </View>
       </Animated.View>
 
@@ -87,6 +90,10 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
               <Text style={styles.statusText}>{statusLabel}</Text>
             </View>
           ) : null}
+          {startTime ? <View style={styles.startTimeRow}>
+            <Ionicons name="flag-outline" size={13} color={Colors.textOnBrand} />
+            <Text style={styles.startTime}>{startLabel} {startTime}</Text>
+          </View> : null}
         </View>
         <View style={styles.metrics}>
           {metrics.map((metric, index) => (
@@ -115,6 +122,8 @@ const styles = StyleSheet.create({
   expanded: { flex: 1, gap: 18, paddingHorizontal: 16, paddingBottom: 16 },
   titleBlock: { minHeight: 78, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 48, gap: 5 },
   title: { color: Colors.textOnBrand, fontSize: 27, lineHeight: 31, fontWeight: '800', textAlign: 'center' },
+  startTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  startTime: { color: Colors.textOnBrand, fontSize: 12, lineHeight: 16, fontWeight: '700', opacity: 0.92 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   statusText: { color: Colors.textOnBrand, fontSize: 11, lineHeight: 14, fontWeight: '700', opacity: 0.84 },
   metrics: { minHeight: 82, flexDirection: 'row', alignItems: 'stretch', borderRadius: 17, borderWidth: 1, borderColor: 'rgba(255,255,255,0.28)', backgroundColor: 'rgba(0,0,0,0.16)', overflow: 'hidden' },

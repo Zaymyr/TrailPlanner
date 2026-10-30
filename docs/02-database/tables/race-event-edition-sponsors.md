@@ -94,6 +94,8 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 
 ## Gotchas
 
+- Preview/paywall interactions do not create sponsor impressions, clicks, or mutations.
+
 - Catalog create/refine actions and the workspace switch are outside sponsor presentation and do not count an impression, redirect, or click.
 
 - Material check/uncheck analytics and bounded per-item checked/missing snapshots remain separate from aggregate sponsor impressions and clicks. They carry no sponsor id, tier, placement, or URL.

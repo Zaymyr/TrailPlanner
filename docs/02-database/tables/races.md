@@ -183,6 +183,8 @@ where web_catalog_is_live = true
 
 ## Gotchas
 
+- An existing-plan refine CTA and preview veil do not change race visibility, source fields, or plan association.
+
 - An existing owned plan changes the runner-facing catalog/RaceBook action to refine; it does not change the race's visibility, source facts, or `race_id` association.
 
 - A null `elevation_gain_m` means unknown, not a flat course. Keep it visibly unavailable to plan selection and do not substitute zero in mobile presentation.

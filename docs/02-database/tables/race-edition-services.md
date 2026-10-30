@@ -41,6 +41,8 @@ The shared web editor file also reports SAS count and earliest time to the forma
 
 ## Access
 
+Preview/paywall presentation and start-time display do not alter effective service-module access.
+
 Catalog plan CTA wording and contextual workspace navigation are presentation-only. They do not alter effective service-module resolution or expose an unpublished edition service.
 
 The Organizer section chooser lists this setting under edition-common sections, making explicit that one switch applies to every format attached to the selected canonical edition.

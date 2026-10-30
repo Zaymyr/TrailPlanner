@@ -19,6 +19,7 @@ import { useI18n } from '../lib/i18n';
 import {
   AidStationsSectionV3 as AidStationsSection,
   AidStationsToolbar,
+  PreviewUnlockCta,
   type AidStationsSectionHandle,
   type PlanViewMode,
 } from './plan-form/AidStationsSectionV3';
@@ -72,7 +73,7 @@ import {
   type AutoFillResult,
 } from '../lib/autoFillPreview';
 import {
-  shouldTriggerPreviewLimit,
+  shouldStickPreviewUnlock,
   type PreviewLimitReason,
 } from '../lib/planPreviewBoundary';
 
@@ -179,16 +180,14 @@ export default function PlanForm({
   const aidStationsToolbarYRef = useRef(Number.POSITIVE_INFINITY);
   const [aidStationsViewMode, setAidStationsViewMode] = useState<PlanViewMode>('stations');
   const [stickyControlsVisible, setStickyControlsVisible] = useState(false);
+  const [previewUnlockStickyVisible, setPreviewUnlockStickyVisible] = useState(false);
   const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardFocusScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const previewBoundaryRef = useRef<{ top: number; height: number } | null>(null);
-  const previewScrollStartedRef = useRef(false);
-  const previewLimitReportedRef = useRef(false);
 
   useEffect(() => {
     previewBoundaryRef.current = null;
-    previewScrollStartedRef.current = false;
-    previewLimitReportedRef.current = false;
+    setPreviewUnlockStickyVisible(false);
   }, [planId]);
 
   useEffect(() => {
@@ -198,11 +197,9 @@ export default function PlanForm({
   useEffect(() => {
     const nextInitialValues = buildInitialPlanValues(initialValues);
     setValues(nextInitialValues);
-    const firstPreviewStationIndex = nextInitialValues.aidStations.findIndex(
-      (station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID,
-    );
-    setExpandedStations(previewMode && firstPreviewStationIndex >= 0
-      ? new Set([nextInitialValues.aidStations[firstPreviewStationIndex].id ?? String(firstPreviewStationIndex)])
+    const departureIndex = nextInitialValues.aidStations.findIndex((station) => station.id === DEPART_ID);
+    setExpandedStations(previewMode && departureIndex >= 0
+      ? new Set([nextInitialValues.aidStations[departureIndex].id ?? String(departureIndex)])
       : new Set());
     setExpandedSections({
       course: false,
@@ -221,6 +218,7 @@ export default function PlanForm({
     setAutoFillUndo(null);
     setAidStationsViewMode('stations');
     setStickyControlsVisible(false);
+    setPreviewUnlockStickyVisible(false);
   }, [compactBasicsByDefault, initialValues, previewMode]);
 
   useEffect(() => {
@@ -862,9 +860,6 @@ export default function PlanForm({
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
-        onScrollBeginDrag={() => {
-          previewScrollStartedRef.current = true;
-        }}
         onContentSizeChange={(_, height) => tutorial?.onContentSizeChange(height)}
         onScroll={(event) => {
           const nextScrollY = event.nativeEvent.contentOffset.y;
@@ -877,16 +872,15 @@ export default function PlanForm({
           tutorial?.onScroll(event);
           onWorkspaceScroll?.(event);
           const previewBoundary = previewBoundaryRef.current;
-          if (previewMode && shouldTriggerPreviewLimit({
-            boundaryTop: previewBoundary ? aidStationsSectionYRef.current + previewBoundary.top : null,
-            hasDeliberateScroll: previewScrollStartedRef.current,
-            hasReported: previewLimitReportedRef.current,
-            scrollY: nextScrollY,
-            viewportHeight: event.nativeEvent.layoutMeasurement.height,
-          })) {
-            previewLimitReportedRef.current = true;
-            requestPreviewUnlock('scroll');
-          }
+          const previewStickyTop = stickyTopInset + (shouldShowStickyControls ? STICKY_PLAN_CONTROLS_HEIGHT : 0);
+          const shouldShowPreviewUnlock = previewMode && shouldStickPreviewUnlock(
+            nextScrollY,
+            previewBoundary ? aidStationsSectionYRef.current + previewBoundary.top : null,
+            previewStickyTop,
+          );
+          setPreviewUnlockStickyVisible((current) => (
+            current === shouldShowPreviewUnlock ? current : shouldShowPreviewUnlock
+          ));
         }}
         onMomentumScrollEnd={tutorial?.onScrollSettled}
         onScrollEndDrag={tutorial?.onScrollSettled}
@@ -946,7 +940,7 @@ export default function PlanForm({
             fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
-            isPremium={isPremium}
+            isPremium={previewMode ? true : isPremium}
             intermediateCount={highlights.intermediateCount}
             getSupplies={getSupplies}
             openPicker={openPicker}
@@ -979,6 +973,12 @@ export default function PlanForm({
               previewBoundaryRef.current = top === null
                 ? null
                 : { top, height };
+              const previewStickyTop = stickyTopInset + (stickyControlsVisible ? STICKY_PLAN_CONTROLS_HEIGHT : 0);
+              setPreviewUnlockStickyVisible(previewMode && shouldStickPreviewUnlock(
+                mainScrollYRef.current,
+                top === null ? null : aidStationsSectionYRef.current + top,
+                previewStickyTop,
+              ));
             }}
             onPreviewLimitReached={requestPreviewUnlock}
             tutorial={
@@ -1011,7 +1011,21 @@ export default function PlanForm({
             fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
-            isPremium={isPremium}
+            isPremium={previewMode ? true : isPremium}
+          />
+        </PlanWorkspaceStickyBar>
+      ) : null}
+
+      {surface === 'plan' && previewMode ? (
+        <PlanWorkspaceStickyBar
+          top={stickyTopInset + (stickyControlsVisible ? STICKY_PLAN_CONTROLS_HEIGHT : 0)}
+          visible={previewUnlockStickyVisible}
+          testID="plan-preview-unlock-sticky"
+        >
+          <PreviewUnlockCta
+            compact
+            locale={locale}
+            onPress={() => requestPreviewUnlock('press')}
           />
         </PlanWorkspaceStickyBar>
       ) : null}
