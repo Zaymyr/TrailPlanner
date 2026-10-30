@@ -76,7 +76,7 @@ Use these severities:
 
 ## Validation
 
-No connected-device evidence is implied by source changes. When a build is available, manually audit the scrollable locked preview: clear departure/first section, later veiled inaccessible content, no auto popup, a CTA that becomes sticky under the toolbar, and identical central-paywall behavior for first-sample edit/add/split and auto-fill. Once sticky, verify the inline CTA retains only invisible layout space and is non-interactive/accessibility-hidden: exactly one CTA can be seen or focused and the handoff causes no scroll jump. Check start-time consistency between RaceBook hero and plan header.
+No connected-device evidence is implied by source changes. When a build is available, manually audit the scrollable locked preview: clear departure/first section, later veiled inaccessible content, no auto popup, and exactly one compact CTA centered in the useful area during scroll (returning inline at top). Verify clamping on a small screen and identical central-paywall behavior for first-sample edit/add/split and auto-fill. Check start-time consistency between RaceBook hero and plan header.
 
 Include a short-course regression: the compact CTA transition must remain reachable using live viewport/section/inline/fixed-tab measurements, with any preview-only spacer after ghost cards. Open another plan afterward to ensure geometry is scoped to its own plan id rather than stale measurements.
 

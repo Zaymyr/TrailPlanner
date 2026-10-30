@@ -4,6 +4,7 @@ import {
   getPreviewBoundaryTop,
   getPreviewReachableContentMinHeight,
   resolvePlanPreviewBoundary,
+  resolveCenteredPreviewUnlockGeometry,
   resolvePreviewUnlockPlacement,
 } from './planPreviewBoundary';
 
@@ -40,18 +41,19 @@ describe('plan preview boundary', () => {
   });
 });
 
-describe('sticky preview unlock', () => {
+describe('centered preview unlock', () => {
+  const floating = resolveCenteredPreviewUnlockGeometry(720, 186, 64);
   const geometry = {
+    boundaryHeight: 132,
     boundaryTopInSection: getPreviewBoundaryTop(156, 420),
     sectionTop: 340,
-    stickyHeaderTop: 132,
-    stickyToolbarHeight: 54,
+    targetCenterY: floating.centerY,
     toolbarIsSticky: true,
   };
 
-  it('stays inline at the beginning, sticks below the measured toolbar, then returns inline when scrolling back', () => {
+  it('stays inline at the beginning, follows the viewport center, then returns inline when scrolling back', () => {
     expect(resolvePreviewUnlockPlacement({ ...geometry, scrollY: 0 })).toBe('inline');
-    expect(resolvePreviewUnlockPlacement({ ...geometry, scrollY: 730 })).toBe('sticky');
+    expect(resolvePreviewUnlockPlacement({ ...geometry, scrollY: 700 })).toBe('sticky');
     expect(resolvePreviewUnlockPlacement({ ...geometry, scrollY: 500 })).toBe('inline');
   });
 
@@ -63,19 +65,34 @@ describe('sticky preview unlock', () => {
     })).toBe('inline');
   });
 
+  it('centers the compact card in the useful viewport instead of beneath the tabs', () => {
+    expect(floating.top).toBeGreaterThan(floating.usefulTop);
+    expect(floating.centerY).toBeCloseTo((floating.usefulTop + floating.usefulBottom) / 2);
+  });
+
+  it('clamps the compact card inside a small viewport', () => {
+    const small = resolveCenteredPreviewUnlockGeometry(180, 120, 88);
+
+    expect(small.top).toBeGreaterThanOrEqual(0);
+    expect(small.top + 88).toBeLessThanOrEqual(180);
+    expect(small.centerY).toBeGreaterThan(120);
+  });
+
   it('adds enough trailing room for a short course to reach the sticky threshold', () => {
     const viewportHeight = 720;
-    const pinnedTabsBottom = 186;
+    const targetCenterY = floating.centerY;
     const boundaryContentTop = 640;
+    const boundaryHeight = 132;
     const naturalShortContentHeight = 760;
     const minHeight = getPreviewReachableContentMinHeight(
       boundaryContentTop,
+      boundaryHeight,
       viewportHeight,
-      pinnedTabsBottom,
+      targetCenterY,
     );
 
     expect(minHeight).toBeGreaterThan(naturalShortContentHeight);
     const reachableMaxScroll = (minHeight ?? 0) - viewportHeight;
-    expect(reachableMaxScroll).toBeGreaterThan(boundaryContentTop - pinnedTabsBottom);
+    expect(reachableMaxScroll).toBeGreaterThan(boundaryContentTop + boundaryHeight / 2 - targetCenterY);
   });
 });

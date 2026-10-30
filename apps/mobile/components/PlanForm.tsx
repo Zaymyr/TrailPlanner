@@ -3,6 +3,7 @@ import {
   Alert,
   findNodeHandle,
   ScrollView,
+  StyleSheet,
   TextInput,
   TouchableOpacity,
   View,
@@ -10,6 +11,7 @@ import {
   type NativeScrollEvent,
   type NativeSyntheticEvent
 } from 'react-native';
+import { Colors } from '../constants/colors';
 import {
   FloatingActionMenu,
   type FloatingActionMenuItem,
@@ -74,6 +76,7 @@ import {
 } from '../lib/autoFillPreview';
 import {
   getPreviewReachableContentMinHeight,
+  resolveCenteredPreviewUnlockGeometry,
   resolvePreviewUnlockPlacement,
   type PreviewLimitReason,
 } from '../lib/planPreviewBoundary';
@@ -184,6 +187,7 @@ export default function PlanForm({
   const [aidStationsViewMode, setAidStationsViewMode] = useState<PlanViewMode>('stations');
   const [stickyControlsVisible, setStickyControlsVisible] = useState(false);
   const [previewUnlockStickyVisible, setPreviewUnlockStickyVisible] = useState(false);
+  const [floatingPreviewUnlockHeight, setFloatingPreviewUnlockHeight] = useState(0);
   const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardFocusScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -209,11 +213,18 @@ export default function PlanForm({
     ? previewBoundaryMeasurement
     : null;
   const measuredToolbarHeight = stickyToolbarHeight || aidStationsToolbarHeight;
+  const floatingPreviewUnlockGeometry = resolveCenteredPreviewUnlockGeometry(
+    scrollViewportHeight,
+    stickyTopInset + measuredToolbarHeight,
+    floatingPreviewUnlockHeight,
+    24,
+  );
   const previewContentMinHeight = previewMode && surface === 'plan'
     ? getPreviewReachableContentMinHeight(
         currentPreviewBoundary ? aidStationsSectionY + currentPreviewBoundary.top : null,
+        currentPreviewBoundary?.height ?? 0,
         scrollViewportHeight,
-        stickyTopInset + measuredToolbarHeight,
+        floatingPreviewUnlockGeometry.centerY,
       )
     : undefined;
 
@@ -883,11 +894,11 @@ export default function PlanForm({
           const measuredBoundary = previewBoundaryRef.current;
           const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
           const shouldShowPreviewUnlock = previewMode && resolvePreviewUnlockPlacement({
+            boundaryHeight: previewBoundary?.height ?? 0,
             boundaryTopInSection: previewBoundary?.top ?? null,
             scrollY: nextScrollY,
             sectionTop: aidStationsSectionYRef.current,
-            stickyHeaderTop: stickyTopInset,
-            stickyToolbarHeight: measuredToolbarHeight,
+            targetCenterY: floatingPreviewUnlockGeometry.centerY,
             toolbarIsSticky: shouldShowStickyControls,
           }) === 'sticky';
           setPreviewUnlockStickyVisible((current) => (
@@ -941,11 +952,11 @@ export default function PlanForm({
             const measuredBoundary = previewBoundaryRef.current;
             const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
             setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+              boundaryHeight: previewBoundary?.height ?? 0,
               boundaryTopInSection: previewBoundary?.top ?? null,
               scrollY: mainScrollYRef.current,
               sectionTop,
-              stickyHeaderTop: stickyTopInset,
-              stickyToolbarHeight: stickyToolbarHeight || aidStationsToolbarHeight,
+              targetCenterY: floatingPreviewUnlockGeometry.centerY,
               toolbarIsSticky: stickyControlsVisible,
             }) === 'sticky');
           }}
@@ -1000,11 +1011,11 @@ export default function PlanForm({
               previewBoundaryRef.current = nextMeasurement;
               setPreviewBoundaryMeasurement(nextMeasurement);
               setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+                boundaryHeight: height,
                 boundaryTopInSection: top,
                 scrollY: mainScrollYRef.current,
                 sectionTop: aidStationsSectionYRef.current,
-                stickyHeaderTop: stickyTopInset,
-                stickyToolbarHeight: stickyToolbarHeight || aidStationsToolbarHeight,
+                targetCenterY: floatingPreviewUnlockGeometry.centerY,
                 toolbarIsSticky: stickyControlsVisible,
               }) === 'sticky');
             }}
@@ -1038,11 +1049,11 @@ export default function PlanForm({
               const measuredBoundary = previewBoundaryRef.current;
               const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
               setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+                boundaryHeight: previewBoundary?.height ?? 0,
                 boundaryTopInSection: previewBoundary?.top ?? null,
                 scrollY: mainScrollYRef.current,
                 sectionTop: aidStationsSectionYRef.current,
-                stickyHeaderTop: stickyTopInset,
-                stickyToolbarHeight: height,
+                targetCenterY: floatingPreviewUnlockGeometry.centerY,
                 toolbarIsSticky: true,
               }) === 'sticky');
             }}
@@ -1053,16 +1064,32 @@ export default function PlanForm({
               onSelectMode={(mode) => aidStationsSectionRef.current?.selectViewMode(mode)}
             />
           </View>
-          {previewMode && previewUnlockStickyVisible ? (
-            <View testID="plan-preview-unlock-sticky">
-              <PreviewUnlockCta
-                compact
-                locale={locale}
-                onPress={() => requestPreviewUnlock('press')}
-              />
-            </View>
-          ) : null}
         </PlanWorkspaceStickyBar>
+      ) : null}
+
+      {surface === 'plan' && previewMode && scrollViewportHeight > 0 ? (
+        <View
+          accessibilityElementsHidden={!previewUnlockStickyVisible}
+          importantForAccessibility={previewUnlockStickyVisible ? 'auto' : 'no-hide-descendants'}
+          onLayout={(event) => {
+            const height = event.nativeEvent.layout.height;
+            setFloatingPreviewUnlockHeight((current) => current === height ? current : height);
+          }}
+          pointerEvents="box-none"
+          style={[
+            previewOverlayStyles.card,
+            { top: floatingPreviewUnlockGeometry.top },
+            !previewUnlockStickyVisible && previewOverlayStyles.hidden,
+          ]}
+          testID="plan-preview-unlock-centered"
+        >
+          <PreviewUnlockCta
+            compact
+            hidden={!previewUnlockStickyVisible}
+            locale={locale}
+            onPress={() => requestPreviewUnlock('press')}
+          />
+        </View>
       ) : null}
 
       {autoFillUndo ? (
@@ -1126,3 +1153,25 @@ export default function PlanForm({
     </>
   );
 }
+
+const previewOverlayStyles = StyleSheet.create({
+  card: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    zIndex: 25,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 18,
+    backgroundColor: Colors.surface,
+    shadowColor: '#1A1A1A',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
+  },
+  hidden: {
+    opacity: 0,
+  },
+});
