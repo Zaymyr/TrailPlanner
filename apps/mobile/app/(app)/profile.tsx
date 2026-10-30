@@ -10,6 +10,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import { Text } from '../../components/themed/Text';
+import { Button } from '../../components/themed/Button';
+import { RunnerLaunchAnnouncement } from '../../components/announcements/RunnerLaunchAnnouncement';
 import { ErrorState } from '../../components/themed/ErrorState';
 import { LoadingState } from '../../components/themed/LoadingState';
 import { Colors } from '../../constants/colors';
@@ -44,6 +46,7 @@ import {
 } from '../../lib/onboardingStatus';
 
 export default function ProfileScreen() {
+  const [showLaunchPreview, setShowLaunchPreview] = useState(false);
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
@@ -320,6 +323,9 @@ export default function ProfileScreen() {
                 </Pressable>
               ))}
             </View>
+            <Button variant="secondary" onPress={() => setShowLaunchPreview(true)}>
+              {locale === 'fr' ? 'Prévisualiser l’annonce 1.0' : 'Preview the 1.0 announcement'}
+            </Button>
           </View>
         ) : null}
 
@@ -494,6 +500,13 @@ export default function ProfileScreen() {
           />
         </TutorialTarget>
       </ScrollView>
+
+      {isAdminFromAuth && showLaunchPreview ? (
+        <RunnerLaunchAnnouncement
+          status={{ kind: 'free' }}
+          onClose={() => setShowLaunchPreview(false)}
+        />
+      ) : null}
 
       <RootScreenActionMenu
         contextLabel={t.profile.title}
