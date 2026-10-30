@@ -1084,7 +1084,6 @@ export default function PlanForm({
           testID="plan-preview-unlock-centered"
         >
           <PreviewUnlockCta
-            compact
             hidden={!previewUnlockStickyVisible}
             locale={locale}
             onPress={() => requestPreviewUnlock('press')}
