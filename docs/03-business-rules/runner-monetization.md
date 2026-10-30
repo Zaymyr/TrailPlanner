@@ -5,6 +5,10 @@ last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
+  - apps/mobile/components/announcements/RunnerLaunchAnnouncement.tsx
+  - apps/mobile/hooks/useRunnerLaunchAnnouncement.ts
+  - apps/mobile/lib/runnerLaunchAnnouncement.ts
+  - apps/mobile/lib/runnerLaunchAnnouncement.test.ts
   - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
   - apps/mobile/lib/planPreviewBoundary.ts
   - apps/mobile/lib/planPreviewBoundary.test.ts
@@ -74,6 +78,14 @@ Trusted admin free/premium modes remain observable even when the global monetiza
 Database policies gate updates and require identified/profile-ready creation. Free initial JSON removes paid timing/supply customization while retaining official station context. Owner reads retain the runner's own stored data; the paywall controls paid editing and app tools, not confidentiality of personal planning JSON.
 
 ## Rollout and external prerequisites
+
+## Runner launch announcement
+
+The marketing label **1.0** is a campaign label, independent from the native runtime version. The mobile announcement may appear only after bootstrap, launch overlay and onboarding transitions, and only on the identified runner root tabs Courses, Plans, Nutrition and Profile. It must never interrupt authentication, onboarding, plan editing, live mode or a purchase surface.
+
+Campaign eligibility requires the canonical `/api/runner/config` response to enable monetization. Acknowledgement is written only after the explicit “J’ai compris” action, keyed by campaign, authenticated `userId`, and device in AsyncStorage. Failed config or storage operations fail closed: they neither display an ineligible campaign nor record a false acknowledgement. The root passes `userId` and eligibility into the hook; the hook performs no Auth query.
+
+The message distinguishes free estimates, pace and RaceBook context from paid plan detail. It shows store-localized course/annual pricing supplied by the existing pricing hook, with explicit EUR 9.99 and EUR 29.99 reference fallbacks; acknowledgement is informational and does not start checkout. Existing trials, grants and paid subscriptions retain their actual existing terms. Stored free plans remain in the account without a promise of free detailed access.
 
 The canonical database singleton starts with `monetization_enabled = false`. `GET /api/runner/config` exposes only this boolean. Failures during access checks must not fabricate a Premium grant. Enable only after the schema, verified payment processing and compatible clients are deployed together.
 

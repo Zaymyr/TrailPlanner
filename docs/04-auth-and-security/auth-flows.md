@@ -47,6 +47,8 @@ related_tables:
 
 ## Runner plan creation and billing access
 
+The runner launch announcement receives already-resolved session/user eligibility from the root layout and performs no new Auth subscription or Auth query. Its explicit local acknowledgement is campaign/user/device presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.
+
 Guests may browse catalog data but cannot create a runner plan. Plan creation requires a non-anonymous account and the runner profile defaults needed for generation (name, comfortable pace, water capacity and carbohydrate target; body/UTMB values remain optional). New sign-ups do not start a trial; existing trial dates remain honored unchanged. The protected plan-access API resolves global entitlement, a canonical course/edition unlock, or historical read-only detail access server-side. Admin free/premium simulation is trusted `app_metadata` plus current JWT session only.
 
 ## Purpose

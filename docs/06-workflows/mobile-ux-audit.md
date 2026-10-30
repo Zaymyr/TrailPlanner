@@ -76,6 +76,8 @@ Use these severities:
 
 ## Validation
 
+For the runner launch campaign, do not record native visual success without a connected device. When available, verify it appears only after bootstrap/launch/onboarding completion on eligible root tabs, requires explicit acknowledgement before its per-user/device/campaign marker is stored, and cannot appear on auth, onboarding, editor, live or purchase routes. Config/storage failures must remain fail-closed and the informational action must not open checkout or change access.
+
 No connected-device evidence is implied by source changes. When a build is available, manually audit the scrollable locked preview: clear departure/first section, later veiled inaccessible content, no auto popup, and exactly one full CTA card centered in the useful area during scroll (returning inline at top). Verify its title, description and button remain present, clamping on a small screen, and identical central-paywall behavior for first-sample edit/add/split and auto-fill. Check start-time consistency between RaceBook hero and plan header.
 
 Include a short-course regression: the compact CTA transition must remain reachable using live viewport/section/inline/fixed-tab measurements, with any preview-only spacer after ghost cards. Open another plan afterward to ensure geometry is scoped to its own plan id rather than stale measurements.

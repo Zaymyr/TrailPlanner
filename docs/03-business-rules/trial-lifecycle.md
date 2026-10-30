@@ -43,6 +43,8 @@ The historical `trial_welcome_seen_at` and `trial_expired_seen_at` fields and ac
 
 ## Business invariants
 
+- A launch announcement is informational only. It must not create, extend, acknowledge, or otherwise mutate a historical trial, premium grant, subscription, or entitlement; existing access ends under its recorded terms.
+
 - Historical dates remain server-managed on `user_profiles` and are never deleted as a migration strategy.
 - Missing dates mean no application trial, including for old profiles without a recorded start.
 - Existing end timestamps, paid subscribers, and manual premium grants retain their own semantics.

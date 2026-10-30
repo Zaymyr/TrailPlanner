@@ -42,6 +42,8 @@ This document records the current Resend integration in the repo. Resend is used
 
 ## Current Status
 
+The mobile runner launch announcement is local presentation only. It does not trigger Resend contact sync, email, audience updates, or another session side effect; its acknowledgement marker remains device-local and is written only after explicit confirmation.
+
 The repo has one checked-in Broadcast template and two server-side Resend Contacts sync surfaces:
 
 - `emails/resend/production-launch.html` is a static HTML template for the Google Play production launch Broadcast. Its support ask mentions both a Google Play rating and the `@pace_your.self` Instagram account.

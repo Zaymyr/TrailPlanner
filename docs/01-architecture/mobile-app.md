@@ -28,6 +28,10 @@ related_files:
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/_layout.tsx
+  - apps/mobile/components/announcements/RunnerLaunchAnnouncement.tsx
+  - apps/mobile/hooks/useRunnerLaunchAnnouncement.ts
+  - apps/mobile/lib/runnerLaunchAnnouncement.ts
+  - apps/mobile/lib/runnerLaunchAnnouncement.test.ts
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
@@ -143,6 +147,12 @@ related_tables:
 The mobile Plans screen groups saved plans by `races.race_events.id` and displays the event name as the section heading. Plans for different formats of the same event therefore remain together; legacy plans whose source race has disappeared fall back to their stored race name or the orphan group. Runner-owned race editing is no longer exposed. Within an event section, default plan names matching the race format omit the repeated event name whether it precedes or follows the format; an exact duplicate becomes the neutral localized label “Plan de course” / “Race plan”, while runner-defined names remain unchanged. Event headings use stronger typography and plan cards are slightly indented to make the parent-child hierarchy explicit. Ravito counters exclude the editor-only start and finish stations, including for legacy rows that persisted them. Plans has no floating overflow menu: new plans start from a selected catalog course, while its empty-state action opens Courses first.
 
 ## Plan loading experience
+
+## Runner launch campaign
+
+`RunnerLaunchAnnouncement` is an informational, per-campaign runner announcement. Its **1.0** label is marketing copy and does not alter the native runtime `1.1.1`. The root layout supplies an already-known `userId` and route eligibility to its hook; the hook does not query Auth. It waits until app bootstrap, launch overlay and onboarding transitions finish, then can render only over Courses, Plans, Nutrition or Profile—not auth, onboarding, plan edit, live or purchase routes.
+
+The canonical runner config flag is the activation authority. A campaign is acknowledged only after the explicit confirmation action and stored per authenticated user/device/campaign. Config or AsyncStorage failure is fail-closed. The surface uses localized provider prices from the existing billing hook with clearly labeled EUR reference fallbacks, has no checkout action, and cannot change a subscription, trial, grant, plan or purchase.
 
 Plan creation, editing, recap, onboarding handoff, and live-mode preparation share `PlanLoadingScreen`. These operations combine network requests, local reads, entitlement checks, and synchronous calculations, so their percentage values are milestones rather than measurable elapsed progress. The UI must not expose a determinate progress bar or percentage: it uses an indeterminate branded trail animation, a context-specific title, the plan name once, and plain-language phase copy. Creation, editor, and recap routes also set their header while loading so a previous screen title or action cannot remain visible during navigation. When a load lasts longer than six seconds, a neutral reassurance appears without blaming the connection or promising a completion time. The component respects the system reduce-motion preference and exposes the active status as a polite busy accessibility announcement. The root Plans list uses the same shared indeterminate `LoadingState` as the other root tabs because it is a screen bootstrap rather than a plan calculation.
 

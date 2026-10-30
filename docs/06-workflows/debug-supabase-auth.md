@@ -23,6 +23,8 @@ related_tables:
 
 ## Runner access diagnostics
 
+The launch announcement does not diagnose or repair Auth/trial state. If it is unexpectedly absent, inspect the canonical runner-config response and local campaign marker before changing a session, trial, grant, or subscription. Its hook receives root-provided identity/eligibility and must not add an Auth listener.
+
 For a plan-access issue, first verify the bearer user owns the plan and is non-anonymous, then inspect the server access response: rollout enabled, active global entitlement, canonical plan-key unlock, and historical read-only detail are distinct outcomes. Do not repair missing trial fields. An admin test mode is valid only if the verified JWT contains a trusted app-metadata admin and the exact current `session_id` has a mode row.
 
 ## Purpose
