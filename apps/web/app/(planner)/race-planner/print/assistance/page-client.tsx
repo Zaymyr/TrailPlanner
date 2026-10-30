@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useVerifiedSession } from "../../../../hooks/useVerifiedSession";
 import { PrintAidStationsAssistance } from "../../../../../components/print/PrintAidStationsAssistance";
 import { defaultFuelProducts } from "../../../../../lib/default-products";
 import { buildPrintAidStationCards } from "../../../../../lib/print/aidStations";
@@ -14,6 +15,25 @@ import { buildSegments } from "../../utils/segments";
 
 export function AssistancePrintClientPage() {
   const { t } = useI18n();
+  const { session, isLoading } = useVerifiedSession();
+  const [allowed, setAllowed] = useState(false);
+  useEffect(() => {
+    const controller = new AbortController();
+    const verify = async () => {
+      const configResponse = await fetch("/api/runner/config", { signal: controller.signal, cache: "no-store" });
+      if (!configResponse.ok) return;
+      const config = await configResponse.json();
+      if (!config.enabled) { setAllowed(true); return; }
+      const planId = new URLSearchParams(window.location.search).get("planId");
+      if (!session?.accessToken || !planId) return;
+      const response = await fetch(`/api/plans/${encodeURIComponent(planId)}/access`, { headers: { Authorization: `Bearer ${session.accessToken}` }, signal: controller.signal, cache: "no-store" });
+      const data = await response.json();
+      setAllowed(response.ok && data.access?.canViewDetails === true);
+    };
+    setAllowed(false);
+    if (!isLoading) void verify().catch(() => {});
+    return () => controller.abort();
+  }, [session?.accessToken, isLoading]);
 
   const payload = useMemo(() => {
     const stored = readRacePlannerStorage<Partial<FormValues>, ElevationPoint[]>();
@@ -72,6 +92,7 @@ export function AssistancePrintClientPage() {
     };
   }, [t.racePlanner.defaults.finish, t.racePlanner.defaults.start]);
 
+  if (!allowed) return <p role="status" className="p-6">{t.profile.subscription.title}</p>;
   if (!payload) {
     return <div className="p-6 text-sm text-slate-700">No plan available to print.</div>;
   }

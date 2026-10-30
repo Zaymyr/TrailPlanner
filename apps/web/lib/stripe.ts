@@ -6,6 +6,8 @@ const stripeConfigSchema = z.object({
   secretKey: z.string().trim().min(1),
   webhookSecret: z.string().trim().min(1).optional(),
   priceId: z.string().trim().min(1).optional(),
+  annualPriceId: z.string().trim().min(1).optional(),
+  coursePriceId: z.string().trim().min(1).optional(),
   checkoutSuccessUrl: z.string().trim().url().optional(),
   checkoutCancelUrl: z.string().trim().url().optional(),
   billingReturnUrl: z.string().trim().url().optional(),
@@ -26,6 +28,8 @@ export const getStripeConfig = (): StripeConfig | null => {
     secretKey: process.env.STRIPE_SECRET_KEY,
     webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
     priceId: process.env.STRIPE_PRICE_ID,
+    annualPriceId: process.env.STRIPE_ANNUAL_PRICE_ID ?? process.env.STRIPE_PRICE_ID,
+    coursePriceId: process.env.STRIPE_COURSE_PRICE_ID,
     checkoutSuccessUrl: process.env.STRIPE_CHECKOUT_SUCCESS_URL,
     checkoutCancelUrl: process.env.STRIPE_CHECKOUT_CANCEL_URL,
     billingReturnUrl: process.env.STRIPE_BILLING_RETURN_URL,
@@ -91,6 +95,7 @@ export const getStripeJson = async <T>(path: string, secretKey: string): Promise
 
 export type StripeEvent = {
   id: string;
+  created?: number;
   type: string;
   data: { object: Record<string, unknown> };
 };
@@ -102,6 +107,7 @@ export type StripeSubscriptionEventData = {
   current_period_end?: number;
   items?: {
     data?: Array<{
+      current_period_end?: number;
       price?: { id?: string; metadata?: Record<string, unknown> } | null;
     }>;
   };

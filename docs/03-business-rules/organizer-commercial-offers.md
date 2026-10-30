@@ -1,7 +1,7 @@
 ---
 title: Organizer Commercial Offers
 scope: business-rule
-last_verified: 2026-09-30
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-entitlements.ts
@@ -109,6 +109,8 @@ The free Visibility tier may expose an event and its preview-selected private co
 Recalculation requires a valid paid path and assigns `stripe` or `manual_payment` from the transaction that supplies the effective tier. Refunding/disputing a base purchase invalidates dependent upgrades; invalidating only an upgrade returns to the valid lower tier. Legacy `racebook` payments map to Complete and legacy `pro_direct` or `racebook + pro_upgrade` paths map to Signature. Existing RaceBook/Pro entitlements are upgraded to Complete/Signature. Operational `admin`, explicit `complimentary`, and legacy admin grants remain authoritative until explicitly changed or converted.
 
 ## Gotchas
+
+- Runner annual and course offers are a distinct consumer billing model. Do not create `organizer_edition_payments` or organizer edition entitlements from their webhook events.
 
 - The persisted-content scan runs before Stripe session creation. Every Supabase presence probe must select a real column; `race_event_edition_branding` is keyed by `edition_id`, so a generic `select=id` blocks checkout with a Data API 400.
 - Code-splitting optional Organizer editors is only a bundle optimization. A dynamically loaded editor never grants public visibility or a paid operation.

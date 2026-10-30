@@ -110,6 +110,8 @@ Runner-owned private race import is retired. Mobile no longer offers document pi
 
 ## Catalog Plan Import
 
+Catalog-derived plans remain reusable course facts, but, when runner monetisation is enabled, creation requires an identified runner profile and persisted detailed edits require the plan's paid access decision. This does not change GPX parsing or organizer source visibility.
+
 `apps/web/app/api/plans/from-catalog/route.ts`:
 
 1. Requires bearer token.

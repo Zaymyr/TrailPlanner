@@ -25,6 +25,10 @@ related_tables:
 
 # `race_plans`
 
+## Runner monetisation boundary
+
+When `runner_monetization_config` is enabled, inserts require an identified owner with the required plan-generation profile defaults. A free preview can retain only summary-safe planner data; the database strips paid-only section pacing, ravito/product and detailed supply fields. Updates require a verified annual entitlement or a durable unlock for the plan's server-derived format/edition key. Historical subscription preparation can preserve details for later read-only access; it does not restore edit rights.
+
 ## Purpose
 
 `race_plans` stores saved planner state for a user. It is the durable home for `planner_values`, elevation profiles, and imported catalog GPX metadata.

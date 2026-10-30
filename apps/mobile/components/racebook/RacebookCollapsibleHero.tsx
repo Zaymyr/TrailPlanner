@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
+import { StatusBar } from 'expo-status-bar';
 import { Animated, Image, Pressable, StyleSheet, View } from 'react-native';
 
 import { DataText } from '../themed/DataText';
@@ -122,6 +123,7 @@ export function RacebookCollapsibleHero({
         },
       ]}
     >
+      <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
       {imageUrl ? (
         <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessible={false} />
       ) : null}

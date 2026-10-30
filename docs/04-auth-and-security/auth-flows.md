@@ -35,6 +35,7 @@ related_files:
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/onboardingGate.ts
+  - apps/mobile/lib/runnerPlanIntent.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/resendContactSync.test.ts
   - apps/mobile/lib/trial.ts
@@ -43,6 +44,10 @@ related_tables:
 ---
 
 # Auth Flows
+
+## Runner plan creation and billing access
+
+Guests may browse catalog data but cannot create a runner plan. Plan creation requires a non-anonymous account and the runner profile defaults needed for generation (name, comfortable pace, water capacity and carbohydrate target; body/UTMB values remain optional). New sign-ups do not start a trial; existing trial dates remain honored unchanged. The protected plan-access API resolves global entitlement, a canonical course/edition unlock, or historical read-only detail access server-side. Admin free/premium simulation is trusted `app_metadata` plus current JWT session only.
 
 ## Purpose
 
@@ -83,6 +88,8 @@ The organizer acquisition flow may send `next=/organizers` (event creation) or `
 An admin-created organizer account follows the Supabase invitation flow rather than receiving an application-generated password. The protected admin route passes `/reset-password` through GoTrue's `redirect_to` query parameter and includes the canonical race name as `user_metadata.event_name` (`{{ .Data.event_name }}` in the Supabase invite template). That metadata is display-only and must never authorize access. The password page accepts both `invite` and `recovery` token fragments, updates the password through the anon-key server route, rejects an unsuccessful session response, persists the verified tokens, then waits for the shared session provider to verify that exact stored session before using client-side navigation. When either kind of link is missing, invalid, or expired, the page exposes a prominent action to the existing public password-recovery form; that form collects the address again and lets Supabase Auth send a fresh recovery e-mail without revealing whether the account exists. The recovery API passes `/reset-password` in GoTrue's `redirect_to` query parameter while keeping only the e-mail address in the JSON body, so `{{ .ConfirmationURL }}` returns to the password page instead of falling back to the configured Site URL. An invite flow opens `/organizer`; ordinary password recovery returns to `/race-planner`. The organizer membership is created before the e-mail is sent, so the first verified dashboard load is already authorized without depending on a full-page reload.
 
 ## Mobile Auth
+
+When a guest chooses a course for a new plan, `runnerPlanIntent.ts` retains only that public race id and a 24-hour resume timestamp in local storage. Identified post-auth routing resumes the ordinary new-plan/profile flow before optional tours. This marker never authorizes a write; the server and database still require the identified owner and planning defaults. Successful creation clears it, and the guided Plan completion remains tied to the successful insert.
 
 The authenticated onboarding catalog accepts source-backed formats whose D+ is still unpublished. It shows the missing value explicitly and does not allow that format to start plan calculation until the elevation is supplied; this does not alter authentication or onboarding-gate state.
 

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { buildTrialDates, TRIAL_DURATION_DAYS, type TrialStatus } from "./trial";
+import { type TrialStatus } from "./trial";
 
 const trialRowSchema = z.array(
   z.object({
@@ -49,85 +49,9 @@ const mapTrialRow = (row: TrialRow | null): TrialStatus => ({
   trialWelcomeSeenAt: row?.trial_welcome_seen_at ?? null,
 });
 
+// Historical trials remain readable. Missing dates must never start a new trial.
 export const ensureTrialStatus = async (params: TrialStorageParams): Promise<TrialStatus> => {
-  const { supabaseUrl, supabaseKey, token, userId } = params;
-  const row = await fetchTrialRow(params);
-
-  if (!row) {
-    const { startedAt, endsAt } = buildTrialDates();
-    const insertResponse = await fetch(`${supabaseUrl}/rest/v1/user_profiles`, {
-      method: "POST",
-      headers: {
-        ...buildHeaders(supabaseKey, token),
-        Prefer: "return=minimal",
-      },
-      body: JSON.stringify({ user_id: userId, trial_started_at: startedAt, trial_ends_at: endsAt }),
-      cache: "no-store",
-    });
-
-    if (!insertResponse.ok) {
-      throw new Error("Unable to initialize trial");
-    }
-
-    return {
-      trialStartedAt: startedAt,
-      trialEndsAt: endsAt,
-      trialWelcomeSeenAt: null,
-    };
-  }
-
-  let didUpdate = false;
-
-  if (!row.trial_started_at) {
-    const { startedAt, endsAt } = buildTrialDates();
-    const updateResponse = await fetch(
-      `${supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(userId)}&trial_started_at=is.null`,
-      {
-        method: "PATCH",
-        headers: {
-          ...buildHeaders(supabaseKey, token),
-          Prefer: "return=minimal",
-        },
-        body: JSON.stringify({ trial_started_at: startedAt, trial_ends_at: endsAt }),
-        cache: "no-store",
-      }
-    );
-
-    if (!updateResponse.ok) {
-      throw new Error("Unable to start trial");
-    }
-
-    didUpdate = true;
-  } else if (!row.trial_ends_at) {
-    const startDate = new Date(row.trial_started_at);
-    if (Number.isFinite(startDate.getTime())) {
-      const endsAt = new Date(startDate.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
-      const updateResponse = await fetch(
-        `${supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(userId)}&trial_ends_at=is.null`,
-        {
-          method: "PATCH",
-          headers: {
-            ...buildHeaders(supabaseKey, token),
-            Prefer: "return=minimal",
-          },
-          body: JSON.stringify({ trial_ends_at: endsAt }),
-          cache: "no-store",
-        }
-      );
-
-      if (!updateResponse.ok) {
-        throw new Error("Unable to complete trial window");
-      }
-
-      didUpdate = true;
-    }
-  }
-
-  if (didUpdate) {
-    return mapTrialRow(await fetchTrialRow(params));
-  }
-
-  return mapTrialRow(row);
+  return mapTrialRow(await fetchTrialRow(params));
 };
 
 export const markTrialWelcomeSeen = async (

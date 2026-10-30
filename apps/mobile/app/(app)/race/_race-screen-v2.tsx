@@ -47,6 +47,7 @@ import {
   type WaterOnlyReminderIntervalMinutes
 } from '../../../lib/raceLivePlan';
 import { supabase } from '../../../lib/supabase';
+import { WEB_API_BASE_URL } from '../../../lib/webApi';
 import { useI18n } from '../../../lib/i18n';
 
 function formatElapsedFromMinutes(totalMinutes: number): string {
@@ -157,6 +158,15 @@ export default function RaceScreenV2() {
       setShowConfig(false);
       setIncludeWaterOnlyAlerts(true);
       setWaterOnlyReminderIntervalMinutes(DEFAULT_WATER_ONLY_REMINDER_INTERVAL_MIN);
+      try {
+        const { data: auth } = await supabase.auth.getSession();
+        const response = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${auth.session?.access_token ?? ''}` } });
+        const payload = await response.json() as { access?: { enabled?: boolean; canViewDetails?: boolean } };
+        if (!response.ok || !payload.access || (payload.access.enabled && !payload.access.canViewDetails)) {
+          if (!cancelled) { setLoading(false); router.replace(`/(app)/plan/${id}/edit`); }
+          return;
+        }
+      } catch { if (!cancelled) setLoading(false); return; }
       const planAccess = await getCurrentUserPlanAccess(isPremium);
       if (
         !isPremium &&

@@ -507,6 +507,8 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 
 ## Gotchas
 
+- Runner monetisation does not alter organizer catalog, RaceBook, GPX, or official aid-station visibility. Free previews may use those source facts; paid runner access applies only to personalized plan detail.
+
 - The mobile Courses root now shares the standard loading, recoverable-error, and empty-state presentation and retains pull-to-refresh. Retry and refresh must repeat the existing catalog/organizer-membership reads without weakening masked/private/public format gates or changing organizer preview access.
 
 - Retiring runner-owned standalone races does not change Organizer draft formats, GPX authoring, publication states, or membership checks; those writes remain service-mediated.

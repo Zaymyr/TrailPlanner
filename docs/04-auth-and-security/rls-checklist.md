@@ -86,6 +86,13 @@ related_tables:
 
 # RLS Checklist
 
+## Runner monetisation additions
+
+- [ ] `runner_plan_unlocks`, purchase intents and history expose at most owner reads; billing/event/config/admin-mode writes are service-only.
+- [ ] The `race_plans` update policy calls the owned-plan entitlement predicate; free previews cannot persist detailed pacing or ravito edits.
+- [ ] All SECURITY DEFINER billing functions set a fixed `search_path`, check caller ownership/service role, and revoke public execution.
+- [ ] Admin simulation checks trusted `auth.users.raw_app_meta_data`, never `user_metadata` or `user_profiles.role`.
+
 ## Purpose
 
 Use this checklist before adding or changing Supabase tables, policies, or service-role routes.

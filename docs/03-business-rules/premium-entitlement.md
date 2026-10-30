@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-10-01
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -15,19 +15,21 @@ related_tables:
   - subscriptions
   - user_profiles
   - premium_grants
+  - runner_plan_unlocks
 ---
 
 # Premium Entitlement
 
 ## Purpose
 
-This document explains how Pace Yourself decides whether a user has premium access and which limits apply. Web and mobile use different code paths but converge on `subscriptions`, `user_profiles`, and `premium_grants`.
+This document explains how Pace Yourself decides whether a runner has global premium access or a course-specific purchase. Web and mobile converge on server-verified billing state; a client checkout result is never sufficient.
 
 ## Key Concepts
 
 - Entitlement: effective feature access and limits.
-- Premium: unlimited plans/favorites/custom products plus export/autofill access.
-- Trial: profile-based 15-day premium access.
+- Premium: annual global access while a verified subscription, legacy trial, or grant is active.
+- Course unlock: durable edit/detail access for one format + edition, never global Premium.
+- Trial: legacy profile-based 15-day premium access; new accounts do not receive one.
 - Subscription: Stripe or RevenueCat row in `subscriptions`.
 - Premium grant: manual override in `premium_grants`.
 
@@ -35,7 +37,9 @@ This document explains how Pace Yourself decides whether a user has premium acce
 
 `apps/web/lib/entitlements.ts` defines default free and premium entitlements.
 
-Free defaults:
+When runner monetisation is enabled, identified runners may create multiple free previews. Free previews expose course facts, total estimate, average pace and aggregate nutrition needs, but not detailed pacing, ravito construction, exports or tracking.
+
+Legacy free defaults:
 
 - `isPremium: false`
 - `planLimit: 1`
@@ -55,10 +59,10 @@ Premium defaults:
 
 ## Resolution Order
 
-Web entitlement resolution checks:
+Global entitlement resolution checks:
 
 1. User subscription row.
-2. Trial state from profile.
+2. Existing trial state from profile (no new trial is initialized).
 3. Active premium grants.
 
 Important behavior:
@@ -98,12 +102,17 @@ The mobile Premium upsell sheet identifies its content as a modal accessibility 
 
 Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do not resolve separate plan-tier tables.
 
+RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It updates the legacy `subscriptions` projection only when doing so cannot overwrite Stripe customer/subscription identity. New runner-ledger rows with no verified period end are stored expired rather than becoming permanent grants.
+
 ## Business Invariants
 
-- Trial access is 15 days and profile-based.
-- Billing source rows all flow into `subscriptions`.
+- Existing trial access remains 15 days and profile-based; it is not created or repaired for new users.
+- Annual subscription state can be represented by the legacy `subscriptions` snapshot and the runner billing ledger.
 - Premium grants are overrides, not subscriptions.
 - Plan creation routes must check effective entitlements before allowing extra saved plans.
+- Runner plan purchases are stored in `runner_plan_unlocks` and grant editing only for their canonical course/edition `plan_key`; they never grant global Premium.
+- The annual offer is EUR 29.99 TTC; the course offer is EUR 9.99 TTC. Three individual courses cost EUR 29.97, so the annual offer becomes cheaper from a fourth race.
+- Subscription expiry keeps historical plan details readable but blocks edits unless that course/edition has a durable unlock.
 - Organizer per-edition Visibilité/Essential/Complete/Signature rights are a separate commercial model stored in `organizer_edition_entitlements`; Stripe and manual-payment sources, invoice history, and bank transfers never elevate runner Premium.
 
 ## Gotchas
@@ -114,6 +123,10 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 - Be careful with missing `current_period_end`; code paths differ in how permissive they are.
 - Stripe product/price identities are environment/dashboard configuration, not hardcoded repo facts.
 - Do not resolve organizer edition capabilities from `subscriptions`, RevenueCat, trial state, or `premium_grants`.
+- Do not grant runner plan access from a client purchase result; fulfill only from a verified provider webhook.
+- The rollout is disabled by default in `runner_monetization_config`; configuration outage or a missing row must not be interpreted as paid access.
+- Mobile asks the server for purchase authorization before opening the annual store sheet. Course purchase uses the exact server-returned product id and refuses a stale client/server product mismatch.
+- The annual RevenueCat flow selects only the configured annual package from `EXPO_PUBLIC_REVENUECAT_OFFERING_ID`; it fails closed instead of falling back to shorter or lifetime packages, and checks the server product allowlist plus the 29.99 EUR store metadata before purchase.
 - Do not move entitlement listeners back into individual hook instances; tab and detail screens frequently mount `usePremium` at the same time.
 - Keep accessibility semantics on the Premium upsell presentation-only. Modal focus and headings must not be treated as checkout progress, purchase success, or evidence of an active entitlement.
 - Do not couple Profile bootstrap retry to RevenueCat purchase or restore flows; entitlement verification remains owned by the existing Premium and billing hooks.

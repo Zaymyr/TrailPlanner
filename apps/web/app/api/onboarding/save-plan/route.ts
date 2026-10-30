@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getSupabaseServiceConfig } from "../../../../lib/supabase";
+import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig, isAnonymousUser } from "../../../../lib/supabase";
 
 const savePlanSchema = z.object({
   userId: z.string().uuid(),
@@ -17,6 +17,11 @@ export async function POST(request: Request) {
   if (!serviceConfig) {
     return NextResponse.json({ message: "Service config missing." }, { status: 500 });
   }
+  const anonConfig = getSupabaseAnonConfig();
+  const token = extractBearerToken(request.headers.get("authorization"));
+  if (!anonConfig || !token) return NextResponse.json({ message: "Authentication required." }, { status: 401 });
+  const user = await fetchSupabaseUser(token, anonConfig);
+  if (!user || isAnonymousUser(user)) return NextResponse.json({ message: "An identified account is required." }, { status: 403 });
 
   const parsed = savePlanSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) {
@@ -24,6 +29,7 @@ export async function POST(request: Request) {
   }
 
   const { userId, name, plannerValues, elevationProfile, catalogRaceId } = parsed.data;
+  if (userId !== user.id) return NextResponse.json({ message: "Invalid plan owner." }, { status: 403 });
 
   console.log("[save-plan] called — userId:", userId, "name:", name, "catalogRaceId:", catalogRaceId ?? null, "aidStations:", Array.isArray((plannerValues as Record<string,unknown>).aidStations) ? ((plannerValues as Record<string,unknown>).aidStations as unknown[]).length : 0);
 
@@ -36,8 +42,8 @@ export async function POST(request: Request) {
       : `${serviceConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${userId}&created_at=gte.${new Date(Date.now() - 60_000).toISOString()}&select=id&limit=1`;
     const checkRes = await fetch(idempotencyUrl, {
       headers: {
-        apikey: serviceConfig.supabaseServiceRoleKey,
-        Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+        apikey: anonConfig.supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
       },
       cache: "no-store",
     });
@@ -51,8 +57,8 @@ export async function POST(request: Request) {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        apikey: serviceConfig.supabaseServiceRoleKey,
-        Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+        apikey: anonConfig.supabaseAnonKey,
+        Authorization: `Bearer ${token}`,
         Prefer: "return=representation",
       },
       body: JSON.stringify({

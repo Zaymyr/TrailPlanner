@@ -387,7 +387,7 @@ The client session entry point is `apps/web/app/hooks/useVerifiedSession.tsx`. I
 - reruns verification from the latest stored token when a session-update event overlaps an older in-flight request.
 - aborts a browser session-verification request after 10 seconds and releases the loading state so a stalled endpoint cannot freeze protected route presentation.
 
-The session API route validates Supabase users through `apps/web/lib/supabase.ts`, calls `ensureTrialStatus`, and sets HTTP-only cookies through auth cookie helpers. The root layout does not mount a trial-welcome dialog: newly created accounts keep their 15-day Premium entitlement without a global popup competing with route-specific onboarding.
+The session API route validates Supabase users through `apps/web/lib/supabase.ts`, reads existing trial status without creating or extending it, and sets HTTP-only cookies through auth cookie helpers. New accounts receive no automatic trial.
 
 ### Planner API
 
@@ -528,6 +528,8 @@ Mobile calls the lightweight public `/api/racebook-sponsors?raceId=...` route in
 The sponsor response exposes only active presentation DTOs (`tier`, optional `category`, exact `contextualPlacement`) and counted redirect URLs; it never exposes destinations or counters. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target. The separate POST impression route accepts a random view UUID and exact surface placement, deduplicates and throttles it through opaque rate-limit keys, validates the active module/configuration, and uses a service-only RPC that repeats the published race/edition gate before incrementing the aggregate counter.
 
 ### Billing and Entitlements
+
+Runner billing is independently gated by the server-side `runner_monetization_config` flag (default off). Identified users can create free previews, while plan-detail editing is authorized per owned plan by global annual access or a canonical format/edition unlock. Historical paid plans stay readable after expiry. `GET /api/plans/:id/access` is the client contract; route handlers must enforce the same decision and never accept a browser-supplied purchase scope. Trusted admins may select a session-only real/free/premium simulation through the protected admin route; it does not debit, alter a subscription, or create durable access.
 
 Stripe routes live under `apps/web/app/api/stripe`:
 

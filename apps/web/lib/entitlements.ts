@@ -83,7 +83,7 @@ const isSubscriptionActive = (subscription: SubscriptionRow | null): boolean => 
 
 const getDefaultEntitlements = (): UserEntitlements => ({
   isPremium: false,
-  planLimit: 1,
+  planLimit: Number.POSITIVE_INFINITY,
   favoriteLimit: 3,
   customProductLimit: Number.POSITIVE_INFINITY,
   allowExport: false,
@@ -179,7 +179,11 @@ export const getUserEntitlements = async (userId: string): Promise<UserEntitleme
       0
     ] as SubscriptionRow | undefined;
 
-    const subscriptionActive = isSubscriptionActive(subscriptionRow ?? null);
+    const accountResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/runner_subscription_accounts?user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing)&select=current_period_end`, {
+      headers: { apikey: serviceConfig.supabaseServiceRoleKey, Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}` }, cache: "no-store",
+    });
+    const accounts = accountResponse.ok ? await accountResponse.json() as Array<{ current_period_end: string | null }> : [];
+    const subscriptionActive = isSubscriptionActive(subscriptionRow ?? null) || accounts.some((account) => account.current_period_end !== null && Date.parse(account.current_period_end) > Date.now());
     const [trialResponse, premiumGrantResponse] = await Promise.all([
       fetch(
         `${serviceConfig.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${encodeURIComponent(

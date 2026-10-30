@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 
 import { getUserEntitlements } from "../../../../lib/entitlements";
+import { getRunnerMonetizationEnabled } from "../../../../lib/runner-access";
 import { parseGpx } from "../../../../lib/gpx/parseGpx";
 import { normalizeImportedWaypoints } from "../../../../lib/gpx/normalizeImportedWaypoints";
 import { checkRateLimit, withSecurityHeaders } from "../../../../lib/http";
@@ -12,6 +13,7 @@ import {
   fetchSupabaseUser,
   getSupabaseAnonConfig,
   getSupabaseServiceConfig,
+  isAnonymousUser,
 } from "../../../../lib/supabase";
 
 const bodySchema = z.object({
@@ -101,6 +103,9 @@ export async function POST(request: NextRequest) {
   if (!supabaseUser?.id) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
   }
+  if (isAnonymousUser(supabaseUser)) {
+    return withSecurityHeaders(NextResponse.json({ message: "Create an account before creating a plan." }, { status: 403 }));
+  }
 
   const rateLimit = checkRateLimit(`plans-from-catalog:${supabaseUser.id}`, 10, 60_000);
   if (!rateLimit.allowed) {
@@ -117,7 +122,7 @@ export async function POST(request: NextRequest) {
 
   const entitlements = await getUserEntitlements(supabaseUser.id);
 
-  if (!entitlements.isPremium && Number.isFinite(entitlements.planLimit)) {
+  if (!(await getRunnerMonetizationEnabled()) && !entitlements.isPremium && Number.isFinite(entitlements.planLimit)) {
     const existingPlansResponse = await fetch(
       `${supabaseAnon.supabaseUrl}/rest/v1/race_plans?select=id&limit=${entitlements.planLimit}`,
       {
@@ -300,7 +305,16 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const profileResponse = await fetch(`${supabaseAnon.supabaseUrl}/rest/v1/user_profiles?user_id=eq.${supabaseUser.id}&select=water_bag_liters,comfortable_flat_pace_min_per_km,default_carbs_g_per_hour,default_water_ml_per_hour,default_sodium_mg_per_hour&limit=1`, {
+    headers: buildAuthHeaders(supabaseAnon.supabaseAnonKey, token, undefined), cache: "no-store",
+  });
+  const profile = profileResponse.ok ? (await profileResponse.json())?.[0] : null;
+  const pace = typeof profile?.comfortable_flat_pace_min_per_km === "number" && profile.comfortable_flat_pace_min_per_km > 0 ? profile.comfortable_flat_pace_min_per_km : 7.5;
+  const paceSeconds = Math.round(pace * 60);
   const plannerValues = {
+    paceType: "pace", paceMinutes: Math.floor(paceSeconds / 60), paceSeconds: paceSeconds % 60, speedKph: 60 / pace,
+    waterBagLiters: profile?.water_bag_liters ?? 1.5, targetIntakePerHour: profile?.default_carbs_g_per_hour ?? 60,
+    waterIntakePerHour: profile?.default_water_ml_per_hour ?? 500, sodiumIntakePerHour: profile?.default_sodium_mg_per_hour ?? 400,
     raceDistanceKm: parsedGpx.stats.distanceKm || Number(catalogRace.distance_km),
     elevationGain: parsedGpx.stats.gainM || Number(catalogRace.elevation_gain_m ?? 0),
     aidStations: plannerAidStations,

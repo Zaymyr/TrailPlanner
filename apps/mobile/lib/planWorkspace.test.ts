@@ -6,6 +6,7 @@ import {
   formatAveragePace,
   getPlanViewScrollTarget,
   normalizePlanWorkspaceTab,
+  resolvePlanElevationLoss,
 } from './planWorkspace';
 
 describe('plan workspace helpers', () => {
@@ -22,6 +23,18 @@ describe('plan workspace helpers', () => {
   it('returns null when descent cannot be derived', () => {
     expect(calculateElevationLoss([])).toBeNull();
     expect(calculateElevationLoss([{ distanceKm: 0, elevationM: 100 }])).toBeNull();
+  });
+
+  it('uses the official race descent before the GPX-derived fallback', () => {
+    const profile = [
+      { distanceKm: 0, elevationM: 100 },
+      { distanceKm: 2, elevationM: 180 },
+      { distanceKm: 4, elevationM: 130 },
+    ];
+
+    expect(resolvePlanElevationLoss(860, profile)).toBe(860);
+    expect(resolvePlanElevationLoss(null, profile)).toBe(50);
+    expect(resolvePlanElevationLoss(Number.NaN, profile)).toBe(50);
   });
 
   it('formats the exact total duration as an average pace', () => {

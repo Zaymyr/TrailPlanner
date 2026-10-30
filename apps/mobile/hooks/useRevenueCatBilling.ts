@@ -6,6 +6,7 @@ import {
   addRevenueCatCustomerInfoListener,
   canUseRevenueCat,
   getRevenueCatCurrentOffering,
+  getRevenueCatCourseProduct,
   getRevenueCatCustomerInfo,
   getRevenueCatPremiumEntitlement,
   hasRevenueCatPremiumEntitlement,
@@ -13,11 +14,13 @@ import {
   isRevenueCatPurchaseUnavailable,
   pickRevenueCatPrimaryPackage,
   purchaseRevenueCatPackage,
+  purchaseRevenueCatCourse,
   restoreRevenueCatPurchases,
 } from '../lib/revenueCat';
 import { getCurrentRevenueCatProviderHint, syncRevenueCatSubscriptionToServer } from '../lib/revenueCatSync';
 import { emitPremiumStatusChange } from '../lib/premiumEvents';
 import { captureAnalyticsEvent } from '../lib/posthog';
+import { WEB_API_BASE_URL } from '../lib/webApi';
 
 type PurchasePlacement = 'feature_gate' | 'profile';
 
@@ -45,6 +48,7 @@ type BillingState = {
   currentPackage: PurchasesPackage | null;
   managementUrl: string | null;
   isPremium: boolean;
+  coursePriceString: string | null;
 };
 
 const DEFAULT_STATE: BillingState = {
@@ -57,13 +61,14 @@ const DEFAULT_STATE: BillingState = {
   currentPackage: null,
   managementUrl: null,
   isPremium: false,
+  coursePriceString: null,
 };
 
 export function useRevenueCatBilling() {
   const [state, setState] = useState<BillingState>(DEFAULT_STATE);
 
   async function loadBillingSnapshot(userId: string) {
-    const [customerInfo, offering] = await Promise.all([
+    const [customerInfo, offering, courseProduct] = await Promise.all([
       getRevenueCatCustomerInfo(userId).catch((error) => {
         console.warn('Unable to load RevenueCat customer info.', error);
         return null;
@@ -72,12 +77,14 @@ export function useRevenueCatBilling() {
         console.warn('Unable to load RevenueCat offering.', error);
         return null;
       }),
+      getRevenueCatCourseProduct(userId).catch(() => null),
     ]);
 
     return {
       customerInfo,
       offering,
       currentPackage: pickRevenueCatPrimaryPackage(offering),
+      coursePriceString: courseProduct?.priceString ?? null,
     };
   }
 
@@ -136,7 +143,7 @@ export function useRevenueCatBilling() {
         return;
       }
 
-      const { customerInfo, offering, currentPackage } = await loadBillingSnapshot(user.id);
+      const { customerInfo, offering, currentPackage, coursePriceString } = await loadBillingSnapshot(user.id);
 
       if (cancelled) return;
 
@@ -151,6 +158,7 @@ export function useRevenueCatBilling() {
         currentPackage,
         managementUrl: customerInfo?.managementURL ?? null,
         isPremium: hasRevenueCatPremiumEntitlement(customerInfo),
+        coursePriceString,
       }));
 
       removeCustomerInfoListener?.();
@@ -202,7 +210,7 @@ export function useRevenueCatBilling() {
       return;
     }
 
-    const { customerInfo, offering, currentPackage } = await loadBillingSnapshot(user.id);
+    const { customerInfo, offering, currentPackage, coursePriceString } = await loadBillingSnapshot(user.id);
 
     await syncRevenueCatStateToServer(customerInfo);
 
@@ -215,6 +223,7 @@ export function useRevenueCatBilling() {
       currentPackage,
       managementUrl: customerInfo?.managementURL ?? null,
       isPremium: hasRevenueCatPremiumEntitlement(customerInfo),
+      coursePriceString,
     }));
   }
 
@@ -240,8 +249,9 @@ export function useRevenueCatBilling() {
     }
 
     const {
-      data: { user },
-    } = await supabase.auth.getUser();
+      data: { session },
+    } = await supabase.auth.getSession();
+    const user = session?.user;
     if (!user) {
       captureAnalyticsEvent('premium checkout unavailable', {
         ...baseAnalyticsProperties,
@@ -268,6 +278,7 @@ export function useRevenueCatBilling() {
           currentPackage: refreshedSnapshot.currentPackage,
           managementUrl: refreshedSnapshot.customerInfo?.managementURL ?? current.managementUrl,
           isPremium: hasRevenueCatPremiumEntitlement(refreshedSnapshot.customerInfo),
+          coursePriceString: refreshedSnapshot.coursePriceString,
         }));
       }
 
@@ -281,6 +292,23 @@ export function useRevenueCatBilling() {
           ...baseAnalyticsProperties,
           reason: 'missing_package',
         });
+        return { status: 'unavailable' };
+      }
+
+      const provider = Platform.OS === 'ios' ? 'apple' : 'google';
+      const authorization = await fetch(`${WEB_API_BASE_URL}/api/runner/purchase-authorization?provider=${provider}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      }).catch(() => null);
+      const authorizationPayload = authorization?.ok
+        ? await authorization.json().catch(() => null) as { allowed?: boolean; productId?: string } | null
+        : null;
+      const configuredAnnual = authorizationPayload?.allowed === true
+        && authorizationPayload.productId === selectedPackage.product.identifier
+        && selectedPackage.product.currencyCode?.toUpperCase() === 'EUR'
+        && Math.abs(selectedPackage.product.price - 29.99) < 0.001;
+      if (!configuredAnnual) {
+        setState((current) => ({ ...current, isPurchasing: false }));
+        captureAnalyticsEvent('premium checkout unavailable', { ...baseAnalyticsProperties, reason: 'purchase_not_authorized' });
         return { status: 'unavailable' };
       }
 
@@ -401,10 +429,52 @@ export function useRevenueCatBilling() {
     }
   }
 
+  async function buyCourse(planId: string): Promise<'purchased' | 'cancelled' | 'unavailable' | 'unverified'> {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user || !canUseRevenueCat()) return 'unavailable';
+    const baseUrl = WEB_API_BASE_URL;
+    if (!baseUrl) return 'unavailable';
+    const provider = Platform.OS === 'ios' ? 'apple' : 'google';
+    const intentResponse = await fetch(`${baseUrl}/api/runner/purchase-intents`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ planId, provider }) });
+    if (!intentResponse.ok) return 'unavailable';
+    const intent = await intentResponse.json() as { intentId?: string; productId?: string; recovered?: boolean; storeStarted?: boolean };
+    if (!intent.intentId || !intent.productId) return 'unavailable';
+    try {
+      setState((current) => ({ ...current, isPurchasing: true }));
+      if (intent.recovered) {
+        const recovered = await fetch(`${baseUrl}/api/runner/purchases/sync`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: intent.intentId }) });
+        if (recovered.ok) {
+          const state = await recovered.json() as { granted?: boolean };
+          if (state.granted) return 'purchased';
+        }
+        if (intent.storeStarted) return 'unverified';
+      }
+      const startResponse = await fetch(`${baseUrl}/api/runner/purchase-intents`, { method: 'PATCH', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: intent.intentId }) });
+      if (!startResponse.ok) return 'unverified';
+      const result = await purchaseRevenueCatCourse(session.user.id, intent.productId);
+      const transactionId = result?.transaction?.transactionIdentifier;
+      if (!result || !transactionId) return 'unverified';
+      const syncResponse = await fetch(`${baseUrl}/api/runner/purchases/sync`, { method: 'POST', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: intent.intentId, transactionId }) });
+      if (!syncResponse.ok) return 'unverified';
+      const synced = await syncResponse.json().catch(() => null) as { granted?: boolean } | null;
+      return synced?.granted ? 'purchased' : 'unverified';
+    } catch (error) {
+      if (isRevenueCatPurchaseCancelled(error)) {
+        await fetch(`${baseUrl}/api/runner/purchase-intents`, { method: 'DELETE', headers: { Authorization: `Bearer ${session.access_token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ intentId: intent.intentId }) }).catch(() => undefined);
+        return 'cancelled';
+      }
+      if (isRevenueCatPurchaseUnavailable(error)) return 'unavailable';
+      throw error;
+    } finally {
+      setState((current) => ({ ...current, isPurchasing: false }));
+    }
+  }
+
   return {
     ...state,
     refresh,
     purchase,
     restore,
+    buyCourse,
   };
 }

@@ -1,10 +1,12 @@
 ---
 title: Trial Lifecycle
 scope: business-rule
-last_verified: 2026-09-14
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/web/lib/trial.ts
+  - apps/web/lib/trial-server.test.ts
+  - supabase/migrations/20261030115828_stop_automatic_runner_trials.sql
   - apps/web/lib/trial-server.ts
   - apps/mobile/lib/trial.ts
   - apps/mobile/lib/fetchWithTimeout.ts
@@ -15,93 +17,47 @@ related_tables:
   - user_profiles
 ---
 
-# Trial Lifecycle
+# Historical Trial Lifecycle
 
 ## Purpose
 
-This document records how trial access starts, repairs itself, and expires. The current trial duration is 15 days.
+Automatic 15-day Premium trials are retired for newly created accounts. Previously started trials remain valid until their recorded end. Paid store subscriptions and their billing status `trialing` are separate from this historical application trial.
 
-## Key Concepts
+## Creation and migration
 
-- Trial start: `user_profiles.trial_started_at`.
-- Trial end: `user_profiles.trial_ends_at`.
-- Trial repair: filling missing trial fields for existing users.
-- Seen markers: profile timestamps for welcome/expired notices.
+The historical `20260408100000_initialize_trial_profile_on_user_created.sql` granted trial dates when Auth created a user. The replacement `20261030115828_stop_automatic_runner_trials.sql` keeps the same Auth trigger and creates/repairs the profile name only. It never writes trial dates, changes existing dates, or backfills a new window. Existing trials therefore retain their original expiry.
 
-## Duration
+`apps/web/lib/trial.ts` retains the 15-day constant and historical date utilities for compatibility; it is not an authorization to start a new trial. New runner products must have no store introductory trial configured.
 
-The current code and migration use:
+## Web status
 
-```ts
-TRIAL_DURATION_DAYS = 15
-```
+`ensureTrialStatus` in `apps/web/lib/trial-server.ts` now only reads the caller-owned profile. An absent profile or absent dates returns null fields; neither condition causes an insert, patch, or new trial. The auth/session and trial/status routes keep their existing contracts. `trial-server.test.ts` verifies both no-write behavior and preservation of an existing end date.
 
-Sources:
+## Mobile status
 
-- `apps/web/lib/trial.ts`
-- `apps/mobile/lib/trial.ts`
-- `supabase/migrations/20260408100000_initialize_trial_profile_on_user_created.sql`
+`apps/mobile/lib/trial.ts` coalesces in-flight requests per user, first calls the web status endpoint with a bounded timeout, and falls back to a direct read of the same profile fields. The fallback does not upsert or repair dates. Duplicate auth events cannot restart a trial.
 
-<!-- CONFLICT: archived docs/app-rules-and-logic.md says the trial is 14 days. Current code and migration say 15 days. -->
+## Seen markers
 
-## Creation
+The historical `trial_welcome_seen_at` and `trial_expired_seen_at` fields and acknowledgement helpers remain supported for older accounts. The root web layout does not mount a trial-welcome popup. Signup no longer advertises a new 15-day offer.
 
-The migration `20260408100000_initialize_trial_profile_on_user_created.sql` creates `public.handle_new_user_profile()`:
+## Business invariants
 
-- SECURITY DEFINER;
-- `search_path = public`;
-- runs after insert on `auth.users`;
-- inserts or repairs `user_profiles`;
-- sets `trial_started_at` to auth user creation time or current UTC time;
-- sets `trial_ends_at` to start + 15 days.
-
-## Web Repair
-
-`apps/web/lib/trial-server.ts` exposes `ensureTrialStatus`.
-
-It:
-
-- reads `user_profiles` through the caller token;
-- inserts a profile if missing;
-- patches missing `trial_started_at`;
-- patches missing `trial_ends_at`;
-- computes missing end dates from the start plus 15 days.
-
-`apps/web/app/api/auth/session/route.ts` calls `ensureTrialStatus` after validating the session.
-
-## Mobile Repair
-
-`apps/mobile/lib/trial.ts` uses the same 15-day duration. It:
-
-- uses an in-flight map per user to prevent duplicate initialization;
-- first tries the web `/api/trial/status` path with the shared 10-second timeout for idempotent GETs;
-- falls back to direct Supabase upsert/update when needed.
-
-## Seen Markers
-
-Profile timestamps:
-
-- `trial_welcome_seen_at`
-- `trial_expired_seen_at`
-
-Web server helpers retain support for marking these timestamps when UI flows acknowledge the notices. The web root layout no longer mounts the trial-welcome popup, so new accounts can enter route-specific onboarding without a competing overlay; trial initialization and Premium entitlement remain unchanged. The expired-trial notice is still mounted.
-
-## Business Invariants
-
-- Trial fields live on `user_profiles`.
-- Trial initialization must be idempotent.
-- Existing users with missing trial fields should be repaired, not blocked.
-- Web and mobile duration must stay the same.
+- Historical dates remain server-managed on `user_profiles` and are never deleted as a migration strategy.
+- Missing dates mean no application trial, including for old profiles without a recorded start.
+- Existing end timestamps, paid subscribers, and manual premium grants retain their own semantics.
+- Apply the trigger migration with the read-only web/mobile rollout; old binaries cannot recreate protected dates through direct profile writes.
 
 ## Gotchas
 
-- Auth event duplication can run session code more than once. Trial repair must remain idempotent.
-- Do not start a new trial by deleting and recreating profile fields.
-- Time comparisons should use actual timestamps, not local date strings.
+- Do not restore client-side trial date repair or infer a new window from account creation time.
+- Do not confuse a RevenueCat store grace period with the retired application trial.
+- Existing valid trials still elevate global Premium until expiry; admin Free simulation overrides this only for its own session.
+- This repository change prepares migrations; it does not prove they have been applied to a remote project.
 
 ## Related Docs
 
 - [User Profiles Table](../02-database/tables/user-profiles.md)
 - [Premium Entitlement](premium-entitlement.md)
+- [Runner Monetization](runner-monetization.md)
 - [Session Management](../04-auth-and-security/session-management.md)
-- [Duplicate Events Pattern](../04-auth-and-security/duplicate-events-pattern.md)

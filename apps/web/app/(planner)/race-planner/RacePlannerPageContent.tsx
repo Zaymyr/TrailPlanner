@@ -54,6 +54,9 @@ import { OnboardingOverlay } from "../../../components/race-planner/OnboardingOv
 import { PrintablePlanV2 } from "./components/print/PrintablePlanV2";
 import { addSuppliesToInventory, consumeInventoryForTargets } from "../../../components/race-planner/carryoverNutrition";
 import { trackPlanExported } from "../../../lib/product-analytics";
+import type { RunnerPlanAccess } from "../../../lib/runner-access";
+import { RunnerProfileStep } from "./components/RunnerProfileStep";
+import { RunnerPlanPreview } from "./components/RunnerPlanPreview";
 
 const MessageCircleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -432,7 +435,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     if (initializedQueryRef.current) return;
 
     const planIdParam = searchParams?.get("planId");
-    const catalogRaceIdParam = searchParams?.get("catalogRaceId");
+    const catalogRaceIdParam = searchParams?.get("catalogRaceId") ?? window.sessionStorage.getItem("runner.pendingCatalogRaceId");
 
     if (planIdParam) {
       queryPlanIdRef.current = planIdParam;
@@ -440,6 +443,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
     if (catalogRaceIdParam) {
       queryCatalogRaceIdRef.current = catalogRaceIdParam;
+      window.sessionStorage.setItem("runner.pendingCatalogRaceId", catalogRaceIdParam);
     }
 
     initializedQueryRef.current = true;
@@ -564,8 +568,38 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     },
   });
   const activePlan = savedPlans.find((plan) => plan.id === activePlanId) ?? null;
+  const activePlanIdForProfileRef = useRef(activePlanId);
+  activePlanIdForProfileRef.current = activePlanId;
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const isAuthed = Boolean(session?.accessToken);
+  const [runnerEnabled, setRunnerEnabled] = useState<boolean | null>(null);
+  const [runnerProfileUser, setRunnerProfileUser] = useState<string | null>(null);
+  const [runnerAccess, setRunnerAccess] = useState<{ planId: string; userId: string; access: RunnerPlanAccess } | null>(null);
+  const runnerProfileReady = runnerProfileUser === session?.id;
+  useEffect(() => {
+    const controller = new AbortController();
+    fetch("/api/runner/config", { signal: controller.signal, cache: "no-store" })
+      .then(async (response) => { if (!response.ok) throw new Error("Configuration unavailable"); return response.json(); })
+      .then((data) => setRunnerEnabled(data.enabled === true))
+      .catch(() => { if (!controller.signal.aborted) setRunnerEnabled(null); });
+    return () => controller.abort();
+  }, []);
+  useEffect(() => {
+    if (!session?.accessToken || !session.id || !activePlanId) return;
+    const controller = new AbortController();
+    const load = () => fetch(`/api/plans/${activePlanId}/access`, {
+      signal: controller.signal, cache: "no-store", headers: { Authorization: `Bearer ${session.accessToken}` },
+    }).then(async (response) => { if (!response.ok) throw new Error("Access unavailable"); return response.json(); })
+      .then((data) => setRunnerAccess({ planId: activePlanId, userId: session.id!, access: data.access }))
+      .catch(() => { /* Failed access requests keep the editor closed. */ });
+    void load();
+    window.addEventListener("focus", load);
+    window.addEventListener("runner-access-updated", load);
+    return () => { controller.abort(); window.removeEventListener("focus", load); window.removeEventListener("runner-access-updated", load); };
+  }, [activePlanId, session?.accessToken, session?.id]);
+  const currentRunnerAccess = runnerAccess?.planId === activePlanId && runnerAccess?.userId === session?.id ? runnerAccess.access : null;
+  const runnerCanEdit = runnerEnabled === false || currentRunnerAccess?.canEdit === true;
+  const runnerCanViewDetails = runnerEnabled === false || currentRunnerAccess?.canViewDetails === true;
 
   useEffect(() => {
     if (!queryPlanIdRef.current) return;
@@ -581,9 +615,11 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   useEffect(() => {
     if (!queryCatalogRaceIdRef.current) return;
     if (authStatus === "checking") return;
+    if (runnerEnabled === null || (runnerEnabled && (!session || session.isAnonymous || !runnerProfileReady))) return;
 
     const raceId = queryCatalogRaceIdRef.current;
     queryCatalogRaceIdRef.current = null; // consommer une seule fois
+    window.sessionStorage.removeItem("runner.pendingCatalogRaceId");
 
     // Strip ?catalogRaceId from the URL immediately so a page refresh or
     // browser back/forward navigation doesn't remount the component with the
@@ -595,7 +631,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
     }
 
     void handleUseCatalogRace(raceId);
-  }, [authStatus, handleUseCatalogRace]);
+  }, [authStatus, handleUseCatalogRace, runnerEnabled, runnerProfileReady, session]);
 
   const showPlannerToast = useCallback((toast: Omit<PlannerToast, "id">) => {
     toastIdRef.current += 1;
@@ -809,13 +845,14 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       try {
         const data = await fetchUserProfile(session.accessToken, abortController.signal);
         if (abortController.signal.aborted) return;
-        if (typeof data.waterBagLiters === "number") {
+        if (!activePlanIdForProfileRef.current && typeof data.waterBagLiters === "number") {
           form.setValue("waterBagLiters", data.waterBagLiters);
         }
         if (
           typeof data.comfortableFlatPaceMinPerKm === "number" &&
           Number.isFinite(data.comfortableFlatPaceMinPerKm) &&
           data.comfortableFlatPaceMinPerKm > 0 &&
+          !activePlanIdForProfileRef.current &&
           !hasStoredPlannerDraftRef.current &&
           !queryPlanIdRef.current
         ) {
@@ -960,8 +997,8 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
   const pacingOverviewDuration = raceTotals?.durationMinutes ?? projectedDurationMinutes ?? null;
   const isPremium = entitlements.isPremium;
   const [isRaceSelectorOpen, setIsRaceSelectorOpen] = useState(false);
-  const allowExport = entitlements.allowExport || entitlements.isPremium;
-  const allowAutoFill = entitlements.allowAutoFill || entitlements.isPremium;
+  const allowExport = runnerEnabled ? runnerCanViewDetails : entitlements.allowExport || entitlements.isPremium;
+  const allowAutoFill = runnerEnabled ? runnerCanEdit : entitlements.allowAutoFill || entitlements.isPremium;
   const printableRaceName = planName?.trim()
     ? planName.trim()
     : racePlannerCopy.sections.timeline.printViewV2.defaultRaceName;
@@ -1270,8 +1307,9 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
 
   const handlePrintAssistance = () => {
     if (typeof window === "undefined") return;
+    if (!allowExport) { requestPremiumUpgrade(premiumCopy.printLocked, "print"); return; }
     writePlannerSnapshot();
-    window.open("/race-planner/print/assistance", "_blank", "noopener,noreferrer");
+    window.open(`/race-planner/print/assistance${activePlanId ? `?planId=${encodeURIComponent(activePlanId)}` : ""}`, "_blank", "noopener,noreferrer");
     trackPlanExported({
       format: "assistance_print",
       planState: activePlanId ? "saved" : "draft",
@@ -1975,6 +2013,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
       ) : null}
 
       <div className={`space-y-6 ${pagePaddingClass} print:hidden`}>
+        {currentRunnerAccess?.mode && currentRunnerAccess.mode !== "real" ? <p role="status" className="rounded-lg bg-amber-50 p-3 text-amber-900">Simulation : {currentRunnerAccess.mode}</p> : null}
         <div className="space-y-3">
           <nav aria-label={racePlannerCopy.page.breadcrumbLabel} className="text-sm text-muted-foreground">
             <ol className="flex flex-wrap items-center gap-2">
@@ -2003,6 +2042,30 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </h1>
         </div>
         <GuestSaveBanner isAuthed={isAuthed} forceShow={onboardingOpen && onboardingStep === 5} />
+        {runnerEnabled === null ? <p role="status">{locale === "fr" ? "Chargement des accès…" : "Loading access…"}</p> : runnerEnabled && (!session || session.isAnonymous) ? (
+          <section className="space-y-4 rounded-2xl border border-border bg-card p-6">
+            <h2 className="text-xl font-semibold">{locale === "fr" ? "Crée ton compte pour préparer ta course" : "Create an account to prepare your race"}</h2>
+            <p>{locale === "fr" ? "Ton estimation est gratuite et sera enregistrée dans ton compte." : "Your free estimate will be saved to your account."}</p>
+            <Link className="font-semibold text-brand underline" href="/sign-up">{locale === "fr" ? "Créer mon compte" : "Create account"}</Link>{" · "}
+            <Link className="font-semibold text-brand underline" href="/sign-in">{locale === "fr" ? "Me connecter" : "Sign in"}</Link>
+          </section>
+        ) : runnerEnabled && !runnerProfileReady && !activePlanId ? (
+          <RunnerProfileStep token={session!.accessToken} locale={locale} onComplete={(profile) => {
+            setRunnerProfileUser(session!.id!);
+            form.setValue("waterBagLiters", profile.waterBagLiters ?? 1.5);
+            form.setValue("targetIntakePerHour", profile.defaultCarbsGPerHour ?? 60);
+            const pacing = buildPacingDefaultsFromFlatPace(profile.comfortableFlatPaceMinPerKm ?? 7.5);
+            form.setValue("paceType", pacing.paceType); form.setValue("paceMinutes", pacing.paceMinutes);
+            form.setValue("paceSeconds", pacing.paceSeconds); form.setValue("speedKph", pacing.speedKph);
+          }} />
+        ) : runnerEnabled && !runnerCanViewDetails ? (
+          <div className="space-y-6">
+            <Button type="button" onClick={() => setIsRaceCatalogOpen(true)}>{locale === "fr" ? "Choisir une course" : "Choose a race"}</Button>
+            <RunnerPlanPreview locale={locale} planId={activePlanId} duration={pacingOverviewDuration} distanceKm={distanceForDuration} segments={segments} onSave={() => { void handleSaveWithToast(); }} />
+            {settingsContent}
+          </div>
+        ) : <fieldset disabled={runnerEnabled && !runnerCanEdit} className="min-w-0">
+        {runnerEnabled && !runnerCanEdit ? <p role="status" className="mb-4">{locale === "fr" ? "Ton plan reste consultable. Débloque cette course ou réabonne-toi pour le modifier." : "Your plan remains readable. Unlock this race or subscribe to edit."} <Link href={`/premium?planId=${activePlanId}`} className="underline">{locale === "fr" ? "Voir les offres" : "View offers"}</Link></p> : null}
         <RacePlannerLayout
           className="space-y-6"
           planContent={planPrimaryContent}
@@ -2018,6 +2081,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           collapseSettingsLabel={racePlannerCopy.sections.layout.collapsePanel}
           expandSettingsLabel={racePlannerCopy.sections.layout.expandPanel}
         />
+        </fieldset>}
 
         {enableMobileNav ? (
           <div className="fixed bottom-4 left-4 right-4 z-30 xl:hidden">
@@ -2217,7 +2281,7 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
           </div>
         )}
       </div>
-      {segments.length > 0 ? (
+      {segments.length > 0 && runnerCanViewDetails ? (
         usePrintLayoutV2 ? (
           <PrintablePlanV2
             segments={segments}

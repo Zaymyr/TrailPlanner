@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Pressable,
   ScrollView,
   StyleSheet,
   View
@@ -52,6 +53,10 @@ export default function ProfileScreen() {
     setLocale,
     t,
     isAnonymousAccount,
+    isAdminFromAuth,
+    runnerAccessMode,
+    runnerAccessModeSaving,
+    updateRunnerAccessMode,
     loading,
     loadError,
     saving,
@@ -304,6 +309,19 @@ export default function ProfileScreen() {
         style={styles.container}
       >
         <ProfileTabs activeTab={activeProfileTab} tabs={profileTabs} onChange={handleProfileTabChange} />
+        {isAdminFromAuth ? (
+          <View style={styles.adminModeCard}>
+            <Text style={styles.adminModeTitle}>Mode de test des droits</Text>
+            <Text style={styles.adminModeBadge}>Simulation : {runnerAccessMode}</Text>
+            <View style={styles.adminModeRow}>
+              {(['real', 'free', 'premium'] as const).map((mode) => (
+                <Pressable key={mode} disabled={runnerAccessModeSaving} onPress={() => void updateRunnerAccessMode(mode)} style={[styles.adminModeButton, runnerAccessMode === mode && styles.adminModeButtonActive]}>
+                  <Text style={runnerAccessMode === mode ? styles.adminModeButtonTextActive : styles.adminModeButtonText}>{mode}</Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+        ) : null}
 
         {activeProfileTab === 'personal' ? (
           <TutorialTarget onMeasure={registerTutorialTarget} targetKey="personal">
@@ -587,4 +605,12 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  adminModeCard: { borderWidth: 1, borderColor: Colors.warning, borderRadius: 14, padding: 14, gap: 8, backgroundColor: Colors.warningSurface },
+  adminModeTitle: { color: Colors.textPrimary, fontWeight: '800' },
+  adminModeBadge: { color: Colors.warning, fontSize: 13 },
+  adminModeRow: { flexDirection: 'row', gap: 8 },
+  adminModeButton: { flex: 1, borderWidth: 1, borderColor: Colors.border, borderRadius: 10, paddingVertical: 9, alignItems: 'center', backgroundColor: Colors.surface },
+  adminModeButtonActive: { backgroundColor: Colors.brandPrimary, borderColor: Colors.brandPrimary },
+  adminModeButtonText: { color: Colors.textPrimary, fontWeight: '700', textTransform: 'capitalize' },
+  adminModeButtonTextActive: { color: Colors.textOnBrand, fontWeight: '700', textTransform: 'capitalize' },
 });

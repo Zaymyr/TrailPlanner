@@ -78,6 +78,7 @@ const webhookEnvelopeSchema = z.object({
   event: z
     .object({
       aliases: z.array(z.string()).optional(),
+      id: z.string().optional(),
       app_user_id: z.string().optional(),
       entitlement_id: z.string().nullable().optional(),
       entitlement_ids: z.array(z.string()).nullable().optional(),
@@ -90,9 +91,24 @@ const webhookEnvelopeSchema = z.object({
       transferred_from: z.array(z.string()).optional(),
       transferred_to: z.array(z.string()).optional(),
       type: z.string().optional(),
+      transaction_id: z.string().nullable().optional(),
+      original_transaction_id: z.string().nullable().optional(),
+      purchased_at_ms: z.union([z.number(), z.string()]).nullable().optional(),
+      event_timestamp_ms: z.union([z.number(), z.string()]).nullable().optional(),
     })
     .optional(),
 });
+
+const getRunnerCourseProductId = () =>
+  process.env.REVENUECAT_COURSE_PRODUCT_ID?.trim() ||
+  process.env.EXPO_PUBLIC_REVENUECAT_COURSE_PRODUCT_ID?.trim() ||
+  null;
+
+const getRevenueCatAnnualProductIds = () => new Set([
+  process.env.REVENUECAT_ANNUAL_PRODUCT_ID?.trim(),
+  process.env.REVENUECAT_IOS_ANNUAL_PRODUCT_ID?.trim(),
+  process.env.REVENUECAT_ANDROID_ANNUAL_PRODUCT_ID?.trim(),
+].filter((value): value is string => Boolean(value)));
 
 const userIdSchema = z.string().uuid();
 const existingSubscriptionRowSchema = z.array(
@@ -193,7 +209,16 @@ export const extractRevenueCatWebhookSnapshot = (payload: unknown): RevenueCatWe
   const periodType = event.period_type?.trim().toUpperCase() ?? "";
   const hasEntitlementSignal = Boolean(event.entitlement_id) || Boolean(event.entitlement_ids?.length);
   const priceId = event.product_id?.trim() || null;
-  const hasSubscriptionSignal = Boolean(priceId || hasEntitlementSignal || currentPeriodEnd);
+  // Course unlocks are non-subscription purchases. They must be fulfilled by
+  // the runner-plan purchase journal and must never create a Premium row.
+  if (priceId && getRunnerCourseProductId() === priceId) return null;
+  // Non-renewing purchases are never Premium subscriptions, even when the
+  // course-product environment is missing or stale.
+  if (eventType === "NON_RENEWING_PURCHASE") return null;
+  const config = getRevenueCatConfig();
+  const productAllowed = Boolean(priceId && getRevenueCatAnnualProductIds().has(priceId));
+  const entitlementAllowed = Boolean(config.entitlementId && (event.entitlement_id === config.entitlementId || event.entitlement_ids?.includes(config.entitlementId)));
+  const hasSubscriptionSignal = effectiveEndTimestamp !== null && (productAllowed || entitlementAllowed) && Boolean(priceId || hasEntitlementSignal);
 
   if (!hasSubscriptionSignal) {
     return null;
@@ -330,7 +355,8 @@ const resolveRevenueCatSnapshot = (
   providerHint?: RevenueCatProvider | null
 ): RevenueCatSubscriptionSnapshot | null => {
   const config = getRevenueCatConfig();
-  const subscriptions = Object.entries(subscriber.subscriptions ?? {}).map(([productId, details]) => ({
+  const annualProductIds = getRevenueCatAnnualProductIds();
+  const subscriptions = Object.entries(subscriber.subscriptions ?? {}).filter(([productId]) => productId !== getRunnerCourseProductId()).map(([productId, details]) => ({
     details,
     productId,
   }));
@@ -348,14 +374,14 @@ const resolveRevenueCatSnapshot = (
   const entitlementMatch =
     (config.entitlementId
       ? activeEntitlements.find(({ identifier }) => identifier === config.entitlementId)
-      : null) ?? activeEntitlements[0] ?? null;
+      : null) ?? null;
 
   const matchedSubscription =
     (entitlementMatch?.details.product_identifier
       ? subscriptions.find(({ productId }) => productId === entitlementMatch.details.product_identifier)
       : null) ??
-    activeSubscriptions[0] ??
-    subscriptions[0] ??
+    activeSubscriptions.find(({ productId }) => annualProductIds.has(productId)) ??
+    subscriptions.find(({ productId }) => annualProductIds.has(productId)) ??
     null;
 
   if (!matchedSubscription && !entitlementMatch) {
@@ -409,6 +435,24 @@ const persistRevenueCatSubscription = async (
   }
 
   try {
+    const ledgerId = `revenuecat:${payload.user_id}`;
+    const ledgerResponse = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/runner_subscription_accounts?on_conflict=provider,provider_subscription_id`, {
+      method: "POST",
+      headers: {
+        apikey: serviceConfig.supabaseServiceRoleKey,
+        Authorization: `Bearer ${serviceConfig.supabaseServiceRoleKey}`,
+        "Content-Type": "application/json",
+        Prefer: "resolution=merge-duplicates",
+      },
+      body: JSON.stringify({ user_id: payload.user_id, provider: payload.provider, provider_subscription_id: ledgerId, status: payload.current_period_end ? payload.status : "expired", current_period_end: payload.current_period_end }),
+    });
+    if (!ledgerResponse.ok) {
+      console.error("Unable to upsert RevenueCat runner subscription ledger", await ledgerResponse.text());
+      return false;
+    }
+    const existing = await fetchExistingSubscription(payload.user_id);
+    if (existing?.provider === "web" || existing?.stripe_subscription_id || existing?.stripe_customer_id) return true;
+
     const response = await fetch(`${serviceConfig.supabaseUrl}/rest/v1/subscriptions?on_conflict=user_id`, {
       method: "POST",
       headers: {
@@ -518,15 +562,6 @@ const expireExistingRevenueCatSubscription = async (
     };
   }
 
-  if (existingSubscription && !existingProvider.success) {
-    return {
-      currentPeriodEnd: existingSubscription.current_period_end,
-      provider: null,
-      status: existingSubscription.status === "active" || existingSubscription.status === "trialing" ? null : "expired",
-      synced: false,
-    };
-  }
-
   const synced = await persistRevenueCatSubscription({
     user_id: userId,
     provider,
@@ -585,10 +620,93 @@ export const syncRevenueCatSubscriptionForUser = async (
   };
 };
 
+const journalRevenueCatCourseEvent = async (
+  payload: unknown,
+  event: NonNullable<z.infer<typeof webhookEnvelopeSchema>["event"]>,
+  provider: RevenueCatProvider,
+  transactionId: string,
+  transactionStatus: "active" | "refunded" | "revoked",
+) => {
+  const service = getSupabaseServiceConfig();
+  if (!service || !event.id) throw new Error("RevenueCat course webhook is missing its durable event id.");
+  const purchasedTimestamp = parseRevenueCatWebhookDateMs(event.purchased_at_ms);
+  const eventTimestamp = parseRevenueCatWebhookDateMs(event.event_timestamp_ms) ?? purchasedTimestamp ?? Date.now();
+  const eventAt = new Date(eventTimestamp).toISOString();
+  const purchasedAt = new Date(purchasedTimestamp ?? eventTimestamp).toISOString();
+  const response = await fetch(`${service.supabaseUrl}/rest/v1/runner_billing_events?on_conflict=provider,provider_event_id`, {
+    method: "POST",
+    headers: {
+      apikey: service.supabaseServiceRoleKey,
+      Authorization: `Bearer ${service.supabaseServiceRoleKey}`,
+      "Content-Type": "application/json",
+      Prefer: "resolution=merge-duplicates",
+    },
+    body: JSON.stringify({ provider, provider_event_id: event.id, event_type: event.type, transaction_id: transactionId, transaction_status: transactionStatus, event_at: eventAt, payload, processing_error: null }),
+  });
+  if (!response.ok) throw new Error(`Unable to journal RevenueCat event: ${await response.text()}`);
+  return { eventAt, purchasedAt };
+};
+
+const markRevenueCatCourseEventProcessed = async (provider: RevenueCatProvider, eventId: string) => {
+  const service = getSupabaseServiceConfig();
+  if (!service) throw new Error("Supabase service configuration is missing.");
+  const response = await fetch(`${service.supabaseUrl}/rest/v1/runner_billing_events?provider=eq.${provider}&provider_event_id=eq.${encodeURIComponent(eventId)}`, {
+    method: "PATCH",
+    headers: { apikey: service.supabaseServiceRoleKey, Authorization: `Bearer ${service.supabaseServiceRoleKey}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ processed_at: new Date().toISOString(), processing_error: null }),
+  });
+  if (!response.ok) throw new Error(`Unable to finalize RevenueCat event journal: ${await response.text()}`);
+};
+
 export const syncRevenueCatWebhookPayload = async (
   payload: unknown
 ): Promise<{ providerHint: RevenueCatProvider | null; userIds: string[]; results: RevenueCatSyncResult[] }> => {
   const { providerHint, userIds } = extractRevenueCatWebhookUserIds(payload);
+
+  const envelope = webhookEnvelopeSchema.safeParse(payload);
+  const event = envelope.success ? envelope.data.event : null;
+  const courseProduct = getRunnerCourseProductId();
+  const transactionId = event?.transaction_id ?? event?.original_transaction_id ?? null;
+  const eventType = event?.type?.toUpperCase() ?? "";
+  const isCourseEvent = Boolean(event && courseProduct && event.product_id === courseProduct);
+  if (isCourseEvent && !getSupabaseServiceConfig()) throw new Error("Supabase service configuration is required for RevenueCat course events.");
+  if (event && eventType === "NON_RENEWING_PURCHASE" && isCourseEvent && transactionId && userIds[0] && providerHint) {
+    const service = getSupabaseServiceConfig();
+    if (service) {
+      const headers = { apikey: service.supabaseServiceRoleKey, Authorization: `Bearer ${service.supabaseServiceRoleKey}`, "Content-Type": "application/json" };
+      const { purchasedAt } = await journalRevenueCatCourseEvent(payload, event, providerHint, transactionId, "active");
+      const intentResponse = await fetch(`${service.supabaseUrl}/rest/v1/runner_purchase_intents?user_id=eq.${encodeURIComponent(userIds[0])}&provider=eq.${providerHint}&status=eq.pending&product_id=eq.${encodeURIComponent(courseProduct!)}&created_at=lte.${encodeURIComponent(purchasedAt)}&expires_at=gte.${encodeURIComponent(purchasedAt)}&select=id,plan_id,plan_key&order=created_at.desc&limit=1`, { headers });
+      if (!intentResponse.ok) throw new Error(`Unable to load RevenueCat purchase intent: ${await intentResponse.text()}`);
+      const intent = ((await intentResponse.json()) as Array<{ id: string; plan_id: string | null; plan_key: string }>)[0];
+      if (intent) {
+        const claim = await fetch(`${service.supabaseUrl}/rest/v1/rpc/claim_runner_plan_unlock`, { method: "POST", headers, body: JSON.stringify({ p_user_id: userIds[0], p_plan_id: intent.plan_id, p_provider: providerHint, p_transaction_id: transactionId, p_product_id: courseProduct, p_purchased_at: purchasedAt, p_intent_id: intent.id }) });
+        if (!claim.ok) throw new Error(`Unable to claim RevenueCat course purchase: ${await claim.text()}`);
+        if ((await claim.json().catch(() => false)) !== true) throw new Error("RevenueCat course purchase claim was rejected.");
+        await markRevenueCatCourseEventProcessed(providerHint, event.id!);
+      }
+    }
+  }
+  if (event && isCourseEvent && (eventType === "CANCELLATION" || eventType === "REFUND") && transactionId && providerHint) {
+    const service = getSupabaseServiceConfig();
+    if (service) {
+      await journalRevenueCatCourseEvent(payload, event, providerHint, transactionId, "refunded");
+      const revoke = await fetch(`${service.supabaseUrl}/rest/v1/rpc/revoke_runner_payment_transaction`, { method: "POST", headers: { apikey: service.supabaseServiceRoleKey, Authorization: `Bearer ${service.supabaseServiceRoleKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_provider: providerHint, p_transaction_id: transactionId, p_status: "refunded" }) });
+      if (!revoke.ok || (await revoke.json().catch(() => false)) !== true) throw new Error("Unable to revoke RevenueCat course purchase.");
+      await markRevenueCatCourseEventProcessed(providerHint, event.id!);
+    }
+  }
+  if (event && isCourseEvent && eventType === "REFUND_REVERSED" && transactionId && providerHint) {
+    const service = getSupabaseServiceConfig();
+    if (service) {
+      await journalRevenueCatCourseEvent(payload, event, providerHint, transactionId, "active");
+      const restore = await fetch(`${service.supabaseUrl}/rest/v1/rpc/restore_runner_payment_transaction`, { method: "POST", headers: { apikey: service.supabaseServiceRoleKey, Authorization: `Bearer ${service.supabaseServiceRoleKey}`, "Content-Type": "application/json" }, body: JSON.stringify({ p_provider: providerHint, p_transaction_id: transactionId }) });
+      if (!restore.ok || (await restore.json().catch(() => false)) !== true) throw new Error("Unable to restore RevenueCat course purchase.");
+      await markRevenueCatCourseEventProcessed(providerHint, event.id!);
+    }
+  }
+
+  if (isCourseEvent) return { providerHint, userIds, results: [] };
+  if (eventType === "NON_RENEWING_PURCHASE") return { providerHint, userIds, results: [] };
 
   if (userIds.length === 0) {
     return {

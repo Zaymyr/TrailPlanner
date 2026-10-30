@@ -30,6 +30,7 @@ type Props = {
   message: string;
   onClose: () => void;
   benefits?: string[];
+  planId?: string;
 };
 
 export function PremiumUpsellModal({
@@ -38,6 +39,7 @@ export function PremiumUpsellModal({
   message,
   onClose,
   benefits,
+  planId,
 }: Props) {
   if (!visible) return null;
 
@@ -48,6 +50,7 @@ export function PremiumUpsellModal({
       message={message}
       onClose={onClose}
       benefits={benefits}
+      planId={planId}
     />
   );
 }
@@ -58,8 +61,9 @@ function PremiumUpsellModalContent({
   message,
   onClose,
   benefits,
+  planId,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const billing = useRevenueCatBilling();
 
   useEffect(() => {
@@ -76,7 +80,7 @@ function PremiumUpsellModalContent({
   const offerTitle = billing.currentPackage?.product.title?.trim() || t.profile.subscriptionOfferTitle;
   const offerPrice = t.profile.subscriptionPriceAnnual.replace(
     '{price}',
-    billing.currentPackage?.product.priceString ?? 'EUR 9',
+    billing.currentPackage?.product.priceString ?? '29,99 €',
   );
 
   const benefitItems = useMemo(
@@ -150,6 +154,19 @@ function PremiumUpsellModalContent({
     if (opened) onClose();
   }
 
+  async function handleCoursePurchase() {
+    if (!planId) return;
+    try {
+      const result = await billing.buyCourse(planId);
+      if (result === 'purchased') {
+        onClose();
+        Alert.alert(t.common.ok, locale === 'fr' ? 'Course débloquée.' : 'Race unlocked.');
+      } else if (result === 'unverified') {
+        Alert.alert(t.profile.subscriptionLabel, locale === 'fr' ? 'Ton achat est en cours de vérification. Rouvre ce plan pour actualiser tes accès.' : 'Your purchase is being verified. Reopen this plan to refresh access.');
+      } else if (result === 'unavailable') Alert.alert(t.common.error, t.profile.purchaseUnavailable);
+    } catch { Alert.alert(t.common.error, t.profile.purchaseFailed); }
+  }
+
   const actionBusy = billing.isLoading || billing.isPurchasing;
 
   return (
@@ -195,6 +212,12 @@ function PremiumUpsellModalContent({
               <Text style={styles.primaryButtonText}>{upgradeLabel}</Text>
             )}
           </TouchableOpacity>
+
+          {planId ? (
+            <TouchableOpacity disabled={actionBusy || !billing.coursePriceString} onPress={() => void handleCoursePurchase()} style={styles.courseButton}>
+              <Text style={styles.courseButtonText}>{locale === 'fr' ? 'Débloquer cette course' : 'Unlock this race'} · {billing.coursePriceString ?? '9,99 €'}</Text>
+            </TouchableOpacity>
+          ) : null}
 
           <View style={styles.legalButtonsRow}>
             <TouchableOpacity
@@ -319,6 +342,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  courseButton: { marginTop: 10, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
+  courseButtonText: { color: Colors.brandPrimary, fontSize: 14, fontWeight: '800' },
   legalButtonsRow: {
     flexDirection: 'row',
     gap: 10,

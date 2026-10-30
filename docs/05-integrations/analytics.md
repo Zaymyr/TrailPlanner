@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-10-01
+last_verified: 2026-10-30
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -75,6 +75,10 @@ related_tables:
 ---
 
 # Analytics
+
+## Runner monetisation events
+
+Analytics may record preview/paywall impressions and a purchase result only after server verification. It must distinguish annual subscription from a per-course unlock, and must never include provider transaction ids, secret share tokens, health/profile values, or a simulated admin mode as a real purchase. Opening a Premium upsell, account prompt, or profile retry is not an entitlement event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -187,6 +191,7 @@ The mobile Premium funnel uses explicit events instead of treating a store callb
 - `premium checkout started` is emitted when the runner presses the upgrade CTA. RevenueCat attempts use `billing_provider: revenuecat`; browser fallbacks use `billing_provider: web_fallback`.
 - `premium purchase verified` is emitted only after RevenueCat returns an active Premium entitlement whose product matches the completed transaction. It includes the product/package and transaction identifiers, purchase date, RevenueCat store, entitlement id, period/ownership types, expiration, and `environment: sandbox|production`.
 - `premium purchase unverified` records a returned purchase result whose Premium entitlement is inactive or missing. Cancellation, unavailable checkout, and thrown failures use `premium checkout cancelled`, `premium checkout unavailable`, and `premium purchase failed` respectively.
+- A server purchase-preflight denial (rollout disabled or admin free/premium simulation) emits `premium checkout unavailable` with `purchase_not_authorized`; it never opens the store UI and is not revenue.
 
 The former `premium purchased` event is legacy data and is no longer emitted. Do not combine it with `premium purchase verified` in revenue reporting. PostHog remains product analytics; RevenueCat/App Store or Stripe remains authoritative for recognized transactions.
 

@@ -9,6 +9,7 @@ import {
   Animated,
   BackHandler,
   Pressable,
+  ScrollView,
   View,
   StyleSheet,
   Alert,
@@ -36,7 +37,9 @@ import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../..
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
-import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
+import { PremiumUpsellModal } from '../../../../components/premium/PremiumUpsellModal';
+import { WEB_API_BASE_URL } from '../../../../lib/webApi';
+import { resolveRunnerPlanCapabilities, type RunnerPlanCapabilities } from '../../../../lib/runnerPlanAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { isAnonymousSession } from '../../../../lib/appSession';
 import { useI18n } from '../../../../lib/i18n';
@@ -61,7 +64,7 @@ import {
   buildStoredRacePlanFromValues,
   formatDuration,
 } from '../../../../lib/planSummary';
-import { calculateElevationLoss, formatAveragePace, normalizePlanWorkspaceTab, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
+import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
 import {
   buildPersistedPlannerValues,
   createPlanPersistenceSnapshot,
@@ -233,6 +236,11 @@ export default function EditPlanScreen() {
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>(
     () => initialWarmStartDraft?.elevationProfile ?? [],
   );
+  const [officialElevationLossM, setOfficialElevationLossM] = useState<number | null>(null);
+  const [planCanEdit, setPlanCanEdit] = useState(false);
+  const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
+  const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
+  const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
   const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
   const lastSavedSnapshotRef = useRef<string | null>(initialWarmStartDraft?.lastSavedSnapshot ?? null);
   const elevationProfileRef = useRef<ElevationPoint[]>(initialWarmStartDraft?.elevationProfile ?? []);
@@ -295,6 +303,31 @@ export default function EditPlanScreen() {
       values: currentDraft,
     });
   }, [elevationProfile, id, planName]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setOfficialElevationLossM(null);
+
+    if (!id) return () => { cancelled = true; };
+
+    void supabase
+      .from('race_plans')
+      .select('races(elevation_loss_m)')
+      .eq('id', id)
+      .maybeSingle()
+      .then((result: { data: unknown }) => {
+        if (cancelled) return;
+        const row = result.data as { races?: { elevation_loss_m?: number | null } | null } | null;
+        const officialValue = row?.races?.elevation_loss_m;
+        setOfficialElevationLossM(
+          typeof officialValue === 'number' && Number.isFinite(officialValue) && officialValue >= 0
+            ? officialValue
+            : null,
+        );
+      });
+
+    return () => { cancelled = true; };
+  }, [id]);
 
   useEffect(() => {
     const shouldAutoOpenHelp =
@@ -379,6 +412,22 @@ export default function EditPlanScreen() {
     setElevationProfile([]);
   }, [id]);
 
+  const refreshRunnerAccess = useCallback(async () => {
+    if (!id) return;
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    try {
+      const response = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = await response.json() as { access?: RunnerPlanCapabilities };
+      if (activeRouteIdRef.current !== id) return;
+      const capabilities = resolveRunnerPlanCapabilities(response.ok ? payload.access ?? null : null);
+      setPlanCanEdit(capabilities.canEdit); setPlanCanViewDetails(capabilities.canViewDetails);
+      setRunnerAccessMode(capabilities.mode ?? 'real');
+    } catch { /* Keep the last server-verified access while offline. */ }
+  }, [id]);
+  useFocusEffect(useCallback(() => { void refreshRunnerAccess(); }, [refreshRunnerAccess]));
+
   const loadPlan = useCallback(async () => {
     if (!id) return;
     const loadRequestId = ++loadRequestIdRef.current;
@@ -391,38 +440,30 @@ export default function EditPlanScreen() {
     setLoadingPlanName(null);
     setLoadingPlanNameId(id);
 
-    const planAccess = await getCurrentUserPlanAccess(isPremium);
-    if (isStaleLoad()) return;
-
     setLoadingProgress(0.26);
-    if (
-      !isPremium &&
-      planAccess.accessiblePlanIds !== null &&
-      !planAccess.accessiblePlanIds.has(id)
-    ) {
-      Alert.alert(
-        t.plans.freeAccessTitle,
-        t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
-      );
-      clearActivePlanEditSession(id);
-      clearPlanEditDraft(id);
-      setInitialValues(null);
-      setLiveValues(null);
-      setElevationProfile([]);
-      setPlanProductData(null);
-      loadedPlanIdRef.current = null;
-      setLoadedPlanId(null);
-      setLoadingProgress(1);
-      setLoading(false);
-      router.replace('/(app)/plans');
-      return;
-    }
 
     const cachedDraft = getUnsavedPlanEditDraft(id);
     const sessionData = await supabase.auth.getSession();
     if (isStaleLoad()) return;
 
     const uid = sessionData.data?.session?.user?.id ?? null;
+    let nextPlanCanEdit = false;
+    if (sessionData.data?.session?.access_token && id) {
+      try {
+        const accessResponse = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, {
+          headers: { Authorization: `Bearer ${sessionData.data.session.access_token}` },
+        });
+        const accessPayload = (await accessResponse.json().catch(() => null)) as { access?: RunnerPlanCapabilities } | null;
+        const capabilities = resolveRunnerPlanCapabilities(accessResponse.ok ? accessPayload?.access ?? null : null);
+        nextPlanCanEdit = capabilities.canEdit;
+        setPlanCanViewDetails(capabilities.canViewDetails);
+        setRunnerAccessMode(capabilities.mode ?? 'real');
+      } catch (accessError) {
+        console.warn('Unable to load plan access.', accessError);
+      }
+    }
+    if (isStaleLoad()) return;
+    setPlanCanEdit(nextPlanCanEdit);
     const productDataPromise = loadPlanProductsBootstrap(uid);
 
     if (cachedDraft) {
@@ -502,7 +543,7 @@ export default function EditPlanScreen() {
         ? 'saved'
         : 'idle',
     );
-  }, [id, isPremium, router, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
+  }, [id, isPremium]);
 
   const persistPlan = useCallback(
     (values: PlanFormValues, silent = false) => {
@@ -593,6 +634,11 @@ export default function EditPlanScreen() {
 
   const saveLatestDraft = useCallback(
     async (silent = false) => {
+      // Free previews are intentionally editable in-memory so users can
+      // explore the workspace, but only a purchased plan/subscription may
+      // persist changes. The PlanForm surfaces the upgrade CTA for locked
+      // actions; leaving simply discards this transient draft.
+      if (!planCanEdit) return true;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const draft = latestDraftRef.current;
         const snapshot = draft ? serializePlanValues(draft, elevationProfileRef.current) : null;
@@ -613,7 +659,7 @@ export default function EditPlanScreen() {
         : null;
       return finalSnapshot === lastSavedSnapshotRef.current;
     },
-    [persistPlan],
+    [persistPlan, planCanEdit],
   );
 
   useEffect(() => {
@@ -766,7 +812,10 @@ export default function EditPlanScreen() {
       summaryProductMap,
     );
   }, [elevationProfile, id, liveValues, summaryProductMap]);
-  const elevationLoss = useMemo(() => calculateElevationLoss(elevationProfile), [elevationProfile]);
+  const elevationLoss = useMemo(
+    () => resolvePlanElevationLoss(officialElevationLossM, elevationProfile),
+    [elevationProfile, officialElevationLossM],
+  );
   const averagePace = workspaceSummary
     ? formatAveragePace(workspaceSummary.totalDurationMin, workspaceSummary.distanceKm)
     : '—';
@@ -838,6 +887,47 @@ export default function EditPlanScreen() {
     );
   }
 
+  if (!planCanViewDetails) {
+    const total = workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—';
+    const distance = workspaceSummary?.distanceKm ?? liveValues?.raceDistanceKm ?? 0;
+    return (
+      <View style={styles.screen}>
+        <Stack.Screen options={{ headerShown: false }} />
+        <ScrollView contentContainerStyle={styles.previewContainer}>
+          <Text style={styles.previewTitle}>Aperçu gratuit</Text>
+          {runnerAccessMode !== 'real' ? <Text accessibilityRole="alert">Simulation : {runnerAccessMode}</Text> : null}
+          <Text style={styles.previewMetric}>Temps total : {total}</Text>
+          <Text style={styles.previewMetric}>Allure moyenne : {averagePace}/km</Text>
+          <Text style={styles.previewMetric}>Distance : {distance.toFixed(1)} km</Text>
+          <Text style={styles.previewBody}>Tes besoins nutritionnels sont calculés à partir de ton profil. Débloque le plan pour adapter les allures et les ravitos section par section.</Text>
+          {workspaceSummary?.checkpoints.slice(1).map((checkpoint, index) => {
+            const previous = workspaceSummary.checkpoints[index];
+            const hours = Math.max(0, checkpoint.arrivalMinute - previous.arrivalMinute - previous.pauseMinutes) / 60;
+            return <View key={`${checkpoint.index}-${checkpoint.name}`} style={{ paddingVertical: 10 }}>
+              <Text>{previous.name} → {checkpoint.name}</Text>
+              <Text>{Math.round(hours * workspaceSummary.targetCarbsPerHour)} g · {Math.round(hours * workspaceSummary.targetWaterPerHour)} ml · {Math.round(hours * workspaceSummary.targetSodiumPerHour)} mg sodium</Text>
+            </View>;
+          })}
+          <Pressable accessibilityRole="button" onPress={() => router.replace('/(app)/plans')}><Text>{t.planWorkspace.backToPlans}</Text></Pressable>
+          <Pressable style={styles.previewCta} onPress={() => setPreviewPaywallVisible(true)}><Text style={styles.previewCtaText}>Débloquer cette course · 9,99 €</Text></Pressable>
+          <Pressable style={styles.previewCtaSecondary} onPress={() => setPreviewPaywallVisible(true)}><Text style={styles.previewCtaSecondaryText}>Toutes mes courses · 29,99 €/an</Text></Pressable>
+          <PremiumUpsellModal visible={previewPaywallVisible} title="Débloque ton plan" message="Construis ta préparation complète course par course." planId={id} onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }} />
+        </ScrollView>
+      </View>
+    );
+  }
+
+  if (!planCanEdit && workspaceSummary) return <View style={styles.screen}>
+    <Stack.Screen options={{ headerShown: false }} />
+    <View style={{ paddingTop: insets.top + 12, paddingHorizontal: 16 }}>
+      <Pressable accessibilityRole="button" onPress={() => router.replace('/(app)/plans')}><Text>{t.planWorkspace.backToPlans}</Text></Pressable>
+      <Text>{locale === 'fr' ? 'Plan conservé en lecture seule' : 'Saved plan · read only'}</Text>
+      <Pressable onPress={() => setPreviewPaywallVisible(true)}><Text>{locale === 'fr' ? 'Débloquer la modification' : 'Unlock editing'}</Text></Pressable>
+    </View>
+    <PlanRecapContent id={id} summary={workspaceSummary} contentTopInset={16} stickyTopInset={insets.top} stickyRevealOffset={0} onScroll={handleWorkspaceScroll} />
+    <PremiumUpsellModal visible={previewPaywallVisible} title={t.profile.subscriptionLabel} message={locale === 'fr' ? 'Retrouve tous les outils de préparation.' : 'Unlock all preparation tools.'} planId={id} onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }} />
+  </View>;
+
   return (
     <View
       ref={rootRef}
@@ -868,7 +958,9 @@ export default function EditPlanScreen() {
           initialValues={initialValues}
           elevationProfile={elevationProfile}
           onSave={handleSave}
-          isPremium={isPremium}
+          isPremium={planCanEdit}
+          planId={id}
+          previewMode={!planCanEdit}
           onValuesChange={(values) => {
             latestDraftRef.current = values;
             setLiveValues(values);
@@ -950,6 +1042,14 @@ export default function EditPlanScreen() {
 }
 
 const styles = StyleSheet.create({
+  previewContainer: { flexGrow: 1, padding: 24, justifyContent: 'center', gap: 12, backgroundColor: Colors.background },
+  previewTitle: { color: Colors.textPrimary, fontSize: 26, fontWeight: '800' },
+  previewMetric: { color: Colors.textPrimary, fontSize: 18, fontWeight: '700' },
+  previewBody: { color: Colors.textSecondary, fontSize: 15, lineHeight: 22, marginVertical: 8 },
+  previewCta: { minHeight: 48, borderRadius: 14, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
+  previewCtaText: { color: Colors.textOnBrand, fontWeight: '800' },
+  previewCtaSecondary: { minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
+  previewCtaSecondaryText: { color: Colors.brandPrimary, fontWeight: '800' },
   screen: {
     flex: 1,
     backgroundColor: Colors.background,

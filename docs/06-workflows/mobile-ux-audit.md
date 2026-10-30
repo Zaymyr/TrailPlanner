@@ -1,9 +1,13 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-29
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
+  - .agents/skills/mobile-ux-ui-auditor/SKILL.md
+  - .agents/skills/mobile-ux-ui-auditor/agents/openai.yaml
+  - .agents/skills/mobile-ux-ui-auditor/references/device-workflow.md
+  - .agents/skills/mobile-ux-ui-auditor/references/audit-rubric.md
   - apps/mobile/package.json
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
@@ -23,6 +27,8 @@ Plan-flow loading audits should flag determinate percentages unless the underlyi
 ## Purpose
 
 Use one reproducible runner journey to catch broken navigation and produce comparable screenshots, then review those artifacts for hierarchy, density, consistency, clarity, and accessibility. An automated Maestro pass proves that the journey remains operable; it does not decide whether a screen is visually balanced.
+
+The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicated, read-only UX/UI reviewer. It discovers an attached Android device through ADB, uses the checked-in Maestro journey when appropriate, compares screens and complete flows, and returns prioritized findings that distinguish direct observations, code-confirmed facts, and inferences. Invoke it explicitly for a focused audit; its description also allows Codex to select it automatically for mobile experience reviews.
 
 ## Key Concepts
 

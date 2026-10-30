@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-10-01
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -186,7 +186,7 @@ Mobile implementation:
 - `apps/mobile/components/plan-form/AidStationProfileSegmentCard.tsx` and `aidStationPresentationHelpers.ts` isolate pace/profile presentation and formatting from the Ravitos/Chronologie/Allures view switcher. They receive already computed section data and must not introduce nutrition or hydration allocation logic.
 - Section duration presentation rounds the total minute value before splitting hours and minutes. This carries a rounded `60` minutes into the next hour, so values near 120 minutes render as `2h00`, never `1h60`.
 - Numeric plan inputs use the app-wide iOS keyboard accessory so the runner can dismiss number/decimal keyboards without abandoning the editor or modal. The aid-station editor and the recap-time dialog additionally avoid the keyboard, remain scrollable on compact screens, preserve taps while it is visible, respect safe-area insets where needed, and expose modal titles, fields, service checkboxes, and close actions to VoiceOver.
-- Mobile plan settings expose common water-capacity presets plus a non-negative custom decimal value in liters. Both controls update the same persisted `waterBagLiters` value and therefore feed the existing carryover, gauge, recap, and live calculations without a parallel hydration path.
+- Mobile plan settings expose common water-capacity presets plus a non-negative custom decimal value in liters. Both controls update the same persisted `waterBagLiters` value and therefore feed the existing carryover, gauge, recap, and live calculations without a parallel hydration path. When the inline custom field receives focus, the single parent plan scroll reveals it above the keyboard after layout settles; this visibility behavior does not commit or recalculate a value by itself.
 - Mobile plan gauges observe the operating-system Reduce Motion setting and skip their value transition when it is enabled. This alters only animation; gauge ratios, targets, colors, deficits, and allocation results remain identical.
 - The mobile ravito view switcher is tab-only and renders one active view inside the form's single parent vertical scroll. It must not add horizontal paging or a nested vertical list. When pinned below the compact plan header, its three labeled tabs and icon-only auto-fill/add actions share one rounded floating row; both icon actions retain explicit accessibility labels and 44-point targets. When a tab is pressed, the parent scroll aligns the corresponding ravito below those compact controls. The fatigue slider still waits for deliberate horizontal movement before taking gesture ownership, and none of these presentation rules changes the selected fatigue formula, aid-station order, supplies, or saved planner shape.
 - Mobile quantity steppers and modal close actions use accessible labels and at least 44-point touch targets where these controls were audited. These are interaction-surface changes only and do not change product quantities unless the runner activates the same increment/decrement action.

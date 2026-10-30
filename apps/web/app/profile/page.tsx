@@ -17,6 +17,7 @@ import { fetchUserProfile, updateUserProfile } from "../../lib/profile-client";
 import { mapProductToSelection } from "../../lib/product-preferences";
 import { fuelProductSchema, type FuelProduct } from "../../lib/product-types";
 import { PageLoadingSkeleton } from "../../components/PageLoadingSkeleton";
+import { RunnerAdminAccessMode } from "../../components/RunnerAdminAccessMode";
 import { fetchTrialStatus } from "../../lib/trial-client";
 import { isTrialActive } from "../../lib/trial";
 import { useProductSelection } from "../hooks/useProductSelection";
@@ -613,6 +614,7 @@ export default function ProfilePage() {
 
   return (
     <div className="space-y-6">
+      <RunnerAdminAccessMode />
       <div className="space-y-1">
         <p className="text-sm uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Pace Yourself</p>
         <h2 className="text-2xl font-semibold text-foreground">{t.profile.title}</h2>

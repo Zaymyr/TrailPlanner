@@ -12,6 +12,9 @@ import type {
 const REVENUECAT_ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() ?? '';
 const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim() ?? '';
 const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() ?? '';
+const REVENUECAT_ANNUAL_PACKAGE_ID = process.env.EXPO_PUBLIC_REVENUECAT_ANNUAL_PACKAGE_ID?.trim() ?? '';
+const REVENUECAT_OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID?.trim() ?? '';
+const REVENUECAT_COURSE_PRODUCT_ID = process.env.EXPO_PUBLIC_REVENUECAT_COURSE_PRODUCT_ID?.trim() ?? '';
 
 type RevenueCatModule = typeof import('react-native-purchases/dist/purchases');
 
@@ -108,17 +111,30 @@ export function getRevenueCatPremiumExpiration(customerInfo: CustomerInfo | null
 export function pickRevenueCatPrimaryPackage(offering: PurchasesOffering | null | undefined) {
   if (!offering) return null;
 
-  return (
-    offering.monthly ??
-    offering.annual ??
-    offering.threeMonth ??
-    offering.sixMonth ??
-    offering.twoMonth ??
-    offering.weekly ??
-    offering.lifetime ??
-    offering.availablePackages[0] ??
-    null
-  );
+  if (REVENUECAT_ANNUAL_PACKAGE_ID) {
+    return offering.availablePackages.find((candidate) => candidate.identifier === REVENUECAT_ANNUAL_PACKAGE_ID) ?? null;
+  }
+  return offering.annual ?? null;
+}
+
+export function getRevenueCatCourseProductId() {
+  return REVENUECAT_COURSE_PRODUCT_ID || null;
+}
+
+export async function getRevenueCatCourseProduct(userId: string, productId = REVENUECAT_COURSE_PRODUCT_ID) {
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  if (!Purchases || !productId) return null;
+  const products = await Purchases.getProducts([productId], Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+  return products[0] ?? null;
+}
+
+export async function purchaseRevenueCatCourse(userId: string, productId: string) {
+  if (!productId || (REVENUECAT_COURSE_PRODUCT_ID && productId !== REVENUECAT_COURSE_PRODUCT_ID)) return null;
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  const product = await getRevenueCatCourseProduct(userId, productId);
+  if (!Purchases) return null;
+  if (!product) return null;
+  return Purchases.purchaseStoreProduct(product);
 }
 
 function pickRevenueCatFallbackOffering(offerings: PurchasesOfferings | null | undefined) {
@@ -143,6 +159,7 @@ export async function getRevenueCatCurrentOffering(userId: string) {
   const Purchases = await ensureRevenueCatConfigured(userId);
   if (!Purchases) return null;
   const offerings = await Purchases.getOfferings();
+  if (REVENUECAT_OFFERING_ID) return offerings.all[REVENUECAT_OFFERING_ID] ?? null;
   return pickRevenueCatFallbackOffering(offerings);
 }
 

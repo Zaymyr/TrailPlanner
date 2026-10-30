@@ -69,6 +69,7 @@ describe("/api/plans/from-catalog", () => {
       .mockResolvedValueOnce(new Response("<gpx />", { status: 200 }))
       .mockResolvedValueOnce(buildJsonResponse({}))
       .mockResolvedValueOnce(buildJsonResponse([]))
+      .mockResolvedValueOnce(buildJsonResponse([{ comfortable_flat_pace_min_per_km: 6, water_bag_liters: 2, default_carbs_g_per_hour: 70 }]))
       .mockResolvedValueOnce(
         buildJsonResponse(
           [
@@ -113,12 +114,14 @@ describe("/api/plans/from-catalog", () => {
         assistanceAllowed: false,
       },
     ]);
+    expect(planInsertBody.planner_values).toMatchObject({ paceMinutes: 6, paceSeconds: 0, waterBagLiters: 2, targetIntakePerHour: 70 });
   });
 });
 
 vi.mock("../../../../lib/entitlements", () => ({
   getUserEntitlements: () => Promise.resolve({ isPremium: true, planLimit: Number.POSITIVE_INFINITY }),
 }));
+vi.mock("../../../../lib/runner-access", () => ({ getRunnerMonetizationEnabled: () => Promise.resolve(false) }));
 
 vi.mock("../../../../lib/gpx/parseGpx", () => ({
   parseGpx: () => ({
@@ -152,6 +155,7 @@ vi.mock("../../../../lib/supabase", () => ({
     supabaseServiceRoleKey: "service-key",
   }),
   extractBearerToken: () => "user-token",
+  isAnonymousUser: () => false,
   fetchSupabaseUser: () =>
     Promise.resolve({
       id: "00000000-0000-0000-0000-000000000001",

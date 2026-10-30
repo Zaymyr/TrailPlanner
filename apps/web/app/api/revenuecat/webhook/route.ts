@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import { NextResponse } from "next/server";
 
 import { withSecurityHeaders } from "../../../../lib/http";
@@ -8,22 +9,24 @@ import {
 import { extractBearerToken } from "../../../../lib/supabase";
 
 const isWebhookAuthorized = (authorizationHeader: string | null, expectedAuthorization: string | null): boolean => {
-  if (!expectedAuthorization) {
-    return true;
-  }
+  if (!expectedAuthorization) return false;
 
   if (!authorizationHeader) {
     return false;
   }
 
-  return (
-    authorizationHeader === expectedAuthorization ||
-    extractBearerToken(authorizationHeader) === expectedAuthorization
-  );
+  const provided = extractBearerToken(authorizationHeader) ?? authorizationHeader;
+  const providedBuffer = Buffer.from(provided);
+  const expectedBuffer = Buffer.from(expectedAuthorization);
+  return providedBuffer.length === expectedBuffer.length && crypto.timingSafeEqual(providedBuffer, expectedBuffer);
 };
 
 export async function POST(request: Request) {
   const expectedAuthorization = getRevenueCatWebhookAuthorization();
+
+  if (!expectedAuthorization) {
+    return withSecurityHeaders(NextResponse.json({ message: "Webhook authorization is not configured." }, { status: 503 }));
+  }
 
   if (!isWebhookAuthorized(request.headers.get("authorization"), expectedAuthorization)) {
     return withSecurityHeaders(NextResponse.json({ message: "Invalid authorization." }, { status: 401 }));
@@ -37,6 +40,9 @@ export async function POST(request: Request) {
 
   const { userIds, results } = await syncRevenueCatWebhookPayload(payload);
   const syncedUsers = results.filter((result) => result.synced).length;
+  if (results.some((result) => !result.synced)) {
+    return withSecurityHeaders(NextResponse.json({ message: "Webhook persistence failed." }, { status: 503 }));
+  }
 
   return withSecurityHeaders(
     NextResponse.json({

@@ -1,11 +1,10 @@
 ---
 title: Stripe Integration
 scope: integration
-last_verified: 2026-09-11
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - apps/web/lib/stripe.ts
-  - apps/web/app/api/stripe/checkout/route.ts
   - apps/web/app/api/stripe/portal/route.ts
   - apps/web/app/api/stripe/price/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
@@ -17,6 +16,7 @@ related_files:
   - apps/web/lib/organizer-publication-tier.ts
   - apps/web/lib/organizer-publication-tier.test.ts
   - apps/web/lib/entitlements.ts
+  - apps/web/app/api/stripe/checkout/route.ts
 related_tables:
   - subscriptions
   - organizer_edition_payments
@@ -45,6 +45,8 @@ This document describes both runner web subscriptions and one-time organizer edi
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID`
+- `STRIPE_ANNUAL_PRICE_ID` (runner annual subscription, 29.99 EUR reference price)
+- `STRIPE_COURSE_PRICE_ID` (runner one-time course unlock, 9.99 EUR reference price)
 - `STRIPE_CHECKOUT_SUCCESS_URL`
 - `STRIPE_CHECKOUT_CANCEL_URL`
 - `STRIPE_BILLING_RETURN_URL`
@@ -68,11 +70,13 @@ Product ID and active price ID are not hardcoded in the repo.
 1. Requires Stripe, Supabase anon, and Supabase service config.
 2. Verifies bearer access token.
 3. Rejects anonymous Supabase users.
-4. Applies DB-backed rate limiting: `stripe:checkout:<user.id>`, 5 attempts per minute.
-5. Uses request `priceId` or configured `STRIPE_PRICE_ID`.
+4. Requires the runner rollout flag and real (non-simulated) admin mode, then applies DB-backed rate limiting: `stripe:checkout:<user.id>`, 5 attempts per minute.
+5. Rejects an already active annual subscription or an already unlocked course, then selects and validates the server-configured 29.99 EUR annual or 9.99 EUR one-time Price.
 6. Creates or reuses a Stripe customer.
 7. Upserts `subscriptions` with `provider: "web"` and customer id.
 8. Creates a subscription checkout session with `client_reference_id = user.id`.
+
+Runner course checkout uses Checkout mode `payment` and requires a race or edition context. The server writes the purchase type and context into Checkout Session and PaymentIntent metadata; fulfillment belongs to the verified webhook and never to the success URL. Runner course payments must remain separate from `subscriptions` and must not elevate global Premium.
 
 ## Portal Flow
 
@@ -102,6 +106,7 @@ Product ID and active price ID are not hardcoded in the repo.
 - handles `customer.subscription.updated`;
 - handles `customer.subscription.deleted`;
 - handles `checkout.session.completed`.
+- handles `checkout.session.async_payment_succeeded` for runner and organizer fulfillment.
 - handles organizer async payment success/failure, Checkout expiry, charge refunds, and disputes.
 
 Subscription events upsert:
@@ -112,6 +117,9 @@ Subscription events upsert:
 - price id;
 - plan name from price or subscription metadata;
 - current period end.
+
+Runner course events are journaled before the atomic claim RPC. A rejected claim returns HTTP 500 so Stripe retries; refund events create a terminal transaction tombstone before revocation, making out-of-order delivery safe.
+Course Checkout first creates a durable server intent and carries its id in Stripe metadata, so deleting the plan before settlement does not orphan a valid charge. Runner disputes are journaled too: opening or losing one revokes access, while a won dispute restores only the same provider transaction.
 
 ## Organizer Edition Checkout
 
@@ -139,6 +147,7 @@ The `subscriptions` table stores billing status. Trial lifecycle for the app's f
 - Organizer Price ids must be non-recurring EUR prices, use `tax_behavior=exclusive`, and carry the exact server-expected amounts; never accept a Price id or amount from the browser.
 - Automatic Tax requires the appropriate live Stripe tax registrations; code configuration alone is insufficient.
 - Organizer payments must not write `subscriptions` or runner Premium state.
+- Runner Checkout uses a bounded server idempotency key, and real Checkout is blocked while monetisation is disabled or an admin simulation is active.
 
 ## Related Docs
 

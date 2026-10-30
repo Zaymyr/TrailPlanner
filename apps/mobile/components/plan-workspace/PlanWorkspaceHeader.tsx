@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { StatusBar } from 'expo-status-bar';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
@@ -50,6 +51,7 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
 
   return (
     <Animated.View style={[styles.header, { height }]}>
+      <StatusBar style="light" />
       <Pressable accessibilityLabel={t.planWorkspace.backToPlans} accessibilityRole="button" onPress={onBack} style={[styles.action, styles.backAction, { top: topInset + 8, left: 12 }]}>
         <Ionicons name="chevron-back" size={25} color={Colors.textOnBrand} />
       </Pressable>

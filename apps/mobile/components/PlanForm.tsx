@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  findNodeHandle,
   ScrollView,
+  TextInput,
   TouchableOpacity,
   View,
   type LayoutRectangle,
@@ -82,6 +84,8 @@ type Props = {
   onValuesChange?: (values: PlanFormValues) => void;
   loading?: boolean;
   isPremium: boolean;
+  planId?: string;
+  previewMode?: boolean;
   saveLabel?: string;
   productData?: PlanProductsBootstrap | null;
   elevationProfile?: ElevationPoint[];
@@ -128,6 +132,8 @@ export default function PlanForm({
   onValuesChange,
   loading,
   isPremium,
+  planId,
+  previewMode = false,
   saveLabel,
   productData,
   elevationProfile = [],
@@ -168,6 +174,7 @@ export default function PlanForm({
   const [aidStationsViewMode, setAidStationsViewMode] = useState<PlanViewMode>('stations');
   const [stickyControlsVisible, setStickyControlsVisible] = useState(false);
   const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keyboardFocusScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setValues(buildInitialPlanValues(initialValues));
@@ -207,8 +214,25 @@ export default function PlanForm({
   useEffect(() => {
     return () => {
       clearAutoFillUndoTimer();
+      if (keyboardFocusScrollTimeoutRef.current) {
+        clearTimeout(keyboardFocusScrollTimeoutRef.current);
+      }
     };
   }, [clearAutoFillUndoTimer]);
+
+  const handleCustomWaterBagFocus = useCallback((input: TextInput | null) => {
+    if (keyboardFocusScrollTimeoutRef.current) {
+      clearTimeout(keyboardFocusScrollTimeoutRef.current);
+    }
+
+    keyboardFocusScrollTimeoutRef.current = setTimeout(() => {
+      const inputHandle = input ? findNodeHandle(input) : null;
+      if (inputHandle) {
+        mainScrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(inputHandle, 24, true);
+      }
+      keyboardFocusScrollTimeoutRef.current = null;
+    }, 250);
+  }, []);
 
   const openPremiumUpsell = useCallback(() => {
     setShowPremiumUpsell(true);
@@ -805,6 +829,7 @@ export default function PlanForm({
         ref={setScrollRefs}
         style={styles.container}
         contentContainerStyle={[styles.content, { paddingTop: contentTopInset }]}
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         onContentSizeChange={(_, height) => tutorial?.onContentSizeChange(height)}
@@ -822,6 +847,17 @@ export default function PlanForm({
         onMomentumScrollEnd={tutorial?.onScrollSettled}
         onScrollEndDrag={tutorial?.onScrollSettled}
       >
+        {previewMode ? (
+          <View style={styles.previewCard}>
+            <Text style={styles.previewTitle}>Aperçu gratuit de ton plan</Text>
+            <Text style={styles.previewBody}>Temps total, allure moyenne et besoins nutritionnels estimés sont disponibles. Débloque ta course pour adapter chaque section et chaque ravito.</Text>
+            <View style={styles.previewActions}>
+              <TouchableOpacity style={styles.previewPrimary} onPress={() => setShowPremiumUpsell(true)}><Text style={styles.previewPrimaryText}>Débloquer cette course · 9,99 €</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.previewSecondary} onPress={() => setShowPremiumUpsell(true)}><Text style={styles.previewSecondaryText}>Toutes mes courses · 29,99 €/an</Text></TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
+        <View pointerEvents={previewMode ? 'none' : 'auto'} style={previewMode ? styles.previewContent : undefined}>
         {surface === 'settings' ? (
           <TutorialTarget
             onMeasure={handleTutorialTargetMeasure}
@@ -841,6 +877,7 @@ export default function PlanForm({
                 onResetSectionTimingOverrides={resetSectionTimingOverrides}
                 NumberInput={NumberInput}
                 waterBagOptions={WATER_BAG_OPTIONS}
+                onCustomWaterBagFocus={handleCustomWaterBagFocus}
                 inline
               />
             </View>
@@ -906,6 +943,7 @@ export default function PlanForm({
         )}
 
         <View style={styles.saveSpacer} />
+        </View>
       </ScrollView>
 
       {surface === 'plan' ? (
@@ -982,6 +1020,7 @@ export default function PlanForm({
           title={t.plans.autoFillPremiumTitle}
           message={t.plans.autoFillPremiumMessage}
           onClose={() => setShowPremiumUpsell(false)}
+          planId={planId}
         />
       ) : null}
     </>

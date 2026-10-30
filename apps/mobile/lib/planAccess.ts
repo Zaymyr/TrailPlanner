@@ -2,7 +2,9 @@ import { supabase } from './supabase';
 import { isAnonymousUser } from './appSession';
 
 export const GUEST_PLAN_LIMIT = 1;
-export const FREE_PLAN_LIMIT = 2;
+// Authenticated users can keep multiple free previews. Editing premium plan
+// capabilities is resolved per-plan by the server entitlement API.
+export const FREE_PLAN_LIMIT = Number.POSITIVE_INFINITY;
 
 type PlanAccessRow = {
   id: string;
@@ -84,7 +86,7 @@ export async function getCurrentUserPlanAccess(isPremium: boolean) {
     planLimit,
     planCount: plans.length,
     accessiblePlanIds: getAccessiblePlanIds(plans, false, isAnonymous),
-    hasReachedPlanLimit: plans.length >= planLimit,
+    hasReachedPlanLimit: isAnonymous && plans.length >= planLimit,
   };
 }
 

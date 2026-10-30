@@ -15,6 +15,10 @@ related_tables:
 
 # Duplicate Events Pattern
 
+## Onboarding plan save
+
+The onboarding save route verifies the bearer token and requires its user id to match the body before it performs its existing idempotent save. It may not use a client-provided user id with service-role access. With runner monetisation enabled, the same identified-account and profile-default requirement applies to every plan-creation route.
+
 ## Purpose
 
 Supabase auth flows can emit multiple session-related events for one user action. This document records the guard pattern used to prevent duplicate onboarding plan saves.

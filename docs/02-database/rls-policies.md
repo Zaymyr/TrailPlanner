@@ -88,6 +88,10 @@ related_tables:
 
 # RLS Policies
 
+## Runner purchase and preview access
+
+`runner_plan_unlocks`, `runner_purchase_intents`, and `runner_plan_history` allow only owner reads. Billing subscriptions/events, rollout configuration, and admin access modes are service-managed. With runner monetisation enabled, `race_plans` writes are constrained by an owned-plan entitlement predicate and a trigger removes paid-only planner detail from unentitled writes. This is defense in depth: APIs must authenticate and authorize before reaching PostgREST.
+
 Structured services, SAS and awards permit SELECT for a published, visible RaceBook and for an authorized organizer preview of the parent event. Direct table and RPC mutations are revoked from `anon`/`authenticated`; Organizer routes execute atomic replacements with `service_role` after session, membership and capability checks.
 
 The client policies use `races` as their readable parent. They must not join `race_event_editions`: that table deliberately has no `anon`/`authenticated` SELECT grant, and using it inside the policy causes PostgREST to return `42501 permission denied` before RLS can return rows.

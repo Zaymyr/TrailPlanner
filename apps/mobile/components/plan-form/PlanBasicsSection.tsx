@@ -38,6 +38,7 @@ type Props = {
   onResetSectionTimingOverrides: () => void;
   NumberInput: (props: NumberInputProps) => ReactElement;
   waterBagOptions: number[];
+  onCustomWaterBagFocus?: (input: TextInput | null) => void;
   inline?: boolean;
 };
 
@@ -45,9 +46,10 @@ type WaterBagCapacitySelectorProps = {
   value: number;
   options: number[];
   onChange: (value: number) => void;
+  onCustomValueFocus?: (input: TextInput | null) => void;
 };
 
-function WaterBagCapacitySelector({ value, options, onChange }: WaterBagCapacitySelectorProps) {
+function WaterBagCapacitySelector({ value, options, onChange, onCustomValueFocus }: WaterBagCapacitySelectorProps) {
   const isPresetValue = options.some((option) => option === value);
   const [isEditingCustomValue, setIsEditingCustomValue] = useState(false);
   const [customValueDraft, setCustomValueDraft] = useState(() => (isPresetValue ? '' : String(value)));
@@ -120,7 +122,10 @@ function WaterBagCapacitySelector({ value, options, onChange }: WaterBagCapacity
           keyboardType="decimal-pad"
           onBlur={handleCustomValueBlur}
           onChangeText={handleCustomValueChange}
-          onFocus={() => setIsEditingCustomValue(true)}
+          onFocus={() => {
+            setIsEditingCustomValue(true);
+            onCustomValueFocus?.(customValueInputRef.current);
+          }}
           placeholder="Ex : 1,75"
           placeholderTextColor={Colors.textMuted}
           style={styles.textInput}
@@ -143,6 +148,7 @@ export function PlanBasicsSection({
   onResetSectionTimingOverrides,
   NumberInput,
   waterBagOptions,
+  onCustomWaterBagFocus,
   inline = false,
 }: Props) {
   const { t } = useI18n();
@@ -425,6 +431,7 @@ export function PlanBasicsSection({
               value={values.waterBagLiters}
               options={waterBagOptions}
               onChange={(value) => update('waterBagLiters', value)}
+              onCustomValueFocus={onCustomWaterBagFocus}
             />
           </>
         </View>
@@ -649,6 +656,7 @@ export function PlanBasicsSection({
                     value={values.waterBagLiters}
                     options={waterBagOptions}
                     onChange={(value) => update('waterBagLiters', value)}
+                    onCustomValueFocus={onCustomWaterBagFocus}
                   />
                 </>
               )}

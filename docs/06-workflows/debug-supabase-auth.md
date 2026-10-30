@@ -21,6 +21,10 @@ related_tables:
 
 # Debug Supabase Auth
 
+## Runner access diagnostics
+
+For a plan-access issue, first verify the bearer user owns the plan and is non-anonymous, then inspect the server access response: rollout enabled, active global entitlement, canonical plan-key unlock, and historical read-only detail are distinct outcomes. Do not repair missing trial fields. An admin test mode is valid only if the verified JWT contains a trusted app-metadata admin and the exact current `session_id` has a mode row.
+
 ## Purpose
 
 Use this workflow when a user cannot sign in, a session is stale, trial state is wrong, or RLS behavior differs between client and server.
