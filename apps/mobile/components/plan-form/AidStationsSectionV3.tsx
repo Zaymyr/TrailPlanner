@@ -74,11 +74,9 @@ type Props = {
   toggleStation: (stationKey: string) => void;
   setEditingStation: (value: EditingStation) => void;
   removeAidStation: (index: number) => void;
-  addAidStation: () => void;
   fillSuppliesAuto: () => void;
   isAutoFilling: boolean;
   autoFillLoadingMessage: string;
-  isPremium: boolean;
   intermediateCount: number;
   getSupplies: (target: PlanTarget) => { productId: string; quantity: number }[];
   openPicker: (target: PlanTarget) => void;
@@ -182,11 +180,6 @@ export type AidStationsSectionHandle = {
 type ToolbarProps = {
   mode: PlanViewMode;
   onSelectMode: (mode: PlanViewMode) => void;
-  addAidStation: () => void;
-  fillSuppliesAuto: () => void;
-  isAutoFilling: boolean;
-  autoFillLoadingMessage: string;
-  isPremium: boolean;
   compact?: boolean;
   tutorial?: Props['tutorial'];
 };
@@ -194,11 +187,6 @@ type ToolbarProps = {
 export function AidStationsToolbar({
   mode,
   onSelectMode,
-  addAidStation,
-  fillSuppliesAuto,
-  isAutoFilling,
-  autoFillLoadingMessage,
-  isPremium,
   compact = false,
   tutorial,
 }: ToolbarProps) {
@@ -213,8 +201,8 @@ export function AidStationsToolbar({
         <View accessibilityRole="tablist" style={[styles.toggleRow, planDetailStyles.toolbarTabs, compact && planDetailStyles.toolbarTabsCompact]}>
           {([
             ['stations', 'Ravitos'],
-            ['sections', 'Chronologie'],
             ['profile', 'Allures'],
+            ['sections', 'Chronologie'],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
               accessibilityLabel={label}
@@ -237,50 +225,6 @@ export function AidStationsToolbar({
           ))}
         </View>
       </TutorialTarget>
-      {compact ? <View style={planDetailStyles.toolbarDivider} /> : null}
-      <View style={[styles.sectionActions, planDetailStyles.toolbarActions, compact && planDetailStyles.toolbarActionsCompact]}>
-        <TutorialTarget
-          onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
-          onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="autoFill"
-        >
-          <TouchableOpacity
-            accessibilityLabel="Remplir automatiquement"
-            accessibilityRole="button"
-            style={[
-              styles.fillBtn,
-              compact && planDetailStyles.toolbarIconAction,
-              !isPremium && styles.fillBtnPremiumLocked,
-              isAutoFilling && styles.fillBtnLoading,
-            ]}
-            onPress={fillSuppliesAuto}
-            disabled={isAutoFilling}
-            activeOpacity={0.88}
-          >
-            <View style={styles.fillBtnContent}>
-              {isAutoFilling ? (
-                compact
-                  ? <ActivityIndicator size="small" color={colors.text.inverse} />
-                  : <><ActivityIndicator size="small" color={colors.text.inverse} /><Text style={[styles.fillBtnText, styles.fillBtnTextLoading]} numberOfLines={1}>{autoFillLoadingMessage}</Text></>
-              ) : (
-                compact
-                  ? <Ionicons name="sparkles" size={18} color={isPremium ? colors.text.inverse : colors.accent.amber} />
-                  : <Text style={[styles.fillBtnText, !isPremium && styles.fillBtnTextPremiumLocked]}>Remplir auto</Text>
-              )}
-            </View>
-          </TouchableOpacity>
-        </TutorialTarget>
-        <TouchableOpacity
-          accessibilityLabel="Ajouter un ravitaillement"
-          accessibilityRole="button"
-          style={[styles.addBtn, compact && planDetailStyles.toolbarIconActionSecondary]}
-          onPress={addAidStation}
-        >
-          {compact
-            ? <Ionicons name="add" size={22} color={colors.brand.forest} />
-            : <Text style={styles.addBtnText}>+ Ajouter</Text>}
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -294,11 +238,9 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   toggleStation,
   setEditingStation,
   removeAidStation,
-  addAidStation,
   fillSuppliesAuto,
   isAutoFilling,
   autoFillLoadingMessage,
-  isPremium,
   intermediateCount,
   getSupplies,
   openPicker,
@@ -648,7 +590,47 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   }
 
   function renderStationsView() {
-    const clearElements: ReactElement[] = [];
+    const clearElements: ReactElement[] = [
+      <View key="nutrition-preparation" style={planDetailStyles.nutritionPreparation}>
+        <Heading variant="h3" style={planDetailStyles.nutritionPreparationTitle}>
+          {locale === 'fr' ? 'Préparer ma nutrition' : 'Prepare my nutrition'}
+        </Heading>
+        <ThemedText tone="secondary" size="sm">
+          {locale === 'fr'
+            ? 'Répartis tes produits favoris selon tes besoins et les caractéristiques du parcours.'
+            : 'Distribute your favorite products according to your needs and the course profile.'}
+        </ThemedText>
+        <TutorialTarget
+          onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
+          onRegisterRef={tutorial?.onTargetRegisterRef}
+          targetKey="autoFill"
+        >
+          <TouchableOpacity
+            accessibilityLabel={locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically'}
+            accessibilityRole="button"
+            disabled={isAutoFilling}
+            onPress={fillSuppliesAuto}
+            style={[styles.fillBtn, planDetailStyles.nutritionPreparationButton, isAutoFilling && styles.fillBtnLoading]}
+          >
+            <View style={styles.fillBtnContent}>
+              {isAutoFilling ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
+                  <Text style={[styles.fillBtnText, styles.fillBtnTextLoading]}>{autoFillLoadingMessage}</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color={colors.text.inverse} />
+                  <Text style={[styles.fillBtnText, planDetailStyles.nutritionPreparationButtonText]}>
+                    {locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically'}
+                  </Text>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+        </TutorialTarget>
+      </View>,
+    ];
     const ghostElements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
@@ -1220,6 +1202,10 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     onPreviewBoundaryLayout,
     onPreviewLimitReached,
     previewUnlockStickyVisible,
+    fillSuppliesAuto,
+    isAutoFilling,
+    autoFillLoadingMessage,
+    tutorial,
     locale,
   ]);
 
@@ -1267,7 +1253,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       return (
         <>
           {intermediateCount === 0 && (
-            <Text style={styles.emptyText}>Pas de ravito intermédiaire. Utilise "+ Ajouter" pour en créer.</Text>
+            <Text style={styles.emptyText}>Aucun ravito intermédiaire sur ce parcours.</Text>
           )}
           {stationsElements}
         </>
@@ -1311,11 +1297,6 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         <AidStationsToolbar
           mode={selectedViewMode}
           onSelectMode={switchViewMode}
-          addAidStation={addAidStation}
-          fillSuppliesAuto={fillSuppliesAuto}
-          isAutoFilling={isAutoFilling}
-          autoFillLoadingMessage={autoFillLoadingMessage}
-          isPremium={isPremium}
           tutorial={tutorial}
         />
       </View>
@@ -1383,39 +1364,23 @@ const planDetailStyles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
   },
-  toolbarDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: colors.border.subtle,
-  },
-  toolbarActions: {
-    flexWrap: 'nowrap',
-    justifyContent: 'flex-end',
-  },
-  toolbarActionsCompact: {
-    gap: spacing[1],
-  },
-  toolbarIconAction: {
-    width: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderRadius: 13,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  toolbarIconActionSecondary: {
-    width: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderRadius: 13,
-    borderColor: colors.border.brand,
+  nutritionPreparation: {
+    gap: spacing[2],
+    marginBottom: spacing[3],
+    padding: spacing[4],
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: radius.card,
     backgroundColor: colors.surface.cream,
+  },
+  nutritionPreparationTitle: {
+    color: colors.text.primary,
+  },
+  nutritionPreparationButtonText: { flexShrink: 1, textAlign: 'center' },
+  nutritionPreparationButton: {
+    width: '100%',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   activeView: {
     paddingBottom: spacing[6],

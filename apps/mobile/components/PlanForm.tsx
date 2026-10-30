@@ -73,7 +73,8 @@ import {
   type AutoFillResult,
 } from '../lib/autoFillPreview';
 import {
-  shouldStickPreviewUnlock,
+  getPreviewReachableContentMinHeight,
+  resolvePreviewUnlockPlacement,
   type PreviewLimitReason,
 } from '../lib/planPreviewBoundary';
 
@@ -115,7 +116,6 @@ type Props = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 const AUTO_FILL_LOADING_MESSAGE = 'Calcul en cours';
-const STICKY_PLAN_CONTROLS_HEIGHT = 72;
 
 function getTargetCacheKey(target: PlanTarget) {
   return target === 'start' ? 'start' : String(target);
@@ -177,22 +177,45 @@ export default function PlanForm({
   const aidStationsSectionRef = useRef<AidStationsSectionHandle>(null);
   const mainScrollYRef = useRef(0);
   const aidStationsSectionYRef = useRef(0);
+  const [aidStationsSectionY, setAidStationsSectionY] = useState(0);
   const aidStationsToolbarYRef = useRef(Number.POSITIVE_INFINITY);
+  const [aidStationsToolbarHeight, setAidStationsToolbarHeight] = useState(0);
+  const [stickyToolbarHeight, setStickyToolbarHeight] = useState(0);
   const [aidStationsViewMode, setAidStationsViewMode] = useState<PlanViewMode>('stations');
   const [stickyControlsVisible, setStickyControlsVisible] = useState(false);
   const [previewUnlockStickyVisible, setPreviewUnlockStickyVisible] = useState(false);
+  const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardFocusScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const previewBoundaryRef = useRef<{ top: number; height: number } | null>(null);
+  const previewSessionKey = planId ?? 'new-plan';
+  const previewBoundaryRef = useRef<{ sessionKey: string; top: number; height: number } | null>(null);
+  const [previewBoundaryMeasurement, setPreviewBoundaryMeasurement] = useState<{
+    sessionKey: string;
+    top: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
-    previewBoundaryRef.current = null;
     setPreviewUnlockStickyVisible(false);
   }, [planId]);
 
   useEffect(() => {
-    if (surface !== 'plan') previewBoundaryRef.current = null;
+    if (surface === 'plan') return;
+    previewBoundaryRef.current = null;
+    setPreviewBoundaryMeasurement(null);
   }, [surface]);
+
+  const currentPreviewBoundary = previewBoundaryMeasurement?.sessionKey === previewSessionKey
+    ? previewBoundaryMeasurement
+    : null;
+  const measuredToolbarHeight = stickyToolbarHeight || aidStationsToolbarHeight;
+  const previewContentMinHeight = previewMode && surface === 'plan'
+    ? getPreviewReachableContentMinHeight(
+        currentPreviewBoundary ? aidStationsSectionY + currentPreviewBoundary.top : null,
+        scrollViewportHeight,
+        stickyTopInset + measuredToolbarHeight,
+      )
+    : undefined;
 
   useEffect(() => {
     const nextInitialValues = buildInitialPlanValues(initialValues);
@@ -666,28 +689,6 @@ export default function PlanForm({
     saveStation();
   };
 
-  const handleAddAidStationPress = useCallback(() => {
-    const intermediates = values.aidStations.filter(
-      (station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID,
-    );
-    const lastIntermediate = intermediates[intermediates.length - 1];
-    const arriveeKm = values.raceDistanceKm;
-    const fromKm = lastIntermediate ? lastIntermediate.distanceKm : 0;
-    const rawKm = (fromKm + arriveeKm) / 2;
-    const suggestedKm = arriveeKm > 0 ? Math.min(Math.round(rawKm * 10) / 10, arriveeKm - 0.1) : 10;
-
-    setEditingStation({
-      mode: 'create',
-      index: -1,
-      name: `Ravito ${intermediates.length + 1}`,
-      km: suggestedKm > 0 ? String(suggestedKm) : '10',
-      pauseMinutes: '0',
-      waterRefill: true,
-      solidRefill: false,
-      assistanceAllowed: false,
-    });
-  }, [values.aidStations, values.raceDistanceKm]);
-
   const runFillSuppliesAuto = useCallback(async (productLimits?: AutoFillProductLimit[]) => {
     if (!isPremium) {
       return Promise.resolve(fillSuppliesAuto(productLimits));
@@ -856,7 +857,15 @@ export default function PlanForm({
       <ScrollView
         ref={setScrollRefs}
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: contentTopInset }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: contentTopInset },
+          previewContentMinHeight === undefined ? null : { minHeight: previewContentMinHeight },
+        ]}
+        onLayout={(event) => {
+          const height = event.nativeEvent.layout.height;
+          setScrollViewportHeight((current) => current === height ? current : height);
+        }}
         automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
@@ -871,13 +880,16 @@ export default function PlanForm({
           setStickyControlsVisible((current) => current === shouldShowStickyControls ? current : shouldShowStickyControls);
           tutorial?.onScroll(event);
           onWorkspaceScroll?.(event);
-          const previewBoundary = previewBoundaryRef.current;
-          const previewStickyTop = stickyTopInset + (shouldShowStickyControls ? STICKY_PLAN_CONTROLS_HEIGHT : 0);
-          const shouldShowPreviewUnlock = previewMode && shouldStickPreviewUnlock(
-            nextScrollY,
-            previewBoundary ? aidStationsSectionYRef.current + previewBoundary.top : null,
-            previewStickyTop,
-          );
+          const measuredBoundary = previewBoundaryRef.current;
+          const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
+          const shouldShowPreviewUnlock = previewMode && resolvePreviewUnlockPlacement({
+            boundaryTopInSection: previewBoundary?.top ?? null,
+            scrollY: nextScrollY,
+            sectionTop: aidStationsSectionYRef.current,
+            stickyHeaderTop: stickyTopInset,
+            stickyToolbarHeight: measuredToolbarHeight,
+            toolbarIsSticky: shouldShowStickyControls,
+          }) === 'sticky';
           setPreviewUnlockStickyVisible((current) => (
             current === shouldShowPreviewUnlock ? current : shouldShowPreviewUnlock
           ));
@@ -923,7 +935,19 @@ export default function PlanForm({
         ) : (
         <View
           onLayout={(event) => {
-            aidStationsSectionYRef.current = event.nativeEvent.layout.y;
+            const sectionTop = event.nativeEvent.layout.y;
+            aidStationsSectionYRef.current = sectionTop;
+            setAidStationsSectionY((current) => current === sectionTop ? current : sectionTop);
+            const measuredBoundary = previewBoundaryRef.current;
+            const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
+            setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+              boundaryTopInSection: previewBoundary?.top ?? null,
+              scrollY: mainScrollYRef.current,
+              sectionTop,
+              stickyHeaderTop: stickyTopInset,
+              stickyToolbarHeight: stickyToolbarHeight || aidStationsToolbarHeight,
+              toolbarIsSticky: stickyControlsVisible,
+            }) === 'sticky');
           }}
         >
           <AidStationsSection
@@ -936,11 +960,9 @@ export default function PlanForm({
             toggleStation={toggleStation}
             setEditingStation={setEditingStation}
             removeAidStation={removeAidStation}
-            addAidStation={previewMode ? () => requestPreviewUnlock('press') : handleAddAidStationPress}
             fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
-            isPremium={previewMode ? true : isPremium}
             intermediateCount={highlights.intermediateCount}
             getSupplies={getSupplies}
             openPicker={openPicker}
@@ -961,25 +983,30 @@ export default function PlanForm({
             onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
             getParentScrollY={() => mainScrollYRef.current}
             getSectionTop={() => aidStationsSectionYRef.current}
-            parentFocusOffset={stickyTopInset + STICKY_PLAN_CONTROLS_HEIGHT + 12}
+            parentFocusOffset={stickyTopInset + (stickyToolbarHeight || aidStationsToolbarHeight) + 12}
             scrollParentTo={(y) => mainScrollRef.current?.scrollTo({ y, animated: false })}
             onViewModeChange={setAidStationsViewMode}
-            onToolbarLayout={(top) => {
+            onToolbarLayout={(top, height) => {
               aidStationsToolbarYRef.current = top;
+              setAidStationsToolbarHeight((current) => current === height ? current : height);
             }}
             toolbarHidden={stickyControlsVisible}
             previewMode={previewMode}
             previewUnlockStickyVisible={previewUnlockStickyVisible}
             onPreviewBoundaryLayout={(top, height) => {
-              previewBoundaryRef.current = top === null
+              const nextMeasurement = top === null
                 ? null
-                : { top, height };
-              const previewStickyTop = stickyTopInset + (stickyControlsVisible ? STICKY_PLAN_CONTROLS_HEIGHT : 0);
-              setPreviewUnlockStickyVisible(previewMode && shouldStickPreviewUnlock(
-                mainScrollYRef.current,
-                top === null ? null : aidStationsSectionYRef.current + top,
-                previewStickyTop,
-              ));
+                : { sessionKey: previewSessionKey, top, height };
+              previewBoundaryRef.current = nextMeasurement;
+              setPreviewBoundaryMeasurement(nextMeasurement);
+              setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+                boundaryTopInSection: top,
+                scrollY: mainScrollYRef.current,
+                sectionTop: aidStationsSectionYRef.current,
+                stickyHeaderTop: stickyTopInset,
+                stickyToolbarHeight: stickyToolbarHeight || aidStationsToolbarHeight,
+                toolbarIsSticky: stickyControlsVisible,
+              }) === 'sticky');
             }}
             onPreviewLimitReached={requestPreviewUnlock}
             tutorial={
@@ -1004,30 +1031,37 @@ export default function PlanForm({
           visible={stickyControlsVisible}
           testID="plan-sticky-controls"
         >
-          <AidStationsToolbar
-            compact
-            mode={aidStationsViewMode}
-            onSelectMode={(mode) => aidStationsSectionRef.current?.selectViewMode(mode)}
-            addAidStation={previewMode ? () => requestPreviewUnlock('press') : handleAddAidStationPress}
-            fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
-            isAutoFilling={isAutoFilling}
-            autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
-            isPremium={previewMode ? true : isPremium}
-          />
-        </PlanWorkspaceStickyBar>
-      ) : null}
-
-      {surface === 'plan' && previewMode ? (
-        <PlanWorkspaceStickyBar
-          top={stickyTopInset + (stickyControlsVisible ? STICKY_PLAN_CONTROLS_HEIGHT : 0)}
-          visible={previewUnlockStickyVisible}
-          testID="plan-preview-unlock-sticky"
-        >
-          <PreviewUnlockCta
-            compact
-            locale={locale}
-            onPress={() => requestPreviewUnlock('press')}
-          />
+          <View
+            onLayout={(event) => {
+              const height = event.nativeEvent.layout.height;
+              setStickyToolbarHeight((current) => current === height ? current : height);
+              const measuredBoundary = previewBoundaryRef.current;
+              const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
+              setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+                boundaryTopInSection: previewBoundary?.top ?? null,
+                scrollY: mainScrollYRef.current,
+                sectionTop: aidStationsSectionYRef.current,
+                stickyHeaderTop: stickyTopInset,
+                stickyToolbarHeight: height,
+                toolbarIsSticky: true,
+              }) === 'sticky');
+            }}
+          >
+            <AidStationsToolbar
+              compact
+              mode={aidStationsViewMode}
+              onSelectMode={(mode) => aidStationsSectionRef.current?.selectViewMode(mode)}
+            />
+          </View>
+          {previewMode && previewUnlockStickyVisible ? (
+            <View testID="plan-preview-unlock-sticky">
+              <PreviewUnlockCta
+                compact
+                locale={locale}
+                onPress={() => requestPreviewUnlock('press')}
+              />
+            </View>
+          ) : null}
         </PlanWorkspaceStickyBar>
       ) : null}
 

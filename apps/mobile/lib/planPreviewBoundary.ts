@@ -32,10 +32,42 @@ export function resolvePlanPreviewBoundary(
   };
 }
 
-export function shouldStickPreviewUnlock(
-  scrollY: number,
-  boundaryTop: number | null,
-  stickyTop: number,
-): boolean {
-  return boundaryTop !== null && scrollY + stickyTop >= boundaryTop;
+type PreviewUnlockPlacementInput = {
+  boundaryTopInSection: number | null;
+  scrollY: number;
+  sectionTop: number;
+  stickyHeaderTop: number;
+  stickyToolbarHeight: number;
+  toolbarIsSticky: boolean;
+};
+
+export function resolvePreviewUnlockPlacement({
+  boundaryTopInSection,
+  scrollY,
+  sectionTop,
+  stickyHeaderTop,
+  stickyToolbarHeight,
+  toolbarIsSticky,
+}: PreviewUnlockPlacementInput): 'inline' | 'sticky' {
+  if (!toolbarIsSticky || boundaryTopInSection === null) return 'inline';
+  const boundaryViewportTop = sectionTop + boundaryTopInSection - scrollY;
+  const stickyToolbarBottom = stickyHeaderTop + stickyToolbarHeight;
+  return boundaryViewportTop <= stickyToolbarBottom ? 'sticky' : 'inline';
+}
+
+export function getPreviewReachableContentMinHeight(
+  boundaryContentTop: number | null,
+  viewportHeight: number,
+  pinnedTabsBottom: number,
+): number | undefined {
+  if (
+    boundaryContentTop === null
+    || !Number.isFinite(boundaryContentTop)
+    || viewportHeight <= 0
+    || !Number.isFinite(viewportHeight)
+    || !Number.isFinite(pinnedTabsBottom)
+  ) {
+    return undefined;
+  }
+  return Math.max(0, Math.ceil(boundaryContentTop + viewportHeight - pinnedTabsBottom + 1));
 }

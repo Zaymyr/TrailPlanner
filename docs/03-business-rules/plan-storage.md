@@ -135,6 +135,8 @@ The public shared page can persist limited crew-side tracking data through `apps
 
 Locked mobile plans retain one ordinary, scrollable workspace. The departure station and first following section are clear; later real course content is read-only, non-interactive and accessibility-hidden under the implemented light veil. There is no preview cutoff or automatic popup. Visible sample edit/add/split actions and the inline/sticky CTA all open the same paywall and never save, alter supplies, create a crew link, or record a successful save.
 
+The locked Recap reads existing calculation results only. Its statistic and estimate cards, and its locked passages/nutrition/assistance/share previews, do not write `race_plans`, create a public share link, or become paid access. Historical detailed recap remains separately access-controlled.
+
 ## Hydration on Read
 
 `apps/web/app/(planner)/race-planner/hooks/useRacePlan.ts` maps saved rows into planner state.

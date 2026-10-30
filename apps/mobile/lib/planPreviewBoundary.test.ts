@@ -2,8 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import {
   getPreviewBoundaryTop,
+  getPreviewReachableContentMinHeight,
   resolvePlanPreviewBoundary,
-  shouldStickPreviewUnlock,
+  resolvePreviewUnlockPlacement,
 } from './planPreviewBoundary';
 
 const station = (id: string) => ({ id });
@@ -40,11 +41,41 @@ describe('plan preview boundary', () => {
 });
 
 describe('sticky preview unlock', () => {
-  it('becomes sticky only after the in-flow CTA reaches its sticky position', () => {
-    const boundaryTop = getPreviewBoundaryTop(156, 420);
+  const geometry = {
+    boundaryTopInSection: getPreviewBoundaryTop(156, 420),
+    sectionTop: 340,
+    stickyHeaderTop: 132,
+    stickyToolbarHeight: 54,
+    toolbarIsSticky: true,
+  };
 
-    expect(shouldStickPreviewUnlock(300, boundaryTop, 220)).toBe(false);
-    expect(shouldStickPreviewUnlock(356, boundaryTop, 220)).toBe(true);
-    expect(shouldStickPreviewUnlock(500, null, 220)).toBe(false);
+  it('stays inline at the beginning, sticks below the measured toolbar, then returns inline when scrolling back', () => {
+    expect(resolvePreviewUnlockPlacement({ ...geometry, scrollY: 0 })).toBe('inline');
+    expect(resolvePreviewUnlockPlacement({ ...geometry, scrollY: 730 })).toBe('sticky');
+    expect(resolvePreviewUnlockPlacement({ ...geometry, scrollY: 500 })).toBe('inline');
+  });
+
+  it('never detaches the CTA before the tabs themselves are sticky', () => {
+    expect(resolvePreviewUnlockPlacement({
+      ...geometry,
+      scrollY: 900,
+      toolbarIsSticky: false,
+    })).toBe('inline');
+  });
+
+  it('adds enough trailing room for a short course to reach the sticky threshold', () => {
+    const viewportHeight = 720;
+    const pinnedTabsBottom = 186;
+    const boundaryContentTop = 640;
+    const naturalShortContentHeight = 760;
+    const minHeight = getPreviewReachableContentMinHeight(
+      boundaryContentTop,
+      viewportHeight,
+      pinnedTabsBottom,
+    );
+
+    expect(minHeight).toBeGreaterThan(naturalShortContentHeight);
+    const reachableMaxScroll = (minHeight ?? 0) - viewportHeight;
+    expect(reachableMaxScroll).toBeGreaterThan(boundaryContentTop - pinnedTabsBottom);
   });
 });
