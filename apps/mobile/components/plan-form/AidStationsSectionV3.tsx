@@ -118,6 +118,7 @@ type Props = {
   onToolbarLayout?: (top: number, height: number) => void;
   toolbarHidden?: boolean;
   previewMode?: boolean;
+  previewUnlockStickyVisible?: boolean;
   onPreviewBoundaryLayout?: (top: number | null, height: number) => void;
   onPreviewLimitReached?: (reason: PreviewLimitReason) => void;
   tutorial?: {
@@ -130,6 +131,7 @@ export type PlanViewMode = 'stations' | 'sections' | 'profile';
 
 type PreviewUnlockCtaProps = {
   compact?: boolean;
+  hidden?: boolean;
   locale: string;
   onLayout?: (event: LayoutChangeEvent) => void;
   onPress: () => void;
@@ -137,6 +139,7 @@ type PreviewUnlockCtaProps = {
 
 export function PreviewUnlockCta({
   compact = false,
+  hidden = false,
   locale,
   onLayout,
   onPress,
@@ -144,8 +147,11 @@ export function PreviewUnlockCta({
   return (
     <View
       accessibilityRole="summary"
+      accessibilityElementsHidden={hidden}
+      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
+      pointerEvents={hidden ? 'none' : 'auto'}
       onLayout={onLayout}
-      style={[planDetailStyles.previewBoundary, compact && planDetailStyles.previewBoundaryCompact]}
+      style={[planDetailStyles.previewBoundary, compact && planDetailStyles.previewBoundaryCompact, hidden && { opacity: 0 }]}
     >
       {!compact ? (
         <>
@@ -319,6 +325,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   onToolbarLayout,
   toolbarHidden = false,
   previewMode = false,
+  previewUnlockStickyVisible = false,
   onPreviewBoundaryLayout,
   onPreviewLimitReached,
   tutorial,
@@ -1170,6 +1177,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     return (
       <PreviewUnlockCta
         key={`preview-boundary-${mode}`}
+        hidden={previewUnlockStickyVisible}
         onLayout={(event) => {
           previewBoundaryLocalRef.current = {
             top: event.nativeEvent.layout.y,
@@ -1211,6 +1219,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     reportPreviewBoundaryLayout,
     onPreviewBoundaryLayout,
     onPreviewLimitReached,
+    previewUnlockStickyVisible,
     locale,
   ]);
 
@@ -1227,6 +1236,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     reportPreviewBoundaryLayout,
     onPreviewBoundaryLayout,
     onPreviewLimitReached,
+    previewUnlockStickyVisible,
     locale,
   ]);
 
@@ -1248,6 +1258,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     reportPreviewBoundaryLayout,
     onPreviewBoundaryLayout,
     onPreviewLimitReached,
+    previewUnlockStickyVisible,
     locale,
   ]);
 

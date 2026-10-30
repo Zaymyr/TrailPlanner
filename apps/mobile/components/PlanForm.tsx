@@ -969,6 +969,7 @@ export default function PlanForm({
             }}
             toolbarHidden={stickyControlsVisible}
             previewMode={previewMode}
+            previewUnlockStickyVisible={previewUnlockStickyVisible}
             onPreviewBoundaryLayout={(top, height) => {
               previewBoundaryRef.current = top === null
                 ? null
