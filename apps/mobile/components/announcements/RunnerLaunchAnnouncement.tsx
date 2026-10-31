@@ -49,20 +49,6 @@ export function RunnerLaunchAnnouncement({ onClose, onOpenPlans, userId = null, 
             <Text tone="secondary" size="sm" lineHeight="relaxed">{fr
               ? 'Pour tes prochaines courses, découvre nos nouvelles offres : 9,99 € par course ou 29,99 € par an. L’essentiel reste gratuit. Les prix de ton store s’appliquent.'
               : 'For your next races, discover our new offers: €9.99 per race or €29.99 per year. The essentials stay free. Local store prices apply.'}</Text>
-            <View style={styles.badge}>
-              <Text tone="brand" size="xs" weight="bold">{fr ? '💚 Soutien de la première heure' : '💚 Early supporter'}</Text>
-            </View>
-            <Pressable
-              accessibilityRole="checkbox"
-              accessibilityLabel={fr ? 'Ne plus afficher' : 'Don’t show again'}
-              accessibilityState={{ checked: dontShowAgain, disabled: support.purchasing }}
-              onPress={() => setDontShowAgain((value) => !value)}
-              disabled={support.purchasing}
-              style={styles.checkbox}
-            >
-              <Text tone="brand" weight="bold">{dontShowAgain ? '☑' : '☐'}</Text>
-              <Text size="sm">{fr ? 'Ne plus afficher' : 'Don’t show again'}</Text>
-            </Pressable>
             {support.error ? <Text style={{ color: Colors.danger }} size="sm" accessibilityLiveRegion="polite">{support.error}</Text> : null}
           </ScrollView>
           <View style={styles.actions}>
@@ -86,6 +72,17 @@ export function RunnerLaunchAnnouncement({ onClose, onOpenPlans, userId = null, 
             {!preview && !support.loading && !support.available && !support.purchased ? (
               <Text tone="tertiary" size="xs" style={styles.note}>{fr ? 'Le soutien n’est pas disponible sur ce store pour le moment.' : 'Support is currently unavailable in this store.'}</Text>
             ) : null}
+            <Pressable
+              accessibilityRole="checkbox"
+              accessibilityLabel={fr ? 'Ne plus afficher' : 'Don’t show again'}
+              accessibilityState={{ checked: dontShowAgain, disabled: support.purchasing }}
+              onPress={() => setDontShowAgain((value) => !value)}
+              disabled={support.purchasing}
+              style={styles.checkbox}
+            >
+              <Text tone="brand" weight="bold">{dontShowAgain ? '☑' : '☐'}</Text>
+              <Text size="sm">{fr ? 'Ne plus afficher' : 'Don’t show again'}</Text>
+            </Pressable>
           </View>
         </View>
       </SafeAreaView>

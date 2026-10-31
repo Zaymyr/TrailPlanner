@@ -150,6 +150,8 @@ The mobile Plans screen groups saved plans by `races.race_events.id` and display
 
 ## Runner launch campaign
 
+The popup keeps the “Ne plus afficher” checkbox at the bottom of its fixed action area, below the plan/support actions and their explanatory copy. The first-hour supporter badge appears in Profile only, not inside the announcement.
+
 `RunnerLaunchAnnouncement` is a per-campaign runner announcement whose **1.0** label is marketing copy, independent from native runtime `1.1.1`. After bootstrap, launch overlay and onboarding transitions, root tabs use cached `getSession()` identity plus user-scoped launch information to decide eligibility; this adds no Auth listener. It never interrupts auth, onboarding, plan edit, live or purchase routes.
 
 Eligibility comes from the authenticated launch endpoint's activated cohort/window projection, not merely the generic runner-config flag. Local preferences are keyed by campaign/user/device: a daily dismissal is recorded on display, while “Ne plus afficher” sets the persistent hidden preference. Config, network or storage failure fails closed. The main action opens Plans; the support action enters the separately server-authorized purchase flow, never a preview charge. Existing first-hour accounts retain their prelaunch plan-id access; later expired subscription/trial/grant plans remain read-only under their normal historical rule.

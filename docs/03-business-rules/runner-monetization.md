@@ -86,6 +86,8 @@ Database policies gate updates and require identified/profile-ready creation. Fr
 
 ## Runner launch announcement
 
+The “Ne plus afficher” preference sits at the bottom of the popup after its actions. The cosmetic first-hour supporter badge remains in Profile and is omitted from the popup; its eligibility and the campaign's daily/hidden rules are unchanged.
+
 The marketing label **1.0** is a campaign label, independent from the native runtime version. The mobile announcement may appear only after bootstrap, launch overlay and onboarding transitions, and only on the identified runner root tabs Courses, Plans, Nutrition and Profile. It must never interrupt authentication, onboarding, plan editing, live mode or a purchase surface.
 
 Campaign eligibility comes from the authenticated launch endpoint: only a captured first-hour cohort member inside the server's seven-day activation window can see it. The launch-info hook first obtains a cached `getSession()` user and refreshes its user-scoped endpoint projection in foreground; it adds no Auth listener. AsyncStorage preferences are campaign/user/device scoped: daily dismissal is recorded on display, while “Ne plus afficher” persists a hidden preference. Failed session, endpoint or storage work fails closed.
