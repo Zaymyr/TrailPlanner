@@ -15,6 +15,7 @@ const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT
 const REVENUECAT_ANNUAL_PACKAGE_ID = process.env.EXPO_PUBLIC_REVENUECAT_ANNUAL_PACKAGE_ID?.trim() ?? '';
 const REVENUECAT_OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID?.trim() ?? '';
 const REVENUECAT_COURSE_PRODUCT_ID = process.env.EXPO_PUBLIC_REVENUECAT_COURSE_PRODUCT_ID?.trim() ?? '';
+const REVENUECAT_SUPPORT_PRODUCT_ID = process.env.EXPO_PUBLIC_REVENUECAT_SUPPORT_PRODUCT_ID?.trim() ?? '';
 
 type RevenueCatModule = typeof import('react-native-purchases/dist/purchases');
 
@@ -134,6 +135,25 @@ export async function purchaseRevenueCatCourse(userId: string, productId: string
   const product = await getRevenueCatCourseProduct(userId, productId);
   if (!Purchases) return null;
   if (!product) return null;
+  return Purchases.purchaseStoreProduct(product);
+}
+
+export function getRevenueCatSupportProductId() {
+  return REVENUECAT_SUPPORT_PRODUCT_ID || null;
+}
+
+export async function getRevenueCatSupportProduct(userId: string, productId = REVENUECAT_SUPPORT_PRODUCT_ID) {
+  if (!REVENUECAT_SUPPORT_PRODUCT_ID || productId !== REVENUECAT_SUPPORT_PRODUCT_ID) return null;
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  if (!Purchases) return null;
+  const products = await Purchases.getProducts([productId], Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+  return products[0] ?? null;
+}
+
+export async function purchaseRevenueCatSupport(userId: string, productId: string) {
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  const product = await getRevenueCatSupportProduct(userId, productId);
+  if (!Purchases || !product) return null;
   return Purchases.purchaseStoreProduct(product);
 }
 

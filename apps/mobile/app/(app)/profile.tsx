@@ -35,6 +35,7 @@ import { ProfileUpdatesSection } from '../../components/profile/ProfileUpdatesSe
 import { normalizeBirthDateInput, WATER_BAG_OPTIONS } from '../../components/profile/profileHelpers';
 import { type ProfileTutorialTargetKey, useProfileTutorial } from '../../hooks/useProfileTutorial';
 import { useProfileScreen } from '../../hooks/useProfileScreen';
+import { useRunnerLaunchInfo } from '../../hooks/useRunnerLaunchInfo';
 import { type TutorialStep } from '../../lib/helpTutorial';
 import {
   addOnboardingStatusListener,
@@ -52,6 +53,7 @@ export default function ProfileScreen() {
   const scrollY = useRef(new Animated.Value(0)).current;
   const [onboardingStatuses, setOnboardingStatuses] = useState<OnboardingStatuses>(DEFAULT_ONBOARDING_STATUSES);
   const {
+    userId,
     locale,
     setLocale,
     t,
@@ -153,6 +155,7 @@ export default function ProfileScreen() {
     resolveChangelogDetail,
     formatChangelogVersionMeta,
   } = useProfileScreen();
+  const launchInfo = useRunnerLaunchInfo(isAnonymousAccount ? null : userId);
 
   const refreshOnboardingStatuses = useCallback(() => {
     void loadOnboardingStatuses().then(setOnboardingStatuses).catch((caught) => {
@@ -312,6 +315,13 @@ export default function ProfileScreen() {
         style={styles.container}
       >
         <ProfileTabs activeTab={activeProfileTab} tabs={profileTabs} onChange={handleProfileTabChange} />
+        {launchInfo.earlySupporter ? (
+          <View style={styles.earlySupporterBadge}>
+            <Text tone="brand" size="sm" weight="semibold">
+              {locale === 'fr' ? '💚 Soutien de la première heure' : '💚 Early supporter'}
+            </Text>
+          </View>
+        ) : null}
         {isAdminFromAuth ? (
           <View style={styles.adminModeCard}>
             <Text style={styles.adminModeTitle}>Mode de test des droits</Text>
@@ -503,7 +513,7 @@ export default function ProfileScreen() {
 
       {isAdminFromAuth && showLaunchPreview ? (
         <RunnerLaunchAnnouncement
-          status={{ kind: 'free' }}
+          preview
           onClose={() => setShowLaunchPreview(false)}
         />
       ) : null}
@@ -618,6 +628,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
     textAlign: 'center',
   },
+  earlySupporterBadge: { alignSelf: 'flex-start', borderRadius: 999, backgroundColor: Colors.brandSurface, paddingHorizontal: 12, paddingVertical: 8, marginVertical: 10 },
   adminModeCard: { borderWidth: 1, borderColor: Colors.warning, borderRadius: 14, padding: 14, gap: 8, backgroundColor: Colors.warningSurface },
   adminModeTitle: { color: Colors.textPrimary, fontWeight: '800' },
   adminModeBadge: { color: Colors.warning, fontSize: 13 },

@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -47,7 +47,9 @@ related_tables:
 
 ## Runner plan creation and billing access
 
-The runner launch announcement receives already-resolved session/user eligibility from the root layout and performs no new Auth subscription or Auth query. Its explicit local acknowledgement is campaign/user/device presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.
+The runner launch announcement uses cached `getSession()` identity and a user-scoped launch-information fetch from the root layout, but installs no new Auth listener. Its local daily/hidden preferences are presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.
+
+Launch information is fetched by a user-scoped mobile hook only after a cached authenticated session is known and refreshes on foreground. It exposes cohort/badge state, not a new authorization source; failures do not grant access.
 
 Guests may browse catalog data but cannot create a runner plan. Plan creation requires a non-anonymous account and the runner profile defaults needed for generation (name, comfortable pace, water capacity and carbohydrate target; body/UTMB values remain optional). New sign-ups do not start a trial; existing trial dates remain honored unchanged. The protected plan-access API resolves global entitlement, a canonical course/edition unlock, or historical read-only detail access server-side. Admin free/premium simulation is trusted `app_metadata` plus current JWT session only.
 

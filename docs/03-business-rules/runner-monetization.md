@@ -1,7 +1,7 @@
 ---
 title: Runner Monetization
 scope: business-rule
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -29,6 +29,9 @@ related_files:
   - apps/mobile/lib/runnerPlanAccess.test.ts
   - apps/mobile/lib/runnerProfile.ts
   - apps/mobile/lib/runnerProfile.test.ts
+  - apps/mobile/hooks/useSupportPurchase.ts
+  - apps/web/lib/runner-support.ts
+  - apps/web/app/api/runner/support/route.ts
 related_tables:
   - runner_plan_unlocks
   - runner_subscription_accounts
@@ -36,6 +39,8 @@ related_tables:
   - runner_plan_history
   - runner_monetization_config
   - runner_admin_access_modes
+  - runner_launch_grandfathered_plans
+  - runner_launch_cohorts
 ---
 
 # Runner Monetization
@@ -83,9 +88,13 @@ Database policies gate updates and require identified/profile-ready creation. Fr
 
 The marketing label **1.0** is a campaign label, independent from the native runtime version. The mobile announcement may appear only after bootstrap, launch overlay and onboarding transitions, and only on the identified runner root tabs Courses, Plans, Nutrition and Profile. It must never interrupt authentication, onboarding, plan editing, live mode or a purchase surface.
 
-Campaign eligibility requires the canonical `/api/runner/config` response to enable monetization. Acknowledgement is written only after the explicit “J’ai compris” action, keyed by campaign, authenticated `userId`, and device in AsyncStorage. Failed config or storage operations fail closed: they neither display an ineligible campaign nor record a false acknowledgement. The root passes `userId` and eligibility into the hook; the hook performs no Auth query.
+Campaign eligibility comes from the authenticated launch endpoint: only a captured first-hour cohort member inside the server's seven-day activation window can see it. The launch-info hook first obtains a cached `getSession()` user and refreshes its user-scoped endpoint projection in foreground; it adds no Auth listener. AsyncStorage preferences are campaign/user/device scoped: daily dismissal is recorded on display, while “Ne plus afficher” persists a hidden preference. Failed session, endpoint or storage work fails closed.
 
-The message distinguishes free estimates, pace and RaceBook context from paid plan detail. It shows store-localized course/annual pricing supplied by the existing pricing hook, with explicit EUR 9.99 and EUR 29.99 reference fallbacks; acknowledgement is informational and does not start checkout. Existing trials, grants and paid subscriptions retain their actual existing terms. Stored free plans remain in the account without a promise of free detailed access.
+The message distinguishes free estimates, pace and RaceBook context from paid plan detail. It shows localized provider prices with explicit EUR 9.99 course/one-time-support and EUR 29.99 annual references. Main navigation opens Plans; the support CTA enters only the separate server-authorized support flow. Existing trials, grants and paid subscriptions retain their actual existing terms. Prelaunch snapshot plan ids remain permanently editable/readable free; stored postlaunch free plans remain without a promise of detailed access.
+
+At a future, explicit production launch activation, the service captures then-existing identified accounts in the first-hour cohort and snapshots every already-existing plan id (including a guest plan that is later converted). Those snapshot plans permanently retain edit/detail access without a purchase; this is intentionally different from postlaunch subscription/trial/grant history, which remains read-only after expiry. Cohort accounts receive only the cosmetic “Soutien de la première heure” badge. The announcement may appear once per day during the seven-day window from that activation, supports “Ne plus afficher”, promotes plans first and the optional one-time support second. It never performs a real charge from preview.
+
+The support offer is a distinct EUR 9.99 one-time product, limited to one eligible cohort account during the active seven-day launch window, and intentionally grants no runner-plan or Premium right. It must remain separate from the EUR 9.99 per-course unlock SKU. New authorization is refused before activation, outside the cohort or after the window; reconciliation, restore and cancellation may still finish an already-started purchase afterward. No production flag, launch activation, store product, charge, or deployment has been performed merely by implementing this contract.
 
 The canonical database singleton starts with `monetization_enabled = false`. `GET /api/runner/config` exposes only this boolean. Failures during access checks must not fabricate a Premium grant. Enable only after the schema, verified payment processing and compatible clients are deployed together.
 

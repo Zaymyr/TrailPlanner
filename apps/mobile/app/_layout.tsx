@@ -33,7 +33,6 @@ import { JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono/700Bold
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
 import { RunnerLaunchAnnouncement } from '../components/announcements/RunnerLaunchAnnouncement';
 import { useRunnerLaunchAnnouncement } from '../hooks/useRunnerLaunchAnnouncement';
-import { resolveRunnerLaunchAccessStatus } from '../lib/runnerLaunchAnnouncement';
 import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
@@ -937,7 +936,6 @@ function RootLayoutContent() {
     && !displayedOnboardingTransition
     && !premiumLoading;
   const launchAnnouncement = useRunnerLaunchAnnouncement(session?.user.id ?? null, launchAnnouncementEligible);
-  const launchAccessStatus = resolveRunnerLaunchAccessStatus(premiumState, Date.now());
 
 
   const appContent = (
@@ -1038,7 +1036,8 @@ function RootLayoutContent() {
         {launchAnnouncement.visible ? (
           <RunnerLaunchAnnouncement
             onClose={launchAnnouncement.dismiss}
-            status={launchAccessStatus}
+            userId={session?.user.id ?? null}
+            onOpenPlans={() => router.push('/(app)/plans')}
           />
         ) : null}
       </View>

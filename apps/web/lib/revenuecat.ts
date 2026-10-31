@@ -104,6 +104,13 @@ const getRunnerCourseProductId = () =>
   process.env.EXPO_PUBLIC_REVENUECAT_COURSE_PRODUCT_ID?.trim() ||
   null;
 
+const getRunnerSupportProductIds = () => new Set([
+  process.env.REVENUECAT_SUPPORT_PRODUCT_ID?.trim(),
+  process.env.REVENUECAT_IOS_SUPPORT_PRODUCT_ID?.trim(),
+  process.env.REVENUECAT_ANDROID_SUPPORT_PRODUCT_ID?.trim(),
+  process.env.EXPO_PUBLIC_REVENUECAT_SUPPORT_PRODUCT_ID?.trim(),
+].filter((value): value is string => Boolean(value)));
+
 const getRevenueCatAnnualProductIds = () => new Set([
   process.env.REVENUECAT_ANNUAL_PRODUCT_ID?.trim(),
   process.env.REVENUECAT_IOS_ANNUAL_PRODUCT_ID?.trim(),
@@ -666,9 +673,50 @@ export const syncRevenueCatWebhookPayload = async (
   const envelope = webhookEnvelopeSchema.safeParse(payload);
   const event = envelope.success ? envelope.data.event : null;
   const courseProduct = getRunnerCourseProductId();
+  const supportProducts = getRunnerSupportProductIds();
   const transactionId = event?.transaction_id ?? event?.original_transaction_id ?? null;
   const eventType = event?.type?.toUpperCase() ?? "";
   const isCourseEvent = Boolean(event && courseProduct && event.product_id === courseProduct);
+  const isSupportEvent = Boolean(event?.product_id && supportProducts.has(event.product_id));
+  if (isSupportEvent && event) {
+    const isActiveEvent = eventType === "NON_RENEWING_PURCHASE" || eventType === "REFUND_REVERSED";
+    const isRefundEvent = eventType === "CANCELLATION" || eventType === "REFUND";
+    if (!isActiveEvent && !isRefundEvent) return { providerHint, userIds, results: [] };
+    if (!transactionId || !userIds[0] || !providerHint || !event.id) {
+      throw new Error("RevenueCat support webhook is missing verified transaction metadata.");
+    }
+    const service = getSupabaseServiceConfig();
+    if (!service) throw new Error("Supabase service configuration is required for RevenueCat support events.");
+    const purchasedTimestamp = parseRevenueCatWebhookDateMs(event.purchased_at_ms);
+    const eventTimestamp = parseRevenueCatWebhookDateMs(event.event_timestamp_ms) ?? purchasedTimestamp;
+    if (eventTimestamp === null) throw new Error("RevenueCat support webhook is missing its event timestamp.");
+    const purchasedAt = new Date(purchasedTimestamp ?? eventTimestamp).toISOString();
+    const eventAt = new Date(eventType === "NON_RENEWING_PURCHASE" && purchasedTimestamp
+      ? purchasedTimestamp
+      : eventTimestamp).toISOString();
+    const response = await fetch(`${service.supabaseUrl}/rest/v1/rpc/record_runner_support_event`, {
+      method: "POST",
+      headers: {
+        apikey: service.supabaseServiceRoleKey,
+        Authorization: `Bearer ${service.supabaseServiceRoleKey}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        p_user_id: userIds[0],
+        p_provider: providerHint,
+        p_product_id: event.product_id,
+        p_transaction_id: transactionId,
+        p_status: isRefundEvent ? "refunded" : "active",
+        p_purchased_at: purchasedAt,
+        p_event_at: eventAt,
+        p_event_id: event.id,
+      }),
+    });
+    if (!response.ok || (await response.json().catch(() => false)) !== true) {
+      throw new Error("Unable to persist RevenueCat support event.");
+    }
+    return { providerHint, userIds, results: [] };
+  }
   if (isCourseEvent && !getSupabaseServiceConfig()) throw new Error("Supabase service configuration is required for RevenueCat course events.");
   if (event && eventType === "NON_RENEWING_PURCHASE" && isCourseEvent && transactionId && userIds[0] && providerHint) {
     const service = getSupabaseServiceConfig();

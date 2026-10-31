@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -106,6 +106,8 @@ Stripe webhooks store billing metadata on `subscriptions`; entitlement checks do
 RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It updates the legacy `subscriptions` projection only when doing so cannot overwrite Stripe customer/subscription identity. New runner-ledger rows with no verified period end are stored expired rather than becoming permanent grants.
 
 ## Business Invariants
+
+- First-hour supporter badge/cohort and the one-time support product are explicitly non-entitlements: neither may set `isPremium`, unlock a plan, alter trial/grant resolution, or replace the separately authorized grandfathered-plan snapshot.
 
 - Existing trial access remains 15 days and profile-based; it is not created or repaired for new users.
 - Annual subscription state can be represented by the legacy `subscriptions` snapshot and the runner billing ledger.

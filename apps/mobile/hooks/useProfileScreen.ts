@@ -1231,6 +1231,7 @@ export function useProfileScreen() {
   );
 
   return {
+    userId,
     locale,
     setLocale,
     t,

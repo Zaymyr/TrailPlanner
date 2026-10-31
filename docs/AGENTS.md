@@ -106,6 +106,7 @@ You modify `apps/web/lib/auth/session.ts`, which is referenced by `docs/04-auth-
 | Design system changes | `docs/07-design-system/` |
 | New feature shipping | `docs/06-workflows/ship-a-feature.md` |
 | Runner monetization / plan purchase | `docs/03-business-rules/runner-monetization.md` + `docs/02-database/tables/runner-billing.md` + `docs/04-auth-and-security/rls-checklist.md` |
+| Runner launch activation / first-hour supporter | `docs/03-business-rules/runner-monetization.md` + `docs/02-database/tables/runner-launch-grandfathered-plans.md` + `docs/02-database/tables/runner-launch-cohorts.md` |
 | Agentic implementation or review | `docs/06-workflows/agentic-development.md` + `docs/06-workflows/ship-a-feature.md` |
 
 ## Context Budget And Progressive Reading

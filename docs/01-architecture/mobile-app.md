@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
@@ -150,9 +150,11 @@ The mobile Plans screen groups saved plans by `races.race_events.id` and display
 
 ## Runner launch campaign
 
-`RunnerLaunchAnnouncement` is an informational, per-campaign runner announcement. Its **1.0** label is marketing copy and does not alter the native runtime `1.1.1`. The root layout supplies an already-known `userId` and route eligibility to its hook; the hook does not query Auth. It waits until app bootstrap, launch overlay and onboarding transitions finish, then can render only over Courses, Plans, Nutrition or Profile—not auth, onboarding, plan edit, live or purchase routes.
+`RunnerLaunchAnnouncement` is a per-campaign runner announcement whose **1.0** label is marketing copy, independent from native runtime `1.1.1`. After bootstrap, launch overlay and onboarding transitions, root tabs use cached `getSession()` identity plus user-scoped launch information to decide eligibility; this adds no Auth listener. It never interrupts auth, onboarding, plan edit, live or purchase routes.
 
-The canonical runner config flag is the activation authority. A campaign is acknowledged only after the explicit confirmation action and stored per authenticated user/device/campaign. Config or AsyncStorage failure is fail-closed. The surface uses localized provider prices from the existing billing hook with clearly labeled EUR reference fallbacks, has no checkout action, and cannot change a subscription, trial, grant, plan or purchase.
+Eligibility comes from the authenticated launch endpoint's activated cohort/window projection, not merely the generic runner-config flag. Local preferences are keyed by campaign/user/device: a daily dismissal is recorded on display, while “Ne plus afficher” sets the persistent hidden preference. Config, network or storage failure fails closed. The main action opens Plans; the support action enters the separately server-authorized purchase flow, never a preview charge. Existing first-hour accounts retain their prelaunch plan-id access; later expired subscription/trial/grant plans remain read-only under their normal historical rule.
+
+The announcement distinguishes free estimates, pace and RaceBook context from paid details and uses localized provider prices with explicit EUR references. Existing subscribers retain their actual contract terms. The Profile admin preview is still local/no-charge and does not consume a preference or purchase; the live support CTA may begin a verified one-time support purchase, which grants no access right.
 
 Trusted Auth-admins also have a Profile-screen control below the existing admin controls to locally preview the 1.0 announcement in Free status. It mounts the same presentation component with local close state only: it does not invoke the campaign hook, read or write its marker, consult the rollout flag, change access, or consume the real announcement for that account/device.
 

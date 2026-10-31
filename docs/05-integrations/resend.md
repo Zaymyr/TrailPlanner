@@ -1,7 +1,7 @@
 ---
 title: Resend Integration
 scope: integration
-last_verified: 2026-09-23
+last_verified: 2026-10-31
 ai_priority: medium
 related_files:
   - package.json
@@ -43,6 +43,8 @@ This document records the current Resend integration in the repo. Resend is used
 ## Current Status
 
 The mobile runner launch announcement is local presentation only. It does not trigger Resend contact sync, email, audience updates, or another session side effect; its acknowledgement marker remains device-local and is written only after explicit confirmation.
+
+Fetching authenticated launch cohort information and showing its cosmetic badge does not broaden this boundary.
 
 The repo has one checked-in Broadcast template and two server-side Resend Contacts sync surfaces:
 

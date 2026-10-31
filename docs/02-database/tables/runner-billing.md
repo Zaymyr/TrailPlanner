@@ -1,7 +1,7 @@
 ---
 title: Runner Billing Tables
 scope: database
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - supabase/migrations/20261030121252_runner_course_access.sql
@@ -36,6 +36,8 @@ These tables are the server-side authority for runner monetisation. The rollout 
 - A one-time purchase is an active `runner_plan_unlocks` row scoped to a server-derived `plan_key` (`race:<race-id>:edition:<edition-id>`); it is therefore reused by plans recreated for the same format and edition.
 - `runner_plan_history.detailed_access_granted` preserves read-only detail access for a plan prepared with a genuine subscription, trial or grant after that access expires. A course unlock does not create that history.
 - Only verified provider processing may create or change billing records. A client purchase result is not an entitlement.
+- Launch grandfathering is a separate immutable plan-id snapshot; it overrides neither the one-time course ledger nor postlaunch expired-subscription read-only rules.
+- The voluntary support product is recorded in its own service-only ledger and grants no access.
 
 ## Tables
 

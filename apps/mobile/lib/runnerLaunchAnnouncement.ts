@@ -1,96 +1,37 @@
-export const RUNNER_LAUNCH_CAMPAIGN = '1.0';
-const RUNNER_LAUNCH_STORAGE_PREFIX = `paceyourself.runner-launch.${RUNNER_LAUNCH_CAMPAIGN}`;
-const RUNNER_LAUNCH_ACK_VALUE = 'dismissed';
-
-export type RunnerLaunchAccessStatus =
-  | { kind: 'free' }
-  | { kind: 'paid' }
-  | { kind: 'trial'; endsAt: string }
-  | { kind: 'grant'; endsAt: string };
-
-export type RunnerLaunchAccessState = {
-  hasPaidPremium: boolean;
-  isTrialActive: boolean;
-  trialEndsAt: string | null;
-  premiumGrant: { endsAt: string | null } | null;
-};
-
-type RunnerLaunchStorageReader = {
-  getItem: (key: string) => Promise<string | null>;
-};
-
-type RunnerLaunchStorageWriter = {
-  setItem: (key: string, value: string) => Promise<unknown>;
-};
-
-type RunnerLaunchVisibilityInput = {
+export const RUNNER_LAUNCH_CAMPAIGN = '1.0-support';
+export type RunnerLaunchInfo = {
+  launchedAt: string | null;
+  endsAt: string | null;
   eligible: boolean;
-  fetchEnabled: () => Promise<boolean>;
-  storage: RunnerLaunchStorageReader;
-  userId: string | null;
+  earlySupporter: boolean;
 };
-
-function parseFutureIso(value: string | null | undefined, nowMs: number): string | null {
-  if (!value) return null;
-  const timestamp = new Date(value).getTime();
-  return Number.isFinite(timestamp) && timestamp > nowMs ? value : null;
+export const EMPTY_RUNNER_LAUNCH: RunnerLaunchInfo = {
+  launchedAt: null, endsAt: null, eligible: false, earlySupporter: false,
+};
+export type RunnerLaunchPreference = { hidden: boolean; lastSeenDay: string | null };
+export function getRunnerLaunchStorageKey(userId: string) {
+  return `paceyourself.runner-launch.${RUNNER_LAUNCH_CAMPAIGN}:${userId}`;
 }
-
-export function resolveRunnerLaunchAccessStatus(
-  state: RunnerLaunchAccessState,
-  now: Date | number,
-): RunnerLaunchAccessStatus {
-  if (state.hasPaidPremium) return { kind: 'paid' };
-
-  const nowMs = typeof now === 'number' ? now : now.getTime();
-  const trialEndsAt = state.isTrialActive ? parseFutureIso(state.trialEndsAt, nowMs) : null;
-  const grantEndsAt = parseFutureIso(state.premiumGrant?.endsAt, nowMs);
-
-  if (trialEndsAt && grantEndsAt) {
-    return new Date(grantEndsAt).getTime() > new Date(trialEndsAt).getTime()
-      ? { kind: 'grant', endsAt: grantEndsAt }
-      : { kind: 'trial', endsAt: trialEndsAt };
-  }
-  if (trialEndsAt) return { kind: 'trial', endsAt: trialEndsAt };
-  if (grantEndsAt) return { kind: 'grant', endsAt: grantEndsAt };
-
-  return { kind: 'free' };
+// Calendar day on this device, not 24 hours since the previous visit.
+export function getRunnerLaunchDay(now: Date) {
+  return `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
 }
-
-export function getRunnerLaunchStorageKey(userId: string): string {
-  return `${RUNNER_LAUNCH_STORAGE_PREFIX}:${userId}`;
+export function parseRunnerLaunchPreference(value: string | null): RunnerLaunchPreference {
+  if (value === null) return { hidden: false, lastSeenDay: null };
+  const parsed: unknown = JSON.parse(value);
+  if (!parsed || typeof parsed !== 'object') throw new Error('Invalid launch preference');
+  const preference = parsed as Partial<RunnerLaunchPreference>;
+  if (typeof preference.hidden !== 'boolean' || (preference.lastSeenDay !== null && typeof preference.lastSeenDay !== 'string')) {
+    throw new Error('Invalid launch preference');
+  }
+  return preference as RunnerLaunchPreference;
 }
-
-export async function shouldShowRunnerLaunchAnnouncement({
-  eligible,
-  fetchEnabled,
-  storage,
-  userId,
-}: RunnerLaunchVisibilityInput): Promise<boolean> {
-  if (!eligible || !userId) return false;
-
-  try {
-    const acknowledgement = await storage.getItem(getRunnerLaunchStorageKey(userId));
-    if (acknowledgement !== null) return false;
-  } catch {
-    return false;
-  }
-
-  try {
-    return (await fetchEnabled()) === true;
-  } catch {
-    return false;
-  }
-}
-
-export async function acknowledgeRunnerLaunchAnnouncement(
-  userId: string,
-  storage: RunnerLaunchStorageWriter,
-): Promise<boolean> {
-  try {
-    await storage.setItem(getRunnerLaunchStorageKey(userId), RUNNER_LAUNCH_ACK_VALUE);
-    return true;
-  } catch {
-    return false;
-  }
+export function shouldShowRunnerLaunchAnnouncement(info: RunnerLaunchInfo, preference: RunnerLaunchPreference, now: Date) {
+  const startsAt = Date.parse(info.launchedAt ?? '');
+  const endsAt = Date.parse(info.endsAt ?? '');
+  const timestamp = now.getTime();
+  return info.eligible && info.earlySupporter
+    && Number.isFinite(startsAt) && Number.isFinite(endsAt)
+    && timestamp >= startsAt && timestamp < Math.min(endsAt, startsAt + 7 * 86_400_000)
+    && !preference.hidden && preference.lastSeenDay !== getRunnerLaunchDay(now);
 }

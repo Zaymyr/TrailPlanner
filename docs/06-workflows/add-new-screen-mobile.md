@@ -1,7 +1,7 @@
 ---
 title: Add New Mobile Screen
 scope: workflow
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: medium
 related_files:
   - apps/mobile/app
@@ -148,9 +148,11 @@ The expanded identity hero displays the formatted course date beneath the race n
 
 ## Validation
 
-For a runner launch announcement, test its state model without assuming device visual proof: config enabled plus an eligible identified root-tab route can show it only after bootstrap/launch/onboarding transitions; disabled/missing config and storage failure show nothing; display alone writes no marker; explicit acknowledgement writes the user/device/campaign marker; and a different user or campaign remains independently eligible. Verify no auth/onboarding/editor/live/purchase route shows it and acknowledgement does not open checkout or alter access.
+For a runner launch announcement, test its state model without assuming device visual proof: only an authenticated launch-cohort member within the server's seven-day window can show it after bootstrap/launch/onboarding transitions on root tabs. A cached session plus user-scoped endpoint refresh adds no Auth listener; session, endpoint or storage failures show nothing. Display records that calendar day's dismissal marker; “Ne plus afficher” persists the hidden preference, both per user/device/campaign. Verify no auth/onboarding/editor/live/purchase route shows it. Plans navigation is ordinary; the live support CTA may enter only the separately server-authorized support flow and cannot alter plan/Premium/trial/grant rights.
 
 For the Profile admin-only 1.0 preview control, verify it is shown only for trusted Auth-admin presentation, opens and closes with local screen state, and cannot invoke the campaign hook, consume/write a marker, consult the rollout flag, or change access. It is a visual preview, not an announcement-delivery test.
+
+Launch cohort badge/popup and support-offer presentation must remain cosmetic/informational until a user explicitly enters a separately verified support purchase flow. They cannot create a plan unlock or change an existing subscription/trial/grant.
 
 For the locked mobile preview, verify without claiming native blur unless implemented: departure and its first following section are clear; later real cards are visible, scrollable, non-interactive, and hidden from accessibility; no automatic popup occurs. Test visible sample edit/add/split and auto-fill actions plus inline/sticky CTA all open the same paywall and do not mutate a plan. Verify plan-specific paywall offer ordering and normalized organizer start time in expanded/compact hero/header.
 

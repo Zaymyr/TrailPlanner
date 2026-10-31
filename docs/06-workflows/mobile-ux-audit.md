@@ -1,7 +1,7 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - .agents/skills/mobile-ux-ui-auditor/SKILL.md
@@ -76,9 +76,11 @@ Use these severities:
 
 ## Validation
 
-For the runner launch campaign, do not record native visual success without a connected device. When available, verify it appears only after bootstrap/launch/onboarding completion on eligible root tabs, requires explicit acknowledgement before its per-user/device/campaign marker is stored, and cannot appear on auth, onboarding, editor, live or purchase routes. Config/storage failures must remain fail-closed and the informational action must not open checkout or change access.
+For the runner launch campaign, do not record native visual success without a connected device. When available, verify an eligible cohort member sees it only within the server's seven-day window after bootstrap/launch/onboarding completion on root tabs; display records a daily dismissal marker and “Ne plus afficher” persists hidden state per user/device/campaign. It cannot appear on auth, onboarding, editor, live or purchase routes. Endpoint/storage failures remain fail-closed. Plans navigation is non-billing; the live support CTA may enter its separate authorized support flow but must not change access.
 
 The trusted-admin Profile preview is local-only visual instrumentation. It may validate copy/layout when a device is available, but it is not evidence of campaign delivery and must not write or consume the campaign acknowledgement marker.
+
+For launch-cohort copy, do not claim device validation without one. When available, verify the bounded daily dismissal/“Ne plus afficher” behavior separately from the cosmetic badge, and that no announcement action starts a support transaction or changes existing access.
 
 No connected-device evidence is implied by source changes. When a build is available, manually audit the scrollable locked preview: clear departure/first section, later veiled inaccessible content, no auto popup, and exactly one full CTA card centered in the useful area during scroll (returning inline at top). Verify its title, description and button remain present, clamping on a small screen, and identical central-paywall behavior for first-sample edit/add/split and auto-fill. Check start-time consistency between RaceBook hero and plan header.
 

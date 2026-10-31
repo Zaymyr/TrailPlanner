@@ -1,7 +1,7 @@
 ---
 title: Duplicate Events Pattern
 scope: auth
-last_verified: 2026-09-14
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -18,6 +18,8 @@ related_tables:
 ## Onboarding plan save
 
 The runner launch announcement is not an Auth-event side effect. Mounting, route changes, or repeated bootstrap events must not acknowledge it; only its explicit action writes its local campaign marker. It neither invokes onboarding plan save nor creates another persistence path.
+
+Foreground launch-info refresh is scoped to the current cached user and must not replay an acknowledgement or billing mutation across repeated app/session events.
 
 The onboarding save route verifies the bearer token and requires its user id to match the body before it performs its existing idempotent save. It may not use a client-provided user id with service-role access. With runner monetisation enabled, the same identified-account and profile-default requirement applies to every plan-creation route.
 

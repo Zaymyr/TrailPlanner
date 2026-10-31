@@ -71,6 +71,42 @@ describe("syncRevenueCatWebhookPayload", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
+  it("records support purchases without creating Premium or plan rights", async () => {
+    vi.stubEnv("REVENUECAT_SUPPORT_PRODUCT_ID", "runner_app_support");
+    fetchMock.mockResolvedValueOnce(Response.json(true));
+
+    const result = await syncRevenueCatWebhookPayload({ event: {
+      id: "evt_support", type: "NON_RENEWING_PURCHASE", store: "APP_STORE",
+      app_user_id: "0c88781b-8e90-4d54-8198-ae0d03cdc64e", product_id: "runner_app_support",
+      transaction_id: "txn_support", purchased_at_ms: 1819865414000, event_timestamp_ms: 1819865415000,
+    } });
+
+    expect(result.results).toEqual([]);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("/rpc/record_runner_support_event");
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("runner_plan_unlock");
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({
+      p_product_id: "runner_app_support",
+      p_status: "active",
+      p_transaction_id: "txn_support",
+    });
+  });
+
+  it("records a support refund against only the support ledger", async () => {
+    vi.stubEnv("REVENUECAT_SUPPORT_PRODUCT_ID", "runner_app_support");
+    fetchMock.mockResolvedValueOnce(Response.json(true));
+
+    await syncRevenueCatWebhookPayload({ event: {
+      id: "evt_support_refund", type: "CANCELLATION", store: "PLAY_STORE",
+      app_user_id: "0c88781b-8e90-4d54-8198-ae0d03cdc64e", product_id: "runner_app_support",
+      transaction_id: "txn_support", purchased_at_ms: 1819865414000, event_timestamp_ms: 1819866415000,
+    } });
+
+    const body = JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body));
+    expect(body).toMatchObject({ p_provider: "google", p_status: "refunded" });
+    expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("revoke_runner_payment_transaction");
+  });
+
   it("atomically binds a non-renewing purchase only to an intent that predates it", async () => {
     vi.stubEnv("REVENUECAT_COURSE_PRODUCT_ID", "course_unlock");
     fetchMock

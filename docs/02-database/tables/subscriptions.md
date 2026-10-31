@@ -1,7 +1,7 @@
 ---
 title: subscriptions Table
 scope: database
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: high
 related_files:
   - supabase/migrations/20250701100000_add_subscriptions_table.sql
@@ -93,6 +93,8 @@ set stripe_customer_id = excluded.stripe_customer_id,
 ```
 
 ## Gotchas
+
+- Do not write a voluntary support purchase into `subscriptions` or infer Premium from it. It has a separate verified ledger and no entitlement semantics.
 
 - Product ID and active Stripe price ID are not literal repo constants; they come from `STRIPE_PRICE_ID` and Stripe dashboard metadata.
 - Do not write mobile purchases into a separate entitlement table. Sync them here.

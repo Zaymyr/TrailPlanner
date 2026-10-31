@@ -5,7 +5,14 @@ export type RunnerAccessMode = "real" | "free" | "premium";
 export type RunnerPlanAccess = {
   enabled: boolean; isPremium: boolean; hasPlanUnlock: boolean; canEdit: boolean; canViewDetails: boolean;
   mode?: RunnerAccessMode;
-  source: "admin" | "subscription" | "plan_unlock" | "historical_subscription" | "free";
+  source: "admin" | "subscription" | "grandfathered_plan" | "plan_unlock" | "historical_subscription" | "free";
+};
+
+export type RunnerLaunchStatus = {
+  launchedAt: string | null;
+  endsAt: string | null;
+  eligible: boolean;
+  earlySupporter: boolean;
 };
 
 export async function runnerRest<T>(path: string): Promise<T | null> {
@@ -23,6 +30,32 @@ export async function runnerRest<T>(path: string): Promise<T | null> {
 export async function getRunnerMonetizationEnabled() {
   const rows = await runnerRest<Array<{ monetization_enabled: boolean }>>("runner_monetization_config?id=eq.true&select=monetization_enabled&limit=1");
   return rows?.[0]?.monetization_enabled === true;
+}
+
+export async function getRunnerLaunchStatus(userId: string, nowMs = Date.now()): Promise<RunnerLaunchStatus> {
+  const settings = await runnerRest<Array<{
+    launched_at: string | null;
+    launch_popup_ends_at: string | null;
+  }>>("runner_monetization_config?id=eq.true&select=launched_at,launch_popup_ends_at&limit=1");
+  const launchedAt = settings?.[0]?.launched_at ?? null;
+  const endsAt = settings?.[0]?.launch_popup_ends_at ?? null;
+  const launchTime = launchedAt ? Date.parse(launchedAt) : Number.NaN;
+  const endTime = endsAt ? Date.parse(endsAt) : Number.NaN;
+
+  if (!Number.isFinite(launchTime) || !Number.isFinite(endTime)) {
+    return { launchedAt: null, endsAt: null, eligible: false, earlySupporter: false };
+  }
+
+  const cohort = await runnerRest<Array<{ early_supporter: boolean }>>(
+    `runner_launch_cohorts?user_id=eq.${encodeURIComponent(userId)}&early_supporter=eq.true&select=early_supporter&limit=1`,
+  );
+  const earlySupporter = cohort?.[0]?.early_supporter === true;
+  return {
+    launchedAt,
+    endsAt,
+    eligible: earlySupporter && nowMs >= launchTime && nowMs < endTime,
+    earlySupporter,
+  };
 }
 
 export function getRunnerSessionId(token: string): string | null {
@@ -62,6 +95,12 @@ export const getRunnerPlanAccess = async (
   if (options?.adminMode === "premium") return { ...base, isPremium: true, canEdit: true, canViewDetails: true, source: "admin" };
   if (options?.adminMode === "free") return base;
   if (!enabled) return { ...base, canEdit: true, canViewDetails: true };
+  const grandfathered = await runnerRest<Array<{ plan_id: string }>>(
+    `runner_launch_grandfathered_plans?plan_id=eq.${encodeURIComponent(planId)}&user_id=eq.${encodeURIComponent(userId)}&select=plan_id&limit=1`,
+  );
+  if (grandfathered?.length) {
+    return { ...base, canEdit: true, canViewDetails: true, source: "grandfathered_plan" };
+  }
   const entitlement = options?.subscriptionActive === undefined ? await getUserEntitlements(userId) : null;
   const subscriptions = await runnerRest<Array<{ current_period_end: string | null }>>(`runner_subscription_accounts?user_id=eq.${encodeURIComponent(userId)}&status=in.(active,trialing)&select=current_period_end`);
   const paid = options?.subscriptionActive || entitlement?.isPremium || subscriptions?.some((row) => row.current_period_end !== null && Date.parse(row.current_period_end) > Date.now());

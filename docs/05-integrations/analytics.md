@@ -1,7 +1,7 @@
 ---
 title: Analytics
 scope: integration
-last_verified: 2026-10-30
+last_verified: 2026-10-31
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -79,6 +79,8 @@ related_tables:
 ## Runner monetisation events
 
 The informational runner launch announcement creates no new analytics subscription or purchase event. Its explicit local acknowledgement is not checkout, revenue, an entitlement, or an analytics identity transition; do not include campaign markers, price strings, or stored plan details in telemetry.
+
+Opening Plans from the announcement is ordinary navigation, not purchase attribution. A support preview alert is likewise informational and must not be recorded as a verified support purchase.
 
 The read-only preview veil, its scroll position, and CTA stickiness are presentation state. Do not send plan values, section identifiers, start times, or modal display as a purchase/entitlement event; only verified provider fulfillment is revenue.
 
