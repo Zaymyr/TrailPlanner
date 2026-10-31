@@ -42,7 +42,9 @@ These service-only tables verify and record a voluntary, one-time “support” 
 
 ## Provider preparation status
 
-RevenueCat Android product `runner_app_support` (`prod1b302cd2ca`) is registered as a non-consumable and has no entitlement. RevenueCat cannot create Android one-time Play products, so actual Play Console creation remains manual. The iOS product is only a planned store-state draft (`76d1ffd6-4501-4131-a468-0ea3b667d603`), not submitted; it needs a non-placeholder review screenshot before App Store submission. Seven intended territories are FR, DE, ES, IE and IT at EUR 9.99, with Apple CH/US prices equalized separately; no future territories are planned. These are prepared configuration facts, not proof of store availability, live pricing, migration deployment or production charging.
+RevenueCat Android product `runner_app_support` (`prod1b302cd2ca`) is registered as a non-consumable and has no entitlement. A live Play read on 2026-10-31 returned `not_found`; actual Play Console creation remains manual because RevenueCat cannot create Android one-time Play products.
+
+After the owner's explicit confirmation on 2026-10-31, store-state plan `76d1ffd6-4501-4131-a468-0ea3b667d603` was applied successfully. iOS product `runner_app_support` is registered as `prodcfaddbfc34`, non-consumable, with no attached entitlement. The live App Store read confirmed EUR 9.99 in FR, DE, ES, IE and IT, CHF 8 in CH and USD 8.99 in US; no automatic new territories. Apple still returned `MISSING_METADATA` / `needs_action` at the verification read. The generated review screenshot is a placeholder and must be replaced before submission; creation is not App Store review approval. No product was submitted for review, no launch activation or database migration was run, and no purchase was charged during this configuration step.
 
 ## Related Docs
 
