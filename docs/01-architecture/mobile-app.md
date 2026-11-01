@@ -20,6 +20,8 @@ related_files:
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
+  - apps/mobile/.eas/workflows/store-candidate.yml
+  - .github/workflows/eas-submit-android-production.yml
   - apps/mobile/.maestro/config.yaml
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
@@ -233,6 +235,8 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 
 The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform target: it builds Android and iOS in parallel, runs the authenticated Maestro journey with one retry, records each platform, and retains its screenshots as test artifacts. Hosted Maestro jobs require a compatible paid Expo plan; the current project plan rejects those jobs, so local Android execution remains the immediately available path. The journey covers login plus the Courses, Plans, Nutrition, and Profile tabs. Its app id defaults to the E2E/production identifier with a clean restart and login deep link. Local physical-device audits explicitly open the Dev login route through ADB, pass `APP_ID=com.paceyourself.app.dev`, preserve app state and the active Metro process, and skip the shared-scheme deep link so they cannot target the installed production app. Stable React Native test ids are used instead of translated labels. `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` must be secret variables in the EAS `preview` environment; they are never committed or exposed as Expo public values.
 
+Native store candidates use the `production` build profile after a merged `main` commit reaches an explicit EAS approval gate. EAS then submits Android to the internal track as a draft and iOS to App Store Connect/TestFlight. Neither path performs an unattended public release: Android production submission requires the protected GitHub dispatch, explicit confirmation, and build-metadata match against the approved commit, while Apple review and release remain controlled in App Store Connect.
+
 ## App Shell
 
 `apps/mobile/app/_layout.tsx` initializes:
@@ -372,6 +376,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - The shared runtime is `1.1.1`. The light iOS appearance is native configuration, so a runtime-`1.1.1` iOS binary must reach testers/App Store before a `1.1.1` OTA is published; do not send that OTA to older iOS `1.1.0` binaries.
 - Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export. Likewise, import Expo vector-icon families from their direct subpath (for example, `@expo/vector-icons/Ionicons`) instead of the package barrel so Metro does not retain unrelated icon-font families.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
+- Never use the `production` submit profile from an automatic branch trigger. Automation must use `store-candidate`; the production profile is reserved for the separately approved Android dispatch.
 - Legacy private races may still exist for other accounts, but current mobile runner flows neither query nor mutate them.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - Keep guided RaceBook filtering presentation-only: the initial list and any search result may contain only formats accepted by `canShowRacebook`; the flow must not invent a publication exception, persist the search text, or change the normal Courses catalog when the onboarding parameter is absent.

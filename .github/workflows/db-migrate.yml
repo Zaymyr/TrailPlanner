@@ -1,11 +1,16 @@
 name: Supabase DB Migrate
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "supabase/migrations/**"
   workflow_dispatch:
+    inputs:
+      ref:
+        description: "Full commit SHA already merged into main"
+        required: true
+        type: string
+      confirmation:
+        description: "Type APPLY_PRODUCTION_MIGRATIONS to confirm"
+        required: true
+        type: string
 
 concurrency:
   group: supabase-production-migrations
@@ -15,17 +20,52 @@ permissions:
   contents: read
 
 jobs:
-  verify:
-    uses: ./.github/workflows/db-verify.yml
-    with:
-      base_sha: ${{ github.event.before }}
-
-  migrate:
-    needs: verify
+  validate:
+    if: ${{ github.ref == 'refs/heads/main' }}
     runs-on: ubuntu-latest
-    environment: production
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
+
+      - name: Validate production migration request
+        shell: bash
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          PRODUCTION_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$CONFIRMATION" != "APPLY_PRODUCTION_MIGRATIONS" ]; then
+            echo "Production migrations were not explicitly confirmed."
+            exit 1
+          fi
+          if [[ ! "$PRODUCTION_REF" =~ ^[0-9a-fA-F]{40}$ ]]; then
+            echo "The production ref must be a full 40-character commit SHA."
+            exit 1
+          fi
+          git fetch origin main
+          if ! git merge-base --is-ancestor HEAD origin/main; then
+            echo "The requested ref must already be merged into main."
+            exit 1
+          fi
+
+  verify:
+    needs: validate
+    uses: ./.github/workflows/db-verify.yml
+    with:
+      ref: ${{ inputs.ref }}
+      base_sha: ${{ inputs.ref }}^
+
+  migrate:
+    needs: [validate, verify]
+    runs-on: ubuntu-latest
+    environment: Production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+          fetch-depth: 0
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v3
@@ -89,7 +129,84 @@ jobs:
               )
               sys.exit(1)
 
+          pending_versions = sorted(local_versions - remote_versions)
+          pending_paths = sorted(
+              path
+              for path in pathlib.Path("supabase/migrations").glob("*.sql")
+              if path.name.split("_", 1)[0] in pending_versions
+          )
+          pathlib.Path("pending-migrations.txt").write_text(
+              "".join(f"{path.as_posix()}\n" for path in pending_paths),
+              encoding="utf-8",
+          )
           print("Remote history contains no migration version missing from the repository.")
+          if pending_paths:
+              print("Pending migrations: " + ", ".join(path.name for path in pending_paths))
+          else:
+              print("No pending migrations.")
+          PY
+
+      - name: Validate every pending migration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 <<'PY'
+          import pathlib
+          import re
+          import sys
+
+          pending = [
+              pathlib.Path(line.strip())
+              for line in pathlib.Path("pending-migrations.txt").read_text(encoding="utf-8").splitlines()
+              if line.strip()
+          ]
+          errors = []
+          create_table = re.compile(
+              r"\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?(?:public|\"public\")\."
+              r"(?:\"([^\"]+)\"|([a-zA-Z_][a-zA-Z0-9_]*))",
+              re.IGNORECASE,
+          )
+
+          def strip_comments(sql: str) -> str:
+              sql = re.sub(r"/\*.*?\*/", " ", sql, flags=re.DOTALL)
+              return re.sub(r"--[^\n]*", " ", sql)
+
+          def qualified_table(name: str) -> str:
+              return rf'(?:public|"public")\.(?:"{re.escape(name)}"|{re.escape(name)})'
+
+          for path in pending:
+              if not path.is_file():
+                  errors.append(f"pending migration is missing: {path}")
+                  continue
+              sql = strip_comments(path.read_text(encoding="utf-8"))
+              for match in create_table.finditer(sql):
+                  table = match.group(1) or match.group(2)
+                  table_ref = qualified_table(table)
+                  if not re.search(
+                      rf"\balter\s+table\s+(?:if\s+exists\s+)?(?:only\s+)?{table_ref}\s+enable\s+row\s+level\s+security\b",
+                      sql,
+                      re.IGNORECASE,
+                  ):
+                      errors.append(f"{path}: public.{table} is created without enabling RLS")
+
+                  decisions = [
+                      statement
+                      for statement in sql.split(";")
+                      if re.search(
+                          rf"\b(?:grant|revoke)\b.*?\bon\s+(?:table\s+)?{table_ref}(?=\s|,|$)",
+                          statement,
+                          re.IGNORECASE | re.DOTALL,
+                      )
+                  ]
+                  for role in ("anon", "authenticated", "service_role"):
+                      if not any(re.search(rf"\b{role}\b", statement, re.IGNORECASE) for statement in decisions):
+                          errors.append(f"{path}: public.{table} has no explicit GRANT/REVOKE decision for {role}")
+
+          if errors:
+              for error in errors:
+                  print(f"::error::{error}")
+              sys.exit(1)
+          print(f"Validated {len(pending)} pending migration(s) against the production history.")
           PY
 
       - name: Upload migration history diagnostic

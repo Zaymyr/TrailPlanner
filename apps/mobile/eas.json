@@ -44,6 +44,15 @@
     }
   },
   "submit": {
+    "store-candidate": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      },
+      "ios": {
+        "ascAppId": "6772180071"
+      }
+    },
     "production": {
       "android": {
         "track": "production",

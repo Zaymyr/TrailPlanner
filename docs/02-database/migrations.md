@@ -1,7 +1,7 @@
 ---
 title: Migrations
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
@@ -134,9 +134,9 @@ This document summarizes the migration history and the rules for adding new Supa
 
 Database changes use three separate safeguards:
 
-- `.github/workflows/db-verify.yml` runs on pull requests that change migrations. It validates the complete migration filename history and checks newly created `public` tables in changed SQL for RLS plus an explicit `GRANT` or `REVOKE` decision for `anon`, `authenticated`, and `service_role`.
-- `.github/workflows/db-migrate.yml` runs serially after a migration reaches `main`. It uses `supabase/setup-cli@v3` and `actions/upload-artifact@v7`, calls the same static verification, compares remote migration versions with files in the repository, uploads the CLI listing as a diagnostic, previews the pending push with `--dry-run`, then deploys. A remote-only version blocks the job. CI must never repair migration history automatically: `migration repair` changes the tracking table without proving that the schema matches the repository.
-- `.github/workflows/db-schema-snapshot.yml` runs only after a successful production migration. It checks out `main`, writes a non-empty PostgreSQL 17 schema dump including access-control statements, regenerates `docs/db/README.md`, and commits only when the snapshot changed. The migration workflow is path-filtered to `supabase/migrations/**`, so this bot commit cannot redeploy the database or create a snapshot loop.
+- `.github/workflows/db-verify.yml` runs on every pull request so its `static-migration-checks` status can be required consistently. It validates the complete migration filename history and checks newly created `public` tables in changed SQL for RLS plus an explicit `GRANT` or `REVOKE` decision for `anon`, `authenticated`, and `service_role`.
+- `.github/workflows/db-migrate.yml` is never triggered by a push to `main`. A maintainer dispatches it with a full commit SHA already merged into `main`, types `APPLY_PRODUCTION_MIGRATIONS`, then approves the protected `Production` environment. It verifies that exact ref, compares remote migration versions with repository files, validates every migration still pending remotely (not only the last commit), uploads the CLI listing as a diagnostic, previews the pending push with `--dry-run`, inspects sessions, and only then deploys serially. A remote-only version blocks the job. CI must never repair migration history automatically: `migration repair` changes the tracking table without proving that the schema matches the repository.
+- `.github/workflows/db-schema-snapshot.yml` runs only after a successful production migration. It checks out `main`, writes a non-empty PostgreSQL 17 schema dump including access-control statements, regenerates `docs/db/README.md`, and opens a dedicated pull request only when the snapshot changed. The bot never pushes directly to protected `main`; because bot-created pull-request events do not start other workflows, it explicitly dispatches the required web and database checks on the snapshot branch.
 
 The repository currently cannot prove a clean local rebuild: `supabase/config.toml` is absent and the `race_events` create-table migration is still missing from the visible history. Consequently, CI does **not** claim that `supabase db reset` or the 13 rollback SQL scripts under `supabase/tests` pass from an empty database. Restore and verify a complete baseline before adding those dynamic checks to the required workflow. Until then, run the SQL scripts only against an isolated, schema-compatible staging database, never against production as a substitute for pre-deployment verification.
 
