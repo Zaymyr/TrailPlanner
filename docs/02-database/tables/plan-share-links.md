@@ -113,6 +113,10 @@ Summary:
 - Keep the in-app departure-time modal keyboard-aware and safe-area-aware. A compact iPhone or enlarged text must not hide Confirm/Cancel. Dismissing or scrolling the modal must not write `plan_share_links`; confirming a changed time updates the recap preference and then triggers the normal snapshot synchronization.
 - Do not use `plan_share_links.departure_time` as the editable in-app recap preference. Public link departure time remains snapshot/tracking state and changes only through authenticated recap synchronization (including explicit share) or the narrow crew-state route.
 
+## Personal departure presentation
+
+The in-app recap now shows the runner departure, official departure and signed delta, and offers ordered start waves before the free time picker. The existing per-plan local runner override remains the source sent to reusable share snapshots; wave selection does not write organizer rows.
+
 ## Related Docs
 
 - [race_plans](race-plans.md)

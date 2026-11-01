@@ -370,6 +370,10 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - If product routes omit sodium in a select, sodium allocation can undercount. Check route selects when changing nutrition behavior.
 - Do not document `water_ml` as a product schema field.
 
+## Lot 8 presentation
+
+The recap shows combined carbohydrate/sodium totals and a rounded ten-minute drinking rhythm. The editor chronology keeps product intakes and emits a plain-water row only when the rounded 10 ml quantity changes. This compaction is presentation-only and does not alter allocation totals, reminders, or saved plan values. All-uppercase product labels receive display-only normal casing with known acronym preservation.
+
 ## Related Docs
 
 - [Products Table](../02-database/tables/products.md)

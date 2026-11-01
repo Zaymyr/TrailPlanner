@@ -142,6 +142,10 @@ Android production candidates additionally require an internal-track smoke test 
 - Run mobile lint after a clean dependency install when changing its tooling. The legacy Expo ESLint config resolves `eslint-plugin-react-hooks` from the mobile workspace, so that plugin stays an explicit mobile development dependency rather than relying on local hoisting.
 - For RaceBook navigation checks, open two different formats successively, then verify the hero arrow, contextual Courses action, and Android hardware back each replace the active route with Courses without revealing the first RaceBook.
 
+## Lot 8 verification scope
+
+The launch-polish audit covers personal-versus-official departure copy, wave selection, compact nutrition chronology, format-sheet action parity, catalog grouping, delayed skeletons, shared toasts, reduced-motion-aware haptics, and root navigation elevation. Native haptics require a runtime `1.1.2` build before device feedback can be validated.
+
 ## Related Docs
 
 - [Mobile App](../01-architecture/mobile-app.md)

@@ -115,6 +115,10 @@ The root `packageManager` pin is required by Turbo workspace discovery. Update i
 - Do not bypass a failing CI check by making it non-blocking.
 - Do not publish a production OTA from an unmerged ref or without validating the changes through the development OTA flow first.
 
+## Native-module reminder
+
+When a mobile change adds an Expo native module, bump the runtime compatibility group, require a new native build, and keep OTA publication on the matching runtime. Lot 8 follows this rule for `expo-haptics` with runtime `1.1.2`.
+
 ## Related Docs
 
 - [AGENTS](../AGENTS.md)

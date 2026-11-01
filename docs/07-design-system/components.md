@@ -14,6 +14,7 @@ related_files:
   - apps/mobile/components/themed/LoadingState.tsx
   - apps/mobile/components/themed/ErrorState.tsx
   - apps/mobile/components/themed/EmptyState.tsx
+  - apps/mobile/components/themed/BriefToast.tsx
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
   - packages/design-system/src/tokens/mobile-components.ts
 related_tables: []
@@ -129,6 +130,8 @@ workspace selectors use the same segmented-control geometry; input shells keep
 one surface/border/radius with units or clear actions inside; modal dismiss actions
 use a labelled 44-point circular close; primary and secondary buttons share one
 radius. Screen-specific components own copy, state, color roles and behavior.
+
+`BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional retry action. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
 
 ## Gotchas
 

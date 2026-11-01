@@ -23,6 +23,7 @@ import { FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
 import { NutritionCreateProductModal } from './NutritionCreateProductModal';
 import { ProductDetailModal } from './ProductDetailModal';
 import type { FavoriteRow, FuelType, Product, ProductEditDraft, ProductFavoriteUsage } from './types';
+import { formatProductDisplayName } from '../../lib/productDisplayName';
 
 const verifiedProductIcon = require('../../assets/verified-product.png');
 
@@ -166,12 +167,31 @@ function groupItemsByBrand<T>(
     return map;
   }, new Map<string, T[]>());
 
-  return Array.from(groups.entries())
+  const normalizedGroups = Array.from(groups.entries())
     .map(([brandLabel, groupedItems]) => ({
       brandLabel,
       items: groupedItems,
-    }))
-    .sort((left, right) => left.brandLabel.localeCompare(right.brandLabel));
+    }));
+  const consolidatedOther = normalizedGroups.flatMap((group) => (
+    group.items.length === 1 && !isVerifiedProduct(getProduct(group.items[0])) ? group.items : []
+  ));
+  const visibleGroups = normalizedGroups.filter((group) => !(
+    group.items.length === 1 && !isVerifiedProduct(getProduct(group.items[0]))
+  ));
+  if (consolidatedOther.length > 0) {
+    const existingOther = visibleGroups.find((group) => group.brandLabel === fallbackLabel);
+    if (existingOther) existingOther.items.push(...consolidatedOther);
+    else visibleGroups.push({ brandLabel: fallbackLabel, items: consolidatedOther });
+  }
+
+  return visibleGroups.sort((left, right) => {
+    if (left.brandLabel === fallbackLabel) return 1;
+    if (right.brandLabel === fallbackLabel) return -1;
+    const leftVerified = left.items.some((item) => isVerifiedProduct(getProduct(item)));
+    const rightVerified = right.items.some((item) => isVerifiedProduct(getProduct(item)));
+    if (leftVerified !== rightVerified) return leftVerified ? -1 : 1;
+    return left.brandLabel.localeCompare(right.brandLabel);
+  });
 }
 
 function isVerifiedProduct(product: Product) {
@@ -371,7 +391,7 @@ export const NutritionContent = memo(function NutritionContent({
     () => (
       <>
         <TouchableOpacity activeOpacity={0.7} onPress={onToggleFavorites} style={styles.favoritesToggleRow}>
-          <Text style={[styles.sectionTitle, styles.sectionTitleCompact]}>Mes favoris</Text>
+          <Text style={[styles.sectionTitle, styles.sectionTitleCompact]}>Mes favoris ({favorites.length})</Text>
           <Ionicons
             color={Colors.brandPrimary}
             name={favoritesExpanded ? 'chevron-down' : 'chevron-forward'}
@@ -706,7 +726,7 @@ function ProductCard({
       <View style={styles.productInfo}>
         <View style={styles.productNameRow}>
           <Text numberOfLines={2} style={styles.productName}>
-            {product.name}
+            {formatProductDisplayName(product.name)}
           </Text>
         </View>
         <Text style={styles.productType}>
@@ -799,7 +819,6 @@ const styles = StyleSheet.create({
     color: Colors.textMuted,
     fontSize: 14,
     textAlign: 'center',
-    fontStyle: 'italic',
   },
   catalogHeader: {
     flexDirection: 'row',
@@ -967,7 +986,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: 16,
+    minHeight: 64,
+    padding: 10,
     marginBottom: 10,
     flexDirection: 'row',
     alignItems: 'center',
@@ -987,15 +1007,15 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   productImage: {
-    width: 54,
-    height: 54,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     backgroundColor: Colors.surfaceSecondary,
   },
   productImagePlaceholder: {
-    width: 54,
-    height: 54,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceSecondary,

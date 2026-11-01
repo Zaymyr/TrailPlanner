@@ -363,6 +363,10 @@ erDiagram
 - The legacy coach/coachee feature is retired. Do not reintroduce `coach_*` tables, coach RLS, or coach entitlement columns without a new product decision and migration plan.
 - `user_profiles.onboarding_completed_at` remains nullable legacy Plan state. New mobile gating and the Profile dot use the two checked per-tour status columns; skipped is deliberately distinct from completed.
 
+## Lot 8 mobile presentation
+
+The format-sheet, favorite-feedback, recap, and product-label changes are consumer presentation only. They do not add columns, tables, policies, grants, or a new persistence path.
+
 ## Related Docs
 
 - [Relationships](relationships.md)

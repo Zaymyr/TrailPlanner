@@ -395,9 +395,9 @@ export function formatKm(distanceKm: number) {
 }
 
 export function formatCheckpointTime(checkpoint: PlanSummaryCheckpoint, departureTime?: Date | null) {
-  const elapsed = `T+${formatDuration(checkpoint.arrivalMinute)}`;
+  const elapsed = `+${formatDuration(checkpoint.arrivalMinute)}`;
   if (!departureTime) return elapsed;
-  return `${elapsed} / ${formatClock(addMinutes(departureTime, checkpoint.arrivalMinute))}`;
+  return `${formatClock(addMinutes(departureTime, checkpoint.arrivalMinute))} · ${elapsed}`;
 }
 
 function getWaterLabel(

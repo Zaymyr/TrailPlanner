@@ -134,6 +134,10 @@ where event_id = '<event-id>';
 - The Courses card may hide its repeated multi-format helper sentence and decorative flag, align its compact action with the format/distance pills, fill the left rail with the race image, place the independent animated heart in the trailing header position, and make the remaining card surface open format selection to reduce density. Quick favorite/distance chips filter the loaded rows only; pinning persistence and event scope remain unchanged.
 - Sponsor warmup from the RaceBook action is independent from favorites and must not write, reorder, or infer notification audience membership.
 
+## Mobile feedback
+
+Favorite writes retain the existing optimistic persistence and rollback behavior. Successful add/remove operations now show a brief shared toast; network failure rolls back and exposes a retry action without changing the table contract.
+
 ## Related Docs
 
 Private-demo format selection does not affect event favorites or catalog membership; it gates only the RaceBook action for that format.

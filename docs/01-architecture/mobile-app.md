@@ -24,6 +24,12 @@ related_files:
   - apps/mobile/.eslintrc.js
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
+  - apps/mobile/lib/haptics.ts
+  - apps/mobile/lib/hapticsPolicy.ts
+  - apps/mobile/lib/planRecapDeparture.ts
+  - apps/mobile/lib/productDisplayName.ts
+  - apps/mobile/lib/planTimelinePresentation.ts
+  - apps/mobile/components/themed/BriefToast.tsx
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
   - apps/mobile/.eas/workflows/store-candidate-android.yml
@@ -512,6 +518,12 @@ Do not copy actual keys into docs. Use environment variable names only.
 ## Racebook Identity Presentation
 
 The identity hero shows event and format names, the formatted course date, linked location, participation, distance, D+ and optional D-. It uses the format thumbnail before the event thumbnail with a strong primary veil in the expanded state, then removes the image for the compact solid-primary state. One 44-point Links action opens a sheet containing only valid official website and social destinations. `RacebookCollapsibleHero` owns its scroll-driven transition into the top safe area, keeps back navigation plus compact identity visible, and gives D+/D- enough width at 100% and 130% text scaling. A valid emergency contact keeps its dedicated call action. Runner information remains in a neutral detail card only when present.
+
+## Launch polish lot 8
+
+The saved-plan recap now keeps the runner's locally stored departure authoritative while also presenting the official organizer departure, its signed delta, and selectable ordered start waves. Passage labels use the personal clock first and elapsed time second. Product labels that are entirely uppercase receive a display-only normal-casing safeguard that preserves known acronyms; source names and user-owned database rows remain unchanged.
+
+Courses delay their loading skeleton for 400 ms, format sheets use equal outline actions and keep past-plan access only when a plan already exists, and brief non-destructive feedback uses the shared toast above the tab bar. Native selection feedback is decorative, disabled on web and when reduced motion is enabled, and never blocks an action. Adding `expo-haptics` moves both platforms to runtime `1.1.2`; a new native build is required before publishing compatible OTA updates.
 
 ## Related Docs
 

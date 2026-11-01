@@ -18,6 +18,7 @@ import type {
 } from '../components/nutrition/types';
 import { usePremium } from '../hooks/usePremium';
 import { useI18n } from '../lib/i18n';
+import { lightHaptic } from '../lib/haptics';
 import { supabase } from '../lib/supabase';
 import { WEB_API_BASE_URL } from '../lib/webApi';
 
@@ -268,6 +269,7 @@ export function useNutritionScreen() {
           .eq('product_id', productId);
 
         if (!deleteError) {
+          void lightHaptic();
           setFavoriteIds((current) => {
             const next = new Set(current);
             next.delete(productId);
@@ -293,6 +295,7 @@ export function useNutritionScreen() {
         .insert({ user_id: userId, product_id: productId });
 
       if (!insertError) {
+        void lightHaptic();
         const product = productOverride ?? products.find((entry) => entry.id === productId);
         if (product) {
           setFavoriteIds((current) => new Set([...current, productId]));

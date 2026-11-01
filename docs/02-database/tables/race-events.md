@@ -363,6 +363,10 @@ A format with at least one complete, effective supporter point counts as meaning
 
 The mobile catalog may hide the image rail when no event/format thumbnail exists and may warn before creating a plan for a past `race_date`. Both are derived presentation; they do not rewrite the event date, image, edition visibility, or publication state.
 
+## Mobile format sheet
+
+The mobile sheet retains stable distance ordering, adds distance-range typography and equal outline actions, and hides plan creation for past formats unless the runner already owns a plan. These are presentation rules and do not mutate event or race rows.
+
 ## Related Docs
 
 

@@ -234,6 +234,10 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 Shared plan/catalog UX must preserve the existing routes and `testID` values. Current plan-flow expectations include a 44-point minimum for audited steppers/icon actions, hidden accessibility-only skeleton decoration, a clear-search action, compact no-image race cards, and a contextual plan header that may show the parent event below the format name.
 Equivalent mobile controls must reuse `mobileComponents`: 16-point first-level gutters, full-radius filter chips, common segmented selectors, one bordered input shell with inline units/clear actions, 44-point modal closes, and a shared button radius.
 
+## Shared launch-polish primitives
+
+Prefer the shared brief toast for non-destructive feedback, the existing empty state for no-content screens, and the delayed skeleton pattern for short initial reads. Root headers receive shadow only after scroll; tab bars retain their subtle top divider. Decorative haptics must no-op on web and with reduced motion.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

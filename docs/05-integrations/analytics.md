@@ -368,6 +368,10 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 
 Clearing the Courses search and omitting an empty card image rail emit no event. An owned-format press keeps the existing `catalog create plan clicked` contract with `action: refine_plan`; changing its visible label to “Open my plan” does not rename the historical bounded action or the successful `plan created` event.
 
+## Lot 8 feedback
+
+Favorite toasts and decorative haptics remain presentation-only. Existing successful favorite and gear interaction events retain their names and payloads; failed retries do not emit a false success event.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.
