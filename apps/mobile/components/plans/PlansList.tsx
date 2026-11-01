@@ -29,6 +29,7 @@ import { DataText } from '../themed/DataText';
 import { EmptyState } from '../themed/EmptyState';
 import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
+import { formatDistance } from '../../lib/displayFormat';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
 import { formatDepartureCountdown, selectPrimaryStartPlanId, type DepartureCountdownCopy } from '../../lib/plansListPresentation';
 import type { PlanRow, RaceSection } from './types';
@@ -217,19 +218,6 @@ export const PlansList = memo(function PlansList({
             </View>
           );
         }}
-        renderSectionFooter={({ section }) => {
-          const key = section.sectionKey;
-          const isCollapsed = collapsedSections.has(key);
-          if (isCollapsed || section.data.length === 0) return null;
-          if (section.sectionKey === '__orphan__') {
-            return (
-              <Text tone="secondary" size="xs" style={styles.orphanWarning}>
-                {noRaceWarningLabel}
-              </Text>
-            );
-          }
-          return null;
-        }}
         renderSectionHeader={({ section }) => {
           const key = section.sectionKey;
           const isCollapsed = collapsedSections.has(key);
@@ -254,6 +242,11 @@ export const PlansList = memo(function PlansList({
                     size={18}
                   />
                 </View>
+                {section.sectionKey === '__orphan__' ? (
+                  <Text tone="secondary" size="xs" style={styles.orphanWarning}>
+                    {noRaceWarningLabel}
+                  </Text>
+                ) : null}
               </View>
             </TouchableOpacity>
           );
@@ -452,9 +445,7 @@ function PlanCard({
             <View style={styles.meta}>
               {item.planner_values?.raceDistanceKm != null ? (
                 <DataText tone="secondary" size="xs" weight="medium">
-                  {new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
-                    maximumFractionDigits: 1,
-                  }).format(item.planner_values.raceDistanceKm)} km
+                  {formatDistance(item.planner_values.raceDistanceKm, locale)}
                 </DataText>
               ) : null}
               {item.planner_values?.elevationGain != null ? (
@@ -603,8 +594,8 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   orphanWarning: {
-    paddingHorizontal: spacing[1],
-    paddingBottom: spacing[2],
+    marginTop: spacing[1],
+    paddingLeft: 28,
   },
   card: {
     flexDirection: 'column',

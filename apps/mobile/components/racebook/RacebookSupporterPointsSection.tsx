@@ -7,6 +7,7 @@ import { buildSupporterDirectionsUrl } from '../../lib/racebookSupporterPoints';
 import { useI18n } from '../../lib/i18n';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { formatDistance } from '../../lib/displayFormat';
 
 export function RacebookSupporterPointsSection({
   points,
@@ -43,7 +44,7 @@ export function RacebookSupporterPointsSection({
                   </View>
                 </View>
                 <View style={styles.titleActions}>
-                  <DataText style={styles.km}>{point.km.toLocaleString(locale, { maximumFractionDigits: 1 })} km</DataText>
+                  <DataText style={styles.km}>{formatDistance(point.km, locale)}</DataText>
                   {point.planUrl ? (
                     <Pressable
                       accessibilityLabel={t.catalog.racebookSupporterViewMap}

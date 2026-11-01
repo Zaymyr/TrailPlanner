@@ -4,6 +4,8 @@ import Svg, { Defs, Line, LinearGradient, Path, Stop, Text as SvgText } from 're
 import { Colors } from '../../constants/colors';
 import type { ElevationPoint } from './profile-utils';
 import { styles } from './styles';
+import { useI18n } from '../../lib/i18n';
+import { formatDistance } from '../../lib/displayFormat';
 
 type Props = {
   points: ElevationPoint[];
@@ -11,9 +13,9 @@ type Props = {
 };
 
 const CHART_HEIGHT = 96;
-const AXIS_WIDTH = 34;
+const AXIS_WIDTH = 48;
 const TOP_PADDING = 10;
-const RIGHT_PADDING = 8;
+const RIGHT_PADDING = 14;
 const BOTTOM_PADDING = 18;
 
 function samplePoints(points: ElevationPoint[], maxPoints = 72) {
@@ -44,6 +46,7 @@ function buildTicks(minElevation: number, maxElevation: number) {
 }
 
 export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points, accentColor }: Props) {
+  const { locale } = useI18n();
   const [width, setWidth] = useState(0);
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -141,10 +144,10 @@ export const ProfileMiniChart = React.memo(function ProfileMiniChart({ points, a
           <Path d={chart.path} fill="none" stroke="url(#profile-line-gradient)" strokeWidth={4} strokeLinejoin="round" strokeLinecap="round" />
 
           <SvgText x={AXIS_WIDTH} y={CHART_HEIGHT - 4} fill={Colors.textMuted} fontSize="10" textAnchor="start">
-            {chart.minDistance >= 100 ? chart.minDistance.toFixed(0) : chart.minDistance.toFixed(1)} km
+            {formatDistance(chart.minDistance, locale)}
           </SvgText>
           <SvgText x={width - RIGHT_PADDING} y={CHART_HEIGHT - 4} fill={Colors.textMuted} fontSize="10" textAnchor="end">
-            {chart.maxDistance >= 100 ? chart.maxDistance.toFixed(0) : chart.maxDistance.toFixed(1)} km
+            {formatDistance(chart.maxDistance, locale)}
           </SvgText>
         </Svg>
       ) : null}

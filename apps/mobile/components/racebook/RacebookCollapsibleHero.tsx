@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import { StatusBar } from 'expo-status-bar';
-import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
@@ -59,6 +59,7 @@ type Props = {
   onCallEmergency?: () => void;
   onOpenLocation?: () => void;
   onOpenSocial: (url: string, action: string) => void;
+  onExpandedBodyHeightChange?: (height: number) => void;
 };
 
 export function RacebookCollapsibleHero({
@@ -94,6 +95,7 @@ export function RacebookCollapsibleHero({
   onCallEmergency,
   onOpenLocation,
   onOpenSocial,
+  onExpandedBodyHeightChange,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
   const [linksVisible, setLinksVisible] = useState(false);
@@ -124,6 +126,10 @@ export function RacebookCollapsibleHero({
     });
     return () => scrollY.removeListener(listenerId);
   }, [collapseDistance, scrollY]);
+
+  const handleExpandedLayout = useCallback((event: LayoutChangeEvent) => {
+    onExpandedBodyHeightChange?.(Math.ceil(event.nativeEvent.layout.height - topInset));
+  }, [onExpandedBodyHeightChange, topInset]);
 
   return (
     <Animated.View
@@ -214,13 +220,16 @@ export function RacebookCollapsibleHero({
         </View>
       ) : null}
 
-      <Animated.View style={[styles.expandedContent, { paddingTop: topInset + 10, opacity: expandedOpacity }]}>
+      <Animated.View
+        onLayout={handleExpandedLayout}
+        style={[styles.expandedContent, { paddingTop: topInset + 10, opacity: expandedOpacity }]}
+      >
         <View style={[styles.topRow, { paddingRight: socialLinks.length > 0 ? 48 : 0 }]}>
           <View style={styles.heading}>
             {eventName && eventName !== raceName ? (
               <Text style={[styles.kicker, { color: theme.onPrimaryColor }]}>{eventName}</Text>
             ) : null}
-            <Heading variant="h1" style={[styles.title, { color: theme.onPrimaryColor }]}>{raceName}</Heading>
+            <Heading numberOfLines={2} variant="h1" style={[styles.title, { color: theme.onPrimaryColor }]}>{raceName}</Heading>
           </View>
         </View>
 
@@ -351,13 +360,13 @@ const styles = StyleSheet.create({
   contrastVeil: { backgroundColor: 'rgba(0,0,0,0.14)' },
   backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
   pressed: { opacity: 0.64 },
-  compactContent: { position: 'absolute', left: 64, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  compactContent: { position: 'absolute', left: 72, flexDirection: 'row', alignItems: 'center', gap: 10 },
   compactTitleWrap: { flex: 1, minWidth: 0 },
   compactTitle: { fontSize: 17, lineHeight: 21, fontWeight: '800' },
   compactKicker: { fontSize: 10, lineHeight: 13, fontWeight: '700', opacity: 0.78 },
-  expandedContent: { flex: 1, justifyContent: 'flex-start', gap: 10, paddingHorizontal: 16, paddingBottom: 14 },
+  expandedContent: { position: 'absolute', top: 0, left: 0, right: 0, justifyContent: 'flex-start', gap: 10, paddingHorizontal: 16, paddingBottom: 14 },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
-  heading: { flex: 1, minWidth: 0, minHeight: 50, justifyContent: 'center', gap: 2, paddingLeft: 44 },
+  heading: { flex: 1, minWidth: 0, minHeight: 50, justifyContent: 'center', gap: 2, paddingLeft: 56 },
   kicker: { fontSize: 11, lineHeight: 15, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', opacity: 0.86 },
   title: { fontSize: 29, lineHeight: 33 },
   detailsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },

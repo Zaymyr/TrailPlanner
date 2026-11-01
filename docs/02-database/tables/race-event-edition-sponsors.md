@@ -154,3 +154,5 @@ The first supporter-points version has no dedicated sponsor placement. Showing o
 - [RLS Policies](../rls-policies.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [Mobile App Architecture](../../01-architecture/mobile-app.md)
+
+RaceBook hero sizing, plan-switch deduplication, and shared numeric formatting do not create sponsor impressions, alter placement, or change sponsor loading.

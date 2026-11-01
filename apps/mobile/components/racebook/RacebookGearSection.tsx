@@ -164,6 +164,7 @@ export function RacebookGearSection({
     ...weatherItems.map((item) => getRacebookGearItemKey('weather', item)),
   ];
   const checkedCount = allItemKeys.filter((itemKey) => checkedItemKeys.has(itemKey)).length;
+  const checklistComplete = totalItems > 0 && checkedCount === totalItems;
 
   if (!hasItems && notes.length === 0 && !decathlonLink) {
     return (
@@ -176,11 +177,11 @@ export function RacebookGearSection({
   return (
     <Card style={styles.card}>
       {totalItems > 0 ? (
-        <View style={styles.progress}>
-          <View style={styles.progressIcon}>
-            <Ionicons color={Colors.surface} name={checkedCount === totalItems ? 'checkmark-done' : 'checkmark'} size={17} />
+        <View style={[styles.progress, checklistComplete ? styles.progressComplete : null]}>
+          <View style={[styles.progressIcon, checklistComplete ? styles.progressIconComplete : null]}>
+            <Ionicons color={checklistComplete ? Colors.surface : Colors.textMuted} name={checklistComplete ? 'checkmark-done' : 'ellipse-outline'} size={17} />
           </View>
-          <Text style={styles.progressText}>
+          <Text style={[styles.progressText, checklistComplete ? styles.progressTextComplete : null]}>
             {copy.progressLabel.replace('{checked}', String(checkedCount)).replace('{total}', String(totalItems))}
           </Text>
         </View>
@@ -229,9 +230,12 @@ export function RacebookGearSection({
 
 const styles = StyleSheet.create({
   card: { gap: 18 },
-  progress: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
-  progressIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: Colors.brandPrimary },
-  progressText: { flex: 1, color: Colors.brandPrimary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  progress: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
+  progressComplete: { borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
+  progressIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  progressIconComplete: { borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary },
+  progressText: { flex: 1, color: Colors.textSecondary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  progressTextComplete: { color: Colors.brandPrimary },
   decathlonLink: { minHeight: 84, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
   decathlonIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: Colors.brandPrimary },
   decathlonContent: { flex: 1, gap: 2 },

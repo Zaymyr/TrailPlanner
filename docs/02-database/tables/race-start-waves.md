@@ -81,3 +81,5 @@ Material check/uncheck analytics and bounded per-item checked/missing snapshots 
 Supporter points intentionally carry no personalized or official passage time in the first version. Start-wave resolution therefore does not alter their chronology.
 
 When a linked plan exists, its duration-based pace belongs with the Livret identity metrics; each matched ravito shows a resolved clock aligned above the red cutoff and each blue connector may show its pause-excluded expected duration. A late passage exposes a disclosure icon. Tapping the clock row opens the targeted plan editor without a second CTA. Switching back can reuse local editor warm state only for the exact plan id; none of these presentation actions rewrites SAS rows or their time authority.
+
+Departure and passage clocks now share normalized `HH:MM` presentation. The authoritative wave/start resolution and stored source values are unchanged.

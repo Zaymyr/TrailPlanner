@@ -370,3 +370,5 @@ erDiagram
 - [Migrations](migrations.md)
 - [Plan Storage](../03-business-rules/plan-storage.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
+
+Mobile lot 6 is presentation-only: shared distance/clock formatting, failed-image fallback, sticky control styling, and RaceBook hero sizing add no columns, tables, policies, or persistence paths.

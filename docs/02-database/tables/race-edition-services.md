@@ -90,3 +90,5 @@ Fullscreen course visuals and tappable ravito markers do not read, reorder, or r
 Format-scoped supporter directions and assistance permissions are not edition services. They are serialized from `race_supporter_points` only when that separate module is effective.
 
 The Livret/Mon plan switch may reuse an already saved owner plan without showing the plan-creation loader. Its owner-specific hero departure/duration/pace and compact ravito passage, segment duration and cutoff warning are not service data; route-local warm state is scoped to the exact plan id and remains separate from the edition-scoped services payload and cache.
+
+Service distance labels now use the shared localized formatter. This changes only rendering and leaves service categories, links, ordering, and edition scope intact.

@@ -10,6 +10,7 @@ import { resolveRacebookFinishStation } from '../../lib/racebookAidStationPresen
 import { estimatePersonalSegmentDuration, normalizeSimpleClock } from '../../lib/racebookPlanReflection';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { formatDistance } from '../../lib/displayFormat';
 
 export type RacebookAidStationCopy = {
   sectionTitle: string;
@@ -50,6 +51,7 @@ type RacebookAidStationsSectionProps = {
     elevationLossM: number | null;
     cutoffTime: string | null;
   };
+  startTime?: string | null;
   expandedStationId: string | null;
   showOfficialProducts: boolean;
   theme: ResolvedRacebookTheme;
@@ -60,12 +62,7 @@ type RacebookAidStationsSectionProps = {
   onEditPersonalPlanStation?: (station: RacebookAidStation) => void;
 };
 
-function formatStationDistance(km: number, locale: 'fr' | 'en') {
-  return `${km.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', {
-    maximumFractionDigits: km >= 100 ? 0 : 1,
-    minimumFractionDigits: 0,
-  })} km`;
-}
+const formatStationDistance = formatDistance;
 
 function ServiceIcon({ icon, label, theme }: {
   icon: keyof typeof Ionicons.glyphMap;
@@ -406,25 +403,22 @@ function SegmentConnector({
           {segmentGain !== null ? (
             <View style={styles.segmentMetricItem}>
               <Ionicons color={Colors.textSecondary} name="trending-up-outline" size={13} />
-              <DataText style={styles.segmentMetric}>
-                {elevationGainLabel} {segmentGain} m
-              </DataText>
+              <Text style={styles.segmentMetricLabel}>{elevationGainLabel}</Text>
+              <DataText style={styles.segmentMetric}>{segmentGain} m</DataText>
             </View>
           ) : null}
           {segmentLoss !== null ? (
             <View style={styles.segmentMetricItem}>
               <Ionicons color={Colors.textSecondary} name="trending-down-outline" size={13} />
-              <DataText style={styles.segmentMetric}>
-                {elevationLossLabel} {segmentLoss} m
-              </DataText>
+              <Text style={styles.segmentMetricLabel}>{elevationLossLabel.replace('-', '−')}</Text>
+              <DataText style={styles.segmentMetric}>{segmentLoss} m</DataText>
             </View>
           ) : null}
           {plannedDurationMinutes !== null && plannedDurationMinutes !== undefined ? (
             <View style={styles.segmentMetricItem}>
               <Ionicons color={Colors.success} name="time-outline" size={13} />
-              <DataText style={[styles.segmentMetric, styles.segmentPlannedMetric]}>
-                {plannedDurationLabel} {formatDuration(plannedDurationMinutes)}
-              </DataText>
+              <Text style={[styles.segmentMetricLabel, styles.segmentPlannedMetric]}>{plannedDurationLabel}</Text>
+              <DataText style={[styles.segmentMetric, styles.segmentPlannedMetric]}>{formatDuration(plannedDurationMinutes)}</DataText>
             </View>
           ) : null}
         </View>
@@ -437,6 +431,7 @@ export function RacebookAidStationsSection({
   locale,
   stations,
   finish,
+  startTime = null,
   expandedStationId,
   theme,
   copy,
@@ -460,6 +455,7 @@ export function RacebookAidStationsSection({
             label={copy.startLabel}
             distanceKm={0}
             locale={locale}
+            time={startTime ? { label: copy.startLabel, value: startTime, tone: 'positive' } : null}
           />
         </View>
       </View>
@@ -588,7 +584,7 @@ const styles = StyleSheet.create({
   passageSummaryLabel: { flex: 1, color: Colors.success, fontSize: 12, lineHeight: 16, fontWeight: '700' },
   passageSummaryClock: { minWidth: 44, color: Colors.success, fontSize: 13, lineHeight: 17, fontWeight: '900', textAlign: 'right' },
   cutoffWarningAction: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: Colors.dangerSurface },
-  timingTrailingSpace: { width: 28, height: 1 },
+  timingTrailingSpace: { width: 0, height: 1 },
   cutoffWarningText: { marginLeft: 19, color: Colors.danger, fontSize: 11, lineHeight: 15, fontWeight: '700' },
   timingRowPressed: { opacity: 0.62 },
   emptyCard: {
@@ -696,6 +692,7 @@ const styles = StyleSheet.create({
   segmentMetrics: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   segmentMetricItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   segmentMetric: { color: Colors.textPrimary, fontSize: 12, fontWeight: '700' },
+  segmentMetricLabel: { color: Colors.textSecondary, fontSize: 12, fontWeight: '700' },
   segmentPlannedMetric: { color: Colors.success },
   noteRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   noteText: { flex: 1, color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },

@@ -154,3 +154,5 @@ For future Broadcast creation and dashboard draft updates, use [Resend Broadcast
 - [Session Management](../04-auth-and-security/session-management.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [RLS Policies](../02-database/rls-policies.md)
+
+The mobile root-layout guard for unsupported development-client OTA checks is independent from Resend contact synchronization and email delivery. It neither reads Resend configuration nor changes authenticated contact-sync behavior.

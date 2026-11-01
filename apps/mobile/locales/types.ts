@@ -706,8 +706,8 @@ export type MobileTranslations = {
     racebookElevationLossMetric: string;
     racebookCreatePlan: string;
     racebookRefinePlan: string;
-    racebookCreatePlanDescription: string;
-    racebookRefinePlanDescription: string;
+    racebookReviewPlan: string;
+    racebookPlanRevisionMessage: string;
     racebookPlanCheckFailed: string;
     racebookLinkOpenFailed: string;
     racebookOpening: string;
@@ -808,6 +808,24 @@ export type MobileTranslations = {
     selectRaceSubtitle: string;
     selectRaceCta: string;
     elevationMissing: string;
+    addAidStationTitle: string;
+    editAidStationTitle: string;
+    officialFieldsLockedHint: string;
+    nameLabel: string;
+    namePlaceholder: string;
+    distanceLabel: string;
+    pauseLabel: string;
+    servicesLabel: string;
+    waterLabel: string;
+    waterHint: string;
+    foodLabel: string;
+    foodHint: string;
+    assistanceLabel: string;
+    assistanceHint: string;
+    closeEditor: string;
+    addAidStationAction: string;
+    saveAidStationAction: string;
+    notEditable: string;
   };
   rootActionMenu: {
     triggerLabel: string;

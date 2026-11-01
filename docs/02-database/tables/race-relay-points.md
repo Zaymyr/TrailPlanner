@@ -134,3 +134,5 @@ Supporter points are neither handover points nor aid stations. They have no rela
 - [race_aid_stations](race-aid-stations.md)
 - [Relationships](../relationships.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
+
+Relay distances and ranges use the shared localized one-decimal formatter in RaceBook. This is presentation-only and preserves relay ordering, leg derivation, and handover semantics.

@@ -377,3 +377,7 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 - [Plan Storage](plan-storage.md)
 - [Organizer Race Management](organizer-race-management.md)
 - [Add New Table](../06-workflows/add-new-table.md)
+
+## Plan editor presentation
+
+Official aid-station distance, name, type, and services remain read-only in the mobile editor and are now visibly marked as such with an accessibility explanation. Localized decimal parsing and shared one-decimal distance display affect input/presentation only; they do not change pacing, carbohydrate, sodium, or hydration calculations.

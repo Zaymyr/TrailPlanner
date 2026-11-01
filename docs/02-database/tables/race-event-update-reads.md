@@ -83,3 +83,5 @@ Private-demo format selection does not create or clear announcement read receipt
 - [race_event_updates](race-event-updates.md)
 - [RLS Policies](../rls-policies.md)
 - [Mobile App](../../01-architecture/mobile-app.md)
+
+Collapsing a failed catalog image rail or changing sticky search presentation does not mark an update as read and does not create a receipt.

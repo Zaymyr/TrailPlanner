@@ -224,3 +224,5 @@ It:
 - [GPX Import](gpx-import.md)
 - [Organizer Race Management](organizer-race-management.md)
 - [Premium Entitlement](premium-entitlement.md)
+
+The RaceBook workspace switch is the only plan creation/opening entry in the RaceBook header area. Removing the duplicate creation card, localizing its remaining revision warning, and sharing distance/clock presentation do not add writes or alter the persisted plan snapshot. Official station locks remain display-only constraints over organizer-owned fields.

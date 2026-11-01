@@ -143,3 +143,5 @@ Private-demo selection changes only a format's RaceBook entry visibility; it doe
 - [RLS Policies](../rls-policies.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [Web App](../../01-architecture/web-app.md)
+
+Catalog image-error fallback and the edge-to-edge sticky search surface are client presentation changes only. They do not alter announcement scope, content, targeting, or lifecycle.

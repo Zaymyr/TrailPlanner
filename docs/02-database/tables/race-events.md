@@ -372,3 +372,5 @@ The mobile catalog may hide the image rail when no event/format thumbnail exists
 - [race_slug_redirects](race-slug-redirects.md)
 - [GPX Import](../../03-business-rules/gpx-import.md)
 - [Mobile App](../../01-architecture/mobile-app.md)
+
+The mobile summary card now removes its image rail after an image load failure and uses the shared localized distance/range formatter. Neither behavior mutates event media, distances, dates, or visibility.

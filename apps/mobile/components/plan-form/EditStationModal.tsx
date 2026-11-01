@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -6,11 +7,12 @@ import {
   ScrollView,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
-import { Text } from '../themed/Text';
+
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../lib/i18n';
+import { Text } from '../themed/Text';
 import { styles } from './styles';
 
 export type EditingStation = {
@@ -32,11 +34,13 @@ type Props = {
 };
 
 export function EditStationModal({ editingStation, setEditingStation, onSave, officialFieldsReadOnly = false }: Props) {
+  const { t } = useI18n();
   const isCreateMode = editingStation?.mode === 'create';
   const readOnlyOfficialFields = officialFieldsReadOnly && !isCreateMode;
   const updateService = (field: 'waterRefill' | 'solidRefill' | 'assistanceAllowed') => {
     setEditingStation((prev) => (prev ? { ...prev, [field]: !prev[field] } : prev));
   };
+  const lockedLabel = (label: string) => [label, readOnlyOfficialFields ? t.planForm.notEditable : null].filter(Boolean).join(', ');
   const renderServiceOption = (
     field: 'waterRefill' | 'solidRefill' | 'assistanceAllowed',
     label: string,
@@ -44,47 +48,38 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
     icon: keyof typeof Ionicons.glyphMap,
   ) => {
     const checked = Boolean(editingStation?.[field]);
-
     return (
       <TouchableOpacity
-        accessibilityLabel={label}
-        accessibilityRole="checkbox"
-        accessibilityState={{ checked }}
-        disabled={readOnlyOfficialFields}
         accessibilityHint={description}
-        style={[styles.stationServiceOption, checked && styles.stationServiceOptionActive]}
-        onPress={() => updateService(field)}
+        accessibilityLabel={lockedLabel(label)}
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked, disabled: readOnlyOfficialFields }}
         activeOpacity={0.86}
+        disabled={readOnlyOfficialFields}
+        onPress={() => updateService(field)}
+        style={[
+          styles.stationServiceOption,
+          checked && !readOnlyOfficialFields && styles.stationServiceOptionActive,
+          readOnlyOfficialFields && styles.stationServiceOptionLocked,
+        ]}
       >
-        <Ionicons name={icon} size={19} color={checked ? Colors.brandPrimary : Colors.textMuted} />
-        <Text numberOfLines={2} style={[styles.stationServiceLabel, checked && styles.stationServiceLabelActive]}>
+        <Ionicons name={icon} size={19} color={checked && !readOnlyOfficialFields ? Colors.brandPrimary : Colors.textMuted} />
+        <Text numberOfLines={2} style={[styles.stationServiceLabel, checked && !readOnlyOfficialFields && styles.stationServiceLabelActive]}>
           {label}
         </Text>
         <Ionicons
-          name={checked ? 'checkmark-circle' : 'ellipse-outline'}
+          name={readOnlyOfficialFields ? 'lock-closed-outline' : checked ? 'checkmark-circle' : 'ellipse-outline'}
           size={16}
-          color={checked ? Colors.brandPrimary : Colors.textMuted}
+          color={checked && !readOnlyOfficialFields ? Colors.brandPrimary : Colors.textMuted}
         />
       </TouchableOpacity>
     );
   };
 
   return (
-    <Modal
-      visible={editingStation !== null}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setEditingStation(null)}
-    >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.editModalOverlay}
-      >
-        <Pressable
-          accessible={false}
-          onPress={() => setEditingStation(null)}
-          style={styles.editModalBackdrop}
-        />
+    <Modal visible={editingStation !== null} transparent animationType="fade" onRequestClose={() => setEditingStation(null)}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.editModalOverlay}>
+        <Pressable accessible={false} onPress={() => setEditingStation(null)} style={styles.editModalBackdrop} />
         <View accessibilityViewIsModal style={styles.editModalCard}>
           <ScrollView
             contentContainerStyle={styles.editModalContent}
@@ -94,60 +89,42 @@ export function EditStationModal({ editingStation, setEditingStation, onSave, of
           >
             <View style={styles.editModalHeader}>
               <Text accessibilityRole="header" style={styles.editModalTitle}>
-                {isCreateMode ? 'Ajouter un ravitaillement' : 'Modifier le ravitaillement'}
+                {isCreateMode ? t.planForm.addAidStationTitle : t.planForm.editAidStationTitle}
               </Text>
-              <TouchableOpacity
-                accessibilityLabel="Fermer"
-                accessibilityRole="button"
-                onPress={() => setEditingStation(null)}
-              style={[styles.pickerCloseBtn, styles.editModalCloseButton]}
-              >
-                <Text style={styles.pickerCloseText}>✕</Text>
+              <TouchableOpacity accessibilityLabel={t.planForm.closeEditor} accessibilityRole="button" onPress={() => setEditingStation(null)} style={[styles.pickerCloseBtn, styles.editModalCloseButton]}>
+                <Ionicons color={Colors.textPrimary} name="close" size={22} />
               </TouchableOpacity>
             </View>
-            <Text style={styles.label}>Nom</Text>
-            <TextInput
-              accessibilityLabel="Nom"
-              style={styles.textInput}
-              value={editingStation?.name ?? ''}
-              onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, name: t } : prev))}
-              placeholder="Nom du ravitaillement"
-              placeholderTextColor={Colors.textMuted}
-              editable={!readOnlyOfficialFields}
-            />
-            <Text style={styles.label}>Distance (km)</Text>
-            <TextInput
-              accessibilityLabel="Distance en kilomètres"
-              style={[styles.textInput, { marginBottom: 20 }]}
-              value={editingStation?.km ?? ''}
-              onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, km: t } : prev))}
-              keyboardType="numeric"
-              inputAccessoryViewID="pace-yourself-numeric-keyboard"
-              placeholder="0"
-              placeholderTextColor={Colors.textMuted}
-              editable={!readOnlyOfficialFields}
-            />
-            <Text style={styles.label}>Pause (min)</Text>
-            <TextInput
-              accessibilityLabel="Pause en minutes"
-              style={[styles.textInput, { marginBottom: 20 }]}
-              value={editingStation?.pauseMinutes ?? ''}
-              onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: t } : prev))}
-              keyboardType="numeric"
-              inputAccessoryViewID="pace-yourself-numeric-keyboard"
-              placeholder="0"
-              placeholderTextColor={Colors.textMuted}
-            />
-            <Text style={styles.label}>Services disponibles</Text>
+            {readOnlyOfficialFields ? (
+              <View style={styles.officialFieldsHint}>
+                <Ionicons color={Colors.textSecondary} name="lock-closed-outline" size={16} />
+                <Text style={styles.officialFieldsHintText}>{t.planForm.officialFieldsLockedHint}</Text>
+              </View>
+            ) : null}
+
+            <Text style={styles.label}>{t.planForm.nameLabel}</Text>
+            <View style={readOnlyOfficialFields ? styles.lockedInputWrap : undefined}>
+              <TextInput accessibilityLabel={lockedLabel(t.planForm.nameLabel)} accessibilityState={{ disabled: readOnlyOfficialFields }} editable={!readOnlyOfficialFields} onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, name: value } : prev))} placeholder={t.planForm.namePlaceholder} placeholderTextColor={Colors.textMuted} style={[styles.textInput, readOnlyOfficialFields && styles.textInputLocked]} value={editingStation?.name ?? ''} />
+              {readOnlyOfficialFields ? <Ionicons color={Colors.textMuted} name="lock-closed-outline" size={16} style={styles.lockedInputIcon} /> : null}
+            </View>
+
+            <Text style={styles.label}>{t.planForm.distanceLabel}</Text>
+            <View style={readOnlyOfficialFields ? styles.lockedInputWrap : undefined}>
+              <TextInput accessibilityLabel={lockedLabel(t.planForm.distanceLabel)} accessibilityState={{ disabled: readOnlyOfficialFields }} editable={!readOnlyOfficialFields} inputAccessoryViewID="pace-yourself-numeric-keyboard" keyboardType="decimal-pad" onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, km: value } : prev))} placeholder="0" placeholderTextColor={Colors.textMuted} style={[styles.textInput, { marginBottom: 20 }, readOnlyOfficialFields && styles.textInputLocked]} value={editingStation?.km ?? ''} />
+              {readOnlyOfficialFields ? <Ionicons color={Colors.textMuted} name="lock-closed-outline" size={16} style={styles.lockedInputIcon} /> : null}
+            </View>
+
+            <Text style={styles.label}>{t.planForm.pauseLabel}</Text>
+            <TextInput accessibilityLabel={t.planForm.pauseLabel} inputAccessoryViewID="pace-yourself-numeric-keyboard" keyboardType="numeric" onChangeText={(value) => setEditingStation((prev) => (prev ? { ...prev, pauseMinutes: value } : prev))} placeholder="0" placeholderTextColor={Colors.textMuted} style={[styles.textInput, { marginBottom: 20 }]} value={editingStation?.pauseMinutes ?? ''} />
+
+            <Text style={styles.label}>{t.planForm.servicesLabel}</Text>
             <View pointerEvents={readOnlyOfficialFields ? 'none' : 'auto'} style={styles.stationServiceOptions}>
-              {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou de la poche', 'water-outline')}
-              {renderServiceOption('solidRefill', 'Solide', "Produits fournis par l'organisation", 'nutrition-outline')}
-              {renderServiceOption('assistanceAllowed', 'Assistance', "Remise de tes produits par l'équipe", 'people-outline')}
+              {renderServiceOption('waterRefill', t.planForm.waterLabel, t.planForm.waterHint, 'water-outline')}
+              {renderServiceOption('solidRefill', t.planForm.foodLabel, t.planForm.foodHint, 'nutrition-outline')}
+              {renderServiceOption('assistanceAllowed', t.planForm.assistanceLabel, t.planForm.assistanceHint, 'people-outline')}
             </View>
             <TouchableOpacity style={styles.saveButton} onPress={onSave}>
-              <Text style={styles.saveButtonText}>
-                {isCreateMode ? 'Ajouter le ravitaillement' : 'Enregistrer'}
-              </Text>
+              <Text style={styles.saveButtonText}>{isCreateMode ? t.planForm.addAidStationAction : t.planForm.saveAidStationAction}</Text>
             </TouchableOpacity>
           </ScrollView>
         </View>

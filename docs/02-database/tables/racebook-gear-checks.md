@@ -84,3 +84,5 @@ Opening supporter directions or an external access plan does not read or mutate 
 - [Relationships](../relationships.md)
 - [RLS Policies](../rls-policies.md)
 - [Mobile App](../../01-architecture/mobile-app.md)
+
+Checklist progress remains visually neutral until every required item is checked, then becomes successful. This state styling does not alter row ownership, checked persistence, or analytics snapshots.

@@ -88,3 +88,5 @@ rg -n "resend/contact|syncResendContact|resendContactSynced" apps
 - [Duplicate Events Pattern](../04-auth-and-security/duplicate-events-pattern.md)
 - [RLS Policies](../02-database/rls-policies.md)
 - [Trial Lifecycle](../03-business-rules/trial-lifecycle.md)
+
+An Expo development client may intentionally skip OTA update checks based on its development package identifier. Do not diagnose that expected absence as a Supabase session failure; production builds retain the normal update path and auth must still be verified independently.

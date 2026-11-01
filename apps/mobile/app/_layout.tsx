@@ -21,6 +21,7 @@ import * as Linking from 'expo-linking';
 import { PostHogProvider as AnalyticsProvider } from 'posthog-react-native';
 import type { AuthChangeEvent, Session } from '@supabase/supabase-js';
 import * as Updates from 'expo-updates';
+import Constants from 'expo-constants';
 import { BricolageGrotesque_300Light } from '@expo-google-fonts/bricolage-grotesque/300Light';
 import { BricolageGrotesque_400Regular } from '@expo-google-fonts/bricolage-grotesque/400Regular';
 import { BricolageGrotesque_500Medium } from '@expo-google-fonts/bricolage-grotesque/500Medium';
@@ -64,8 +65,10 @@ import {
   trackAnalyticsScreen,
 } from '../lib/posthog';
 import { useSessionSideEffects } from '../hooks/useSessionSideEffects';
+import { isUnsupportedDevelopmentUpdateError, shouldSkipOtaUpdateCheck } from '../lib/otaUpdatePolicy';
 
 const SNOOZE_OPTIONS_MINUTES = [5, 10, 15] as const;
+const appVariant = Constants.expoConfig?.android?.package === 'com.paceyourself.app.dev' ? 'development' : 'production';
 
 void SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -220,7 +223,7 @@ function RootLayoutContent() {
     if (startupUpdateRunRef.current) return;
     startupUpdateRunRef.current = true;
 
-    if (__DEV__ || !Updates.isEnabled) {
+    if (shouldSkipOtaUpdateCheck({ isDevelopmentRuntime: __DEV__, updatesEnabled: Updates.isEnabled, appVariant })) {
       setUpdateState({ status: 'done', detail: null });
       return;
     }
@@ -282,6 +285,10 @@ function RootLayoutContent() {
 
       setUpdateState({ status: 'done', detail: null });
     } catch (error) {
+      if (isUnsupportedDevelopmentUpdateError(error)) {
+        setUpdateState({ status: 'done', detail: null });
+        return;
+      }
       console.error('Startup OTA update check failed:', error);
       startupUpdateRunRef.current = false;
       setUpdateState({
@@ -316,7 +323,7 @@ function RootLayoutContent() {
     if (updateState.status !== 'done') return undefined;
 
     const checkForForegroundUpdate = async () => {
-      if (__DEV__ || !Updates.isEnabled) return;
+      if (shouldSkipOtaUpdateCheck({ isDevelopmentRuntime: __DEV__, updatesEnabled: Updates.isEnabled, appVariant })) return;
       if (foregroundUpdateCheckInFlightRef.current) return;
       if (hasShownForegroundUpdateNotificationRef.current) return;
 
@@ -349,6 +356,7 @@ function RootLayoutContent() {
           trigger: null,
         });
       } catch (error) {
+        if (isUnsupportedDevelopmentUpdateError(error)) return;
         console.error('Foreground OTA update check failed:', error);
       } finally {
         foregroundUpdateCheckInFlightRef.current = false;

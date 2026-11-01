@@ -97,3 +97,5 @@ The full-screen onboarding-to-plan loading transition is also presentation-only:
 - [Session Management](session-management.md)
 - [Auth Flows](auth-flows.md)
 - [race_plans](../02-database/tables/race-plans.md)
+
+The development-client OTA guard is evaluated before each startup or foreground update request and performs no persistence or session side effect. It therefore adds no retryable business mutation and does not replace existing idempotency guards.
