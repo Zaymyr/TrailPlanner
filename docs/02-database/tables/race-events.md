@@ -357,6 +357,8 @@ where is_live = true
 
 A format with at least one complete, effective supporter point counts as meaningful Livret coureur content. The `Suivi coureur` Course sub-tab is driven by that normalized public point collection rather than a separate module response, so a newer published snapshot cannot hide a valid point. The points remain owned by the child `races` row and are removed through its cascade, not stored in event organizer JSON.
 
+The mobile catalog may hide the image rail when no event/format thumbnail exists and may warn before creating a plan for a past `race_date`. Both are derived presentation; they do not rewrite the event date, image, edition visibility, or publication state.
+
 ## Related Docs
 
 

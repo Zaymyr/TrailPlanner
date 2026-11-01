@@ -58,6 +58,9 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 
 9. On iOS, open a representative modal with VoiceOver: focus must remain inside the sheet, its title must be announced as a header, and each icon-only close action must announce its purpose with a 44-point target or equivalent hit slop.
 10. Open a saved plan and confirm the contextual bottom bar replaces the global shell bar. Scroll Mon plan through each tab and verify there is one vertical scroll, no horizontal paging, and the tabs plus auto-fill/add actions remain below the compact header. In Récap, verify hourly targets and Share occupy that same pinned position without duplicate VoiceOver focus.
+11. For a linked plan, confirm official distance, elevation, station identity and services are read-only while pause and section pace remain editable. Repeat on a “Sans course” plan and confirm full course/station editing remains available.
+12. Exercise auto-fill with all favorites selected, one excluded product, an unlimited selected product and a capped selected product. Confirm preview is unavailable with no selection and shortage copy names carbohydrates and sodium.
+13. Open a previously verified plan offline and confirm cached access is reused. Open a never-verified plan with the access API unavailable and confirm the retry state appears instead of the paywall. Deploy compatible web routes before publishing any dependent OTA.
 
 ## Visual Review Rubric
 

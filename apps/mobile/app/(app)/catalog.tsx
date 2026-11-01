@@ -505,7 +505,7 @@ export default function CatalogScreen() {
     }, [loadOwnedPlans]),
   );
 
-  async function handleCreatePlan(catalogRaceId: string) {
+  async function handleCreatePlan(catalogRaceId: string, confirmedPastRace = false) {
     const catalogEvent = eventGroups.find((event) => event.races.some((race) => race.id === catalogRaceId));
     const catalogRace = catalogEvent?.races.find((race) => race.id === catalogRaceId);
 
@@ -535,6 +535,25 @@ export default function CatalogScreen() {
           : 'We could not check your plan right now. Please try again shortly.',
       );
       return;
+    }
+
+    if (!existingPlanId && !confirmedPastRace && catalogEvent?.race_date) {
+      const raceDay = new Date(catalogEvent.race_date);
+      const startOfToday = new Date();
+      startOfToday.setHours(0, 0, 0, 0);
+      if (Number.isFinite(raceDay.getTime()) && raceDay.getTime() < startOfToday.getTime()) {
+        Alert.alert(
+          locale === 'fr' ? 'Cette course est passée' : 'This race has passed',
+          locale === 'fr'
+            ? 'Tu peux quand même créer un plan pour cette course.'
+            : 'You can still create a plan for this race.',
+          [
+            { text: t.common.cancel, style: 'cancel' },
+            { text: locale === 'fr' ? 'Continuer' : 'Continue', onPress: () => { void handleCreatePlan(catalogRaceId, true); } },
+          ],
+        );
+        return;
+      }
     }
 
     captureAnalyticsEvent('catalog create plan clicked', {
@@ -1097,6 +1116,17 @@ export default function CatalogScreen() {
                   returnKeyType="search"
                   style={styles.filterInput}
                 />
+                {nameFilter ? (
+                  <TouchableOpacity
+                    accessibilityLabel={locale === 'fr' ? 'Effacer la recherche' : 'Clear search'}
+                    accessibilityRole="button"
+                    hitSlop={8}
+                    onPress={() => setNameFilter('')}
+                    style={styles.clearSearchButton}
+                  >
+                    <Ionicons name="close-circle" size={22} color={Colors.textMuted} />
+                  </TouchableOpacity>
+                ) : null}
               </View>
               {onboardingMode !== 'racebook' ? <View style={styles.filterActionsRow}>
                 <TouchableOpacity style={styles.filterButton} onPress={() => setFiltersOpen(true)}>
@@ -1372,7 +1402,7 @@ export default function CatalogScreen() {
                   primaryActionLabel={onboardingMode === 'racebook' || race.elevation_gain_m === null
                     ? undefined
                     : ownedPlanIdsByRaceId[race.id]
-                      ? (locale === 'fr' ? 'Affiner mon plan' : 'Refine my plan')
+                      ? (locale === 'fr' ? 'Ouvrir mon plan' : 'Open my plan')
                       : t.catalog.createPlan}
                   onPrimaryPress={onboardingMode === 'racebook' || race.elevation_gain_m === null ? undefined : () => {
                     setSelectedEvent(null);
@@ -1481,6 +1511,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  clearSearchButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   raceRequestButton: {
     minHeight: 44,

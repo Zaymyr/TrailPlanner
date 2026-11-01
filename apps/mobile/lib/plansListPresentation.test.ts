@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDepartureCountdown, sortPlanSections } from './plansListPresentation';
+import { formatDepartureCountdown, isPlanDeparturePast, sortPlanSections } from './plansListPresentation';
 import type { PlanRow, RaceSection } from '../components/plans/types';
 
 const nowMs = Date.parse('2026-11-01T10:00:00Z');
@@ -30,6 +30,13 @@ const countdownCopy = {
 };
 
 describe('plans list presentation', () => {
+  it('keeps a race active until the end of its local calendar day', () => {
+    const afternoon = new Date(2026, 10, 1, 15, 1).getTime();
+    expect(isPlanDeparturePast(new Date(2026, 10, 1, 8, 30).toISOString(), afternoon)).toBe(false);
+    expect(isPlanDeparturePast(new Date(2026, 9, 31, 23, 30).toISOString(), afternoon)).toBe(true);
+    expect(isPlanDeparturePast(null, afternoon)).toBe(false);
+  });
+
   it('sorts sections and plans by upcoming departure, with undated plans before past ones', () => {
     const sections = sortPlanSections([
       section('later', 'Later', [plan('later', '2026-11-03T10:00:00Z')]),

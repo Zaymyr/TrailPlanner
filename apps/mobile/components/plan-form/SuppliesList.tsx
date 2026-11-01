@@ -47,6 +47,7 @@ export const SuppliesList = React.memo(function SuppliesList({
       ) : (
         supplies.map((supply) => {
           const product = productMap[supply.productId];
+          const productName = product?.name ?? 'produit';
 
           return (
             <View key={supply.productId} style={styles.supplyRow}>
@@ -68,6 +69,8 @@ export const SuppliesList = React.memo(function SuppliesList({
 
               {!readOnly ? <View style={styles.supplyControls}>
                 <TouchableOpacity
+                  accessibilityLabel={`Retirer une ${productName}`}
+                  accessibilityRole="button"
                   style={[styles.qtyBtn, supply.quantity <= 1 && styles.qtyBtnDisabled]}
                   onPress={() => decreaseQty(supply.productId)}
                   disabled={!previewIntent && supply.quantity <= 1}
@@ -75,10 +78,10 @@ export const SuppliesList = React.memo(function SuppliesList({
                   <Text style={styles.qtyBtnText}>-</Text>
                 </TouchableOpacity>
                 <Text style={styles.qtyText}>{supply.quantity}</Text>
-                <TouchableOpacity style={styles.qtyBtn} onPress={() => increaseQty(supply.productId)}>
+                <TouchableOpacity accessibilityLabel={`Ajouter une ${productName}`} accessibilityRole="button" style={styles.qtyBtn} onPress={() => increaseQty(supply.productId)}>
                   <Text style={styles.qtyBtnText}>+</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.removeSupplyBtn} onPress={() => removeSupply(supply.productId)}>
+                <TouchableOpacity accessibilityLabel={`Supprimer ${productName} du ravito`} accessibilityRole="button" style={styles.removeSupplyBtn} onPress={() => removeSupply(supply.productId)}>
                   <Text style={styles.removeSupplyText}>×</Text>
                 </TouchableOpacity>
               </View> : <Text style={styles.qtyText}>× {supply.quantity}</Text>}

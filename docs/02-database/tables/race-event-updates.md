@@ -131,6 +131,8 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 - The catalog's unpublished RaceBook CTA remains organizer-membership-derived even though the private course row is runner-visible; it must not change announcement visibility, preload size, or read behavior.
 - Treat a missing or malformed `Content-Range` on the exact-count request as an upstream failure rather than silently displaying an incorrect follower total.
 
+Catalog search clearing, compact no-image cards, past-race plan warnings, and the “Open my plan” action do not create, delete, target, or mark an organizer update. Update previews retain their existing event/format scope.
+
 ## Related Docs
 
 Private-demo selection changes only a format's RaceBook entry visibility; it does not publish, delete, or retarget organizer announcements.

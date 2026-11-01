@@ -24,7 +24,7 @@ export function PlanWorkspaceTabBar({ activeTab, onSelectTab, onExit }: Props) {
     <RacebookTabBar
       activeTab={activeTab}
       exitAction={{
-        accessibilityLabel: t.planWorkspace.saveAndBackToPlans,
+        accessibilityLabel: `${t.planWorkspace.plans}, ${t.planWorkspace.backToPlans}`,
         icon: 'map',
         label: t.planWorkspace.plans,
         onPress: onExit,

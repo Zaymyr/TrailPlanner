@@ -13,7 +13,7 @@ export function NumberInput({ value, onChange, placeholder, style }: NumberInput
   return (
     <TextInput
       style={[inputStyles.input, style]}
-      value={value === 0 ? '' : String(value)}
+      value={String(value)}
       onChangeText={(text) => {
         const parsed = parseFloat(text.replace(',', '.'));
         onChange(Number.isNaN(parsed) ? 0 : parsed);

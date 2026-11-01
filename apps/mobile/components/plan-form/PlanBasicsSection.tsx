@@ -40,6 +40,7 @@ type Props = {
   waterBagOptions: number[];
   onCustomWaterBagFocus?: (input: TextInput | null) => void;
   inline?: boolean;
+  isLinkedRace?: boolean;
 };
 
 type WaterBagCapacitySelectorProps = {
@@ -150,6 +151,7 @@ export function PlanBasicsSection({
   waterBagOptions,
   onCustomWaterBagFocus,
   inline = false,
+  isLinkedRace = false,
 }: Props) {
   const { t } = useI18n();
   const [fatigueTrackWidth, setFatigueTrackWidth] = useState(0);
@@ -324,7 +326,18 @@ export function PlanBasicsSection({
               placeholder="Ex : UTMB 2025"
               placeholderTextColor={Colors.textMuted}
             />
-            <View style={styles.row}>
+            {isLinkedRace ? (
+              <View style={styles.row}>
+                <View style={styles.rowItem}>
+                  <Text style={styles.label}>Distance</Text>
+                  <DataText>{values.raceDistanceKm} km</DataText>
+                </View>
+                <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                  <Text style={styles.label}>D+</Text>
+                  <DataText>{values.elevationGain} m</DataText>
+                </View>
+              </View>
+            ) : <View style={styles.row}>
               <View style={styles.rowItem}>
                 <Text style={styles.label}>Distance (km)</Text>
                 <NumberInput value={values.raceDistanceKm} onChange={(value) => update('raceDistanceKm', value)} placeholder="50" />
@@ -333,13 +346,14 @@ export function PlanBasicsSection({
                 <Text style={styles.label}>D+ (m)</Text>
                 <NumberInput value={values.elevationGain} onChange={(value) => update('elevationGain', value)} placeholder="3000" />
               </View>
-            </View>
+            </View>}
           </>
         </View>
 
         <View style={styles.inlineSettingsCard}>
-        {renderAccordionHeader('pace', 'Allure', [paceSummary, fatigueDescriptor], true)}
+        {renderAccordionHeader('pace', 'Allure de base sur le plat', [paceSummary, fatigueDescriptor], true)}
           <>
+            <Text style={styles.waterBagHint}>L'allure moyenne de course tient compte du dénivelé et de la fatigue.</Text>
             <View style={styles.toggleRow}>
               <TouchableOpacity style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]} onPress={() => update('paceType', 'pace')}>
                 <Text style={[styles.toggleBtnText, values.paceType === 'pace' && styles.toggleBtnTextActive]}>Allure (min/km)</Text>
@@ -502,7 +516,18 @@ export function PlanBasicsSection({
                     placeholderTextColor={Colors.textMuted}
                   />
 
-                  <View style={styles.row}>
+                  {isLinkedRace ? (
+                    <View style={styles.row}>
+                      <View style={styles.rowItem}>
+                        <Text style={styles.label}>Distance</Text>
+                        <DataText>{values.raceDistanceKm} km</DataText>
+                      </View>
+                      <View style={[styles.rowItem, { marginLeft: 12 }]}>
+                        <Text style={styles.label}>D+</Text>
+                        <DataText>{values.elevationGain} m</DataText>
+                      </View>
+                    </View>
+                  ) : <View style={styles.row}>
                     <View style={styles.rowItem}>
                       <Text style={styles.label}>Distance (km)</Text>
                       <NumberInput
@@ -515,18 +540,19 @@ export function PlanBasicsSection({
                       <Text style={styles.label}>D+ (m)</Text>
                       <NumberInput value={values.elevationGain} onChange={(v) => update('elevationGain', v)} placeholder="3000" />
                     </View>
-                  </View>
+                  </View>}
                 </>
               )}
 
               {renderAccordionHeader(
                 'pace',
-                'Allure',
+                'Allure de base sur le plat',
                 [paceSummary, fatigueDescriptor],
                 true,
               )}
               {expandedSections.pace && (
                 <>
+                  <Text style={styles.waterBagHint}>L'allure moyenne de course tient compte du dénivelé et de la fatigue.</Text>
                   <View style={styles.toggleRow}>
                     <TouchableOpacity
                       style={[styles.toggleBtn, values.paceType === 'pace' && styles.toggleBtnActive]}

@@ -45,7 +45,12 @@ import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
 import { PremiumUpsellModal } from '../../../../components/premium/PremiumUpsellModal';
 import { WEB_API_BASE_URL } from '../../../../lib/webApi';
-import { resolveRunnerPlanCapabilities, type RunnerPlanCapabilities } from '../../../../lib/runnerPlanAccess';
+import {
+  cacheRunnerPlanCapabilities,
+  readCachedRunnerPlanCapabilities,
+  resolveRunnerPlanAccess,
+  type RunnerPlanCapabilities,
+} from '../../../../lib/runnerPlanAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { isAnonymousSession } from '../../../../lib/appSession';
 import { useI18n } from '../../../../lib/i18n';
@@ -262,6 +267,7 @@ export default function EditPlanScreen() {
   const [saving, setSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [linkedRaceId, setLinkedRaceId] = useState<string | null>(null);
+  const [linkedRaceEventName, setLinkedRaceEventName] = useState<string | null>(null);
   const [racebookAvailable, setRacebookAvailable] = useState(false);
   const [sourceRevisionAtLastReview, setSourceRevisionAtLastReview] = useState<string | null>(null);
   const [currentSourceRevision, setCurrentSourceRevision] = useState<string | null>(null);
@@ -281,6 +287,7 @@ export default function EditPlanScreen() {
   const [planCanEdit, setPlanCanEdit] = useState(false);
   const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
   const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
+  const [runnerAccessUnknown, setRunnerAccessUnknown] = useState(false);
   const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
   const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
   const lastSavedSnapshotRef = useRef<string | null>(initialWarmStartDraft?.lastSavedSnapshot ?? null);
@@ -319,6 +326,7 @@ export default function EditPlanScreen() {
   useEffect(() => {
     let cancelled = false;
     setLinkedRaceId(null);
+    setLinkedRaceEventName(null);
     setRacebookAvailable(false);
     setSourceRevisionAtLastReview(null);
     setCurrentSourceRevision(null);
@@ -387,13 +395,16 @@ export default function EditPlanScreen() {
 
     void supabase
       .from('race_plans')
-      .select('race_id, races(elevation_loss_m, organizer_details)')
+      .select('race_id, races(elevation_loss_m, organizer_details, race_events(name))')
       .eq('id', id)
       .maybeSingle()
       .then(async (result: { data: unknown }) => {
         if (cancelled) return;
-        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null; organizer_details?: unknown } | null } | null;
+        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null; organizer_details?: unknown; race_events?: { name?: string | null } | { name?: string | null }[] | null } | null } | null;
         setLinkedRaceId(row?.race_id ?? null);
+        const eventRelation = row?.races?.race_events;
+        const eventName = Array.isArray(eventRelation) ? eventRelation[0]?.name : eventRelation?.name;
+        setLinkedRaceEventName(typeof eventName === 'string' ? eventName : null);
         const officialValue = row?.races?.elevation_loss_m;
         setOfficialElevationLossM(
           typeof officialValue === 'number' && Number.isFinite(officialValue) && officialValue >= 0
@@ -466,6 +477,7 @@ export default function EditPlanScreen() {
     setPlanCanEdit(false);
     setPlanCanViewDetails(false);
     setRunnerAccessMode('real');
+    setRunnerAccessUnknown(false);
     setActivePlanEditSession(id);
 
     if (cachedDraft && cachedProductData) {
@@ -506,15 +518,33 @@ export default function EditPlanScreen() {
     if (!id) return;
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
-    if (!token) return;
+    const uid = data.session?.user.id;
+    if (!token || !uid) return;
     try {
       const response = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${token}` } });
-      const payload = await response.json() as { access?: RunnerPlanCapabilities };
+      const payload = await response.json().catch(() => null) as { access?: RunnerPlanCapabilities } | null;
       if (activeRouteIdRef.current !== id) return;
-      const capabilities = resolveRunnerPlanCapabilities(response.ok ? payload.access ?? null : null);
-      setPlanCanEdit(capabilities.canEdit); setPlanCanViewDetails(capabilities.canViewDetails);
-      setRunnerAccessMode(capabilities.mode ?? 'real');
-    } catch { /* Keep the last server-verified access while offline. */ }
+      const cached = await readCachedRunnerPlanCapabilities(uid, id);
+      const resolution = resolveRunnerPlanAccess(response.ok ? payload?.access ?? null : null, cached);
+      if (!resolution.capabilities) {
+        setRunnerAccessUnknown(true);
+        return;
+      }
+      setRunnerAccessUnknown(false);
+      setPlanCanEdit(resolution.capabilities.canEdit); setPlanCanViewDetails(resolution.capabilities.canViewDetails);
+      setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+      if (resolution.status === 'verified') void cacheRunnerPlanCapabilities(uid, id, resolution.capabilities);
+    } catch {
+      const cached = await readCachedRunnerPlanCapabilities(uid, id);
+      const resolution = resolveRunnerPlanAccess(null, cached);
+      if (!resolution.capabilities) setRunnerAccessUnknown(true);
+      else {
+        setRunnerAccessUnknown(false);
+        setPlanCanEdit(resolution.capabilities.canEdit);
+        setPlanCanViewDetails(resolution.capabilities.canViewDetails);
+        setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+      }
+    }
   }, [id]);
   useFocusEffect(useCallback(() => { void refreshRunnerAccess(); }, [refreshRunnerAccess]));
 
@@ -539,17 +569,30 @@ export default function EditPlanScreen() {
     const uid = sessionData.data?.session?.user?.id ?? null;
     let nextPlanCanEdit = false;
     if (sessionData.data?.session?.access_token && id) {
+      const accessUserId = sessionData.data.session.user.id;
+      const cachedAccess = await readCachedRunnerPlanCapabilities(accessUserId, id);
       try {
         const accessResponse = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, {
           headers: { Authorization: `Bearer ${sessionData.data.session.access_token}` },
         });
         const accessPayload = (await accessResponse.json().catch(() => null)) as { access?: RunnerPlanCapabilities } | null;
-        const capabilities = resolveRunnerPlanCapabilities(accessResponse.ok ? accessPayload?.access ?? null : null);
-        nextPlanCanEdit = capabilities.canEdit;
-        setPlanCanViewDetails(capabilities.canViewDetails);
-        setRunnerAccessMode(capabilities.mode ?? 'real');
+        const resolution = resolveRunnerPlanAccess(accessResponse.ok ? accessPayload?.access ?? null : null, cachedAccess);
+        if (resolution.capabilities) {
+          nextPlanCanEdit = resolution.capabilities.canEdit;
+          setPlanCanViewDetails(resolution.capabilities.canViewDetails);
+          setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+          setRunnerAccessUnknown(false);
+          if (resolution.status === 'verified') void cacheRunnerPlanCapabilities(accessUserId, id, resolution.capabilities);
+        } else setRunnerAccessUnknown(true);
       } catch (accessError) {
         console.warn('Unable to load plan access.', accessError);
+        const resolution = resolveRunnerPlanAccess(null, cachedAccess);
+        if (resolution.capabilities) {
+          nextPlanCanEdit = resolution.capabilities.canEdit;
+          setPlanCanViewDetails(resolution.capabilities.canViewDetails);
+          setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+          setRunnerAccessUnknown(false);
+        } else setRunnerAccessUnknown(true);
       }
     }
     if (isStaleLoad()) return;
@@ -1037,6 +1080,18 @@ export default function EditPlanScreen() {
     );
   }
 
+  if (runnerAccessUnknown) {
+    return (
+      <View style={styles.center}>
+        <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
+        <Text style={styles.errorText}>{locale === 'fr' ? 'Impossible de vérifier ton accès à ce plan.' : 'We could not verify access to this plan.'}</Text>
+        <Pressable accessibilityRole="button" onPress={() => { setRunnerAccessUnknown(false); void loadPlan(); }} style={styles.errorBackButton}>
+          <Text style={styles.errorBackButtonText}>{t.common.retry}</Text>
+        </Pressable>
+      </View>
+    );
+  }
+
 
   return (
     <View
@@ -1111,6 +1166,7 @@ export default function EditPlanScreen() {
           onWorkspaceScroll={handleWorkspaceScroll}
           showActions={false}
           targetAidStationId={targetAidStationId}
+          isLinkedRace={Boolean(linkedRaceId)}
           surface={activeTab === 'settings' ? 'settings' : 'plan'}
           tutorial={{
             scrollRef,
@@ -1136,6 +1192,7 @@ export default function EditPlanScreen() {
         saveStatus={saveStatus}
         scrollY={scrollY}
         title={liveValues?.name || planName}
+        subtitle={linkedRaceEventName}
         topInset={insets.top}
         totalTime={workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—'}
       />

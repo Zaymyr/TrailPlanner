@@ -133,6 +133,7 @@ export default function NewPlanScreen() {
   const [loading, setLoading] = useState(Boolean(resolvedRaceId));
   const [loadingPlanName, setLoadingPlanName] = useState<string | null>(null);
   const [loadingProgress, setLoadingProgress] = useState(0.08);
+  const [openingExistingPlan, setOpeningExistingPlan] = useState(false);
   const [showRaceSelector, setShowRaceSelector] = useState(!resolvedRaceId);
   const [showPremiumLimitModal, setShowPremiumLimitModal] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
@@ -193,6 +194,7 @@ export default function NewPlanScreen() {
 
       const existingPlanId = await findExistingPlanId(uid, race.id);
       if (existingPlanId) {
+        setOpeningExistingPlan(true);
         setLoadingProgress(1);
         await clearPendingRunnerRace();
         await openPlan(existingPlanId, onboarding === 'plan');
@@ -229,6 +231,7 @@ export default function NewPlanScreen() {
       if (error?.code === '23505') {
         const concurrentPlanId = await findExistingPlanId(uid, race.id).catch(() => null);
         if (concurrentPlanId) {
+          setOpeningExistingPlan(true);
           setLoadingProgress(1);
           await clearPendingRunnerRace();
           await openPlan(concurrentPlanId, onboarding === 'plan');
@@ -378,6 +381,7 @@ export default function NewPlanScreen() {
             if (uid) {
               const existingPlanId = await findExistingPlanId(uid, resolvedRaceId).catch(() => null);
               if (existingPlanId) {
+                setOpeningExistingPlan(true);
                 await openPlan(existingPlanId, onboarding === 'plan');
                 return;
               }
@@ -501,7 +505,7 @@ export default function NewPlanScreen() {
         <PlanLoadingScreen
           planName={visiblePlanName}
           progress={loadingProgress}
-          variant="create"
+          variant={openingExistingPlan ? 'edit' : 'create'}
         />
       </>
     );

@@ -18,7 +18,7 @@ import type { AutoFillProductLimit } from './usePlanSupplies';
 import type { AutoFillPreview } from '../../lib/autoFillPreview';
 import { styles } from './styles';
 
-type LimitDraft = Record<string, { limited: boolean; quantity: string }>;
+type LimitDraft = Record<string, { selected: boolean; limited: boolean; quantity: string }>;
 
 type Props = {
   visible: boolean;
@@ -35,23 +35,20 @@ type Props = {
 };
 
 function buildInitialDraft(products: PlanProduct[], initialLimits: AutoFillProductLimit[] = []): LimitDraft {
-  const limitMap = new Map(
-    initialLimits.flatMap((limit) => {
-      if (limit.maxQuantity === null || limit.maxQuantity === undefined) return [];
-
-      const quantity = Math.floor(limit.maxQuantity);
-      if (!Number.isFinite(quantity)) return [];
-
-      return [[limit.productId, Math.max(0, quantity)] as const];
-    }),
-  );
+  const limitMap = new Map(initialLimits.map((limit) => [limit.productId, limit.maxQuantity] as const));
+  const hasExplicitSelection = initialLimits.length > 0;
 
   return Object.fromEntries(
     products.map((product) => {
-      const quantity = limitMap.get(product.id);
+      const maxQuantity = limitMap.get(product.id);
+      const limited = typeof maxQuantity === 'number' && Number.isFinite(maxQuantity);
       return [
         product.id,
-        quantity === undefined ? { limited: false, quantity: '1' } : { limited: true, quantity: String(quantity) },
+        {
+          selected: hasExplicitSelection ? limitMap.has(product.id) : true,
+          limited,
+          quantity: limited ? String(Math.max(0, Math.floor(maxQuantity))) : '1',
+        },
       ] as const;
     }),
   );
@@ -86,16 +83,20 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
     }
   }, [initialLimits, usableProducts, visible]);
 
-  const toggleLimited = (productId: string) => {
+  const toggleSelected = (productId: string) => {
     setDraft((prev) => {
-      const current = prev[productId] ?? { limited: false, quantity: '1' };
+      const current = prev[productId] ?? { selected: true, limited: false, quantity: '1' };
       return {
         ...prev,
-        [productId]: {
-          limited: !current.limited,
-          quantity: current.quantity || '1',
-        },
+        [productId]: { ...current, selected: !current.selected },
       };
+    });
+  };
+
+  const toggleLimited = (productId: string) => {
+    setDraft((prev) => {
+      const current = prev[productId] ?? { selected: true, limited: false, quantity: '1' };
+      return { ...prev, [productId]: { ...current, limited: !current.limited } };
     });
   };
 
@@ -103,7 +104,8 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
     setDraft((prev) => ({
       ...prev,
       [productId]: {
-        ...(prev[productId] ?? { limited: true, quantity: '1' }),
+        ...(prev[productId] ?? { selected: true, limited: true, quantity: '1' }),
+        selected: true,
         limited: true,
         quantity: sanitizeQuantity(quantity),
       },
@@ -111,9 +113,10 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
   };
 
   const applyLimits = () => {
-    const limits = usableProducts.flatMap((product) => {
+    const limits: AutoFillProductLimit[] = usableProducts.flatMap<AutoFillProductLimit>((product) => {
       const row = draft[product.id];
-      if (!row?.limited) return [];
+      if (!row?.selected) return [];
+      if (!row.limited) return [{ productId: product.id, maxQuantity: null }];
 
       const parsedQuantity = Number.parseInt(row.quantity, 10);
       const maxQuantity = Number.isFinite(parsedQuantity) ? Math.max(0, parsedQuantity) : 0;
@@ -122,6 +125,8 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
 
     onPreview(limits);
   };
+
+  const hasSelectedProduct = usableProducts.some((product) => draft[product.id]?.selected);
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
@@ -132,7 +137,7 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
           <View style={styles.autoFillLimitsHeader}>
             <View style={styles.autoFillLimitsHeaderCopy}>
               <Text accessibilityRole="header" style={styles.autoFillLimitsTitle}>
-                {preview ? 'Aperçu' : 'Stock disponible'}
+                {preview ? 'Aperçu' : 'Produits à répartir'}
               </Text>
             </View>
             <TouchableOpacity accessibilityLabel="Fermer" accessibilityRole="button" hitSlop={6} onPress={onClose} style={styles.pickerCloseBtn}>
@@ -172,9 +177,9 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
                       {preview.worstShortage.sectionLabel}
                     </Text>
                     <Text style={styles.autoFillPreviewWarningText}>
-                      {preview.worstShortage.carbsG > 0 ? `−${preview.worstShortage.carbsG} g` : ''}
+                      {preview.worstShortage.carbsG > 0 ? `−${preview.worstShortage.carbsG} g glucides` : ''}
                       {preview.worstShortage.carbsG > 0 && preview.worstShortage.sodiumMg > 0 ? ' · ' : ''}
-                      {preview.worstShortage.sodiumMg > 0 ? `−${preview.worstShortage.sodiumMg} mg` : ''}
+                      {preview.worstShortage.sodiumMg > 0 ? `−${preview.worstShortage.sodiumMg} mg sodium` : ''}
                     </Text>
                   </View>
                 </View>
@@ -195,45 +200,47 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
                 <Text style={styles.pickerEmpty}>Aucun favori utilisable.</Text>
               ) : (
                 usableProducts.map((product) => {
-                  const row = draft[product.id] ?? { limited: false, quantity: '1' };
+                  const row = draft[product.id] ?? { selected: true, limited: false, quantity: '1' };
                   const carbs = Math.round(product.carbs_g ?? 0);
                   const sodium = Math.round(product.sodium_mg ?? 0);
 
                   return (
                     <View key={product.id} style={styles.autoFillLimitRow}>
                       <TouchableOpacity
-                        accessibilityLabel={`${row.limited ? 'Ne plus limiter' : 'Limiter'} ${product.name}`}
+                        accessibilityLabel={`${row.selected ? 'Ne pas utiliser' : 'Utiliser'} ${product.name}`}
                         accessibilityRole="checkbox"
-                        accessibilityState={{ checked: row.limited }}
-                        onPress={() => toggleLimited(product.id)}
+                        accessibilityState={{ checked: row.selected }}
+                        onPress={() => toggleSelected(product.id)}
                         style={styles.autoFillLimitCheckbox}
                       >
                         <Ionicons
-                          color={row.limited ? Colors.brandPrimary : Colors.textMuted}
-                          name={row.limited ? 'checkbox' : 'square-outline'}
+                          color={row.selected ? Colors.brandPrimary : Colors.textMuted}
+                          name={row.selected ? 'checkbox' : 'square-outline'}
                           size={22}
                         />
                       </TouchableOpacity>
                       <View style={styles.autoFillLimitInfo}>
                         <View style={styles.autoFillLimitNameRow}>
                           <Text style={styles.autoFillLimitName} numberOfLines={1}>{product.name}</Text>
-                          <Text style={[styles.autoFillLimitBadge, row.limited && styles.autoFillLimitBadgeActive]}>
-                            Limiter
-                          </Text>
+                          {row.selected ? <TouchableOpacity onPress={() => toggleLimited(product.id)}>
+                            <Text style={[styles.autoFillLimitBadge, row.limited && styles.autoFillLimitBadgeActive]}>
+                              {row.limited ? 'Quantité max.' : 'Illimité'}
+                            </Text>
+                          </TouchableOpacity> : null}
                         </View>
                         <Text style={styles.autoFillLimitMeta} numberOfLines={1}>
                           {fuelLabels[product.fuel_type] ?? product.fuel_type.toUpperCase()} - {carbs}g glucides - {sodium}mg sodium
                         </Text>
                       </View>
                       <TextInput
-                        editable={row.limited}
+                        editable={row.selected && row.limited}
                         keyboardType="number-pad"
                         inputAccessoryViewID="pace-yourself-numeric-keyboard"
                         onChangeText={(value) => updateQuantity(product.id, value)}
-                        placeholder={row.limited ? '0' : 'Illimite'}
+                        placeholder={row.limited ? '0' : 'Illimité'}
                         placeholderTextColor={Colors.textMuted}
                         selectTextOnFocus
-                        style={[styles.autoFillLimitInput, !row.limited && styles.autoFillLimitInputDisabled]}
+                        style={[styles.autoFillLimitInput, (!row.selected || !row.limited) && styles.autoFillLimitInputDisabled]}
                         value={row.limited ? row.quantity : ''}
                       />
                     </View>
@@ -248,9 +255,9 @@ export const AutoFillLimitsModal = React.memo(function AutoFillLimitsModal({
               <Text style={styles.autoFillLimitsSecondaryText}>{preview ? 'Retour' : 'Annuler'}</Text>
             </TouchableOpacity>
             <TouchableOpacity
-              disabled={previewLoading || productsLoading}
+              disabled={previewLoading || productsLoading || (!preview && !hasSelectedProduct)}
               onPress={preview ? onConfirm : applyLimits}
-              style={[styles.autoFillLimitsPrimaryButton, (previewLoading || productsLoading) && styles.autoFillLimitsPrimaryButtonDisabled]}
+              style={[styles.autoFillLimitsPrimaryButton, (previewLoading || productsLoading || (!preview && !hasSelectedProduct)) && styles.autoFillLimitsPrimaryButtonDisabled]}
             >
               <Text style={styles.autoFillLimitsPrimaryText}>{preview ? 'Appliquer' : 'Aperçu'}</Text>
             </TouchableOpacity>

@@ -66,7 +66,7 @@ import {
 import { useI18n } from '../../lib/i18n';
 
 type Props = {
-  values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel'>;
+  values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel' | 'startSupplies'>;
   basePaceMinutesPerKm: number;
   departId: string;
   arriveeId: string;
@@ -74,9 +74,11 @@ type Props = {
   toggleStation: (stationKey: string) => void;
   setEditingStation: (value: EditingStation) => void;
   removeAidStation: (index: number) => void;
+  isLinkedRace?: boolean;
   fillSuppliesAuto: () => void;
   isAutoFilling: boolean;
   autoFillLoadingMessage: string;
+  nutritionNeedsChanged?: boolean;
   intermediateCount: number;
   getSupplies: (target: PlanTarget) => { productId: string; quantity: number }[];
   openPicker: (target: PlanTarget) => void;
@@ -239,9 +241,11 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   toggleStation,
   setEditingStation,
   removeAidStation,
+  isLinkedRace = false,
   fillSuppliesAuto,
   isAutoFilling,
   autoFillLoadingMessage,
+  nutritionNeedsChanged = false,
   intermediateCount,
   getSupplies,
   openPicker,
@@ -314,6 +318,8 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   const [selectedViewMode, setSelectedViewMode] = useState<PlanViewMode>('stations');
   const [focusedAidStationId, setFocusedAidStationId] = useState<string | null>(values.aidStations[0]?.id ?? null);
   const [paceDrafts, setPaceDrafts] = useState<Record<string, string>>({});
+  const hasAnyDistributedProducts = (values.startSupplies?.length ?? 0) > 0
+    || values.aidStations.some((station) => (station.supplies?.length ?? 0) > 0);
   const [anchorsVersion, setAnchorsVersion] = useState(0);
   const aidStationsMetaKey = useMemo(
     () =>
@@ -591,6 +597,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         summary={summary}
         compact={compact}
         getGaugeMetrics={getGaugeMetrics}
+        prepared={hasAnyDistributedProducts}
       />
     );
   }
@@ -615,6 +622,14 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
             ? 'Répartis tes produits favoris selon tes besoins et les caractéristiques du parcours.'
             : 'Distribute your favorite products according to your needs and the course profile.'}
         </ThemedText>
+        {nutritionNeedsChanged ? (
+          <TouchableOpacity accessibilityRole="button" onPress={fillSuppliesAuto} style={styles.autoFillPreviewChange}>
+            <Ionicons name="refresh" size={18} color={colors.brand.forest} />
+            <Text style={styles.autoFillPreviewChangeText}>
+              {locale === 'fr' ? 'Tes besoins ont changé — Répartir à nouveau' : 'Your needs changed — Distribute again'}
+            </Text>
+          </TouchableOpacity>
+        ) : null}
         <TutorialTarget
           onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
           onRegisterRef={tutorial?.onTargetRegisterRef}
@@ -635,9 +650,11 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                 </>
               ) : (
                 <>
-                  <Ionicons name="sparkles" size={18} color={colors.text.inverse} />
+                  <Ionicons name={previewMode ? 'lock-closed' : 'sparkles'} size={18} color={colors.text.inverse} />
                   <Text style={[styles.fillBtnText, planDetailStyles.nutritionPreparationButtonText]}>
-                    {locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically'}
+                    {previewMode
+                      ? (locale === 'fr' ? 'Premium · Répartir mes produits automatiquement' : 'Premium · Distribute my products automatically')
+                      : (locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically')}
                   </Text>
                 </>
               )}
@@ -801,7 +818,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
               >
                 <Ionicons name="create-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
-              <TouchableOpacity
+              {!isLinkedRace ? <TouchableOpacity
                 accessibilityLabel={`Supprimer ${station.name}`}
                 accessibilityRole="button"
                 style={styles.headerIconBtn}
@@ -809,11 +826,11 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                 hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
               >
                 <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
-              </TouchableOpacity>
+              </TouchableOpacity> : null}
               </> : (
                 <View style={styles.headerIconBtn}>
                   <Ionicons name="create-outline" size={16} color={colors.text.secondary} />
-                  <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
+                  {!isLinkedRace ? <Ionicons name="trash-outline" size={16} color={colors.text.secondary} /> : null}
                 </View>
               )}
               <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
@@ -1080,6 +1097,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                   <AidStationProfileSegmentCard
                     key={`sub-segment-${summary.sectionIndex}-${segmentIndex}`}
                     title={getSegmentCardTitle(segment.label, segmentIndex)}
+                    accessibilityContext={`${station.name} vers ${nextStation.name}`}
                     durationLabel={formatSectionDuration(segmentStat.etaSeconds / 60)}
                     paceValue={adjustmentValue}
                     profilePoints={segmentProfile}
