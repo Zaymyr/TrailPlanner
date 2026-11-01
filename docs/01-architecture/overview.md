@@ -114,6 +114,8 @@ The mobile app is configured for EAS in `apps/mobile/eas.json`:
 - Android production submission: completed release to the Google Play `production` track
 - Store-candidate submission: Android internal-track draft plus iOS App Store Connect/TestFlight upload
 
+The current store marketing version is `1.1.2`, while the compatible EAS Update runtime remains `1.1.1`. Remote versioning automatically advances developer-facing build identifiers; a new App Store version train still requires an explicit `version` change and a rebuilt IPA.
+
 `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform quality-gate target. It builds the `e2e-test` binaries and runs the same Maestro journey against Android and iOS, with recordings and screenshot artifacts for human visual review. Its hosted Maestro jobs require a compatible paid Expo plan; the current project plan supports keeping and reviewing the configuration but rejects execution of those jobs.
 
 Merged `main` commits start the native store-candidate workflow but pause before building until an EAS approval is granted. Public Android rollout is a separate protected GitHub dispatch that validates the approved commit and EAS build metadata; iOS public review and release remain controlled in App Store Connect.

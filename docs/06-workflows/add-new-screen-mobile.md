@@ -137,7 +137,7 @@ RaceBook screens must treat the effective module map as additive server data: hi
 - When a mobile screen embeds public formats under `race_events`, use an explicit live-format relation filter; use `!inner` when parent events with no visible formats must also disappear. RLS/public flags alone do not filter the embedded array in this schema.
 - When extending the Courses tab, preserve its event-level route contract: favorites stay tied to `race_events`; an identified runner's card-local heart may flip in the same interaction frame and animate optimistically, but it must resynchronize with the server result and preserve the current list order and viewport until the next load or refresh applies the confirmed pinned order; a guest heart must open the account prompt without flipping. Organizer-update links add `updateId` and optional `raceId` to the catalog route so the existing event sheet opens the precise message and format context; the light-green update panel follows every format action, shows only the newest or targeted message while collapsed, and reveals older messages plus lazy-loaded history through `View more`.
 - Premium purchase UI that can trigger App Store review should keep the subscription summary plus both legal links close to the CTA: explicit title, duration, price, privacy policy, and Terms of Use (EULA).
-- Native changes require a new platform-compatible EAS Update runtime. The current source targets shared runtime `1.1.1`; the light iOS appearance requires a new iOS `1.1.1` binary before its OTA channel receives `1.1.1` updates.
+- Native changes require a new platform-compatible EAS Update runtime. The current source uses store marketing version `1.1.2` and targets shared runtime `1.1.1`; the light iOS appearance requires a runtime-`1.1.1` iOS binary before its OTA channel receives `1.1.1` updates.
 
 ### Racebook Identity Presentation
 
@@ -194,6 +194,8 @@ Before promoting an Android store candidate, smoke-test the release build from t
 For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobile-ux-audit.md). Run `npm run test:e2e:ux -w @trailplanner/mobile` locally when Maestro and an installed build are available, or launch the manual EAS workflow.
 
 For production OTA updates, resolve and verify runtime `1.1.1` on both platforms. Do not publish an iOS `1.1.1` OTA until a matching iOS binary containing the light appearance configuration is installed or released.
+
+Before starting a store build, compare the explicit app marketing `version` with the latest approved store version. The production profile auto-increments developer-facing build identifiers only; a closed App Store version train requires a higher `version` and a newly built IPA.
 
 For App Store subscription work, verify on iPhone and iPad layouts that the purchase surface still exposes functional privacy and Terms/EULA links without truncation.
 

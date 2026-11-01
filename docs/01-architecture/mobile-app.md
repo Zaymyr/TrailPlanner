@@ -261,7 +261,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - owner `pace-yourself`;
 - scheme `paceyourself`;
 - production Android/iOS identifier `com.paceyourself.app` and development identifier `com.paceyourself.app.dev`, selected by `APP_VARIANT=development`;
-- app version `1.1.1`;
+- app version `1.1.2`;
 - shared iOS/Android runtime version `1.1.1` for the current native release line;
 - light system appearance, matching the app's light palette; mounted solid-brand headers override status-bar content with their contrast-safe light/dark variant;
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
@@ -435,6 +435,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.
 
 - The shared runtime is `1.1.1`. The light iOS appearance is native configuration, so a runtime-`1.1.1` iOS binary must reach testers/App Store before a `1.1.1` OTA is published; do not send that OTA to older iOS `1.1.0` binaries.
+- The production profile's remote `autoIncrement` advances the developer-facing iOS build number, not the App Store marketing version. Increment `version` explicitly before building when App Store Connect has closed the current version train; a rejected IPA keeps its embedded version and must be rebuilt.
 - Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export. Likewise, import Expo vector-icon families from their direct subpath (for example, `@expo/vector-icons/Ionicons`) instead of the package barrel so Metro does not retain unrelated icon-font families.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
 - Never use the `production` submit profile from an automatic branch trigger. Automation must use `store-candidate`; the production profile is reserved for the separately approved Android dispatch.
