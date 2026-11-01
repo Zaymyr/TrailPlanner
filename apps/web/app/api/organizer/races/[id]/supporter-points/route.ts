@@ -15,6 +15,9 @@ import { invalidateRacebookCache } from "../../../../../../lib/racebook-cache";
 const nullableHttpUrl = z.union([z.string().trim().url().refine((value) => /^https?:\/\//i.test(value)), z.literal(""), z.null()])
   .optional()
   .transform((value) => value || null);
+const nullableDraftText = (max: number) => z.union([z.string().trim().max(max), z.null()])
+  .optional()
+  .transform((value) => value || null);
 
 const supporterPointRowSchema = z.object({
   id: z.string().uuid(),
@@ -28,6 +31,7 @@ const supporterPointRowSchema = z.object({
   latitude: z.coerce.number().nullable(),
   longitude: z.coerce.number().nullable(),
   google_maps_url: z.string().nullable(),
+  access_on_course: z.boolean(),
   access_note: z.string().nullable(),
   plan_url: z.string().nullable(),
 });
@@ -38,11 +42,12 @@ const supporterPointInputSchema = z.object({
   distanceKm: z.number().min(0).nullable(),
   encouragementAllowed: z.boolean().default(false),
   assistanceAllowed: z.boolean().default(false),
-  accessLabel: z.string().trim().max(240).optional().transform((value) => value || null),
+  accessLabel: nullableDraftText(240),
   latitude: z.number().min(-90).max(90).nullable(),
   longitude: z.number().min(-180).max(180).nullable(),
   googleMapsUrl: nullableHttpUrl,
-  accessNote: z.string().trim().max(2_000).optional().transform((value) => value || null),
+  accessOnCourse: z.boolean().default(false),
+  accessNote: nullableDraftText(2_000),
   planUrl: nullableHttpUrl,
 }).superRefine((point, context) => {
   if ((point.latitude === null) !== (point.longitude === null)) {
@@ -51,7 +56,7 @@ const supporterPointInputSchema = z.object({
 });
 
 const updateSchema = z.object({ supporterPoints: z.array(supporterPointInputSchema).max(100) });
-const select = "id,race_id,name,km,order_index,encouragement_allowed,assistance_allowed,access_label,latitude,longitude,google_maps_url,access_note,plan_url";
+const select = "id,race_id,name,km,order_index,encouragement_allowed,assistance_allowed,access_label,latitude,longitude,google_maps_url,access_on_course,access_note,plan_url";
 
 const serializePoint = (point: z.infer<typeof supporterPointRowSchema>, raceDistanceKm: number) => ({
   id: point.id,
@@ -59,12 +64,13 @@ const serializePoint = (point: z.infer<typeof supporterPointRowSchema>, raceDist
   distanceKm: point.km,
   encouragementAllowed: point.encouragement_allowed,
   assistanceAllowed: point.assistance_allowed,
-  accessLabel: point.access_label,
+  accessLabel: point.access_label ?? "",
   latitude: point.latitude,
   longitude: point.longitude,
   googleMapsUrl: point.google_maps_url,
-  accessNote: point.access_note,
-  planUrl: point.plan_url,
+  accessOnCourse: point.access_on_course,
+  accessNote: point.access_note ?? "",
+  planUrl: point.plan_url ?? "",
   publishable: Boolean(
     point.name.trim()
     && point.km !== null
@@ -103,7 +109,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
   const race = await loadRaceForOrganizer(auth.serviceConfig, auth.user, params.data.id);
   if ("error" in race) return race.error;
   if (!race.edition_id || !(await isOrganizerRaceModuleSelected(auth.serviceConfig, race.edition_id, params.data.id, "supporter_points"))) {
-    return jsonError("Activez la section Points supporters pour modifier son brouillon.", 403);
+    return jsonError("Activez la section Suivi coureur pour modifier son brouillon.", 403);
   }
 
   const body = updateSchema.safeParse(await request.json().catch(() => null));
@@ -129,6 +135,7 @@ export async function PUT(request: NextRequest, context: { params: { id?: string
         latitude: point.latitude,
         longitude: point.longitude,
         google_maps_url: point.googleMapsUrl,
+        access_on_course: point.accessOnCourse,
         access_note: point.accessNote,
         plan_url: point.planUrl,
       })),

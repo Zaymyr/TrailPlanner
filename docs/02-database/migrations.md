@@ -1,13 +1,16 @@
 ---
 title: Migrations
 scope: database
+
 last_verified: 2026-11-01
+
 ai_priority: high
 related_files:
   - .github/workflows/db-migrate.yml
   - .github/workflows/db-verify.yml
   - .github/workflows/db-schema-snapshot.yml
   - supabase/migrations
+  - supabase/migrations/20261029155052_fix_supporter_point_replacement_ordinality.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260930104930_remove_personal_race_creation.sql
   - supabase/tests/privileged_database_access_checks.sql

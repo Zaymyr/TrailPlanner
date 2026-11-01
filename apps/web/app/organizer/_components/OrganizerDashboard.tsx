@@ -1133,7 +1133,7 @@ export function OrganizerDashboard({
     if (activeRaceIdRef.current !== raceId) return;
     setAidStations(syncAidStationsWithGpxPreview(sidecars.aidStations, previewOverride));
     setRelayPoints(sidecars.relayPoints);
-    setSupporterPoints(sidecars.supporterPoints ?? []);
+    setSupporterPoints(sidecars.supporterPoints);
     setStationProducts(sidecars.stationProducts);
     setSidecarLoadedRaceId(raceId);
   }, []);
@@ -1164,7 +1164,7 @@ export function OrganizerDashboard({
             raceModules?.official_products
               ? fetch(`/api/organizer/races/${raceId}/aid-station-products`, { headers: authHeaders, cache: "no-store" })
               : Promise.resolve(null),
-            raceModules?.supporter_points
+            (raceModules?.supporter_points ?? true)
               ? fetch(`/api/organizer/races/${raceId}/supporter-points`, { headers: authHeaders, cache: "no-store" })
               : Promise.resolve(null),
           ]);
@@ -3571,6 +3571,7 @@ export function OrganizerDashboard({
               aidStations={aidStations}
               supporterPoints={supporterPoints}
               supporterPointsEnabled={Boolean(activeRace && (moduleSettings?.races[activeRace.id]?.supporter_points ?? true))}
+              gpxPreview={gpxPreview}
               participationMode={raceForm.participationMode}
               relayPoints={relayPoints}
               startTime={currentStartTime}
@@ -3650,6 +3651,7 @@ export function OrganizerDashboard({
                     latitude: null,
                     longitude: null,
                     googleMapsUrl: null,
+                    accessOnCourse: false,
                     accessNote: "",
                     planUrl: "",
                   },

@@ -36,9 +36,9 @@ export async function loadOrganizerPublicationRequirement(config: SupabaseServic
   const usedAdvancedGroups = new Set<OrganizerAdvancedGroupKey>();
 
   // Essentiel is the publication baseline. Only populated advanced sections can raise the recommendation.
-  for (const key of ["equipment", "bib_pickup", "access", "aid_stations"] as const) {
-    const selected = key === "aid_stations"
-      ? raceIds.some((raceId) => settings.races[raceId]?.aid_stations)
+  for (const key of ["equipment", "bib_pickup", "access", "aid_stations", "supporter_points"] as const) {
+    const selected = key === "aid_stations" || key === "supporter_points"
+      ? raceIds.some((raceId) => settings.races[raceId]?.[key])
       : settings.edition[key];
     if (selected) used.add(key);
   }

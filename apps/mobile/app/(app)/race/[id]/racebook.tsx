@@ -7,6 +7,8 @@ import {
   Image,
   Linking,
   Modal,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -17,6 +19,7 @@ import {
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   RACEBOOK_EDITION_LOGO_ENABLED,
   resolveRacebookTheme,
@@ -42,7 +45,7 @@ import {
   type RacebookAccessLocation,
   type RacebookAccessTransport,
 } from '../../../../components/racebook/RacebookAccessSection';
-import { RacebookAidStationsSection } from '../../../../components/racebook/RacebookAidStationsSection';
+import { RacebookAidStationsSection, type RacebookPersonalAidStationPlan } from '../../../../components/racebook/RacebookAidStationsSection';
 import {
   RacebookBibSection,
   type RacebookBibPickupDayGroup,
@@ -51,6 +54,7 @@ import {
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
 import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
+import { RacebookPersonalPlanCard } from '../../../../components/racebook/RacebookPersonalPlanCard';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
@@ -87,9 +91,51 @@ import {
   saveRacebookGearCheck,
 } from '../../../../lib/racebookGearChecklist';
 import { supabase } from '../../../../lib/supabase';
+import { loadPlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
+import { stagePlanWorkspaceWarmStart } from '../../../../lib/planEditSession';
+import { buildPlanSummary, buildProductMap, buildStoredRacePlanFromRow, formatDuration, getPlanSummaryDepartureTimeStorageKey, type PlanSummary, type PlanSummaryRow } from '../../../../lib/planSummary';
+import { normalizePlanClock } from '../../../../lib/planDeparture';
+import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
+import {
+  estimatePersonalPassageMinute,
+  formatPersonalPassageClock,
+  isPersonalPassageAfterCutoff,
+  matchPersonalAidStation,
+  normalizeSimpleClock,
+  resolveCutoffMinuteAfterDeparture,
+} from '../../../../lib/racebookPlanReflection';
+import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
+import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
+import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
+import { formatAveragePace } from '../../../../lib/planWorkspace';
+import {
+  getRacebookScreenSnapshot,
+  getRacebookScrollOffset,
+  setRacebookScreenSnapshot,
+  setRacebookScrollOffset,
+} from '../../../../lib/racebookScreenMemory';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
+
+function resolvePersonalCutoffDisplay(
+  departureClock: string | null | undefined,
+  cutoffClock: string | null | undefined,
+  passageMinute: number,
+) {
+  const normalizedClock = normalizeSimpleClock(cutoffClock);
+  if (!normalizedClock) return cutoffClock?.trim() || null;
+  const cutoffMinute = resolveCutoffMinuteAfterDeparture(departureClock, cutoffClock, passageMinute);
+  return cutoffMinute === null
+    ? normalizedClock
+    : formatPersonalPassageClock(departureClock, cutoffMinute) ?? normalizedClock;
+}
+
+type LinkedPlanSnapshot = {
+  id: string;
+  sourceRevisionAtLastReview: string | null;
+  summary: PlanSummary;
+};
 
 function normalizeRacebookTab(value: string | undefined): RacebookTabKey {
   return value === 'gear' || value === 'bib' || value === 'course' || value === 'access' || value === 'services'
@@ -564,12 +610,14 @@ function HeroDetailGroup({ title, values }: { title: string; values: string[] })
 }
 
 export default function RaceRacebookScreen() {
-  const { id, onboarding, tab, courseTab, targetAidStationId } = useLocalSearchParams<{
+  const { id, onboarding, tab, courseTab, targetAidStationId, planId, planWarmStartToken } = useLocalSearchParams<{
     id?: string;
     onboarding?: 'racebook';
     tab?: string;
     courseTab?: string;
     targetAidStationId?: string;
+    planId?: string;
+    planWarmStartToken?: string;
   }>();
   const router = useRouter();
   const navigation = useNavigation();
@@ -578,27 +626,31 @@ export default function RaceRacebookScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
+  const initialSnapshot = useMemo(() => getRacebookScreenSnapshot(id), [id]);
   const [activeTab, setActiveTab] = useState<RacebookTabKey>(() => normalizeRacebookTab(tab));
   const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>(() => normalizeCourseTab(courseTab));
   const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(targetAidStationId ?? null);
-  const [linkedPlanId, setLinkedPlanId] = useState<string | null>(null);
+  const [linkedPlanId, setLinkedPlanId] = useState<string | null>(planId ?? null);
+  const [linkedPlanWarmStartToken, setLinkedPlanWarmStartToken] = useState<string | null>(planWarmStartToken ?? null);
+  const [linkedPlan, setLinkedPlan] = useState<LinkedPlanSnapshot | null>(null);
+  const [personalDepartureClock, setPersonalDepartureClock] = useState<string | null>(null);
   const [checkedGearItemKeys, setCheckedGearItemKeys] = useState<Set<string>>(new Set());
   const [pendingGearItemKeys, setPendingGearItemKeys] = useState<Set<string>>(new Set());
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
   const [courseConstraintsExpanded, setCourseConstraintsExpanded] = useState(false);
   const [onboardingBusy, setOnboardingBusy] = useState(false);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => !initialSnapshot);
   const [refreshing, setRefreshing] = useState(false);
-  const [data, setData] = useState<RacebookScreenData | null>(null);
-  const [partnerLinks, setPartnerLinks] = useState<ResolvedPartnerLink[]>([]);
-  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>([]);
-  const [routePreviewPoints, setRoutePreviewPoints] = useState<MobileGpxPreviewPoint[]>([]);
-  const [sponsorPresentation, setSponsorPresentation] = useState<RacebookSponsorPresentation>(EMPTY_RACEBOOK_SPONSORS);
-  const [sponsorGateDone, setSponsorGateDone] = useState(false);
+  const [data, setData] = useState<RacebookScreenData | null>(() => initialSnapshot?.data ?? null);
+  const [partnerLinks, setPartnerLinks] = useState<ResolvedPartnerLink[]>(() => initialSnapshot?.partnerLinks ?? []);
+  const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>(() => initialSnapshot?.elevationProfile ?? []);
+  const [routePreviewPoints, setRoutePreviewPoints] = useState<MobileGpxPreviewPoint[]>(() => initialSnapshot?.routePreviewPoints ?? []);
+  const [sponsorPresentation, setSponsorPresentation] = useState<RacebookSponsorPresentation>(() => initialSnapshot?.sponsorPresentation ?? EMPTY_RACEBOOK_SPONSORS);
+  const [sponsorGateDone, setSponsorGateDone] = useState(() => Boolean(initialSnapshot));
   const [sponsorSplashVisible, setSponsorSplashVisible] = useState(false);
-  const [sponsorLookupDone, setSponsorLookupDone] = useState(false);
-  const [loadingProgress, setLoadingProgress] = useState(0.06);
-  const [loadingExitDone, setLoadingExitDone] = useState(false);
+  const [sponsorLookupDone, setSponsorLookupDone] = useState(() => Boolean(initialSnapshot));
+  const [loadingProgress, setLoadingProgress] = useState(() => initialSnapshot ? 1 : 0.06);
+  const [loadingExitDone, setLoadingExitDone] = useState(() => Boolean(initialSnapshot));
   const [expandedAccessTransport, setExpandedAccessTransport] = useState<Record<RacebookAccessTransport['key'], boolean>>({
     parking: false,
     shuttles: false,
@@ -613,6 +665,8 @@ export default function RaceRacebookScreen() {
   const gearChecklistInteractedRef = useRef(false);
   const lastGearStateSignatureRef = useRef<{ raceId: string; signature: string } | null>(null);
   const activeRaceIdRef = useRef(id);
+  const currentScrollOffsetRef = useRef(0);
+  const scrollRestoreFrameRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
   activeRaceIdRef.current = id;
 
   if (!sponsorViewRef.current || sponsorViewRef.current.raceId !== (id ?? null)) {
@@ -623,6 +677,127 @@ export default function RaceRacebookScreen() {
   analyticsDataRef.current = data;
   activeTabRef.current = activeTab;
   activeCourseTabRef.current = activeCourseTab;
+
+  const persistCurrentScrollPosition = useCallback(() => {
+    if (!activeRaceIdRef.current) return;
+    setRacebookScrollOffset(
+      activeRaceIdRef.current,
+      activeTabRef.current,
+      activeCourseTabRef.current,
+      currentScrollOffsetRef.current,
+    );
+  }, []);
+
+  const restoreCurrentScrollPosition = useCallback(() => {
+    if (!activeRaceIdRef.current) return;
+    const offset = getRacebookScrollOffset(
+      activeRaceIdRef.current,
+      activeTabRef.current,
+      activeCourseTabRef.current,
+    );
+    currentScrollOffsetRef.current = offset;
+    if (scrollRestoreFrameRef.current !== null) cancelAnimationFrame(scrollRestoreFrameRef.current);
+    scrollRestoreFrameRef.current = requestAnimationFrame(() => {
+      scrollRestoreFrameRef.current = requestAnimationFrame(() => {
+        scrollRef.current?.scrollTo({ y: offset, animated: false });
+        scrollY.setValue(offset);
+        scrollRestoreFrameRef.current = null;
+      });
+    });
+  }, [scrollY]);
+
+  const handleScroll = useMemo(
+    () => Animated.event(
+      [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+      {
+        useNativeDriver: false,
+        listener: (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+          currentScrollOffsetRef.current = Math.max(0, event.nativeEvent.contentOffset.y);
+        },
+      },
+    ),
+    [scrollY],
+  );
+
+  useEffect(() => {
+    setActiveTab(normalizeRacebookTab(tab));
+    setActiveCourseTab(normalizeCourseTab(courseTab));
+    setExpandedAidStationId(targetAidStationId ?? null);
+  }, [courseTab, tab, targetAidStationId]);
+
+  useEffect(() => {
+    setLinkedPlanId(planId ?? null);
+    setLinkedPlanWarmStartToken(planWarmStartToken ?? null);
+    setLinkedPlan(null);
+    setPersonalDepartureClock(null);
+  }, [id, planId, planWarmStartToken]);
+
+  useFocusEffect(useCallback(() => {
+    let cancelled = false;
+    if (!id) return () => { cancelled = true; };
+
+    void (async () => {
+      const sessionResult = await supabase.auth.getSession();
+      const ownerId = sessionResult.data.session?.user?.id ?? null;
+      if (cancelled) return;
+      if (!ownerId) {
+        setLinkedPlanId(null);
+        setLinkedPlanWarmStartToken(null);
+        setLinkedPlan(null);
+        return;
+      }
+      const { data: plan, error: planError } = await supabase
+        .from('race_plans')
+        .select('id,name,updated_at,planner_values,elevation_profile,source_revision_at_last_review')
+        .eq('race_id', id)
+        .eq('user_id', ownerId)
+        .maybeSingle();
+      if (cancelled) return;
+      if (planError) return;
+      if (!plan) {
+        setLinkedPlanId(null);
+        setLinkedPlanWarmStartToken(null);
+        setLinkedPlan(null);
+        return;
+      }
+      const [productData, storedDepartureClock, fetchedRaceElevationProfile] = await Promise.all([
+        loadPlanProductsBootstrap(ownerId),
+        AsyncStorage.getItem(getPlanSummaryDepartureTimeStorageKey(plan.id)).catch(() => null),
+        fetchRaceElevationProfile(id),
+      ]);
+      if (cancelled) return;
+      const storedPlan = buildStoredRacePlanFromRow(plan as PlanSummaryRow);
+      const planValues = normalizeStoredPlanValues(storedPlan);
+      const storedElevationProfile = storedPlan.elevationProfile ?? [];
+      const editElevationProfile = pickBestElevationProfile(
+        [storedElevationProfile, fetchedRaceElevationProfile],
+        planValues.raceDistanceKm,
+      );
+      const warmStartToken = stagePlanWorkspaceWarmStart(plan.id, {
+        draft: {
+          elevationProfile: editElevationProfile,
+          lastSavedSnapshot: createPlanPersistenceSnapshot(planValues, storedElevationProfile),
+          planName: plan.name,
+          values: planValues,
+        },
+        products: productData,
+      });
+      const summary = buildPlanSummary(
+        storedPlan,
+        buildProductMap(productData.allProducts),
+      );
+      setLinkedPlanId(plan.id);
+      setLinkedPlanWarmStartToken(warmStartToken);
+      setPersonalDepartureClock(normalizePlanClock(storedDepartureClock));
+      setLinkedPlan({
+        id: plan.id,
+        sourceRevisionAtLastReview: plan.source_revision_at_last_review ?? null,
+        summary,
+      });
+    })();
+
+    return () => { cancelled = true; };
+  }, [id]));
 
   useEffect(() => {
     setActiveTab(normalizeRacebookTab(tab));
@@ -752,13 +927,33 @@ export default function RaceRacebookScreen() {
       return;
     }
 
-    setLoading(true);
-    setSponsorPresentation(EMPTY_RACEBOOK_SPONSORS);
-    setSponsorSplashVisible(false);
-    setSponsorLookupDone(false);
-    setSponsorGateDone(false);
-    setLoadingProgress(0.06);
-    setLoadingExitDone(false);
+    const warmSnapshot = getRacebookScreenSnapshot(id);
+    const hasWarmSnapshot = warmSnapshot?.data.race.id === id;
+    if (hasWarmSnapshot && warmSnapshot) {
+      setData(warmSnapshot.data);
+      setPartnerLinks(warmSnapshot.partnerLinks);
+      setElevationProfile(warmSnapshot.elevationProfile);
+      setRoutePreviewPoints(warmSnapshot.routePreviewPoints);
+      setSponsorPresentation(warmSnapshot.sponsorPresentation);
+      setSponsorSplashVisible(false);
+      setSponsorLookupDone(true);
+      setSponsorGateDone(true);
+      setLoadingProgress(1);
+      setLoadingExitDone(true);
+      setLoading(false);
+    } else {
+      setData(null);
+      setPartnerLinks([]);
+      setElevationProfile([]);
+      setRoutePreviewPoints([]);
+      setLoading(true);
+      setSponsorPresentation(EMPTY_RACEBOOK_SPONSORS);
+      setSponsorSplashVisible(false);
+      setSponsorLookupDone(false);
+      setSponsorGateDone(false);
+      setLoadingProgress(0.06);
+      setLoadingExitDone(false);
+    }
 
     Promise.all([
       fetchRaceRacebookData(id),
@@ -783,7 +978,7 @@ export default function RaceRacebookScreen() {
         }
       })
       .catch(() => {
-        if (!cancelled) {
+        if (!cancelled && !hasWarmSnapshot) {
           setData(null);
           setPartnerLinks([]);
           setElevationProfile([]);
@@ -791,7 +986,7 @@ export default function RaceRacebookScreen() {
         }
       })
       .finally(() => {
-        if (!cancelled) {
+        if (!cancelled && !hasWarmSnapshot) {
           setLoading(false);
         }
       });
@@ -801,6 +996,12 @@ export default function RaceRacebookScreen() {
         if (cancelled) return;
 
         setSponsorPresentation(presentation);
+        if (hasWarmSnapshot) {
+          setSponsorSplashVisible(false);
+          setSponsorLookupDone(true);
+          setSponsorGateDone(true);
+          return;
+        }
         if (presentation.loadingSponsors.length === 0) {
           setSponsorLookupDone(true);
           setSponsorGateDone(true);
@@ -1040,16 +1241,7 @@ export default function RaceRacebookScreen() {
     if (!data) return [];
 
     const schedule = data.runnerDetails.schedule;
-    const items: Array<LabeledItem | null> = [
-      schedule.startTime
-        ? {
-            label: t.catalog.racebookFieldStartTime,
-            value: schedule.startTime,
-            actionUrl: null,
-            dataValue: true,
-            tone: 'positive' as const,
-          }
-        : null,
+    const items: (LabeledItem | null)[] = [
       schedule.finishCutoffTime
         ? {
             label: t.catalog.racebookFieldFinishCutoff,
@@ -1065,7 +1257,6 @@ export default function RaceRacebookScreen() {
   }, [
     data,
     t.catalog.racebookFieldFinishCutoff,
-    t.catalog.racebookFieldStartTime,
   ]);
 
   const courseConstraintLines = useMemo(() => {
@@ -1105,12 +1296,12 @@ export default function RaceRacebookScreen() {
         : [];
 
   const courseTabs = useMemo(() => {
-    const availableTabs: Array<{ key: CourseTabKey; label: string }> = [
+    const availableTabs: { key: CourseTabKey; label: string }[] = [
       { key: 'route', label: t.catalog.racebookCourseTabRoute },
     ];
     if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
-    if (sponsorPresentation.modules.supporter_points && (data?.supporterPoints.length ?? 0) > 0) {
-      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Supporters' : 'Supporters' });
+    if (hasVisibleRacebookSupporterPoints(data?.supporterPoints ?? [])) {
+      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Suivi coureur' : 'Runner tracking' });
     }
 
     if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
@@ -1124,7 +1315,7 @@ export default function RaceRacebookScreen() {
     relaySegments.length,
     data?.startWaves.length,
     data?.awards.length,
-    data?.supporterPoints.length,
+    data?.supporterPoints,
     locale,
     sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
@@ -1214,6 +1405,72 @@ export default function RaceRacebookScreen() {
     equipmentItems,
     checkedGearItemKeys,
   );
+  const officialRevisionPending = Boolean(linkedPlan) && isPlanSourceRevisionPending(
+    data?.race.planSourceUpdatedAt,
+    linkedPlan?.sourceRevisionAtLastReview,
+  );
+  const linkedPlanAveragePace = linkedPlan
+    ? formatAveragePace(linkedPlan.summary.totalDurationMin, linkedPlan.summary.distanceKm)
+    : null;
+  const resolvedStartTime = personalDepartureClock
+    ?? normalizePlanClock(data?.runnerDetails.schedule.startTime)
+    ?? normalizePlanClock(data?.startWaves[0]?.startTime);
+  const personalPlanReflection = useMemo<{
+    byStationId: Record<string, RacebookPersonalAidStationPlan>;
+    finish: RacebookPersonalAidStationPlan | null;
+  }>(() => {
+    if (!linkedPlan || !data) return { byStationId: {}, finish: null };
+    const departureClock = personalDepartureClock
+      ?? normalizePlanClock(data.runnerDetails.schedule.startTime)
+      ?? normalizePlanClock(data.startWaves[0]?.startTime);
+    const result: Record<string, RacebookPersonalAidStationPlan> = {};
+    const planCheckpoints = linkedPlan.summary.checkpoints;
+    const personalAidStationCheckpoints = planCheckpoints.filter(
+      (checkpoint) => !checkpoint.isStart && !checkpoint.isFinish,
+    );
+    data.aidStations.forEach((station) => {
+      const match = matchPersonalAidStation(station, personalAidStationCheckpoints);
+      const checkpoint = match?.checkpoint ?? null;
+      const arrivalMinute = checkpoint?.arrivalMinute
+        ?? estimatePersonalPassageMinute(station.km, planCheckpoints);
+      if (arrivalMinute === null) return;
+      const estimatedClock = formatPersonalPassageClock(departureClock, arrivalMinute);
+      const stationCutoffTime = Math.abs(station.km - data.race.distanceKm) <= 0.2
+        ? data.runnerDetails.schedule.finishCutoffTime ?? station.organizerDetails.cutoffTime
+        : station.organizerDetails.cutoffTime;
+      result[station.id] = {
+        passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+        estimatedClock,
+        arrivalMinute,
+        pauseMinutes: Math.max(0, checkpoint?.pauseMinutes ?? 0),
+        cutoffDisplay: resolvePersonalCutoffDisplay(departureClock, stationCutoffTime, arrivalMinute),
+        isAfterCutoff: isPersonalPassageAfterCutoff(departureClock, arrivalMinute, stationCutoffTime),
+      };
+    });
+    const finishCheckpoint = planCheckpoints.find((checkpoint) => checkpoint.isFinish)
+      ?? planCheckpoints.at(-1)
+      ?? null;
+    const finishArrivalMinute = finishCheckpoint?.arrivalMinute
+      ?? estimatePersonalPassageMinute(data.race.distanceKm, planCheckpoints);
+    const finish = finishArrivalMinute === null ? null : {
+      passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+      estimatedClock: formatPersonalPassageClock(departureClock, finishArrivalMinute),
+      arrivalMinute: finishArrivalMinute,
+      pauseMinutes: 0,
+      cutoffDisplay: resolvePersonalCutoffDisplay(
+        departureClock,
+        data.runnerDetails.schedule.finishCutoffTime,
+        finishArrivalMinute,
+      ),
+      isAfterCutoff: isPersonalPassageAfterCutoff(
+        departureClock,
+        finishArrivalMinute,
+        data.runnerDetails.schedule.finishCutoffTime,
+      ),
+    };
+    return { byStationId: result, finish };
+  }, [data, linkedPlan, locale, personalDepartureClock]);
+  const personalPlanByStationId = personalPlanReflection.byStationId;
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
     () => resolveRacebookTheme(sponsorPresentation.branding),
@@ -1221,7 +1478,21 @@ export default function RaceRacebookScreen() {
   );
   const showLoading = loading || !sponsorGateDone || !loadingExitDone;
   const unavailable = !showLoading && (!data || !data.canOpen);
-  const heroExpandedHeight = insets.top + RACEBOOK_HERO_BODY_HEIGHT;
+  const loadedRaceId = data?.race.id ?? null;
+  const hasEmergencyHeader = Boolean(emergencyContact?.phone && emergencyTelephoneUrl);
+  const heroBodyHeight = hasEmergencyHeader ? RACEBOOK_HERO_BODY_HEIGHT : 220;
+  const heroExpandedHeight = insets.top + heroBodyHeight;
+
+  useEffect(() => {
+    if (!id || showLoading || !data || data.race.id !== id) return;
+    setRacebookScreenSnapshot(id, {
+      data,
+      elevationProfile,
+      partnerLinks,
+      routePreviewPoints,
+      sponsorPresentation,
+    });
+  }, [data, elevationProfile, id, partnerLinks, routePreviewPoints, showLoading, sponsorPresentation]);
 
   useEffect(() => {
     if (
@@ -1325,7 +1596,7 @@ export default function RaceRacebookScreen() {
 
         if (analyticsSessionRef.current === session) analyticsSessionRef.current = null;
       };
-    }, [data?.canOpen, data?.race.id, onboarding, showLoading, tabs.length]),
+    }, [onboarding, showLoading, tabs.length]),
   );
 
   useEffect(() => {
@@ -1352,17 +1623,19 @@ export default function RaceRacebookScreen() {
   const handleTabPress = useCallback((tab: RacebookTabKey) => {
     if (tab === activeTab) return;
 
+    persistCurrentScrollPosition();
     setActiveTab(tab);
     const session = analyticsSessionRef.current;
     if (!session) return;
 
     session.visitedTabs.add(tab);
     captureAnalyticsEvent('racebook tab viewed', { ...session.properties, tab });
-  }, [activeTab]);
+  }, [activeTab, persistCurrentScrollPosition]);
 
   const handleCourseTabPress = useCallback((courseTab: CourseTabKey) => {
     if (courseTab === activeCourseTab) return;
 
+    persistCurrentScrollPosition();
     setActiveCourseTab(courseTab);
     const session = analyticsSessionRef.current;
     if (!session) return;
@@ -1374,7 +1647,7 @@ export default function RaceRacebookScreen() {
       tab: 'course',
       course_tab: courseTab,
     });
-  }, [activeCourseTab]);
+  }, [activeCourseTab, persistCurrentScrollPosition]);
 
   const openExternalUrl = useCallback((url: string) => {
     void Linking.openURL(url).catch(() => {
@@ -1402,6 +1675,7 @@ export default function RaceRacebookScreen() {
 
   const openLinkedPlan = useCallback(() => {
     if (!id) return;
+    persistCurrentScrollPosition();
     exitingToCatalogRef.current = true;
     captureAnalyticsEvent('race workspace switched', {
       direction: 'racebook_to_plan',
@@ -1412,12 +1686,30 @@ export default function RaceRacebookScreen() {
       racebookCourseTab: activeCourseTab,
     });
     if (expandedAidStationId) params.set('targetAidStationId', expandedAidStationId);
+    if (linkedPlanWarmStartToken) params.set('planWarmStartToken', linkedPlanWarmStartToken);
     router.replace(
       linkedPlanId
         ? `/(app)/plan/${linkedPlanId}/edit?${params.toString()}`
         : `/(app)/plan/new?raceId=${id}&${params.toString()}`,
     );
-  }, [activeCourseTab, activeTab, expandedAidStationId, id, linkedPlanId, router]);
+  }, [activeCourseTab, activeTab, expandedAidStationId, id, linkedPlanId, linkedPlanWarmStartToken, persistCurrentScrollPosition, router]);
+
+  const openLinkedPlanAtStation = useCallback((stationId: string) => {
+    if (!linkedPlanId) return;
+    persistCurrentScrollPosition();
+    exitingToCatalogRef.current = true;
+    captureAnalyticsEvent('race workspace switched', {
+      direction: 'racebook_to_plan',
+      plan_action: 'edit_aid_station',
+    });
+    const params = new URLSearchParams({
+      racebookTab: 'course',
+      racebookCourseTab: 'aid-stations',
+      targetAidStationId: stationId,
+    });
+    if (linkedPlanWarmStartToken) params.set('planWarmStartToken', linkedPlanWarmStartToken);
+    router.replace(`/(app)/plan/${linkedPlanId}/edit?${params.toString()}`);
+  }, [linkedPlanId, linkedPlanWarmStartToken, persistCurrentScrollPosition, router]);
 
   const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {
     if (!id) return;
@@ -1431,8 +1723,7 @@ export default function RaceRacebookScreen() {
 
   useFocusEffect(useCallback(() => {
     exitingToCatalogRef.current = false;
-    scrollRef.current?.scrollTo({ y: 0, animated: false });
-    scrollY.setValue(0);
+    restoreCurrentScrollPosition();
     const tabsNavigation = navigation.getParent();
     tabsNavigation?.setOptions({ tabBarStyle: { display: 'none' } });
     const unsubscribeBeforeRemove = navigation.addListener('beforeRemove', (event) => {
@@ -1445,11 +1736,21 @@ export default function RaceRacebookScreen() {
       return true;
     });
     return () => {
+      persistCurrentScrollPosition();
+      if (scrollRestoreFrameRef.current !== null) {
+        cancelAnimationFrame(scrollRestoreFrameRef.current);
+        scrollRestoreFrameRef.current = null;
+      }
       backSubscription.remove();
       unsubscribeBeforeRemove();
       tabsNavigation?.setOptions({ tabBarStyle: undefined });
     };
-  }, [exitRacebookToCatalog, navigation, scrollY]));
+  }, [exitRacebookToCatalog, navigation, persistCurrentScrollPosition, restoreCurrentScrollPosition]));
+
+  useEffect(() => {
+    if (showLoading || unavailable || loadedRaceId !== id) return;
+    restoreCurrentScrollPosition();
+  }, [activeCourseTab, activeTab, id, loadedRaceId, restoreCurrentScrollPosition, showLoading, unavailable]);
 
   async function finishRacebookOnboarding(completed: boolean) {
     setOnboardingBusy(true);
@@ -1470,6 +1771,7 @@ export default function RaceRacebookScreen() {
         <RacebookCollapsibleHero
           scrollY={scrollY}
           topInset={insets.top}
+          expandedBodyHeight={heroBodyHeight}
           eventName={data.event.name}
           raceName={data.race.name}
           imageUrl={heroImageUrl}
@@ -1478,11 +1780,17 @@ export default function RaceRacebookScreen() {
           locationLabel={headerLocation}
           participationLabel={participationLabels.join(' + ') || null}
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
+          startTimeLabel={locale === 'fr' ? 'Départ' : 'Start'}
+          startTimeValue={resolvedStartTime}
           distanceLabel={`${formatDistance(data.race.distanceKm)} km`}
           elevationGainLabel={`D+ ${formatElevation(data.race.elevationGainM, locale)} m`}
           elevationLossLabel={data.race.elevationLossM !== null ? `D- ${formatElevation(data.race.elevationLossM, locale)} m` : null}
           elevationCaption={locale === 'fr' ? 'Dénivelé' : 'Elevation gain'}
           descentCaption={locale === 'fr' ? 'Descente' : 'Elevation loss'}
+          planDurationLabel={linkedPlan ? formatDuration(linkedPlan.summary.totalDurationMin) : null}
+          planDurationCaption={locale === 'fr' ? 'Temps prévu' : 'Expected time'}
+          planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
+          planPaceCaption={locale === 'fr' ? 'Allure' : 'Pace'}
           backLabel={t.common.back}
           theme={brandTheme}
           emergency={emergencyContact?.phone && emergencyTelephoneUrl ? {
@@ -1507,7 +1815,7 @@ export default function RaceRacebookScreen() {
         <RaceWorkspaceSwitch
           active="racebook"
           compactHeaderHeight={60}
-          expandedHeaderHeight={RACEBOOK_HERO_BODY_HEIGHT}
+          expandedHeaderHeight={heroBodyHeight}
           onOpenPlan={openLinkedPlan}
           onOpenRacebook={() => undefined}
           scrollY={scrollY}
@@ -1523,7 +1831,7 @@ export default function RaceRacebookScreen() {
           showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
-        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: false })}
+        onScroll={handleScroll}
         scrollEventThrottle={16}
         alwaysBounceVertical
         refreshControl={
@@ -1660,24 +1968,37 @@ export default function RaceRacebookScreen() {
             {activeTab === 'course' ? (
               <>
                 <View style={styles.courseTabsWrap} accessibilityRole="tablist">
-                  {courseTabs.map((tab) => {
-                    const active = activeCourseTab === tab.key;
+                  <ScrollView
+                    contentContainerStyle={styles.courseTabsContent}
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                  >
+                    {courseTabs.map((tab) => {
+                      const active = activeCourseTab === tab.key;
 
-                    return (
-                      <Pressable
-                        key={tab.key}
-                        accessibilityRole="tab"
-                        accessibilityState={{ selected: active }}
-                        onPress={() => handleCourseTabPress(tab.key)}
-                        style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null, active ? { borderColor: brandTheme.primaryBorderColor } : null]}
-                      >
-                        <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null, active ? { color: brandTheme.primaryForegroundColor } : null]}>
-                          {tab.label}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
+                      return (
+                        <Pressable
+                          key={tab.key}
+                          accessibilityRole="tab"
+                          accessibilityState={{ selected: active }}
+                          onPress={() => handleCourseTabPress(tab.key)}
+                          style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null, active ? { borderColor: brandTheme.primaryBorderColor } : null]}
+                        >
+                          <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null, active ? { color: brandTheme.primaryForegroundColor } : null]}>
+                            {tab.label}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
                 </View>
+
+                <RacebookPersonalPlanCard
+                  hasPlan={Boolean(linkedPlanId)}
+                  revisionPending={officialRevisionPending}
+                  locale={locale}
+                  onOpenPlan={openLinkedPlan}
+                />
 
                 {(['route', 'start-waves', 'aid-stations'] as CourseTabKey[]).includes(activeCourseTab) &&
                 ((activeCourseTab !== 'aid-stations' && courseItems.length > 0) || courseConstraintLines.length > 0) ? (
@@ -1811,7 +2132,6 @@ export default function RaceRacebookScreen() {
                   <>
                   <RacebookAidStationsSection
                     stations={data.aidStations}
-                    startTime={data.runnerDetails.schedule.startTime}
                     finish={{
                       label: t.catalog.racebookMapFinish,
                       distanceKm: data.race.distanceKm,
@@ -1832,6 +2152,9 @@ export default function RaceRacebookScreen() {
                       }
                       setExpandedAidStationId((current) => (current === station.id ? null : station.id));
                     }}
+                    personalPlanByStationId={personalPlanByStationId}
+                    finishPersonalPlan={personalPlanReflection.finish}
+                    onEditPersonalPlanStation={(station) => openLinkedPlanAtStation(station.id)}
                     copy={{
                       sectionTitle: t.catalog.racebookSectionAidStations,
                       emptyMessage: t.catalog.racebookEmptyAidStations,
@@ -1846,9 +2169,12 @@ export default function RaceRacebookScreen() {
                       aidCutoffTime: t.catalog.racebookAidCutoffTime,
                       aidFromStart: locale === 'fr' ? 'Depuis le départ' : 'From the start',
                       aidFromPrevious: locale === 'fr' ? 'Depuis {name}' : 'From {name}',
-                      startTimeLabel: t.catalog.racebookFieldStartTime,
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
+                      plannedDuration: locale === 'fr' ? 'Temps prévu' : 'Expected',
+                      cutoffExceededWarning: locale === 'fr'
+                        ? 'Attention, passage prévu après la barrière horaire.'
+                        : 'Warning: expected passage is after the cutoff time.',
                     }}
                   />
                   <RacebookSponsorBanner
@@ -2212,17 +2538,21 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   courseTabsWrap: {
-    flexDirection: 'row',
     alignSelf: 'stretch',
-    padding: 4,
-    gap: 4,
     borderRadius: 14,
     backgroundColor: Colors.surfaceSecondary,
     borderWidth: 1,
     borderColor: Colors.border,
+    overflow: 'hidden',
+  },
+  courseTabsContent: {
+    flexGrow: 1,
+    padding: 4,
+    gap: 4,
   },
   courseTabButton: {
-    flex: 1,
+    flexGrow: 1,
+    minWidth: 104,
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',

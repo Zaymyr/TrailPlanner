@@ -119,6 +119,7 @@ type Props = {
 export type PlanViewMode = 'stations' | 'sections' | 'profile';
 
 export type AidStationsSectionHandle = {
+  focusAidStation: (stationId: string) => boolean;
   selectViewMode: (mode: PlanViewMode) => void;
   updateParentScroll: (scrollY: number) => void;
 };
@@ -532,6 +533,20 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   }, [aidStationsMetaKey, anchorsVersion, selectedViewMode]);
 
   useImperativeHandle(ref, () => ({
+    focusAidStation: (stationId: string) => {
+      const index = getStationIndexById(stationId, -1);
+      if (index < 0) return false;
+      commitFocusedAidStation(index);
+      pendingSyncRef.current = { mode: 'stations', stationId };
+      if (selectedViewMode !== 'stations') {
+        viewAnchorsRef.current.stations = {};
+        setSelectedViewMode('stations');
+        onViewModeChange?.('stations');
+      } else {
+        requestAnimationFrame(() => { alignParentScroll('stations', stationId); });
+      }
+      return true;
+    },
     selectViewMode: switchViewMode,
     updateParentScroll: (scrollY: number) => {
       const anchor = getTopVisibleAnchor(selectedViewMode, scrollY);

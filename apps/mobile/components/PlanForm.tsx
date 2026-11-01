@@ -69,6 +69,7 @@ import {
   type AutoFillPreview,
   type AutoFillResult,
 } from '../lib/autoFillPreview';
+import { resolvePersonalAidStationTargetIndex } from '../lib/racebookPlanReflection';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };
 export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset };
@@ -93,6 +94,7 @@ type Props = {
   stickyRevealOffset?: number;
   showActions?: boolean;
   onWorkspaceScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+  targetAidStationId?: string;
   tutorial?: {
     scrollRef: React.MutableRefObject<ScrollView | null>;
     onContentSizeChange: (height: number) => void;
@@ -140,6 +142,7 @@ export default function PlanForm({
   stickyRevealOffset = Number.POSITIVE_INFINITY,
   showActions = true,
   onWorkspaceScroll,
+  targetAidStationId,
 }: Props) {
   const { t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
@@ -162,6 +165,7 @@ export default function PlanForm({
   const [autoFillUndo, setAutoFillUndo] = useState<Pick<PlanFormValues, 'startSupplies' | 'aidStations'> | null>(null);
   const mainScrollRef = useRef<ScrollView>(null);
   const aidStationsSectionRef = useRef<AidStationsSectionHandle>(null);
+  const consumedTargetAidStationRef = useRef<string | null>(null);
   const mainScrollYRef = useRef(0);
   const aidStationsSectionYRef = useRef(0);
   const aidStationsToolbarYRef = useRef(Number.POSITIVE_INFINITY);
@@ -190,6 +194,22 @@ export default function PlanForm({
     setAidStationsViewMode('stations');
     setStickyControlsVisible(false);
   }, [compactBasicsByDefault, initialValues]);
+
+  useEffect(() => {
+    if (!targetAidStationId || consumedTargetAidStationRef.current === targetAidStationId) return;
+    const targetIndex = resolvePersonalAidStationTargetIndex(values.aidStations, targetAidStationId);
+    if (targetIndex < 0) return;
+    const stationId = values.aidStations[targetIndex]?.id;
+    const expandedStationKey = stationId ?? String(targetIndex);
+    const focusedStationKey = stationId ?? `__station_index_${targetIndex}`;
+    setExpandedStations((current) => new Set(current).add(expandedStationKey));
+    const frame = requestAnimationFrame(() => {
+      if (aidStationsSectionRef.current?.focusAidStation(focusedStationKey)) {
+        consumedTargetAidStationRef.current = targetAidStationId;
+      }
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [targetAidStationId, values.aidStations]);
 
   useEffect(() => {
     if (surface !== 'settings') return;

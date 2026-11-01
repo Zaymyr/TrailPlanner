@@ -13,7 +13,7 @@ export type OrganizerRaceSidecars = {
   aidStations: AidStationDraft[];
   relayPoints: RelayPointDraft[];
   stationProducts: StationProduct[];
-  supporterPoints?: SupporterPointDraft[];
+  supporterPoints: SupporterPointDraft[];
 };
 
 type CacheEntry<T> = {
