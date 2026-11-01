@@ -62,7 +62,8 @@ describe("organizer Stripe webhooks", () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(Response.json([{ id: paymentId }]))
       .mockResolvedValueOnce(Response.json([{ edition_id: editionId }]))
-      .mockResolvedValueOnce(Response.json({ tier: "visibility" }));
+      .mockResolvedValueOnce(Response.json({ tier: "visibility" }))
+      .mockResolvedValue(Response.json(true));
 
     const response = await POST(webhookRequest(eventType, { payment_intent: "pi_invalidated", amount_refunded: 1 }));
 
@@ -71,13 +72,46 @@ describe("organizer Stripe webhooks", () => {
       status: eventType === "charge.refunded" ? "refunded" : "disputed",
     });
     expect(String(vi.mocked(fetch).mock.calls[2]?.[0])).toContain("/rpc/recalculate_organizer_edition_entitlement");
+    if (eventType === "charge.dispute.created") {
+      expect(JSON.parse(String(vi.mocked(fetch).mock.calls[3]?.[1]?.body))).toMatchObject({ transaction_status: "revoked" });
+      expect(String(vi.mocked(fetch).mock.calls[4]?.[0])).toContain("/rpc/revoke_runner_payment_transaction");
+    }
+  });
+
+  it("fulfills a paid runner checkout delivered through async success", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response("{}", { status: 201 }))
+      .mockResolvedValueOnce(Response.json(true))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+
+    const response = await POST(webhookRequest("checkout.session.async_payment_succeeded", {
+      id: "cs_runner", payment_status: "paid", payment_intent: "pi_runner",
+      metadata: { purchase_type: "runner_course", user_id: "33333333-3333-3333-3333-333333333333", plan_id: "44444444-4444-4444-4444-444444444444", intent_id: "55555555-5555-5555-5555-555555555555", product_id: "price_course" },
+    }));
+
+    expect(response.status).toBe(200);
+    expect(String(vi.mocked(fetch).mock.calls[0]?.[0])).toContain("runner_billing_events");
+    expect(String(vi.mocked(fetch).mock.calls[1]?.[0])).toContain("/rpc/claim_runner_plan_unlock");
+  });
+
+  it("retries the webhook when the atomic runner claim is rejected", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(new Response("{}", { status: 201 }))
+      .mockResolvedValueOnce(Response.json(false));
+    const response = await POST(webhookRequest("checkout.session.completed", {
+      id: "cs_runner", payment_status: "paid", payment_intent: "pi_collision",
+      metadata: { purchase_type: "runner_course", user_id: "33333333-3333-3333-3333-333333333333", plan_id: "44444444-4444-4444-4444-444444444444", intent_id: "55555555-5555-5555-5555-555555555555", product_id: "price_course" },
+    }));
+    expect(response.status).toBe(500);
+    expect(vi.mocked(fetch)).toHaveBeenCalledTimes(2);
   });
 
   it("restores a disputed transaction only when Stripe closes the dispute as won", async () => {
     vi.mocked(fetch)
       .mockResolvedValueOnce(Response.json([{ id: paymentId }]))
       .mockResolvedValueOnce(Response.json([{ edition_id: editionId }]))
-      .mockResolvedValueOnce(Response.json({ tier: "racebook" }));
+      .mockResolvedValueOnce(Response.json({ tier: "racebook" }))
+      .mockResolvedValue(Response.json(true));
 
     const response = await POST(webhookRequest("charge.dispute.closed", {
       payment_intent: "pi_won",
@@ -91,12 +125,27 @@ describe("organizer Stripe webhooks", () => {
       invalidated_at: null,
     });
     expect(String(vi.mocked(fetch).mock.calls[2]?.[0])).toContain("/rpc/recalculate_organizer_edition_entitlement");
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[3]?.[1]?.body))).toMatchObject({ transaction_status: "active" });
+    expect(String(vi.mocked(fetch).mock.calls[4]?.[0])).toContain("/rpc/restore_runner_payment_transaction");
+  });
+
+  it("keeps runner access revoked when a dispute closes lost", async () => {
+    vi.mocked(fetch)
+      .mockResolvedValueOnce(Response.json([{ id: paymentId }]))
+      .mockResolvedValueOnce(Response.json([{ edition_id: editionId }]))
+      .mockResolvedValueOnce(Response.json({ tier: "visibility" }))
+      .mockResolvedValue(Response.json(true));
+    const response = await POST(webhookRequest("charge.dispute.closed", { payment_intent: "pi_lost", status: "lost" }));
+    expect(response.status).toBe(200);
+    expect(JSON.parse(String(vi.mocked(fetch).mock.calls[3]?.[1]?.body))).toMatchObject({ transaction_status: "revoked" });
+    expect(String(vi.mocked(fetch).mock.calls[4]?.[0])).toContain("/rpc/revoke_runner_payment_transaction");
   });
 });
 
 vi.mock("../../../../lib/http", () => ({ withSecurityHeaders: (response: Response) => response }));
 vi.mock("../../../../lib/stripe", () => ({
   getStripeConfig: () => ({ webhookSecret: "whsec_test" }),
+  getStripeJson: vi.fn(),
   verifyStripeSignature: () => true,
 }));
 vi.mock("../../../../lib/supabase", () => ({

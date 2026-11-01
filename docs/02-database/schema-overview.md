@@ -102,6 +102,13 @@ related_tables:
   - user_profiles
   - subscriptions
   - premium_grants
+  - runner_plan_unlocks
+  - runner_subscription_accounts
+  - runner_billing_events
+  - runner_purchase_intents
+  - runner_monetization_config
+  - runner_plan_history
+  - runner_admin_access_modes
 ---
 
 # Schema Overview
@@ -150,6 +157,7 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 - Organizer update read receipt: `race_event_update_reads` stores identified-runner read state for synchronized `NEW` badges.
 - RaceBook gear checklist: `racebook_gear_checks` stores owner-scoped checked equipment by exact course format and synchronizes it across the runner's devices.
 - Entitlement source: subscription, trial, or premium grant.
+- Runner billing ledger: server-verified annual subscriptions, canonical per-format/edition unlocks, payment intents/events, rollout configuration, historical detail provenance, and trusted-admin session modes. See [Runner Billing Tables](tables/runner-billing.md).
 - Organizer edition entitlement: permanent Visibilité/Essential/Complete/Signature capability projection, derived from one-time payments or an admin grant and separate from runner Premium.
 - Organizer edition capability grant: service-only active/revoked complimentary module projection that supplements an edition pack without changing it; V1 supports `racebook_analytics.view`.
 - Organizer bank-transfer invoicing: the canonical pack subtotal is server-owned and currently VAT-exempt under article 293 B CGI. Issuance stores a chronological number and immutable legal snapshot on the service-only payment ledger, while the PDF remains in private Storage.
@@ -299,6 +307,7 @@ erDiagram
 ## Gotchas
 
 - The pinned Courses search/filter controls, native date inputs, and revised format action layout are presentation-only over the existing catalog snapshot. They add no table, column, RLS policy, or persisted filter value.
+- Catalog/RaceBook plan CTAs and the restored contextual workspace switch are mobile presentation/navigation behavior. They do not create, update, or broaden visibility of race, event, sponsor, service, relay, award, wave, favorite, checklist, or update-read rows.
 
 - Shared loading, retry, empty-state, and pull-to-refresh presentation on the mobile root tabs adds no table, column, policy, or persistence path. Catalog and Nutrition retries repeat their existing bounded reads.
 

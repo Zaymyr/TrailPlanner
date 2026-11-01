@@ -1,9 +1,7 @@
 ---
 title: Infrastructure
 scope: architecture
-
 last_verified: 2026-11-01
-
 ai_priority: high
 related_files:
   - apps/web/.env.example
@@ -34,6 +32,10 @@ related_tables:
 ---
 
 # Infrastructure
+
+## Runner billing configuration
+
+Runner monetisation is deliberately off after migration. Enabling it requires server-only Stripe and RevenueCat credentials, configured annual and course products, verified webhook delivery, and an explicit database rollout-flag change. The public/mobile app must never receive provider secret keys.
 
 ## Purpose
 
@@ -174,6 +176,8 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `STRIPE_PRICE_ID`
+- `STRIPE_ANNUAL_PRICE_ID` (runner annual 29.99 EUR)
+- `STRIPE_COURSE_PRICE_ID` (runner one-time course 9.99 EUR)
 - `STRIPE_CHECKOUT_SUCCESS_URL`
 - `STRIPE_CHECKOUT_CANCEL_URL`
 - `STRIPE_BILLING_RETURN_URL`

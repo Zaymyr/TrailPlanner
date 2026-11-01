@@ -25,6 +25,10 @@ const supabaseProductSchema = z.object({
 });
 
 const profileRowSchema = z.object({
+  birth_date: z.string().nullable().optional(),
+  weight_kg: z.number().nullable().optional(),
+  height_cm: z.number().nullable().optional(),
+  default_carbs_g_per_hour: z.number().nullable().optional(),
   full_name: z.string().nullable().optional(),
   age: z.number().nullable().optional(),
   water_bag_liters: z.number().nullable().optional(),
@@ -68,7 +72,7 @@ const buildHeaders = (supabaseKey: string, accessToken: string, contentType = "a
 
 const fetchProfile = async (supabaseUrl: string, supabaseKey: string, token: string): Promise<UserProfile> => {
   const profileResponse = await fetch(
-    `${supabaseUrl}/rest/v1/user_profiles?select=full_name,age,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km&limit=1`,
+    `${supabaseUrl}/rest/v1/user_profiles?select=full_name,age,birth_date,weight_kg,height_cm,default_carbs_g_per_hour,water_bag_liters,utmb_index,comfortable_flat_pace_min_per_km&limit=1`,
     {
       headers: buildHeaders(supabaseKey, token, undefined),
       cache: "no-store",
@@ -101,6 +105,10 @@ const fetchProfile = async (supabaseUrl: string, supabaseKey: string, token: str
     .map(mapProduct);
 
   return {
+    birthDate: profileRow?.birth_date ?? null,
+    weightKg: profileRow?.weight_kg ?? null,
+    heightCm: profileRow?.height_cm ?? null,
+    defaultCarbsGPerHour: profileRow?.default_carbs_g_per_hour ?? null,
     fullName: profileRow?.full_name ?? null,
     age: profileRow?.age ?? null,
     waterBagLiters: profileRow?.water_bag_liters ?? null,
@@ -219,6 +227,13 @@ export async function PUT(request: Request) {
 
   try {
     const profilePayload: Record<string, unknown> = { user_id: user.id };
+
+    const athleteColumns = { birthDate: "birth_date", weightKg: "weight_kg", heightCm: "height_cm", defaultCarbsGPerHour: "default_carbs_g_per_hour" } as const;
+    for (const [field, column] of Object.entries(athleteColumns)) {
+      if (Object.prototype.hasOwnProperty.call(body, field)) {
+        profilePayload[column] = body[field as keyof typeof athleteColumns] ?? null;
+      }
+    }
 
     if (Object.prototype.hasOwnProperty.call(body, "fullName")) {
       profilePayload.full_name = body.fullName ?? null;

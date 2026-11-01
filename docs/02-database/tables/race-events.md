@@ -98,6 +98,8 @@ related_tables:
 
 RaceBook personal passage-time interpolation uses the existing event date for clock labels and introduces no event column.
 
+> CTA scope: the RaceBook plan CTA resolves a runner-owned plan by exact format `race_id`; it does not alter event metadata, visibility, or organizer ownership.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
@@ -284,6 +286,9 @@ where is_live = true
 ## Gotchas
 
 - Keeping Courses search and quick filters sticky, entering date bounds through native pickers, and placing format actions below the full-width format name are presentation-only. They do not alter event/format relationships, visibility, or stored dates.
+- Catalog create/refine wording and RaceBook start-time rendering are presentation only; they do not alter event data or visibility.
+
+- Showing `Affiner mon plan` for a runner-owned format instead of another create CTA is a catalog/RaceBook presentation decision. It does not change event visibility, event ownership, or organizer content.
 
 - The shared Courses bootstrap, recoverable-error, empty-result, and pull-to-refresh presentation repeats the existing event/format query and visibility filters. It must not persist an empty result, alter event liveness, or turn a failed request into a catalog-empty conclusion.
 - Expanding or compacting the Courses root header changes only layout. It must not re-run, widen, or reorder the event query outside the existing scroll/list behavior.

@@ -30,6 +30,7 @@ type Props = {
   message: string;
   onClose: () => void;
   benefits?: string[];
+  planId?: string;
 };
 
 export function PremiumUpsellModal({
@@ -38,6 +39,7 @@ export function PremiumUpsellModal({
   message,
   onClose,
   benefits,
+  planId,
 }: Props) {
   if (!visible) return null;
 
@@ -48,6 +50,7 @@ export function PremiumUpsellModal({
       message={message}
       onClose={onClose}
       benefits={benefits}
+      planId={planId}
     />
   );
 }
@@ -58,8 +61,9 @@ function PremiumUpsellModalContent({
   message,
   onClose,
   benefits,
+  planId,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const billing = useRevenueCatBilling();
 
   useEffect(() => {
@@ -73,22 +77,46 @@ function PremiumUpsellModalContent({
   const upgradeLabel = billing.currentPackage
     ? t.profile.premiumAnnualCta.replace('{price}', billing.currentPackage.product.priceString)
     : t.profile.premiumAnnualFallbackCta;
+  const isCourseOffer = Boolean(planId);
+  const courseDisplayPrice = billing.coursePriceString ?? (locale === 'fr' ? '9,99 €' : '€9.99');
+  const coursePurchaseLabel = locale === 'fr'
+    ? `Débloquer cette course · ${courseDisplayPrice}`
+    : `Unlock this race · ${courseDisplayPrice}`;
   const offerTitle = billing.currentPackage?.product.title?.trim() || t.profile.subscriptionOfferTitle;
   const offerPrice = t.profile.subscriptionPriceAnnual.replace(
     '{price}',
-    billing.currentPackage?.product.priceString ?? 'EUR 9',
+    billing.currentPackage?.product.priceString ?? '29,99 €',
   );
 
   const benefitItems = useMemo(
     () =>
       benefits && benefits.length > 0
         ? benefits
-        : [
+        : isCourseOffer
+          ? locale === 'fr'
+            ? [
+                'Allure ajustable section par section',
+                'Nutrition construite ravito par ravito',
+                'Accès durable au plan de cette course',
+              ]
+            : [
+                'Section-by-section pace adjustments',
+                'Aid-station-by-aid-station nutrition planning',
+                'Lasting access to this race plan',
+              ]
+          : [
             t.profile.premiumBenefitPlans,
             t.profile.premiumBenefitFavorites,
             t.profile.premiumBenefitAutoFill,
           ],
-    [benefits, t.profile.premiumBenefitAutoFill, t.profile.premiumBenefitFavorites, t.profile.premiumBenefitPlans],
+    [
+      benefits,
+      isCourseOffer,
+      locale,
+      t.profile.premiumBenefitAutoFill,
+      t.profile.premiumBenefitFavorites,
+      t.profile.premiumBenefitPlans,
+    ],
   );
 
   async function openExternalUrl(url: string | null, fallbackMessage: string) {
@@ -150,6 +178,19 @@ function PremiumUpsellModalContent({
     if (opened) onClose();
   }
 
+  async function handleCoursePurchase() {
+    if (!planId) return;
+    try {
+      const result = await billing.buyCourse(planId);
+      if (result === 'purchased') {
+        onClose();
+        Alert.alert(t.common.ok, locale === 'fr' ? 'Course débloquée.' : 'Race unlocked.');
+      } else if (result === 'unverified') {
+        Alert.alert(t.profile.subscriptionLabel, locale === 'fr' ? 'Ton achat est en cours de vérification. Rouvre ce plan pour actualiser tes accès.' : 'Your purchase is being verified. Reopen this plan to refresh access.');
+      } else if (result === 'unavailable') Alert.alert(t.common.error, t.profile.purchaseUnavailable);
+    } catch { Alert.alert(t.common.error, t.profile.purchaseFailed); }
+  }
+
   const actionBusy = billing.isLoading || billing.isPurchasing;
 
   return (
@@ -171,9 +212,25 @@ function PremiumUpsellModalContent({
 
           <View style={styles.benefitsCard}>
             <View style={styles.offerSummary}>
-              <Text style={styles.offerTitle}>{offerTitle}</Text>
-              <Text style={styles.offerBody}>{t.profile.subscriptionDurationAnnual}</Text>
-              <Text style={styles.offerBody}>{offerPrice}</Text>
+              {isCourseOffer ? (
+                <>
+                  <Text style={styles.offerTitle}>
+                    {locale === 'fr' ? 'Ce plan de course' : 'This race plan'}
+                  </Text>
+                  <Text style={styles.offerBody}>
+                    {locale === 'fr'
+                      ? 'Achat unique pour préparer cette course en détail'
+                      : 'One-time purchase to prepare this race in detail'}
+                  </Text>
+                  <Text style={styles.offerPrice}>{courseDisplayPrice}</Text>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.offerTitle}>{offerTitle}</Text>
+                  <Text style={styles.offerBody}>{t.profile.subscriptionDurationAnnual}</Text>
+                  <Text style={styles.offerBody}>{offerPrice}</Text>
+                </>
+              )}
             </View>
 
             {benefitItems.map((item) => (
@@ -184,17 +241,44 @@ function PremiumUpsellModalContent({
             ))}
           </View>
 
-          <TouchableOpacity
-            disabled={actionBusy}
-            onPress={() => void handleUpgrade()}
-            style={[styles.primaryButton, actionBusy && styles.primaryButtonDisabled]}
-          >
-            {billing.isPurchasing ? (
-              <ActivityIndicator color={Colors.textOnBrand} />
-            ) : (
-              <Text style={styles.primaryButtonText}>{upgradeLabel}</Text>
-            )}
-          </TouchableOpacity>
+          {isCourseOffer ? (
+            <>
+              <TouchableOpacity
+                disabled={actionBusy || !billing.coursePriceString}
+                onPress={() => void handleCoursePurchase()}
+                style={[
+                  styles.primaryButton,
+                  (actionBusy || !billing.coursePriceString) && styles.primaryButtonDisabled,
+                ]}
+              >
+                {billing.isPurchasing ? (
+                  <ActivityIndicator color={Colors.textOnBrand} />
+                ) : (
+                  <Text style={styles.primaryButtonText}>{coursePurchaseLabel}</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                disabled={actionBusy}
+                onPress={() => void handleUpgrade()}
+                style={[styles.courseButton, actionBusy && styles.primaryButtonDisabled]}
+              >
+                <Text style={styles.courseButtonText}>{upgradeLabel}</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <TouchableOpacity
+              disabled={actionBusy}
+              onPress={() => void handleUpgrade()}
+              style={[styles.primaryButton, actionBusy && styles.primaryButtonDisabled]}
+            >
+              {billing.isPurchasing ? (
+                <ActivityIndicator color={Colors.textOnBrand} />
+              ) : (
+                <Text style={styles.primaryButtonText}>{upgradeLabel}</Text>
+              )}
+            </TouchableOpacity>
+          )}
 
           <View style={styles.legalButtonsRow}>
             <TouchableOpacity
@@ -293,6 +377,11 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  offerPrice: {
+    color: Colors.brandPrimary,
+    fontSize: 20,
+    fontWeight: '800',
+  },
   benefitRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -319,6 +408,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
+  courseButton: { marginTop: 10, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
+  courseButtonText: { color: Colors.brandPrimary, fontSize: 14, fontWeight: '800' },
   legalButtonsRow: {
     flexDirection: 'row',
     gap: 10,

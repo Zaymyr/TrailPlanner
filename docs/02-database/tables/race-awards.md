@@ -25,9 +25,15 @@ related_tables:
 
 RaceBook personal passage-time interpolation is client-only and does not alter this table's awards contract.
 
+> CTA scope: the RaceBook plan CTA resolves only the current runner's saved plan for the exact `race_id`; it does not read, reorder, or change award rows or Podiums visibility.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose and invariants
+
+Mobile preview veiling, CTA placement, and normalized start-time display are read-only presentation; they do not change award rows or access.
+
+Catalog plan CTAs and the RaceBook/Mon plan workspace switch do not affect award selection, publication, or row access; awards remain read-only course context.
 
 Awards require Complete or Signature plus an active `awards` format module. Disabling masks published rows and blocks organizer writes without deleting them.
 

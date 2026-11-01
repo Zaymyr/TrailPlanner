@@ -12,6 +12,7 @@ type Props = {
   expandedHeaderHeight: number;
   onOpenPlan: () => void;
   onOpenRacebook: () => void;
+  planExists?: boolean;
   planDisabled?: boolean;
   racebookDisabled?: boolean;
   scrollY: Animated.Value;
@@ -24,12 +25,17 @@ export function RaceWorkspaceSwitch({
   expandedHeaderHeight,
   onOpenPlan,
   onOpenRacebook,
+  planExists = true,
   planDisabled = false,
   racebookDisabled = false,
   scrollY,
   topInset,
 }: Props) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
+  const racebookLabel = t.planWorkspace.officialRacebook;
+  const planLabel = planExists
+    ? (locale === 'fr' ? 'Affiner mon plan' : 'Refine my plan')
+    : (locale === 'fr' ? 'Créer mon plan' : 'Create my plan');
   const collapseDistance = expandedHeaderHeight - compactHeaderHeight;
   const top = scrollY.interpolate({
     inputRange: [0, collapseDistance],
@@ -39,28 +45,28 @@ export function RaceWorkspaceSwitch({
 
   return (
     <Animated.View style={[styles.shell, { top }]}>
-      <View style={styles.segmentedControl}>
+      <View accessibilityRole="tablist" style={styles.segmentedControl}>
         <Pressable
-          accessibilityLabel={t.planWorkspace.officialRacebook}
+          accessibilityLabel={racebookLabel}
           accessibilityRole="tab"
-          accessibilityState={{ selected: active === 'racebook', disabled: racebookDisabled }}
-          disabled={active === 'racebook'}
+          accessibilityState={{ selected: active === 'racebook', disabled: active === 'racebook' || racebookDisabled }}
+          disabled={active === 'racebook' || racebookDisabled}
           onPress={onOpenRacebook}
           style={[styles.segment, active === 'racebook' && styles.activeSegment, racebookDisabled && styles.disabled]}
           testID="race-workspace-racebook"
         >
-          <Text style={[styles.label, active === 'racebook' && styles.activeLabel]}>{t.planWorkspace.officialRacebook}</Text>
+          <Text style={[styles.label, active === 'racebook' && styles.activeLabel]}>{racebookLabel}</Text>
         </Pressable>
         <Pressable
-          accessibilityLabel={t.planWorkspace.myPlan}
+          accessibilityLabel={planLabel}
           accessibilityRole="tab"
-          accessibilityState={{ selected: active === 'plan', disabled: planDisabled }}
-          disabled={active === 'plan'}
+          accessibilityState={{ selected: active === 'plan', disabled: active === 'plan' || planDisabled }}
+          disabled={active === 'plan' || planDisabled}
           onPress={onOpenPlan}
           style={[styles.segment, active === 'plan' && styles.activeSegment, planDisabled && styles.disabled]}
           testID="race-workspace-plan"
         >
-          <Text style={[styles.label, active === 'plan' && styles.activeLabel]}>{t.planWorkspace.myPlan}</Text>
+          <Text style={[styles.label, active === 'plan' && styles.activeLabel]}>{planLabel}</Text>
         </Pressable>
       </View>
     </Animated.View>
@@ -94,7 +100,7 @@ const styles = StyleSheet.create({
   },
   segment: {
     flex: 1,
-    minHeight: 32,
+    minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 10,

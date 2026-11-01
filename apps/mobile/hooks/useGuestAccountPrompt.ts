@@ -5,7 +5,7 @@ import { useRouter } from 'expo-router';
 import { useI18n } from '../lib/i18n';
 import { captureAnalyticsEvent } from '../lib/posthog';
 
-export type GuestAccountPromptSource = 'plan_limit' | 'race_favorite';
+export type GuestAccountPromptSource = 'plan_limit' | 'plan_creation' | 'race_favorite';
 
 export function useGuestAccountPrompt() {
   const router = useRouter();

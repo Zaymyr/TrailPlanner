@@ -1367,4 +1367,13 @@ export const styles = StyleSheet.create({
   pickerAddBtnDone: { borderColor: Colors.brandPrimary, backgroundColor: Colors.brandPrimary },
   pickerAddBtnText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '600' },
   pickerAddBtnTextDone: { color: Colors.textOnBrand },
+  previewCard: { marginHorizontal: 16, marginBottom: 14, padding: 16, borderRadius: 16, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface, gap: 8 },
+  previewContent: { opacity: 0.72 },
+  previewTitle: { color: Colors.textPrimary, fontSize: 18, fontWeight: '800' },
+  previewBody: { color: Colors.textSecondary, lineHeight: 20 },
+  previewActions: { gap: 8, marginTop: 4 },
+  previewPrimary: { minHeight: 44, borderRadius: 12, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  previewPrimaryText: { color: Colors.textOnBrand, fontWeight: '800' },
+  previewSecondary: { minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 10 },
+  previewSecondaryText: { color: Colors.brandPrimary, fontWeight: '800' },
 });

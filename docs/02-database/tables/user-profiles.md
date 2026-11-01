@@ -1,7 +1,7 @@
 ---
 title: user_profiles Table
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-10-30
 ai_priority: high
 related_files:
   - supabase/migrations/20250624103000_add_user_profiles.sql
@@ -15,6 +15,7 @@ related_files:
   - supabase/tests/privileged_database_access_checks.sql
   - supabase/migrations/20260804143259_add_onboarding_completion_to_user_profiles.sql
   - supabase/migrations/20260830154837_add_mobile_onboarding_statuses.sql
+  - supabase/migrations/20261030115828_stop_automatic_runner_trials.sql
   - apps/web/lib/trial-server.ts
   - apps/web/lib/entitlements.ts
 related_tables:
@@ -30,7 +31,7 @@ related_tables:
 ## Key Concepts
 
 - Profile row: app-owned companion to `auth.users`.
-- Trial fields: 15-day premium trial lifecycle state.
+- Trial fields: legacy 15-day premium trial lifecycle state.
 - Defaults: user-level planner target defaults.
 - Onboarding completion: explicit timestamp set after completion or deliberate skip.
 
@@ -85,9 +86,9 @@ Summary:
 
 ## Business Invariants
 
-- Trial duration is 15 days. The trigger and `apps/web/lib/trial.ts` agree on this value.
-- `handle_new_user_profile` runs after auth user creation and uses SECURITY DEFINER to insert or repair trial fields.
-- `ensureTrialStatus` repairs missing profile/trial fields on session verification.
+- Existing trial rows retain their original 15-day period. New accounts do not receive trial dates.
+- `handle_new_user_profile` creates the profile but does not initialize trial fields.
+- `ensureTrialStatus` is read-only; it reports existing trial state and does not repair or extend it.
 - Sign-in metrics are updated by `public.increment_user_sign_in(...)`, called from server auth sign-in flow.
 - Each mobile tour uses `pending`, `in_progress`, `skipped`, or `completed`. The Profile dot disappears only when both are `completed`.
 - `onboarding_completed_at` is retained for legacy Plan completion and is no longer written by skip actions.
@@ -117,7 +118,7 @@ where user_id = '<user-id>';
 - The shared privileged-access SQL test, run after `20260930104930_remove_personal_race_creation.sql`, also verifies administrator-only race insertion; profile ownership and protected server-field behavior are unchanged.
 - Do not read `auth.users` from client code to get profile fields.
 - Use `birth_date` for new age-related work unless maintaining legacy `age`.
-- Trial fields can be missing for older users; server code repairs them.
+- Trial fields can be missing for new or older users; missing values mean no trial and must not be repaired client- or server-side.
 - Trial dates and sign-in metrics are entitlement/audit inputs. Never add them to a client profile mutation payload or weaken their server-managed trigger guard.
 - Legacy onboarded profiles can have a null `onboarding_completed_at`; the mobile gate keeps recognizing existing onboarding profile fields and favorite products for backward compatibility.
 - The status migration marks Plan completed for every existing profile and intentionally leaves RaceBook pending; profiles created afterward default both tours to pending.

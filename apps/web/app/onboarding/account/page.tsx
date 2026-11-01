@@ -149,7 +149,7 @@ export default function AccountPage() {
       const newUserId = data?.user?.id;
       if (!newUserId) {
         console.error("[onboarding-signup] no user.id in signup response — save-plan skipped", data);
-      } else if (!hasSavedPlan.current && !_planSaved && !sessionStorage.getItem('onboarding_plan_saved') && !localStorage.getItem('onboarding_plan_saved')) {
+      } else if (data?.access_token && !hasSavedPlan.current && !_planSaved && !sessionStorage.getItem('onboarding_plan_saved') && !localStorage.getItem('onboarding_plan_saved')) {
         hasSavedPlan.current = true;
         _planSaved = true;
         try {
@@ -180,7 +180,7 @@ export default function AccountPage() {
           console.log("[onboarding-signup] calling save-plan for userId:", newUserId, "aidStations:", aidStations.length, "catalogRaceId:", catalogRaceId);
           const planRes = await fetch("/api/onboarding/save-plan", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.access_token}` },
             body: JSON.stringify({
               userId: newUserId,
               name: "Mon plan de course",
@@ -515,7 +515,7 @@ export default function AccountPage() {
             </button>
 
             <p className="text-center text-sm" style={{ color: "#16a34a" }}>
-              🎁 15 jours Premium offerts à la création de ton compte
+              Ton estimation gratuite, enregistrée dans ton compte
             </p>
           </form>
         </>

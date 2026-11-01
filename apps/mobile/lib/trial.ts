@@ -3,8 +3,6 @@ import { supabase } from './supabase';
 import { fetchWithTimeout } from './fetchWithTimeout';
 import { WEB_API_BASE_URL } from './webApi';
 
-const TRIAL_DURATION_DAYS = 15;
-
 type TrialStatus = {
   trialStartedAt: string | null;
   trialEndsAt: string | null;
@@ -21,16 +19,6 @@ type TrialRow = {
 };
 
 const inFlightByUserId = new Map<string, Promise<TrialStatus | null>>();
-
-function buildTrialDates() {
-  const startedAt = new Date();
-  const endsAt = new Date(startedAt.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000);
-
-  return {
-    startedAt: startedAt.toISOString(),
-    endsAt: endsAt.toISOString(),
-  };
-}
 
 function mapTrialRow(row: TrialRow | null | undefined): TrialStatus {
   return {
@@ -54,7 +42,7 @@ async function ensureTrialStatusViaWeb(accessToken: string) {
     const payload = (await response.json().catch(() => null)) as TrialStatusResponse | null;
     return payload?.trial ?? null;
   } catch (error) {
-    console.warn('Unable to initialize trial via web API.', error);
+    console.warn('Unable to read historical trial via web API.', error);
     return null;
   }
 }
@@ -70,77 +58,8 @@ async function ensureTrialStatusViaSupabase(userId: string) {
     throw error;
   }
 
-  const currentRow = (data as TrialRow | null) ?? null;
-
-  if (!currentRow) {
-    const { startedAt, endsAt } = buildTrialDates();
-    const { error: insertError } = await supabase.from('user_profiles').upsert(
-      {
-        user_id: userId,
-        trial_started_at: startedAt,
-        trial_ends_at: endsAt,
-      },
-      { onConflict: 'user_id' }
-    );
-
-    if (insertError) {
-      throw insertError;
-    }
-
-    return {
-      trialStartedAt: startedAt,
-      trialEndsAt: endsAt,
-    };
-  }
-
-  if (!currentRow.trial_started_at) {
-    const { startedAt, endsAt } = buildTrialDates();
-    const { error: updateError } = await supabase
-      .from('user_profiles')
-      .update({
-        trial_started_at: startedAt,
-        trial_ends_at: endsAt,
-      })
-      .eq('user_id', userId)
-      .is('trial_started_at', null);
-
-    if (updateError) {
-      throw updateError;
-    }
-
-    return {
-      trialStartedAt: startedAt,
-      trialEndsAt: endsAt,
-    };
-  }
-
-  if (!currentRow.trial_ends_at) {
-    const trialStart = new Date(currentRow.trial_started_at);
-
-    if (Number.isFinite(trialStart.getTime())) {
-      const endsAt = new Date(
-        trialStart.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000
-      ).toISOString();
-      const { error: updateError } = await supabase
-        .from('user_profiles')
-        .update({
-          trial_ends_at: endsAt,
-        })
-        .eq('user_id', userId)
-        .is('trial_ends_at', null);
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      return {
-        trialStartedAt: currentRow.trial_started_at,
-        trialEndsAt: endsAt,
-      };
-    }
-  }
-
-  return mapTrialRow(currentRow);
+  // The auth trigger owns profile creation. Never repair absent trial dates here.
+  return mapTrialRow((data as TrialRow | null) ?? null);
 }
 
 export async function ensureTrialStatusForSession(session: Session | null) {
@@ -167,7 +86,7 @@ export async function ensureTrialStatusForSession(session: Session | null) {
     try {
       return await ensureTrialStatusViaSupabase(userId);
     } catch (error) {
-      console.warn('Unable to initialize trial via Supabase.', error);
+      console.warn('Unable to read historical trial via Supabase.', error);
       return null;
     }
   })().finally(() => {

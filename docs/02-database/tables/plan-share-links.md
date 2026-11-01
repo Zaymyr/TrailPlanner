@@ -99,6 +99,8 @@ Summary:
 
 ## Gotchas
 
+- A free runner preview must not create or refresh a detailed crew share snapshot. The share route verifies the owned plan's `canViewDetails` access before materializing private pacing/nutrition data.
+
 - Service role bypasses RLS, so `/api/plan-shares` must verify the bearer token and parent plan ownership before inserting.
 - Public crew viewers do not authenticate. Do not add direct `anon` table grants unless the public access model is redesigned.
 - Because only the token hash is stored, legacy random links cannot be re-shown after creation. Stable links created by the reusable share flow can be re-derived server-side and updated on re-share.

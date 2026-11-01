@@ -30,7 +30,7 @@ type PriceResponse = {
   };
 };
 
-let cachedPrice: { data: PriceResponse["price"]; expiresAt: number } | null = null;
+let cachedPrice: { offer: string; data: PriceResponse["price"]; expiresAt: number } | null = null;
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 const respondWithPrice = (price: PriceResponse["price"]) => {
@@ -57,8 +57,10 @@ const parseStripePrice = (payload: unknown): StripePriceWithAmount => {
 
 export async function GET(request: NextRequest) {
   const stripeConfig = getStripeConfig();
+  const offer = request.nextUrl.searchParams.get("offer") === "course" ? "course" : "annual";
+  const configuredPriceId = offer === "course" ? stripeConfig?.coursePriceId : stripeConfig?.annualPriceId ?? stripeConfig?.priceId;
 
-  if (!stripeConfig?.priceId) {
+  if (!stripeConfig || !configuredPriceId) {
     return withSecurityHeaders(
       NextResponse.json({ message: "Stripe price is not configured." }, { status: 500 })
     );
@@ -79,12 +81,12 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  if (cachedPrice && cachedPrice.expiresAt > Date.now()) {
+  if (cachedPrice && cachedPrice.offer === offer && cachedPrice.expiresAt > Date.now()) {
     return respondWithPrice(cachedPrice.data);
   }
 
   try {
-    const response = await fetch(`https://api.stripe.com/v1/prices/${stripeConfig.priceId}`, {
+    const response = await fetch(`https://api.stripe.com/v1/prices/${configuredPriceId}`, {
       headers: {
         Authorization: `Bearer ${stripeConfig.secretKey}`,
       },
@@ -107,7 +109,7 @@ export async function GET(request: NextRequest) {
       intervalCount: stripePrice.recurring?.interval_count ?? null,
     };
 
-    cachedPrice = { data: normalizedPrice, expiresAt: Date.now() + CACHE_TTL_MS };
+    cachedPrice = { offer, data: normalizedPrice, expiresAt: Date.now() + CACHE_TTL_MS };
 
     return respondWithPrice(normalizedPrice);
   } catch (error) {

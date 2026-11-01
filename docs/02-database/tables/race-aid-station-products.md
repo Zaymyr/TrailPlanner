@@ -25,6 +25,10 @@ related_tables:
 
 # `race_aid_station_products`
 
+## Runner monetisation boundary
+
+Official catalog products remain readable race facts. A free runner preview may show needs, but choosing runner inventory/product quantities for a plan is a paid detail capability enforced through the owned plan, not by altering organizer catalog visibility.
+
 ## Purpose
 
 `race_aid_station_products` links products to source race aid stations so organizers can publish what will be available at each ravito.

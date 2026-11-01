@@ -35,6 +35,7 @@ related_files:
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/hooks/profileScreenHelpers.ts
   - apps/mobile/lib/onboardingGate.ts
+  - apps/mobile/lib/runnerPlanIntent.ts
   - apps/mobile/lib/resendContactSync.ts
   - apps/mobile/lib/resendContactSync.test.ts
   - apps/mobile/lib/trial.ts
@@ -43,6 +44,14 @@ related_tables:
 ---
 
 # Auth Flows
+
+## Runner plan creation and billing access
+
+The runner launch announcement uses cached `getSession()` identity and a user-scoped launch-information fetch from the root layout, but installs no new Auth listener. Its local daily/hidden preferences are presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.
+
+Launch information is fetched by a user-scoped mobile hook only after a cached authenticated session is known and refreshes on foreground. It exposes cohort/badge state, not a new authorization source; failures do not grant access.
+
+Guests may browse catalog data but cannot create a runner plan. Plan creation requires a non-anonymous account and the runner profile defaults needed for generation (name, comfortable pace, water capacity and carbohydrate target; body/UTMB values remain optional). New sign-ups do not start a trial; existing trial dates remain honored unchanged. The protected plan-access API resolves global entitlement, a canonical course/edition unlock, or historical read-only detail access server-side. Admin free/premium simulation is trusted `app_metadata` plus current JWT session only.
 
 ## Purpose
 
@@ -84,6 +93,8 @@ An admin-created organizer account follows the Supabase invitation flow rather t
 
 ## Mobile Auth
 
+When a guest chooses a course for a new plan, `runnerPlanIntent.ts` retains only that public race id and a 24-hour resume timestamp in local storage. Identified post-auth routing resumes the ordinary new-plan/profile flow before optional tours. This marker never authorizes a write; the server and database still require the identified owner and planning defaults. Successful creation clears it, and the guided Plan completion remains tied to the successful insert.
+
 The authenticated onboarding catalog accepts source-backed formats whose D+ is still unpublished. It shows the missing value explicitly and does not allow that format to start plan calculation until the elevation is supplied; this does not alter authentication or onboarding-gate state.
 
 `apps/mobile/app/_layout.tsx` listens to Supabase auth state. On active sessions it:
@@ -106,6 +117,8 @@ Login uses the same scrollable keyboard-avoidance layout as signup, so account a
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 The Profile root may retry its own `getSession()` plus `user_profiles` bootstrap after a recoverable read failure. That retry reuses the existing session and does not create a second auth listener, navigation gate, guest conversion, or onboarding lifecycle.
 Profile dirty-state retention, its single save dock, and native birth-date entry remain local form presentation. Changing Profile sub-tabs or root tabs does not write, discard, or create a session; only the existing explicit save path persists the normalized ISO date and validated fields.
+
+The Profile admin access selector sends the current bearer token to the protected web API and never changes Auth metadata. A missing/expired admin session or an API deployment that does not yet expose the selector route produces a localized actionable message instead of silently changing local access state.
 
 Non-auth onboarding steps, such as the extracted race/catalog and nutrition-product presentation components, must not add separate session side effects; their callbacks remain owned by the onboarding route, while session, analytics identity, push registration, and Resend sync behavior stay in `_layout.tsx` or the existing dedicated helpers.
 The onboarding race chooser inner-filters event formats to `races.is_live = true`. This visibility filter is catalog behavior only and must not add a new authentication/session side effect.
@@ -156,6 +169,7 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - Anonymous Apple identity linking can return existing-account wording when the Apple ID was used in an earlier review attempt; keep that path recoverable through direct Apple ID-token sign-in plus the pending guest-merge flow.
 - A clean E2E install follows the real anonymous-session bootstrap before opening password login. Do not add a production auth bypass for tests; use a dedicated test account and keep test credentials out of `EXPO_PUBLIC_*` variables.
 - Keep Profile fetch retry local to the screen data bootstrap; do not turn it into a new global auth-state subscription or session side effect.
+- Keep admin access simulation server-verified. The mobile selector may explain an unavailable route or stale administrator session, but it must not fall back to a client-only Premium/free override.
 - The app shell's route-derived light status-bar style for the four branded root headers is presentation-only; it must not become an auth gate, redirect condition, or session listener.
 
 ## Related Docs
