@@ -19,6 +19,10 @@ related_tables:
 
 # `plan_aid_stations`
 
+## Runner monetisation boundary
+
+Aid-station needs can appear in a free preview as aggregate requirements. Editable nutrition selections, quantities, pauses and station-by-station construction are paid-plan detail and must remain aligned with the parent `race_plans` access decision; client presentation is not authorization.
+
 ## Purpose
 
 `plan_aid_stations` stores the aid station snapshot attached to a saved plan. These rows let a plan preserve or edit aid station data independently from the source race catalog.

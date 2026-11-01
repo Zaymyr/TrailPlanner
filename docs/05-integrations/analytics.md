@@ -1,9 +1,7 @@
 ---
 title: Analytics
 scope: integration
-
 last_verified: 2026-11-01
-
 ai_priority: medium
 related_files:
   - apps/web/lib/posthog-organizer-analytics.ts
@@ -80,6 +78,16 @@ related_tables:
 # Analytics
 
 The compact aligned passage/cutoff reflection, late-warning disclosure, plan-derived segment duration, hero departure clock, title-aligned supporter permissions, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
+
+## Runner monetisation events
+
+The informational runner launch announcement creates no new analytics subscription or purchase event. Its explicit local acknowledgement is not checkout, revenue, an entitlement, or an analytics identity transition; do not include campaign markers, price strings, or stored plan details in telemetry.
+
+Opening Plans from the announcement is ordinary navigation, not purchase attribution. A support preview alert is likewise informational and must not be recorded as a verified support purchase.
+
+The read-only preview veil, its scroll position, and CTA stickiness are presentation state. Do not send plan values, section identifiers, start times, or modal display as a purchase/entitlement event; only verified provider fulfillment is revenue.
+
+Analytics may record a paywall impression only when its sheet is actually shown and a purchase result only after server verification. It must distinguish annual subscription from a per-course unlock, and must never include provider transaction ids, secret share tokens, health/profile values, exact scroll offsets, preview-boundary station ids, or a simulated admin mode as a real purchase. The locked preview's read-only cards, its boundary, and manual dismissal create no plan mutation event. Opening an account prompt or profile retry is not an entitlement event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
@@ -194,10 +202,11 @@ The root layout emits `app session started` once per process with the landing sc
 
 The mobile Premium funnel uses explicit events instead of treating a store callback as accounting truth:
 
-- `premium paywall viewed` is emitted when the inline Profile offer or a feature-gate modal is actually displayed. `paywall_type` distinguishes `inline` from `modal`, and `placement` distinguishes `profile` from `feature_gate`.
+- `premium paywall viewed` is emitted when the inline Profile offer or a feature-gate modal is actually displayed. `paywall_type` distinguishes `inline` from `modal`, and `placement` distinguishes `profile`, `feature_gate`, and the locked-plan preview boundary. The automatic preview sheet may appear once per plan-workspace visit only at the third-ravito boundary; a short-course finish has a manual CTA only. Neither display is a successful unlock.
 - `premium checkout started` is emitted when the runner presses the upgrade CTA. RevenueCat attempts use `billing_provider: revenuecat`; browser fallbacks use `billing_provider: web_fallback`.
 - `premium purchase verified` is emitted only after RevenueCat returns an active Premium entitlement whose product matches the completed transaction. It includes the product/package and transaction identifiers, purchase date, RevenueCat store, entitlement id, period/ownership types, expiration, and `environment: sandbox|production`.
 - `premium purchase unverified` records a returned purchase result whose Premium entitlement is inactive or missing. Cancellation, unavailable checkout, and thrown failures use `premium checkout cancelled`, `premium checkout unavailable`, and `premium purchase failed` respectively.
+- A server purchase-preflight denial (rollout disabled or admin free/premium simulation) emits `premium checkout unavailable` with `purchase_not_authorized`; it never opens the store UI and is not revenue.
 
 The former `premium purchased` event is legacy data and is no longer emitted. Do not combine it with `premium purchase verified` in revenue reporting. PostHog remains product analytics; RevenueCat/App Store or Stripe remains authoritative for recognized transactions.
 
@@ -208,6 +217,8 @@ The normal cold-start destination is the Courses catalog; that routing decision 
 The Profile debug/admin presentation uses the same pure trusted-role helper: `app_metadata.role` or `app_metadata.roles` only. User-editable `user_metadata` never marks a mobile user as internal/admin.
 Profile dirty-state detection, the conditional bottom save dock, native birth-date entry, and moving runner onboarding shortcuts from personal information to Settings are presentation changes only. They emit no new analytics event; `profile saved` still fires only after a successful persisted profile mutation.
 Initial Profile loading and an explicit retry after a recoverable profile fetch failure are also presentation/data-retrieval actions. They emit no profile or Premium funnel event and do not repeat a persisted mutation.
+
+The Livret coureur plan entry emits racebook action clicked with the bounded create_plan or refine_plan action after resolving the current owned plan. These are navigation intents only; neither an existing-plan lookup, a blurred placeholder, nor an admin simulation is a persisted plan or purchase outcome.
 
 ## RaceBook Engagement
 

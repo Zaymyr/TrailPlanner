@@ -26,6 +26,8 @@ related_tables:
 
 RaceBook personal passage-time interpolation does not affect the independent gear-check persistence flow.
 
+> CTA scope: the RaceBook plan CTA resolves a runner-owned plan independently of the gear checklist. It never reads or mutates `racebook_gear_checks`.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
@@ -51,6 +53,10 @@ The Livret may read this durable completion when no linked plan is available to 
 - `service_role` retains explicit full access for administration and cleanup.
 
 ## Business Invariants
+
+- Preview scrolling and paywall CTAs do not mutate a gear checklist.
+
+- Catalog plan CTAs, preview scrolling, and the RaceBook/Mon plan switch do not mutate a gear check. Gear rows remain a deliberate owner checklist interaction only.
 
 - State is isolated by both user and exact `race_id`; two formats of one event never share completion.
 - Organizer equipment changes do not rewrite runner rows. The UI counts only keys that still match currently published items, so removed items become harmless dormant rows.

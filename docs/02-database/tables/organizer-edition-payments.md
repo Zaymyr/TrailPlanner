@@ -1,7 +1,7 @@
 ---
 title: organizer_edition_payments
 scope: database
-last_verified: 2026-10-29
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260829115507_add_organizer_edition_offers.sql
@@ -116,6 +116,8 @@ order by created_at desc;
 ```
 
 ## Gotchas
+
+- The shared Stripe webhook also receives runner billing events. Those must be persisted in the runner billing ledger and must not create or mutate an organizer payment row.
 
 - A Checkout redirect is not a paid transaction.
 - Do not overwrite historical rows to represent another purchase; create another attempt.

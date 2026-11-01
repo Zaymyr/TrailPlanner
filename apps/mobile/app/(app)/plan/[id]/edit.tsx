@@ -37,11 +37,15 @@ import {
   RACE_WORKSPACE_SWITCH_HEIGHT,
   RaceWorkspaceSwitch,
 } from '../../../../components/race-workspace/RaceWorkspaceSwitch';
+import { LockedPlanContent } from '../../../../components/plan-workspace/LockedPlanContent';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
+import { readOrganizerStartTime, normalizePlanClock } from '../../../../lib/planDeparture';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { usePremium } from '../../../../hooks/usePremium';
-import { FREE_PLAN_LIMIT, getCurrentUserPlanAccess } from '../../../../lib/planAccess';
+import { PremiumUpsellModal } from '../../../../components/premium/PremiumUpsellModal';
+import { WEB_API_BASE_URL } from '../../../../lib/webApi';
+import { resolveRunnerPlanCapabilities, type RunnerPlanCapabilities } from '../../../../lib/runnerPlanAccess';
 import { noteReviewPlanSaved } from '../../../../lib/appReview';
 import { isAnonymousSession } from '../../../../lib/appSession';
 import { useI18n } from '../../../../lib/i18n';
@@ -68,7 +72,7 @@ import {
   buildStoredRacePlanFromValues,
   formatDuration,
 } from '../../../../lib/planSummary';
-import { calculateElevationLoss, formatAveragePace, normalizePlanWorkspaceTab, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
+import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import {
   buildPersistedPlannerValues,
@@ -272,6 +276,12 @@ export default function EditPlanScreen() {
   const [elevationProfile, setElevationProfile] = useState<ElevationPoint[]>(
     () => initialWarmStartDraft?.elevationProfile ?? [],
   );
+  const [officialStartTime, setOfficialStartTime] = useState<string | null>(null);
+  const [officialElevationLossM, setOfficialElevationLossM] = useState<number | null>(null);
+  const [planCanEdit, setPlanCanEdit] = useState(false);
+  const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
+  const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
+  const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
   const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
   const lastSavedSnapshotRef = useRef<string | null>(initialWarmStartDraft?.lastSavedSnapshot ?? null);
   const elevationProfileRef = useRef<ElevationPoint[]>(initialWarmStartDraft?.elevationProfile ?? []);
@@ -368,6 +378,45 @@ export default function EditPlanScreen() {
   }, [elevationProfile, id, planName]);
 
   useEffect(() => {
+    let cancelled = false;
+    setOfficialElevationLossM(null);
+    setOfficialStartTime(null);
+    setLinkedRaceId(null);
+
+    if (!id) return () => { cancelled = true; };
+
+    void supabase
+      .from('race_plans')
+      .select('race_id, races(elevation_loss_m, organizer_details)')
+      .eq('id', id)
+      .maybeSingle()
+      .then(async (result: { data: unknown }) => {
+        if (cancelled) return;
+        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null; organizer_details?: unknown } | null } | null;
+        setLinkedRaceId(row?.race_id ?? null);
+        const officialValue = row?.races?.elevation_loss_m;
+        setOfficialElevationLossM(
+          typeof officialValue === 'number' && Number.isFinite(officialValue) && officialValue >= 0
+            ? officialValue
+            : null,
+        );
+        let startTime = readOrganizerStartTime(row?.races?.organizer_details);
+        if (!startTime && row?.race_id) {
+          const { data: wave } = await supabase.from('race_start_waves')
+            .select('start_time').eq('race_id', row.race_id)
+            .order('order_index', { ascending: true }).limit(1).maybeSingle();
+          startTime = normalizePlanClock(wave?.start_time);
+        }
+        if (!cancelled) setOfficialStartTime(startTime);
+      })
+      .catch((caught: unknown) => {
+        if (!cancelled) console.warn('Unable to load linked race header context.', caught);
+      });
+
+    return () => { cancelled = true; };
+  }, [id]);
+
+  useEffect(() => {
     const shouldAutoOpenHelp =
       showHelp === '1' || (id ? getPendingPlanEditHelp() === id : false);
 
@@ -414,6 +463,9 @@ export default function EditPlanScreen() {
     setError(null);
     setSaving(false);
     setSaveStatus('idle');
+    setPlanCanEdit(false);
+    setPlanCanViewDetails(false);
+    setRunnerAccessMode('real');
     setActivePlanEditSession(id);
 
     if (cachedDraft && cachedProductData) {
@@ -450,6 +502,22 @@ export default function EditPlanScreen() {
     setElevationProfile([]);
   }, [id, routeWorkspaceWarmStart]);
 
+  const refreshRunnerAccess = useCallback(async () => {
+    if (!id) return;
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    try {
+      const response = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = await response.json() as { access?: RunnerPlanCapabilities };
+      if (activeRouteIdRef.current !== id) return;
+      const capabilities = resolveRunnerPlanCapabilities(response.ok ? payload.access ?? null : null);
+      setPlanCanEdit(capabilities.canEdit); setPlanCanViewDetails(capabilities.canViewDetails);
+      setRunnerAccessMode(capabilities.mode ?? 'real');
+    } catch { /* Keep the last server-verified access while offline. */ }
+  }, [id]);
+  useFocusEffect(useCallback(() => { void refreshRunnerAccess(); }, [refreshRunnerAccess]));
+
   const loadPlan = useCallback(async () => {
     if (!id) return;
     const loadRequestId = ++loadRequestIdRef.current;
@@ -462,38 +530,30 @@ export default function EditPlanScreen() {
     setLoadingPlanName(null);
     setLoadingPlanNameId(id);
 
-    const planAccess = await getCurrentUserPlanAccess(isPremium);
-    if (isStaleLoad()) return;
-
     setLoadingProgress(0.26);
-    if (
-      !isPremium &&
-      planAccess.accessiblePlanIds !== null &&
-      !planAccess.accessiblePlanIds.has(id)
-    ) {
-      Alert.alert(
-        t.plans.freeAccessTitle,
-        t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT)),
-      );
-      clearActivePlanEditSession(id);
-      clearPlanEditDraft(id);
-      setInitialValues(null);
-      setLiveValues(null);
-      setElevationProfile([]);
-      setPlanProductData(null);
-      loadedPlanIdRef.current = null;
-      setLoadedPlanId(null);
-      setLoadingProgress(1);
-      setLoading(false);
-      router.replace('/(app)/plans');
-      return;
-    }
 
     const cachedDraft = getUnsavedPlanEditDraft(id);
     const sessionData = await supabase.auth.getSession();
     if (isStaleLoad()) return;
 
     const uid = sessionData.data?.session?.user?.id ?? null;
+    let nextPlanCanEdit = false;
+    if (sessionData.data?.session?.access_token && id) {
+      try {
+        const accessResponse = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, {
+          headers: { Authorization: `Bearer ${sessionData.data.session.access_token}` },
+        });
+        const accessPayload = (await accessResponse.json().catch(() => null)) as { access?: RunnerPlanCapabilities } | null;
+        const capabilities = resolveRunnerPlanCapabilities(accessResponse.ok ? accessPayload?.access ?? null : null);
+        nextPlanCanEdit = capabilities.canEdit;
+        setPlanCanViewDetails(capabilities.canViewDetails);
+        setRunnerAccessMode(capabilities.mode ?? 'real');
+      } catch (accessError) {
+        console.warn('Unable to load plan access.', accessError);
+      }
+    }
+    if (isStaleLoad()) return;
+    setPlanCanEdit(nextPlanCanEdit);
     const productDataPromise = loadPlanProductsBootstrap(uid);
 
     if (cachedDraft) {
@@ -573,7 +633,7 @@ export default function EditPlanScreen() {
         ? 'saved'
         : 'idle',
     );
-  }, [id, isPremium, router, t.plans.freeAccessMessage, t.plans.freeAccessTitle]);
+  }, [id, isPremium]);
 
   const persistPlan = useCallback(
     (values: PlanFormValues, silent = false) => {
@@ -664,6 +724,8 @@ export default function EditPlanScreen() {
 
   const saveLatestDraft = useCallback(
     async (silent = false) => {
+      // Read-only previews can navigate the workspace but never persist a draft.
+      if (!planCanEdit) return true;
       for (let attempt = 0; attempt < 3; attempt += 1) {
         const draft = latestDraftRef.current;
         const snapshot = draft ? serializePlanValues(draft, elevationProfileRef.current) : null;
@@ -684,7 +746,7 @@ export default function EditPlanScreen() {
         : null;
       return finalSnapshot === lastSavedSnapshotRef.current;
     },
-    [persistPlan],
+    [persistPlan, planCanEdit],
   );
 
   useEffect(() => {
@@ -750,18 +812,20 @@ export default function EditPlanScreen() {
     const saved = await saveLatestDraft(false);
 
     if (saved) {
-      await noteReviewPlanSaved();
-      captureAnalyticsEvent('plan saved', {
-        aid_station_count: getIntermediateAidStationCount(draft.aidStations),
-        segment_count: draft.sectionSegments?.length ?? 0,
-      });
+      if (planCanEdit) {
+        await noteReviewPlanSaved();
+        captureAnalyticsEvent('plan saved', {
+          aid_station_count: getIntermediateAidStationCount(draft.aidStations),
+          segment_count: draft.sectionSegments?.length ?? 0,
+        });
+      }
       clearActivePlanEditSession(id);
       router.replace('/(app)/plans');
       return;
     }
 
     Alert.alert(t.common.error, t.profile.saveFailed);
-  }, [id, leaveToPlans, router, saveLatestDraft, t.common.error, t.profile.saveFailed]);
+  }, [id, leaveToPlans, planCanEdit, router, saveLatestDraft, t.common.error, t.profile.saveFailed]);
 
   const promptUnsavedChanges = useCallback(() => {
     Alert.alert(t.plans.editUnsavedTitle, t.plans.editUnsavedMessage, [
@@ -837,7 +901,10 @@ export default function EditPlanScreen() {
       summaryProductMap,
     );
   }, [elevationProfile, id, liveValues, summaryProductMap]);
-  const elevationLoss = useMemo(() => calculateElevationLoss(elevationProfile), [elevationProfile]);
+  const elevationLoss = useMemo(
+    () => resolvePlanElevationLoss(officialElevationLossM, elevationProfile),
+    [elevationProfile, officialElevationLossM],
+  );
   const officialRevisionPending = Boolean(linkedRaceId) && isPlanSourceRevisionPending(
     currentSourceRevision,
     sourceRevisionAtLastReview,
@@ -845,8 +912,9 @@ export default function EditPlanScreen() {
   const averagePace = workspaceSummary
     ? formatAveragePace(workspaceSummary.totalDurationMin, workspaceSummary.distanceKm)
     : '—';
+  const workspaceSwitchHeight = linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0;
   const revisionBannerHeight = officialRevisionPending ? 116 : 0;
-  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + revisionBannerHeight + 16;
+  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + workspaceSwitchHeight + revisionBannerHeight + 16;
 
   const acknowledgeOfficialRevision = useCallback(async () => {
     if (!id || !linkedRaceId) return;
@@ -969,6 +1037,7 @@ export default function EditPlanScreen() {
     );
   }
 
+
   return (
     <View
       ref={rootRef}
@@ -982,13 +1051,22 @@ export default function EditPlanScreen() {
       style={styles.screen}
     >
       <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-      {activeTab === 'recap' && workspaceSummary ? (
+      {!planCanEdit && activeTab !== 'plan' && workspaceSummary && (!planCanViewDetails || activeTab !== 'recap') ? (
+        <LockedPlanContent
+          summary={workspaceSummary}
+          tab={activeTab}
+          contentTopInset={headerTopInset}
+          onScroll={handleWorkspaceScroll}
+          onUnlock={() => setPreviewPaywallVisible(true)}
+          simulation={runnerAccessMode}
+        />
+      ) : activeTab === 'recap' && workspaceSummary ? (
         <PlanRecapContent
           contentTopInset={headerTopInset}
           id={id}
           onScroll={handleWorkspaceScroll}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + 16}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0)}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + workspaceSwitchHeight}
           onShareIntentConsumed={() => router.setParams({ share: undefined })}
           shareOnMount={share === '1'}
           summary={workspaceSummary}
@@ -999,8 +1077,12 @@ export default function EditPlanScreen() {
           initialValues={initialValues}
           elevationProfile={elevationProfile}
           onSave={handleSave}
-          isPremium={isPremium}
+          isPremium={planCanEdit}
+          planId={id}
+          previewMode={!planCanEdit}
+          onPreviewLimitReached={() => setPreviewPaywallVisible(true)}
           onValuesChange={(values) => {
+            if (!planCanEdit) return;
             latestDraftRef.current = values;
             setLiveValues(values);
             const nextSnapshot = serializePlanValues(values, elevationProfileRef.current);
@@ -1024,7 +1106,7 @@ export default function EditPlanScreen() {
           compactBasicsByDefault
           contentTopInset={headerTopInset}
           stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
-          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0)}
+          stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + workspaceSwitchHeight}
           onMissingFavoriteProducts={handleMissingFavoriteProducts}
           onWorkspaceScroll={handleWorkspaceScroll}
           showActions={false}
@@ -1041,6 +1123,7 @@ export default function EditPlanScreen() {
         />
       )}
       <PlanWorkspaceHeader
+        startTime={officialStartTime}
         averagePace={averagePace}
         metrics={[
           { label: t.planWorkspace.estimatedTime, value: workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—' },
@@ -1061,6 +1144,7 @@ export default function EditPlanScreen() {
           active="plan"
           compactHeaderHeight={PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
           expandedHeaderHeight={PLAN_WORKSPACE_HEADER_BODY_HEIGHT}
+          planExists
           onOpenPlan={() => undefined}
           onOpenRacebook={() => { void openLinkedRacebook(); }}
           racebookDisabled={!racebookAvailable}
@@ -1093,6 +1177,13 @@ export default function EditPlanScreen() {
         onExit={handleBackToPlans}
         onSelectTab={(nextTab) => { void handleTabSelect(nextTab); }}
       />
+      <PremiumUpsellModal
+        visible={previewPaywallVisible}
+        title={locale === 'fr' ? 'Débloque ton plan' : 'Unlock your plan'}
+        message={locale === 'fr' ? 'Adapte ton allure section par section et construis ta nutrition ravito par ravito.' : 'Fine-tune each section and plan your nutrition at every aid station.'}
+        planId={id}
+        onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }}
+      />
       <SpotlightTutorial
         activeStepIndex={tutorialStepIndex}
         closeLabel={t.helpTutorial.close}
@@ -1107,7 +1198,7 @@ export default function EditPlanScreen() {
         targetRect={tutorialTargetRect}
         viewportHeight={tutorialViewport.height}
         viewportWidth={tutorialViewport.width}
-        visible={tutorialVisible}
+        visible={tutorialVisible && planCanEdit}
       />
     </View>
   );

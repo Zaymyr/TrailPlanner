@@ -2,7 +2,18 @@ import { z } from "zod";
 
 import { fuelProductSchema } from "./product-types";
 
+const athleteFields = {
+  birthDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+    const date = new Date(`${value}T00:00:00Z`);
+    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === value && date <= new Date();
+  }, "Invalid birth date").optional().nullable(),
+  weightKg: z.number().min(20).max(250).optional().nullable(),
+  heightCm: z.number().int().min(100).max(250).optional().nullable(),
+  defaultCarbsGPerHour: z.number().min(0).max(200).optional().nullable(),
+};
+
 export const userProfileSchema = z.object({
+  ...athleteFields,
   fullName: z.string().trim().min(1).max(150).optional().nullable(),
   age: z.number().int().min(0).max(120).optional().nullable(),
   waterBagLiters: z.number().min(0).max(20).optional().nullable(),
@@ -16,6 +27,7 @@ export const profileResponseSchema = z.object({
 });
 
 export const profileUpdateSchema = z.object({
+  ...athleteFields,
   fullName: z.string().trim().min(1).max(150).optional().nullable(),
   age: z.number().int().min(0).max(120).optional().nullable(),
   waterBagLiters: z.number().min(0).max(20).optional().nullable(),

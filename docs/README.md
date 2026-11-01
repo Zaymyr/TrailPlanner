@@ -78,6 +78,11 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [user_favorite_race_events](02-database/tables/user-favorite-race-events.md)
 - [subscriptions](02-database/tables/subscriptions.md)
 - [premium_grants](02-database/tables/premium-grants.md)
+- [Runner Billing Tables](02-database/tables/runner-billing.md)
+- [runner_plan_unlocks](02-database/tables/runner-plan-unlocks.md)
+- [runner_launch_grandfathered_plans](02-database/tables/runner-launch-grandfathered-plans.md)
+- [runner_launch_cohorts](02-database/tables/runner-launch-cohorts.md)
+- [Runner Support Purchase Tables](02-database/tables/runner-support-purchases.md)
 - [partner_link_settings](02-database/tables/partner-link-settings.md)
 
 ### 03 Business Rules
@@ -91,6 +96,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [Premium Entitlement](03-business-rules/premium-entitlement.md)
 - [Trial Lifecycle](03-business-rules/trial-lifecycle.md)
 - [Plan Storage](03-business-rules/plan-storage.md)
+- [Runner Monetization](03-business-rules/runner-monetization.md)
 
 ### 04 Auth and Security
 

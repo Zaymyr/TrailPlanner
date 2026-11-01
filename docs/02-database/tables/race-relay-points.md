@@ -26,6 +26,8 @@ related_tables:
 
 RaceBook personal passage-time interpolation applies to official aid stations only and does not change relay-point data.
 
+> CTA scope: the RaceBook plan CTA is runner-owned and format-scoped; it does not read, create, or alter relay points or their derived legs.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
@@ -84,6 +86,10 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 - The Organizer endpoint distance-sorts and replaces the ordered collection.
 
 ## Gotchas
+
+- The scrollable preview veil is unrelated to relay-point boundaries and does not change legs or publication.
+
+- The plan preview boundary counts only intermediate ravitos; it is not a relay-point boundary and does not alter relay publication or legs.
 
 - Material check/uncheck analytics and bounded per-item checked/missing snapshots are independent from relay legs and handovers; they carry no relay-point fields and do not mutate this table.
 

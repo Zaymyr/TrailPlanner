@@ -4,7 +4,6 @@ import type {
   CustomerInfo,
   CustomerInfoUpdateListener,
   PurchasesError,
-  PurchasesOfferings,
   PurchasesOffering,
   PurchasesPackage,
 } from 'react-native-purchases';
@@ -12,12 +11,22 @@ import type {
 const REVENUECAT_ANDROID_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY?.trim() ?? '';
 const REVENUECAT_IOS_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY?.trim() ?? '';
 const REVENUECAT_ENTITLEMENT_ID = process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() ?? '';
+const REVENUECAT_ANNUAL_PACKAGE_ID = process.env.EXPO_PUBLIC_REVENUECAT_ANNUAL_PACKAGE_ID?.trim() ?? '';
+const REVENUECAT_OFFERING_ID = process.env.EXPO_PUBLIC_REVENUECAT_OFFERING_ID?.trim() ?? '';
+const REVENUECAT_COURSE_PRODUCT_ID = process.env.EXPO_PUBLIC_REVENUECAT_COURSE_PRODUCT_ID?.trim() ?? '';
+const REVENUECAT_SUPPORT_PRODUCT_ID = process.env.EXPO_PUBLIC_REVENUECAT_SUPPORT_PRODUCT_ID?.trim() ?? '';
+
+const EXPECTED_REVENUECAT_ENTITLEMENT_ID = 'Pace YourSelf Premium';
+const EXPECTED_REVENUECAT_OFFERING_ID = 'runner_v2';
+const EXPECTED_REVENUECAT_COURSE_PRODUCT_ID = 'runner_course_unlock';
+const EXPECTED_REVENUECAT_SUPPORT_PRODUCT_ID = 'runner_app_support';
 
 type RevenueCatModule = typeof import('react-native-purchases/dist/purchases');
 
 let purchasesModulePromise: Promise<RevenueCatModule | null> | null = null;
 let purchasesConfigured = false;
 let configuredAppUserId: string | null = null;
+let revenueCatConfigurationWarningShown = false;
 
 const REVENUECAT_UNAVAILABLE_ERROR_CODES = new Set([
   '2', // STORE_PROBLEM_ERROR
@@ -39,10 +48,37 @@ function getRevenueCatApiKey() {
   return '';
 }
 
+export function getRevenueCatConfigurationIssues() {
+  const issues: string[] = [];
+  const requireIdentifier = (name: string, configured: string, expected: string) => {
+    if (!configured) {
+      issues.push(`${name} is missing (expected "${expected}")`);
+    } else if (configured !== expected) {
+      issues.push(`${name} is "${configured}" (expected "${expected}")`);
+    }
+  };
+
+  requireIdentifier('EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID', REVENUECAT_ENTITLEMENT_ID, EXPECTED_REVENUECAT_ENTITLEMENT_ID);
+  requireIdentifier('EXPO_PUBLIC_REVENUECAT_OFFERING_ID', REVENUECAT_OFFERING_ID, EXPECTED_REVENUECAT_OFFERING_ID);
+  requireIdentifier('EXPO_PUBLIC_REVENUECAT_COURSE_PRODUCT_ID', REVENUECAT_COURSE_PRODUCT_ID, EXPECTED_REVENUECAT_COURSE_PRODUCT_ID);
+  requireIdentifier('EXPO_PUBLIC_REVENUECAT_SUPPORT_PRODUCT_ID', REVENUECAT_SUPPORT_PRODUCT_ID, EXPECTED_REVENUECAT_SUPPORT_PRODUCT_ID);
+  return issues;
+}
+
+function warnAboutRevenueCatConfiguration() {
+  if (revenueCatConfigurationWarningShown) return;
+  const issues = getRevenueCatConfigurationIssues();
+  if (issues.length === 0) return;
+  revenueCatConfigurationWarningShown = true;
+  console.warn(`RevenueCat public identifiers are not configured for the live catalog: ${issues.join('; ')}`);
+}
+
 export function canUseRevenueCat() {
   if (Platform.OS === 'web') return false;
   if (Constants.executionEnvironment === 'storeClient') return false;
-  return Boolean(getRevenueCatApiKey());
+  if (!getRevenueCatApiKey()) return false;
+  warnAboutRevenueCatConfiguration();
+  return true;
 }
 
 export function getRevenueCatEntitlementId() {
@@ -88,12 +124,8 @@ async function ensureRevenueCatConfigured(userId: string) {
 
 export function getRevenueCatPremiumEntitlement(customerInfo: CustomerInfo | null | undefined) {
   const activeEntitlements = customerInfo?.entitlements.active ?? {};
-
-  if (REVENUECAT_ENTITLEMENT_ID) {
-    return activeEntitlements[REVENUECAT_ENTITLEMENT_ID] ?? null;
-  }
-
-  return Object.values(activeEntitlements)[0] ?? null;
+  if (!REVENUECAT_ENTITLEMENT_ID) return null;
+  return activeEntitlements[REVENUECAT_ENTITLEMENT_ID] ?? null;
 }
 
 export function hasRevenueCatPremiumEntitlement(customerInfo: CustomerInfo | null | undefined) {
@@ -108,29 +140,49 @@ export function getRevenueCatPremiumExpiration(customerInfo: CustomerInfo | null
 export function pickRevenueCatPrimaryPackage(offering: PurchasesOffering | null | undefined) {
   if (!offering) return null;
 
-  return (
-    offering.monthly ??
-    offering.annual ??
-    offering.threeMonth ??
-    offering.sixMonth ??
-    offering.twoMonth ??
-    offering.weekly ??
-    offering.lifetime ??
-    offering.availablePackages[0] ??
-    null
-  );
+  if (REVENUECAT_ANNUAL_PACKAGE_ID) {
+    return offering.availablePackages.find((candidate) => candidate.identifier === REVENUECAT_ANNUAL_PACKAGE_ID) ?? null;
+  }
+  return offering.annual ?? null;
 }
 
-function pickRevenueCatFallbackOffering(offerings: PurchasesOfferings | null | undefined) {
-  if (!offerings) return null;
+export function getRevenueCatCourseProductId() {
+  return REVENUECAT_COURSE_PRODUCT_ID || null;
+}
 
-  if (offerings.current) {
-    return offerings.current;
-  }
+export async function getRevenueCatCourseProduct(userId: string, productId = REVENUECAT_COURSE_PRODUCT_ID) {
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  if (!Purchases || !productId) return null;
+  const products = await Purchases.getProducts([productId], Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+  return products[0] ?? null;
+}
 
-  return (
-    Object.values(offerings.all).find((offering) => offering.availablePackages.length > 0) ?? null
-  );
+export async function purchaseRevenueCatCourse(userId: string, productId: string) {
+  if (!productId || (REVENUECAT_COURSE_PRODUCT_ID && productId !== REVENUECAT_COURSE_PRODUCT_ID)) return null;
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  const product = await getRevenueCatCourseProduct(userId, productId);
+  if (!Purchases) return null;
+  if (!product) return null;
+  return Purchases.purchaseStoreProduct(product);
+}
+
+export function getRevenueCatSupportProductId() {
+  return REVENUECAT_SUPPORT_PRODUCT_ID || null;
+}
+
+export async function getRevenueCatSupportProduct(userId: string, productId = REVENUECAT_SUPPORT_PRODUCT_ID) {
+  if (!REVENUECAT_SUPPORT_PRODUCT_ID || productId !== REVENUECAT_SUPPORT_PRODUCT_ID) return null;
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  if (!Purchases) return null;
+  const products = await Purchases.getProducts([productId], Purchases.PRODUCT_CATEGORY.NON_SUBSCRIPTION);
+  return products[0] ?? null;
+}
+
+export async function purchaseRevenueCatSupport(userId: string, productId: string) {
+  const Purchases = await ensureRevenueCatConfigured(userId);
+  const product = await getRevenueCatSupportProduct(userId, productId);
+  if (!Purchases || !product) return null;
+  return Purchases.purchaseStoreProduct(product);
 }
 
 export async function getRevenueCatCustomerInfo(userId: string) {
@@ -141,9 +193,9 @@ export async function getRevenueCatCustomerInfo(userId: string) {
 
 export async function getRevenueCatCurrentOffering(userId: string) {
   const Purchases = await ensureRevenueCatConfigured(userId);
-  if (!Purchases) return null;
+  if (!Purchases || !REVENUECAT_OFFERING_ID) return null;
   const offerings = await Purchases.getOfferings();
-  return pickRevenueCatFallbackOffering(offerings);
+  return offerings.all[REVENUECAT_OFFERING_ID] ?? null;
 }
 
 export async function purchaseRevenueCatPackage(userId: string, selectedPackage: PurchasesPackage) {

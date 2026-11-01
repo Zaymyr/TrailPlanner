@@ -4,6 +4,8 @@ import { z } from "zod";
 import { withSecurityHeaders } from "../../../lib/http";
 import { extractBearerToken, fetchSupabaseUser, getSupabaseAnonConfig, getSupabaseServiceConfig } from "../../../lib/supabase";
 import { getUserEntitlements } from "../../../lib/entitlements";
+import { getRunnerMonetizationEnabled, getRunnerPlanAccess, getRunnerAdminMode } from "../../../lib/runner-access";
+import { isAnonymousUser } from "../../../lib/supabase";
 import { computeAidStationNutrition } from "../../../lib/nutrition-planner";
 import { loadOrganizerAidStationProductsForRaceIds } from "../../../lib/organizer-aid-station-products";
 import type { FuelProduct } from "../../../lib/product-types";
@@ -196,7 +198,8 @@ export async function POST(request: Request) {
 
   const entitlements = await getUserEntitlements(supabaseUser.id);
 
-  if (Number.isFinite(entitlements.planLimit)) {
+  if (isAnonymousUser(supabaseUser)) return withSecurityHeaders(NextResponse.json({ message: "Create an account before creating a plan." }, { status: 403 }));
+  if (!(await getRunnerMonetizationEnabled()) && Number.isFinite(entitlements.planLimit)) {
     const existingPlansResponse = await fetch(
       `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?user_id=eq.${encodeURIComponent(
         supabaseUser.id
@@ -229,6 +232,10 @@ export async function POST(request: Request) {
       supabaseUser.id,
       parsedBody.data.name
     );
+    if (existingPlan) {
+      const access = await getRunnerPlanAccess(supabaseUser.id, existingPlan.id, { adminMode: await getRunnerAdminMode(supabaseUser, token) });
+      if (!access.canEdit) return withSecurityHeaders(NextResponse.json({ message: "Unlock this course to edit the plan." }, { status: 402 }));
+    }
 
     // Enrich aidStations with nutrition data when fuelTypes are present
     let plannerValues = parsedBody.data.plannerValues;
@@ -342,6 +349,9 @@ export async function PUT(request: Request) {
     if (!supabaseUser?.id) {
       return withSecurityHeaders(NextResponse.json({ message: "Invalid session." }, { status: 401 }));
     }
+
+    const access = await getRunnerPlanAccess(supabaseUser.id, parsedBody.data.id, { adminMode: await getRunnerAdminMode(supabaseUser, token) });
+    if (!access.canEdit) return withSecurityHeaders(NextResponse.json({ message: "Unlock this course to edit the plan." }, { status: 402 }));
 
     const response = await fetch(
       `${supabaseConfig.supabaseUrl}/rest/v1/race_plans?id=eq.${encodeURIComponent(

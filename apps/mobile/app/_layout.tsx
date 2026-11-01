@@ -31,6 +31,8 @@ import { JetBrainsMono_500Medium } from '@expo-google-fonts/jetbrains-mono/500Me
 import { JetBrainsMono_600SemiBold } from '@expo-google-fonts/jetbrains-mono/600SemiBold';
 import { JetBrainsMono_700Bold } from '@expo-google-fonts/jetbrains-mono/700Bold';
 import { AppLaunchScreen } from '../components/AppLaunchScreen';
+import { RunnerLaunchAnnouncement } from '../components/announcements/RunnerLaunchAnnouncement';
+import { useRunnerLaunchAnnouncement } from '../hooks/useRunnerLaunchAnnouncement';
 import { PlanLoadingScreen } from '../components/PlanLoadingScreen';
 import { usePremium } from '../hooks/usePremium';
 import { ensureAppSession, isAnonymousSession } from '../lib/appSession';
@@ -164,7 +166,8 @@ function RootLayoutContent() {
     () => getPendingOnboardingTransition(),
   );
   const [updateState, setUpdateState] = useState<StartupUpdateState>({ status: 'checking', detail: null });
-  const { isLoading: premiumLoading, isPremium } = usePremium();
+  const premiumState = usePremium();
+  const { isLoading: premiumLoading, isPremium } = premiumState;
   const segments = useSegments();
   const router = useRouter();
   const startupUpdateRunRef = useRef(false);
@@ -926,6 +929,14 @@ function RootLayoutContent() {
   const launchOverlayScreen = isLaunchBlocking ? launchScreen : launchCompletionScreen;
   const isLaunchOverlayCompleting = !isLaunchBlocking && launchOverlayPhase === 'completing';
   const isLaunchOverlayFinishing = !isLaunchBlocking && launchOverlayPhase === 'exiting';
+  const launchAnnouncementEligible = ready
+    && Boolean(session)
+    && rootTabUsesBrandHeader
+    && !showLaunchOverlay
+    && !displayedOnboardingTransition
+    && !premiumLoading;
+  const launchAnnouncement = useRunnerLaunchAnnouncement(session?.user.id ?? null, launchAnnouncementEligible);
+
 
   const appContent = (
     <>
@@ -1021,6 +1032,13 @@ function RootLayoutContent() {
               }
             />
           </View>
+        ) : null}
+        {launchAnnouncement.visible ? (
+          <RunnerLaunchAnnouncement
+            onClose={launchAnnouncement.dismiss}
+            userId={session?.user.id ?? null}
+            onOpenPlans={() => router.push('/(app)/plans')}
+          />
         ) : null}
       </View>
     </>

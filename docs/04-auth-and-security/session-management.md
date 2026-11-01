@@ -18,6 +18,10 @@ related_tables:
 
 # Session Management
 
+## Billing session state
+
+Trial lookup is read-only: absence of trial dates is not a reason to write a profile row or grant access. The optional runner admin simulation is stored by current Supabase `session_id`, belongs only to an Auth-app-metadata administrator, and resets to `real` when absent. It must not be represented in user metadata, persistent entitlement records, or a client-only flag.
+
 ## Purpose
 
 This document describes how the web app stores, verifies, refreshes, and clears user sessions. Use it before changing auth storage keys or session refresh behavior.

@@ -39,6 +39,7 @@ import {
   type PushRegistrationStatus,
 } from '../lib/pushRegistration';
 import { supabase } from '../lib/supabase';
+import { getRunnerAccessModeErrorMessage } from '../lib/runnerPlanAccess';
 import { WEB_API_BASE_URL } from '../lib/webApi';
 import { usePremium } from './usePremium';
 import { useRevenueCatBilling } from './useRevenueCatBilling';
@@ -109,9 +110,54 @@ export function useProfileScreen() {
   const [updateCheckMessage, setUpdateCheckMessage] = useState<string | null>(null);
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [isAdminFromAuth, setIsAdminFromAuth] = useState(false);
+  const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
+  const [runnerAccessModeSaving, setRunnerAccessModeSaving] = useState(false);
   const [pushRegistrationStatus, setPushRegistrationStatus] =
     useState<PushRegistrationStatus | null>(null);
   const savedResetTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const loadRunnerAccessMode = useCallback(async () => {
+    if (!isAdminFromAuth) return;
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) return;
+    try {
+      const response = await fetch(`${WEB_API_BASE_URL}/api/admin/runner-access-mode`, { headers: { Authorization: `Bearer ${token}` } });
+      const payload = (await response.json().catch(() => null)) as { mode?: 'real' | 'free' | 'premium' } | null;
+      if (response.ok && payload?.mode) setRunnerAccessMode(payload.mode);
+    } catch { /* Preserve the last verified mode while offline. */ }
+  }, [isAdminFromAuth]);
+
+  const updateRunnerAccessMode = useCallback(async (mode: 'real' | 'free' | 'premium') => {
+    setRunnerAccessModeSaving(true);
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        Alert.alert(
+          locale === 'fr' ? 'Mode de test' : 'Test mode',
+          getRunnerAccessModeErrorMessage(401, locale),
+        );
+        return;
+      }
+      const response = await fetch(`${WEB_API_BASE_URL}/api/admin/runner-access-mode`, { method: 'PUT', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ mode }) });
+      if (!response.ok) {
+        Alert.alert(
+          locale === 'fr' ? 'Mode de test' : 'Test mode',
+          getRunnerAccessModeErrorMessage(response.status, locale),
+        );
+        return;
+      }
+      setRunnerAccessMode(mode);
+    } catch {
+      Alert.alert(
+        locale === 'fr' ? 'Mode de test' : 'Test mode',
+        getRunnerAccessModeErrorMessage(0, locale),
+      );
+    } finally { setRunnerAccessModeSaving(false); }
+  }, [locale]);
+
+  useEffect(() => { void loadRunnerAccessMode(); }, [loadRunnerAccessMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1207,10 +1253,15 @@ export function useProfileScreen() {
   );
 
   return {
+    userId,
     locale,
     setLocale,
     t,
     isAnonymousAccount,
+    isAdminFromAuth,
+    runnerAccessMode,
+    runnerAccessModeSaving,
+    updateRunnerAccessMode,
     loading,
     loadError,
     saving,

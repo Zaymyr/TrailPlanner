@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 
 import { supabase } from './supabase';
 import { loadOnboardingProgress, parseOnboardingStatuses } from './onboardingStatus';
+import { getPendingRunnerRace } from './runnerPlanIntent';
 
 const onboardingBypassUntilByUserId = new Map<string, number>();
 
@@ -47,6 +48,7 @@ export async function shouldOpenOnboarding(session: Session | null | undefined) 
   if (!session?.user.id) {
     return false;
   }
+  if (!session.user.is_anonymous && await getPendingRunnerRace()) return false;
 
   const bypassUntil = onboardingBypassUntilByUserId.get(session.user.id) ?? 0;
   if (bypassUntil > Date.now()) {
@@ -93,6 +95,8 @@ export async function shouldOpenOnboarding(session: Session | null | undefined) 
 
 export async function getPostAuthRoute(session: Session | null | undefined) {
   if (!session?.user.id) return '/(app)/catalog';
+  const pendingRace = !session.user.is_anonymous ? await getPendingRunnerRace() : null;
+  if (pendingRace) return `/(app)/plan/new?catalogRaceId=${pendingRace}&onboarding=plan`;
 
   const { data, error } = await supabase
     .from('user_profiles')

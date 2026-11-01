@@ -26,9 +26,15 @@ related_tables:
 
 RaceBook passage clock labels continue to resolve departure time from existing runner or start-wave data.
 
+> CTA scope: the RaceBook plan CTA is runner-owned and format-scoped; it does not read, create, or alter SAS rows or their time authority.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose and invariants
+
+RaceBook and plan headers may display the first ordered wave only as a fallback for normalized organizer schedule start time; this does not write a runner's manual recap departure back to a wave.
+
+The locked-plan preview boundary and catalog plan CTA are independent of start-wave storage. A short preview course retains its genuine arrival; neither manual unlock CTA nor workspace navigation changes selected start-wave data.
 
 SAS require Complete or Signature plus an active `start_waves` format module. Disabling masks published rows and blocks organizer writes without deleting them.
 

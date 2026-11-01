@@ -25,6 +25,8 @@ related_tables:
 
 RaceBook personal passage-time interpolation is client-only and does not alter this table's service contract.
 
+> CTA scope: the RaceBook plan CTA resolves only the current runner's saved plan for the exact format; it does not read, filter, or change edition-service rows or their external links.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
@@ -44,6 +46,10 @@ The owner-only plan reflection in the mobile Livret is loaded separately from th
 The shared web editor file also reports SAS count and earliest time to the format schedule card. That start-wave callback does not change this edition-scoped service contract.
 
 ## Access
+
+Preview/paywall presentation and start-time display do not alter effective service-module access.
+
+Catalog plan CTA wording and contextual workspace navigation are presentation-only. They do not alter effective service-module resolution or expose an unpublished edition service.
 
 The Organizer section chooser lists this setting under edition-common sections, making explicit that one switch applies to every format attached to the selected canonical edition.
 

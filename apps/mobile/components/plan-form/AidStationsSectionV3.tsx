@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
   LayoutChangeEvent,
   type LayoutRectangle,
+  Platform,
   Pressable,
   StyleSheet,
   TouchableOpacity,
@@ -57,6 +58,12 @@ import {
 import { styles } from './styles';
 import type { PlanEditTutorialTargetKey } from '../../hooks/usePlanEditTutorial';
 import { findPlanViewAnchorAtFocus, getPlanViewScrollTarget } from '../../lib/planWorkspace';
+import {
+  getPreviewBoundaryTop,
+  resolvePlanPreviewBoundary,
+  type PreviewLimitReason,
+} from '../../lib/planPreviewBoundary';
+import { useI18n } from '../../lib/i18n';
 
 type Props = {
   values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel'>;
@@ -67,11 +74,9 @@ type Props = {
   toggleStation: (stationKey: string) => void;
   setEditingStation: (value: EditingStation) => void;
   removeAidStation: (index: number) => void;
-  addAidStation: () => void;
   fillSuppliesAuto: () => void;
   isAutoFilling: boolean;
   autoFillLoadingMessage: string;
-  isPremium: boolean;
   intermediateCount: number;
   getSupplies: (target: PlanTarget) => { productId: string; quantity: number }[];
   openPicker: (target: PlanTarget) => void;
@@ -110,6 +115,10 @@ type Props = {
   onViewModeChange?: (mode: PlanViewMode) => void;
   onToolbarLayout?: (top: number, height: number) => void;
   toolbarHidden?: boolean;
+  previewMode?: boolean;
+  previewUnlockStickyVisible?: boolean;
+  onPreviewBoundaryLayout?: (top: number | null, height: number) => void;
+  onPreviewLimitReached?: (reason: PreviewLimitReason) => void;
   tutorial?: {
     onTargetMeasure: (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => void;
     onTargetRegisterRef: (targetKey: PlanEditTutorialTargetKey, ref: TutorialMeasurableTarget) => void;
@@ -117,6 +126,51 @@ type Props = {
 };
 
 export type PlanViewMode = 'stations' | 'sections' | 'profile';
+
+type PreviewUnlockCtaProps = {
+  compact?: boolean;
+  hidden?: boolean;
+  locale: string;
+  onLayout?: (event: LayoutChangeEvent) => void;
+  onPress: () => void;
+};
+
+export function PreviewUnlockCta({
+  compact = false,
+  hidden = false,
+  locale,
+  onLayout,
+  onPress,
+}: PreviewUnlockCtaProps) {
+  return (
+    <View
+      accessibilityRole="summary"
+      accessibilityElementsHidden={hidden}
+      importantForAccessibility={hidden ? 'no-hide-descendants' : 'auto'}
+      pointerEvents={hidden ? 'none' : 'auto'}
+      onLayout={onLayout}
+      style={[planDetailStyles.previewBoundary, compact && planDetailStyles.previewBoundaryCompact, hidden && { opacity: 0 }]}
+    >
+      {!compact ? (
+        <>
+          <Heading variant="h3" style={planDetailStyles.previewBoundaryTitle}>
+            {locale === 'fr' ? 'Ton plan complet est juste en dessous' : 'Your complete plan is just below'}
+          </Heading>
+          <ThemedText tone="secondary" size="sm" style={planDetailStyles.previewBoundaryBody}>
+            {locale === 'fr'
+              ? 'Débloque les ravitos, les allures détaillées et toute ta stratégie nutrition.'
+              : 'Unlock every aid station, detailed pacing, and your complete nutrition strategy.'}
+          </ThemedText>
+        </>
+      ) : null}
+      <TouchableOpacity accessibilityRole="button" onPress={onPress} style={planDetailStyles.previewBoundaryButton}>
+        <ThemedText weight="bold" style={planDetailStyles.previewBoundaryButtonText}>
+          {locale === 'fr' ? 'Débloquer mon plan' : 'Unlock my plan'}
+        </ThemedText>
+      </TouchableOpacity>
+    </View>
+  );
+}
 
 export type AidStationsSectionHandle = {
   focusAidStation: (stationId: string) => boolean;
@@ -127,11 +181,6 @@ export type AidStationsSectionHandle = {
 type ToolbarProps = {
   mode: PlanViewMode;
   onSelectMode: (mode: PlanViewMode) => void;
-  addAidStation: () => void;
-  fillSuppliesAuto: () => void;
-  isAutoFilling: boolean;
-  autoFillLoadingMessage: string;
-  isPremium: boolean;
   compact?: boolean;
   tutorial?: Props['tutorial'];
 };
@@ -139,11 +188,6 @@ type ToolbarProps = {
 export function AidStationsToolbar({
   mode,
   onSelectMode,
-  addAidStation,
-  fillSuppliesAuto,
-  isAutoFilling,
-  autoFillLoadingMessage,
-  isPremium,
   compact = false,
   tutorial,
 }: ToolbarProps) {
@@ -158,8 +202,8 @@ export function AidStationsToolbar({
         <View accessibilityRole="tablist" style={[styles.toggleRow, planDetailStyles.toolbarTabs, compact && planDetailStyles.toolbarTabsCompact]}>
           {([
             ['stations', 'Ravitos'],
-            ['sections', 'Chronologie'],
             ['profile', 'Allures'],
+            ['sections', 'Chronologie'],
           ] as const).map(([key, label]) => (
             <TouchableOpacity
               accessibilityLabel={label}
@@ -182,50 +226,6 @@ export function AidStationsToolbar({
           ))}
         </View>
       </TutorialTarget>
-      {compact ? <View style={planDetailStyles.toolbarDivider} /> : null}
-      <View style={[styles.sectionActions, planDetailStyles.toolbarActions, compact && planDetailStyles.toolbarActionsCompact]}>
-        <TutorialTarget
-          onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
-          onRegisterRef={tutorial?.onTargetRegisterRef}
-          targetKey="autoFill"
-        >
-          <TouchableOpacity
-            accessibilityLabel="Remplir automatiquement"
-            accessibilityRole="button"
-            style={[
-              styles.fillBtn,
-              compact && planDetailStyles.toolbarIconAction,
-              !isPremium && styles.fillBtnPremiumLocked,
-              isAutoFilling && styles.fillBtnLoading,
-            ]}
-            onPress={fillSuppliesAuto}
-            disabled={isAutoFilling}
-            activeOpacity={0.88}
-          >
-            <View style={styles.fillBtnContent}>
-              {isAutoFilling ? (
-                compact
-                  ? <ActivityIndicator size="small" color={colors.text.inverse} />
-                  : <><ActivityIndicator size="small" color={colors.text.inverse} /><Text style={[styles.fillBtnText, styles.fillBtnTextLoading]} numberOfLines={1}>{autoFillLoadingMessage}</Text></>
-              ) : (
-                compact
-                  ? <Ionicons name="sparkles" size={18} color={isPremium ? colors.text.inverse : colors.accent.amber} />
-                  : <Text style={[styles.fillBtnText, !isPremium && styles.fillBtnTextPremiumLocked]}>Remplir auto</Text>
-              )}
-            </View>
-          </TouchableOpacity>
-        </TutorialTarget>
-        <TouchableOpacity
-          accessibilityLabel="Ajouter un ravitaillement"
-          accessibilityRole="button"
-          style={[styles.addBtn, compact && planDetailStyles.toolbarIconActionSecondary]}
-          onPress={addAidStation}
-        >
-          {compact
-            ? <Ionicons name="add" size={22} color={colors.brand.forest} />
-            : <Text style={styles.addBtnText}>+ Ajouter</Text>}
-        </TouchableOpacity>
-      </View>
     </View>
   );
 }
@@ -239,11 +239,9 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   toggleStation,
   setEditingStation,
   removeAidStation,
-  addAidStation,
   fillSuppliesAuto,
   isAutoFilling,
   autoFillLoadingMessage,
-  isPremium,
   intermediateCount,
   getSupplies,
   openPicker,
@@ -269,11 +267,34 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   onViewModeChange,
   onToolbarLayout,
   toolbarHidden = false,
+  previewMode = false,
+  previewUnlockStickyVisible = false,
+  onPreviewBoundaryLayout,
+  onPreviewLimitReached,
   tutorial,
 }: Props, ref) {
+  const { locale } = useI18n();
   const pendingSyncRef = useRef<null | { mode: PlanViewMode; stationId: string | null }>(null);
   const activeViewTopRef = useRef(0);
+  const previewBoundaryLocalRef = useRef<{ top: number; height: number } | null>(null);
   const focusedAidStationIdRef = useRef<string | null>(values.aidStations[0]?.id ?? null);
+  const previewBoundary = useMemo(
+    () => resolvePlanPreviewBoundary(values.aidStations, departId),
+    [departId, values.aidStations],
+  );
+  const reportPreviewBoundaryLayout = useCallback(() => {
+    const local = previewBoundaryLocalRef.current;
+    if (!local) return;
+    onPreviewBoundaryLayout?.(
+      getPreviewBoundaryTop(activeViewTopRef.current, local.top),
+      local.height,
+    );
+  }, [onPreviewBoundaryLayout]);
+  useEffect(() => {
+    if (previewMode) return;
+    previewBoundaryLocalRef.current = null;
+    onPreviewBoundaryLayout?.(null, 0);
+  }, [onPreviewBoundaryLayout, previewMode]);
   const viewAnchorsRef = useRef<
     Record<
       PlanViewMode,
@@ -469,6 +490,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   }, []);
 
   function getTopVisibleAnchor(mode: PlanViewMode, parentScrollY = getParentScrollY()) {
+    // Ghost cards are a visual teaser, not navigation targets or editable context.
+    if (previewMode) {
+      return {
+        index: previewBoundary.departureIndex,
+        stationId: getStationIdAtIndex(previewBoundary.departureIndex),
+      };
+    }
     const focusLineY = parentScrollY + parentFocusOffset - getSectionTop() - activeViewTopRef.current;
 
     const anchors = Object.entries(viewAnchorsRef.current[mode])
@@ -577,9 +605,53 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
   }
 
   function renderStationsView() {
-    const elements: ReactElement[] = [];
+    const clearElements: ReactElement[] = [
+      <View key="nutrition-preparation" style={planDetailStyles.nutritionPreparation}>
+        <Heading variant="h3" style={planDetailStyles.nutritionPreparationTitle}>
+          {locale === 'fr' ? 'Préparer ma nutrition' : 'Prepare my nutrition'}
+        </Heading>
+        <ThemedText tone="secondary" size="sm">
+          {locale === 'fr'
+            ? 'Répartis tes produits favoris selon tes besoins et les caractéristiques du parcours.'
+            : 'Distribute your favorite products according to your needs and the course profile.'}
+        </ThemedText>
+        <TutorialTarget
+          onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
+          onRegisterRef={tutorial?.onTargetRegisterRef}
+          targetKey="autoFill"
+        >
+          <TouchableOpacity
+            accessibilityLabel={locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically'}
+            accessibilityRole="button"
+            disabled={isAutoFilling}
+            onPress={fillSuppliesAuto}
+            style={[styles.fillBtn, planDetailStyles.nutritionPreparationButton, isAutoFilling && styles.fillBtnLoading]}
+          >
+            <View style={styles.fillBtnContent}>
+              {isAutoFilling ? (
+                <>
+                  <ActivityIndicator size="small" color={colors.text.inverse} />
+                  <Text style={[styles.fillBtnText, styles.fillBtnTextLoading]}>{autoFillLoadingMessage}</Text>
+                </>
+              ) : (
+                <>
+                  <Ionicons name="sparkles" size={18} color={colors.text.inverse} />
+                  <Text style={[styles.fillBtnText, planDetailStyles.nutritionPreparationButtonText]}>
+                    {locale === 'fr' ? 'Répartir mes produits automatiquement' : 'Distribute my products automatically'}
+                  </Text>
+                </>
+              )}
+            </View>
+          </TouchableOpacity>
+        </TutorialTarget>
+      </View>,
+    ];
+    const ghostElements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
+      const targetElements = previewMode && index !== previewBoundary.departureIndex
+        ? ghostElements
+        : clearElements;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const stationKey = station.id ?? String(index);
@@ -641,6 +713,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                   onIncreaseQty={(productId) => increaseQty('start', productId)}
                   onDecreaseQty={(productId) => decreaseQty('start', productId)}
                   onRemoveSupply={(productId) => removeSupply('start', productId)}
+                  previewIntent={previewMode ? () => onPreviewLimitReached?.('press') : undefined}
                 />
               </>
             )}
@@ -690,7 +763,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         card = (
           <Pressable
             key={stationKey}
-            onPress={() => toggleStation(stationKey)}
+            {...(!previewMode ? { onPress: () => toggleStation(stationKey) } : {})}
             style={[
               styles.stationCard,
               planDetailStyles.stationCard,
@@ -707,6 +780,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                 {station.name}
               </Heading>
               {renderPauseBadge(station.pauseMinutes)}
+              {!previewMode ? <>
               <TouchableOpacity
                 accessibilityLabel={`Modifier ${station.name}`}
                 accessibilityRole="button"
@@ -736,6 +810,12 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
               >
                 <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
               </TouchableOpacity>
+              </> : (
+                <View style={styles.headerIconBtn}>
+                  <Ionicons name="create-outline" size={16} color={colors.text.secondary} />
+                  <Ionicons name="trash-outline" size={16} color={colors.text.secondary} />
+                </View>
+              )}
               <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.stationKm}>
                 {station.distanceKm} km
               </DataText>
@@ -767,6 +847,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     onIncreaseQty={(productId) => increaseQty(index, productId)}
                     onDecreaseQty={(productId) => decreaseQty(index, productId)}
                     onRemoveSupply={(productId) => removeSupply(index, productId)}
+                    readOnly={previewMode}
                   />
                 )}
               </>
@@ -788,10 +869,10 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         );
       }
 
-      elements.push(card);
+      targetElements.push(card);
 
       if (index < values.aidStations.length - 1 && summary) {
-        elements.push(
+        targetElements.push(
           <View key={`sep-${index}`} style={styles.separator}>
             <View style={styles.separatorLine} />
             <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.separatorText}>
@@ -803,20 +884,24 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       }
     });
 
-    return elements;
+    return renderPreviewComposition('stations', clearElements, ghostElements);
   }
 
   function renderSectionsView() {
-    const elements: ReactElement[] = [];
+    const clearElements: ReactElement[] = [];
+    const ghostElements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
+      const targetElements = previewMode && index !== previewBoundary.firstSectionStartIndex
+        ? ghostElements
+        : clearElements;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
       const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
-      elements.push(
+      targetElements.push(
         <View
           key={`station-line-${station.id ?? index}`}
           style={[styles.sectionStationRow, index === contextAnchorIndex && styles.sectionStationRowFocused]}
@@ -840,7 +925,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       const sectionDPlus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dPlus), 0);
       const sectionDMinus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dMinus), 0);
 
-      elements.push(
+      targetElements.push(
         <View
           key={`section-card-${station.id ?? index}`}
           style={[
@@ -908,20 +993,23 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       );
     });
 
-    return elements;
+    return renderPreviewComposition('sections', clearElements, ghostElements);
   }
 
   function renderProfileView() {
-    const elements: ReactElement[] = [];
+    const clearElements: ReactElement[] = [];
+    const ghostElements: ReactElement[] = [];
 
     values.aidStations.forEach((station, index) => {
+      const isClearPreviewSection = index === previewBoundary.firstSectionStartIndex;
+      const targetElements = previewMode && !isClearPreviewSection ? ghostElements : clearElements;
       const isDepart = station.id === departId;
       const isArrivee = station.id === arriveeId;
       const nextStation = index < values.aidStations.length - 1 ? values.aidStations[index + 1] : null;
       const targetKey: PlanTarget = isDepart ? 'start' : index;
       const summary = !isArrivee ? getSectionSummary(targetKey) : null;
 
-      elements.push(
+      targetElements.push(
         <View
           key={`profile-station-line-${station.id ?? index}`}
           style={[styles.sectionStationRow, index === contextAnchorIndex && styles.sectionStationRowFocused]}
@@ -942,7 +1030,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       if (!nextStation || isArrivee || !summary) return;
       const segmentControls = getSectionSegmentControls(targetKey);
 
-      elements.push(
+      targetElements.push(
         <View key={`profile-section-${station.id ?? index}`} style={styles.profileSectionBlock}>
           <View style={styles.profileSectionHeader}>
             <Heading variant="h3" style={planDetailStyles.profileTitle} numberOfLines={1}>
@@ -1040,6 +1128,10 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     }}
                     onSplit={() => onSplitSectionSegment(targetKey, segmentIndex)}
                     onRemove={() => onRemoveSectionSegment(targetKey, segmentIndex)}
+                    readOnly={previewMode && !isClearPreviewSection}
+                    previewIntent={previewMode && isClearPreviewSection
+                      ? () => onPreviewLimitReached?.('press')
+                      : undefined}
                   />
                 );
               })}
@@ -1049,7 +1141,51 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       );
     });
 
-    return elements;
+    return renderPreviewComposition('profile', clearElements, ghostElements);
+  }
+
+  function renderPreviewComposition(
+    mode: PlanViewMode,
+    clearElements: ReactElement[],
+    ghostElements: ReactElement[],
+  ) {
+    if (!previewMode) return clearElements;
+    return [
+      ...clearElements,
+      renderPreviewBoundary(mode),
+      ghostElements.length > 0 ? (
+        <View
+          key={`preview-ghost-${mode}`}
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          pointerEvents="none"
+          style={planDetailStyles.previewGhost}
+        >
+          {ghostElements.map((element, index) => (
+            <View key={element.key ?? index} style={planDetailStyles.previewGhostBody}>{element}</View>
+          ))}
+          <View pointerEvents="none" style={planDetailStyles.previewGhostVeil} />
+        </View>
+      ) : null,
+    ].filter((element): element is ReactElement => element !== null);
+  }
+
+  function renderPreviewBoundary(mode: PlanViewMode) {
+    return (
+      <PreviewUnlockCta
+        key={`preview-boundary-${mode}`}
+        hidden={previewUnlockStickyVisible}
+        onLayout={(event) => {
+          previewBoundaryLocalRef.current = {
+            top: event.nativeEvent.layout.y,
+            height: event.nativeEvent.layout.height,
+          };
+          reportPreviewBoundaryLayout();
+        }}
+        locale={locale}
+        onPress={() => onPreviewLimitReached?.('press')}
+      />
+    );
   }
 
   const stationsElements = useMemo(() => renderStationsView(), [
@@ -1075,6 +1211,17 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     getSectionSummary,
     getGaugeAnimateSignal,
     registerAnchor,
+    previewMode,
+    previewBoundary,
+    reportPreviewBoundaryLayout,
+    onPreviewBoundaryLayout,
+    onPreviewLimitReached,
+    previewUnlockStickyVisible,
+    fillSuppliesAuto,
+    isAutoFilling,
+    autoFillLoadingMessage,
+    tutorial,
+    locale,
   ]);
 
   const sectionsElements = useMemo(() => renderSectionsView(), [
@@ -1085,6 +1232,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     getSectionSummary,
     getSectionIntakeTimeline,
     registerAnchor,
+    previewMode,
+    previewBoundary,
+    reportPreviewBoundaryLayout,
+    onPreviewBoundaryLayout,
+    onPreviewLimitReached,
+    previewUnlockStickyVisible,
+    locale,
   ]);
 
   const profileElements = useMemo(() => renderProfileView(), [
@@ -1100,6 +1254,13 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
     onRemoveSectionSegment,
     onUpdateSectionSegmentPaceAdjustment,
     registerAnchor,
+    previewMode,
+    previewBoundary,
+    reportPreviewBoundaryLayout,
+    onPreviewBoundaryLayout,
+    onPreviewLimitReached,
+    previewUnlockStickyVisible,
+    locale,
   ]);
 
   function renderViewForMode(mode: PlanViewMode) {
@@ -1107,7 +1268,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       return (
         <>
           {intermediateCount === 0 && (
-            <Text style={styles.emptyText}>Pas de ravito intermédiaire. Utilise "+ Ajouter" pour en créer.</Text>
+            <Text style={styles.emptyText}>Aucun ravito intermédiaire sur ce parcours.</Text>
           )}
           {stationsElements}
         </>
@@ -1151,11 +1312,6 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
         <AidStationsToolbar
           mode={selectedViewMode}
           onSelectMode={switchViewMode}
-          addAidStation={addAidStation}
-          fillSuppliesAuto={fillSuppliesAuto}
-          isAutoFilling={isAutoFilling}
-          autoFillLoadingMessage={autoFillLoadingMessage}
-          isPremium={isPremium}
           tutorial={tutorial}
         />
       </View>
@@ -1171,16 +1327,15 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       </View>
 
       <TutorialTarget
-        onMeasure={tutorial?.onTargetMeasure ?? (() => undefined)}
+        onMeasure={(targetKey, layout) => {
+          activeViewTopRef.current = layout.y;
+          reportPreviewBoundaryLayout();
+          tutorial?.onTargetMeasure(targetKey, layout);
+        }}
         onRegisterRef={tutorial?.onTargetRegisterRef}
         targetKey="aidStations"
       >
-        <View
-          onLayout={(event) => {
-            activeViewTopRef.current = event.nativeEvent.layout.y;
-          }}
-          style={planDetailStyles.activeView}
-        >
+        <View style={planDetailStyles.activeView}>
           {renderViewForMode(selectedViewMode)}
         </View>
       </TutorialTarget>
@@ -1224,42 +1379,65 @@ const planDetailStyles = StyleSheet.create({
     fontSize: 11,
     lineHeight: 14,
   },
-  toolbarDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: colors.border.subtle,
-  },
-  toolbarActions: {
-    flexWrap: 'nowrap',
-    justifyContent: 'flex-end',
-  },
-  toolbarActionsCompact: {
-    gap: spacing[1],
-  },
-  toolbarIconAction: {
-    width: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderRadius: 13,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  toolbarIconActionSecondary: {
-    width: 44,
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 0,
-    paddingVertical: 0,
-    borderRadius: 13,
-    borderColor: colors.border.brand,
+  nutritionPreparation: {
+    gap: spacing[2],
+    marginBottom: spacing[3],
+    padding: spacing[4],
+    borderWidth: 1,
+    borderColor: colors.border.subtle,
+    borderRadius: radius.card,
     backgroundColor: colors.surface.cream,
+  },
+  nutritionPreparationTitle: {
+    color: colors.text.primary,
+  },
+  nutritionPreparationButtonText: { flexShrink: 1, textAlign: 'center' },
+  nutritionPreparationButton: {
+    width: '100%',
+    minHeight: 48,
+    justifyContent: 'center',
   },
   activeView: {
     paddingBottom: spacing[6],
+  },
+  previewBoundary: {
+    marginTop: spacing[2],
+    padding: spacing[4],
+    gap: spacing[2],
+    alignItems: 'center',
+    borderRadius: radius.card,
+    borderWidth: 1,
+    borderColor: colors.border.brand,
+    backgroundColor: colors.surface.cream,
+  },
+  previewBoundaryTitle: { textAlign: 'center', color: colors.text.primary },
+  previewBoundaryCompact: {
+    marginTop: 0,
+    paddingVertical: spacing[2],
+    borderRadius: 0,
+    borderWidth: 0,
+  },
+  previewBoundaryBody: { textAlign: 'center' },
+  previewBoundaryButton: {
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: spacing[4],
+    borderRadius: 12,
+    backgroundColor: colors.brand.forest,
+  },
+  previewBoundaryButtonText: { color: colors.text.inverse },
+  previewGhost: {
+    position: 'relative',
+    overflow: 'hidden',
+  },
+  previewGhostBody: {
+    opacity: 0.42,
+    filter: Platform.OS === 'android' ? [{ blur: 1.5 }] : undefined,
+  },
+  previewGhostVeil: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(250, 247, 240, 0.28)',
   },
   stationBadge: {
     flexDirection: 'row',

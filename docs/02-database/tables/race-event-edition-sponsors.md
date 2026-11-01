@@ -40,6 +40,8 @@ related_tables:
 
 RaceBook personal passage-time interpolation is client-only and does not alter sponsor selection or presentation.
 
+> CTA scope: the RaceBook plan CTA is independent from sponsor loading and impression tracking. Its runner-owned plan lookup never changes sponsor selection or visibility.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
@@ -97,6 +99,10 @@ RaceBook product analytics now measure reader opens, tabs, non-sponsor actions, 
 The two-line clamp for bib-pickup address links is independent from sponsor layouts, timing, redirects, and click counting.
 
 ## Gotchas
+
+- Preview/paywall interactions do not create sponsor impressions, clicks, or mutations.
+
+- Catalog create/refine actions and the workspace switch are outside sponsor presentation and do not count an impression, redirect, or click.
 
 - Material check/uncheck analytics and bounded per-item checked/missing snapshots remain separate from aggregate sponsor impressions and clicks. They carry no sponsor id, tier, placement, or URL.
 

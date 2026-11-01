@@ -1,13 +1,17 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
+  findNodeHandle,
   ScrollView,
+  StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
   type LayoutRectangle,
   type NativeScrollEvent,
   type NativeSyntheticEvent
 } from 'react-native';
+import { Colors } from '../constants/colors';
 import {
   FloatingActionMenu,
   type FloatingActionMenuItem,
@@ -17,6 +21,7 @@ import { useI18n } from '../lib/i18n';
 import {
   AidStationsSectionV3 as AidStationsSection,
   AidStationsToolbar,
+  PreviewUnlockCta,
   type AidStationsSectionHandle,
   type PlanViewMode,
 } from './plan-form/AidStationsSectionV3';
@@ -70,6 +75,12 @@ import {
   type AutoFillResult,
 } from '../lib/autoFillPreview';
 import { resolvePersonalAidStationTargetIndex } from '../lib/racebookPlanReflection';
+import {
+  getPreviewReachableContentMinHeight,
+  resolveCenteredPreviewUnlockGeometry,
+  resolvePreviewUnlockPlacement,
+  type PreviewLimitReason,
+} from '../lib/planPreviewBoundary';
 
 export type { Supply, AidStationFormItem, FavProduct, PlanFormValues };
 export type { ElevationPoint, SectionSegment, SectionSubSegmentStats, SegmentPreset };
@@ -83,6 +94,9 @@ type Props = {
   onValuesChange?: (values: PlanFormValues) => void;
   loading?: boolean;
   isPremium: boolean;
+  planId?: string;
+  previewMode?: boolean;
+  onPreviewLimitReached?: (reason: PreviewLimitReason) => void;
   saveLabel?: string;
   productData?: PlanProductsBootstrap | null;
   elevationProfile?: ElevationPoint[];
@@ -107,7 +121,6 @@ type Props = {
 
 const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 const AUTO_FILL_LOADING_MESSAGE = 'Calcul en cours';
-const STICKY_PLAN_CONTROLS_HEIGHT = 72;
 
 function getTargetCacheKey(target: PlanTarget) {
   return target === 'start' ? 'start' : String(target);
@@ -130,6 +143,9 @@ export default function PlanForm({
   onValuesChange,
   loading,
   isPremium,
+  planId,
+  previewMode = false,
+  onPreviewLimitReached,
   saveLabel,
   productData,
   elevationProfile = [],
@@ -144,7 +160,7 @@ export default function PlanForm({
   onWorkspaceScroll,
   targetAidStationId,
 }: Props) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
   const debouncedValues = useDebounced(values, 300);
   const [expandedStations, setExpandedStations] = useState<Set<string>>(new Set());
@@ -168,14 +184,61 @@ export default function PlanForm({
   const consumedTargetAidStationRef = useRef<string | null>(null);
   const mainScrollYRef = useRef(0);
   const aidStationsSectionYRef = useRef(0);
+  const [aidStationsSectionY, setAidStationsSectionY] = useState(0);
   const aidStationsToolbarYRef = useRef(Number.POSITIVE_INFINITY);
+  const [aidStationsToolbarHeight, setAidStationsToolbarHeight] = useState(0);
+  const [stickyToolbarHeight, setStickyToolbarHeight] = useState(0);
   const [aidStationsViewMode, setAidStationsViewMode] = useState<PlanViewMode>('stations');
   const [stickyControlsVisible, setStickyControlsVisible] = useState(false);
+  const [previewUnlockStickyVisible, setPreviewUnlockStickyVisible] = useState(false);
+  const [floatingPreviewUnlockHeight, setFloatingPreviewUnlockHeight] = useState(0);
+  const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const autoFillUndoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keyboardFocusScrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const previewSessionKey = planId ?? 'new-plan';
+  const previewBoundaryRef = useRef<{ sessionKey: string; top: number; height: number } | null>(null);
+  const [previewBoundaryMeasurement, setPreviewBoundaryMeasurement] = useState<{
+    sessionKey: string;
+    top: number;
+    height: number;
+  } | null>(null);
 
   useEffect(() => {
-    setValues(buildInitialPlanValues(initialValues));
-    setExpandedStations(new Set());
+    setPreviewUnlockStickyVisible(false);
+  }, [planId]);
+
+  useEffect(() => {
+    if (surface === 'plan') return;
+    previewBoundaryRef.current = null;
+    setPreviewBoundaryMeasurement(null);
+  }, [surface]);
+
+  const currentPreviewBoundary = previewBoundaryMeasurement?.sessionKey === previewSessionKey
+    ? previewBoundaryMeasurement
+    : null;
+  const measuredToolbarHeight = stickyToolbarHeight || aidStationsToolbarHeight;
+  const floatingPreviewUnlockGeometry = resolveCenteredPreviewUnlockGeometry(
+    scrollViewportHeight,
+    stickyTopInset + measuredToolbarHeight,
+    floatingPreviewUnlockHeight,
+    24,
+  );
+  const previewContentMinHeight = previewMode && surface === 'plan'
+    ? getPreviewReachableContentMinHeight(
+        currentPreviewBoundary ? aidStationsSectionY + currentPreviewBoundary.top : null,
+        currentPreviewBoundary?.height ?? 0,
+        scrollViewportHeight,
+        floatingPreviewUnlockGeometry.centerY,
+      )
+    : undefined;
+
+  useEffect(() => {
+    const nextInitialValues = buildInitialPlanValues(initialValues);
+    setValues(nextInitialValues);
+    const departureIndex = nextInitialValues.aidStations.findIndex((station) => station.id === DEPART_ID);
+    setExpandedStations(previewMode && departureIndex >= 0
+      ? new Set([nextInitialValues.aidStations[departureIndex].id ?? String(departureIndex)])
+      : new Set());
     setExpandedSections({
       course: false,
       pace: false,
@@ -193,7 +256,8 @@ export default function PlanForm({
     setAutoFillUndo(null);
     setAidStationsViewMode('stations');
     setStickyControlsVisible(false);
-  }, [compactBasicsByDefault, initialValues]);
+    setPreviewUnlockStickyVisible(false);
+  }, [compactBasicsByDefault, initialValues, previewMode]);
 
   useEffect(() => {
     if (!targetAidStationId || consumedTargetAidStationRef.current === targetAidStationId) return;
@@ -227,12 +291,34 @@ export default function PlanForm({
   useEffect(() => {
     return () => {
       clearAutoFillUndoTimer();
+      if (keyboardFocusScrollTimeoutRef.current) {
+        clearTimeout(keyboardFocusScrollTimeoutRef.current);
+      }
     };
   }, [clearAutoFillUndoTimer]);
+
+  const handleCustomWaterBagFocus = useCallback((input: TextInput | null) => {
+    if (keyboardFocusScrollTimeoutRef.current) {
+      clearTimeout(keyboardFocusScrollTimeoutRef.current);
+    }
+
+    keyboardFocusScrollTimeoutRef.current = setTimeout(() => {
+      const inputHandle = input ? findNodeHandle(input) : null;
+      if (inputHandle) {
+        mainScrollRef.current?.scrollResponderScrollNativeHandleToKeyboard(inputHandle, 24, true);
+      }
+      keyboardFocusScrollTimeoutRef.current = null;
+    }, 250);
+  }, []);
 
   const openPremiumUpsell = useCallback(() => {
     setShowPremiumUpsell(true);
   }, []);
+
+  const requestPreviewUnlock = useCallback((reason: PreviewLimitReason = 'press') => {
+    if (onPreviewLimitReached) onPreviewLimitReached(reason);
+    else openPremiumUpsell();
+  }, [onPreviewLimitReached, openPremiumUpsell]);
 
   useEffect(() => {
     onValuesChange?.(values);
@@ -634,28 +720,6 @@ export default function PlanForm({
     saveStation();
   };
 
-  const handleAddAidStationPress = useCallback(() => {
-    const intermediates = values.aidStations.filter(
-      (station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID,
-    );
-    const lastIntermediate = intermediates[intermediates.length - 1];
-    const arriveeKm = values.raceDistanceKm;
-    const fromKm = lastIntermediate ? lastIntermediate.distanceKm : 0;
-    const rawKm = (fromKm + arriveeKm) / 2;
-    const suggestedKm = arriveeKm > 0 ? Math.min(Math.round(rawKm * 10) / 10, arriveeKm - 0.1) : 10;
-
-    setEditingStation({
-      mode: 'create',
-      index: -1,
-      name: `Ravito ${intermediates.length + 1}`,
-      km: suggestedKm > 0 ? String(suggestedKm) : '10',
-      pauseMinutes: '0',
-      waterRefill: true,
-      solidRefill: false,
-      assistanceAllowed: false,
-    });
-  }, [values.aidStations, values.raceDistanceKm]);
-
   const runFillSuppliesAuto = useCallback(async (productLimits?: AutoFillProductLimit[]) => {
     if (!isPremium) {
       return Promise.resolve(fillSuppliesAuto(productLimits));
@@ -824,7 +888,16 @@ export default function PlanForm({
       <ScrollView
         ref={setScrollRefs}
         style={styles.container}
-        contentContainerStyle={[styles.content, { paddingTop: contentTopInset }]}
+        contentContainerStyle={[
+          styles.content,
+          { paddingTop: contentTopInset },
+          previewContentMinHeight === undefined ? null : { minHeight: previewContentMinHeight },
+        ]}
+        onLayout={(event) => {
+          const height = event.nativeEvent.layout.height;
+          setScrollViewportHeight((current) => current === height ? current : height);
+        }}
+        automaticallyAdjustKeyboardInsets
         keyboardShouldPersistTaps="handled"
         scrollEventThrottle={16}
         onContentSizeChange={(_, height) => tutorial?.onContentSizeChange(height)}
@@ -838,10 +911,24 @@ export default function PlanForm({
           setStickyControlsVisible((current) => current === shouldShowStickyControls ? current : shouldShowStickyControls);
           tutorial?.onScroll(event);
           onWorkspaceScroll?.(event);
+          const measuredBoundary = previewBoundaryRef.current;
+          const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
+          const shouldShowPreviewUnlock = previewMode && resolvePreviewUnlockPlacement({
+            boundaryHeight: previewBoundary?.height ?? 0,
+            boundaryTopInSection: previewBoundary?.top ?? null,
+            scrollY: nextScrollY,
+            sectionTop: aidStationsSectionYRef.current,
+            targetCenterY: floatingPreviewUnlockGeometry.centerY,
+            toolbarIsSticky: shouldShowStickyControls,
+          }) === 'sticky';
+          setPreviewUnlockStickyVisible((current) => (
+            current === shouldShowPreviewUnlock ? current : shouldShowPreviewUnlock
+          ));
         }}
         onMomentumScrollEnd={tutorial?.onScrollSettled}
         onScrollEndDrag={tutorial?.onScrollSettled}
       >
+        <>
         {surface === 'settings' ? (
           <TutorialTarget
             onMeasure={handleTutorialTargetMeasure}
@@ -849,7 +936,17 @@ export default function PlanForm({
             targetKey="basics"
           >
             <View>
-              <PlanBasicsSection
+              {previewMode ? (
+                <View style={styles.previewCard}>
+                  <Text style={styles.previewTitle}>{locale === 'fr' ? 'Tes paramètres actuels' : 'Your current settings'}</Text>
+                  <Text style={styles.previewBody}>{values.raceDistanceKm.toLocaleString()} km · {values.elevationGain.toLocaleString()} m D+</Text>
+                  <Text style={styles.previewBody}>{values.targetIntakePerHour} g/h · {values.waterIntakePerHour} ml/h · {values.sodiumIntakePerHour} mg/h</Text>
+                  <Text style={styles.previewBody}>{locale === 'fr' ? 'Poche à eau' : 'Water bladder'} : {values.waterBagLiters} L</Text>
+                  <TouchableOpacity style={styles.previewPrimary} onPress={() => requestPreviewUnlock('press')}>
+                    <Text style={styles.previewPrimaryText}>{locale === 'fr' ? 'Modifier mes paramètres' : 'Edit my settings'}</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : <PlanBasicsSection
                 values={values}
                 expandedSections={expandedSections}
                 toggleSection={toggleSection}
@@ -861,14 +958,27 @@ export default function PlanForm({
                 onResetSectionTimingOverrides={resetSectionTimingOverrides}
                 NumberInput={NumberInput}
                 waterBagOptions={WATER_BAG_OPTIONS}
+                onCustomWaterBagFocus={handleCustomWaterBagFocus}
                 inline
-              />
+              />}
             </View>
           </TutorialTarget>
         ) : (
         <View
           onLayout={(event) => {
-            aidStationsSectionYRef.current = event.nativeEvent.layout.y;
+            const sectionTop = event.nativeEvent.layout.y;
+            aidStationsSectionYRef.current = sectionTop;
+            setAidStationsSectionY((current) => current === sectionTop ? current : sectionTop);
+            const measuredBoundary = previewBoundaryRef.current;
+            const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
+            setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+              boundaryHeight: previewBoundary?.height ?? 0,
+              boundaryTopInSection: previewBoundary?.top ?? null,
+              scrollY: mainScrollYRef.current,
+              sectionTop,
+              targetCenterY: floatingPreviewUnlockGeometry.centerY,
+              toolbarIsSticky: stickyControlsVisible,
+            }) === 'sticky');
           }}
         >
           <AidStationsSection
@@ -881,11 +991,9 @@ export default function PlanForm({
             toggleStation={toggleStation}
             setEditingStation={setEditingStation}
             removeAidStation={removeAidStation}
-            addAidStation={handleAddAidStationPress}
-            fillSuppliesAuto={handleFillSuppliesAuto}
+            fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
-            isPremium={isPremium}
             intermediateCount={highlights.intermediateCount}
             getSupplies={getSupplies}
             openPicker={openPicker}
@@ -906,13 +1014,32 @@ export default function PlanForm({
             onUpdateSectionSegmentPaceAdjustment={updateSectionSegmentPaceAdjustment}
             getParentScrollY={() => mainScrollYRef.current}
             getSectionTop={() => aidStationsSectionYRef.current}
-            parentFocusOffset={stickyTopInset + STICKY_PLAN_CONTROLS_HEIGHT + 12}
+            parentFocusOffset={stickyTopInset + (stickyToolbarHeight || aidStationsToolbarHeight) + 12}
             scrollParentTo={(y) => mainScrollRef.current?.scrollTo({ y, animated: false })}
             onViewModeChange={setAidStationsViewMode}
-            onToolbarLayout={(top) => {
+            onToolbarLayout={(top, height) => {
               aidStationsToolbarYRef.current = top;
+              setAidStationsToolbarHeight((current) => current === height ? current : height);
             }}
             toolbarHidden={stickyControlsVisible}
+            previewMode={previewMode}
+            previewUnlockStickyVisible={previewUnlockStickyVisible}
+            onPreviewBoundaryLayout={(top, height) => {
+              const nextMeasurement = top === null
+                ? null
+                : { sessionKey: previewSessionKey, top, height };
+              previewBoundaryRef.current = nextMeasurement;
+              setPreviewBoundaryMeasurement(nextMeasurement);
+              setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+                boundaryHeight: height,
+                boundaryTopInSection: top,
+                scrollY: mainScrollYRef.current,
+                sectionTop: aidStationsSectionYRef.current,
+                targetCenterY: floatingPreviewUnlockGeometry.centerY,
+                toolbarIsSticky: stickyControlsVisible,
+              }) === 'sticky');
+            }}
+            onPreviewLimitReached={requestPreviewUnlock}
             tutorial={
               tutorial
                 ? {
@@ -926,6 +1053,7 @@ export default function PlanForm({
         )}
 
         <View style={styles.saveSpacer} />
+        </>
       </ScrollView>
 
       {surface === 'plan' ? (
@@ -934,17 +1062,53 @@ export default function PlanForm({
           visible={stickyControlsVisible}
           testID="plan-sticky-controls"
         >
-          <AidStationsToolbar
-            compact
-            mode={aidStationsViewMode}
-            onSelectMode={(mode) => aidStationsSectionRef.current?.selectViewMode(mode)}
-            addAidStation={handleAddAidStationPress}
-            fillSuppliesAuto={handleFillSuppliesAuto}
-            isAutoFilling={isAutoFilling}
-            autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
-            isPremium={isPremium}
-          />
+          <View
+            onLayout={(event) => {
+              const height = event.nativeEvent.layout.height;
+              setStickyToolbarHeight((current) => current === height ? current : height);
+              const measuredBoundary = previewBoundaryRef.current;
+              const previewBoundary = measuredBoundary?.sessionKey === previewSessionKey ? measuredBoundary : null;
+              setPreviewUnlockStickyVisible(previewMode && resolvePreviewUnlockPlacement({
+                boundaryHeight: previewBoundary?.height ?? 0,
+                boundaryTopInSection: previewBoundary?.top ?? null,
+                scrollY: mainScrollYRef.current,
+                sectionTop: aidStationsSectionYRef.current,
+                targetCenterY: floatingPreviewUnlockGeometry.centerY,
+                toolbarIsSticky: true,
+              }) === 'sticky');
+            }}
+          >
+            <AidStationsToolbar
+              compact
+              mode={aidStationsViewMode}
+              onSelectMode={(mode) => aidStationsSectionRef.current?.selectViewMode(mode)}
+            />
+          </View>
         </PlanWorkspaceStickyBar>
+      ) : null}
+
+      {surface === 'plan' && previewMode && scrollViewportHeight > 0 ? (
+        <View
+          accessibilityElementsHidden={!previewUnlockStickyVisible}
+          importantForAccessibility={previewUnlockStickyVisible ? 'auto' : 'no-hide-descendants'}
+          onLayout={(event) => {
+            const height = event.nativeEvent.layout.height;
+            setFloatingPreviewUnlockHeight((current) => current === height ? current : height);
+          }}
+          pointerEvents="box-none"
+          style={[
+            previewOverlayStyles.card,
+            { top: floatingPreviewUnlockGeometry.top },
+            !previewUnlockStickyVisible && previewOverlayStyles.hidden,
+          ]}
+          testID="plan-preview-unlock-centered"
+        >
+          <PreviewUnlockCta
+            hidden={!previewUnlockStickyVisible}
+            locale={locale}
+            onPress={() => requestPreviewUnlock('press')}
+          />
+        </View>
       ) : null}
 
       {autoFillUndo ? (
@@ -956,14 +1120,14 @@ export default function PlanForm({
         </View>
       ) : null}
 
-      {showActions ? <FloatingActionMenu
+      {showActions && !previewMode ? <FloatingActionMenu
         accessibilityLabel={t.planSummary.openActions}
         actions={planActions}
         closedIcon="ellipsis-horizontal"
         dismissAccessibilityLabel={t.planSummary.closeActions}
       /> : null}
 
-      <ProductPickerModal
+      {!previewMode ? <ProductPickerModal
         visible={pickerTarget !== null}
         pickerSearch={pickerSearch}
         setPickerSearch={setPickerSearch}
@@ -976,9 +1140,9 @@ export default function PlanForm({
         fuelLabels={FUEL_LABELS}
         onClose={() => setPickerTarget(null)}
         onAddProduct={handleAddProductFromPicker}
-      />
+      /> : null}
 
-      <AutoFillLimitsModal
+      {!previewMode ? <AutoFillLimitsModal
         visible={autoFillLimitsVisible}
         products={autoFillLimitProducts}
         productsLoading={productsLoading}
@@ -993,17 +1157,40 @@ export default function PlanForm({
         onPreview={handlePreviewAutoFill}
         onBack={() => setAutoFillResult(null)}
         onConfirm={handleConfirmAutoFill}
-      />
+      /> : null}
 
-      <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} />
+      {!previewMode ? <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} /> : null}
       {showPremiumUpsell ? (
         <PremiumUpsellModal
           visible={showPremiumUpsell}
           title={t.plans.autoFillPremiumTitle}
           message={t.plans.autoFillPremiumMessage}
           onClose={() => setShowPremiumUpsell(false)}
+          planId={planId}
         />
       ) : null}
     </>
   );
 }
+
+const previewOverlayStyles = StyleSheet.create({
+  card: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    zIndex: 25,
+    padding: 6,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: 18,
+    backgroundColor: Colors.surface,
+    shadowColor: '#1A1A1A',
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 5 },
+    elevation: 6,
+  },
+  hidden: {
+    opacity: 0,
+  },
+});

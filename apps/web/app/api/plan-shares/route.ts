@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 import { checkRateLimitAsync, withSecurityHeaders } from "../../../lib/http";
+import { getRunnerPlanAccess, getRunnerAdminMode } from "../../../lib/runner-access";
 import {
   buildPlanShareUrl,
   departureTimeSchema,
@@ -263,6 +264,8 @@ export async function POST(request: Request) {
     return withSecurityHeaders(NextResponse.json({ message: "Plan not found." }, { status: 404 }));
   }
 
+  const access = await getRunnerPlanAccess(supabaseUser.id, parsedBody.data.planId, { adminMode: await getRunnerAdminMode(supabaseUser, token) });
+  if (!access.canViewDetails) return withSecurityHeaders(NextResponse.json({ message: "Unlock this course to share the detailed plan." }, { status: 402 }));
   const reusableShare = await loadReusableShareLink(supabaseService, parsedBody.data.planId, supabaseUser.id);
   if (reusableShare) {
     const updatedShare = await updateShareLink(

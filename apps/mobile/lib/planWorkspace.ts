@@ -21,6 +21,21 @@ export function calculateElevationLoss(profile: readonly ElevationPoint[]): numb
   }, 0);
 }
 
+export function resolvePlanElevationLoss(
+  officialElevationLossM: number | null | undefined,
+  profile: readonly ElevationPoint[],
+): number | null {
+  if (
+    typeof officialElevationLossM === 'number'
+    && Number.isFinite(officialElevationLossM)
+    && officialElevationLossM >= 0
+  ) {
+    return officialElevationLossM;
+  }
+
+  return calculateElevationLoss(profile);
+}
+
 export function formatAveragePace(totalDurationMin: number, distanceKm: number): string {
   if (!Number.isFinite(totalDurationMin) || !Number.isFinite(distanceKm) || totalDurationMin <= 0 || distanceKm <= 0) {
     return '—';

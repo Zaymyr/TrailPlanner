@@ -69,6 +69,7 @@ The final hardening policy authorizes administrators only from trusted Auth `app
 - If `ends_at` is null, active logic uses `starts_at + initial_duration_days`.
 - Web entitlements and mobile premium checks both consider active grants.
 - A grant can elevate a user to premium even without an active subscription.
+- A genuine active grant can also authorize global runner-plan detail and records subscription/grant-style historical read-only provenance; it is not a one-time course unlock.
 
 ## Common Queries
 
@@ -95,6 +96,7 @@ values ('<user-id>', now(), 30, 'manual support grant', '<admin-user-id>');
 - Do not expose full grant management to normal authenticated users.
 - Admin checks use trusted app metadata or server-side Auth verification, never `user_profiles.role` or `user_metadata`.
 - Keep mobile and web entitlement logic aligned when changing grant semantics.
+- Do not use a grant to model a EUR 9.99 course purchase; use the canonical `runner_plan_unlocks` ledger instead.
 - Mobile consumers share one entitlement refresh queue; the query still reads the current user's grants ordered by newest `starts_at` and resolves the first active window.
 
 ## Related Docs
