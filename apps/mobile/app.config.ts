@@ -22,7 +22,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     slug: 'pace-yourself-app',
     owner: 'pace-yourself',
     scheme: 'paceyourself',
-    version: '1.1.1',
+    version: '1.1.2',
     updates: {
       url: 'https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c',
     },

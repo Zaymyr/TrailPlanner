@@ -103,6 +103,7 @@ If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds
 
 `apps/mobile/app.config.ts` declares OTA updates through `expo-updates`:
 
+- App Store / Play Store marketing version `1.1.2`.
 - project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.
@@ -240,6 +241,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `OPENAI_API_KEY` is server-only. The organizer import LLM is admin-only, returns a transient reviewed proposal, and must never receive service-role credentials.
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 - `userInterfaceStyle` is native configuration. Build and ship a new iOS binary on runtime `1.1.1` before publishing a `1.1.1` OTA; installed iOS `1.1.0` binaries remain in their prior compatibility group.
+- EAS remote versioning and `autoIncrement: true` manage the developer-facing iOS build number and Android version code. They do not replace the explicit marketing-version update in `app.config.ts`; once Apple closes a version train, increment `version`, rebuild the IPA, and submit that new artifact.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
 - Store candidate automation also requires valid Apple App Store Connect credentials in EAS. Do not approve the candidate gate until both platform credentials have been configured and the build capacity is intentionally accepted.
 - Do not present hosted Maestro as active on the current Expo plan. Use the local Android runner until the plan is upgraded or a separate compatible CI runner is added.
