@@ -24,6 +24,8 @@ related_tables:
 
 # `race_relay_points`
 
+Lot 10 renders Solo/Relais participation in the RaceBook-only header footer row, after the shared metrics and beside the emergency label, phone and call action. Relay rows, derived legs and the conditional `Relais` tab are unchanged.
+
 The maximum-time header uses only the official departure and finish cutoff; it does not infer duration from relay handovers or alter relay rows and derived legs.
 
 Relais reste un sous-onglet conditionnel de Course dans un Livret à cinq onglets permanents. Les cartes utilisent la couleur principale d'identité plutôt que l'accent réservé au tracé/ravito ; aucun point, ordre ou segment dérivé ne change.
@@ -50,7 +52,7 @@ Personal plan reflection does not infer a relay handover from a runner checkpoin
 
 ## Racebook Identity Presentation
 
-Relay participation badges stay in the identity hero beside the course-date, location and format metrics. The hero does not display the emergency phone number; the number remains available only through the localized call action in the neutral details card.
+Relay participation badges stay in the identity hero beside the course-date, location and format metrics. The expanded hero shows the emergency label and phone with the localized call action in its footer row; the compact hero keeps the call action only.
 
 The compact runner-progress and unified sponsor loading composition is presentation-only and remains independent from relay-point reads and derived legs.
 

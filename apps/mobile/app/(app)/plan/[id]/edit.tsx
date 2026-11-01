@@ -77,7 +77,7 @@ import {
   formatDuration,
 } from '../../../../lib/planSummary';
 import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
-import { formatDistance } from '../../../../lib/displayFormat';
+import { formatDistance, formatElevation } from '../../../../lib/displayFormat';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import {
   buildPersistedPlannerValues,
@@ -286,6 +286,12 @@ export default function EditPlanScreen() {
   const [officialFinishCutoffTime, setOfficialFinishCutoffTime] = useState<string | null>(null);
   const [officialRaceDate, setOfficialRaceDate] = useState<string | null>(null);
   const [officialRaceLocation, setOfficialRaceLocation] = useState<string | null>(null);
+  const [planHeaderBodyHeight, setPlanHeaderBodyHeight] = useState(PLAN_WORKSPACE_HEADER_BODY_HEIGHT);
+  // The header reports its measured content height; the switch, banners and content offset follow it.
+  const handlePlanHeaderBodyHeightChange = useCallback((measuredHeight: number) => {
+    if (!Number.isFinite(measuredHeight) || measuredHeight <= 0) return;
+    setPlanHeaderBodyHeight((current) => Math.abs(current - measuredHeight) < 1 ? current : measuredHeight);
+  }, []);
   const [officialElevationLossM, setOfficialElevationLossM] = useState<number | null>(null);
   const [planCanEdit, setPlanCanEdit] = useState(false);
   const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
@@ -415,7 +421,7 @@ export default function EditPlanScreen() {
         const eventLocation = Array.isArray(eventRelation) ? eventRelation[0]?.location : eventRelation?.location;
         const eventRaceDate = Array.isArray(eventRelation) ? eventRelation[0]?.race_date : eventRelation?.race_date;
         setLinkedRaceEventName(typeof eventName === 'string' ? eventName : null);
-        setOfficialRaceLocation(row?.races?.location_text ?? eventLocation ?? null);
+        setOfficialRaceLocation(eventLocation ?? row?.races?.location_text ?? null);
         setOfficialRaceDate(row?.races?.race_date ?? eventRaceDate ?? null);
         const officialValue = row?.races?.elevation_loss_m;
         setOfficialElevationLossM(
@@ -1004,7 +1010,7 @@ export default function EditPlanScreen() {
   const planBeyondCutoff = Boolean(workspaceSummary && maximumRaceMinutes !== null && workspaceSummary.totalDurationMin > maximumRaceMinutes);
   const workspaceSwitchHeight = linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0;
   const revisionBannerHeight = officialRevisionPending ? 116 : 0;
-  const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + workspaceSwitchHeight + revisionBannerHeight + 16;
+  const headerTopInset = insets.top + planHeaderBodyHeight + workspaceSwitchHeight + revisionBannerHeight + 16;
 
   const acknowledgeOfficialRevision = useCallback(async () => {
     if (!id || !linkedRaceId) return;
@@ -1173,7 +1179,7 @@ export default function EditPlanScreen() {
           contentTopInset={headerTopInset}
           id={id}
           onScroll={handleWorkspaceScroll}
-          stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + 16}
+          stickyRevealOffset={planHeaderBodyHeight - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + 16}
           stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + workspaceSwitchHeight}
           onShareIntentConsumed={() => router.setParams({ share: undefined })}
           shareOnMount={share === '1'}
@@ -1213,7 +1219,7 @@ export default function EditPlanScreen() {
           productData={planProductData}
           compactBasicsByDefault
           contentTopInset={headerTopInset}
-          stickyRevealOffset={PLAN_WORKSPACE_HEADER_BODY_HEIGHT - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
+          stickyRevealOffset={planHeaderBodyHeight - PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
           stickyTopInset={insets.top + PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT + workspaceSwitchHeight}
           onMissingFavoriteProducts={handleMissingFavoriteProducts}
           onWorkspaceScroll={handleWorkspaceScroll}
@@ -1237,13 +1243,15 @@ export default function EditPlanScreen() {
         locationLabel={officialRaceLocation}
         maxTime={maximumRaceLabel}
         metrics={[
-          { label: 'Distance', value: formatDistance(liveValues?.raceDistanceKm ?? 0, locale) },
-          { label: 'D+', value: `${Math.round(liveValues?.elevationGain ?? 0)} m` },
-          { label: 'D−', value: elevationLoss === null ? '—' : `${Math.round(elevationLoss)} m` },
+          { label: t.planWorkspace.distance, value: formatDistance(liveValues?.raceDistanceKm ?? 0, locale) },
+          { label: t.planWorkspace.elevationGain, value: formatElevation(liveValues?.elevationGain ?? 0, locale) },
+          { label: t.planWorkspace.elevationLoss, value: elevationLoss === null ? '—' : formatElevation(elevationLoss, locale) },
           { label: t.planWorkspace.estimatedTime, value: workspaceSummary ? `${formatDuration(workspaceSummary.totalDurationMin)}${planBeyondCutoff ? ` · ${t.planWorkspace.beyondCutoff}` : ''}` : '—' },
           { label: t.planWorkspace.averagePace, value: averagePace === '—' ? '—' : `${averagePace}/km` },
         ]}
+        expandedBodyHeight={planHeaderBodyHeight}
         onBack={handleBackToPlans}
+        onExpandedBodyHeightChange={handlePlanHeaderBodyHeightChange}
         saveStatus={saveStatus}
         scrollY={scrollY}
         title={liveValues?.name || planName}
@@ -1254,7 +1262,7 @@ export default function EditPlanScreen() {
         <RaceWorkspaceSwitch
           active="plan"
           compactHeaderHeight={PLAN_WORKSPACE_HEADER_COMPACT_BODY_HEIGHT}
-          expandedHeaderHeight={PLAN_WORKSPACE_HEADER_BODY_HEIGHT}
+          expandedHeaderHeight={planHeaderBodyHeight}
           planExists
           onOpenPlan={() => undefined}
           onOpenRacebook={() => { void openLinkedRacebook(); }}
@@ -1267,7 +1275,7 @@ export default function EditPlanScreen() {
         <View
           style={[
             styles.revisionAlert,
-            { top: insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 8 },
+            { top: insets.top + planHeaderBodyHeight + (linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0) + 8 },
           ]}
         >
           <View style={styles.revisionAlertCopy}>

@@ -1,10 +1,21 @@
+import type { ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 
 export type RaceWorkspaceMetric = { label: string; value: string };
+
+/**
+ * Height of the toolbar row that holds the back and trailing actions. The
+ * expanded content always starts below it, so no text can sit under a button.
+ * Buttons are 44 dp tall and placed 8 dp below the safe area in both the
+ * expanded and the compact header.
+ */
+export const RACE_WORKSPACE_TOOLBAR_HEIGHT = 56;
+export const RACE_WORKSPACE_ACTION_TOP_OFFSET = 8;
+export const RACE_WORKSPACE_COMPACT_BODY_HEIGHT = 60;
 
 export function RaceWorkspaceCompactIdentity({
   title,
@@ -28,78 +39,90 @@ export function RaceWorkspaceCompactIdentity({
   </View>;
 }
 
+/**
+ * Shared expanded content of the RaceBook and plan workspace headers. Both
+ * screens render the same elements in the same order and at the same
+ * positions; screen-specific content goes in `footer`, after the metrics.
+ */
 export function RaceWorkspaceCommonBlock({
   title,
   courseName,
   dateLabel,
   locationLabel,
-  onOpenLocation,
   startLabel,
   startTime,
   maxTimeLabel,
   maxTime,
   metrics,
   color,
+  footer,
 }: {
   title: string;
   courseName?: string | null;
   dateLabel?: string | null;
   locationLabel?: string | null;
-  onOpenLocation?: () => void;
   startLabel: string;
   startTime?: string | null;
   maxTimeLabel: string;
   maxTime?: string | null;
   metrics: RaceWorkspaceMetric[];
   color: string;
+  footer?: ReactNode;
 }) {
-  const information: Array<{
-    icon: 'calendar-outline' | 'location-outline' | 'time-outline';
-    value: string;
-  }> = [];
-  if (dateLabel) information.push({ icon: 'calendar-outline', value: dateLabel });
-  if (locationLabel) information.push({ icon: 'location-outline', value: locationLabel });
-  if (startTime) information.push({
-    icon: 'time-outline',
-    value: `${startLabel} ${startTime}${maxTime ? ` · ${maxTimeLabel} ${maxTime}` : ''}`,
-  });
+  const informationLine = [dateLabel, locationLabel].filter(Boolean).join(' · ');
+  const startLine = startTime ? `${startLabel} ${startTime}${maxTime ? ` · ${maxTimeLabel} ${maxTime}` : ''}` : null;
 
   return <View style={styles.block}>
     <View style={styles.identity}>
       {courseName && courseName !== title ? <Text numberOfLines={1} style={[styles.kicker, { color }]}>{courseName}</Text> : null}
-      <Text accessibilityRole="header" numberOfLines={2} style={[styles.title, { color }]}>{title}</Text>
+      <Text
+        accessibilityRole="header"
+        adjustsFontSizeToFit
+        minimumFontScale={0.75}
+        numberOfLines={2}
+        style={[styles.title, { color }]}
+      >
+        {title}
+      </Text>
     </View>
-    {information.length > 0 ? <View style={styles.information}>
-      {information.map((item) => {
-        const content = <><Ionicons color={color} name={item.icon} size={14} /><Text numberOfLines={1} style={[styles.infoText, { color }, item.icon === 'location-outline' && onOpenLocation && styles.infoLink]}>{item.value}</Text></>;
-        return item.icon === 'location-outline' && onOpenLocation
-          ? <Pressable accessibilityRole="link" key={`${item.icon}-${item.value}`} onPress={onOpenLocation} style={styles.infoItem}>{content}</Pressable>
-          : <View key={`${item.icon}-${item.value}`} style={styles.infoItem}>{content}</View>;
-      })}
+    {informationLine || startLine ? <View style={styles.information}>
+      {informationLine ? <View style={styles.infoItem}>
+        <Ionicons color={color} name="calendar-outline" size={15} />
+        <Text numberOfLines={1} style={[styles.infoText, { color }]}>{informationLine}</Text>
+      </View> : null}
+      {startLine ? <View style={styles.infoItem}>
+        <Ionicons color={color} name="time-outline" size={15} />
+        <Text numberOfLines={1} style={[styles.infoText, styles.startText, { color }]}>{startLine}</Text>
+      </View> : null}
     </View> : null}
     <View style={styles.metrics}>
-      {metrics.map((metric, index) => <View key={metric.label} style={[styles.metric, index > 0 && { borderLeftColor: color, borderLeftWidth: StyleSheet.hairlineWidth }]}>
-        <Text adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={[styles.metricLabel, { color }]}>{metric.label}</Text>
-        <DataText adjustsFontSizeToFit minimumFontScale={0.7} numberOfLines={1} style={[styles.metricValue, { color }]}>{metric.value}</DataText>
+      {metrics.map((metric, index) => <View
+        key={metric.label}
+        style={[styles.metric, index > 0 && styles.metricDivider]}
+      >
+        <DataText adjustsFontSizeToFit minimumFontScale={0.65} numberOfLines={1} style={[styles.metricValue, { color }]}>{metric.value}</DataText>
+        <Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} style={[styles.metricLabel, { color }]}>{metric.label}</Text>
       </View>)}
     </View>
+    {footer ?? null}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  block: { gap: 8 },
+  block: { gap: 10 },
   compactCopy: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
   compactTitle: { fontSize: 17, lineHeight: 21, fontWeight: '800' },
-  compactDetail: { fontSize: 10, lineHeight: 13, fontWeight: '700', opacity: 0.82 },
-  identity: { minWidth: 0, gap: 1 },
-  kicker: { fontSize: 11, lineHeight: 15, fontWeight: '800', letterSpacing: 0.7, textTransform: 'uppercase', opacity: 0.84 },
-  title: { fontSize: 24, lineHeight: 28, fontWeight: '800', textAlign: 'left' },
-  information: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: 10 },
-  infoItem: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 4 },
-  infoText: { flexShrink: 1, fontSize: 11, lineHeight: 15, fontWeight: '700', opacity: 0.88 },
-  infoLink: { textDecorationLine: 'underline' },
-  metrics: { minHeight: 54, flexDirection: 'row', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.18)', overflow: 'hidden' },
-  metric: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 3, paddingVertical: 6, borderLeftColor: 'rgba(255,255,255,0.2)' },
-  metricLabel: { fontSize: 8, lineHeight: 10, fontWeight: '800', textAlign: 'center', textTransform: 'uppercase', opacity: 0.74 },
-  metricValue: { fontSize: 13, lineHeight: 17, fontWeight: '800', textAlign: 'center' },
+  compactDetail: { fontSize: 11, lineHeight: 14, fontWeight: '700', opacity: 0.82 },
+  identity: { minWidth: 0, gap: 2 },
+  kicker: { fontSize: 12, lineHeight: 16, fontWeight: '800', letterSpacing: 0.7, textTransform: 'uppercase', opacity: 0.8 },
+  title: { fontSize: 28, lineHeight: 32, fontWeight: '800', textAlign: 'left' },
+  information: { gap: 4 },
+  infoItem: { minWidth: 0, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  infoText: { flexShrink: 1, fontSize: 14, lineHeight: 19, fontWeight: '600', opacity: 0.9 },
+  startText: { fontWeight: '700', opacity: 1 },
+  metrics: { minHeight: 56, flexDirection: 'row', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)', backgroundColor: 'rgba(0,0,0,0.18)', overflow: 'hidden' },
+  metric: { flex: 1, minWidth: 0, alignItems: 'center', justifyContent: 'center', gap: 1, paddingHorizontal: 4, paddingVertical: 8 },
+  metricDivider: { borderLeftWidth: StyleSheet.hairlineWidth, borderLeftColor: 'rgba(255,255,255,0.3)' },
+  metricValue: { fontSize: 15, lineHeight: 19, fontWeight: '800', textAlign: 'center' },
+  metricLabel: { fontSize: 11, lineHeight: 14, fontWeight: '700', textAlign: 'center', opacity: 0.78 },
 });

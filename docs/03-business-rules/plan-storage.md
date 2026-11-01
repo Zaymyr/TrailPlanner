@@ -55,6 +55,8 @@ related_tables:
 
 # Plan Storage
 
+The plan workspace header now reports its measured expanded height (lot 10); offsets are local UI state and nothing is added to `planner_values` or the saved row.
+
 The mobile editor seeds plan capabilities from the user-and-plan cache before its background server confirmation. Access remains tri-state while unresolved: the editor shows a neutral checking/retry state and never interprets a missing response as free access or briefly exposes locked Premium presentation.
 
 La réflexion du plan dans le Livret arrondit désormais chaque minute de passage avec `Math.round` avant de calculer le jour, l'heure affichée, l'occurrence de barrière et l'alerte de retard. Un arrondi qui franchit minuit produit donc le même `J+N` pour l'affichage et la comparaison. Les barres contextuelles Livret et plan ne portent plus d'action de sortie ; les retours d'en-tête et Android conservent les destinations Courses ou Plans sans modifier la persistance.

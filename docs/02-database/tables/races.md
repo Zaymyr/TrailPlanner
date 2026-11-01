@@ -69,6 +69,8 @@ related_tables:
 
 # `races`
 
+Lot 10 aligns the Plan and RaceBook headers on one layout and uses the event location before `races.location_text` in both; elevation renders with the shared `formatElevation` helper. Display-only, no column or write.
+
 Mobile Plan/RaceBook headers read existing format date, location, organizer schedule and elevation fields for a shared identity presentation. The display-only maximum duration adds no column and never writes a personal departure or prediction into the format row.
 
 Le Livret conserve cinq onglets même lorsque certains modules sont vides ; les collections publiées restent filtrées par leurs contrats existants. L'arrondi des passages, le fond compact uni, la feuille de liens et le retour vers Courses/Plans sont des comportements client qui n'ajoutent ni ne modifient aucune colonne de `races`.

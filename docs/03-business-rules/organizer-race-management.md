@@ -247,6 +247,8 @@ related_tables:
 
 # Organizer Race Management
 
+Lot 10 renders the organizer-derived departure and maximum time on the same line and position in the Plan and RaceBook headers; organizer data, cutoff parsing and publication rules are unchanged.
+
 The mobile Livret derives a display-only maximum race duration from the official common/first-SAS departure and a simple finish-cutoff clock. It exposes that duration in the shared identity header, flags an owner plan predicted beyond it, and no longer repeats the finish cutoff inside `Course > Tracé`; the finish chronology card remains authoritative for the cutoff itself.
 
 Le Livret mobile garde les cinq destinations Matériel, Dossard, Course, Accès et Services, y compris dans leurs états vides. Sa barre basse n'offre plus de sortie. La couleur principale organisateur identifie l'en-tête et les repères ; l'accent est réservé au tracé et aux ravitos, tandis que les contrôles restent Pace Yourself. Les liens officiels sont regroupés dans une feuille et l'alerte de dernière minute est repliée sur une ligne avec une action de lecture.
