@@ -10,6 +10,8 @@ related_files:
   - apps/mobile/hooks/useProfileScreen.ts
   - apps/mobile/components/premium/PremiumUpsellModal.tsx
   - apps/web/lib/revenuecat.ts
+  - apps/web/lib/revenuecat-reconciliation.ts
+  - apps/web/app/api/cron/revenuecat-reconciliation/route.ts
   - apps/web/app/api/stripe/webhook/route.ts
 related_tables:
   - subscriptions
@@ -87,6 +89,8 @@ For trusted admins, the Profile access-mode selector remains a server round trip
 
 If RevenueCat reports an active entitlement but the server row is not synced, mobile calls the web RevenueCat sync endpoint.
 
+The server also performs a daily, authenticated reconciliation over Supabase Auth users. It re-reads RevenueCat and repairs the provider ledger plus the compatible legacy projection. A missing credential, transport failure, or invalid provider response must leave the last verified database state unchanged; only a successfully parsed subscriber without an active Premium entitlement may expire an existing mobile subscription.
+
 The hook exposes one shared external-store snapshot. Its Auth, foreground, premium-status, and RevenueCat listeners are installed once across all mounted consumers; overlapping signals are serialized and coalesced before the Supabase, API, and RevenueCat checks run. Equivalent results do not notify screens again.
 
 An SDK purchase return is not sufficient by itself for success UI or purchase analytics. The billing hook resolves the configured Premium entitlement from the returned `CustomerInfo` and requires it to be active and backed by the same product as the completed transaction before returning `purchased`. A missing, inactive, or mismatched entitlement returns `unverified`, keeps the success alert hidden, and is tracked separately from verified purchases. Sandbox and production purchases can both unlock Premium, but analytics retain their environment distinction.
@@ -129,6 +133,7 @@ RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It
 - Do not use archived 14-day trial docs.
 - Do not fork mobile purchases into a new table unless changing the entitlement model deliberately.
 - Do not treat the existence of a RevenueCat purchase result as a verified Premium purchase; require the active configured entitlement from the returned `CustomerInfo`.
+- Do not turn a RevenueCat API outage into an expiration. Webhook retries, the mobile sync endpoint, and the daily reconciliation are complementary repair paths and remain idempotent.
 - Be careful with missing `current_period_end`; code paths differ in how permissive they are.
 - Stripe product/price identities are environment/dashboard configuration, not hardcoded repo facts.
 - Do not resolve organizer edition capabilities from `subscriptions`, RevenueCat, trial state, or `premium_grants`.

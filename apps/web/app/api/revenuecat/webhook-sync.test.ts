@@ -4,7 +4,7 @@ const { fetchMock } = vi.hoisted(() => ({
   fetchMock: vi.fn(),
 }));
 
-import { syncRevenueCatWebhookPayload } from "../../../lib/revenuecat";
+import { syncRevenueCatSubscriptionForUser, syncRevenueCatWebhookPayload } from "../../../lib/revenuecat";
 
 describe("syncRevenueCatWebhookPayload", () => {
   beforeEach(() => {
@@ -15,6 +15,22 @@ describe("syncRevenueCatWebhookPayload", () => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
     vi.unstubAllEnvs();
+  });
+
+  it("does not expire a subscription when RevenueCat is unavailable", async () => {
+    vi.stubEnv("REVENUECAT_SECRET_API_KEY", "server-key");
+    fetchMock.mockResolvedValueOnce(Response.json({ message: "unavailable" }, { status: 503 }));
+
+    await expect(syncRevenueCatSubscriptionForUser("0c88781b-8e90-4d54-8198-ae0d03cdc64e"))
+      .resolves.toEqual({
+        currentPeriodEnd: null,
+        provider: null,
+        reason: "provider_unavailable",
+        status: null,
+        synced: false,
+      });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(String(fetchMock.mock.calls[0]?.[0])).toContain("api.revenuecat.com/v1/subscribers/");
   });
 
   it("persists an active Google subscription directly from the webhook payload", async () => {

@@ -50,6 +50,7 @@ This document records the infrastructure visible from the repository: Vercel, EA
 - Supabase project: Auth, Postgres, Storage, Edge Functions, and cron.
 - Vault-backed cron secret: secret used by pg_cron to call push reminder functions.
 - Organizer import cleanup: hourly pg_cron GET to the protected web route so Storage cleanup precedes row deletion.
+- RevenueCat reconciliation: daily Vercel Cron GET to the protected web route so missed provider events are repaired from server-verified subscriber state.
 - Service role: server-only key used by trusted routes/functions.
 - Organizer import documents are currently selected in the browser and identified in the preview only; no document bucket or OCR provider is configured yet.
 - Organizer roadbooks use the private `organizer-imports` bucket. Browser uploads are restricted to the authenticated user's folder and to 25 MB PDF/JPEG/PNG/WebP files; the organizer website-import API removes them after analysis, including failures.
@@ -70,6 +71,12 @@ This document records the infrastructure visible from the repository: Vercel, EA
   "buildCommand": "npm run build",
   "installCommand": "npm install --workspace @trailplanner/web --legacy-peer-deps --prefer-offline --no-audit --no-fund",
   "outputDirectory": ".next",
+  "crons": [
+    {
+      "path": "/api/cron/revenuecat-reconciliation",
+      "schedule": "17 3 * * *"
+    }
+  ],
   "ignoreCommand": "node -e \"process.exit(process.env.VERCEL_GIT_COMMIT_REF?.startsWith('dependabot/') ? 0 : 1)\" || git diff --quiet HEAD^ HEAD -- . ../../packages ../../package.json ../../package-lock.json ../../turbo.json ../../vercel.json"
 }
 ```
@@ -153,6 +160,12 @@ The Edge Function validates the cron secret through a SECURITY DEFINER RPC befor
 
 The route selects expired service-only sessions, deletes each temporary object named by its source manifest, and only then deletes the session row. The migration deliberately does not grant SQL direct access to delete `storage.objects`. If either Vault secret is absent, configuration emits a notice and leaves the job unscheduled.
 
+## RevenueCat Reconciliation
+
+Vercel invokes `/api/cron/revenuecat-reconciliation` daily at 03:17 UTC and sends the deployment's `CRON_SECRET` as bearer authorization. The route enumerates Supabase Auth UUIDs with the server-only service role, checks each RevenueCat subscriber in bounded batches, and reuses the idempotent subscription persistence path. It repairs missed webhook/client-sync writes but does not expire verified access when RevenueCat is unavailable or misconfigured.
+
+RevenueCat's primary delivery path remains `/api/revenuecat/webhook`. Production configuration stores public app API keys for subscriber lookup, the exact entitlement/product identifiers, and either the legacy webhook Authorization value or `REVENUECAT_WEBHOOK_SIGNING_SECRET`. The signing secret is server-only; validation covers the raw request body and rejects stale signatures.
+
 ## Rate Limiting
 
 `supabase/migrations/20260304120000_add_rate_limit_entries.sql` creates:
@@ -235,6 +248,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
 - The cron migrations depend on Supabase extensions and Vault secrets; local migration application may require project-specific setup.
 - Organizer cleanup additionally requires matching Vault values `web_app_url` and `cron_secret`; `cron_secret` must equal the web deployment's `CRON_SECRET`.
+- Vercel's RevenueCat reconciliation also requires `CRON_SECRET`, RevenueCat app API keys, entitlement/product identifiers, and server-side webhook verification configuration. Missing provider configuration must fail closed without revoking existing access.
 - Do not replace the cleanup HTTP job with direct SQL deletion. The private Storage objects must be removed before their manifest row.
 - The archived storage doc predates the image buckets.
 - Organizer event image upload is mediated by a server route and stores only PNG files in `race-images`; clients should not receive service-role credentials.

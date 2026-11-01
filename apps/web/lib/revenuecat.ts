@@ -11,6 +11,7 @@ type RevenueCatConfig = {
   iosPublicApiKey: string | null;
   entitlementId: string | null;
   webhookAuthorization: string | null;
+  webhookSigningSecret: string | null;
 };
 
 type RevenueCatSubscriptionSnapshot = {
@@ -25,6 +26,7 @@ type RevenueCatSyncResult = {
   provider: RevenueCatProvider | null;
   status: "active" | "trialing" | "expired" | null;
   synced: boolean;
+  reason?: "not_found" | "provider_unavailable";
 };
 
 type RevenueCatWebhookSnapshot = {
@@ -154,6 +156,7 @@ const getRevenueCatConfig = (): RevenueCatConfig => ({
     process.env.REVENUECAT_WEBHOOK_AUTHORIZATION?.trim() ||
     process.env.REVENUECAT_WEBHOOK_AUTH?.trim() ||
     null,
+  webhookSigningSecret: process.env.REVENUECAT_WEBHOOK_SIGNING_SECRET?.trim() || null,
 });
 
 const isUuid = (value: string): boolean => userIdSchema.safeParse(value).success;
@@ -310,15 +313,20 @@ const fetchExistingSubscription = async (userId: string): Promise<ExistingSubscr
 const fetchRevenueCatSubscriber = async (
   userId: string,
   providerHint?: RevenueCatProvider | null
-) => {
+): Promise<
+  | { available: true; subscriber: z.infer<typeof revenueCatSubscriberSchema>["subscriber"] }
+  | { available: true; subscriber: null }
+  | { available: false; subscriber: null }
+> => {
   const config = getRevenueCatConfig();
   const candidates = getCandidateApiKeys(config, providerHint);
 
   if (candidates.length === 0) {
-    return null;
+    return { available: false, subscriber: null };
   }
 
   let lastPayload: unknown = null;
+  let receivedNotFound = false;
 
   for (const candidate of candidates) {
     try {
@@ -333,6 +341,7 @@ const fetchRevenueCatSubscriber = async (
       const payload = (await response.json().catch(() => null)) as unknown;
 
       if (!response.ok) {
+        if (response.status === 404) receivedNotFound = true;
         lastPayload = payload;
         continue;
       }
@@ -344,17 +353,19 @@ const fetchRevenueCatSubscriber = async (
         continue;
       }
 
-      return parsed.data.subscriber;
+      return { available: true, subscriber: parsed.data.subscriber };
     } catch (error) {
       lastPayload = error;
     }
   }
 
-  if (lastPayload) {
+  if (lastPayload && !receivedNotFound) {
     console.warn("Unable to fetch RevenueCat subscriber", { userId, lastPayload });
   }
 
-  return null;
+  return receivedNotFound
+    ? { available: true, subscriber: null }
+    : { available: false, subscriber: null };
 };
 
 const resolveRevenueCatSnapshot = (
@@ -592,15 +603,19 @@ export const syncRevenueCatSubscriptionForUser = async (
   userId: string,
   options?: { providerHint?: RevenueCatProvider | null }
 ): Promise<RevenueCatSyncResult> => {
-  const subscriber = await fetchRevenueCatSubscriber(userId, options?.providerHint);
+  const lookup = await fetchRevenueCatSubscriber(userId, options?.providerHint);
 
-  if (!subscriber) {
-    return expireExistingRevenueCatSubscription(userId, {
-      providerHint: options?.providerHint,
-    });
+  if (!lookup.available || !lookup.subscriber) {
+    return {
+      currentPeriodEnd: null,
+      provider: options?.providerHint ?? null,
+      status: null,
+      synced: false,
+      reason: lookup.available ? "not_found" : "provider_unavailable",
+    };
   }
 
-  const snapshot = resolveRevenueCatSnapshot(subscriber, options?.providerHint);
+  const snapshot = resolveRevenueCatSnapshot(lookup.subscriber, options?.providerHint);
 
   if (!snapshot) {
     return expireExistingRevenueCatSubscription(userId, {
@@ -788,6 +803,9 @@ export const syncRevenueCatWebhookPayload = async (
 };
 
 export const getRevenueCatWebhookAuthorization = (): string | null => getRevenueCatConfig().webhookAuthorization;
+
+export const getRevenueCatWebhookSigningSecret = (): string | null =>
+  getRevenueCatConfig().webhookSigningSecret;
 
 export const extractRevenueCatWebhookUserIds = (
   payload: unknown
