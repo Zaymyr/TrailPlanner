@@ -55,6 +55,8 @@ related_tables:
 
 # Plan Storage
 
+La réflexion du plan dans le Livret arrondit désormais chaque minute de passage avec `Math.round` avant de calculer le jour, l'heure affichée, l'occurrence de barrière et l'alerte de retard. Un arrondi qui franchit minuit produit donc le même `J+N` pour l'affichage et la comparaison. Les barres contextuelles Livret et plan ne portent plus d'action de sortie ; les retours d'en-tête et Android conservent les destinations Courses ou Plans sans modifier la persistance.
+
 ## Purpose
 
 This document explains where planner state lives before signup, during onboarding account creation, and after a user has a verified session.

@@ -77,6 +77,8 @@ related_tables:
 
 # Analytics
 
+Le regroupement des liens organisateur, la suppression des sorties de barre basse et le retour contextuel vers Courses ou Plans ne créent aucun nouvel événement. Les ouvertures de liens conservent leurs actions bornées existantes et les clics Booking/Decathlon gardent leur contexte sans URL ni contenu libre. La présentation compacte des alertes, horaires, listes et couleurs n'ajoute aucune propriété analytics.
+
 The compact aligned passage/cutoff reflection, late-warning disclosure, plan-derived segment duration, hero departure clock, title-aligned supporter permissions, icon-only supporter map actions, and route-scoped plan warm starts contain no additional analytics payload or event.
 
 ## Runner monetisation events
@@ -356,7 +358,7 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 - Do not send edition logo URLs or arbitrary organizer colors as analytics properties.
 - Measure RaceBook recurrence from repeated `racebook opened` events for the same `race_id`; do not treat a visit to a different RaceBook as retention for the first one.
 - Do not use `$screen` with `$screen_name = catalog` as a RaceBook onboarding conversion step. Require event selection, format selection, and successful-open events; search is optional because the initial eligible-course list is directly selectable.
-- Primary section selections from the contextual RaceBook bottom bar keep emitting `racebook tab viewed`. The hero return action, contextual Courses exit, and Android hardware back share the deterministic route replacement to Courses and emit `racebook action clicked` with the bounded action `exit_to_catalog`; they carry no organizer-authored content or sponsor identity.
+- Primary section selections from the contextual RaceBook bottom bar keep emitting `racebook tab viewed`. The hero return action and Android hardware back share a deterministic replacement and emit `racebook action clicked` with bounded `exit_to_catalog` or `exit_to_plans`; they carry no organizer-authored content or sponsor identity.
 - RaceBook useful-action dashboards must exclude `racebook action clicked.action = exit_to_catalog`. They may include `catalog create plan clicked.action = create_plan` as the higher-value Courses follow-up, while retaining `plan created` for successful persistence rather than button intent.
 - Do not turn a source-revision acknowledgement into a content telemetry event. It is limited to a race identifier and proves neither that the runner altered their plan nor that an organizer change was accepted.
 - The scroll-driven identity hero height/collapse, focus-time scroll reset, title clipping, single-line emergency label/number layout, and persistent emergency/social-action placement are presentation state only. They emit no event and add no scroll offset, phone number, image URL, color, or logo property to RaceBook analytics; an actual emergency or social press keeps its existing bounded action event.

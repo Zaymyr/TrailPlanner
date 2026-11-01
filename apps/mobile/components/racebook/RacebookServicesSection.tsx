@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
@@ -52,7 +51,6 @@ type RacebookServicesSectionProps = {
   services: RacebookServiceItem[];
   legacySections?: RacebookLegacyServiceSection[];
   partnerLinks?: RacebookPartnerLink[];
-  theme: ResolvedRacebookTheme;
   copy: RacebookServicesCopy;
   onOpenUrl: (url: string, action: 'directions' | 'website' | 'phone', service: RacebookServiceItem) => void;
   onOpenPartnerLink: (link: RacebookPartnerLink) => void;
@@ -78,7 +76,6 @@ function ServiceAction({
   service,
   url,
   onOpenUrl,
-  theme,
 }: {
   action: 'directions' | 'website' | 'phone';
   icon: keyof typeof Ionicons.glyphMap;
@@ -86,7 +83,6 @@ function ServiceAction({
   service: RacebookServiceItem;
   url: string;
   onOpenUrl: RacebookServicesSectionProps['onOpenUrl'];
-  theme: ResolvedRacebookTheme;
 }) {
   return (
     <Pressable
@@ -96,27 +92,22 @@ function ServiceAction({
       onPress={() => onOpenUrl(url, action, service)}
       style={({ pressed }) => [
         styles.action,
-        {
-          backgroundColor: theme.accentSurfaceColor,
-          borderColor: theme.accentBorderColor,
-        },
+        styles.actionBrand,
         pressed ? styles.actionPressed : null,
       ]}
     >
-      <Ionicons color={theme.accentGraphicColor} name={icon} size={19} />
+      <Ionicons color={Colors.brandPrimary} name={icon} size={19} />
     </Pressable>
   );
 }
 
 function ServiceRow({
   service,
-  theme,
   copy,
   onOpenUrl,
   showDivider,
 }: {
   service: RacebookServiceItem;
-  theme: ResolvedRacebookTheme;
   copy: RacebookServicesCopy;
   onOpenUrl: RacebookServicesSectionProps['onOpenUrl'];
   showDivider: boolean;
@@ -143,7 +134,6 @@ function ServiceRow({
               service={service}
               url={service.directionsUrl}
               onOpenUrl={onOpenUrl}
-              theme={theme}
             />
           ) : null}
           {service.websiteUrl ? (
@@ -154,7 +144,6 @@ function ServiceRow({
               service={service}
               url={service.websiteUrl}
               onOpenUrl={onOpenUrl}
-              theme={theme}
             />
           ) : null}
           {service.phoneUrl ? (
@@ -165,7 +154,6 @@ function ServiceRow({
               service={service}
               url={service.phoneUrl}
               onOpenUrl={onOpenUrl}
-              theme={theme}
             />
           ) : null}
         </View>
@@ -178,7 +166,6 @@ export function RacebookServicesSection({
   services,
   legacySections = [],
   partnerLinks = [],
-  theme,
   copy,
   onOpenUrl,
   onOpenPartnerLink,
@@ -201,8 +188,8 @@ export function RacebookServicesSection({
       {groupedServices.map((group) => (
         <Card key={group.category} style={styles.categoryCard}>
           <View style={styles.categoryHeader}>
-            <View style={[styles.categoryIcon, { backgroundColor: theme.accentSurfaceColor }]}>
-              <Ionicons color={theme.accentGraphicColor} name={categoryIcons[group.category]} size={18} />
+            <View style={[styles.categoryIcon, { backgroundColor: Colors.brandSurface }]}>
+              <Ionicons color={Colors.brandPrimary} name={categoryIcons[group.category]} size={18} />
             </View>
             <Text style={styles.categoryTitle}>{copy.categoryTitles[group.category]}</Text>
           </View>
@@ -211,7 +198,6 @@ export function RacebookServicesSection({
               <ServiceRow
                 key={service.id}
                 service={service}
-                theme={theme}
                 copy={copy}
                 onOpenUrl={onOpenUrl}
                 showDivider={index > 0}
@@ -252,17 +238,17 @@ export function RacebookServicesSection({
                     pressed ? styles.actionPressed : null,
                   ]}
                 >
-                  <View style={[styles.partnerIcon, { backgroundColor: theme.accentSurfaceColor }]}>
-                    <Ionicons color={theme.accentGraphicColor} name={icon} size={20} />
+                  <View style={[styles.partnerIcon, { backgroundColor: Colors.brandSurface }]}>
+                    <Ionicons color={Colors.brandPrimary} name={icon} size={20} />
                   </View>
                   <View style={styles.partnerContent}>
                     <Text style={styles.serviceName}>{partnerCopy.title}</Text>
                     <Text style={styles.description}>{partnerCopy.description}</Text>
-                    <Text style={[styles.partnerAction, { color: theme.accentGraphicColor }]}>
+                    <Text style={[styles.partnerAction, { color: Colors.brandPrimary }]}>
                       {partnerCopy.actionLabel}
                     </Text>
                   </View>
-                  <Ionicons color={theme.accentGraphicColor} name="chevron-forward" size={20} />
+                  <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={20} />
                 </Pressable>
               );
             })}
@@ -294,6 +280,7 @@ const styles = StyleSheet.create({
   description: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
   actions: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 4 },
   action: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 12, borderWidth: 1 },
+  actionBrand: { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder },
   actionPressed: { opacity: 0.7 },
   legacySections: { paddingVertical: 2 },
   legacySection: { gap: 4, paddingVertical: 12 },

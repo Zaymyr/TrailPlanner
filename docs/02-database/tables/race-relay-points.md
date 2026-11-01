@@ -24,6 +24,8 @@ related_tables:
 
 # `race_relay_points`
 
+Relais reste un sous-onglet conditionnel de Course dans un Livret à cinq onglets permanents. Les cartes utilisent la couleur principale d'identité plutôt que l'accent réservé au tracé/ravito ; aucun point, ordre ou segment dérivé ne change.
+
 RaceBook personal passage-time interpolation applies to official aid stations only and does not change relay-point data.
 
 > CTA scope: the RaceBook plan CTA is runner-owned and format-scoped; it does not read, create, or alter relay points or their derived legs.

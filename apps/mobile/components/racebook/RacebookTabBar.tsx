@@ -1,7 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
@@ -10,17 +9,9 @@ type Props<T extends string> = {
   tabs: { key: T; label: string; icon: keyof typeof Ionicons.glyphMap }[];
   activeTab: T;
   onPress: (tab: T) => void;
-  exitAction: {
-    label: string;
-    accessibilityLabel: string;
-    onPress: () => void;
-    icon?: keyof typeof Ionicons.glyphMap;
-    testID?: string;
-  };
-  theme: ResolvedRacebookTheme;
 };
 
-export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress, exitAction }: Props<T>) {
+export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress }: Props<T>) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -54,19 +45,6 @@ export function RacebookTabBar<T extends string>({ tabs, activeTab, onPress, exi
           );
         })}
 
-        <View style={styles.exitDivider} />
-        <Pressable
-          accessibilityLabel={exitAction.accessibilityLabel}
-          accessibilityRole="button"
-          onPress={exitAction.onPress}
-          style={({ pressed }) => [styles.button, pressed && styles.buttonPressed]}
-          testID={exitAction.testID ?? 'racebook-exit-to-catalog'}
-        >
-          <View style={styles.iconSurface}>
-            <Ionicons name={exitAction.icon ?? 'trail-sign'} size={24} color={Colors.textSecondary} />
-          </View>
-          <Text numberOfLines={1} style={styles.exitText}>{exitAction.label}</Text>
-        </Pressable>
       </View>
     </View>
   );
@@ -102,11 +80,4 @@ const styles = StyleSheet.create({
   },
   text: { color: Colors.textMuted, fontSize: 10, lineHeight: 13, fontWeight: '700' },
   textActive: { color: Colors.brandPrimary },
-  exitText: { color: Colors.textSecondary, fontSize: 10, lineHeight: 13, fontWeight: '700' },
-  exitDivider: {
-    width: 1,
-    marginHorizontal: 1,
-    marginVertical: 10,
-    backgroundColor: Colors.border,
-  },
 });

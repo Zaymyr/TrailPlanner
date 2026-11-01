@@ -83,6 +83,8 @@ related_tables:
 
 # Nutrition Algorithm
 
+La suppression de la sortie dupliquée dans la barre de l'éditeur ne change aucun calcul nutritionnel, aucune sauvegarde ni aucun produit. La sortie reste assurée par le bouton retour de l'en-tête et le retour système après la sauvegarde normale du brouillon.
+
 ## Purpose
 
 This document describes how Pace Yourself allocates products to segment nutrition needs. The legacy API allocation source is `apps/web/lib/nutrition-planner.ts`; current planner UIs also use carryover inventory simulation in web and mobile planner components.

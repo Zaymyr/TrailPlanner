@@ -23,6 +23,8 @@ related_tables:
 
 # `race_edition_services`
 
+Services reste l'un des cinq onglets permanents, même sans contenu. Les icônes et actions interactives utilisent désormais la palette Pace Yourself ; l'identité organisateur n'altère toujours ni les catégories, ni les URL, ni la visibilité des lignes.
+
 RaceBook personal passage-time interpolation is client-only and does not alter this table's service contract.
 
 > CTA scope: the RaceBook plan CTA resolves only the current runner's saved plan for the exact format; it does not read, filter, or change edition-service rows or their external links.
@@ -75,7 +77,7 @@ Published rows travel in the consolidated RaceBook CDN snapshot. A successful se
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; structured service rows, links, visibility, and API/RLS contracts remain unchanged.
 
-Services always appears directly in the RaceBook contextual bottom bar so the global Booking action has a stable location. Its filled icon and color-only active state align with the global navigation. Organizer-authored rows and their contextual sponsor surface remain hidden when the effective Services module is inactive; the hero's emergency presentation, focus-time scroll reset, and route-replacing Courses exit remain independent.
+Services always appears directly in the five-item RaceBook contextual bottom bar so the global Booking action has a stable location. Its filled icon and color-only active state align with the global navigation. Organizer-authored rows and their contextual sponsor surface remain hidden when the effective Services module is inactive; the hero's emergency presentation, focus-time scroll reset, and header/system return remain independent.
 
 Service-category and external-action icons now use the published accent surface/graphic variants. This changes no service field, visibility rule, or URL, and personal equipment checks remain isolated in `racebook_gear_checks`.
 

@@ -76,7 +76,7 @@ export function formatPersonalPassageClock(
   const departureMinute = clockToMinutes(departureClock);
   if (departureMinute === null || !Number.isFinite(passageMinute) || passageMinute < 0) return null;
 
-  const absoluteMinute = departureMinute + passageMinute;
+  const absoluteMinute = departureMinute + Math.round(passageMinute);
   const dayOffset = Math.floor(absoluteMinute / (24 * 60));
   const clockMinute = absoluteMinute % (24 * 60);
   const hours = Math.floor(clockMinute / 60);
@@ -106,7 +106,7 @@ export function resolveCutoffMinuteAfterDeparture(
     return firstOccurrence;
   }
 
-  const anchor = passageMinute;
+  const anchor = Math.round(passageMinute);
   const approximateDay = Math.max(0, Math.floor((anchor - firstOccurrence) / dayMinutes));
   const candidates = [approximateDay, approximateDay + 1]
     .map((day) => firstOccurrence + day * dayMinutes)
@@ -130,7 +130,7 @@ export function isPersonalPassageAfterCutoff(
     passageMinute,
   );
   if (cutoffMinuteAfterDeparture === null || !Number.isFinite(passageMinute)) return false;
-  return passageMinute > cutoffMinuteAfterDeparture;
+  return Math.round(passageMinute) > cutoffMinuteAfterDeparture;
 }
 
 /**

@@ -24,6 +24,8 @@ related_tables:
 
 # `race_start_waves`
 
+SAS reste conditionnel dans Course et ses cartes utilisent la couleur principale d'identité. La barre du Livret ne duplique plus de sortie ; retour d'en-tête et retour Android utilisent la même destination sans modifier l'autorité, l'ordre ou les heures des vagues.
+
 RaceBook passage clock labels continue to resolve departure time from existing runner or start-wave data.
 
 > CTA scope: the RaceBook plan CTA is runner-owned and format-scoped; it does not read, create, or alter SAS rows or their time authority.
@@ -64,7 +66,7 @@ The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and mo
 
 The contextual RaceBook bottom bar changes only primary-section navigation. SAS remains a conditional Course sub-tab and the common start-time synchronization contract is unchanged.
 
-The hero, contextual Courses action, and Android hardware back replace the active RaceBook with Courses; this stack behavior does not alter SAS visibility, ordering, or time authority.
+The hero and Android hardware back replace the active RaceBook with Courses, or Plans for an explicit plan-workspace origin; this stack behavior does not alter SAS visibility, ordering, or time authority.
 
 Mobile SAS index and time treatments now use published accent variants. Source wave rows and ordering remain unchanged, and personal equipment checks stay in their separate owner-scoped table.
 

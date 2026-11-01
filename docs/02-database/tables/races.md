@@ -69,6 +69,8 @@ related_tables:
 
 # `races`
 
+Le Livret conserve cinq onglets même lorsque certains modules sont vides ; les collections publiées restent filtrées par leurs contrats existants. L'arrondi des passages, le fond compact uni, la feuille de liens et le retour vers Courses/Plans sont des comportements client qui n'ajoutent ni ne modifient aucune colonne de `races`.
+
 RaceBook passage interpolation uses the existing format distance and official aid-station kilometers; it adds no race field.
 
 > CTA scope: the RaceBook plan CTA resolves only the current runner's plan for this exact `races.id`; it never changes course metrics, visibility, or organizer details.

@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+La checklist conserve ses clés et mutations owner-scoped. Une ligne prête reste lisible sans texte barré et les cases utilisent la palette Pace Yourself. La carte Decathlon se place après la checklist et n'affiche plus de nombre, car le contrat ne distingue pas de façon fiable les objets achetables ; son ouverture ne crée ni ne modifie une coche.
+
 RaceBook personal passage-time interpolation does not affect the independent gear-check persistence flow.
 
 > CTA scope: the RaceBook plan CTA resolves a runner-owned plan independently of the gear checklist. It never reads or mutates `racebook_gear_checks`.
@@ -67,7 +69,7 @@ The Livret may read this durable completion when no linked plan is available to 
 - Leaving a RaceBook replaces it with Courses instead of another previously opened format; persisted checks remain keyed by account and exact `race_id` across navigation.
 - Compact sponsor rows and the Ravitos endpoint timing/spacing presentation do not read or mutate equipment-check rows.
 - Fullscreen route/profile presentation and tappable ravito points do not read or mutate equipment-check rows.
-- Global Booking and Decathlon destinations are read independently through the web API. Decathlon renders above required equipment and derives its message from unchecked keys among active required items only; inactive weather-plan and recommended items are excluded. Opening either partner action does not create, complete, or mutate a personal equipment-check row.
+- Global Booking and Decathlon destinations are read independently through the web API. Decathlon renders after the checklist with generic, non-numeric copy because the source does not classify purchasable items. Opening either partner action does not create, complete, or mutate a personal equipment-check row.
 
 When a saved plan exists, the Livret shows planned duration, pace and departure in the identity hero; matched ravito passage/segment timing and late-cutoff disclosure stay separate from equipment state. Warm state is accepted only for the exact plan id, and none of these display/navigation values changes a checked row.
 

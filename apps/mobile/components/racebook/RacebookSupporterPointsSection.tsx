@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import type { RacebookSupporterPoint } from '../../lib/racebook';
 import { buildSupporterDirectionsUrl } from '../../lib/racebookSupporterPoints';
+import { useI18n } from '../../lib/i18n';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 
@@ -16,6 +17,7 @@ export function RacebookSupporterPointsSection({
   locale: 'fr' | 'en';
   onOpenUrl: (url: string, action: 'directions' | 'plan') => void;
 }) {
+  const { t } = useI18n();
   return (
     <View style={styles.list}>
       {points.map((point, index) => {
@@ -36,15 +38,15 @@ export function RacebookSupporterPointsSection({
                 <View style={styles.titleContent}>
                   <Text numberOfLines={2} style={styles.title}>{point.name}</Text>
                   <View style={styles.chips}>
-                    {point.encouragementAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{locale === 'fr' ? 'Encouragement' : 'Cheering'}</Text></View> : null}
-                    {point.assistanceAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{locale === 'fr' ? 'Ravitaillement' : 'Crew assistance'}</Text></View> : null}
+                    {point.encouragementAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{t.catalog.racebookSupporterEncouragement}</Text></View> : null}
+                    {point.assistanceAllowed ? <View style={styles.chip}><Text style={styles.chipText}>{t.catalog.racebookSupporterAssistance}</Text></View> : null}
                   </View>
                 </View>
                 <View style={styles.titleActions}>
                   <DataText style={styles.km}>{point.km.toLocaleString(locale, { maximumFractionDigits: 1 })} km</DataText>
                   {point.planUrl ? (
                     <Pressable
-                      accessibilityLabel={locale === 'fr' ? 'Voir le plan' : 'View map'}
+                      accessibilityLabel={t.catalog.racebookSupporterViewMap}
                       accessibilityRole="link"
                       onPress={() => onOpenUrl(point.planUrl!, 'plan')}
                       style={({ pressed }) => [styles.mapAction, styles.secondaryMapAction, pressed ? styles.actionPressed : null]}
@@ -53,7 +55,7 @@ export function RacebookSupporterPointsSection({
                     </Pressable>
                   ) : null}
                   <Pressable
-                    accessibilityLabel={locale === 'fr' ? 'Ouvrir l’itinéraire' : 'Open directions'}
+                    accessibilityLabel={t.catalog.racebookSupporterOpenDirections}
                     accessibilityRole="link"
                     onPress={() => onOpenUrl(directionsUrl, 'directions')}
                     style={({ pressed }) => [styles.mapAction, pressed ? styles.actionPressed : null]}
@@ -79,9 +81,9 @@ const styles = StyleSheet.create({
   badge: { width: 34, height: 34, borderRadius: 17, alignItems: 'center', justifyContent: 'center', backgroundColor: Colors.brandPrimary },
   badgeText: { color: Colors.textOnBrand, fontSize: 12, lineHeight: 16, fontWeight: '800' },
   line: { flex: 1, width: 2, minHeight: 18, backgroundColor: Colors.brandBorder },
-  card: { flex: 1, marginLeft: 8, marginBottom: 12, gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, padding: 12, backgroundColor: Colors.surface },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 8 },
-  titleContent: { flex: 1, minWidth: 0, flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 },
+  card: { flex: 1, minHeight: 88, marginLeft: 8, marginBottom: 12, justifyContent: 'center', gap: 8, borderWidth: 1, borderColor: Colors.border, borderRadius: 18, padding: 12, backgroundColor: Colors.surface },
+  titleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  titleContent: { flex: 1, minWidth: 0, alignItems: 'flex-start', gap: 6 },
   title: { flexShrink: 1, color: Colors.textPrimary, fontSize: 16, lineHeight: 21, fontWeight: '800' },
   km: { color: Colors.brandPrimary, fontSize: 13, lineHeight: 18, fontWeight: '800' },
   titleActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6 },

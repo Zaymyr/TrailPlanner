@@ -31,6 +31,8 @@ related_tables:
 
 # Affiliate Partner Links
 
+La carte Decathlon mobile apparaît après la checklist Matériel et utilise une formulation sans nombre : les données publiées ne permettent pas de distinguer fiablement tout ce qui s'achète. La destination, la mention d'affiliation et l'action analytics bornée restent inchangées. Booking reste dans Services.
+
 RaceBook personal passage interpolation emits no partner click and does not alter affiliate attribution.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
@@ -47,7 +49,7 @@ Centralize Booking and Decathlon outbound destinations, switch each partner from
 - Each partner has a standard URL, optional affiliate URL, affiliate-mode flag, and global enabled flag.
 - `resolvePartnerLinkUrl` defines the shared selection rule: disabled means no URL; otherwise use the affiliate URL only when explicitly enabled, falling back to the standard URL.
 - `GET /api/partner-links` is the public, read-only consumer contract. It returns only enabled resolved destinations plus the affiliation flag; raw configuration and disabled rows stay private.
-- Mobile loads this additive contract with the RaceBook. Booking appears in the permanent Services tab; Decathlon appears in Matériel immediately above the required-equipment group.
+- Mobile loads this additive contract with the RaceBook. Booking appears in the permanent Services tab; Decathlon appears after the Matériel checklist with non-numeric copy.
 
 ## Admin Flow
 
@@ -57,7 +59,7 @@ The UI disables affiliate mode until an affiliate URL exists and previews the UR
 
 ## Mobile Consumer Contract
 
-Mobile calls the narrow server endpoint instead of reading `partner_link_settings`. The response is CDN-cached for five minutes and degrades to an empty collection on request or validation failure so partner availability cannot make the RaceBook unavailable. The client accepts one HTTPS destination per known partner and renders the configured URL unchanged. Booking remains in Services with `action_context: services`; Decathlon uses the Matériel surface with `action_context: equipment` and a dynamic missing-required message. That count includes only active required equipment, so recommended items and weather-tagged items under an inactive weather plan are excluded. Analytics records only the bounded partner key/context, never the count or destination. Booking location/date parameters and Decathlon equipment-query parameters remain out of scope until their approved deep-link formats are known.
+Mobile calls the narrow server endpoint instead of reading `partner_link_settings`. The response is CDN-cached for five minutes and degrades to an empty collection on request or validation failure so partner availability cannot make the RaceBook unavailable. The client accepts one HTTPS destination per known partner and renders the configured URL unchanged. Booking remains in Services with `action_context: services`; Decathlon follows the Matériel checklist with `action_context: equipment` and generic copy because the destination contract cannot reliably distinguish purchasable unchecked items. Analytics records only the bounded partner key/context, never a checklist count or destination. Booking location/date parameters and Decathlon equipment-query parameters remain out of scope until their approved deep-link formats are known.
 
 RaceBook gear-checklist analytics are independent from this contract: loading or toggling gear does not alter partner visibility, destinations, or outbound-link tracking.
 

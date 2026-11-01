@@ -7,6 +7,7 @@ import { Colors } from '../../constants/colors';
 import type { ElevationPoint } from '../plan-form/profile-utils';
 import type { RacebookAidStation } from '../../lib/racebook';
 import { getCourseProgressAtDistance, getElevationBounds, interpolateElevationAtDistance } from '../../lib/racebookCourseVisuals';
+import { useI18n } from '../../lib/i18n';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 
@@ -20,8 +21,8 @@ type Props = {
   profileHeight?: number;
 };
 
-const AXIS_WIDTH = 48;
-const RIGHT_PADDING = 22;
+const AXIS_WIDTH = 58;
+const RIGHT_PADDING = 34;
 const TOP_PADDING = 18;
 const BOTTOM_PADDING = 28;
 const STATION_SNAP_DISTANCE_KM = 0.2;
@@ -47,6 +48,7 @@ export function RacebookElevationProfile({
   expanded = false,
   profileHeight,
 }: Props) {
+  const { t } = useI18n();
   const [width, setWidth] = useState(0);
   const [selectedStationId, setSelectedStationId] = useState<string | null>(null);
   const [inspectedDistanceKm, setInspectedDistanceKm] = useState<number | null>(points[0]?.distanceKm ?? null);
@@ -157,10 +159,10 @@ export function RacebookElevationProfile({
   const isPartialProfile = officialDistanceKm > 0 && profileDistanceKm < officialDistanceKm * 0.9;
   const services = selectedStation
     ? [
-        selectedStation.waterAvailable ? (locale === 'fr' ? 'Eau' : 'Water') : null,
-        selectedStation.solidAvailable ? (locale === 'fr' ? 'Solide' : 'Food') : null,
-        selectedStation.assistanceAllowed ? (locale === 'fr' ? 'Assistance autorisée' : 'Crew allowed') : null,
-        selectedStation.organizerDetails.dropBagAvailable ? (locale === 'fr' ? 'Sac d’allègement' : 'Drop bag') : null,
+        selectedStation.waterAvailable ? t.catalog.racebookAidWater : null,
+        selectedStation.solidAvailable ? t.catalog.racebookAidFood : null,
+        selectedStation.assistanceAllowed ? t.catalog.racebookAidAssistance : null,
+        selectedStation.organizerDetails.dropBagAvailable ? t.catalog.racebookAidDropBag : null,
       ].filter(Boolean)
     : [];
   const stationNote = selectedStation
@@ -170,7 +172,7 @@ export function RacebookElevationProfile({
     ? [
         services.join(' · ') || null,
         selectedStation.organizerDetails.cutoffTime
-          ? `${locale === 'fr' ? 'Barrière' : 'Cutoff'} ${selectedStation.organizerDetails.cutoffTime}`
+          ? `${t.catalog.racebookAidCutoffTime} ${selectedStation.organizerDetails.cutoffTime}`
           : null,
       ].filter(Boolean)
     : [];
@@ -229,7 +231,7 @@ export function RacebookElevationProfile({
                   fontSize="10"
                   textAnchor={index === 0 ? 'start' : index === chart.distanceTicks.length - 1 ? 'end' : 'middle'}
                 >
-                  {tick >= 100 ? tick.toFixed(0) : tick.toFixed(1)} km
+                  {tick.toLocaleString(locale, { maximumFractionDigits: tick >= 100 ? 0 : 1 })} km
                 </SvgText>
               ))}
             </Svg>
@@ -238,10 +240,10 @@ export function RacebookElevationProfile({
               style={styles.inspectionGestureLayer}
               accessible
               accessibilityRole="adjustable"
-              accessibilityLabel={locale === 'fr' ? 'Explorer le profil altimétrique' : 'Explore the elevation profile'}
-              accessibilityHint={locale === 'fr' ? 'Glissez pour consulter la distance et les dénivelés cumulés' : 'Slide to inspect cumulative distance and elevation'}
+              accessibilityLabel={t.catalog.racebookProfileExplore}
+              accessibilityHint={t.catalog.racebookProfileExploreHint}
               accessibilityValue={inspection ? {
-                text: `${inspection.distanceKm.toFixed(1)} km, D+ ${formatNumber(inspection.elevationGainM, locale)} m, D- ${formatNumber(inspection.elevationLossM, locale)} m`,
+                text: `${inspection.distanceKm.toLocaleString(locale, { maximumFractionDigits: 1 })} km, D+ ${formatNumber(inspection.elevationGainM, locale)} m, D- ${formatNumber(inspection.elevationLossM, locale)} m`,
               } : undefined}
               accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
               onAccessibilityAction={(event) => adjustInspection(event.nativeEvent.actionName === 'decrement' ? -1 : 1)}
@@ -255,8 +257,8 @@ export function RacebookElevationProfile({
                   setSelectedStationId((current) => current === station.id ? null : station.id);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`${locale === 'fr' ? 'Ravitaillement' : 'Aid station'} ${station.name}, ${station.km} km`}
-                accessibilityHint={locale === 'fr' ? 'Affiche le détail du ravitaillement' : 'Shows aid station details'}
+                accessibilityLabel={`${t.catalog.racebookAidStationSingular} ${station.name}, ${station.km.toLocaleString(locale)} km`}
+                accessibilityHint={t.catalog.racebookAidStationDetailsHint}
               >
                 <View style={[styles.stationMarker, { backgroundColor: accentColor }]}>
                   <View style={styles.stationMarkerCore} />
@@ -275,7 +277,7 @@ export function RacebookElevationProfile({
                 <Ionicons name="water" size={13} color="#FFFFFF" />
               </View>
               <View style={styles.stationDetailTitleWrap}>
-                <Text style={styles.stationDetailEyebrow}>{locale === 'fr' ? 'Ravitaillement' : 'Aid station'}</Text>
+                <Text style={styles.stationDetailEyebrow}>{t.catalog.racebookAidStationSingular}</Text>
                 <Text style={styles.stationDetailTitle}>{selectedStation.name}</Text>
               </View>
             </View>
@@ -288,7 +290,7 @@ export function RacebookElevationProfile({
                 </DataText>
               </View>
               <View style={styles.stationStatExpanded}>
-                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'D+ cumulé' : 'Gain so far'}</Text>
+                <Text style={styles.stationStatLabel}>{t.catalog.racebookCumulativeGain}</Text>
                 <DataText style={styles.stationStatValueExpanded}>
                   {selectedStationCumulativeGain !== null && selectedStationCumulativeGain !== undefined
                     ? `${formatNumber(selectedStationCumulativeGain, locale)} m`
@@ -296,7 +298,7 @@ export function RacebookElevationProfile({
                 </DataText>
               </View>
               <View style={styles.stationStatExpanded}>
-                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'D- cumulé' : 'Loss so far'}</Text>
+                <Text style={styles.stationStatLabel}>{t.catalog.racebookCumulativeLoss}</Text>
                 <DataText style={styles.stationStatValueExpanded}>
                   {selectedStationCumulativeLoss !== null && selectedStationCumulativeLoss !== undefined
                     ? `${formatNumber(selectedStationCumulativeLoss, locale)} m`
@@ -317,7 +319,7 @@ export function RacebookElevationProfile({
               style={styles.closeDetail}
               hitSlop={8}
               accessibilityRole="button"
-              accessibilityLabel={locale === 'fr' ? 'Fermer le détail' : 'Close details'}
+              accessibilityLabel={t.common.close}
             >
               <Ionicons name="close" size={18} color={Colors.textSecondary} />
             </Pressable>
@@ -329,7 +331,7 @@ export function RacebookElevationProfile({
                 <Ionicons name="water" size={15} color="#FFFFFF" />
               </View>
               <View style={styles.stationDetailTitleWrap}>
-                <Text style={styles.stationDetailEyebrow}>{locale === 'fr' ? 'Ravitaillement' : 'Aid station'}</Text>
+                <Text style={styles.stationDetailEyebrow}>{t.catalog.racebookAidStationSingular}</Text>
                 <Text style={styles.stationDetailTitle}>{selectedStation.name}</Text>
               </View>
               <Pressable
@@ -337,20 +339,20 @@ export function RacebookElevationProfile({
                 style={styles.closeDetail}
                 hitSlop={8}
                 accessibilityRole="button"
-                accessibilityLabel={locale === 'fr' ? 'Fermer le détail' : 'Close details'}
+                accessibilityLabel={t.common.close}
               >
                 <Ionicons name="close" size={18} color={Colors.textSecondary} />
               </Pressable>
             </View>
             <View style={styles.stationStats}>
               <View style={styles.stationStat}>
-                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'Distance cumulée' : 'Distance'}</Text>
+                <Text style={styles.stationStatLabel}>{t.catalog.racebookCumulativeDistance}</Text>
                 <DataText style={styles.stationStatValue}>
                   {selectedStation.km.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km
                 </DataText>
               </View>
               <View style={styles.stationStat}>
-                <Text style={styles.stationStatLabel}>{locale === 'fr' ? 'D+ cumulé' : 'Gain so far'}</Text>
+                <Text style={styles.stationStatLabel}>{t.catalog.racebookCumulativeGain}</Text>
                 <DataText style={styles.stationStatValue}>
                   {selectedStationCumulativeGain !== null && selectedStationCumulativeGain !== undefined
                     ? `${formatNumber(selectedStationCumulativeGain, locale)} m`
@@ -362,7 +364,7 @@ export function RacebookElevationProfile({
               const details = [
                 services.join(' · ') || null,
                 selectedStationCumulativeLoss !== null && selectedStationCumulativeLoss !== undefined ? `D- ${formatNumber(selectedStationCumulativeLoss, locale)} m` : null,
-                selectedStation.organizerDetails.cutoffTime ? `${locale === 'fr' ? 'Barrière' : 'Cutoff'} ${selectedStation.organizerDetails.cutoffTime}` : null,
+                selectedStation.organizerDetails.cutoffTime ? `${t.catalog.racebookAidCutoffTime} ${selectedStation.organizerDetails.cutoffTime}` : null,
               ].filter(Boolean);
               return details.length > 0 ? <Text style={styles.stationDetailMeta}>{details.join(' · ')}</Text> : null;
             })()}
@@ -372,15 +374,15 @@ export function RacebookElevationProfile({
       ) : inspection ? (
         <View style={styles.metricsRow} accessibilityLiveRegion="polite">
           <View style={styles.metric}>
-            <Text style={styles.metricLabel}>{locale === 'fr' ? 'Distance cumulée' : 'Distance'}</Text>
+            <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeDistance}</Text>
             <DataText style={styles.metricValue}>{inspection.distanceKm.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km</DataText>
           </View>
           <View style={styles.metric}>
-            <Text style={styles.metricLabel}>{locale === 'fr' ? 'D+ cumulé' : 'Gain so far'}</Text>
+            <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeGain}</Text>
             <DataText style={styles.metricValue}>{formatNumber(inspection.elevationGainM, locale)} m</DataText>
           </View>
           <View style={styles.metric}>
-            <Text style={styles.metricLabel}>{locale === 'fr' ? 'D- cumulé' : 'Loss so far'}</Text>
+            <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeLoss}</Text>
             <DataText style={styles.metricValue}>{formatNumber(inspection.elevationLossM, locale)} m</DataText>
           </View>
         </View>
@@ -390,9 +392,9 @@ export function RacebookElevationProfile({
         <View style={styles.coverageNotice} accessibilityRole="text">
           <Ionicons name="information-circle-outline" size={17} color={Colors.warning} />
           <Text style={styles.coverageNoticeText}>
-            {locale === 'fr'
-              ? `Le GPX fourni couvre ${profileDistanceKm.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km sur les ${officialDistanceKm.toLocaleString('fr-FR', { maximumFractionDigits: 1 })} km annoncés.`
-              : `The supplied GPX covers ${profileDistanceKm.toLocaleString('en-US', { maximumFractionDigits: 1 })} km of the advertised ${officialDistanceKm.toLocaleString('en-US', { maximumFractionDigits: 1 })} km.`}
+            {t.catalog.racebookProfileCoverage
+              .replace('{covered}', profileDistanceKm.toLocaleString(locale, { maximumFractionDigits: 1 }))
+              .replace('{official}', officialDistanceKm.toLocaleString(locale, { maximumFractionDigits: 1 }))}
           </Text>
         </View>
       ) : null}
