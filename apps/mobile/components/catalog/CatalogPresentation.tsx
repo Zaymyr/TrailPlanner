@@ -41,6 +41,7 @@ export function CatalogRaceRow({
   isDimmed = false,
   secondaryActionLabel,
   secondaryActionDimmed = false,
+  secondaryActionDisabled = false,
   onSecondaryPressIn,
   onSecondaryPress,
   primaryActionLabel,
@@ -51,6 +52,7 @@ export function CatalogRaceRow({
   isDimmed?: boolean;
   secondaryActionLabel?: string;
   secondaryActionDimmed?: boolean;
+  secondaryActionDisabled?: boolean;
   onSecondaryPressIn?: () => void;
   onSecondaryPress?: () => void;
   primaryActionLabel?: string;
@@ -65,16 +67,18 @@ export function CatalogRaceRow({
       <View style={styles.formatActions}>
         {secondaryActionLabel && onSecondaryPress ? (
           <TouchableOpacity
+            accessibilityState={{ disabled: secondaryActionDisabled }}
+            disabled={secondaryActionDisabled}
             style={[
               styles.formatSecondaryActionButton,
-              secondaryActionDimmed && styles.formatSecondaryActionButtonDimmed,
+              (secondaryActionDimmed || secondaryActionDisabled) && styles.formatSecondaryActionButtonDimmed,
             ]}
             onPressIn={onSecondaryPressIn}
             onPress={onSecondaryPress}
           >
             <Text style={[
               styles.formatSecondaryActionButtonText,
-              secondaryActionDimmed && styles.formatSecondaryActionButtonTextDimmed,
+              (secondaryActionDimmed || secondaryActionDisabled) && styles.formatSecondaryActionButtonTextDimmed,
             ]}>{secondaryActionLabel}</Text>
           </TouchableOpacity>
         ) : null}
@@ -239,10 +243,10 @@ const styles = StyleSheet.create({
   formatRowContent: { flex: 1, gap: 4 },
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
-  formatActionButton: { flex: 1, minHeight: 42, borderRadius: 10, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  formatActionButtonText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '700' },
+  formatActionButton: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  formatActionButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
-  formatSecondaryActionButton: { flex: 1, minHeight: 42, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.brandSurface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  formatSecondaryActionButton: { flex: 1, minHeight: 44, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.surface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   formatSecondaryActionButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   formatSecondaryActionButtonDimmed: { borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
   formatSecondaryActionButtonTextDimmed: { color: Colors.textMuted },

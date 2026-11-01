@@ -647,6 +647,10 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - The complete Organizer event list must remain admin-only. It may be returned only after the server verifies trusted `app_metadata`; non-admin users remain limited to active `race_event_organizers` memberships.
 - The runner RaceBook replaces the global app bar while focused with exactly five contextual tabs. It has no bottom-bar exit: the hero return action and Android hardware back replace the route with its known Courses or Plans origin. The branded expanded hero becomes a solid-primary sticky header; a valid emergency contact keeps its call control and one Links action exposes valid organizer destinations in a sheet. These are read-only presentation rules and do not grant, publish, or mutate organizer modules.
 
+## Runner format-sheet polish
+
+The runner catalog presents organizer RaceBook availability independently from plan availability. Unpublished RaceBooks render a disabled `Bientôt disponible` action, while past formats keep RaceBook access and expose a plan action only for an existing owner plan. Organizer publication authority is unchanged.
+
 ## Related Docs
 
 - [race_event_claims](../02-database/tables/race-event-claims.md)

@@ -28,12 +28,13 @@ import {
 } from '../../components/navigation/RootCollapsibleHeader';
 import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import {
+  CatalogLoadingCard,
   CatalogFiltersModal,
   CatalogRaceRow,
 } from '../../components/catalog/CatalogPresentation';
 import { EmptyState } from '../../components/themed/EmptyState';
 import { ErrorState } from '../../components/themed/ErrorState';
-import { LoadingState } from '../../components/themed/LoadingState';
+import { BriefToast } from '../../components/themed/BriefToast';
 import { Colors } from '../../constants/colors';
 import { isAnonymousSession } from '../../lib/appSession';
 import {
@@ -41,6 +42,7 @@ import {
   isCatalogEventVisible,
 } from '../../lib/catalogVisibility';
 import { useI18n } from '../../lib/i18n';
+import { lightHaptic } from '../../lib/haptics';
 import { captureAnalyticsEvent } from '../../lib/posthog';
 import { canShowRacebook } from '../../lib/racebook';
 import {
@@ -54,6 +56,7 @@ import { prefetchRacebookSponsors } from '../../lib/racebookSponsors';
 import { supabase } from '../../lib/supabase';
 import { saveOnboardingProgress, skipOnboardingKind } from '../../lib/onboardingStatus';
 import { WEB_API_BASE_URL } from '../../lib/webApi';
+import { readOrganizerStartTime } from '../../lib/planDeparture';
 
 type Race = {
   id: string;
@@ -167,7 +170,16 @@ function getEventDistanceRange(races: Race[]) {
     return `${formatDistance(maxDistance)} km`;
   }
 
-  return `${formatDistance(minDistance)}-${formatDistance(maxDistance)} km`;
+  return `${formatDistance(minDistance)}–${formatDistance(maxDistance)} km`;
+}
+
+function isRacePast(race: Race, eventDate: string | null) {
+  const value = race.race_date ?? eventDate;
+  if (!value) return false;
+  const date = new Date(value);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Number.isFinite(date.getTime()) && date.getTime() < today.getTime();
 }
 
 function parseNumberFilter(value: string): number | null {
@@ -447,11 +459,22 @@ export default function CatalogScreen() {
   const [quickFilter, setQuickFilter] = useState<QuickCatalogFilter>('all');
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [showLoadingSkeleton, setShowLoadingSkeleton] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; retryEventId?: string; tone?: 'success' | 'error' } | null>(null);
   const openingEventFromParamRef = useRef<string | null>(null);
   const lastTrackedRacebookSearchRef = useRef<string | null>(null);
   const ownedPlansRequestRef = useRef(0);
+
+  useEffect(() => {
+    if (!loading) {
+      setShowLoadingSkeleton(false);
+      return undefined;
+    }
+    const timer = setTimeout(() => setShowLoadingSkeleton(true), 400);
+    return () => clearTimeout(timer);
+  }, [loading]);
 
   const loadOwnedPlans = useCallback(async () => {
     const requestId = ++ownedPlansRequestRef.current;
@@ -895,6 +918,7 @@ export default function CatalogScreen() {
       : [eventId, ...favoriteEventIds];
 
     setFavoriteEventIds(nextFavoriteIds);
+    void lightHaptic();
 
     try {
       const savedFavoriteIds = await saveRaceFavoriteEventIds(nextFavoriteIds);
@@ -902,6 +926,11 @@ export default function CatalogScreen() {
 
       const isNowFavorite = savedFavoriteIds.includes(eventId);
       if (isNowFavorite !== wasFavorite) {
+        setToast({
+          message: locale === 'fr'
+            ? (isNowFavorite ? 'Course ajoutée aux favoris' : 'Course retirée des favoris')
+            : (isNowFavorite ? 'Race added to favorites' : 'Race removed from favorites'),
+        });
         captureAnalyticsEvent('race favorite updated', {
           event_id: eventId,
           action: isNowFavorite ? 'added' : 'removed',
@@ -912,12 +941,13 @@ export default function CatalogScreen() {
       if (!wasFavorite && isNowFavorite) {
         setSelectedEvent((current) => (current?.id === eventId ? null : current));
       }
-    } catch (caught) {
+    } catch {
       setFavoriteEventIds(previousFavoriteIds);
-      Alert.alert(
-        locale === 'fr' ? 'Impossible de mettre à jour le favori' : 'Unable to update favorite',
-        caught instanceof Error ? caught.message : t.common.error,
-      );
+      setToast({
+        message: locale === 'fr' ? 'Erreur réseau lors de la mise à jour du favori' : 'Network error while updating the favorite',
+        retryEventId: eventId,
+        tone: 'error',
+      });
     }
   }
 
@@ -1036,10 +1066,16 @@ export default function CatalogScreen() {
   if (loading) {
     return (
       <View style={styles.container}>
-        <LoadingState
-          label={t.common.loading}
-          style={[styles.container, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
-        />
+        {showLoadingSkeleton ? (
+          <View
+            accessibilityLabel={t.common.loading}
+            accessibilityRole="progressbar"
+            style={[styles.loadingSkeleton, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + 16 }]}
+          >
+            <CatalogLoadingCard />
+            <CatalogLoadingCard />
+          </View>
+        ) : null}
         <RootCollapsibleHeader
           helpAction={rootHelpAction}
           icon="trail-sign-outline"
@@ -1337,11 +1373,25 @@ export default function CatalogScreen() {
               ) : null}
             </View>
 
-            <Text style={styles.sheetHint}>{t.catalog.chooseFormatHint}</Text>
+            <Text style={styles.sheetHint}>{locale === 'fr' ? 'Choisis ton format par distance et dénivelé, puis ouvre le Livret coureur ou ton plan.' : 'Choose your format by distance and elevation, then open the Race Book or your plan.'}</Text>
 
             <ScrollView contentContainerStyle={styles.sheetContent}>
-              {selectedEvent?.races.map((race) => (
-                <CatalogRaceRow
+              {selectedEvent?.races.map((race) => {
+                const racebookAvailable = canShowRacebook({
+                  raceIsLive: race.is_live,
+                  racebookIsLive: race.racebook_is_live,
+                  racebookPreviewIsVisible: race.racebook_preview_is_visible,
+                  hasOrganizerAccess: onboardingMode === 'racebook' ? false : organizerEventIds.has(selectedEvent.id),
+                  hasAidStations: race.has_aid_stations,
+                  hasRelayCourse: race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
+                  eventOrganizerDetails: selectedEvent.organizer_details,
+                  raceOrganizerDetails: race.organizer_details,
+                });
+                const ownedPlanId = ownedPlanIdsByRaceId[race.id];
+                const showPlanAction = onboardingMode !== 'racebook' && race.elevation_gain_m !== null
+                  && (!isRacePast(race, selectedEvent.race_date) || Boolean(ownedPlanId));
+                const startTime = readOrganizerStartTime(race.organizer_details);
+                return <CatalogRaceRow
                   key={race.id}
                   title={getRaceShortLabel(race.name, selectedEvent.name)}
                   secondaryActionDimmed={
@@ -1349,23 +1399,9 @@ export default function CatalogScreen() {
                     race.racebook_is_live !== true
                   }
                   secondaryActionLabel={
-                    canShowRacebook({
-                      raceIsLive: race.is_live,
-                      racebookIsLive: race.racebook_is_live,
-                      racebookPreviewIsVisible: race.racebook_preview_is_visible,
-                      hasOrganizerAccess:
-                        onboardingMode === 'racebook'
-                          ? false
-                          : organizerEventIds.has(selectedEvent.id),
-                      hasAidStations: race.has_aid_stations,
-                      hasRelayCourse:
-                        race.participation_mode === 'relay' || race.participation_mode === 'solo_and_relay',
-                      eventOrganizerDetails: selectedEvent.organizer_details,
-                      raceOrganizerDetails: race.organizer_details,
-                    })
-                      ? t.catalog.racebookCta
-                      : undefined
+                    racebookAvailable ? t.catalog.racebookCta : (locale === 'fr' ? 'Bientôt disponible' : 'Coming soon')
                   }
+                  secondaryActionDisabled={!racebookAvailable}
                   onSecondaryPressIn={() => {
                     void prefetchRacebookSponsors(race.id);
                   }}
@@ -1401,18 +1437,18 @@ export default function CatalogScreen() {
                       params: { id: race.id },
                     });
                   }}
-                  subtitle={`${formatDistance(race.distance_km)} km • ${formatElevation(race.elevation_gain_m)}${race.id === selectedRaceIdParam ? ' • Format concerné' : ''}`}
-                  primaryActionLabel={onboardingMode === 'racebook' || race.elevation_gain_m === null
+                  subtitle={`${formatDistance(race.distance_km)} km · ${formatElevation(race.elevation_gain_m)}${startTime ? ` · ${locale === 'fr' ? 'Départ' : 'Start'} ${startTime}` : ''}${race.id === selectedRaceIdParam ? ' · Format concerné' : ''}`}
+                  primaryActionLabel={!showPlanAction
                     ? undefined
-                    : ownedPlanIdsByRaceId[race.id]
-                      ? (locale === 'fr' ? 'Ouvrir mon plan' : 'Open my plan')
+                    : ownedPlanId
+                      ? (locale === 'fr' ? 'Voir mon plan' : 'View my plan')
                       : t.catalog.createPlan}
-                  onPrimaryPress={onboardingMode === 'racebook' || race.elevation_gain_m === null ? undefined : () => {
+                  onPrimaryPress={!showPlanAction ? undefined : () => {
                     setSelectedEvent(null);
                     handleCreatePlan(race.id);
                   }}
-                />
-              ))}
+                />;
+              })}
 
               {visibleSelectedEventUpdates.length > 0 ? (
                 <View style={styles.eventUpdatesSection}>
@@ -1469,6 +1505,20 @@ export default function CatalogScreen() {
           </SafeAreaView>
         </View>
       </Modal>
+      {toast ? (
+        <BriefToast
+          actionLabel={toast.retryEventId ? t.common.retry : undefined}
+          bottom={Math.max(88, insets.bottom + 76)}
+          message={toast.message}
+          onAction={toast.retryEventId ? () => {
+            const retryEventId = toast.retryEventId;
+            setToast(null);
+            if (retryEventId) void handleToggleFavorite(retryEventId);
+          } : undefined}
+          onDismiss={() => setToast(null)}
+          tone={toast.tone}
+        />
+      ) : null}
     </>
   );
 }
@@ -1477,6 +1527,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.background,
+  },
+  loadingSkeleton: {
+    flex: 1,
+    gap: 12,
+    paddingHorizontal: 16,
   },
   list: {
     padding: 16,

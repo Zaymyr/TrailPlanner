@@ -56,6 +56,7 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
     <Animated.View
       style={[
         styles.header,
+        compact && styles.headerScrolled,
         { height },
       ]}
     >
@@ -136,6 +137,8 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.brandPrimary,
     borderBottomLeftRadius: 22,
     borderBottomRightRadius: 22,
+  },
+  headerScrolled: {
     shadowColor: '#1A1A1A',
     shadowOpacity: 0.16,
     shadowRadius: 14,

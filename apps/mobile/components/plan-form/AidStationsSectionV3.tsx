@@ -59,6 +59,7 @@ import {
 import { styles } from './styles';
 import type { PlanEditTutorialTargetKey } from '../../hooks/usePlanEditTutorial';
 import { findPlanViewAnchorAtFocus, getPlanViewScrollTarget } from '../../lib/planWorkspace';
+import { compactPlanTimeline } from '../../lib/planTimelinePresentation';
 import {
   getPreviewBoundaryTop,
   resolvePlanPreviewBoundary,
@@ -941,7 +942,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
 
       if (!nextStation || isArrivee || !summary) return;
 
-      const sectionTimeline = getSectionIntakeTimeline(targetKey, Math.max(0, summary.durationMin), formatSectionTarget(summary));
+      const sectionTimeline = compactPlanTimeline(getSectionIntakeTimeline(targetKey, Math.max(0, summary.durationMin), formatSectionTarget(summary)));
       const sectionDPlus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dPlus), 0);
       const sectionDMinus = summary.segmentStats.reduce((sum, segmentStat) => sum + Math.max(0, segmentStat.dMinus), 0);
 

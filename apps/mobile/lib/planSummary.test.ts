@@ -102,7 +102,7 @@ describe('buildPlanSummary', () => {
     const secondPassage = withPauses.checkpoints[2];
     expect(secondPassage).toBeDefined();
     expect(formatCheckpointTime(secondPassage!, new Date(2026, 9, 29, 6, 0))).toMatch(
-      /^T\+.+ \/ \d{2}:\d{2}$/,
+      /^\d{2}:\d{2} · \+.+$/,
     );
   });
 

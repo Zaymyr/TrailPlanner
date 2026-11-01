@@ -34,6 +34,8 @@ import {
   type PlanSummaryCheckpoint,
   type PlanSummaryProduct,
 } from '../../lib/planSummary';
+import { formatDepartureDelta, normalizePlanStartWaves, type PlanStartWave } from '../../lib/planRecapDeparture';
+import { formatProductDisplayName } from '../../lib/productDisplayName';
 import { createPlanShareLinkSynchronizer } from '../../lib/planShareLinks';
 import { captureAnalyticsEvent } from '../../lib/posthog';
 import { supabase } from '../../lib/supabase';
@@ -67,7 +69,7 @@ function ProductLine({ product }: { product: PlanSummaryProduct }) {
   return (
     <View style={styles.productLine}>
       <View style={styles.productMain}>
-        <Text numberOfLines={2} weight="semibold">{product.name}</Text>
+        <Text numberOfLines={2} weight="semibold">{formatProductDisplayName(product.name)}</Text>
         {product.brand ? <Text tone="secondary" size="xs">{product.brand}</Text> : null}
       </View>
       <View style={styles.productMeta}>
@@ -79,7 +81,7 @@ function ProductLine({ product }: { product: PlanSummaryProduct }) {
 }
 
 function CheckpointCard({ checkpoint, departureTime, summary }: { checkpoint: PlanSummaryCheckpoint; departureTime: Date; summary: PlanSummary }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const noAssistance = checkpoint.assistanceState === 'unavailable';
   const assistance = checkpoint.assistanceState === 'available' && !checkpoint.isStart && !checkpoint.isFinish;
   return (
@@ -89,7 +91,7 @@ function CheckpointCard({ checkpoint, departureTime, summary }: { checkpoint: Pl
           <Text weight="bold" style={styles.checkpointTitle}>{checkpoint.name}</Text>
           <DataText tone="secondary" size="xs">{checkpoint.distanceKm.toLocaleString(undefined, { maximumFractionDigits: 1 })} km · {formatCheckpointTime(checkpoint, departureTime)}</DataText>
         </View>
-        <Ionicons name={checkpoint.isFinish ? 'flag-outline' : checkpoint.isStart ? 'play-outline' : 'trail-sign'} size={20} color={noAssistance ? Colors.textMuted : Colors.brandPrimary} />
+        <Ionicons name={checkpoint.isFinish || checkpoint.isStart ? 'flag-outline' : 'trail-sign'} size={20} color={Colors.brandPrimary} />
       </View>
       <View style={styles.chips}>
         <Text style={styles.chip}>{getWaterInstruction(checkpoint, summary, t.planSummary)}</Text>
@@ -102,8 +104,8 @@ function CheckpointCard({ checkpoint, departureTime, summary }: { checkpoint: Pl
       </View>
       {!noAssistance ? (
         checkpoint.supplies.length > 0
-          ? <View style={styles.compactProducts}>{checkpoint.supplies.map((product) => <View key={product.productId} style={styles.productPill}><Text numberOfLines={1} style={styles.productPillText}>{product.name}</Text><DataText tone="brand" weight="bold" size="xs">x{product.quantity}</DataText></View>)}</View>
-          : <Text tone="secondary">{t.planSummary.nothingToGive}</Text>
+          ? <View style={styles.compactProducts}>{checkpoint.supplies.map((product) => <View key={product.productId} style={styles.productPill}><Text numberOfLines={2} style={styles.productPillText}>{formatProductDisplayName(product.name)}</Text><DataText tone="brand" weight="bold" size="xs">x{product.quantity}</DataText></View>)}</View>
+          : <Text tone="secondary">{checkpoint.isFinish ? (locale === 'fr' ? 'Rien à prévoir' : 'Nothing planned') : t.planSummary.nothingToGive}</Text>
       ) : null}
     </View>
   );
@@ -113,6 +115,8 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
   const { locale, t } = useI18n();
   const insets = useSafeAreaInsets();
   const [departureTime, setDepartureTime] = useState(() => new Date());
+  const [officialDepartureTime, setOfficialDepartureTime] = useState<Date | null>(null);
+  const [startWaves, setStartWaves] = useState<PlanStartWave[]>([]);
   const [departureReady, setDepartureReady] = useState(false);
   const [pickerVisible, setPickerVisible] = useState(false);
   const [pickerHour, setPickerHour] = useState('00');
@@ -122,6 +126,7 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
   const automaticShareRef = useRef(false);
   const synchronizerRef = useRef(createPlanShareLinkSynchronizer());
   const targetSummary = useMemo(() => `${Math.round(summary.targetCarbsPerHour)} g/h · ${Math.round(summary.targetWaterPerHour)} ml/h · ${Math.round(summary.targetSodiumPerHour)} mg/h`, [summary]);
+  const waterRhythm = Math.max(10, Math.round((summary.targetWaterPerHour / 6) / 10) * 10);
 
   useEffect(() => {
     let cancelled = false;
@@ -134,17 +139,20 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
       if (cancelled) return;
       const row = result.data as { race_id?: string | null; races?: { race_date?: string | null; organizer_details?: unknown } | null } | null;
       const raceDate = row?.races?.race_date;
-      const manual = applyStoredDepartureTime(stored, buildRaceDateBase(raceDate, fallback));
-      if (manual) {
-        setDepartureTime(manual);
-        return;
-      }
       let startTime = readOrganizerStartTime(row?.races?.organizer_details);
-      if (!startTime && row?.race_id) {
-        const { data } = await supabase.from('race_start_waves').select('start_time').eq('race_id', row.race_id).order('order_index', { ascending: true }).limit(1).maybeSingle();
-        startTime = normalizePlanClock(data?.start_time);
+      let waves: PlanStartWave[] = [];
+      if (row?.race_id) {
+        const { data } = await supabase.from('race_start_waves').select('id,name,start_time').eq('race_id', row.race_id).order('order_index', { ascending: true });
+        waves = normalizePlanStartWaves(data);
+        if (!startTime) startTime = waves[0]?.startTime ?? null;
       }
-      if (!cancelled) setDepartureTime(buildLocalDepartureAt(raceDate, startTime) ? new Date(buildLocalDepartureAt(raceDate, startTime) as string) : fallback);
+      if (cancelled) return;
+      const officialIso = buildLocalDepartureAt(raceDate, startTime);
+      const official = officialIso ? new Date(officialIso) : null;
+      const manual = applyStoredDepartureTime(stored, buildRaceDateBase(raceDate, fallback));
+      setStartWaves(waves);
+      setOfficialDepartureTime(official);
+      setDepartureTime(manual ?? official ?? fallback);
     }).catch(() => !cancelled && setDepartureTime(fallback)).finally(() => !cancelled && setDepartureReady(true));
     return () => { cancelled = true; };
   }, [id]);
@@ -196,11 +204,33 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
     setPickerVisible(false);
   };
 
+  const selectDepartureClock = (clock: string) => {
+    const normalized = normalizePlanClock(clock);
+    if (!normalized) return;
+    const next = applyStoredDepartureTime(normalized, departureTime);
+    if (!next) return;
+    setDepartureTime(next);
+    void AsyncStorage.setItem(getPlanSummaryDepartureTimeStorageKey(id), normalized).catch(() => undefined);
+    setPickerVisible(false);
+  };
+
+  const resetOfficialDeparture = () => {
+    if (!officialDepartureTime) return;
+    setDepartureTime(officialDepartureTime);
+    void AsyncStorage.removeItem(getPlanSummaryDepartureTimeStorageKey(id)).catch(() => undefined);
+    setPickerVisible(false);
+  };
+
+  const departureDelta = officialDepartureTime
+    ? formatDepartureDelta(departureTime, officialDepartureTime, locale)
+    : null;
+
   const targetActions = (compact = false) => (
     <View style={[styles.recapIntro, compact && styles.recapIntroCompact]}>
       <View style={styles.productMain}>
         <Text tone="secondary" size={compact ? 'xs' : undefined}>{t.planSummary.hourlyTargets}</Text>
         <DataText tone="brand" weight="bold" size={compact ? 'xs' : undefined} numberOfLines={1}>{targetSummary}</DataText>
+        {!compact ? <Text tone="secondary" size="xs">{locale === 'fr' ? `Bois environ ${waterRhythm} ml toutes les 10 min` : `Drink about ${waterRhythm} ml every 10 min`}</Text> : null}
       </View>
       <TouchableOpacity
         accessibilityLabel={t.planSummary.share}
@@ -236,12 +266,17 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
           {targetActions()}
         </View>
         <TouchableOpacity activeOpacity={0.9} onPress={openPicker} style={styles.departureCard}>
-          <View><Text tone="secondary" size="xs" weight="semibold">{t.planSummary.departureTime}</Text><DataText tone="brand" size="2xl" weight="bold">{departureReady ? formatClock(departureTime) : '—'}</DataText></View>
+          <View style={styles.departureCopy}>
+            <Text tone="secondary" size="xs" weight="semibold">{locale === 'fr' ? 'Ton départ' : 'Your start'}</Text>
+            <DataText tone="brand" size="2xl" weight="bold">{departureReady ? formatClock(departureTime) : '—'}</DataText>
+            {officialDepartureTime ? <Text tone="secondary" size="xs">{locale === 'fr' ? 'Départ officiel' : 'Official start'} {formatClock(officialDepartureTime)}</Text> : null}
+            {departureDelta ? <Text tone="brand" size="xs" weight="semibold">{departureDelta}</Text> : null}
+          </View>
           <Text weight="bold">{t.planSummary.changeDepartureTime}</Text>
         </TouchableOpacity>
         <View style={styles.section}>
           <Text weight="bold" style={styles.sectionTitle}>{t.planSummary.packList}</Text>
-          <View style={styles.chips}><DataText tone="brand" weight="bold">{Math.round(summary.totalCarbsG)} g {t.planSummary.carbs}</DataText><DataText tone="brand" weight="bold">{Math.round(summary.totalSodiumMg)} mg {t.planSummary.sodium}</DataText></View>
+          <DataText tone="brand" weight="bold">{Math.round(summary.totalCarbsG)} g {t.planSummary.carbs} · {Math.round(summary.totalSodiumMg)} mg {t.planSummary.sodium}</DataText>
           {summary.productTotals.length ? <View style={styles.listCard}>{summary.productTotals.map((product) => <ProductLine key={product.productId} product={product} />)}</View> : <View style={styles.emptyCard}><Text tone="secondary">{t.planSummary.noProducts}</Text></View>}
         </View>
         <View style={styles.section}>
@@ -257,13 +292,25 @@ export function PlanRecapContent({ id, summary, contentTopInset, stickyTopInset,
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalOverlay}>
           <ScrollView contentContainerStyle={[styles.modalScroll, { paddingTop: Math.max(24, insets.top), paddingBottom: Math.max(24, insets.bottom) }]} keyboardShouldPersistTaps="handled">
             <View accessibilityViewIsModal style={styles.modalCard}>
-              <Text accessibilityRole="header" weight="bold" style={styles.sectionTitle}>{t.planSummary.departureTime}</Text>
+              <Text accessibilityRole="header" weight="bold" style={styles.sectionTitle}>{locale === 'fr' ? 'Changer ton départ' : 'Change your start'}</Text>
+              {startWaves.length > 0 ? (
+                <View style={styles.waveList}>
+                  {startWaves.map((wave) => (
+                    <TouchableOpacity key={wave.id} onPress={() => selectDepartureClock(wave.startTime)} style={styles.waveButton}>
+                      <View style={styles.productMain}><Text weight="semibold">{wave.name}</Text><Text tone="secondary" size="xs">{locale === 'fr' ? 'SAS de départ' : 'Start wave'}</Text></View>
+                      <DataText tone="brand" weight="bold">{wave.startTime}</DataText>
+                    </TouchableOpacity>
+                  ))}
+                  <Text tone="secondary" size="xs" style={styles.orLabel}>{locale === 'fr' ? 'ou une autre heure' : 'or another time'}</Text>
+                </View>
+              ) : null}
               <View style={styles.timeRow}>
                 <TextInput accessibilityLabel="HH" inputAccessoryViewID="pace-yourself-numeric-keyboard" keyboardType="number-pad" maxLength={2} onChangeText={(value) => setPickerHour(value.replace(/\D/g, '').slice(0, 2))} style={styles.timeInput} value={pickerHour} />
                 <DataText size="2xl" weight="bold">:</DataText>
                 <TextInput accessibilityLabel="MM" inputAccessoryViewID="pace-yourself-numeric-keyboard" keyboardType="number-pad" maxLength={2} onChangeText={(value) => setPickerMinute(value.replace(/\D/g, '').slice(0, 2))} style={styles.timeInput} value={pickerMinute} />
               </View>
               <TouchableOpacity onPress={confirmPicker} style={styles.primaryButton}><Text weight="bold" style={styles.shareText}>{t.common.confirm}</Text></TouchableOpacity>
+              {officialDepartureTime ? <TouchableOpacity onPress={resetOfficialDeparture} style={styles.cancelButton}><Text tone="brand" weight="bold">{locale === 'fr' ? 'Revenir au départ officiel' : 'Reset to official start'}</Text></TouchableOpacity> : null}
               <TouchableOpacity onPress={() => setPickerVisible(false)} style={styles.cancelButton}><Text weight="bold">{t.common.cancel}</Text></TouchableOpacity>
             </View>
           </ScrollView>
@@ -284,6 +331,7 @@ const styles = StyleSheet.create({
   shareText: { color: Colors.textOnBrand },
   disabled: { opacity: 0.65 },
   departureCard: { minHeight: 88, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface, padding: 16 },
+  departureCopy: { flex: 1, minWidth: 0, gap: 3 },
   section: { gap: 10 },
   sectionTitle: { fontSize: 20, lineHeight: 25 },
   listCard: { overflow: 'hidden', borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
@@ -301,13 +349,16 @@ const styles = StyleSheet.create({
   chip: { borderRadius: 999, backgroundColor: Colors.surfaceSecondary, paddingHorizontal: 9, paddingVertical: 5, fontSize: 11 },
   compactProducts: { flexDirection: 'row', flexWrap: 'wrap', gap: 7 },
   productPill: { maxWidth: '100%', flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 999, backgroundColor: Colors.surfaceSecondary, paddingHorizontal: 10, paddingVertical: 6 },
-  productPillText: { maxWidth: 180 },
+  productPillText: { flexShrink: 1 },
   bottomSpacer: { height: 24 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' },
   modalScroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 20 },
   modalCard: { gap: 16, borderRadius: 20, backgroundColor: Colors.surface, padding: 20 },
   timeRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 12 },
   timeInput: { width: 82, minHeight: 58, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, color: Colors.textPrimary, fontSize: 24, textAlign: 'center' },
+  waveList: { gap: 8 },
+  waveButton: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 12, borderRadius: 12, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface, paddingHorizontal: 14, paddingVertical: 8 },
+  orLabel: { textAlign: 'center', paddingTop: 2 },
   primaryButton: { minHeight: 48, alignItems: 'center', justifyContent: 'center', borderRadius: 24, backgroundColor: Colors.brandPrimary },
   cancelButton: { minHeight: 44, alignItems: 'center', justifyContent: 'center' },
 });

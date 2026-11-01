@@ -144,6 +144,11 @@ export default function AppLayout() {
             backgroundColor: Colors.background,
             borderTopColor: Colors.border,
             borderTopWidth: 1,
+            shadowColor: '#1A1A1A',
+            shadowOffset: { width: 0, height: -2 },
+            shadowOpacity: 0.08,
+            shadowRadius: 6,
+            elevation: 8,
             height:
               TAB_BAR_CONTENT_HEIGHT +
               Math.max(TAB_BAR_MIN_BOTTOM_PADDING, insets.bottom),

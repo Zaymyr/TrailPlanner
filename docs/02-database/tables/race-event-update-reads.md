@@ -76,6 +76,10 @@ related_tables:
 
 Catalog search clearing, compact no-image cards, past-race plan warnings, and opening an existing plan are presentation/navigation actions. They do not mark an organizer update as read and must not write this table.
 
+## Mobile catalog presentation
+
+Lot 8 changes only format-sheet presentation and favorite feedback. Opening a sheet still marks the same visible organizer updates through the existing owner-scoped read rows.
+
 ## Related Docs
 
 Private-demo format selection does not create or clear announcement read receipts.

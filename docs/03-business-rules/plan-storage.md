@@ -219,6 +219,10 @@ It:
 - Keyboard avoidance, safe-area padding, VoiceOver semantics, reduced animation, and gesture arbitration in the mobile planner are presentation concerns. They must not introduce an additional autosave path or change `planner_values`, `elevation_profile`, `plan_aid_stations`, or public recap snapshots.
 - Official D− in the mobile workspace header is a current linked-race display value. Keep the profile-derived fallback for legacy/unlinked plans, and do not persist that display lookup into `planner_values` or use it as a second timing source.
 
+## Lot 8 recap presentation
+
+The recap keeps the local runner departure authoritative, displays its official delta, and can replace it from an ordered SAS or reset it to the organizer clock. Checkpoint passage labels display clock time before elapsed time. These actions update only the existing local departure key and never alter `planner_values` or `race_start_waves`.
+
 ## Related Docs
 
 - [race_plans](../02-database/tables/race-plans.md)

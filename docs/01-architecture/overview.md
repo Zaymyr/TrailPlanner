@@ -176,6 +176,10 @@ When docs and code disagree, use this order:
 - `npm run verify` is the local/CI contract. Keep app-level scripts wired into Turbo instead of maintaining a separate undocumented command sequence.
 - Mobile lint plugins required by `eslint-config-expo` must be declared directly in the mobile workspace when the legacy ESLint resolver loads them from `apps/mobile`; a locally hoisted transitive plugin is not evidence that the clean CI install can resolve it.
 
+## Mobile launch polish
+
+The mobile client now uses `expo-haptics` for optional reduced-motion-aware feedback and runtime `1.1.2` to keep OTA/native compatibility explicit. This does not change the web or Supabase service boundaries.
+
 ## Related Docs
 
 - [Web App](web-app.md)

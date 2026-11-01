@@ -28,7 +28,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     // The light iOS appearance below changes native configuration, so the next iOS
     // binary and Android API 36 binary share the same, new OTA compatibility group.
-    runtimeVersion: '1.1.1',
+    runtimeVersion: '1.1.2',
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -48,7 +48,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     },
     android: {
-      runtimeVersion: '1.1.1',
+      runtimeVersion: '1.1.2',
       versionCode: 1,
       playStoreUrl: 'https://play.google.com/store/apps/details?id=com.paceyourself.app',
       adaptiveIcon: {

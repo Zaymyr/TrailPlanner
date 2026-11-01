@@ -116,6 +116,10 @@ For visibility-gated aggregate RPCs such as sponsor impressions, select an exist
 - Do not expose a public redirect/mapping row merely because it exists; reapply all visibility gates of its target parent in RLS and again when loading the canonical resource.
 - Do not expose draft columns from a service-only projection through an additive public payload; map an explicit published DTO instead of serializing the database row.
 
+## Lot 8 mobile presentation
+
+The catalog format sheet, favorite toast, recap hierarchy, and product-label safeguards are consumer presentation changes and do not use this new-table workflow.
+
 ## Related Docs
 
 The `race_supporter_points` addition follows this workflow: cascade ownership by `races`, explicit client/service grants, a completeness-filtered SELECT policy, a service-only atomic collection RPC, static SQL checks, and a dedicated table reference document.

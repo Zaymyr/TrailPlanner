@@ -135,6 +135,10 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 Catalog search clearing, compact no-image cards, past-race plan warnings, and the “Open my plan” action do not create, delete, target, or mark an organizer update. Update previews retain their existing event/format scope.
 
+## Mobile catalog presentation
+
+Format-sheet polish and brief favorite toasts do not change update targeting, ordering, read tracking, or publication semantics.
+
 ## Related Docs
 
 Private-demo selection changes only a format's RaceBook entry visibility; it does not publish, delete, or retarget organizer announcements.

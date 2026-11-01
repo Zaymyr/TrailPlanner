@@ -248,6 +248,10 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Store candidate automation also requires valid Apple App Store Connect credentials in EAS. Do not approve the candidate gate until both platform credentials have been configured and the build capacity is intentionally accepted.
 - Do not present hosted Maestro as active on the current Expo plan. Use the local Android runner until the plan is upgraded or a separate compatible CI runner is added.
 
+## Mobile runtime 1.1.2
+
+Lot 8 adds the SDK 54-compatible `expo-haptics` native module. Both platforms therefore use runtime `1.1.2`; publishing an OTA that imports the module requires a new native build in that runtime group.
+
 ## Related Docs
 
 Deploy `20260910170144_separate_racebook_preview_visibility.sql` before clients that select `racebook_preview_is_visible`; publication remains server-mediated.
