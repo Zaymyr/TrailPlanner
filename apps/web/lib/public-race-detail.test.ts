@@ -132,6 +132,13 @@ describe("public race detail", () => {
     expect(fetchMock.mock.calls[0]?.[1]).toEqual(expect.objectContaining({
       next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
     }));
+    for (const endpoint of ["organizer_racebook_module_settings?", "organizer_edition_entitlements?"]) {
+      const publicModuleCall = fetchMock.mock.calls.find(([url]) => String(url).includes(endpoint));
+      expect(publicModuleCall?.[1]).toEqual(expect.objectContaining({
+        next: { revalidate: PUBLIC_RACES_REVALIDATE_SECONDS },
+      }));
+      expect(publicModuleCall?.[1]).not.toEqual(expect.objectContaining({ cache: "no-store" }));
+    }
     const gpxCall = fetchMock.mock.calls.find(([url]) => String(url).includes("/storage/v1/object/race-gpx/"));
     expect(gpxCall?.[1]).toEqual(expect.objectContaining({ next: { revalidate: 31_536_000 } }));
   });
