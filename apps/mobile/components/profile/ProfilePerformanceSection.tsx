@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { mobileComponents } from '@pace-yourself/design-system';
 import {
   StyleSheet,
   TextInput,
@@ -309,10 +310,11 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   waterBtn: {
+    minHeight: mobileComponents.filterChip.minHeight,
     backgroundColor: Colors.surface,
-    paddingHorizontal: 12,
+    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
     paddingVertical: 9,
-    borderRadius: 999,
+    borderRadius: mobileComponents.filterChip.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -349,12 +351,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   textInput: {
+    minHeight: mobileComponents.input.minHeight,
     backgroundColor: Colors.surface,
     color: Colors.textPrimary,
-    borderRadius: 10,
+    borderRadius: mobileComponents.input.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: mobileComponents.input.paddingHorizontal,
     paddingVertical: 12,
     fontSize: 16,
   },
@@ -381,9 +384,10 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   paceInput: {
+    minHeight: mobileComponents.input.minHeight,
     backgroundColor: Colors.surface,
     color: Colors.textPrimary,
-    borderRadius: 10,
+    borderRadius: mobileComponents.input.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
     paddingHorizontal: 8,
@@ -459,13 +463,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   targetInputShell: {
+    minHeight: mobileComponents.input.minHeight,
     width: 116,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingHorizontal: 12,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: mobileComponents.input.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surface,

@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { mobileComponents } from '@pace-yourself/design-system';
 import { StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../themed/Text';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -202,12 +203,13 @@ const styles = StyleSheet.create({
     marginTop: 0,
   },
   textInput: {
+    minHeight: mobileComponents.input.minHeight,
     backgroundColor: Colors.surface,
     color: Colors.textPrimary,
-    borderRadius: 10,
+    borderRadius: mobileComponents.input.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: mobileComponents.input.paddingHorizontal,
     paddingVertical: 12,
     fontSize: 16,
   },
@@ -231,15 +233,16 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   metricInputShell: {
+    minHeight: mobileComponents.input.minHeight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    paddingHorizontal: 12,
+    paddingHorizontal: mobileComponents.input.paddingHorizontal,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: mobileComponents.input.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: Colors.surface,
   },
   metricInput: {
     flex: 1,

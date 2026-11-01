@@ -99,6 +99,8 @@ Organizer deletion includes both `updateId` and `editionId`. The server verifies
 
 ## Gotchas
 
+- Root-header, sticky-search, event-date and card-action alignment changes are presentation-only. They do not reorder, retarget or mark organizer updates as read.
+
 - Sticky catalog filters, locale-formatted native dates, and the full-width format action row do not publish, retarget, load, or mark organizer announcements.
 
 - The shared Courses loading/error/empty states and pull-to-refresh are presentation only. Retry and refresh repeat the same bounded preview/history reads and must not publish, delete, retarget, or mark an announcement.

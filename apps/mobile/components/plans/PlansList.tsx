@@ -1,4 +1,4 @@
-import { memo, useEffect, useState, type ReactNode } from 'react';
+import { memo, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -30,7 +30,7 @@ import { EmptyState } from '../themed/EmptyState';
 import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
-import { formatDepartureCountdown, type DepartureCountdownCopy } from '../../lib/plansListPresentation';
+import { formatDepartureCountdown, selectPrimaryStartPlanId, type DepartureCountdownCopy } from '../../lib/plansListPresentation';
 import type { PlanRow, RaceSection } from './types';
 
 type PlansListProps = {
@@ -129,6 +129,13 @@ export const PlansList = memo(function PlansList({
     const timer = setInterval(() => setNowMs(Date.now()), hasDepartureWithinAnHour ? 1_000 : 60_000);
     return () => clearInterval(timer);
   }, [nowMs, sections]);
+  const primaryStartPlanId = useMemo(() => {
+    return selectPrimaryStartPlanId(
+      sections.flatMap((section) => section.data),
+      nowMs,
+      activePlanId,
+    );
+  }, [activePlanId, nowMs, sections]);
 
   const closeManagePlan = () => {
     if (!renamingPlan) setManagedPlan(null);
@@ -188,6 +195,7 @@ export const PlansList = memo(function PlansList({
               isAccessible={isAccessible}
               isActivePlan={isActivePlan}
               isSharing={sharingPlanId === item.id}
+              primaryAction={primaryStartPlanId === item.id ? 'start' : 'recap'}
               item={item}
               liveLabel={liveLabel}
               locale={locale}
@@ -351,6 +359,7 @@ type PlanCardProps = {
   isAccessible: boolean;
   isActivePlan: boolean;
   isSharing: boolean;
+  primaryAction: 'start' | 'recap';
   nowMs: number;
   liveLabel: string;
   startButtonLabel: string;
@@ -375,6 +384,7 @@ function PlanCard({
   isAccessible,
   isActivePlan,
   isSharing,
+  primaryAction,
   nowMs,
   liveLabel,
   startButtonLabel,
@@ -477,16 +487,35 @@ function PlanCard({
                 <Text tone="secondary" size="xs" weight="semibold">
                   {departureLabel}
                 </Text>
-                <DataText numberOfLines={1} tone="brand" size="xs" weight="bold">
+                <Text numberOfLines={1} tone="brand" size="xs" weight="bold">
                   {countdown}
-                </DataText>
+                </Text>
               </View>
             </View>
           </View>
         </TouchableOpacity>
       </View>
 
-      <View style={styles.cardActionsRight}>
+      <View style={styles.cardActions}>
+          <TouchableOpacity
+            accessibilityLabel={`${primaryAction === 'start' ? (isActivePlan ? inProgressLabel : startButtonLabel) : recapButtonLabel} — ${item.name}`}
+            accessibilityRole="button"
+            activeOpacity={0.85}
+            onPress={isAccessible
+              ? primaryAction === 'start' ? onStart : onOpenSummary
+              : onLockedPress}
+            style={[styles.primaryCardAction, !isAccessible && styles.iconBtnLocked]}
+          >
+            <Ionicons
+              color={isAccessible ? colors.text.inverse : colors.accent.amber}
+              name={!isAccessible ? 'lock-closed' : primaryAction === 'start' ? (isActivePlan ? 'radio-button-on' : 'play') : 'document-text-outline'}
+              size={18}
+            />
+            <Text tone={isAccessible ? 'inverse' : 'brand'} size="xs" weight="bold">
+              {primaryAction === 'start' ? (isActivePlan ? inProgressLabel : startButtonLabel) : recapButtonLabel}
+            </Text>
+          </TouchableOpacity>
+          {primaryAction === 'start' ? (
           <TouchableOpacity
             accessibilityLabel={`${recapButtonLabel} — ${item.name}`}
             accessibilityRole="button"
@@ -496,6 +525,17 @@ function PlanCard({
           >
             <Ionicons color={colors.brand.forest} name="document-text-outline" size={18} />
           </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              accessibilityLabel={`${isActivePlan ? inProgressLabel : startButtonLabel} — ${item.name}`}
+              accessibilityRole="button"
+              activeOpacity={0.8}
+              onPress={isAccessible ? onStart : onLockedPress}
+              style={[styles.iconBtn, !isAccessible && styles.iconBtnLocked]}
+            >
+              <Ionicons color={isAccessible ? colors.brand.forest : colors.accent.amber} name={!isAccessible ? 'lock-closed' : isActivePlan ? 'radio-button-on' : 'play-outline'} size={18} />
+            </TouchableOpacity>
+          )}
           <TouchableOpacity
             accessibilityLabel={`${shareButtonLabel} — ${item.name}`}
             accessibilityRole="button"
@@ -507,24 +547,6 @@ function PlanCard({
             <Ionicons
               color={colors.brand.forest}
               name={isSharing ? 'hourglass-outline' : 'share-social-outline'}
-              size={18}
-            />
-          </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel={`${isActivePlan ? inProgressLabel : startButtonLabel} — ${item.name}`}
-            accessibilityRole="button"
-            activeOpacity={0.85}
-            onPress={isAccessible ? onStart : onLockedPress}
-            style={[
-              styles.iconBtn,
-              styles.startIconBtn,
-              isActivePlan ? styles.startIconBtnActive : null,
-              !isAccessible ? styles.iconBtnLocked : null,
-            ]}
-          >
-            <Ionicons
-              color={isAccessible ? colors.text.inverse : colors.accent.amber}
-              name={!isAccessible ? 'lock-closed' : isActivePlan ? 'radio-button-on' : 'play'}
               size={18}
             />
           </TouchableOpacity>
@@ -554,7 +576,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing[2],
-    paddingHorizontal: spacing[1],
+    paddingHorizontal: 0,
     paddingVertical: spacing[3],
     marginTop: spacing[2],
     backgroundColor: colors.surface.sand,
@@ -577,7 +599,7 @@ const styles = StyleSheet.create({
     color: colors.text.secondary,
     fontSize: 15,
     marginBottom: 4,
-    marginLeft: 12,
+    marginLeft: 0,
     marginTop: 8,
   },
   orphanWarning: {
@@ -585,10 +607,9 @@ const styles = StyleSheet.create({
     paddingBottom: spacing[2],
   },
   card: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
+    flexDirection: 'column',
     marginBottom: spacing[2],
-    marginLeft: spacing[3],
+    marginLeft: 0,
     overflow: 'hidden',
   },
   cardActive: {
@@ -666,8 +687,8 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.border.subtle,
   },
   iconBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     borderRadius: radius.lg,
     alignItems: 'center',
     justifyContent: 'center',
@@ -679,23 +700,24 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface.cream,
     borderColor: colors.accent.amber,
   },
-  cardActionsRight: {
+  cardActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: spacing[2],
+    paddingHorizontal: spacing[3],
+    paddingBottom: spacing[3],
+  },
+  primaryCardAction: {
+    minHeight: 44,
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: spacing[1.5],
-    paddingHorizontal: spacing[2],
-    paddingVertical: spacing[2],
-    borderLeftWidth: 1,
-    borderLeftColor: colors.border.subtle,
-    backgroundColor: colors.surface.cream,
-  },
-  startIconBtn: {
+    gap: spacing[2],
+    borderRadius: radius.lg,
     backgroundColor: colors.brand.forest,
     borderColor: colors.brand.forest,
-  },
-  startIconBtnActive: {
-    backgroundColor: colors.brand.forestLight,
-    borderColor: colors.brand.forestLight,
   },
   modalWrapper: {
     flex: 1,

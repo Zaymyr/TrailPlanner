@@ -285,6 +285,8 @@ where is_live = true
 
 ## Gotchas
 
+- The mobile event card protects the localized date with non-breaking spaces and truncates the location first. This is formatting over the loaded `location` and `race_date`; it never rewrites either field.
+
 - Keeping Courses search and quick filters sticky, entering date bounds through native pickers, and placing format actions below the full-width format name are presentation-only. They do not alter event/format relationships, visibility, or stored dates.
 - Catalog create/refine wording and RaceBook start-time rendering are presentation only; they do not alter event data or visibility.
 

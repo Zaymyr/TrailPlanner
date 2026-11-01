@@ -1,7 +1,7 @@
 ---
 title: Design Tokens
 scope: design-system
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: medium
 related_files:
   - packages/design-system/src/tokens/colors.ts
@@ -9,6 +9,7 @@ related_files:
   - packages/design-system/src/tokens/spacing.ts
   - packages/design-system/src/tokens/radius.ts
   - packages/design-system/src/tokens/shadows.ts
+  - packages/design-system/src/tokens/mobile-components.ts
   - packages/design-system/src/fonts/index.ts
   - packages/design-system/src/branding.ts
   - apps/web/tailwind.config.ts
@@ -95,6 +96,8 @@ Radius tokens include `none`, `sm`, `md`, `lg`, `xl`, `2xl`, `3xl`, `full`, and 
 
 Shadows include `sm`, `md`, and `lg` with brand-tinted rgba values.
 
+`mobileComponents` composes those base tokens into shared React Native control geometry: a 16-point screen gutter, 12-point action/button/input radii, full-radius filter chips, 44-point segmented controls and modal close targets. It contains dimensions only; mobile callers continue to apply the semantic palette from `Colors`/`colors`.
+
 ## Web Tailwind Bridge
 
 `apps/web/tailwind.config.ts` imports design-system tokens and maps:
@@ -114,6 +117,7 @@ It also exposes CSS-variable theme colors such as `background`, `foreground`, `b
 - The design-system color tokens and web CSS variables are related but not identical.
 - Mobile `Colors` is an alias layer, not a second source of palette values; add
   a shared token before a mobile screen needs a new color.
+- Equivalent mobile filters, segmented selectors, fields, modal closes and buttons must reuse `mobileComponents`; do not copy their dimensions into route-local styles.
 - Use `semantic` tokens for application status UI and `brand.surface` /
   `brand.border` for selected controls; neither is organizer-controlled.
 - Do not hardcode actual PostHog/Supabase/Stripe colors or secrets in design docs.

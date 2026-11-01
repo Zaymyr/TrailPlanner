@@ -16,6 +16,7 @@ import {
 import { Text } from '../../components/themed/Text';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { mobileComponents } from '@pace-yourself/design-system';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import { useGuestAccountPrompt } from '../../hooks/useGuestAccountPrompt';
@@ -1147,6 +1148,8 @@ export default function CatalogScreen() {
                     const active = quickFilter === filter.key;
                     return (
                       <TouchableOpacity
+                        accessibilityRole="button"
+                        accessibilityState={{ selected: active }}
                         key={filter.key}
                         activeOpacity={0.78}
                         onPress={() => setQuickFilter(active ? 'all' : filter.key)}
@@ -1483,26 +1486,25 @@ const styles = StyleSheet.create({
   listHeader: {
     gap: 16,
     backgroundColor: Colors.background,
-    paddingBottom: 10,
+    paddingBottom: 16,
+    zIndex: 2,
+    elevation: 2,
   },
   listFooterSpacing: {
     height: 8,
   },
   filtersCard: {
-    backgroundColor: Colors.surface,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    padding: 14,
+    backgroundColor: Colors.background,
     gap: 10,
   },
   filterInput: {
     flex: 1,
-    backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 12,
+    minHeight: mobileComponents.input.minHeight,
+    backgroundColor: Colors.surface,
+    borderRadius: mobileComponents.input.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 14,
+    paddingHorizontal: mobileComponents.input.paddingHorizontal,
     paddingVertical: 11,
     color: Colors.textPrimary,
     fontSize: 15,
@@ -1541,14 +1543,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   filterButton: {
+    minHeight: mobileComponents.filterChip.minHeight,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     backgroundColor: Colors.brandSurface,
     borderWidth: 1,
     borderColor: Colors.brandBorder,
-    borderRadius: 999,
-    paddingHorizontal: 12,
+    borderRadius: mobileComponents.filterChip.borderRadius,
+    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
     paddingVertical: 10,
   },
   filterButtonText: {
@@ -1564,10 +1567,10 @@ const styles = StyleSheet.create({
     paddingRight: 4,
   },
   quickFilterChip: {
-    minHeight: 38,
+    minHeight: mobileComponents.filterChip.minHeight,
     justifyContent: 'center',
-    paddingHorizontal: 12,
-    borderRadius: 999,
+    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
+    borderRadius: mobileComponents.filterChip.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceSecondary,
@@ -1671,14 +1674,12 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   sheetCloseButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: mobileComponents.closeButtonSize,
+    height: mobileComponents.closeButtonSize,
+    borderRadius: mobileComponents.closeButtonSize / 2,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.surface,
-    borderWidth: 1,
-    borderColor: Colors.border,
+    backgroundColor: Colors.surfaceSecondary,
   },
   sheetImage: {
     width: '100%',

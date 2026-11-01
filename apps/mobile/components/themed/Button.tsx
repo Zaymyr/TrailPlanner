@@ -1,4 +1,4 @@
-import { colors, radius, spacing } from '@pace-yourself/design-system';
+import { colors, mobileComponents, radius, spacing } from '@pace-yourself/design-system';
 import {
   ActivityIndicator,
   Pressable,
@@ -71,7 +71,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 14,
+    borderRadius: mobileComponents.buttonRadius,
     paddingHorizontal: spacing[5],
     paddingVertical: spacing[3],
   },

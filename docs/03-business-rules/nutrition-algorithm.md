@@ -322,6 +322,8 @@ Fuel types are defined by the `public.fuel_type` enum and app types:
 
 ## Gotchas
 
+- Nutrition filter chips now reuse the shared mobile filter geometry, brand rows vertically center their text block, missing brand images use an initial, and text-bearing product counts use the sans font. None of these presentation choices changes grouping, favorites, nutrients or allocation.
+
 - Guided Plan onboarding uses the ordinary Nutrition favorites surface before standard plan creation. It does not introduce a second product-allocation algorithm or require a favorite before continuing.
 - The guest account prompt shown at the plan-count limit runs before plan creation and does not alter nutrition defaults, catalog hydration, or allocation behavior.
 

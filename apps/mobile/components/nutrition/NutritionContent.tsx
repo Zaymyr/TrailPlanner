@@ -16,6 +16,7 @@ import { Text } from '../themed/Text';
 import { DataText } from '../themed/DataText';
 import { EmptyState } from '../themed/EmptyState';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { mobileComponents } from '@pace-yourself/design-system';
 import { Colors } from '../../constants/colors';
 import { PremiumUpsellModal } from '../premium/PremiumUpsellModal';
 import { FUEL_FILTERS, FUEL_TYPE_LABELS } from './nutritionConstants';
@@ -406,7 +407,7 @@ export const NutritionContent = memo(function NutritionContent({
                     ) : null}
                     <View style={styles.brandHeaderActions}>
                       <View style={styles.brandCountPill}>
-                        <DataText style={styles.brandCountText}>{group.items.length}</DataText>
+                        <Text style={styles.brandCountText}>{group.items.length}</Text>
                       </View>
                     </View>
                   </View>
@@ -450,6 +451,8 @@ export const NutritionContent = memo(function NutritionContent({
           >
             {FUEL_FILTERS.map((type) => (
               <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ selected: fuelFilter === type }}
                 key={type}
                 activeOpacity={0.8}
                 onPress={() => onChangeFuelFilter(type)}
@@ -506,7 +509,7 @@ export const NutritionContent = memo(function NutritionContent({
                 <Image source={{ uri: item.brandImageUrl }} style={styles.brandImage} />
               ) : (
                 <View style={styles.brandImageFallback}>
-                  <Ionicons color={Colors.brandPrimary} name="pricetag-outline" size={18} />
+                  <Text style={styles.brandInitial}>{item.brandLabel.slice(0, 1).toLocaleUpperCase(locale)}</Text>
                 </View>
               )}
               <View style={styles.brandTitleText}>
@@ -521,12 +524,12 @@ export const NutritionContent = memo(function NutritionContent({
               </View>
             </View>
             <View style={styles.brandHeaderActions}>
-              <DataText style={styles.brandCountText}>
+              <Text style={styles.brandCountText}>
                 {item.count}{' '}
                 {locale === 'fr'
                   ? item.count > 1 ? 'produits' : 'produit'
                   : item.count > 1 ? 'products' : 'product'}
-              </DataText>
+              </Text>
               <Ionicons
                 color={Colors.brandPrimary}
                 name={item.expanded ? 'chevron-up' : 'chevron-down'}
@@ -804,11 +807,12 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   catalogSearchInput: {
+    minHeight: mobileComponents.input.minHeight,
     backgroundColor: Colors.surface,
-    borderRadius: 10,
+    borderRadius: mobileComponents.input.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    paddingHorizontal: 12,
+    paddingHorizontal: mobileComponents.input.paddingHorizontal,
     paddingVertical: 10,
     fontSize: 15,
     color: Colors.textPrimary,
@@ -829,11 +833,11 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   filterChip: {
-    minHeight: 34,
+    minHeight: mobileComponents.filterChip.minHeight,
     backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
+    paddingHorizontal: mobileComponents.filterChip.paddingHorizontal,
     paddingVertical: 7,
-    borderRadius: 999,
+    borderRadius: mobileComponents.filterChip.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
     justifyContent: 'center',
@@ -893,6 +897,7 @@ const styles = StyleSheet.create({
   brandTitleText: {
     flex: 1,
     minWidth: 0,
+    justifyContent: 'center',
   },
   brandImage: {
     width: 48,
@@ -910,6 +915,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.brandSurface,
+  },
+  brandInitial: {
+    color: Colors.brandPrimary,
+    fontSize: 18,
+    fontWeight: '800',
   },
   brandTitle: {
     flex: 1,

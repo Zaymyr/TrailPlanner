@@ -23,6 +23,7 @@ import {
 import {
   AidStationIcon,
   colors,
+  mobileComponents,
   radius,
   shadows,
   spacing
@@ -1388,7 +1389,7 @@ const planDetailStyles = StyleSheet.create({
     padding: 3,
   },
   toolbarTabCompact: {
-    minHeight: 40,
+    minHeight: mobileComponents.segment.minHeight,
     justifyContent: 'center',
     paddingHorizontal: 3,
     paddingVertical: 7,

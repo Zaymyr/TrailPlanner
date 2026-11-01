@@ -1,3 +1,4 @@
+import { mobileComponents } from '@pace-yourself/design-system';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
@@ -81,7 +82,7 @@ const styles = StyleSheet.create({
     right: 0,
     height: RACE_WORKSPACE_SWITCH_HEIGHT,
     justifyContent: 'center',
-    paddingHorizontal: 18,
+    paddingHorizontal: mobileComponents.screenGutter,
     backgroundColor: Colors.background,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: Colors.border,
@@ -94,17 +95,17 @@ const styles = StyleSheet.create({
   segmentedControl: {
     minHeight: 38,
     flexDirection: 'row',
-    padding: 3,
-    borderRadius: 13,
+    padding: mobileComponents.segmentedControl.padding,
+    borderRadius: mobileComponents.segmentedControl.borderRadius,
     backgroundColor: Colors.surfaceMuted,
   },
   segment: {
     flex: 1,
-    minHeight: 44,
+    minHeight: mobileComponents.segment.minHeight,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    paddingHorizontal: 10,
+    borderRadius: mobileComponents.segment.borderRadius,
+    paddingHorizontal: mobileComponents.segment.paddingHorizontal,
   },
   activeSegment: {
     backgroundColor: Colors.surface,

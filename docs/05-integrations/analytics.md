@@ -327,6 +327,8 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 
 ## Gotchas
 
+- Header collapse, shared gutters/control geometry, plan-card action layout, protected event dates and modal close styling add no analytics event or property. Existing presses must continue through their established handlers and bounded event names.
+
 - Moving the existing Courses race-request trigger into the persistent action of the shared collapsible root header is presentation-only. Header expansion/collapse adds no PostHog event or scroll property; a submitted request keeps the existing Supabase mutation behavior.
 - Removing the runner-owned race section from Courses removes that source from catalog interactions; catalog plan analytics now describe event formats only.
 - Exposing preview-selected private formats in the runner mobile catalog, then removing masked formats before presentation, is a visibility/read change rather than a new analytics event. Existing course and RaceBook events keep stable event/race ids and must not record membership ids or private visibility state; masked rows must emit no selection or opening event because they have no mobile entry point.
