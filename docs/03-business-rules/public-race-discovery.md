@@ -1,7 +1,7 @@
 ---
 title: Public Race Discovery
 scope: business-rule
-last_verified: 2026-09-28
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260824164101_manage_organizer_edition_visibility_and_deletion.sql
@@ -75,7 +75,7 @@ The dynamic route returns no build-time parameters. The first request for a curr
 
 The lightweight `PublicRace` catalog contract contains identity, `eventId`, `editionId`, format/event image URLs, date, display location, normalized city/department/region/country labels, an allowlisted array of searchable location labels, distance, D+, slug, the format official URL, and the parent event website used by the registration CTA. Searchable labels come only from the format's two public location strings and the parent event's public location, city, department, region, and country; codes, coordinates, organizer JSON and operational fields stay outside the client DTO. Its server-only, explicit-column service read requires `races.web_catalog_is_live`, `races.is_public`, and a live optional parent event; it deliberately does not consult mobile edition visibility or broaden direct client RLS. The separate server-only `PublicRaceDetail` repeats those web gates before reading organizer details, edition dates, ravitos, or the private GPX. It maps only the runner-facing fields required by the page and never serializes either raw organizer JSON object. In particular, the event emergency contact and `services.lastMinuteMessage` are excluded from the DTO even when present in the stored event data.
 
-The detail page applies the established event/format inheritance parser for schedule, equipment, bib pickup, access, runner information and services. Before serializing practical content, it also requires `racebook_is_live` and applies the effective edition/module entitlement. Higher-tier drafts and disabled modules therefore remain private even while the catalog identity page stays public. It exposes only available covered values, D+/D-, altitude bounds, participation mode, ravitos, format then event official websites, and event social profiles. It must not generate course difficulty, expected duration, weather, aid-station values, or other claims from absent source data.
+The detail page applies the established event/format inheritance parser for schedule, equipment, bib pickup, access, runner information and services. Before serializing practical content, it also requires `racebook_is_live` and applies the effective edition/module entitlement. Those public entitlement and module-setting reads participate in the same 15-minute ISR data-cache window as the other detail reads; they must never reuse the private Organizer `no-store` loaders and turn an already static course route dynamic during revalidation. Higher-tier drafts and disabled modules therefore remain private even while the catalog identity page stays public. It exposes only available covered values, D+/D-, altitude bounds, participation mode, ravitos, format then event official websites, and event social profiles. It must not generate course difficulty, expected duration, weather, aid-station values, or other claims from absent source data.
 
 When a private GPX object exists, the server downloads and parses it only after every visibility gate succeeds. The browser receives a bounded route/elevation preview of about 600 points, never the GPX file or Storage path. Invalid or absent GPX degrades to a detail page without map/profile, and the public page offers no GPX download action.
 

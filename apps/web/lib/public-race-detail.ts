@@ -10,9 +10,16 @@ import {
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
 } from "./organizer-dashboard-details";
-import { loadOrganizerEditionEntitlement } from "./organizer-entitlements";
-import { effectiveOrganizerModules, loadOrganizerModuleSettings } from "./organizer-module-settings";
-import { ORGANIZER_MODULES, type OrganizerModuleKey } from "./organizer-modules";
+import { organizerTierSchema } from "./organizer-entitlements";
+import { effectiveOrganizerModules } from "./organizer-module-settings";
+import {
+  ORGANIZER_MODULES,
+  defaultEditionModuleSettings,
+  defaultRaceModuleSettings,
+  type OrganizerEditionModuleKey,
+  type OrganizerModuleKey,
+  type OrganizerRaceModuleKey,
+} from "./organizer-modules";
 import { PUBLIC_RACES_REVALIDATE_SECONDS, type PublicRace } from "./public-races";
 import { getSupabaseServiceConfig, type SupabaseServiceConfig } from "./supabase";
 
@@ -51,6 +58,17 @@ const aidStationSchema = z.object({
   notes: z.string().nullable().optional(),
   order_index: z.number().optional().default(0),
   organizer_details: z.unknown().nullable().optional(),
+});
+
+const publicEntitlementSchema = z.object({
+  tier: organizerTierSchema,
+  status: z.enum(["active", "revoked"]),
+});
+
+const publicModuleSettingSchema = z.object({
+  race_id: z.string().uuid().nullable(),
+  module_key: z.string(),
+  is_enabled: z.boolean(),
 });
 
 export type PublicRaceRoutePoint = {
@@ -164,6 +182,45 @@ const toPublicLocation = (location: { label: string | null; googleMapsUrl: strin
   label: location.label,
   googleMapsUrl: location.googleMapsUrl,
 });
+
+async function loadPublicOrganizerModules(
+  config: SupabaseServiceConfig,
+  editionId: string,
+  raceId: string,
+): Promise<Record<OrganizerModuleKey, boolean>> {
+  const [settingRows, entitlementRows] = await Promise.all([
+    fetchServiceRows(
+      config,
+      `organizer_racebook_module_settings?edition_id=eq.${encodeURIComponent(editionId)}&select=race_id,module_key,is_enabled`,
+      publicModuleSettingSchema,
+    ),
+    fetchServiceRows(
+      config,
+      `organizer_edition_entitlements?edition_id=eq.${encodeURIComponent(editionId)}&select=tier,status&limit=1`,
+      publicEntitlementSchema,
+    ),
+  ]);
+  const settings = {
+    edition: { ...defaultEditionModuleSettings },
+    races: { [raceId]: { ...defaultRaceModuleSettings } },
+  };
+
+  for (const row of settingRows) {
+    if (row.race_id) {
+      if (row.race_id !== raceId || !(row.module_key in defaultRaceModuleSettings)) continue;
+      settings.races[raceId][row.module_key as OrganizerRaceModuleKey] = row.is_enabled;
+    } else if (row.module_key in defaultEditionModuleSettings) {
+      settings.edition[row.module_key as OrganizerEditionModuleKey] = row.is_enabled;
+    }
+  }
+
+  const entitlement = entitlementRows[0];
+  return effectiveOrganizerModules(
+    entitlement?.status === "active" ? entitlement.tier : "visibility",
+    settings,
+    raceId,
+  );
+}
 
 export function buildPublicRaceRoutePreview(gpxContent: string, maxPoints = 600): PublicRaceRoutePreview {
   const parsed = parseGpx(gpxContent);
@@ -286,14 +343,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
 
     const racebookIsLive = sourceRace.racebook_is_live === true;
     const publicModules: Record<OrganizerModuleKey, boolean> = sourceRace.edition_id && racebookIsLive
-      ? await Promise.all([
-          loadOrganizerModuleSettings(config, sourceRace.edition_id, [sourceRace.id]),
-          loadOrganizerEditionEntitlement(config, sourceRace.edition_id),
-        ]).then(([settings, entitlement]) => effectiveOrganizerModules(
-          entitlement?.status === "active" ? entitlement.tier : "visibility",
-          settings,
-          sourceRace.id,
-        ))
+      ? await loadPublicOrganizerModules(config, sourceRace.edition_id, sourceRace.id)
       : Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, !sourceRace.edition_id && racebookIsLive])) as Record<OrganizerModuleKey, boolean>;
 
     const eventDetails = parseOrganizerEventDetails(events[0]?.organizer_details);
