@@ -24,6 +24,8 @@ related_tables:
 
 # `race_relay_points`
 
+The maximum-time header uses only the official departure and finish cutoff; it does not infer duration from relay handovers or alter relay rows and derived legs.
+
 Relais reste un sous-onglet conditionnel de Course dans un Livret à cinq onglets permanents. Les cartes utilisent la couleur principale d'identité plutôt que l'accent réservé au tracé/ravito ; aucun point, ordre ou segment dérivé ne change.
 
 RaceBook personal passage-time interpolation applies to official aid stations only and does not change relay-point data.

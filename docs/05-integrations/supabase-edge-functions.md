@@ -17,6 +17,8 @@ related_tables:
 
 # Supabase Edge Functions
 
+The added mobile locale strings are client presentation only; no Edge Function request, response, secret, or deployment contract changes.
+
 ## Purpose
 
 This document describes the Supabase Edge Functions currently present in the repo. They support Expo push registration and scheduled push reminders.

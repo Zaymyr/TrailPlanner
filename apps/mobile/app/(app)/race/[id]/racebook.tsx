@@ -94,7 +94,7 @@ import { supabase } from '../../../../lib/supabase';
 import { loadPlanProductsBootstrap } from '../../../../components/plan-form/usePlanProducts';
 import { stagePlanWorkspaceWarmStart } from '../../../../lib/planEditSession';
 import { buildPlanSummary, buildProductMap, buildStoredRacePlanFromRow, formatDuration, getPlanSummaryDepartureTimeStorageKey, type PlanSummary, type PlanSummaryRow } from '../../../../lib/planSummary';
-import { normalizePlanClock } from '../../../../lib/planDeparture';
+import { normalizePlanClock, resolveMaximumRaceMinutes } from '../../../../lib/planDeparture';
 import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
 import {
   estimatePersonalPassageMinute,
@@ -1292,27 +1292,7 @@ export default function RaceRacebookScreen() {
     ].filter((value): value is string => Boolean(value));
   }, [data, t.catalog.racebookBibEquipmentCheck, t.catalog.racebookBibThirdPartyPickupAllowed]);
 
-  const courseItems = useMemo(() => {
-    if (!data) return [];
-
-    const schedule = data.runnerDetails.schedule;
-    const items: (LabeledItem | null)[] = [
-      schedule.finishCutoffTime
-        ? {
-            label: t.catalog.racebookFieldFinishCutoff,
-            value: schedule.finishCutoffTime,
-            actionUrl: null,
-            dataValue: true,
-            tone: 'critical' as const,
-          }
-        : null,
-    ];
-
-    return items.filter((value): value is LabeledItem => Boolean(value));
-  }, [
-    data,
-    t.catalog.racebookFieldFinishCutoff,
-  ]);
+  const courseItems: LabeledItem[] = [];
 
   const courseConstraintLines = useMemo(() => {
     if (!data) return [];
@@ -1466,6 +1446,14 @@ export default function RaceRacebookScreen() {
   const resolvedStartTime = personalDepartureClock
     ?? normalizePlanClock(data?.runnerDetails.schedule.startTime)
     ?? normalizePlanClock(data?.startWaves[0]?.startTime);
+  const officialStartTime = normalizePlanClock(data?.runnerDetails.schedule.startTime)
+    ?? normalizePlanClock(data?.startWaves[0]?.startTime);
+  const maximumRaceMinutes = resolveMaximumRaceMinutes(
+    officialStartTime,
+    data?.runnerDetails.schedule.finishCutoffTime,
+  );
+  const maximumRaceLabel = maximumRaceMinutes === null ? null : formatDuration(maximumRaceMinutes);
+  const planBeyondCutoff = Boolean(linkedPlan && maximumRaceMinutes !== null && linkedPlan.summary.totalDurationMin > maximumRaceMinutes);
   const personalPlanReflection = useMemo<{
     byStationId: Record<string, RacebookPersonalAidStationPlan>;
     finish: RacebookPersonalAidStationPlan | null;
@@ -1898,12 +1886,14 @@ export default function RaceRacebookScreen() {
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
           startTimeLabel={t.catalog.racebookMapStart}
           startTimeValue={resolvedStartTime}
+          maxTimeLabel={t.planWorkspace.maximumTime}
+          maxTimeValue={maximumRaceLabel}
           distanceLabel={formatDistance(data.race.distanceKm, locale)}
           elevationGainLabel={formatElevation(data.race.elevationGainM, locale)}
           elevationLossLabel={data.race.elevationLossM !== null ? formatElevation(data.race.elevationLossM, locale) : null}
           elevationCaption={t.catalog.racebookElevationGainMetric}
           descentCaption={t.catalog.racebookElevationLossMetric}
-          planDurationLabel={linkedPlan ? formatDuration(linkedPlan.summary.totalDurationMin) : null}
+          planDurationLabel={linkedPlan ? `${formatDuration(linkedPlan.summary.totalDurationMin)}${planBeyondCutoff ? ` · ${t.planWorkspace.beyondCutoff}` : ''}` : null}
           planDurationCaption={t.catalog.racebookExpectedTime}
           planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
           planPaceCaption={t.catalog.racebookPace}

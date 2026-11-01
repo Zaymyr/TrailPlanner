@@ -23,6 +23,8 @@ related_tables:
 
 # `race_edition_services`
 
+The shared RaceBook identity header and finish-cutoff placement do not change edition-service reads, grouping, visibility, or actions.
+
 Services reste l'un des cinq onglets permanents, même sans contenu. Les icônes et actions interactives utilisent désormais la palette Pace Yourself ; l'identité organisateur n'altère toujours ni les catégories, ni les URL, ni la visibilité des lignes.
 
 RaceBook personal passage-time interpolation is client-only and does not alter this table's service contract.

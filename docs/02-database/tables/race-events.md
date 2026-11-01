@@ -96,6 +96,8 @@ related_tables:
 
 # `race_events`
 
+The Plan and RaceBook headers may read the existing event name, date, and location for one common identity row. This is presentation-only and introduces no event column, write, or publication rule.
+
 La sortie du Livret se fait uniquement par le retour d'en-tête ou système. Elle rejoint Courses par défaut et Plans lorsque l'ouverture provient de l'éditeur ; cette origine de navigation ne modifie aucun champ d'événement. L'en-tête compact utilise un fond organisateur uni et regroupe les URL officielles dans une feuille sans changer leur source dans `organizer_details`.
 
 RaceBook personal passage-time interpolation uses the existing event date for clock labels and introduces no event column.

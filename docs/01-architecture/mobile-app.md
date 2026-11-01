@@ -6,6 +6,7 @@ ai_priority: high
 related_files:
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
   - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceHeaderCommon.tsx
   - apps/mobile/lib/planPreviewBoundary.ts
   - apps/mobile/lib/planPreviewBoundary.test.ts
   - apps/mobile/lib/racebook.ts
@@ -177,6 +178,8 @@ related_tables:
 ---
 
 # Mobile App Architecture
+
+Plan and RaceBook now compose the same left-aligned identity, official date/location/departure row, and ordered `Distance / D+ / D− / Temps prévu / Allure` metrics. A parseable official finish cutoff adds `Temps max.` without letting a personal SAS alter the duration; an over-limit prediction is labelled in the metric. Plan access is tri-state: cached capabilities seed the warm workspace, the server confirms them silently, and an unknown state never renders free or Premium locks.
 
 Le Livret conserve cinq onglets permanents et ne propose plus de sortie dans sa barre contextuelle ; le retour de l'en-tête et le retour système rejoignent Courses, ou Plans lorsque le Livret a été ouvert depuis l'éditeur. L'éditeur de plan suit la même règle avec trois onglets sans sortie dupliquée. Les heures personnelles sont arrondies à la minute avant affichage et comparaison aux barrières. L'en-tête compact masque l'image organisateur sous un fond principal uni, regroupe les liens dans une feuille unique et réserve l'accent organisateur au tracé et aux repères de ravito ; les contrôles interactifs gardent les couleurs Pace Yourself.
 

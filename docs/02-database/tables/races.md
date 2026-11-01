@@ -69,6 +69,8 @@ related_tables:
 
 # `races`
 
+Mobile Plan/RaceBook headers read existing format date, location, organizer schedule and elevation fields for a shared identity presentation. The display-only maximum duration adds no column and never writes a personal departure or prediction into the format row.
+
 Le Livret conserve cinq onglets même lorsque certains modules sont vides ; les collections publiées restent filtrées par leurs contrats existants. L'arrondi des passages, le fond compact uni, la feuille de liens et le retour vers Courses/Plans sont des comportements client qui n'ajoutent ni ne modifient aucune colonne de `races`.
 
 RaceBook passage interpolation uses the existing format distance and official aid-station kilometers; it adds no race field.

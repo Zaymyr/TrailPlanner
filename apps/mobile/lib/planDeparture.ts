@@ -16,6 +16,23 @@ export function readOrganizerStartTime(details: unknown) {
   return normalizePlanClock((schedule as Record<string, unknown>).startTime);
 }
 
+export function readOrganizerFinishCutoffTime(details: unknown) {
+  if (!details || typeof details !== 'object' || Array.isArray(details)) return null;
+  const schedule = (details as Record<string, unknown>).schedule;
+  if (!schedule || typeof schedule !== 'object' || Array.isArray(schedule)) return null;
+  return normalizePlanClock((schedule as Record<string, unknown>).finishCutoffTime);
+}
+
+export function resolveMaximumRaceMinutes(startTime: string | null | undefined, finishCutoffTime: string | null | undefined) {
+  const start = normalizePlanClock(startTime);
+  const finish = normalizePlanClock(finishCutoffTime);
+  if (!start || !finish) return null;
+  const [startHours, startMinutes] = start.split(':').map(Number);
+  const [finishHours, finishMinutes] = finish.split(':').map(Number);
+  const elapsed = (finishHours * 60 + finishMinutes - (startHours * 60 + startMinutes) + 1440) % 1440;
+  return elapsed > 0 ? elapsed : 1440;
+}
+
 export function buildLocalDepartureAt(raceDate: string | null | undefined, startTime: string | null) {
   if (!raceDate || !/^\d{4}-\d{2}-\d{2}$/.test(raceDate) || !startTime) return null;
   return `${raceDate}T${startTime}:00`;

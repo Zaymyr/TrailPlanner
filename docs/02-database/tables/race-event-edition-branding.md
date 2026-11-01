@@ -34,6 +34,8 @@ related_tables:
 
 # `race_event_edition_branding`
 
+The shared Plan/RaceBook header changes layout only: RaceBook still resolves published primary/on-primary colors and keeps its organizer image, logo and additional actions after the common identity/metrics content. No branding field or fallback changes.
+
 La présentation mobile limite la couleur principale publiée à l'en-tête et aux repères d'identité, et la couleur d'accent au tracé et aux repères de ravito. Les cases, liens, sélecteurs et boutons utilisent la palette Pace Yourself. En mode compact, l'image disparaît sous un fond principal uni ; en mode déplié, un voile renforcé protège le contraste. Les liens sociaux sont regroupés dans une feuille ouverte par un unique contrôle de 44 points.
 
 RaceBook ravito cards continue to consume the resolved edition theme, but no longer render official or personal nutrition product lists. This presentation change does not alter the branding contract or its fallback rules.
