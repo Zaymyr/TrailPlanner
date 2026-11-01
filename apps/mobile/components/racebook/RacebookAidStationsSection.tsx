@@ -59,6 +59,9 @@ type RacebookAidStationsSectionProps = {
   onToggleStation: (station: RacebookAidStation) => void;
   personalPlanByStationId?: Record<string, RacebookPersonalAidStationPlan>;
   finishPersonalPlan?: RacebookPersonalAidStationPlan | null;
+  /** Official cutoffs already resolved in course order, e.g. "J+2 · 01:00". */
+  officialCutoffDisplayByStationId?: Record<string, string>;
+  officialFinishCutoffDisplay?: string | null;
   onEditPersonalPlanStation?: (station: RacebookAidStation) => void;
 };
 
@@ -98,6 +101,7 @@ function AidStationCard({
   onToggle,
   theme,
   personalPlan,
+  officialCutoffDisplay,
   onEditPersonalPlan,
   locale,
 }: {
@@ -110,12 +114,14 @@ function AidStationCard({
   onToggle: () => void;
   theme: ResolvedRacebookTheme;
   personalPlan?: RacebookPersonalAidStationPlan;
+  officialCutoffDisplay?: string | null;
   onEditPersonalPlan?: () => void;
   copy: Omit<RacebookAidStationCopy, 'sectionTitle' | 'emptyMessage'>;
   locale: 'fr' | 'en';
 }) {
   const officialCutoffTime = finishCutoffTime ?? station.organizerDetails.cutoffTime;
   const cutoffTime = personalPlan?.cutoffDisplay
+    ?? officialCutoffDisplay
     ?? normalizeSimpleClock(officialCutoffTime)
     ?? officialCutoffTime;
   const distanceKm = displayDistanceKm ?? station.km;
@@ -438,6 +444,8 @@ export function RacebookAidStationsSection({
   onToggleStation,
   personalPlanByStationId = {},
   finishPersonalPlan = null,
+  officialCutoffDisplayByStationId = {},
+  officialFinishCutoffDisplay = null,
   onEditPersonalPlanStation,
 }: RacebookAidStationsSectionProps) {
   const finishStation = resolveRacebookFinishStation(stations);
@@ -519,6 +527,7 @@ export function RacebookAidStationsSection({
                   copy={copy}
                   locale={locale}
                   personalPlan={personalPlanByStationId[station.id]}
+                  officialCutoffDisplay={officialCutoffDisplayByStationId[station.id]}
                   onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(station) : undefined}
                 />
               </View>
@@ -557,6 +566,7 @@ export function RacebookAidStationsSection({
               copy={copy}
               locale={locale}
               personalPlan={personalPlanByStationId[finishStation.id]}
+              officialCutoffDisplay={officialCutoffDisplayByStationId[finishStation.id] ?? officialFinishCutoffDisplay}
               onEditPersonalPlan={onEditPersonalPlanStation ? () => onEditPersonalPlanStation(finishStation) : undefined}
             />
           ) : (
@@ -566,7 +576,7 @@ export function RacebookAidStationsSection({
               locale={locale}
               time={finish.cutoffTime ? {
                 label: copy.aidCutoffTime,
-                value: normalizeSimpleClock(finish.cutoffTime) ?? finish.cutoffTime,
+                value: officialFinishCutoffDisplay ?? normalizeSimpleClock(finish.cutoffTime) ?? finish.cutoffTime,
                 tone: 'critical',
               } : null}
             />

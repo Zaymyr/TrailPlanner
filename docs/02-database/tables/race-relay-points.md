@@ -24,6 +24,8 @@ related_tables:
 
 # `race_relay_points`
 
+Chronological cutoff resolution reads aid-station cutoffs only; relay handover times stay independent.
+
 Lot 10 renders Solo/Relais participation in the RaceBook-only header footer row, after the shared metrics and beside the emergency label, phone and call action. Relay rows, derived legs and the conditional `Relais` tab are unchanged.
 
 The maximum-time header uses only the official departure and finish cutoff; it does not infer duration from relay handovers or alter relay rows and derived legs.

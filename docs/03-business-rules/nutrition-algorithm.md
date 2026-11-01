@@ -83,6 +83,8 @@ related_tables:
 
 # Nutrition Algorithm
 
+Waiting for resolved plan access before rendering the editor delays only the first display; nutrition calculations, auto-fill and saved products are unchanged.
+
 The measured plan workspace header height (lot 10) only moves the pinned ravito controls and content offset; it changes no nutrition calculation, allocation, or saved product.
 
 The mobile auto-fill inventory sheet exposes each selected product as a 44-point minus/value/plus stepper with an explicit unlimited action. Entering a limit starts at one, product names may wrap to two lines, and the resulting nullable maximum continues to constrain both preview and application through the existing allocation contract.

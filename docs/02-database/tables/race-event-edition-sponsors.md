@@ -38,6 +38,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+Chronological cutoff display and the Courses image placeholder are not sponsor surfaces.
+
 The race-workspace header toolbar/footer layout (lot 10) is not a sponsor surface and does not change sponsor loading, placement, impressions, or reporting.
 
 The shared RaceBook identity block remains ahead of RaceBook-only sponsor/emergency content and does not change sponsor selection, impression, click, or placement contracts.

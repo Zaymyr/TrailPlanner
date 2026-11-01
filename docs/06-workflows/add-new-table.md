@@ -36,6 +36,8 @@ related_tables:
 
 # Add New Table
 
+Presentation-only mobile changes that touch files referenced by `schema-overview.md` (such as the Courses card image placeholder) still update that overview's note, but add no table and need no migration.
+
 ## Purpose
 
 Use this workflow when adding a Supabase table to Pace Yourself.

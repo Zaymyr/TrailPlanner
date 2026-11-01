@@ -24,6 +24,8 @@ related_tables:
 
 # `race_start_waves`
 
+Official cutoffs are resolved from the official (or first ordered SAS) departure; a personal departure only shifts the comparison with the runner's passages and never changes SAS times.
+
 The race-workspace header toolbar/footer layout (lot 10) keeps the same departure fallback and does not alter SAS visibility, ordering, or time authority.
 
 The shared header may use the first ordered SAS only when the common organizer departure is absent. Personal departure selection does not alter the maximum duration derived from that official departure and the finish cutoff.

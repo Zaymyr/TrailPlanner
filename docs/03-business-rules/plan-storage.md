@@ -57,7 +57,7 @@ related_tables:
 
 The plan workspace header now reports its measured expanded height (lot 10); offsets are local UI state and nothing is added to `planner_values` or the saved row.
 
-The mobile editor seeds plan capabilities from the user-and-plan cache before its background server confirmation. Access remains tri-state while unresolved: the editor shows a neutral checking/retry state and never interprets a missing response as free access or briefly exposes locked Premium presentation.
+The mobile editor keeps the plan loading screen until the server has resolved the plan capabilities for the current plan id; it no longer renders the workspace from cached capabilities first. The access request times out after 6 seconds; only then (or on a network error) is the user-and-plan cache used as a fallback, and without a cache the editor shows the access error with Retry. Returning to an already checked plan refreshes access in the background without the loading screen. Access remains tri-state: a missing response is never interpreted as free access, and neither the free nor the Premium presentation is shown before resolution.
 
 La réflexion du plan dans le Livret arrondit désormais chaque minute de passage avec `Math.round` avant de calculer le jour, l'heure affichée, l'occurrence de barrière et l'alerte de retard. Un arrondi qui franchit minuit produit donc le même `J+N` pour l'affichage et la comparaison. Les barres contextuelles Livret et plan ne portent plus d'action de sortie ; les retours d'en-tête et Android conservent les destinations Courses ou Plans sans modifier la persistance.
 
