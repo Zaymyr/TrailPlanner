@@ -135,15 +135,31 @@ for all to service_role using (true) with check (true);
 
 
 -- Explicit privileges: RLS alone does not remove default schema grants.
-revoke all on public.runner_plan_unlocks, public.runner_subscription_accounts,
-  public.runner_billing_events, public.runner_purchase_intents,
-  public.runner_monetization_config, public.runner_plan_history,
-  public.runner_admin_access_modes from public, anon, authenticated;
-grant select on public.runner_plan_unlocks, public.runner_plan_history, public.runner_purchase_intents to authenticated;
-grant all on public.runner_plan_unlocks, public.runner_subscription_accounts,
-  public.runner_billing_events, public.runner_purchase_intents,
-  public.runner_monetization_config, public.runner_plan_history,
-  public.runner_admin_access_modes to service_role;
+-- Keep each table decision separate so privilege reviews cannot hide a table in
+-- a multi-object GRANT or REVOKE statement.
+revoke all on public.runner_plan_unlocks from public, anon, authenticated, service_role;
+grant select on public.runner_plan_unlocks to authenticated;
+grant all on public.runner_plan_unlocks to service_role;
+
+revoke all on public.runner_subscription_accounts from public, anon, authenticated, service_role;
+grant all on public.runner_subscription_accounts to service_role;
+
+revoke all on public.runner_billing_events from public, anon, authenticated, service_role;
+grant all on public.runner_billing_events to service_role;
+
+revoke all on public.runner_purchase_intents from public, anon, authenticated, service_role;
+grant select on public.runner_purchase_intents to authenticated;
+grant all on public.runner_purchase_intents to service_role;
+
+revoke all on public.runner_monetization_config from public, anon, authenticated, service_role;
+grant all on public.runner_monetization_config to service_role;
+
+revoke all on public.runner_plan_history from public, anon, authenticated, service_role;
+grant select on public.runner_plan_history to authenticated;
+grant all on public.runner_plan_history to service_role;
+
+revoke all on public.runner_admin_access_modes from public, anon, authenticated, service_role;
+grant all on public.runner_admin_access_modes to service_role;
 
 create or replace function public.runner_session_mode(target_user_id uuid)
 returns text language sql stable security definer set search_path = public as $$
