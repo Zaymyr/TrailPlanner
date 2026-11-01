@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import { StatusBar } from 'expo-status-bar';
-import { Animated, Image, Pressable, StyleSheet, View } from 'react-native';
+import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
@@ -44,6 +44,8 @@ type Props = {
   planPaceLabel: string | null;
   planPaceCaption: string;
   backLabel: string;
+  linksLabel: string;
+  closeLabel: string;
   theme: ResolvedRacebookTheme;
   socialLinks: SocialLink[];
   emergency: {
@@ -83,6 +85,8 @@ export function RacebookCollapsibleHero({
   planPaceLabel,
   planPaceCaption,
   backLabel,
+  linksLabel,
+  closeLabel,
   theme,
   socialLinks,
   emergency,
@@ -92,6 +96,7 @@ export function RacebookCollapsibleHero({
   onOpenSocial,
 }: Props) {
   const [isCompact, setIsCompact] = useState(false);
+  const [linksVisible, setLinksVisible] = useState(false);
   const expandedHeight = topInset + expandedBodyHeight;
   const compactHeight = topInset + RACEBOOK_HERO_COMPACT_BODY_HEIGHT;
   const collapseDistance = expandedHeight - compactHeight;
@@ -110,12 +115,7 @@ export function RacebookCollapsibleHero({
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-  const bottomRadius = scrollY.interpolate({
-    inputRange: [0, collapseDistance],
-    outputRange: [26, 0],
-    extrapolate: 'clamp',
-  });
-  const compactActionCount = socialLinks.length + (isCompact && emergency && onCallEmergency ? 1 : 0);
+  const compactActionCount = (socialLinks.length > 0 ? 1 : 0) + (isCompact && emergency && onCallEmergency ? 1 : 0);
 
   useEffect(() => {
     const listenerId = scrollY.addListener(({ value }) => {
@@ -132,16 +132,17 @@ export function RacebookCollapsibleHero({
         {
           height: heroHeight,
           backgroundColor: theme.primaryColor,
-          borderBottomLeftRadius: bottomRadius,
-          borderBottomRightRadius: bottomRadius,
         },
       ]}
     >
       <StatusBar style={theme.onPrimaryColor === '#FFFFFF' ? 'light' : 'dark'} />
       {imageUrl ? (
-        <Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessible={false} />
+        <Animated.View style={[styles.heroImage, { top: topInset, opacity: expandedOpacity }]}>
+          <Animated.Image source={{ uri: imageUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" accessible={false} />
+        </Animated.View>
       ) : null}
-      <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: imageUrl ? 0.84 : 1 }]} />
+      <Animated.View style={[StyleSheet.absoluteFill, { backgroundColor: theme.primaryColor, opacity: imageUrl ? 0.92 : 1 }]} />
+      {imageUrl ? <Animated.View style={[StyleSheet.absoluteFill, styles.contrastVeil, { opacity: expandedOpacity }]} /> : null}
 
       <Pressable
         accessibilityLabel={backLabel}
@@ -191,17 +192,14 @@ export function RacebookCollapsibleHero({
               <Ionicons name="call" size={17} color={theme.onPrimaryColor} />
             </Pressable>
           ) : null}
-          {socialLinks.map((link) => (
-            <Pressable
-              key={link.action}
-              accessibilityRole="link"
-              accessibilityLabel={link.accessibilityLabel}
-              onPress={() => onOpenSocial(link.url, link.action)}
-              style={({ pressed }) => [styles.socialAction, pressed && styles.pressed]}
-            >
-              <Ionicons name={link.icon} size={17} color={theme.onPrimaryColor} />
-            </Pressable>
-          ))}
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={linksLabel}
+            onPress={() => setLinksVisible(true)}
+            style={({ pressed }) => [styles.socialAction, pressed && styles.pressed]}
+          >
+            <Ionicons name="link-outline" size={18} color={theme.onPrimaryColor} />
+          </Pressable>
         </View>
       ) : isCompact && emergency && onCallEmergency ? (
         <View style={[styles.persistentSocialActions, { top: topInset + 8 }]}>
@@ -217,7 +215,7 @@ export function RacebookCollapsibleHero({
       ) : null}
 
       <Animated.View style={[styles.expandedContent, { paddingTop: topInset + 10, opacity: expandedOpacity }]}>
-        <View style={[styles.topRow, { paddingRight: socialLinks.length * 48 }]}>
+        <View style={[styles.topRow, { paddingRight: socialLinks.length > 0 ? 48 : 0 }]}>
           <View style={styles.heading}>
             {eventName && eventName !== raceName ? (
               <Text style={[styles.kicker, { color: theme.onPrimaryColor }]}>{eventName}</Text>
@@ -298,6 +296,43 @@ export function RacebookCollapsibleHero({
           </View>
         ) : null}
       </Animated.View>
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setLinksVisible(false)}
+        transparent
+        visible={linksVisible}
+      >
+        <Pressable accessibilityRole="button" onPress={() => setLinksVisible(false)} style={styles.linksBackdrop}>
+          <Pressable accessibilityRole="none" onPress={(event) => event.stopPropagation()} style={styles.linksSheet}>
+            <View style={styles.linksHeader}>
+              <Heading variant="h3" style={styles.linksTitle}>{linksLabel}</Heading>
+              <Pressable
+                accessibilityLabel={closeLabel}
+                accessibilityRole="button"
+                onPress={() => setLinksVisible(false)}
+                style={({ pressed }) => [styles.linksClose, pressed && styles.pressed]}
+              >
+                <Ionicons name="close" size={22} color={Colors.textPrimary} />
+              </Pressable>
+            </View>
+            {socialLinks.map((link) => (
+              <Pressable
+                key={link.action}
+                accessibilityRole="link"
+                onPress={() => {
+                  setLinksVisible(false);
+                  onOpenSocial(link.url, link.action);
+                }}
+                style={({ pressed }) => [styles.linkRow, pressed && styles.pressed]}
+              >
+                <Ionicons name={link.icon} size={20} color={Colors.brandPrimary} />
+                <Text style={styles.linkLabel}>{link.accessibilityLabel}</Text>
+                <Ionicons name="open-outline" size={18} color={Colors.textSecondary} />
+              </Pressable>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
     </Animated.View>
   );
 }
@@ -307,18 +342,20 @@ function Meta({ icon, label, color, underlined = false }: { icon: keyof typeof I
 }
 
 function Metric({ value, label, color }: { value: string; label: string; color: string }) {
-  return <View style={styles.metric}><DataText numberOfLines={1} style={[styles.metricValue, { color }]}>{value}</DataText><Text numberOfLines={1} style={[styles.metricLabel, { color }]}>{label}</Text></View>;
+  return <View style={styles.metric}><DataText adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[styles.metricValue, { color }]}>{value}</DataText><Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} style={[styles.metricLabel, { color }]}>{label}</Text></View>;
 }
 
 const styles = StyleSheet.create({
-  hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
-  backButton: { position: 'absolute', zIndex: 4, left: 12, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
+  hero: { position: 'absolute', zIndex: 20, top: 0, left: 0, right: 0, overflow: 'hidden', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#1A1A1A', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 7 }, elevation: 8 },
+  heroImage: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  contrastVeil: { backgroundColor: 'rgba(0,0,0,0.14)' },
+  backButton: { position: 'absolute', zIndex: 4, left: 16, width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.34)', backgroundColor: 'rgba(0,0,0,0.22)' },
   pressed: { opacity: 0.64 },
   compactContent: { position: 'absolute', left: 64, flexDirection: 'row', alignItems: 'center', gap: 10 },
   compactTitleWrap: { flex: 1, minWidth: 0 },
   compactTitle: { fontSize: 17, lineHeight: 21, fontWeight: '800' },
   compactKicker: { fontSize: 10, lineHeight: 13, fontWeight: '700', opacity: 0.78 },
-  expandedContent: { flex: 1, justifyContent: 'flex-start', gap: 10, paddingHorizontal: 20, paddingBottom: 14 },
+  expandedContent: { flex: 1, justifyContent: 'flex-start', gap: 10, paddingHorizontal: 16, paddingBottom: 14 },
   topRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 },
   heading: { flex: 1, minWidth: 0, minHeight: 50, justifyContent: 'center', gap: 2, paddingLeft: 44 },
   kicker: { fontSize: 11, lineHeight: 15, fontWeight: '800', letterSpacing: 0.8, textTransform: 'uppercase', opacity: 0.86 },
@@ -326,7 +363,7 @@ const styles = StyleSheet.create({
   detailsRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logoSurface: { width: 62, height: 52, flexShrink: 0, padding: 5, borderRadius: 13, backgroundColor: Colors.surface },
   logo: { width: '100%', height: '100%' },
-  persistentSocialActions: { position: 'absolute', zIndex: 5, right: 12, flexDirection: 'row', gap: 4 },
+  persistentSocialActions: { position: 'absolute', zIndex: 5, right: 16, flexDirection: 'row', gap: 4 },
   socialAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.36)', backgroundColor: 'rgba(0,0,0,0.18)' },
   compactEmergencyAction: { backgroundColor: 'rgba(176,28,28,0.44)' },
   metaGroup: { flex: 1, minWidth: 0, gap: 5 },
@@ -348,4 +385,11 @@ const styles = StyleSheet.create({
   emergencyPhone: { flexShrink: 0, fontSize: 13, lineHeight: 17, fontWeight: '800' },
   emergencyCallButton: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, borderRadius: 22, borderWidth: 1, borderColor: 'rgba(255,255,255,0.38)', backgroundColor: 'rgba(255,255,255,0.1)' },
   emergencyCallLabel: { fontSize: 11, lineHeight: 14, fontWeight: '800' },
+  linksBackdrop: { flex: 1, justifyContent: 'flex-end', padding: 16, backgroundColor: 'rgba(26,26,26,0.42)' },
+  linksSheet: { gap: 8, padding: 16, borderRadius: 20, backgroundColor: Colors.surface },
+  linksHeader: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  linksTitle: { flex: 1, color: Colors.textPrimary },
+  linksClose: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: 22, backgroundColor: Colors.surfaceSecondary },
+  linkRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 12, borderRadius: 12, backgroundColor: Colors.surfaceSecondary },
+  linkLabel: { flex: 1, color: Colors.textPrimary, fontSize: 14, lineHeight: 19, fontWeight: '700' },
 });

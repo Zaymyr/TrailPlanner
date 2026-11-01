@@ -23,6 +23,8 @@ related_tables:
 
 # `race_awards`
 
+Le Livret affiche toujours Podiums comme sous-onglet conditionnel de Course. La barre basse ne contient plus de sortie et les cartes de podium utilisent l'identité principale organisateur plutôt que son accent ; ces changements de navigation et de présentation ne modifient ni les lignes, ni l'ordre, ni les règles de visibilité.
+
 RaceBook personal passage-time interpolation is client-only and does not alter this table's awards contract.
 
 > CTA scope: the RaceBook plan CTA resolves only the current runner's saved plan for the exact `race_id`; it does not read, reorder, or change award rows or Podiums visibility.
@@ -61,7 +63,7 @@ Published rows travel in the consolidated RaceBook CDN snapshot. A successful at
 
 The 2026-09-14 iOS accessibility pass changes only mobile input, gesture, and motion presentation; award rows, ordering, visibility, and read/write contracts remain unchanged.
 
-The RaceBook contextual bottom navigation exposes only primary sections and mirrors the global bar's color-only active treatment. Podiums remains a conditional Course sub-tab, so the hero's emergency action, focus-time scroll reset, route-replacing Courses exit, and navigation presentation do not alter award visibility or persistence.
+The RaceBook contextual bottom navigation exposes five primary sections without a duplicated exit and mirrors the global bar's color-only active treatment. Podiums remains a conditional Course sub-tab, so the hero's emergency action, focus-time scroll reset, header/system return, and navigation presentation do not alter award visibility or persistence.
 
 Award cards now use the published accent surface and contrast-safe accent text. This is presentation-only; personal equipment checks live separately in `racebook_gear_checks` and do not alter award rows.
 
@@ -71,7 +73,7 @@ Per-format GPX map/profile choices affect only the `Tracé` cards and remain ind
 
 Fullscreen course visuals and tappable ravito markers remain presentation-only and do not change podium grouping, ordering, or persistence.
 
-Global Booking and Decathlon actions are loaded through their own server-mediated contract. Booking renders in the permanent Services tab, while Decathlon renders in Matériel above required equipment. Neither action reads, filters, or alters award rows or the conditional Podiums view.
+Global Booking and Decathlon actions are loaded through their own server-mediated contract. Booking renders in the permanent Services tab, while Decathlon renders after the Matériel checklist with generic copy. Neither action reads, filters, or alters award rows or the conditional Podiums view.
 
 Supporter points are an independent Course collection and module. Their presence does not enable, hide, reorder, or otherwise modify award rows or the Podiums sub-tab.
 

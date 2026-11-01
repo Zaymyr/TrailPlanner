@@ -19,6 +19,8 @@ related_tables:
 
 # race_supporter_points
 
+Mobile présente maintenant le nom puis les autorisations sur deux lignes, centre ce bloc face à la distance et aux actions et localise tous les libellés visibles. Les URL, permissions, coordonnées, ordre et limites analytics restent inchangés.
+
 When the deployed web snapshot predates `supporterPointRows`, mobile may read this table directly; the public-select RLS policy remains responsible for exposing only complete points from an effective module.
 
 ## Purpose

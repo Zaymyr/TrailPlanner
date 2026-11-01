@@ -87,7 +87,6 @@ import {
   buildRacebookGearToggleProperties,
 } from '../../../../lib/racebookGearAnalytics';
 import {
-  countMissingRequiredRacebookGearItems,
   loadRacebookGearChecks,
   saveRacebookGearCheck,
 } from '../../../../lib/racebookGearChecklist';
@@ -292,8 +291,8 @@ function groupBibPickupSlots(
   return [...groups.values()];
 }
 
-function formatDistance(distanceKm: number) {
-  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
+function formatDistance(distanceKm: number, locale: 'fr' | 'en') {
+  return distanceKm.toLocaleString(locale, { maximumFractionDigits: distanceKm >= 100 ? 0 : 1 });
 }
 
 function formatElevation(elevationM: number, locale: 'fr' | 'en') {
@@ -343,6 +342,7 @@ function CourseProfileCard({
   locale: 'fr' | 'en';
 }) {
   const brandTheme = useRacebookBrandTheme();
+  const { t } = useI18n();
   const [fullscreen, setFullscreen] = useState(false);
   const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
   const landscapeWidth = Math.max(viewportWidth, viewportHeight);
@@ -352,13 +352,13 @@ function CourseProfileCard({
       <View style={styles.courseVisualHeader}>
         <View style={styles.courseVisualTitleWrap}>
           <Text style={styles.sectionTitle}>{title}</Text>
-          <Text style={styles.courseVisualHint}>{locale === 'fr' ? 'Glissez sur la courbe · touchez un ravito' : 'Slide on the profile · tap an aid station'}</Text>
+          <Text style={styles.courseVisualHint}>{t.catalog.racebookProfileHint}</Text>
         </View>
         <Pressable
           style={[styles.expandButton, { borderColor: brandTheme.accentBorderColor }]}
           onPress={() => setFullscreen(true)}
           accessibilityRole="button"
-          accessibilityLabel={locale === 'fr' ? 'Agrandir le profil en plein écran' : 'Expand profile full screen'}
+          accessibilityLabel={t.catalog.racebookProfileExpand}
         >
           <Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />
         </Pressable>
@@ -397,13 +397,13 @@ function CourseProfileCard({
             <View style={styles.fullscreenHeader}>
               <View style={styles.courseVisualTitleWrap}>
                 <Text style={styles.fullscreenTitle}>{title}</Text>
-                <Text style={styles.fullscreenSubtitle}>{locale === 'fr' ? 'Tournez le téléphone · glissez sur la courbe' : 'Turn your phone · slide on the profile'}</Text>
+                <Text style={styles.fullscreenSubtitle}>{t.catalog.racebookProfileFullscreenHint}</Text>
               </View>
               <Pressable
                 style={styles.fullscreenClose}
                 onPress={() => setFullscreen(false)}
                 accessibilityRole="button"
-                accessibilityLabel={locale === 'fr' ? 'Fermer le plein écran' : 'Close full screen'}
+                accessibilityLabel={t.catalog.racebookFullscreenClose}
               >
                 <Ionicons name="close" size={22} color={Colors.textPrimary} />
               </Pressable>
@@ -440,6 +440,7 @@ function CourseMapCard({
   locale: 'fr' | 'en';
 }) {
   const brandTheme = useRacebookBrandTheme();
+  const { t } = useI18n();
   const [fullscreen, setFullscreen] = useState(false);
   const { height: viewportHeight } = useWindowDimensions();
   const modalInsets = useSafeAreaInsets();
@@ -448,13 +449,13 @@ function CourseMapCard({
       <View style={styles.courseVisualHeader}>
         <View style={styles.courseVisualTitleWrap}>
           <Text style={styles.sectionTitle}>{title}</Text>
-          <Text style={styles.courseVisualHint}>{locale === 'fr' ? 'Touchez un point pour ouvrir le ravito' : 'Tap a point to open the aid station'}</Text>
+          <Text style={styles.courseVisualHint}>{t.catalog.racebookMapHint}</Text>
         </View>
         <Pressable
           style={[styles.expandButton, { borderColor: brandTheme.accentBorderColor }]}
           onPress={() => setFullscreen(true)}
           accessibilityRole="button"
-          accessibilityLabel={locale === 'fr' ? 'Agrandir la carte en plein écran' : 'Expand map full screen'}
+          accessibilityLabel={t.catalog.racebookMapExpand}
         >
           <Ionicons name="expand" size={18} color={brandTheme.accentGraphicColor} />
         </Pressable>
@@ -476,13 +477,13 @@ function CourseMapCard({
           <View style={[styles.fullscreenMapTopBar, { paddingTop: modalInsets.top + 8 }]}>
             <View style={styles.courseVisualTitleWrap}>
               <Text style={styles.fullscreenTitle}>{title}</Text>
-              <Text style={styles.fullscreenSubtitle}>{locale === 'fr' ? 'Touchez un point ravito pour le détail' : 'Tap an aid-station point for details'}</Text>
+              <Text style={styles.fullscreenSubtitle}>{t.catalog.racebookMapFullscreenHint}</Text>
             </View>
             <Pressable
               style={styles.fullscreenClose}
               onPress={() => setFullscreen(false)}
               accessibilityRole="button"
-              accessibilityLabel={locale === 'fr' ? 'Fermer le plein écran' : 'Close full screen'}
+              accessibilityLabel={t.catalog.racebookFullscreenClose}
             >
               <Ionicons name="close" size={22} color={Colors.textPrimary} />
             </Pressable>
@@ -507,21 +508,38 @@ function InlineAlertCard({
   icon,
   title,
   message,
+  collapsible = false,
+  expandLabel,
+  collapseLabel,
 }: {
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   message: string;
+  collapsible?: boolean;
+  expandLabel?: string;
+  collapseLabel?: string;
 }) {
+  const [expanded, setExpanded] = useState(false);
   return (
     <View style={styles.alertCard}>
       <View style={styles.alertHeader}>
         <View style={styles.alertIconWrap}>
           <Ionicons name={icon} size={14} color={Colors.warning} />
         </View>
-        <Text style={styles.alertInlineText}>
+        <Text numberOfLines={collapsible && !expanded ? 1 : undefined} style={styles.alertInlineText}>
           <Text style={styles.alertTitle}>{title}</Text>
           <Text style={styles.alertBody}>{` - ${message}`}</Text>
         </Text>
+        {collapsible ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityState={{ expanded }}
+            onPress={() => setExpanded((current) => !current)}
+            style={({ pressed }) => [styles.alertToggle, pressed && styles.alertTogglePressed]}
+          >
+            <Text style={styles.alertToggleText}>{expanded ? collapseLabel : expandLabel}</Text>
+          </Pressable>
+        ) : null}
       </View>
     </View>
   );
@@ -611,7 +629,7 @@ function HeroDetailGroup({ title, values }: { title: string; values: string[] })
 }
 
 export default function RaceRacebookScreen() {
-  const { id, onboarding, tab, courseTab, targetAidStationId, planId, planWarmStartToken } = useLocalSearchParams<{
+  const { id, onboarding, tab, courseTab, targetAidStationId, planId, planWarmStartToken, returnTo } = useLocalSearchParams<{
     id?: string;
     onboarding?: 'racebook';
     tab?: string;
@@ -619,6 +637,7 @@ export default function RaceRacebookScreen() {
     targetAidStationId?: string;
     planId?: string;
     planWarmStartToken?: string;
+    returnTo?: 'plans';
   }>();
   const router = useRouter();
   const navigation = useNavigation();
@@ -769,7 +788,7 @@ export default function RaceRacebookScreen() {
     setActiveTab(normalizeRacebookTab(tab));
     setActiveCourseTab(normalizeCourseTab(courseTab));
     setExpandedAidStationId(targetAidStationId ?? null);
-  }, [courseTab, tab, targetAidStationId]);
+  }, [courseTab, id, tab, targetAidStationId]);
 
   useEffect(() => {
     setLinkedPlanId(planId ?? null);
@@ -1145,9 +1164,9 @@ export default function RaceRacebookScreen() {
   const weatherPlan = data?.runnerDetails.equipmentStatus.weatherPlan ?? 'normal';
   const weatherAlertMessage =
     weatherPlan === 'cold'
-      ? 'Plan grand froid activé - vérifie le matériel'
+      ? t.catalog.racebookWeatherColdAlert
       : weatherPlan === 'heat'
-        ? 'Plan grosse chaleur activé - vérifie le matériel'
+        ? t.catalog.racebookWeatherHeatAlert
         : null;
   const weatherAlertIcon = weatherPlan === 'heat' ? 'thermometer-outline' : 'snow-outline';
   const lastMinuteMessage = data?.runnerDetails.services.lastMinuteMessage ?? null;
@@ -1226,17 +1245,15 @@ export default function RaceRacebookScreen() {
       key: RacebookTabKey;
       label: string;
       icon: keyof typeof Ionicons.glyphMap;
-    }[] = [];
-    if (sponsorPresentation.modules.equipment) availableTabs.push({ key: 'gear', label: t.catalog.racebookTabGear, icon: 'bag-check' });
-    if (sponsorPresentation.modules.bib_pickup) availableTabs.push({ key: 'bib', label: t.catalog.racebookTabBib, icon: 'ticket' });
-    availableTabs.push({ key: 'course', label: t.catalog.racebookTabCourse, icon: 'map' });
-    if (sponsorPresentation.modules.access) availableTabs.push({ key: 'access', label: t.catalog.racebookTabAccess, icon: 'navigate' });
-
-    availableTabs.push({ key: 'services', label: t.catalog.racebookSectionServices, icon: 'grid' });
-
+    }[] = [
+      { key: 'gear', label: t.catalog.racebookTabGear, icon: 'bag-check' },
+      { key: 'bib', label: t.catalog.racebookTabBib, icon: 'ticket' },
+      { key: 'course', label: t.catalog.racebookTabCourse, icon: 'map' },
+      { key: 'access', label: t.catalog.racebookTabAccess, icon: 'navigate' },
+      { key: 'services', label: t.catalog.racebookSectionServices, icon: 'grid' },
+    ];
     return availableTabs;
   }, [
-    sponsorPresentation.modules,
     t.catalog.racebookSectionServices,
     t.catalog.racebookTabAccess,
     t.catalog.racebookTabBib,
@@ -1347,7 +1364,7 @@ export default function RaceRacebookScreen() {
     ];
     if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
     if (hasVisibleRacebookSupporterPoints(data?.supporterPoints ?? [])) {
-      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Suivi coureur' : 'Runner tracking' });
+      availableTabs.push({ key: 'supporters', label: t.catalog.racebookCourseTabSupporters });
     }
 
     if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
@@ -1362,12 +1379,12 @@ export default function RaceRacebookScreen() {
     data?.startWaves.length,
     data?.awards.length,
     data?.supporterPoints,
-    locale,
     sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
     t.catalog.racebookCourseTabAwards,
     t.catalog.racebookCourseTabRoute,
     t.catalog.racebookCourseTabStartWaves,
+    t.catalog.racebookCourseTabSupporters,
     t.catalog.racebookSectionRelay,
   ]);
 
@@ -1447,10 +1464,6 @@ export default function RaceRacebookScreen() {
   const requiredEquipment = equipmentItems.filter((item) => item.active && item.required);
   const recommendedEquipment = equipmentItems.filter((item) => item.active && !item.required);
   const conditionalEquipment = equipmentItems.filter((item) => !item.active);
-  const missingRequiredEquipmentCount = countMissingRequiredRacebookGearItems(
-    equipmentItems,
-    checkedGearItemKeys,
-  );
   const officialRevisionPending = Boolean(linkedPlan) && isPlanSourceRevisionPending(
     data?.race.planSourceUpdatedAt,
     linkedPlan?.sourceRevisionAtLastReview,
@@ -1485,7 +1498,7 @@ export default function RaceRacebookScreen() {
         ? data.runnerDetails.schedule.finishCutoffTime ?? station.organizerDetails.cutoffTime
         : station.organizerDetails.cutoffTime;
       result[station.id] = {
-        passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+        passageLabel: t.catalog.racebookExpectedPassage,
         estimatedClock,
         arrivalMinute,
         pauseMinutes: Math.max(0, checkpoint?.pauseMinutes ?? 0),
@@ -1499,7 +1512,7 @@ export default function RaceRacebookScreen() {
     const finishArrivalMinute = finishCheckpoint?.arrivalMinute
       ?? estimatePersonalPassageMinute(data.race.distanceKm, planCheckpoints);
     const finish = finishArrivalMinute === null ? null : {
-      passageLabel: locale === 'fr' ? 'Passage prévu à :' : 'Expected at:',
+      passageLabel: t.catalog.racebookExpectedPassage,
       estimatedClock: formatPersonalPassageClock(departureClock, finishArrivalMinute),
       arrivalMinute: finishArrivalMinute,
       pauseMinutes: 0,
@@ -1515,7 +1528,7 @@ export default function RaceRacebookScreen() {
       ),
     };
     return { byStationId: result, finish };
-  }, [data, linkedPlan, locale, personalDepartureClock]);
+  }, [data, linkedPlan, personalDepartureClock, t.catalog.racebookExpectedPassage]);
   const personalPlanByStationId = personalPlanReflection.byStationId;
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
@@ -1667,16 +1680,12 @@ export default function RaceRacebookScreen() {
   );
 
   const existingPlanId = existingPlan && existingPlan.raceId === id ? existingPlan.planId : null;
-  const planCtaLabel = locale === 'fr'
-    ? (existingPlanId ? 'Affiner mon plan' : 'Créer mon plan')
-    : (existingPlanId ? 'Refine my plan' : 'Create my plan');
-  const planCtaDescription = locale === 'fr'
-    ? (existingPlanId
-      ? 'Retrouve ton estimation et personnalise ta préparation.'
-      : 'Obtiens ton estimation personnalisée pour cette course.')
-    : (existingPlanId
-      ? 'Review your estimate and personalize your preparation.'
-      : 'Get your personalized estimate for this race.');
+  const planCtaLabel = existingPlanId
+    ? t.catalog.racebookRefinePlan
+    : t.catalog.racebookCreatePlan;
+  const planCtaDescription = existingPlanId
+    ? t.catalog.racebookRefinePlanDescription
+    : t.catalog.racebookCreatePlanDescription;
 
   const handlePlanCtaPress = useCallback(async () => {
     if (!id || planCtaBusy) return;
@@ -1725,14 +1734,12 @@ export default function RaceRacebookScreen() {
       console.warn('Unable to open the RaceBook plan action.', error);
       Alert.alert(
         t.common.error,
-        locale === 'fr'
-          ? 'Impossible de vérifier ton plan pour le moment. Réessaie dans un instant.'
-          : 'We could not check your plan right now. Please try again shortly.',
+        t.catalog.racebookPlanCheckFailed,
       );
     } finally {
       if (activeRaceIdRef.current === raceId) setPlanCtaBusy(false);
     }
-  }, [activeCourseTab, activeTab, captureRacebookInteraction, expandedAidStationId, findExistingPlanId, id, linkedPlanId, linkedPlanWarmStartToken, locale, persistCurrentScrollPosition, planCtaBusy, router, t.common.error]);
+  }, [activeCourseTab, activeTab, captureRacebookInteraction, expandedAidStationId, findExistingPlanId, id, linkedPlanId, linkedPlanWarmStartToken, persistCurrentScrollPosition, planCtaBusy, router, t.catalog.racebookPlanCheckFailed, t.common.error]);
 
   const handleTabPress = useCallback((tab: RacebookTabKey) => {
     if (tab === activeTab) return;
@@ -1767,10 +1774,10 @@ export default function RaceRacebookScreen() {
     void Linking.openURL(url).catch(() => {
       Alert.alert(
         t.common.error,
-        locale === 'fr' ? "Impossible d’ouvrir ce lien sur cet appareil." : 'This link cannot be opened on this device.',
+        t.catalog.racebookLinkOpenFailed,
       );
     });
-  }, [locale, t.common.error]);
+  }, [t.catalog.racebookLinkOpenFailed, t.common.error]);
 
   const openTrackedUrl = useCallback((url: string, action: string, context?: string) => {
     captureRacebookInteraction('racebook action clicked', {
@@ -1783,9 +1790,9 @@ export default function RaceRacebookScreen() {
   const exitRacebookToCatalog = useCallback(() => {
     if (exitingToCatalogRef.current) return;
     exitingToCatalogRef.current = true;
-    captureRacebookInteraction('racebook action clicked', { action: 'exit_to_catalog' });
-    router.replace('/(app)/catalog');
-  }, [captureRacebookInteraction, router]);
+    captureRacebookInteraction('racebook action clicked', { action: returnTo === 'plans' ? 'exit_to_plans' : 'exit_to_catalog' });
+    router.replace(returnTo === 'plans' ? '/(app)/plans' : '/(app)/catalog');
+  }, [captureRacebookInteraction, returnTo, router]);
 
   const openLinkedPlan = useCallback(() => {
     if (!id) return;
@@ -1894,18 +1901,20 @@ export default function RaceRacebookScreen() {
           locationLabel={headerLocation}
           participationLabel={participationLabels.join(' + ') || null}
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
-          startTimeLabel={locale === 'fr' ? 'Départ' : 'Start'}
+          startTimeLabel={t.catalog.racebookMapStart}
           startTimeValue={resolvedStartTime}
-          distanceLabel={`${formatDistance(data.race.distanceKm)} km`}
-          elevationGainLabel={`D+ ${formatElevation(data.race.elevationGainM, locale)} m`}
-          elevationLossLabel={data.race.elevationLossM !== null ? `D- ${formatElevation(data.race.elevationLossM, locale)} m` : null}
-          elevationCaption={locale === 'fr' ? 'Dénivelé' : 'Elevation gain'}
-          descentCaption={locale === 'fr' ? 'Descente' : 'Elevation loss'}
+          distanceLabel={`${formatDistance(data.race.distanceKm, locale)} km`}
+          elevationGainLabel={formatElevation(data.race.elevationGainM, locale)}
+          elevationLossLabel={data.race.elevationLossM !== null ? formatElevation(data.race.elevationLossM, locale) : null}
+          elevationCaption={t.catalog.racebookElevationGainMetric}
+          descentCaption={t.catalog.racebookElevationLossMetric}
           planDurationLabel={linkedPlan ? formatDuration(linkedPlan.summary.totalDurationMin) : null}
-          planDurationCaption={locale === 'fr' ? 'Temps prévu' : 'Expected time'}
+          planDurationCaption={t.catalog.racebookExpectedTime}
           planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
-          planPaceCaption={locale === 'fr' ? 'Allure' : 'Pace'}
+          planPaceCaption={t.catalog.racebookPace}
           backLabel={t.common.back}
+          linksLabel={t.catalog.racebookOrganizerLinks}
+          closeLabel={t.common.close}
           theme={brandTheme}
           emergency={emergencyContact?.phone && emergencyTelephoneUrl ? {
             label: t.catalog.racebookEmergencyShort,
@@ -2020,7 +2029,7 @@ export default function RaceRacebookScreen() {
                 testID="racebook-plan-cta"
               >
                 <Text style={[styles.planCtaButtonText, { color: brandTheme.onPrimaryColor }]}>
-                  {planCtaBusy ? (locale === 'fr' ? 'Ouverture…' : 'Opening…') : planCtaLabel}
+                  {planCtaBusy ? t.catalog.racebookOpening : planCtaLabel}
                 </Text>
                 <Ionicons name="arrow-forward" size={17} color={brandTheme.onPrimaryColor} />
               </Pressable>
@@ -2032,26 +2041,31 @@ export default function RaceRacebookScreen() {
             </Card>
           ) : null}
 
-          {weatherAlertMessage ? <InlineAlertCard icon={weatherAlertIcon} title="Alerte météo" message={weatherAlertMessage} /> : null}
+          {weatherAlertMessage ? <InlineAlertCard icon={weatherAlertIcon} title={t.catalog.racebookWeatherAlertTitle} message={weatherAlertMessage} /> : null}
 
           {lastMinuteMessage ? (
-            <InlineAlertCard icon="megaphone-outline" title={t.catalog.racebookLastMinuteTitle} message={lastMinuteMessage} />
+            <InlineAlertCard
+              collapseLabel={t.catalog.racebookAlertCollapse}
+              collapsible
+              expandLabel={t.catalog.racebookAlertExpand}
+              icon="megaphone-outline"
+              message={lastMinuteMessage}
+              title={t.catalog.racebookLastMinuteTitle}
+            />
           ) : null}
 
           <View style={styles.contentWrap}>
             {activeTab === 'gear' ? (
               <>
               <RacebookGearSection
-                requiredItems={requiredEquipment}
-                recommendedItems={recommendedEquipment}
-                weatherItems={conditionalEquipment}
-                notes={equipmentNotes}
-                theme={brandTheme}
+                requiredItems={sponsorPresentation.modules.equipment ? requiredEquipment : []}
+                recommendedItems={sponsorPresentation.modules.equipment ? recommendedEquipment : []}
+                weatherItems={sponsorPresentation.modules.equipment ? conditionalEquipment : []}
+                notes={sponsorPresentation.modules.equipment ? equipmentNotes : []}
                 checkedItemKeys={checkedGearItemKeys}
                 pendingItemKeys={pendingGearItemKeys}
                 onToggleItem={toggleGearItem}
                 decathlonLink={decathlonPartnerLink}
-                missingRequiredItemCount={missingRequiredEquipmentCount}
                 onOpenDecathlonLink={() => {
                   if (decathlonPartnerLink) {
                     openTrackedUrl(decathlonPartnerLink.url, 'partner_decathlon', 'equipment');
@@ -2068,9 +2082,7 @@ export default function RaceRacebookScreen() {
                   uncheckedLabel: t.catalog.racebookGearUnchecked,
                   progressLabel: t.catalog.racebookGearProgress,
                   decathlonTitle: t.catalog.racebookDecathlonTitle,
-                  decathlonMissingOne: t.catalog.racebookDecathlonMissingOne,
-                  decathlonMissingMany: t.catalog.racebookDecathlonMissingMany,
-                  decathlonReady: t.catalog.racebookDecathlonReady,
+                  decathlonDescription: t.catalog.racebookDecathlonDescription,
                   decathlonAction: t.catalog.racebookDecathlonAction,
                   affiliateDisclosure: t.catalog.racebookAffiliateDisclosure,
                 }}
@@ -2089,11 +2101,10 @@ export default function RaceRacebookScreen() {
 
             {activeTab === 'bib' ? (
               <RacebookBibSection
-                locationGroups={bibLocationGroups}
-                fallbackSchedule={data.runnerDetails.bibPickup.schedule}
-                requiredDocuments={data.runnerDetails.bibPickup.requiredDocuments}
-                rules={bibLines}
-                theme={brandTheme}
+                locationGroups={sponsorPresentation.modules.bib_pickup ? bibLocationGroups : []}
+                fallbackSchedule={sponsorPresentation.modules.bib_pickup ? data.runnerDetails.bibPickup.schedule : null}
+                requiredDocuments={sponsorPresentation.modules.bib_pickup ? data.runnerDetails.bibPickup.requiredDocuments : null}
+                rules={sponsorPresentation.modules.bib_pickup ? bibLines : []}
                 onOpenUrl={openExternalUrl}
                 onOpenMap={(location) => {
                   captureRacebookInteraction('racebook action clicked', {
@@ -2102,7 +2113,7 @@ export default function RaceRacebookScreen() {
                   });
                 }}
                 copy={{
-                  whereAndWhenTitle: locale === 'fr' ? 'Où et quand' : 'Where and when',
+                  whereAndWhenTitle: t.catalog.racebookBibWhereAndWhen,
                   documentsTitle: t.catalog.racebookFieldBibDocuments,
                   rulesTitle: t.catalog.racebookSectionAdditionalInfo,
                   emptyMessage: t.catalog.racebookEmptyBib,
@@ -2129,9 +2140,9 @@ export default function RaceRacebookScreen() {
                           accessibilityRole="tab"
                           accessibilityState={{ selected: active }}
                           onPress={() => handleCourseTabPress(tab.key)}
-                          style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null, active ? { borderColor: brandTheme.primaryBorderColor } : null]}
+                          style={[styles.courseTabButton, active ? styles.courseTabButtonActive : null]}
                         >
-                          <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null, active ? { color: brandTheme.primaryForegroundColor } : null]}>
+                          <Text style={[styles.courseTabButtonText, active ? styles.courseTabButtonTextActive : null]}>
                             {tab.label}
                           </Text>
                         </Pressable>
@@ -2187,9 +2198,10 @@ export default function RaceRacebookScreen() {
                         >
                           <Ionicons color={Colors.warning} name="alert-circle-outline" size={18} />
                           <Text style={styles.courseConstraintsLabel}>
-                            {locale === 'fr'
-                              ? `${courseConstraintLines.length} consigne${courseConstraintLines.length > 1 ? 's' : ''}`
-                              : `${courseConstraintLines.length} instruction${courseConstraintLines.length > 1 ? 's' : ''}`}
+                            {(courseConstraintLines.length > 1
+                              ? t.catalog.racebookInstructionsMany
+                              : t.catalog.racebookInstructionsOne
+                            ).replace('{count}', String(courseConstraintLines.length))}
                           </Text>
                           <Ionicons
                             color={Colors.textSecondary}
@@ -2278,6 +2290,7 @@ export default function RaceRacebookScreen() {
                 {activeCourseTab === 'aid-stations' ? (
                   <>
                   <RacebookAidStationsSection
+                    locale={locale}
                     stations={data.aidStations}
                     finish={{
                       label: t.catalog.racebookMapFinish,
@@ -2314,14 +2327,12 @@ export default function RaceRacebookScreen() {
                       aidElevationGain: t.catalog.racebookAidElevationGain,
                       aidElevationLoss: t.catalog.racebookAidElevationLoss,
                       aidCutoffTime: t.catalog.racebookAidCutoffTime,
-                      aidFromStart: locale === 'fr' ? 'Depuis le départ' : 'From the start',
-                      aidFromPrevious: locale === 'fr' ? 'Depuis {name}' : 'From {name}',
+                      aidFromStart: t.catalog.racebookAidFromStart,
+                      aidFromPrevious: t.catalog.racebookAidFromPrevious,
                       startLabel: t.catalog.racebookMapStart,
                       finishLabel: t.catalog.racebookMapFinish,
-                      plannedDuration: locale === 'fr' ? 'Temps prévu' : 'Expected',
-                      cutoffExceededWarning: locale === 'fr'
-                        ? 'Attention, passage prévu après la barrière horaire.'
-                        : 'Warning: expected passage is after the cutoff time.',
+                      plannedDuration: t.catalog.racebookExpectedTime,
+                      cutoffExceededWarning: t.catalog.racebookCutoffExceeded,
                     }}
                   />
                   <RacebookSponsorBanner
@@ -2349,9 +2360,8 @@ export default function RaceRacebookScreen() {
             {activeTab === 'access' ? (
               <>
               <RacebookAccessSection
-                presentation={accessPresentation}
+                presentation={sponsorPresentation.modules.access ? accessPresentation : null}
                 expanded={expandedAccessTransport}
-                theme={brandTheme}
                 onOpenUrl={openExternalUrl}
                 onOpenMap={(location) => {
                   captureRacebookInteraction('racebook action clicked', {
@@ -2410,7 +2420,6 @@ export default function RaceRacebookScreen() {
                   value: section.value,
                 }))}
                 partnerLinks={bookingPartnerLinks}
-                theme={brandTheme}
                 onOpenUrl={(url, action, service) => {
                   const trackedAction = action === 'directions'
                     ? 'service_directions'
@@ -2423,9 +2432,7 @@ export default function RaceRacebookScreen() {
                   openTrackedUrl(link.url, `partner_${link.partnerKey}`, 'services');
                 }}
                 copy={{
-                  emptyMessage: locale === 'fr'
-                    ? 'Aucun service publié pour cette édition.'
-                    : 'No services have been published for this edition.',
+                  emptyMessage: t.catalog.racebookEmptyServices,
                   directionsLabel: t.catalog.racebookAccessOpenMaps,
                   websiteLabel: t.catalog.racebookServiceWebsite,
                   callLabel: t.catalog.racebookCallAction,
@@ -2447,7 +2454,7 @@ export default function RaceRacebookScreen() {
                     restaurant: t.catalog.racebookServiceRestaurants,
                     accommodation: t.catalog.racebookServiceAccommodations,
                     recovery: t.catalog.racebookServiceRecovery,
-                    other: locale === 'fr' ? 'Autres services' : 'Other services',
+                    other: t.catalog.racebookServiceOther,
                   },
                 }}
               />
@@ -2473,12 +2480,6 @@ export default function RaceRacebookScreen() {
           tabs={tabs}
           activeTab={activeTab}
           onPress={handleTabPress}
-          exitAction={{
-            label: locale === 'fr' ? 'Courses' : 'Races',
-            accessibilityLabel: locale === 'fr' ? 'Quitter le Livret coureur et revenir aux courses' : 'Leave the Race Book and return to races',
-            onPress: exitRacebookToCatalog,
-          }}
-          theme={brandTheme}
         />
       ) : null}
       {onboarding === 'racebook' && !showLoading ? (
@@ -2649,6 +2650,18 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  alertToggle: {
+    minHeight: 28,
+    justifyContent: 'center',
+    paddingHorizontal: 4,
+  },
+  alertToggleText: {
+    color: Colors.warning,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
+  alertTogglePressed: { opacity: 0.64 },
   heroKicker: {
     color: Colors.brandPrimary,
     fontSize: 12,

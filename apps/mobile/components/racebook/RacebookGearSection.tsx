@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
@@ -26,9 +25,7 @@ export type RacebookGearSectionCopy = {
   uncheckedLabel: string;
   progressLabel: string;
   decathlonTitle: string;
-  decathlonMissingOne: string;
-  decathlonMissingMany: string;
-  decathlonReady: string;
+  decathlonDescription: string;
   decathlonAction: string;
   affiliateDisclosure: string;
 };
@@ -38,13 +35,11 @@ export type RacebookGearSectionProps = {
   recommendedItems: RacebookGearItem[];
   weatherItems: RacebookGearItem[];
   notes: string[];
-  theme: ResolvedRacebookTheme;
   copy: RacebookGearSectionCopy;
   checkedItemKeys: ReadonlySet<string>;
   pendingItemKeys: ReadonlySet<string>;
   onToggleItem: (itemKey: string, checked: boolean) => void;
   decathlonLink?: { isAffiliate: boolean } | null;
-  missingRequiredItemCount: number;
   onOpenDecathlonLink?: () => void;
 };
 
@@ -76,7 +71,6 @@ function GearRow({
   checked,
   pending,
   copy,
-  theme,
   onToggle,
 }: {
   item: RacebookGearItem;
@@ -84,7 +78,6 @@ function GearRow({
   checked: boolean;
   pending: boolean;
   copy: RacebookGearSectionCopy;
-  theme: ResolvedRacebookTheme;
   onToggle: (itemKey: string, checked: boolean) => void;
 }) {
   return (
@@ -96,9 +89,9 @@ function GearRow({
         .join(', ')}
       disabled={pending}
       onPress={() => onToggle(itemKey, !checked)}
-      style={({ pressed }) => [styles.gearRow, checked ? { backgroundColor: theme.accentSurfaceColor } : null, pressed ? styles.gearRowPressed : null]}
+      style={({ pressed }) => [styles.gearRow, checked ? styles.gearRowChecked : null, pressed ? styles.gearRowPressed : null]}
     >
-      <View style={[styles.checkBox, { borderColor: checked ? theme.accentBorderColor : Colors.border }, checked ? { backgroundColor: theme.accentGraphicColor } : null]}>
+      <View style={[styles.checkBox, { borderColor: checked ? Colors.brandPrimary : Colors.border }, checked ? styles.checkBoxChecked : null]}>
         {checked ? <Ionicons color={Colors.surface} name="checkmark" size={15} /> : null}
       </View>
       <Text numberOfLines={2} style={[styles.gearLabel, checked ? styles.gearLabelChecked : null]}>
@@ -113,7 +106,6 @@ function GearGroup({
   title,
   items,
   copy,
-  theme,
   groupKey,
   checkedItemKeys,
   pendingItemKeys,
@@ -122,7 +114,6 @@ function GearGroup({
   title: string;
   items: RacebookGearItem[];
   copy: RacebookGearSectionCopy;
-  theme: ResolvedRacebookTheme;
   groupKey: RacebookGearGroupKey;
   checkedItemKeys: ReadonlySet<string>;
   pendingItemKeys: ReadonlySet<string>;
@@ -132,7 +123,7 @@ function GearGroup({
 
   return (
     <View style={styles.group}>
-      <Text style={[styles.groupTitle, { color: theme.accentForegroundColor }]}>{title}</Text>
+      <Text style={styles.groupTitle}>{title}</Text>
       <View style={styles.groupList}>
         {items.map((item, index) => {
           const itemKey = getRacebookGearItemKey(groupKey, item);
@@ -145,7 +136,6 @@ function GearGroup({
               key={item.id ?? `${item.label}-${index}`}
               onToggle={onToggleItem}
               pending={pendingItemKeys.has(itemKey)}
-              theme={theme}
             />
           );
         })}
@@ -159,13 +149,11 @@ export function RacebookGearSection({
   recommendedItems,
   weatherItems,
   notes,
-  theme,
   copy,
   checkedItemKeys = EMPTY_ITEM_KEYS,
   pendingItemKeys = EMPTY_ITEM_KEYS,
   onToggleItem = NOOP_TOGGLE,
   decathlonLink = null,
-  missingRequiredItemCount,
   onOpenDecathlonLink = NOOP_TOGGLE,
 }: RacebookGearSectionProps) {
   const hasItems = requiredItems.length + recommendedItems.length + weatherItems.length > 0;
@@ -188,56 +176,40 @@ export function RacebookGearSection({
   return (
     <Card style={styles.card}>
       {totalItems > 0 ? (
-        <View style={[styles.progress, { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor }]}>
-          <View style={[styles.progressIcon, { backgroundColor: theme.accentGraphicColor }]}>
+        <View style={styles.progress}>
+          <View style={styles.progressIcon}>
             <Ionicons color={Colors.surface} name={checkedCount === totalItems ? 'checkmark-done' : 'checkmark'} size={17} />
           </View>
-          <Text style={[styles.progressText, { color: theme.accentForegroundColor }]}>
+          <Text style={styles.progressText}>
             {copy.progressLabel.replace('{checked}', String(checkedCount)).replace('{total}', String(totalItems))}
           </Text>
         </View>
       ) : null}
+      <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="required" items={requiredItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} title={copy.requiredTitle} />
+      <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="recommended" items={recommendedItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} title={copy.recommendedTitle} />
+      <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="weather" items={weatherItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} title={copy.weatherTitle} />
+
       {decathlonLink ? (
         <>
           <Pressable
             accessibilityLabel={`${copy.decathlonAction} - ${copy.decathlonTitle}`}
             accessibilityRole="link"
             onPress={onOpenDecathlonLink}
-            style={({ pressed }) => [
-              styles.decathlonLink,
-              {
-                backgroundColor: theme.accentSurfaceColor,
-                borderColor: theme.accentBorderColor,
-              },
-              pressed ? styles.gearRowPressed : null,
-            ]}
+            style={({ pressed }) => [styles.decathlonLink, pressed ? styles.gearRowPressed : null]}
           >
-            <View style={[styles.decathlonIcon, { backgroundColor: theme.accentGraphicColor }]}>
-              <Ionicons color={Colors.surface} name="bag-handle-outline" size={20} />
+            <View style={styles.decathlonIcon}>
+              <Ionicons color={Colors.textOnBrand} name="bag-handle-outline" size={20} />
             </View>
             <View style={styles.decathlonContent}>
               <Text style={styles.decathlonTitle}>{copy.decathlonTitle}</Text>
-              <Text style={styles.decathlonDescription}>
-                {missingRequiredItemCount === 0
-                  ? copy.decathlonReady
-                  : missingRequiredItemCount === 1
-                    ? copy.decathlonMissingOne
-                    : copy.decathlonMissingMany.replace('{count}', String(missingRequiredItemCount))}
-              </Text>
-              <Text style={[styles.decathlonAction, { color: theme.accentGraphicColor }]}>
-                {copy.decathlonAction}
-              </Text>
+              <Text style={styles.decathlonDescription}>{copy.decathlonDescription}</Text>
+              <Text style={styles.decathlonAction}>{copy.decathlonAction}</Text>
             </View>
-            <Ionicons color={theme.accentGraphicColor} name="chevron-forward" size={20} />
+            <Ionicons color={Colors.brandPrimary} name="chevron-forward" size={20} />
           </Pressable>
-          {decathlonLink.isAffiliate ? (
-            <Text style={styles.disclosure}>{copy.affiliateDisclosure}</Text>
-          ) : null}
+          {decathlonLink.isAffiliate ? <Text style={styles.disclosure}>{copy.affiliateDisclosure}</Text> : null}
         </>
       ) : null}
-      <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="required" items={requiredItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} theme={theme} title={copy.requiredTitle} />
-      <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="recommended" items={recommendedItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} theme={theme} title={copy.recommendedTitle} />
-      <GearGroup checkedItemKeys={checkedItemKeys} copy={copy} groupKey="weather" items={weatherItems} onToggleItem={onToggleItem} pendingItemKeys={pendingItemKeys} theme={theme} title={copy.weatherTitle} />
 
       {notes.length > 0 ? (
         <View style={styles.noteBlock}>
@@ -257,20 +229,20 @@ export function RacebookGearSection({
 
 const styles = StyleSheet.create({
   card: { gap: 18 },
-  progress: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1 },
-  progressIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14 },
-  progressText: { flex: 1, fontSize: 14, lineHeight: 18, fontWeight: '800' },
-  decathlonLink: { minHeight: 84, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1 },
-  decathlonIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  progress: { minHeight: 46, flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
+  progressIcon: { width: 28, height: 28, alignItems: 'center', justifyContent: 'center', borderRadius: 14, backgroundColor: Colors.brandPrimary },
+  progressText: { flex: 1, color: Colors.brandPrimary, fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  decathlonLink: { minHeight: 84, flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
+  decathlonIcon: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 12, backgroundColor: Colors.brandPrimary },
   decathlonContent: { flex: 1, gap: 2 },
   decathlonTitle: { color: Colors.textPrimary, fontSize: 14, fontWeight: '700' },
   decathlonDescription: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  decathlonAction: { fontSize: 12, fontWeight: '700', marginTop: 2 },
+  decathlonAction: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700', marginTop: 2 },
   disclosure: { color: Colors.textSecondary, fontSize: 11, lineHeight: 16, marginTop: -12 },
   emptyCard: { padding: 16 },
   emptyText: { color: Colors.textSecondary, fontSize: 14, lineHeight: 20 },
   group: { gap: 8 },
-  groupTitle: { fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
+  groupTitle: { color: Colors.textPrimary, fontSize: 12, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.4 },
   groupList: { borderTopWidth: 1, borderTopColor: Colors.border },
   gearRow: {
     minHeight: 44,
@@ -284,9 +256,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
   },
   gearRowPressed: { opacity: 0.72 },
+  gearRowChecked: { backgroundColor: Colors.brandSurface },
   checkBox: { width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderRadius: 7, borderWidth: 2 },
+  checkBoxChecked: { backgroundColor: Colors.brandPrimary },
   gearLabel: { flex: 1, color: Colors.textPrimary, fontSize: 14, fontWeight: '600', lineHeight: 19 },
-  gearLabelChecked: { color: Colors.textSecondary, textDecorationLine: 'line-through' },
+  gearLabelChecked: { color: Colors.textPrimary },
   weatherIcons: { flexDirection: 'row', gap: 4 },
   weatherIcon: { width: 26, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 13 },
   coldIcon: { backgroundColor: '#E7F3FA' },

@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import { Pressable, StyleSheet, View } from 'react-native';
 
 import { Colors } from '../../constants/colors';
@@ -35,7 +34,6 @@ type RacebookBibSectionProps = {
   fallbackSchedule: string | null;
   requiredDocuments: string | null;
   rules: string[];
-  theme: ResolvedRacebookTheme;
   copy: RacebookBibSectionCopy;
   onOpenMap: (location: string) => void;
   onOpenUrl: (url: string) => void;
@@ -43,13 +41,11 @@ type RacebookBibSectionProps = {
 
 function LocationPickup({
   group,
-  theme,
   openMapsLabel,
   onOpenMap,
   onOpenUrl,
 }: {
   group: RacebookBibPickupLocationGroup;
-  theme: ResolvedRacebookTheme;
   openMapsLabel: string;
   onOpenMap: (location: string) => void;
   onOpenUrl: (url: string) => void;
@@ -57,8 +53,8 @@ function LocationPickup({
   return (
     <View style={styles.locationPickup}>
       <View style={styles.locationHeader}>
-        <View style={[styles.locationIcon, { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor }]}>
-          <Ionicons name="location-outline" size={18} color={theme.accentGraphicColor} />
+        <View style={[styles.locationIcon, { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder }]}>
+          <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
         </View>
         <View style={styles.locationContent}>
           <Text numberOfLines={2} style={styles.locationName}>{group.location}</Text>
@@ -75,11 +71,11 @@ function LocationPickup({
             }}
             style={({ pressed }) => [
               styles.mapsAction,
-              { borderColor: theme.accentBorderColor, backgroundColor: theme.accentSurfaceColor },
+              { borderColor: Colors.brandBorder, backgroundColor: Colors.brandSurface },
               pressed ? styles.pressed : null,
             ]}
           >
-            <Ionicons name="navigate-outline" size={18} color={theme.accentGraphicColor} />
+            <Ionicons name="navigate-outline" size={18} color={Colors.brandPrimary} />
           </Pressable>
         ) : null}
       </View>
@@ -111,7 +107,6 @@ export function RacebookBibSection({
   fallbackSchedule,
   requiredDocuments,
   rules,
-  theme,
   copy,
   onOpenMap,
   onOpenUrl,
@@ -138,7 +133,6 @@ export function RacebookBibSection({
                 <View key={group.key} style={index > 0 ? styles.locationDivider : undefined}>
                   <LocationPickup
                     group={group}
-                    theme={theme}
                     openMapsLabel={copy.openMapsLabel}
                     onOpenMap={onOpenMap}
                     onOpenUrl={onOpenUrl}
@@ -149,7 +143,7 @@ export function RacebookBibSection({
           ) : null}
           {!hasStructuredSchedule && fallbackSchedule ? (
             <View style={styles.fallbackSchedule}>
-              <Ionicons color={theme.primaryColor} name="time-outline" size={17} />
+              <Ionicons color={Colors.brandPrimary} name="time-outline" size={17} />
               <Text style={styles.fallbackScheduleLabel}>{copy.scheduleLabel}</Text>
               <DataText style={styles.fallbackScheduleValue}>{fallbackSchedule}</DataText>
             </View>
@@ -160,8 +154,8 @@ export function RacebookBibSection({
       {requiredDocuments ? (
         <Card style={styles.card}>
           <View style={styles.documentHeader}>
-            <View style={[styles.documentIcon, { backgroundColor: theme.accentSurfaceColor }]}>
-              <Ionicons name="document-text-outline" size={18} color={theme.accentGraphicColor} />
+            <View style={[styles.documentIcon, { backgroundColor: Colors.brandSurface }]}>
+              <Ionicons name="document-text-outline" size={18} color={Colors.brandPrimary} />
             </View>
             <Text style={styles.sectionTitle}>{copy.documentsTitle}</Text>
           </View>
@@ -177,7 +171,7 @@ export function RacebookBibSection({
             <View style={styles.rulesList}>
               {rules.map((rule, index) => (
                 <View key={`${rule}-${index}`} style={styles.ruleRow}>
-                  <View style={[styles.ruleDot, { backgroundColor: theme.primaryColor }]} />
+                  <View style={[styles.ruleDot, { backgroundColor: Colors.brandPrimary }]} />
                   <Text style={styles.ruleText}>{rule}</Text>
                 </View>
               ))}

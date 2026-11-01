@@ -81,8 +81,16 @@ describe('multi-day RaceBook timing', () => {
 
   it('formats overnight and multi-day planned passages without timezone-dependent dates', () => {
     expect(formatPersonalPassageClock('06:00', 180)).toBe('09:00');
+    expect(formatPersonalPassageClock('18:00', 49.9)).toBe('18:50');
+    expect(formatPersonalPassageClock('23:30', 29.6)).toBe('J+1 · 00:00');
     expect(formatPersonalPassageClock('23:30', 90)).toBe('J+1 · 01:00');
     expect(formatPersonalPassageClock('06:00', 43 * 60)).toBe('J+2 · 01:00');
+    expect(formatPersonalPassageClock('23:59', 24 * 60 + 0.6)).toBe('J+2 · 00:00');
+  });
+
+  it('uses the same rounded passage minute for cutoff comparison', () => {
+    expect(isPersonalPassageAfterCutoff('18:00', 49.4, '18:49')).toBe(false);
+    expect(isPersonalPassageAfterCutoff('18:00', 49.6, '18:49')).toBe(true);
   });
 
   it('resolves a cutoff to the closest chronological day around the passage anchor', () => {

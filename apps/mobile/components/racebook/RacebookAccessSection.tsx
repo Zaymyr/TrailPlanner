@@ -1,5 +1,4 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import type { ResolvedRacebookTheme } from '@pace-yourself/design-system';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 
@@ -33,7 +32,6 @@ export type RacebookAccessPresentation = {
 type RacebookAccessSectionProps = {
   presentation: RacebookAccessPresentation | null;
   expanded: Record<RacebookAccessTransport['key'], boolean>;
-  theme: ResolvedRacebookTheme;
   copy: {
     accessTitle: string;
     emptyMessage: string;
@@ -89,7 +87,6 @@ function LocationsCard({
   openGeneralMapLabel,
   onOpenMap,
   onOpenUrl,
-  theme,
 }: {
   title: string;
   locations: RacebookAccessLocation[];
@@ -98,15 +95,14 @@ function LocationsCard({
   openGeneralMapLabel: string;
   onOpenMap: (location: string) => void;
   onOpenUrl: (url: string) => void;
-  theme: ResolvedRacebookTheme;
 }) {
   return (
     <SectionCard title={title}>
       <View style={styles.locationList}>
         {locations.map((location, index) => (
           <View key={location.key} style={[styles.locationItem, index > 0 ? styles.locationItemBorder : null]}>
-            <View style={[styles.locationIcon, { backgroundColor: theme.accentSurfaceColor }]}>
-              <Ionicons name="location-outline" size={18} color={theme.accentGraphicColor} />
+            <View style={[styles.locationIcon, { backgroundColor: Colors.brandSurface }]}>
+              <Ionicons name="location-outline" size={18} color={Colors.brandPrimary} />
             </View>
             <View style={styles.locationContent}>
               <Text style={styles.locationLabel}>{location.label}</Text>
@@ -121,12 +117,12 @@ function LocationsCard({
                   }}
                   style={({ pressed }) => [
                     styles.mapAction,
-                    { backgroundColor: theme.accentSurfaceColor },
+                    { backgroundColor: Colors.brandSurface },
                     pressed ? styles.actionPressed : null,
                   ]}
                 >
-                  <Ionicons name="navigate-outline" size={15} color={theme.accentGraphicColor} />
-                  <Text style={[styles.mapActionText, { color: theme.accentForegroundColor }]}>{openMapsLabel}</Text>
+                  <Ionicons name="navigate-outline" size={15} color={Colors.brandPrimary} />
+                  <Text style={[styles.mapActionText, { color: Colors.brandPrimary }]}>{openMapsLabel}</Text>
                 </Pressable>
               ) : null}
             </View>
@@ -143,12 +139,12 @@ function LocationsCard({
           }}
           style={({ pressed }) => [
             styles.generalMapAction,
-            { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor },
+            { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder },
             pressed ? styles.actionPressed : null,
           ]}
         >
-          <Ionicons name="map-outline" size={17} color={theme.accentGraphicColor} />
-          <Text style={[styles.generalMapActionText, { color: theme.accentForegroundColor }]}>{openGeneralMapLabel}</Text>
+          <Ionicons name="map-outline" size={17} color={Colors.brandPrimary} />
+          <Text style={[styles.generalMapActionText, { color: Colors.brandPrimary }]}>{openGeneralMapLabel}</Text>
         </Pressable>
       ) : null}
     </SectionCard>
@@ -163,7 +159,6 @@ function TransportCard({
   showDetailsLabel,
   hideDetailsLabel,
   scheduleLabel,
-  theme,
 }: {
   title: string;
   items: RacebookAccessTransport[];
@@ -172,7 +167,6 @@ function TransportCard({
   showDetailsLabel: string;
   hideDetailsLabel: string;
   scheduleLabel: string;
-  theme: ResolvedRacebookTheme;
 }) {
   return (
     <SectionCard title={title}>
@@ -193,8 +187,8 @@ function TransportCard({
               ]}
             >
               <View style={styles.transportHeader}>
-                <View style={[styles.transportIcon, { backgroundColor: theme.accentSurfaceColor }]}>
-                  <Ionicons name={item.icon} size={18} color={theme.accentGraphicColor} />
+                <View style={[styles.transportIcon, { backgroundColor: Colors.brandSurface }]}>
+                  <Ionicons name={item.icon} size={18} color={Colors.brandPrimary} />
                 </View>
                 <View style={styles.transportHeading}>
                   <Text style={styles.transportTitle}>{item.title}</Text>
@@ -204,10 +198,10 @@ function TransportCard({
               </View>
               <Text numberOfLines={isExpanded ? undefined : 2} style={styles.transportText}>{item.description}</Text>
               {isExpanded && item.schedule ? (
-                <View style={[styles.scheduleRow, { backgroundColor: theme.accentSurfaceColor, borderColor: theme.accentBorderColor }]}>
-                  <Ionicons name="time-outline" size={16} color={theme.accentColor} />
+                <View style={[styles.scheduleRow, { backgroundColor: Colors.brandSurface, borderColor: Colors.brandBorder }]}>
+                  <Ionicons name="time-outline" size={16} color={Colors.brandPrimary} />
                   <View style={styles.scheduleContent}>
-                    <Text style={[styles.scheduleLabel, { color: theme.accentForegroundColor }]}>{scheduleLabel}</Text>
+                    <Text style={[styles.scheduleLabel, { color: Colors.brandPrimary }]}>{scheduleLabel}</Text>
                     <Text style={styles.scheduleText}>{item.schedule}</Text>
                   </View>
                 </View>
@@ -223,7 +217,6 @@ function TransportCard({
 export function RacebookAccessSection({
   presentation,
   expanded,
-  theme,
   copy,
   onOpenMap,
   onOpenUrl,
@@ -251,7 +244,6 @@ export function RacebookAccessSection({
           openGeneralMapLabel={copy.openGeneralMapLabel}
           onOpenMap={onOpenMap}
           onOpenUrl={onOpenUrl}
-          theme={theme}
         />
       ) : null}
       {presentation.transportItems.length > 0 ? (
@@ -263,7 +255,6 @@ export function RacebookAccessSection({
           showDetailsLabel={copy.showDetailsLabel}
           hideDetailsLabel={copy.hideDetailsLabel}
           scheduleLabel={copy.scheduleLabel}
-          theme={theme}
         />
       ) : null}
     </>

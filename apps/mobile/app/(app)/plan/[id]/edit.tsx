@@ -1010,6 +1010,7 @@ export default function EditPlanScreen() {
     if (racebookCourseTab) params.set('courseTab', racebookCourseTab);
     if (targetAidStationId) params.set('targetAidStationId', targetAidStationId);
     if (id) params.set('planId', id);
+    params.set('returnTo', 'plans');
     const query = params.toString();
     router.replace(`/(app)/race/${linkedRaceId}/racebook${query ? `?${query}` : ''}`);
   }, [id, linkedRaceId, planName, planProductData, racebookAvailable, racebookCourseTab, racebookTab, router, saveLatestDraft, t.common.error, t.planWorkspace.racebookUnavailable, t.profile.saveFailed, targetAidStationId]);
@@ -1231,7 +1232,6 @@ export default function EditPlanScreen() {
       ) : null}
       <PlanWorkspaceTabBar
         activeTab={activeTab}
-        onExit={handleBackToPlans}
         onSelectTab={(nextTab) => { void handleTabSelect(nextTab); }}
       />
       <PremiumUpsellModal

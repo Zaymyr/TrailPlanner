@@ -38,6 +38,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+Le bouton unique de liens organisateur dans l'en-tête n'est pas une surface sponsor. Son ouverture et les retours contextuels n'émettent aucune impression sponsor et ne modifient ni les placements, ni l'ordre, ni les compteurs agrégés.
+
 RaceBook personal passage-time interpolation is client-only and does not alter sponsor selection or presentation.
 
 > CTA scope: the RaceBook plan CTA is independent from sponsor loading and impression tracking. Its runner-owned plan lookup never changes sponsor selection or visibility.
