@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260322100000_add_created_by_to_products.sql
   - supabase/migrations/20260417103000_add_product_images.sql
   - supabase/migrations/20260417190000_add_product_brand_cleanup.sql
+  - supabase/migrations/20261101120000_normalize_decathlon_product_brand_aliases.sql
   - supabase/migrations/20260525191426_add_official_product_metadata.sql
   - supabase/migrations/20260914055319_harden_privileged_database_access.sql
   - supabase/migrations/20260526120000_add_meltonic_products.sql
@@ -160,6 +161,7 @@ where fuel_type = 'electrolyte'
 - Do not add `water_ml` to `products` just to support hydration planning. The current algorithm treats water as segment/carry demand.
 - `fuel_type` is a Postgres enum. Adding a type requires a migration and app type update.
 - `brand` is normalized by a database trigger. Do not duplicate brand inference in multiple clients unless needed for preview UX.
+- Decathlon aliases (`Décat`, `Decat`, `Decath`, and case variants) normalize to `Decathlon`. The corrective migration targets curated rows only; user products retain their stored values and use display-only casing safeguards in mobile.
 - Do not infer "official/shared" from `created_by is null`. Use `is_official`. `created_by` is owner metadata and can be null for reasons unrelated to official catalog curation.
 - User-facing product deletion archives the row (`is_live = false`, `is_archived = true`) and removes favorite links instead of physically deleting the product row.
 - Data-only product catalog migrations should use idempotent `insert ... on conflict (slug) do update` statements so nutrition corrections can be replayed safely without duplicating rows.

@@ -367,6 +367,8 @@ erDiagram
 
 The format-sheet, favorite-feedback, recap, and product-label changes are consumer presentation only. They do not add columns, tables, policies, grants, or a new persistence path.
 
+The separate `20261101120000_normalize_decathlon_product_brand_aliases.sql` correction changes no schema shape or access boundary. It extends the existing immutable brand normalizer and limits its backfill to curated catalog rows.
+
 ## Related Docs
 
 - [Relationships](relationships.md)
