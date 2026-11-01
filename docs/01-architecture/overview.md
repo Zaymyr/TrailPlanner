@@ -64,6 +64,7 @@ The mobile app is an Expo Router app:
 - Expo SDK: `expo ~54.0.37`
 - React Native: `react-native 0.81.5`
 - Android compile/target SDK: Android 16 / API 36 through the Expo SDK 54 defaults
+- Android release optimization: `expo-build-properties ~1.0.10` enables R8 code minification and resource shrinking; development/debug variants remain unobfuscated
 - React: `react 19.1.0`
 - Supabase dependency: `@supabase/supabase-js ^2.45.4`
 - Mobile lint: Expo's ESLint configuration through `npm run lint -w @trailplanner/mobile`.
@@ -113,9 +114,13 @@ The mobile app is configured for EAS in `apps/mobile/eas.json`:
 - Android production submission: completed release to the Google Play `production` track
 - Store-candidate submission: Android internal-track draft plus iOS App Store Connect/TestFlight upload
 
+The current store marketing version is `1.1.2`, while the compatible EAS Update runtime remains `1.1.1`. Remote versioning automatically advances developer-facing build identifiers; a new App Store version train still requires an explicit `version` change and a rebuilt IPA.
+
 `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform quality-gate target. It builds the `e2e-test` binaries and runs the same Maestro journey against Android and iOS, with recordings and screenshot artifacts for human visual review. Its hosted Maestro jobs require a compatible paid Expo plan; the current project plan supports keeping and reviewing the configuration but rejects execution of those jobs.
 
-Merged `main` commits start the native store-candidate workflow but pause before building until an EAS approval is granted. Public Android rollout is a separate protected GitHub dispatch that validates the approved commit and EAS build metadata; iOS public review and release remain controlled in App Store Connect.
+Android and iOS store candidates have separate manual EAS workflows. An operator dispatches only the required platform from remote `main`, then grants that workflow's approval before its build and candidate submission consume capacity. Public Android rollout is a separate protected GitHub dispatch that validates the approved commit and EAS build metadata; iOS public review and release remain controlled in App Store Connect.
+
+Android store candidates are release variants optimized by R8. Validate the optimized binary on the internal track before production promotion and retain the exact build's `mapping.txt` for native crash deobfuscation.
 
 Supabase provides:
 
@@ -163,6 +168,7 @@ When docs and code disagree, use this order:
 - Start local Expo sessions for the installed development client with `APP_VARIANT=development`; otherwise local config resolves the production name and application identifier even though the EAS development binary was built as `com.paceyourself.app.dev`.
 - Maestro is external test tooling and is not bundled into the application. Local runs require its CLI on `PATH`; the EAS workflow provides the cloud runner.
 - Android and the next iOS binary use EAS Update runtime `1.1.1`. Because the light iOS appearance is native configuration, ship that iOS binary before publishing a `1.1.1` OTA; existing iOS `1.1.0` installs stay in their prior compatibility group.
+- R8 minification is native release configuration, not an OTA change. A mapping file is valid only for the AAB that generated it.
 - Vercel's ignored-build command must include every root or shared-package input consumed by `apps/web`; otherwise an affected web deployment can be skipped.
 - Dependabot branches deliberately do not create Vercel deployments. GitHub CI validates them before batching, and the merge commit on `main` remains the production deployment trigger.
 - Keep the Vercel install command scoped to `@trailplanner/web`. An unscoped npm install from `apps/web` still resolves the monorepo root and installs unrelated mobile dependencies, increasing preview build time.

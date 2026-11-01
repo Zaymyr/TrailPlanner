@@ -26,7 +26,8 @@ related_files:
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
-  - apps/mobile/.eas/workflows/store-candidate.yml
+  - apps/mobile/.eas/workflows/store-candidate-android.yml
+  - apps/mobile/.eas/workflows/store-candidate-ios.yml
   - .github/workflows/eas-submit-android-production.yml
   - apps/mobile/.maestro/config.yaml
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
@@ -261,13 +262,13 @@ The app config in `apps/mobile/app.config.ts` declares:
 - owner `pace-yourself`;
 - scheme `paceyourself`;
 - production Android/iOS identifier `com.paceyourself.app` and development identifier `com.paceyourself.app.dev`, selected by `APP_VARIANT=development`;
-- app version `1.1.1`;
+- app version `1.1.2`;
 - shared iOS/Android runtime version `1.1.1` for the current native release line;
 - light system appearance, matching the app's light palette; mounted solid-brand headers override status-bar content with their contrast-safe light/dark variant;
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
 - update URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`.
 
-Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36. The project relies on those SDK defaults rather than adding a redundant `expo-build-properties` override.
+Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36. The project relies on those SDK defaults for the API levels. Its `expo-build-properties` configuration enables R8 code minification and resource shrinking for Android release variants only. Development/debug builds remain unobfuscated. Each released AAB therefore carries its own R8 `mapping.txt`; preserve the mapping associated with that exact build when investigating obfuscated native stack traces.
 
 `apps/mobile/package.json` excludes `@react-native-google-signin/google-signin` from Expo iOS autolinking, `apps/mobile/react-native.config.js` disables the package for iOS in the React Native community autolinking layer, and `apps/mobile/app.config.ts` does not register the package's Expo config plugin. Native Google Sign-In is Android-only in `apps/mobile/hooks/useGoogleAuth.ts`, while iOS uses the browser OAuth path; keeping the package out of the iOS native build avoids both the Swift `AppCheckCore` CocoaPods conflict on EAS and Fabric startup crashes from partially registered Google Sign-In native components.
 
@@ -286,7 +287,7 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 
 The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform target: it builds Android and iOS in parallel, runs the authenticated Maestro journey with one retry, records each platform, and retains its screenshots as test artifacts. Hosted Maestro jobs require a compatible paid Expo plan; the current project plan rejects those jobs, so local Android execution remains the immediately available path. The journey covers login plus the Courses, Plans, Nutrition, and Profile tabs. Its app id defaults to the E2E/production identifier with a clean restart and login deep link. Local physical-device audits explicitly open the Dev login route through ADB, pass `APP_ID=com.paceyourself.app.dev`, preserve app state and the active Metro process, and skip the shared-scheme deep link so they cannot target the installed production app. Stable React Native test ids are used instead of translated labels. `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` must be secret variables in the EAS `preview` environment; they are never committed or exposed as Expo public values.
 
-Native store candidates use the `production` build profile after a merged `main` commit reaches an explicit EAS approval gate. EAS then submits Android to the internal track as a draft and iOS to App Store Connect/TestFlight. Neither path performs an unattended public release: Android production submission requires the protected GitHub dispatch, explicit confirmation, and build-metadata match against the approved commit, while Apple review and release remain controlled in App Store Connect.
+Native store candidates use two independently dispatched EAS workflows after their definitions have reached `main`. Each platform has its own explicit approval gate, `production` build, and `store-candidate` submission: Android goes to the internal track as a draft, while iOS goes to App Store Connect/TestFlight. Run the selected workflow with `--ref main` so EAS builds the exact remote `main` state instead of packaging a local checkout. Neither path performs an unattended public release: Android production submission requires the protected GitHub dispatch, explicit confirmation, and build-metadata match against the approved commit, while Apple review and release remain controlled in App Store Connect.
 
 ## App Shell
 
@@ -435,6 +436,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - A clean Maestro launch exercises the real session bootstrap and can create an anonymous Supabase session before password login. Use a dedicated non-production test account and periodically clean disposable anonymous test users according to the project's normal data-retention process.
 
 - The shared runtime is `1.1.1`. The light iOS appearance is native configuration, so a runtime-`1.1.1` iOS binary must reach testers/App Store before a `1.1.1` OTA is published; do not send that OTA to older iOS `1.1.0` binaries.
+- The production profile's remote `autoIncrement` advances the developer-facing iOS build number, not the App Store marketing version. Increment `version` explicitly before building when App Store Connect has closed the current version train; a rejected IPA keeps its embedded version and must be rebuilt.
 - Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export. Likewise, import Expo vector-icon families from their direct subpath (for example, `@expo/vector-icons/Ionicons`) instead of the package barrel so Metro does not retain unrelated icon-font families.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
 - Never use the `production` submit profile from an automatic branch trigger. Automation must use `store-candidate`; the production profile is reserved for the separately approved Android dispatch.

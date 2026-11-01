@@ -9,7 +9,8 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - vercel.json
   - apps/mobile/eas.json
-  - apps/mobile/.eas/workflows/store-candidate.yml
+  - apps/mobile/.eas/workflows/store-candidate-android.yml
+  - apps/mobile/.eas/workflows/store-candidate-ios.yml
   - .github/workflows/eas-submit-android-production.yml
   - .github/workflows/db-migrate.yml
   - apps/mobile/react-native.config.js
@@ -103,18 +104,19 @@ If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds
 
 `apps/mobile/app.config.ts` declares OTA updates through `expo-updates`:
 
+- App Store / Play Store marketing version `1.1.2`.
 - project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - updates URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`
 - channels are set by the EAS profile.
 - shared iOS/Android runtime `1.1.1`. This runtime accompanies the native iOS light-appearance change and the Android 16 / API 36 build.
 
-Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetSdkVersion` 36 by default. The repository does not override those native defaults.
+Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetSdkVersion` 36 by default. The repository does not override those API-level defaults. `expo-build-properties` enables R8 minification and resource shrinking for release variants, including store candidates; debug/development-client variants remain unobfuscated. The resulting AAB contains the build-specific `mapping.txt` required to deobfuscate native stack traces.
 
 The app config intentionally keeps `@react-native-google-signin/google-signin` out of the iOS plugin list, and `apps/mobile/react-native.config.js` disables the package in the React Native iOS autolinking layer, because the mobile app only supports native Google Sign-In on Android; iOS stays on the browser OAuth path.
 
 The manual `apps/mobile/.eas/workflows/mobile-ux-audit.yml` workflow uses the EAS `preview` environment for both builds and Maestro jobs. Android targets a Pixel 6 emulator with screen recording; iOS uses a simulator build. Both jobs execute the same authenticated smoke/UX flow and retain screenshots plus recordings as artifacts. Expo requires a compatible paid plan for hosted Maestro jobs, and validation against the current project account stops on that billing capability before execution.
 
-`apps/mobile/.eas/workflows/store-candidate.yml` starts for merged commits on `main`, then pauses at an EAS approval gate before consuming build capacity. It builds both production binaries, submits Android to an internal draft and uploads iOS to App Store Connect/TestFlight. A job-level `main` condition prevents a manual workflow run from another ref from reaching the approval/build chain. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
+Store candidates are manual and platform-specific. `store-candidate-android.yml` and `store-candidate-ios.yml` each expose only `workflow_dispatch`, pause at their own EAS approval gate, build the selected platform with the `production` profile, and submit with `store-candidate`. Operators must dispatch the chosen file from remote `main` (for example, `eas workflow:run .eas/workflows/store-candidate-ios.yml --ref main`); omitting `--ref` uploads the local project state instead. Android submission creates an internal draft, while iOS uploads to App Store Connect/TestFlight. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
 
 ## Supabase
 
@@ -240,7 +242,9 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `OPENAI_API_KEY` is server-only. The organizer import LLM is admin-only, returns a transient reviewed proposal, and must never receive service-role credentials.
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 - `userInterfaceStyle` is native configuration. Build and ship a new iOS binary on runtime `1.1.1` before publishing a `1.1.1` OTA; installed iOS `1.1.0` binaries remain in their prior compatibility group.
+- EAS remote versioning and `autoIncrement: true` manage the developer-facing iOS build number and Android version code. They do not replace the explicit marketing-version update in `app.config.ts`; once Apple closes a version train, increment `version`, rebuild the IPA, and submit that new artifact.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
+- R8 changes native release output and cannot ship through OTA. Test the exact optimized candidate before promotion, and keep its `mapping.txt` paired with that build rather than reusing a mapping from another version.
 - Store candidate automation also requires valid Apple App Store Connect credentials in EAS. Do not approve the candidate gate until both platform credentials have been configured and the build capacity is intentionally accepted.
 - Do not present hosted Maestro as active on the current Expo plan. Use the local Android runner until the plan is upgraded or a separate compatible CI runner is added.
 

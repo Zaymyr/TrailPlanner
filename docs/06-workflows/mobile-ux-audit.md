@@ -11,7 +11,8 @@ related_files:
   - apps/mobile/package.json
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
-  - apps/mobile/.eas/workflows/store-candidate.yml
+  - apps/mobile/.eas/workflows/store-candidate-android.yml
+  - apps/mobile/.eas/workflows/store-candidate-ios.yml
   - apps/mobile/.maestro/config.yaml
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
@@ -105,13 +106,15 @@ npx eas-cli@latest config --platform ios --profile e2e-test
 
 When a binary and runner are available, the acceptance gate is a successful `authenticated-shell.yaml` run plus manual review of every screenshot and recording. Also run one compact-screen session and one enlarged-text session before a major release.
 
+Android production candidates additionally require an internal-track smoke test of the R8-optimized release binary. The ordinary development client is not minified and therefore cannot prove that reflection-based native integrations survive release optimization. Keep the exact candidate's `mapping.txt` available when investigating an obfuscated crash.
+
 ## Do Not
 
 - Do not commit credentials or inject them through `EXPO_PUBLIC_*` variables.
 - Do not treat screenshot generation as an automatic aesthetic verdict.
 - Do not rely only on visible French or English text when a stable `testID` can identify the action.
 - Do not auto-run the cross-platform EAS workflow on every commit without an explicit cost/latency decision.
-- Do not use a store candidate build as UX-audit evidence until the development/E2E binary has passed the same journey; candidate submission is a release operation, not a test harness.
+- Do not use an Android or iOS store candidate build as UX-audit evidence until the development/E2E binary has passed the same journey; each platform candidate workflow is an independently approved release operation, not a test harness.
 - Do not mutate plans, favorites, purchases, or organizer data in the shell audit. Put destructive scenarios in isolated test-account flows with cleanup.
 - Do not run a development-client audit without explicitly passing `APP_ID=com.paceyourself.app.dev`; both production and Dev may be installed on the same phone.
 - Do not add an authentication or onboarding bypass to the production app for E2E convenience.
@@ -127,6 +130,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - `number-pad` and `decimal-pad` have no native return key on iOS. Every such field must stay connected to the shared numeric keyboard accessory; a form-level close button is not an equivalent keyboard-dismiss path.
 - The login screen must remain scrollable with the keyboard visible and with enlarged Dynamic Type. A static centered form can hide the password, sign-in, or account-creation actions on compact iPhones.
 - Changing Expo `userInterfaceStyle` is native configuration. Validate the new status-bar contrast in a matching iOS binary; an OTA cannot retrofit the appearance setting to an older runtime.
+- R8 minification and resource shrinking apply only to Android release variants. Do not treat a development-client pass as release-optimization evidence, and never use a mapping file from a different AAB to decode a stack trace.
 - Expo Doctor reports the deliberate Metro isolation and the separate React 18 web / React 19 mobile installs as monorepo warnings. Investigate new duplicate native-module warnings, but do not remove the mobile-first resolver without revalidating that Metro still resolves React 19 for React Native 0.81.
 - Run mobile lint after a clean dependency install when changing its tooling. The legacy Expo ESLint config resolves `eslint-plugin-react-hooks` from the mobile workspace, so that plugin stays an explicit mobile development dependency rather than relying on local hoisting.
 - For RaceBook navigation checks, open two different formats successively, then verify the hero arrow, contextual Courses action, and Android hardware back each replace the active route with Courses without revealing the first RaceBook.
