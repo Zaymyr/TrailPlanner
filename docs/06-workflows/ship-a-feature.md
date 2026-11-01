@@ -1,7 +1,7 @@
 ---
 title: Ship a Feature
 scope: workflow
-last_verified: 2026-09-30
+last_verified: 2026-11-01
 ai_priority: medium
 related_files:
   - package.json
@@ -47,7 +47,7 @@ git switch -c dev/<task-name> origin/main
 
    Never reuse a branch from an already merged or closed pull request, and never place new work on a branch from a previous task. After the pull request is merged, delete its local and remote branches.
    Use the primary repository checkout and switch task branches there. Do not create another worktree unless the user explicitly requests isolated parallel work.
-2. Read `docs/AGENTS.md` and route yourself to the relevant domain docs.
+2. Read root `AGENTS.md`, then `docs/AGENTS.md`, and route yourself to the relevant domain docs. The root file is the canonical entry point for every assistant.
 3. Search the existing implementation before adding new patterns:
 
 ```bash
@@ -71,6 +71,7 @@ npm run verify
 10. For Supabase changes, verify RLS and service-role behavior separately.
 11. For mobile dependency changes, keep both the root workspace lockfile and `apps/mobile/package-lock.json` aligned when both are present.
     Run `npx expo-doctor apps/mobile` after installation and distinguish intentional monorepo Metro isolation warnings from actual SDK version mismatches.
+    Native config plugins such as `@react-native-community/datetimepicker` require a new development/store binary; do not describe their JavaScript usage as OTA-only delivery, and keep an older-runtime fallback when development OTAs may arrive first.
     Run `npm run lint -w @trailplanner/mobile` after TypeScript or JavaScript changes.
     Keep Expo ESLint plugins used by the legacy config explicit in `apps/mobile/devDependencies`; do not rely on a plugin being transitively hoisted in an existing local `node_modules` tree.
 12. For mobile navigation, authentication, or visual changes, run the Maestro shell journey and review its screenshots against [Mobile UX Audit](mobile-ux-audit.md). Treat the automated pass as functional evidence, not as proof that the composition is harmonious.

@@ -23,6 +23,7 @@ import { captureAnalyticsEvent } from '../lib/posthog';
 import { syncPushDeviceRegistration } from '../lib/pushRegistration';
 import { getSession } from '../lib/raceLiveSession';
 import { clearUnfinishedPlanReminder, syncLatestUnfinishedPlanReminder } from '../lib/reminderNotifications';
+import { sortPlanSections } from '../lib/plansListPresentation';
 import { supabase } from '../lib/supabase';
 
 export function usePlansScreen() {
@@ -35,7 +36,7 @@ export function usePlansScreen() {
   const [loading, setLoading] = useState(() => initialBootstrapRef.current == null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set(['__past__']));
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [sharingPlanId, setSharingPlanId] = useState<string | null>(null);
   const [premiumModalCopy, setPremiumModalCopy] = useState<{
@@ -210,10 +211,6 @@ export function usePlansScreen() {
       });
     }
 
-    result.sort((left, right) => {
-      return left.eventName.localeCompare(right.eventName);
-    });
-
     const orphanPlans = grouped.__orphan__ ?? [];
     if (orphanPlans.length > 0) {
       result.push({
@@ -225,8 +222,8 @@ export function usePlansScreen() {
       });
     }
 
-    return result;
-  }, [plans, t.plans.noCatalogRace, t.plans.noRace]);
+    return sortPlanSections(result, Date.now(), t.plans.pastRaces);
+  }, [plans, t.plans.noCatalogRace, t.plans.noRace, t.plans.pastRaces]);
 
   const accessiblePlanIds = useMemo(
     () => getAccessiblePlanIds(plans, isPremium, isAnonymous),

@@ -1,7 +1,7 @@
 ---
 title: race_events Table
 scope: database
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260331000000_add_thumbnail_to_race_events.sql
@@ -275,6 +275,8 @@ where is_live = true
 ```
 
 ## Gotchas
+
+- Keeping Courses search and quick filters sticky, entering date bounds through native pickers, and placing format actions below the full-width format name are presentation-only. They do not alter event/format relationships, visibility, or stored dates.
 
 - The shared Courses bootstrap, recoverable-error, empty-result, and pull-to-refresh presentation repeats the existing event/format query and visibility filters. It must not persist an empty result, alter event liveness, or turn a failed request into a catalog-empty conclusion.
 - Expanding or compacting the Courses root header changes only layout. It must not re-run, widen, or reorder the event query outside the existing scroll/list behavior.

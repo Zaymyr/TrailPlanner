@@ -19,6 +19,7 @@ import {
   parseBirthDateInput,
   parseComfortableFlatPace,
   parseOptionalNonNegativeInteger,
+  resolvePremiumGrantReason,
   splitPaceMinutesPerKm,
   type UserProfile,
 } from '../components/profile/profileHelpers';
@@ -93,6 +94,11 @@ export function useProfileScreen() {
   const [profileReloadKey, setProfileReloadKey] = useState(0);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{
+    birthDate?: string;
+    height?: string;
+    weight?: string;
+  }>({});
   const [saved, setSaved] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [changelogLoading, setChangelogLoading] = useState(false);
@@ -270,14 +276,17 @@ export function useProfileScreen() {
 
   const handleChangeBirthDate = useCallback((value: string) => {
     setBirthDateInput(value);
+    setFieldErrors((current) => ({ ...current, birthDate: undefined }));
   }, []);
 
   const handleChangeWeightKg = useCallback((value: string) => {
     setWeightKg(sanitizeDigits(value, 3));
+    setFieldErrors((current) => ({ ...current, weight: undefined }));
   }, []);
 
   const handleChangeHeightCm = useCallback((value: string) => {
     setHeightCm(sanitizeDigits(value, 3));
+    setFieldErrors((current) => ({ ...current, height: undefined }));
   }, []);
 
   const handleChangeUtmbIndex = useCallback((value: string) => {
@@ -355,20 +364,21 @@ export function useProfileScreen() {
     setSaving(true);
     setSaved(false);
     setError(null);
+    setFieldErrors({});
 
     const trimmedBirthDate = birthDateInput.trim();
     const birthDateIso = trimmedBirthDate ? parseBirthDateInput(trimmedBirthDate) : null;
 
     if (trimmedBirthDate && !birthDateIso) {
       setSaving(false);
-      setError(t.profile.birthDateInvalid);
+      setFieldErrors({ birthDate: t.profile.birthDateInvalid });
       return;
     }
 
     const nextAge = birthDateIso ? calculateAgeFromBirthDate(birthDateIso) : null;
     if (nextAge !== null && (nextAge < 0 || nextAge > 120)) {
       setSaving(false);
-      setError(t.profile.birthDateRange);
+      setFieldErrors({ birthDate: t.profile.birthDateRange });
       return;
     }
 
@@ -401,7 +411,7 @@ export function useProfileScreen() {
       (parsedWeightKg !== null && (parsedWeightKg < 20 || parsedWeightKg > 250))
     ) {
       setSaving(false);
-      setError(t.profile.weightInvalid);
+      setFieldErrors({ weight: t.profile.weightInvalid });
       return;
     }
 
@@ -411,7 +421,7 @@ export function useProfileScreen() {
       (parsedHeightCm !== null && (parsedHeightCm < 100 || parsedHeightCm > 250))
     ) {
       setSaving(false);
-      setError(t.profile.heightInvalid);
+      setFieldErrors({ height: t.profile.heightInvalid });
       return;
     }
 
@@ -1056,7 +1066,14 @@ export function useProfileScreen() {
               title: t.profile.premiumSourceAdminGrant,
               body: t.profile.adminGrantReason.replace(
                 '{reason}',
-                premiumGrant.reason || t.profile.adminGrantReasonFallback,
+                resolvePremiumGrantReason(premiumGrant.reason, {
+                  fallback: t.profile.adminGrantReasonFallback,
+                  marketing: t.profile.adminGrantReasonMarketing,
+                  other: t.profile.adminGrantReasonOther,
+                  partner: t.profile.adminGrantReasonPartner,
+                  support: t.profile.adminGrantReasonSupport,
+                  trialExtension: t.profile.adminGrantReasonTrialExtension,
+                }),
               ),
               meta: t.profile.adminGrantDaysRemaining.replace(
                 '{days}',
@@ -1084,6 +1101,11 @@ export function useProfileScreen() {
       t.profile.adminGrantDaysRemaining,
       t.profile.adminGrantReason,
       t.profile.adminGrantReasonFallback,
+      t.profile.adminGrantReasonMarketing,
+      t.profile.adminGrantReasonOther,
+      t.profile.adminGrantReasonPartner,
+      t.profile.adminGrantReasonSupport,
+      t.profile.adminGrantReasonTrialExtension,
       t.profile.premiumSourceAdminGrant,
       t.profile.premiumSourceSubscription,
       t.profile.premiumSourceTrial,
@@ -1193,6 +1215,8 @@ export function useProfileScreen() {
     loadError,
     saving,
     error,
+    fieldErrors,
+    saved,
     activeProfileTab,
     setActiveProfileTab,
     fullName,

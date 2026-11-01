@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
+import { DatePickerField } from '../inputs/DatePickerField';
 
 export function CatalogLoadingCard() {
   return (
@@ -95,7 +96,7 @@ type FilterText = {
   dateTitle: string;
   minDate: string;
   maxDate: string;
-  dateHint: string;
+  clearDate: string;
   reset: string;
   apply: string;
 };
@@ -113,6 +114,8 @@ export function CatalogFiltersModal({
   onChangeDateMax,
   onClose,
   onReset,
+  locale,
+  datePickerUnavailableMessage,
 }: {
   visible: boolean;
   text: FilterText;
@@ -126,7 +129,12 @@ export function CatalogFiltersModal({
   onChangeDateMax: (value: string) => void;
   onClose: () => void;
   onReset: () => void;
+  locale: 'fr' | 'en';
+  datePickerUnavailableMessage: string;
 }) {
+  const parsedDateMin = parseIsoDate(dateMin);
+  const parsedDateMax = parseIsoDate(dateMax);
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -160,10 +168,41 @@ export function CatalogFiltersModal({
             </View>
             <Text style={styles.modalSectionTitle}>{text.dateTitle}</Text>
             <View style={styles.rangeRow}>
-              <TextInput value={dateMin} onChangeText={onChangeDateMin} placeholder={text.minDate} placeholderTextColor={Colors.textMuted} style={[styles.filterInput, styles.rangeInput]} />
-              <TextInput value={dateMax} onChangeText={onChangeDateMax} placeholder={text.maxDate} placeholderTextColor={Colors.textMuted} style={[styles.filterInput, styles.rangeInput]} />
+              <View style={styles.dateFieldColumn}>
+                <DatePickerField
+                  accessibilityLabel={text.minDate}
+                  locale={locale}
+                  onChange={(date) => {
+                    onChangeDateMin(formatIsoDate(date));
+                    if (parsedDateMax && parsedDateMax < date) onChangeDateMax('');
+                  }}
+                  placeholder={text.minDate}
+                  unavailableMessage={datePickerUnavailableMessage}
+                  value={parsedDateMin}
+                />
+                {dateMin ? (
+                  <TouchableOpacity accessibilityRole="button" onPress={() => onChangeDateMin('')}>
+                    <Text style={styles.clearDateText}>{text.clearDate}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
+              <View style={styles.dateFieldColumn}>
+                <DatePickerField
+                  accessibilityLabel={text.maxDate}
+                  locale={locale}
+                  minimumDate={parsedDateMin ?? undefined}
+                  onChange={(date) => onChangeDateMax(formatIsoDate(date))}
+                  placeholder={text.maxDate}
+                  unavailableMessage={datePickerUnavailableMessage}
+                  value={parsedDateMax}
+                />
+                {dateMax ? (
+                  <TouchableOpacity accessibilityRole="button" onPress={() => onChangeDateMax('')}>
+                    <Text style={styles.clearDateText}>{text.clearDate}</Text>
+                  </TouchableOpacity>
+                ) : null}
+              </View>
             </View>
-            <Text style={styles.modalHint}>{text.dateHint}</Text>
           </ScrollView>
           <View style={styles.modalFooter}>
             <TouchableOpacity style={styles.secondaryActionButton} onPress={onReset}>
@@ -179,17 +218,31 @@ export function CatalogFiltersModal({
   );
 }
 
+function parseIsoDate(value: string): Date | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const date = new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]), 12);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function formatIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 const styles = StyleSheet.create({
   eventCard: { backgroundColor: Colors.surface, borderRadius: 18, borderWidth: 1, borderColor: Colors.border, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.07, shadowRadius: 6, elevation: 3, gap: 14 },
-  formatRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
+  formatRow: { gap: 12, padding: 14, borderRadius: 16, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surface },
   formatRowDimmed: { opacity: 0.58 },
   formatRowContent: { flex: 1, gap: 4 },
   formatTitle: { color: Colors.textPrimary, fontSize: 15, fontWeight: '700' },
   formatSubtitle: { color: Colors.textSecondary, fontSize: 13 },
-  formatActionButton: { minWidth: 104, minHeight: 42, borderRadius: 10, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  formatActionButton: { flex: 1, minHeight: 42, borderRadius: 10, backgroundColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   formatActionButtonText: { color: Colors.textOnBrand, fontSize: 13, fontWeight: '700' },
-  formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  formatSecondaryActionButton: { minWidth: 96, minHeight: 42, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.brandSurface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  formatActions: { flexDirection: 'row', alignItems: 'center', gap: 8, width: '100%' },
+  formatSecondaryActionButton: { flex: 1, minHeight: 42, borderRadius: 10, borderWidth: 1.5, borderColor: Colors.brandPrimary, backgroundColor: Colors.brandSurface, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
   formatSecondaryActionButtonText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   formatSecondaryActionButtonDimmed: { borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary },
   formatSecondaryActionButtonTextDimmed: { color: Colors.textMuted },
@@ -214,6 +267,8 @@ const styles = StyleSheet.create({
   rangeRow: { flexDirection: 'row', gap: 10 },
   filterInput: { backgroundColor: Colors.surfaceSecondary, borderRadius: 12, borderWidth: 1, borderColor: Colors.border, paddingHorizontal: 14, paddingVertical: 11, color: Colors.textPrimary, fontSize: 15 },
   rangeInput: { flex: 1 },
+  dateFieldColumn: { flex: 1, gap: 6 },
+  clearDateText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '700', textAlign: 'center' },
   modalHint: { color: Colors.textSecondary, fontSize: 12, lineHeight: 18 },
   modalFooter: { flexDirection: 'row', gap: 10, paddingHorizontal: 20, paddingTop: 12, paddingBottom: 20, borderTopWidth: 1, borderTopColor: Colors.border, backgroundColor: Colors.surface },
   secondaryActionButton: { flex: 1, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.surfaceSecondary, borderRadius: 14, paddingVertical: 14 },

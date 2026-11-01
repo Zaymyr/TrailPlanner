@@ -30,6 +30,7 @@ import { EmptyState } from '../themed/EmptyState';
 import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
 import { estimateDuration, getPlanCardTitle } from './plansHelpers';
+import { formatDepartureCountdown, type DepartureCountdownCopy } from '../../lib/plansListPresentation';
 import type { PlanRow, RaceSection } from './types';
 
 type PlansListProps = {
@@ -56,6 +57,8 @@ type PlansListProps = {
   emptyTitle: string;
   emptySubtitle: string;
   browseRacesLabel: string;
+  departureCountdownCopy: DepartureCountdownCopy;
+  departureLabel: string;
   onRefresh: () => void;
   onToggleSection: (key: string) => void;
   onDeletePlan: (planId: string) => void;
@@ -92,6 +95,8 @@ export const PlansList = memo(function PlansList({
   emptyTitle,
   emptySubtitle,
   browseRacesLabel,
+  departureCountdownCopy,
+  departureLabel,
   onRefresh,
   onToggleSection,
   onDeletePlan,
@@ -111,13 +116,19 @@ export const PlansList = memo(function PlansList({
     const hasUpcomingDeparture = sections.some((section) =>
       section.data.some((plan) => {
         const departureMs = plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN;
-        return Number.isFinite(departureMs) && departureMs > Date.now();
+        return Number.isFinite(departureMs) && departureMs > nowMs;
       }),
     );
     if (!hasUpcomingDeparture) return undefined;
-    const timer = setInterval(() => setNowMs(Date.now()), 1_000);
+    const hasDepartureWithinAnHour = sections.some((section) =>
+      section.data.some((plan) => {
+        const departureMs = plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN;
+        return Number.isFinite(departureMs) && departureMs > nowMs && departureMs - nowMs < 3_600_000;
+      }),
+    );
+    const timer = setInterval(() => setNowMs(Date.now()), hasDepartureWithinAnHour ? 1_000 : 60_000);
     return () => clearInterval(timer);
-  }, [sections]);
+  }, [nowMs, sections]);
 
   const closeManagePlan = () => {
     if (!renamingPlan) setManagedPlan(null);
@@ -159,9 +170,20 @@ export const PlansList = memo(function PlansList({
           const isAccessible =
             isPremium || accessiblePlanIds === null || accessiblePlanIds.has(item.id);
 
+          const planEventName = section.pastEventNames?.[item.id] ?? section.eventName;
+          const startsPastEvent = section.pastEventStartIds?.includes(item.id) === true;
+
           return (
-            <PlanCard
-              displayName={getPlanCardTitle(item, section.eventName, locale)}
+            <View>
+              {startsPastEvent ? (
+                <Heading numberOfLines={1} variant="h3" style={styles.pastEventTitle}>
+                  {planEventName}
+                </Heading>
+              ) : null}
+              <PlanCard
+              displayName={getPlanCardTitle(item, planEventName, locale)}
+              departureCountdownCopy={departureCountdownCopy}
+              departureLabel={departureLabel}
               duration={duration}
               isAccessible={isAccessible}
               isActivePlan={isActivePlan}
@@ -183,7 +205,8 @@ export const PlansList = memo(function PlansList({
               shareButtonLabel={shareButtonLabel}
               startButtonLabel={startButtonLabel}
               inProgressLabel={inProgressLabel}
-            />
+              />
+            </View>
           );
         }}
         renderSectionFooter={({ section }) => {
@@ -322,6 +345,8 @@ type PlanCardProps = {
   item: PlanRow;
   displayName: string;
   duration: string | null;
+  departureCountdownCopy: DepartureCountdownCopy;
+  departureLabel: string;
   locale: 'fr' | 'en';
   isAccessible: boolean;
   isActivePlan: boolean;
@@ -340,28 +365,12 @@ type PlanCardProps = {
   onLockedPress: () => void;
 };
 
-function formatDepartureCountdown(
-  departureAt: string | null | undefined,
-  nowMs: number,
-  locale: 'fr' | 'en',
-) {
-  if (!departureAt) return locale === 'fr' ? 'À renseigner' : 'Not set';
-  const departureMs = new Date(departureAt).getTime();
-  if (!Number.isFinite(departureMs)) return locale === 'fr' ? 'À renseigner' : 'Not set';
-  const remainingSeconds = Math.floor((departureMs - nowMs) / 1_000);
-  if (remainingSeconds <= 0) return locale === 'fr' ? 'Départ passé' : 'Started';
-
-  const days = Math.floor(remainingSeconds / 86_400);
-  const hours = Math.floor((remainingSeconds % 86_400) / 3_600);
-  const minutes = Math.floor((remainingSeconds % 3_600) / 60);
-  const seconds = remainingSeconds % 60;
-  return `${days}J ${String(hours).padStart(2, '0')}H ${String(minutes).padStart(2, '0')}Min ${String(seconds).padStart(2, '0')}S`;
-}
-
 function PlanCard({
   item,
   displayName,
   duration,
+  departureCountdownCopy,
+  departureLabel,
   locale,
   isAccessible,
   isActivePlan,
@@ -380,7 +389,7 @@ function PlanCard({
   onLockedPress,
 }: PlanCardProps) {
   const aidStationCount = getIntermediateAidStationCount(item.planner_values?.aidStations);
-  const countdown = formatDepartureCountdown(item.departureAt, nowMs, locale);
+  const countdown = formatDepartureCountdown(item.departureAt, nowMs, departureCountdownCopy);
 
   return (
     <Card padded={false} surface="white" style={[styles.card, isActivePlan && styles.cardActive]}>
@@ -433,7 +442,9 @@ function PlanCard({
             <View style={styles.meta}>
               {item.planner_values?.raceDistanceKm != null ? (
                 <DataText tone="secondary" size="xs" weight="medium">
-                  {item.planner_values.raceDistanceKm} km
+                  {new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+                    maximumFractionDigits: 1,
+                  }).format(item.planner_values.raceDistanceKm)} km
                 </DataText>
               ) : null}
               {item.planner_values?.elevationGain != null ? (
@@ -464,7 +475,7 @@ function PlanCard({
               </View>
               <View style={[styles.planInsight, styles.planInsightDivider]}>
                 <Text tone="secondary" size="xs" weight="semibold">
-                  {locale === 'fr' ? 'Départ dans' : 'Starts in'}
+                  {departureLabel}
                 </Text>
                 <DataText numberOfLines={1} tone="brand" size="xs" weight="bold">
                   {countdown}
@@ -561,6 +572,13 @@ const styles = StyleSheet.create({
     color: colors.brand.forest,
     fontSize: 21,
     lineHeight: 25,
+  },
+  pastEventTitle: {
+    color: colors.text.secondary,
+    fontSize: 15,
+    marginBottom: 4,
+    marginLeft: 12,
+    marginTop: 8,
   },
   orphanWarning: {
     paddingHorizontal: spacing[1],

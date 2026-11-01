@@ -1,7 +1,7 @@
 ---
 title: Premium Entitlement
 scope: business-rule
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - apps/web/lib/entitlements.ts
@@ -77,7 +77,7 @@ Important behavior:
 - active `premium_grants`;
 - RevenueCat customer info.
 
-`apps/mobile/hooks/useProfileScreen.ts` consumes this resolved entitlement only for Profile presentation and billing actions; its extracted profile diagnostic helpers do not alter purchase verification or entitlement resolution. The same hook compares editable profile fields with their last persisted values so the save action can remain disabled while the form is unchanged; that dirty-state presentation does not affect Premium resolution.
+`apps/mobile/hooks/useProfileScreen.ts` consumes this resolved entitlement only for Profile presentation and billing actions; its extracted profile diagnostic helpers do not alter purchase verification or entitlement resolution. The same hook compares editable profile fields with their last persisted values so the single bottom save dock appears only while personal/performance data is dirty; that presentation does not affect Premium resolution. Known grant reasons from the admin contract are mapped to localized runner copy and unknown/missing values use the fallback, so raw technical reason keys are never rendered.
 Retrying the Profile row bootstrap after a recoverable read failure reloads only the existing session/profile form data. It does not grant Premium, bypass `usePremium`, or repeat a billing action.
 
 If RevenueCat reports an active entitlement but the server row is not synced, mobile calls the web RevenueCat sync endpoint.

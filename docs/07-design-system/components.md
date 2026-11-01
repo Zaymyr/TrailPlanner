@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -116,10 +116,11 @@ callers own all visible strings so they can use the locale files.
 
 `RootCollapsibleHeader` is the shared header for the four primary mobile tabs.
 It uses the forest brand surface, respects the native top inset, progressively
-contracts from a 112-point body to a 60-point sticky body, and reserves one
-44-point trailing target for an essential screen action. Scrolling content owns
-the `Animated.Value` and begins below the expanded height; secondary help and
-feedback actions remain in the floating root action menu.
+contracts from a 112-point body to a 60-point sticky body, and reserves 44-point
+leading and trailing targets. The leading target hosts the shared root help menu
+in expanded and compact modes; the trailing target is optional and stays limited
+to one essential screen action. Scrolling content owns the `Animated.Value` and
+begins below the expanded height.
 
 ## Gotchas
 

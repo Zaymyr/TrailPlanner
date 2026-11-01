@@ -12,6 +12,7 @@ import {
   View
 } from 'react-native';
 import { Text } from '../themed/Text';
+import { DatePickerField } from '../inputs/DatePickerField';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
@@ -23,7 +24,7 @@ type RaceRequestHeaderButtonProps = {
 };
 
 export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonProps) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [visible, setVisible] = useState(false);
   const [raceName, setRaceName] = useState('');
   const [location, setLocation] = useState('');
@@ -142,15 +143,24 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
             />
 
             <Text style={styles.label}>{t.raceRequests.dateLabel}</Text>
-            <TextInput
-              editable={!submitting}
-              onChangeText={setRaceDate}
+            <DatePickerField
+              accessibilityLabel={t.raceRequests.dateLabel}
+              locale={locale}
+              onChange={(date) => setRaceDate(formatIsoDate(date))}
               placeholder={t.raceRequests.datePlaceholder}
-              placeholderTextColor={Colors.textMuted}
-              style={styles.input}
-              value={raceDate}
+              unavailableMessage={t.common.datePickerUnavailable}
+              value={parseIsoDate(raceDate)}
             />
-            <Text style={styles.hint}>{t.raceRequests.dateHint}</Text>
+            {raceDate ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                disabled={submitting}
+                onPress={() => setRaceDate('')}
+                style={styles.clearDateButton}
+              >
+                <Text style={styles.clearDateText}>{t.catalog.clearDate}</Text>
+              </TouchableOpacity>
+            ) : null}
 
             <TouchableOpacity
               disabled={submitting}
@@ -172,6 +182,20 @@ export function RaceRequestHeaderButton({ children }: RaceRequestHeaderButtonPro
       </Modal>
     </>
   );
+}
+
+function parseIsoDate(value: string): Date | null {
+  const parsed = parseRequestedDate(value);
+  if (!parsed) return null;
+  const [year, month, day] = parsed.split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
+function formatIsoDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 const styles = StyleSheet.create({
@@ -227,13 +251,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 12,
   },
-  hint: {
-    color: Colors.textMuted,
-    fontSize: 12,
-    lineHeight: 18,
-    marginBottom: 16,
-    marginTop: -6,
-  },
+  clearDateButton: { alignSelf: 'flex-start', marginBottom: 14, marginTop: 6 },
+  clearDateText: { color: Colors.brandPrimary, fontSize: 13, fontWeight: '700' },
   primaryButton: {
     backgroundColor: Colors.brandPrimary,
     borderRadius: 16,

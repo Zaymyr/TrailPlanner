@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Animated, Pressable, StyleSheet, View } from 'react-native';
 
@@ -18,13 +18,14 @@ type HeaderAction = {
 
 type Props = {
   action?: HeaderAction;
+  helpAction?: ReactNode;
   icon: keyof typeof Ionicons.glyphMap;
   scrollY: Animated.Value;
   title: string;
   topInset: number;
 };
 
-export function RootCollapsibleHeader({ action, icon, scrollY, title, topInset }: Props) {
+export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title, topInset }: Props) {
   const [compact, setCompact] = useState(false);
   const expandedHeight = topInset + ROOT_HEADER_EXPANDED_BODY_HEIGHT;
   const compactHeight = topInset + ROOT_HEADER_COMPACT_BODY_HEIGHT;
@@ -71,12 +72,14 @@ export function RootCollapsibleHeader({ action, icon, scrollY, title, topInset }
       <Animated.View
         accessibilityElementsHidden={compact}
         importantForAccessibility={compact ? 'no-hide-descendants' : 'auto'}
-        pointerEvents="none"
+        pointerEvents={helpAction ? 'box-none' : 'none'}
         style={[styles.expandedContent, { top: topInset, opacity: expandedOpacity }]}
       >
-        <View style={styles.iconSurface}>
-          <Ionicons color={Colors.textOnBrand} name={icon} size={24} />
-        </View>
+        {helpAction ? <View style={styles.leadingActionSpacer} /> : (
+          <View style={styles.iconSurface}>
+            <Ionicons color={Colors.textOnBrand} name={icon} size={24} />
+          </View>
+        )}
         <Text accessibilityRole="header" numberOfLines={2} style={styles.expandedTitle}>
           {title}
         </Text>
@@ -86,12 +89,22 @@ export function RootCollapsibleHeader({ action, icon, scrollY, title, topInset }
         accessibilityElementsHidden={!compact}
         importantForAccessibility={compact ? 'auto' : 'no-hide-descendants'}
         pointerEvents="none"
-        style={[styles.compactContent, { top: topInset, opacity: compactOpacity }]}
+        style={[
+          styles.compactContent,
+          helpAction ? styles.compactContentWithLeadingAction : undefined,
+          { top: topInset, opacity: compactOpacity },
+        ]}
       >
         <Text accessibilityRole="header" numberOfLines={1} style={styles.compactTitle}>
           {title}
         </Text>
       </Animated.View>
+
+      {helpAction ? (
+        <View pointerEvents="box-none" style={[styles.helpAction, { top: topInset + 8 }]}>
+          {helpAction}
+        </View>
+      ) : null}
 
       {action ? (
         <Pressable
@@ -151,6 +164,11 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.34)',
     backgroundColor: 'rgba(0,0,0,0.16)',
   },
+  leadingActionSpacer: {
+    width: 46,
+    height: 46,
+    flexShrink: 0,
+  },
   expandedTitle: {
     flex: 1,
     color: Colors.textOnBrand,
@@ -170,6 +188,16 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 21,
     fontWeight: '800',
+  },
+  compactContentWithLeadingAction: {
+    left: 68,
+  },
+  helpAction: {
+    position: 'absolute',
+    zIndex: 5,
+    left: 12,
+    width: 44,
+    height: 44,
   },
   action: {
     position: 'absolute',

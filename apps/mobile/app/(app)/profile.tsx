@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Animated,
+  Keyboard,
+  Platform,
   ScrollView,
   StyleSheet,
   View
@@ -29,7 +31,11 @@ import { ProfilePremiumSection } from '../../components/profile/ProfilePremiumSe
 import { ProfileSaveButton } from '../../components/profile/ProfileSaveButton';
 import { ProfileTabs } from '../../components/profile/ProfileTabs';
 import { ProfileUpdatesSection } from '../../components/profile/ProfileUpdatesSection';
-import { normalizeBirthDateInput, WATER_BAG_OPTIONS } from '../../components/profile/profileHelpers';
+import {
+  birthDateInputToDate,
+  formatBirthDateFromDate,
+  WATER_BAG_OPTIONS,
+} from '../../components/profile/profileHelpers';
 import { type ProfileTutorialTargetKey, useProfileTutorial } from '../../hooks/useProfileTutorial';
 import { useProfileScreen } from '../../hooks/useProfileScreen';
 import { type TutorialStep } from '../../lib/helpTutorial';
@@ -47,6 +53,7 @@ export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const [onboardingStatuses, setOnboardingStatuses] = useState<OnboardingStatuses>(DEFAULT_ONBOARDING_STATUSES);
+  const [keyboardInset, setKeyboardInset] = useState(0);
   const {
     locale,
     setLocale,
@@ -56,6 +63,8 @@ export default function ProfileScreen() {
     loadError,
     saving,
     error,
+    fieldErrors,
+    saved,
     activeProfileTab,
     setActiveProfileTab,
     fullName,
@@ -154,6 +163,17 @@ export default function ProfileScreen() {
 
   useFocusEffect(refreshOnboardingStatuses);
   useEffect(() => addOnboardingStatusListener(setOnboardingStatuses), []);
+  useEffect(() => {
+    if (Platform.OS !== 'ios') return undefined;
+    const showSubscription = Keyboard.addListener('keyboardWillShow', (event) => {
+      setKeyboardInset(event.endCoordinates.height);
+    });
+    const hideSubscription = Keyboard.addListener('keyboardWillHide', () => setKeyboardInset(0));
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
 
   const launchOnboarding = useCallback(async (kind: OnboardingKind) => {
     const replay = onboardingStatuses[kind] === 'completed';
@@ -186,7 +206,7 @@ export default function ProfileScreen() {
       },
       {
         screenKey: 'profile',
-        targetKey: 'save',
+        targetKey: 'personal',
         title: t.helpTutorial.profile.saveTitle,
         body: t.helpTutorial.profile.saveBody,
         highlightPadding: 6,
@@ -211,15 +231,19 @@ export default function ProfileScreen() {
     ],
     [t.helpTutorial],
   );
+  const showSaveAction = activeProfileTab !== 'settings' && (isProfileDirty || saving);
+  const saveDockBottom = keyboardInset > 0
+    ? keyboardInset + 12
+    : 72 + Math.max(8, insets.bottom);
   const contentStyle = useMemo(
     () => [
       styles.content,
       {
-        paddingBottom: 120,
+        paddingBottom: showSaveAction ? 120 : 48,
         paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + 16,
       },
     ],
-    [insets.top],
+    [insets.top, showSaveAction],
   );
 
   const {
@@ -243,7 +267,6 @@ export default function ProfileScreen() {
     onActiveTabChange: setActiveProfileTab,
     steps: tutorialSteps,
   });
-
   if (loading) {
     return (
       <View style={styles.screen}>
@@ -252,6 +275,13 @@ export default function ProfileScreen() {
           style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={(
+            <RootScreenActionMenu
+              contextLabel={t.profile.title}
+              help={{ type: 'tutorial', screenKey: 'profile' }}
+              topInset={insets.top}
+            />
+          )}
           icon="person-outline"
           scrollY={scrollY}
           title={t.profile.title}
@@ -271,6 +301,13 @@ export default function ProfileScreen() {
           style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={(
+            <RootScreenActionMenu
+              contextLabel={t.profile.title}
+              help={{ type: 'tutorial', screenKey: 'profile' }}
+              topInset={insets.top}
+            />
+          )}
           icon="person-outline"
           scrollY={scrollY}
           title={t.profile.title}
@@ -315,16 +352,23 @@ export default function ProfileScreen() {
               birthDateLabel={t.profile.birthDateLabel}
               birthDatePlaceholder={t.profile.birthDatePlaceholder}
               birthDateHelpText={birthDateHelpText}
+              birthDateClearLabel={t.profile.birthDateClear}
+              birthDateError={fieldErrors.birthDate}
               weightLabel={t.profile.weightLabel}
               weightPlaceholder={t.profile.weightPlaceholder}
               heightLabel={t.profile.heightLabel}
               heightPlaceholder={t.profile.heightPlaceholder}
+              heightError={fieldErrors.height}
+              locale={locale}
+              datePickerUnavailableMessage={t.common.datePickerUnavailable}
               fullName={fullName}
-              birthDateInput={birthDateInput}
+              birthDateInput={birthDateInputToDate(birthDateInput)}
               weightKg={weightKg}
+              weightError={fieldErrors.weight}
               heightCm={heightCm}
               onChangeFullName={setFullName}
-              onChangeBirthDate={(value) => handleChangeBirthDate(normalizeBirthDateInput(value))}
+              onChangeBirthDate={(value) => handleChangeBirthDate(formatBirthDateFromDate(value))}
+              onClearBirthDate={() => handleChangeBirthDate('')}
               onChangeWeightKg={handleChangeWeightKg}
               onChangeHeightCm={handleChangeHeightCm}
             />
@@ -416,10 +460,6 @@ export default function ProfileScreen() {
                 languageFrLabel={t.profile.languageFr}
                 languageEnLabel={t.profile.languageEn}
                 onSelectLocale={setLocale}
-                privacyPolicyLabel={t.profile.privacyPolicyButton}
-                onOpenPrivacyPolicy={() => void handleOpenPrivacyPolicy()}
-                termsOfUseLabel={t.profile.termsOfUseButton}
-                onOpenTermsOfUse={() => void handleOpenTermsOfUse()}
               />
             </TutorialTarget>
 
@@ -466,29 +506,42 @@ export default function ProfileScreen() {
         ) : null}
 
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
+      </ScrollView>
 
+      {showSaveAction ? (
         <TutorialTarget onMeasure={registerTutorialTarget} targetKey="save">
+          <View
+            style={[
+              styles.saveDock,
+              { bottom: saveDockBottom },
+            ]}
+          >
           <ProfileSaveButton
-            disabled={!isProfileDirty}
             label={saveButtonLabel}
             loading={saving}
             onPress={handleSave}
           />
+          </View>
         </TutorialTarget>
-      </ScrollView>
+      ) : null}
 
-      <RootScreenActionMenu
-        contextLabel={t.profile.title}
-        help={{ type: 'tutorial', screenKey: 'profile' }}
-      />
+      {saved ? (
+        <View
+          accessibilityLiveRegion="polite"
+          style={[styles.savedToast, { bottom: saveDockBottom }]}
+        >
+          <Text style={styles.savedToastText}>{t.profile.saved}</Text>
+        </View>
+      ) : null}
 
       <RootCollapsibleHeader
-        action={{
-          accessibilityLabel: saveButtonLabel,
-          disabled: saving || !isProfileDirty,
-          icon: 'save-outline',
-          onPress: handleSave,
-        }}
+        helpAction={(
+          <RootScreenActionMenu
+            contextLabel={t.profile.title}
+            help={{ type: 'tutorial', screenKey: 'profile' }}
+            topInset={insets.top}
+          />
+        )}
         icon="person-outline"
         scrollY={scrollY}
         title={t.profile.title}
@@ -586,5 +639,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 8,
     textAlign: 'center',
+  },
+  saveDock: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    zIndex: 20,
+  },
+  savedToast: {
+    position: 'absolute',
+    alignSelf: 'center',
+    zIndex: 20,
+    borderRadius: 999,
+    backgroundColor: Colors.brandPrimary,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+  },
+  savedToastText: {
+    color: Colors.textOnBrand,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });

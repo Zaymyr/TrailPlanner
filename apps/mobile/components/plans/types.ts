@@ -39,6 +39,8 @@ export type RaceSection = {
   eventName: string;
   isOwned: boolean;
   data: PlanRow[];
+  pastEventNames?: Record<string, string>;
+  pastEventStartIds?: string[];
 };
 
 export type PickerRace = {

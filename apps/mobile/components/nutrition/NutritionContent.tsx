@@ -44,6 +44,7 @@ type CatalogListRow =
       type: 'product';
       key: string;
       product: Product;
+      brandLabel?: string;
     };
 
 const KNOWN_BRAND_PREFIXES: { match: string; label: string }[] = [
@@ -246,6 +247,7 @@ type NutritionContentProps = {
   refreshing: boolean;
   freeAccessTitle: string;
   otherBrandsLabel: string;
+  verifiedLabel: string;
   onToggleFavorites: () => void;
   onToggleFavorite: (productId: string, productOverride?: Product) => void;
   onChangeFuelFilter: (value: FuelType | 'all') => void;
@@ -304,6 +306,7 @@ export const NutritionContent = memo(function NutritionContent({
   refreshing,
   freeAccessTitle,
   otherBrandsLabel,
+  verifiedLabel,
   onToggleFavorites,
   onToggleFavorite,
   onChangeFuelFilter,
@@ -327,7 +330,7 @@ export const NutritionContent = memo(function NutritionContent({
   onDeleteSelectedProduct,
 }: NutritionContentProps) {
   const [expandedCatalogBrands, setExpandedCatalogBrands] = useState<Set<string>>(() => new Set());
-  const catalogSearchActive = catalogSearch.trim().length > 0;
+  const flatCatalogActive = catalogSearch.trim().length > 0 || fuelFilter !== 'all';
   const favoriteGroups = useMemo(
     () => groupItemsByBrand(favorites, (favorite) => favorite.products, otherBrandsLabel),
     [favorites, otherBrandsLabel],
@@ -337,8 +340,15 @@ export const NutritionContent = memo(function NutritionContent({
     [filteredProducts, otherBrandsLabel],
   );
   const catalogRows = useMemo(
-    () => buildCatalogRows(catalogGroups, expandedCatalogBrands, catalogSearchActive),
-    [catalogGroups, catalogSearchActive, expandedCatalogBrands],
+    () => flatCatalogActive
+      ? filteredProducts.map((product) => ({
+          type: 'product' as const,
+          key: `product-${product.id}`,
+          product,
+          brandLabel: inferNutritionBrand(product, otherBrandsLabel),
+        }))
+      : buildCatalogRows(catalogGroups, expandedCatalogBrands, false),
+    [catalogGroups, expandedCatalogBrands, filteredProducts, flatCatalogActive, otherBrandsLabel],
   );
   const canManageSelectedProduct = Boolean(
     selectedProduct && (isAdmin || selectedProduct.created_by === userId),
@@ -386,14 +396,14 @@ export const NutritionContent = memo(function NutritionContent({
               favoriteGroups.map((group) => (
                 <View key={group.brandLabel} style={styles.brandGroup}>
                   <View style={styles.brandHeader}>
-                    <Text
-                      style={[
-                        styles.brandTitle,
-                        group.items.some((favorite) => isVerifiedProduct(favorite.products)) && styles.brandTitleOfficial,
-                      ]}
-                    >
+                    <Text style={styles.brandTitle}>
                       {group.brandLabel}
                     </Text>
+                    {group.items.some((favorite) => isVerifiedProduct(favorite.products)) ? (
+                      <View style={styles.verifiedBrandBadge}>
+                        <Text style={styles.verifiedBrandBadgeText}>{verifiedLabel}</Text>
+                      </View>
+                    ) : null}
                     <View style={styles.brandHeaderActions}>
                       <View style={styles.brandCountPill}>
                         <DataText style={styles.brandCountText}>{group.items.length}</DataText>
@@ -468,6 +478,7 @@ export const NutritionContent = memo(function NutritionContent({
       onToggleFavorite,
       onToggleFavorites,
       userId,
+      verifiedLabel,
     ],
   );
 
@@ -477,7 +488,7 @@ export const NutritionContent = memo(function NutritionContent({
         return (
           <TouchableOpacity
             accessibilityHint={
-              catalogSearchActive
+              flatCatalogActive
                 ? undefined
                 : item.expanded
                   ? 'Replier cette marque'
@@ -485,8 +496,8 @@ export const NutritionContent = memo(function NutritionContent({
             }
             accessibilityLabel={`${item.brandLabel}, ${item.count} produits`}
             accessibilityRole="button"
-            activeOpacity={catalogSearchActive ? 1 : 0.75}
-            disabled={catalogSearchActive}
+            activeOpacity={flatCatalogActive ? 1 : 0.75}
+            disabled={flatCatalogActive}
             onPress={() => toggleCatalogBrand(item.brandLabel)}
             style={[styles.brandHeaderButton, item.expanded && styles.brandHeaderButtonExpanded]}
           >
@@ -499,13 +510,14 @@ export const NutritionContent = memo(function NutritionContent({
                 </View>
               )}
               <View style={styles.brandTitleText}>
-                <Text style={styles.brandEyebrow}>{locale === 'fr' ? 'MARQUE' : 'BRAND'}</Text>
-                <Text
-                  numberOfLines={1}
-                  style={[styles.brandTitle, item.hasVerifiedProduct && styles.brandTitleOfficial]}
-                >
+                <Text numberOfLines={1} style={styles.brandTitle}>
                   {item.brandLabel}
                 </Text>
+                {item.hasVerifiedProduct ? (
+                  <View style={styles.verifiedBrandBadge}>
+                    <Text style={styles.verifiedBrandBadgeText}>{verifiedLabel}</Text>
+                  </View>
+                ) : null}
               </View>
             </View>
             <View style={styles.brandHeaderActions}>
@@ -532,18 +544,20 @@ export const NutritionContent = memo(function NutritionContent({
           onPress={() => onOpenProductDetail(item.product)}
           onToggleFavorite={() => onToggleFavorite(item.product.id)}
           product={item.product}
-          nested
+          brandLabel={item.brandLabel}
+          nested={!flatCatalogActive}
         />
       );
     },
     [
-      catalogSearchActive,
+      flatCatalogActive,
       favoriteIds,
       locale,
       onOpenProductDetail,
       onToggleFavorite,
       toggleCatalogBrand,
       userId,
+      verifiedLabel,
     ],
   );
 
@@ -648,6 +662,7 @@ function ProductCard({
   onPress,
   onToggleFavorite,
   nested = false,
+  brandLabel,
 }: {
   product: Product;
   isFavorite: boolean;
@@ -655,6 +670,7 @@ function ProductCard({
   onPress: () => void;
   onToggleFavorite: () => void;
   nested?: boolean;
+  brandLabel?: string;
 }) {
   const isVerified = isVerifiedProduct(product);
   const nutritionStats = [
@@ -690,6 +706,7 @@ function ProductCard({
           </Text>
         </View>
         <Text style={styles.productType}>
+          {brandLabel ? `${brandLabel} · ` : ''}
           {FUEL_TYPE_LABELS[product.fuel_type] ?? product.fuel_type}
           {isOwnedByUser ? <Text style={styles.myProductTag}> · Mon produit</Text> : null}
         </Text>
@@ -894,20 +911,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.brandSurface,
   },
-  brandEyebrow: {
-    color: Colors.textMuted,
-    fontSize: 9,
-    fontWeight: '800',
-    letterSpacing: 0.9,
-  },
   brandTitle: {
     flex: 1,
     fontSize: 15,
     fontWeight: '700',
     color: Colors.textPrimary,
   },
-  brandTitleOfficial: {
-    color: Colors.brandLight,
+  verifiedBrandBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: Colors.brandSurface,
+    borderColor: Colors.brandBorder,
+    borderRadius: 999,
+    borderWidth: 1,
+    marginTop: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  verifiedBrandBadgeText: {
+    color: Colors.brandPrimary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   brandItems: {
     gap: 0,

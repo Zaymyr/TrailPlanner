@@ -29,6 +29,7 @@
     "@pace-yourself/design-system": "file:../../packages/design-system",
     "@posthog/core": "^1.29.2",
     "@react-native-async-storage/async-storage": "2.2.0",
+    "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-google-signin/google-signin": "^16.1.2",
     "@supabase/supabase-js": "^2.45.4",
     "expo": "~54.0.37",

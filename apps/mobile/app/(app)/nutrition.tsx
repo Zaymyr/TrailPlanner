@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Animated, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -82,18 +82,16 @@ export default function NutritionScreen() {
     handleUpdateSelectedProduct,
     handleDeleteSelectedProduct,
   } = useNutritionScreen();
-  const helpCopy = useMemo(
-    () =>
-      locale === 'fr'
-        ? {
-            title: 'Nutrition',
-            body: 'Garde tes produits favoris en haut, filtre le catalogue par type de carburant et ajoute tes produits personnels depuis le menu.',
-          }
-        : {
-            title: 'Nutrition',
-            body: 'Keep favorite products at the top, filter the catalog by fuel type, and add custom products from the menu.',
-          },
-    [locale],
+  const rootHelpAction = (
+    <RootScreenActionMenu
+      contextLabel="Nutrition"
+      help={{
+        type: 'message',
+        title: t.rootActionMenu.nutritionHelpTitle,
+        body: t.rootActionMenu.nutritionHelpBody,
+      }}
+      topInset={insets.top}
+    />
   );
 
   async function continuePlanOnboarding() {
@@ -133,6 +131,7 @@ export default function NutritionScreen() {
           style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={rootHelpAction}
           icon="nutrition-outline"
           scrollY={scrollY}
           title="Nutrition"
@@ -152,6 +151,7 @@ export default function NutritionScreen() {
           style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={rootHelpAction}
           icon="nutrition-outline"
           scrollY={scrollY}
           title="Nutrition"
@@ -183,6 +183,7 @@ export default function NutritionScreen() {
         isAdmin={isAdmin}
         isPremium={isPremium}
         otherBrandsLabel={t.nutrition.otherBrandsLabel}
+        verifiedLabel={t.nutrition.verifiedLabel}
         newCaloriesKcal={newCaloriesKcal}
         newBrand={newBrand}
         availableBrands={availableBrands}
@@ -221,17 +222,13 @@ export default function NutritionScreen() {
         userId={userId}
       />
 
-      <RootScreenActionMenu
-        contextLabel="Nutrition"
-        help={{ type: 'message', title: helpCopy.title, body: helpCopy.body }}
-      />
-
       <RootCollapsibleHeader
         action={{
           accessibilityLabel: locale === 'fr' ? 'Nouveau produit' : 'New product',
           icon: 'add',
           onPress: () => setShowCreateModal(true),
         }}
+        helpAction={rootHelpAction}
         icon="nutrition-outline"
         scrollY={scrollY}
         title="Nutrition"

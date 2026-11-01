@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -28,6 +28,8 @@ related_files:
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
+  - apps/mobile/components/inputs/DatePickerField.tsx
+  - apps/mobile/components/race/RaceRequestHeaderButton.tsx
   - apps/mobile/components/PlanLoadingScreen.tsx
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/app/(app)/catalog.tsx
@@ -110,6 +112,9 @@ related_files:
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/lib/planDeparture.ts
   - apps/mobile/lib/planDeparture.test.ts
+  - apps/mobile/lib/plansListPresentation.ts
+  - apps/mobile/lib/plansListPresentation.test.ts
+  - apps/mobile/lib/profileHelpers.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/lib/racebookGearAnalytics.ts
@@ -136,7 +141,7 @@ related_tables:
 
 ## Plan list hierarchy
 
-The mobile Plans screen groups saved plans by `races.race_events.id` and displays the event name as the section heading. Plans for different formats of the same event therefore remain together; legacy plans whose source race has disappeared fall back to their stored race name or the orphan group. Runner-owned race editing is no longer exposed. Within an event section, default plan names matching the race format omit the repeated event name whether it precedes or follows the format; an exact duplicate becomes the neutral localized label “Plan de course” / “Race plan”, while runner-defined names remain unchanged. Event headings use stronger typography and plan cards are slightly indented to make the parent-child hierarchy explicit. Ravito counters exclude the editor-only start and finish stations, including for legacy rows that persisted them. Plans has no floating overflow menu: new plans start from a selected catalog course, while its empty-state action opens Courses first.
+The mobile Plans screen groups saved plans by `races.race_events.id` and displays the event name as the section heading. Future event sections are ordered by their nearest departure; dated future plans precede undated plans inside a section. Sections containing only past departures move into a final localized, initially collapsed past-races group, while the orphan section remains last. Plans for different formats of the same event therefore remain together; legacy plans whose source race has disappeared fall back to their stored race name or the orphan group. Runner-owned race editing is no longer exposed. Within an event section, default plan names matching the race format omit the repeated event name whether it precedes or follows the format; an exact duplicate becomes the neutral localized label “Plan de course” / “Race plan”, while runner-defined names remain unchanged. Event headings use stronger typography and plan cards are slightly indented to make the parent-child hierarchy explicit. Ravito counters exclude the editor-only start and finish stations, including for legacy rows that persisted them. Plans has no floating overflow menu: new plans start from a selected catalog course, while its empty-state action opens Courses first. Departure countdowns use day-only copy from 48 hours, hours/minutes below 48 hours, and seconds only in the final hour; their refresh interval follows that same precision.
 
 ## Plan loading experience
 
@@ -187,6 +192,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - `react-native-purchases ^9.15.1`
 - `posthog-react-native ^4.45.0`
 - `react-native-webview 13.15.0` for the interactive Racebook Leaflet map
+- `@react-native-community/datetimepicker 8.4.4` for native date entry in catalog filters, race requests, and Profile birth date; it is registered as an Expo config plugin and requires a new native development/store build
 - `test` / `test:watch`, which run the fast Node-only Vitest suite for pure mobile logic
 - `test:e2e:ux`, which invokes the local Maestro UX journey without storing credentials in source control
 - `lint`, which runs the Expo-compatible ESLint rules while excluding generated export directories; `eslint-plugin-react-hooks` is a direct development dependency so clean workspace installs do not depend on npm hoisting it transitively
@@ -269,6 +275,8 @@ Race detail stacks use minimal iOS back indicators so dynamic route segments suc
 `apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
 
 Its reusable loading card, race row, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; the route retains catalog queries, filtering state, favorites, analytics, and navigation. Runner-owned personal races are no longer queried or displayed.
+
+The four root tabs expose the same 44-point `?` header action in expanded and compact modes. It opens contextual help, feedback, and race request actions and consumes Android back while open; guided Courses onboarding intentionally omits it. Courses keeps search and quick filters pinned below the compact header. Native date fields preserve ISO values while rendering locale dates and are loaded lazily so an OTA reaching an older binary reports that a new build is required instead of crashing. Profile uses one dirty-only bottom save dock, while Nutrition keeps brand accordions only for the unfiltered catalog and switches to flat product rows for search/type results.
 
 - its public event relation uses an inner join filtered to `races.racebook_preview_is_visible = true`, so an event remains discoverable with private formats but no public RaceBook; the presentation filter removes every format whose preview flag is false;
 - when several visible editions of the same event are already online, it groups formats by stable `edition_id`; an older edition stays alongside the newest through the fourteenth local calendar day after its latest visible format date, then only the newest dated edition remains. Legacy rows without an edition or a usable date stay visible rather than being discarded speculatively;

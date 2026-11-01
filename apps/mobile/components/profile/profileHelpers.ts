@@ -19,6 +19,35 @@ export type UserProfile = {
 
 export const WATER_BAG_OPTIONS = [0.5, 1.0, 1.5, 2.0, 2.5];
 
+type PremiumGrantReasonLabels = {
+  fallback: string;
+  marketing: string;
+  other: string;
+  partner: string;
+  support: string;
+  trialExtension: string;
+};
+
+export function resolvePremiumGrantReason(
+  reason: string | null | undefined,
+  labels: PremiumGrantReasonLabels,
+): string {
+  switch (reason) {
+    case 'trial_extension':
+      return labels.trialExtension;
+    case 'support':
+      return labels.support;
+    case 'marketing':
+      return labels.marketing;
+    case 'partner':
+      return labels.partner;
+    case 'other':
+      return labels.other;
+    default:
+      return labels.fallback;
+  }
+}
+
 export function formatDate(value: string | Date, locale: string): string {
   const date = value instanceof Date ? value : new Date(value);
   return date.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
@@ -39,6 +68,21 @@ export function formatBirthDateInput(value: string | null): string {
   const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return value;
   return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+export function birthDateInputToDate(value: string): Date | null {
+  const isoValue = parseBirthDateInput(value);
+  if (!isoValue) return null;
+  const [year, month, day] = isoValue.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
+
+export function formatBirthDateFromDate(value: Date): string {
+  return [
+    String(value.getDate()).padStart(2, '0'),
+    String(value.getMonth() + 1).padStart(2, '0'),
+    String(value.getFullYear()).padStart(4, '0'),
+  ].join('/');
 }
 
 function parseIsoBirthDateParts(value: string): { year: number; month: number; day: number } | null {

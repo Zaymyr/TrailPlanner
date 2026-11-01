@@ -128,11 +128,13 @@ function ProfilePerformanceSectionComponent({
             />
           </View>
 
-          <View style={styles.metricBlock}>
+          <View style={[styles.metricBlock, styles.paceMetricBlock]}>
             <Text style={styles.label}>{comfortableFlatPaceLabel}</Text>
             <View style={styles.paceCard}>
               <View style={styles.paceInputGroup}>
-                <Text style={styles.paceLabel}>{paceMinutesLabel}</Text>
+                <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.paceLabel}>
+                  {paceMinutesLabel}
+                </Text>
                 <TextInput
                   style={styles.paceInput}
                   value={paceMinutes}
@@ -146,7 +148,9 @@ function ProfilePerformanceSectionComponent({
               </View>
               <Text style={styles.paceSeparator}>:</Text>
               <View style={styles.paceInputGroup}>
-                <Text style={styles.paceLabel}>{paceSecondsLabel}</Text>
+                <Text maxFontSizeMultiplier={1.3} numberOfLines={1} style={styles.paceLabel}>
+                  {paceSecondsLabel}
+                </Text>
                 <TextInput
                   style={styles.paceInput}
                   value={paceSeconds}
@@ -334,6 +338,9 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     minWidth: 132,
   },
+  paceMetricBlock: {
+    minWidth: 230,
+  },
   label: {
     fontSize: 12,
     color: Colors.textSecondary,
@@ -359,10 +366,10 @@ const styles = StyleSheet.create({
   paceCard: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    gap: 8,
+    gap: 6,
   },
   paceInputGroup: {
-    width: 58,
+    width: 64,
     gap: 4,
   },
   paceLabel: {
@@ -371,6 +378,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textTransform: 'uppercase',
     letterSpacing: 0.4,
+    flexShrink: 0,
   },
   paceInput: {
     backgroundColor: Colors.surface,
@@ -396,7 +404,7 @@ const styles = StyleSheet.create({
     color: Colors.brandPrimary,
     fontSize: 12,
     fontWeight: '700',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 7,
     borderRadius: 999,
     backgroundColor: Colors.brandSurface,

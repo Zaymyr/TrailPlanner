@@ -1,7 +1,7 @@
 ---
 title: user_favorite_race_events Table
 scope: database
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - supabase/migrations/20260629123858_add_race_event_favorites_and_updates.sql
@@ -99,6 +99,8 @@ where event_id = '<event-id>';
 ```
 
 ## Gotchas
+
+- Sticky search/filter presentation and native date entry filter the already-loaded catalog only; they do not create, delete, reorder, or rescope favorite rows.
 
 - Courses retry and pull-to-refresh reload the favorite snapshot and may then apply its normal sort, but neither action creates or deletes a favorite. Only the existing explicit heart interaction mutates this table.
 

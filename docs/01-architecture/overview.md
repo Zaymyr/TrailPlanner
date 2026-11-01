@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-09-23
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - package.json
@@ -71,6 +71,7 @@ The mobile app is an Expo Router app:
 - Apple auth nonce helper: `expo-crypto ~15.0.8`
 - Native billing dependency: `react-native-purchases ^9.15.1`
 - Native analytics dependency: `posthog-react-native ^4.45.0`
+- Native date dependency: `@react-native-community/datetimepicker 8.4.4`; date UI requires a rebuilt EAS binary and cannot be added to an existing runtime by OTA alone.
 - Google native sign-in stays Android-only; iOS uses browser OAuth and does not register the Google Sign-In Expo config plugin.
 
 ## Monorepo Structure

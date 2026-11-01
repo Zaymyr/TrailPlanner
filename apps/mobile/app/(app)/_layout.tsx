@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Tabs, useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -32,6 +32,15 @@ export default function AppLayout() {
   const catalogLabel = locale === 'fr' ? 'Courses' : 'Races';
   const plansTabLabel = locale === 'fr' ? 'Plans' : 'Plans';
   const nutritionLabel = 'Nutrition';
+  const renderTabLabel = (label: string, color: string) => (
+    <Text
+      maxFontSizeMultiplier={1.3}
+      numberOfLines={1}
+      style={[styles.tabBarLabel, { color }]}
+    >
+      {label}
+    </Text>
+  );
   const [showProfileOnboardingDot, setShowProfileOnboardingDot] = useState(false);
 
   useEffect(() => {
@@ -153,7 +162,7 @@ export default function AppLayout() {
         name="catalog"
         options={{
           title: catalogLabel,
-          tabBarLabel: catalogLabel,
+          tabBarLabel: ({ color }) => renderTabLabel(catalogLabel, color),
           tabBarButtonTestID: 'nav-tab-catalog',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="trail-sign" size={size} color={color} />
@@ -175,7 +184,7 @@ export default function AppLayout() {
         })}
         options={{
           title: t.plans.title,
-          tabBarLabel: plansTabLabel,
+          tabBarLabel: ({ color }) => renderTabLabel(plansTabLabel, color),
           tabBarButtonTestID: 'nav-tab-plans',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="map" size={size} color={color} />
@@ -188,7 +197,7 @@ export default function AppLayout() {
         name="nutrition"
         options={{
           title: 'Nutrition',
-          tabBarLabel: nutritionLabel,
+          tabBarLabel: ({ color }) => renderTabLabel(nutritionLabel, color),
           tabBarButtonTestID: 'nav-tab-nutrition',
           tabBarIcon: ({ color, size }) => (
             <Ionicons name="nutrition" size={size} color={color} />
@@ -201,7 +210,7 @@ export default function AppLayout() {
         name="profile"
         options={{
           title: t.profile.title,
-          tabBarLabel: t.profile.title,
+          tabBarLabel: ({ color }) => renderTabLabel(t.profile.title, color),
           tabBarButtonTestID: 'nav-tab-profile',
           tabBarIcon: ({ color, size }) => (
             <View style={styles.profileIconWrap}>
@@ -268,6 +277,12 @@ export default function AppLayout() {
 }
 
 const styles = StyleSheet.create({
+  tabBarLabel: {
+    width: '100%',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   profileIconWrap: { position: 'relative' },
   onboardingDot: {
     position: 'absolute',
