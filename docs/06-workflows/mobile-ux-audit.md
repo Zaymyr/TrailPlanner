@@ -11,7 +11,8 @@ related_files:
   - apps/mobile/package.json
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
-  - apps/mobile/.eas/workflows/store-candidate.yml
+  - apps/mobile/.eas/workflows/store-candidate-android.yml
+  - apps/mobile/.eas/workflows/store-candidate-ios.yml
   - apps/mobile/.maestro/config.yaml
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
@@ -111,7 +112,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - Do not treat screenshot generation as an automatic aesthetic verdict.
 - Do not rely only on visible French or English text when a stable `testID` can identify the action.
 - Do not auto-run the cross-platform EAS workflow on every commit without an explicit cost/latency decision.
-- Do not use a store candidate build as UX-audit evidence until the development/E2E binary has passed the same journey; candidate submission is a release operation, not a test harness.
+- Do not use an Android or iOS store candidate build as UX-audit evidence until the development/E2E binary has passed the same journey; each platform candidate workflow is an independently approved release operation, not a test harness.
 - Do not mutate plans, favorites, purchases, or organizer data in the shell audit. Put destructive scenarios in isolated test-account flows with cleanup.
 - Do not run a development-client audit without explicitly passing `APP_ID=com.paceyourself.app.dev`; both production and Dev may be installed on the same phone.
 - Do not add an authentication or onboarding bypass to the production app for E2E convenience.
