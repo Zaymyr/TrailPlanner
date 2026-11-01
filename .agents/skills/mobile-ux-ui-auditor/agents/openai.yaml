@@ -1,0 +1,4 @@
+interface:
+  display_name: "Auditeur UX/UI mobile"
+  short_description: "Audite les écrans et parcours mobiles sur téléphone"
+  default_prompt: "Utilise $mobile-ux-ui-auditor pour auditer l'expérience demandée sur le téléphone connecté et produire des recommandations UX/UI priorisées et étayées."
