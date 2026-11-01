@@ -468,7 +468,12 @@ export function usePlanSupplies({
     const allUsableProducts = allProducts.filter(
       (product) => (product.carbs_g ?? 0) > 0 || (product.sodium_mg ?? 0) > 0,
     );
-    const favoriteUsableProducts = allUsableProducts.filter((product) => latestFavoriteIds.has(product.id));
+    const selectedProductIds = productLimits === undefined
+      ? null
+      : new Set(productLimits.map((limit) => limit.productId));
+    const favoriteUsableProducts = allUsableProducts.filter(
+      (product) => latestFavoriteIds.has(product.id) && (selectedProductIds === null || selectedProductIds.has(product.id)),
+    );
 
     if (favoriteUsableProducts.length === 0) {
       if (onMissingFavoriteProducts) {
@@ -593,7 +598,7 @@ export function usePlanSupplies({
       const unresolvedSodium = Math.max(0, -balance.sodium);
       if (unresolvedCarbs > carbTolerance || unresolvedSodium > sodiumTolerance) {
         unresolvedShortages.push({
-          sectionLabel: `${section.fromName} -> ${section.toName}`,
+          sectionLabel: `${section.fromName} → ${section.toName}`,
           carbsG: Math.ceil(unresolvedCarbs),
           sodiumMg: Math.ceil(unresolvedSodium),
         });

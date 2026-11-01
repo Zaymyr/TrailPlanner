@@ -9,6 +9,7 @@ import { styles } from './styles';
 
 type Props = {
   title: string;
+  accessibilityContext: string;
   durationLabel: string;
   paceValue: string;
   profilePoints: ElevationPoint[];
@@ -28,6 +29,7 @@ type Props = {
 
 export function AidStationProfileSegmentCard({
   title,
+  accessibilityContext,
   durationLabel,
   paceValue,
   profilePoints,
@@ -63,7 +65,7 @@ export function AidStationProfileSegmentCard({
             {title}
           </Heading>
           <ThemedText tone="tertiary" size="xs" weight="semibold" style={localStyles.profileSegmentTimeLabel}>
-            Temps estime
+            Temps estimé
           </ThemedText>
           <DataText tone="brand" size="2xl" weight="bold" style={localStyles.profileSegmentTime}>
             {durationLabel}
@@ -75,7 +77,7 @@ export function AidStationProfileSegmentCard({
             <DataText tone="brand" size="xl" weight="bold">{paceValue}</DataText>
           ) : <View style={styles.profilePaceControlRow}>
             <TouchableOpacity
-              accessibilityLabel="Accélérer l’allure"
+              accessibilityLabel={`Accélérer l’allure, ${accessibilityContext}, ${title}`}
               accessibilityRole="button"
               style={styles.profilePaceStepBtn}
               onPress={paceDecrease}
@@ -85,7 +87,7 @@ export function AidStationProfileSegmentCard({
             </TouchableOpacity>
             {previewIntent ? (
               <TouchableOpacity
-                accessibilityLabel={`Allure ${title}`}
+                accessibilityLabel={`Allure ${accessibilityContext}, ${title}`}
                 accessibilityRole="button"
                 onPress={previewIntent}
                 style={[styles.profilePaceInput, localStyles.previewPaceButton]}
@@ -93,7 +95,7 @@ export function AidStationProfileSegmentCard({
                 <DataText tone="brand" size="lg" weight="bold">{paceValue}</DataText>
               </TouchableOpacity>
             ) : <TextInput
-              accessibilityLabel={`Allure ${title}`}
+              accessibilityLabel={`Allure ${accessibilityContext}, ${title}`}
               style={styles.profilePaceInput}
               value={paceValue}
               onChangeText={onPaceChange}
@@ -106,7 +108,7 @@ export function AidStationProfileSegmentCard({
               autoCorrect={false}
             />}
             <TouchableOpacity
-              accessibilityLabel="Ralentir l’allure"
+              accessibilityLabel={`Ralentir l’allure, ${accessibilityContext}, ${title}`}
               accessibilityRole="button"
               style={styles.profilePaceStepBtn}
               onPress={paceIncrease}
@@ -154,7 +156,7 @@ export function AidStationProfileSegmentCard({
             disabled={!previewIntent && !canSplit}
           >
             <Text style={styles.profileActionBtnText}>
-              {canSplit || previewIntent ? 'Decouper plus finement' : 'Decoupage indisponible sur ce segment'}
+              {canSplit || previewIntent ? 'Découper plus finement' : 'Découpage indisponible sur ce segment'}
             </Text>
           </TouchableOpacity>
 

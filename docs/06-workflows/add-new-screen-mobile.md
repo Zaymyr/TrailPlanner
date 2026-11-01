@@ -227,6 +227,8 @@ For App Store subscription work, verify on iPhone and iPad layouts that the purc
 - Do not store test credentials in a flow, snapshot, source file, or public Expo environment variable.
 - Do not use the legacy runner race new/edit routes as authoring examples; they are redirect-only compatibility routes and plan creation starts from Courses.
 
+Shared plan/catalog UX must preserve the existing routes and `testID` values. Current plan-flow expectations include a 44-point minimum for audited steppers/icon actions, hidden accessibility-only skeleton decoration, a clear-search action, compact no-image race cards, and a contextual plan header that may show the parent event below the format name.
+
 ## Related Docs
 
 Mobile RaceBook entry points must pass preview selection plus publication/organizer access through `canShowRacebook`; screens must not recreate those gates locally.

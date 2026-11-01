@@ -249,6 +249,8 @@ related_tables:
 
 Personal passage interpolation is a runner-side RaceBook reflection only; organizer aid-station data remains the official source.
 
+The mobile Courses card omits its image rail when neither event nor format has a thumbnail, exposes a local clear-search action, labels owned formats “Ouvrir mon plan”, and warns before planning an already-past event. These runner-side presentation/navigation changes do not mutate organizer content, publication state, event dates, thumbnails, favorites, or updates.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Structured RaceBook content

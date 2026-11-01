@@ -28,3 +28,44 @@ export function resolveRunnerPlanCapabilities(payload: RunnerPlanCapabilities | 
   if (!payload.enabled) return { ...payload, canEdit: true, canViewDetails: true };
   return { ...payload, canEdit: payload.canEdit === true, canViewDetails: payload.canViewDetails === true };
 }
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+
+export type RunnerPlanAccessResolution =
+  | { status: 'verified' | 'cached'; capabilities: RunnerPlanCapabilities }
+  | { status: 'unknown'; capabilities: null };
+
+export function resolveRunnerPlanAccess(
+  payload: RunnerPlanCapabilities | null,
+  cached: RunnerPlanCapabilities | null,
+): RunnerPlanAccessResolution {
+  if (payload) return { status: 'verified', capabilities: resolveRunnerPlanCapabilities(payload) };
+  if (cached) return { status: 'cached', capabilities: resolveRunnerPlanCapabilities(cached) };
+  return { status: 'unknown', capabilities: null };
+}
+
+function runnerPlanAccessCacheKey(userId: string, planId: string) {
+  return `runner-plan-access:${userId}:${planId}`;
+}
+
+export async function readCachedRunnerPlanCapabilities(userId: string, planId: string) {
+  const raw = await AsyncStorage.getItem(runnerPlanAccessCacheKey(userId, planId)).catch(() => null);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as RunnerPlanCapabilities;
+    return typeof parsed?.enabled === 'boolean'
+      && typeof parsed.canEdit === 'boolean'
+      && typeof parsed.canViewDetails === 'boolean'
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function cacheRunnerPlanCapabilities(userId: string, planId: string, capabilities: RunnerPlanCapabilities) {
+  await AsyncStorage.setItem(
+    runnerPlanAccessCacheKey(userId, planId),
+    JSON.stringify(capabilities),
+  ).catch(() => undefined);
+}

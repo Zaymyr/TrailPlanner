@@ -12,6 +12,7 @@ type Props = {
   summary: SectionSummary | null;
   compact?: boolean;
   getGaugeMetrics: (target: PlanTarget, sectionTarget?: SectionTarget) => GaugeMetric[];
+  prepared?: boolean;
 };
 
 function formatSectionTarget(summary: SectionSummary | null): SectionTarget {
@@ -52,7 +53,7 @@ function summarizeCoverage(metrics: GaugeMetric[]) {
       : 'ok';
   const title =
     severity === 'ok'
-      ? 'Couvert jusqu au prochain point utile'
+      ? 'Couvert jusqu’au prochain point utile'
       : severity === 'warning'
         ? 'Un peu juste pour tenir la suite'
         : 'Risque de manque avant recharge';
@@ -63,8 +64,8 @@ function summarizeCoverage(metrics: GaugeMetric[]) {
       severity,
       title,
       shortLabel,
-      detail: 'Ce que tu emportes ici suffit jusqu au prochain point ou tu peux recharger cette ressource.',
-      action: 'Tu peux repartir comme ca.',
+      detail: 'Ce que tu emportes ici suffit jusqu’au prochain point où tu peux recharger cette ressource.',
+      action: 'Tu peux repartir comme ça.',
       chips,
     };
   }
@@ -73,36 +74,51 @@ function summarizeCoverage(metrics: GaugeMetric[]) {
   const deficitChips = deficits.slice(0, 2).map((metric) =>
     metric.key === 'water'
       ? `${Math.round(metric.missing / 100) * 100} ml manquants`
-      : `${Math.round(metric.missing)} ${metric.unit} manquants`,
+      : `${Math.round(metric.missing)} ${metric.unit} ${metric.label.toLowerCase()} manquants`,
   );
 
   let action = 'Ajoute un peu de ravitaillement avant de repartir.';
   if (topDeficit.key === 'carbs') {
     action =
       topDeficit.missing <= 30
-        ? 'Ajoute 1 prise sucree de plus pour eviter le deficit.'
+        ? 'Ajoute 1 prise sucrée de plus pour éviter le déficit.'
         : 'Ajoute au moins 2 prises glucides avant de repartir.';
   } else if (topDeficit.key === 'water') {
     action =
       topDeficit.missing <= 300
-        ? 'Ajoute un petit complement d eau avant de repartir.'
+        ? 'Ajoute un petit complément d’eau avant de repartir.'
         : 'Remplis au moins 500 ml de plus avant de repartir.';
   } else if (topDeficit.key === 'sodium') {
     action =
       topDeficit.missing <= 250
-        ? 'Ajoute un peu de sodium pour securiser ce segment.'
+        ? 'Ajoute un peu de sodium pour sécuriser ce segment.'
         : 'Ajoute une source de sodium en plus avant de repartir.';
   }
 
   const detail =
     topDeficit.key === 'water'
-      ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu au prochain point d eau.`
-      : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir jusqu au prochain point solide.`;
+      ? `Il manque environ ${Math.round(topDeficit.missing / 100) * 100} ml pour tenir jusqu’au prochain point d’eau.`
+      : `Il manque environ ${Math.round(topDeficit.missing)} ${topDeficit.unit} de ${topDeficit.label.toLowerCase()} pour tenir jusqu’au prochain point solide.`;
 
   return { severity, title, shortLabel, detail, action, chips: [...chips, ...deficitChips] };
 }
 
-export function AidStationCoveragePanel({ target, summary, compact = false, getGaugeMetrics }: Props) {
+export function AidStationCoveragePanel({ target, summary, compact = false, getGaugeMetrics, prepared = true }: Props) {
+  if (!prepared) {
+    if (compact) {
+      return <View style={styles.coverageCompactRow}>
+        <View style={styles.coveragePill}><Text style={styles.coveragePillText}>À préparer</Text></View>
+        <Text style={styles.coverageCompactTitle}>Répartis tes produits automatiquement</Text>
+      </View>;
+    }
+    return <View style={styles.coveragePanel}>
+      <View style={styles.coveragePanelHeader}>
+        <View style={styles.coveragePill}><Text style={styles.coveragePillText}>À préparer</Text></View>
+        <Text style={styles.coveragePanelTitle}>Prépare ta nutrition de course</Text>
+      </View>
+      <Text style={styles.coveragePanelDetail}>Répartis tes produits automatiquement pour vérifier tes besoins en glucides, eau et sodium.</Text>
+    </View>;
+  }
   const coverage = summarizeCoverage(getGaugeMetrics(target, formatSectionTarget(summary)));
   const toneStyle =
     coverage.severity === 'ok'

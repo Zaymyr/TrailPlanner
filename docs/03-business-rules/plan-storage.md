@@ -154,7 +154,9 @@ Each source race has an official revision timestamp. When it is newer than the l
 
 Locked mobile plans retain one ordinary, scrollable workspace. The departure station and first following section are clear; later real course content is read-only, non-interactive and accessibility-hidden under the implemented light veil. There is no preview cutoff or automatic popup. Visible sample edit/add/split actions and the inline/sticky CTA all open the same paywall and never save, alter supplies, create a crew link, or record a successful save.
 
-The locked Recap reads existing calculation results only and deliberately limits free information to total estimated time, average pace, and a public-point passage preview (departure plus following names/distances, never paid times). Its two paywall CTAs do not write `race_plans`, create a public share link, or become paid access. Historical detailed recap remains separately access-controlled.
+The locked Recap reads existing calculation results only. Total estimated time and average pace stay in the persistent workspace header and are not duplicated in the body; the body adds only a public-point passage preview (departure plus following names/distances, never paid times). Its two paywall CTAs do not write `race_plans`, create a public share link, or become paid access. Historical detailed recap remains separately access-controlled.
+
+For a linked plan, source course facts remain immutable in the mobile editor: distance, elevation gain, station name, station kilometer and official service flags are read-only; station deletion is absent. Runner-owned pause, products and per-section pacing remain editable. The pure `planRaceEditing` guard preserves official station fields even if a UI event proposes different values. Detached “Sans course” plans keep full editing. This client-side rule complements the existing persistence/ownership boundary and does not refresh older saved plan JSON from later organizer edits.
 
 ## Hydration on Read
 

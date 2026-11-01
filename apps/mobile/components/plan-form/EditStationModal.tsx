@@ -28,10 +28,12 @@ type Props = {
   editingStation: EditingStation;
   setEditingStation: (updater: ((prev: EditingStation) => EditingStation) | EditingStation) => void;
   onSave: () => void;
+  officialFieldsReadOnly?: boolean;
 };
 
-export function EditStationModal({ editingStation, setEditingStation, onSave }: Props) {
+export function EditStationModal({ editingStation, setEditingStation, onSave, officialFieldsReadOnly = false }: Props) {
   const isCreateMode = editingStation?.mode === 'create';
+  const readOnlyOfficialFields = officialFieldsReadOnly && !isCreateMode;
   const updateService = (field: 'waterRefill' | 'solidRefill' | 'assistanceAllowed') => {
     setEditingStation((prev) => (prev ? { ...prev, [field]: !prev[field] } : prev));
   };
@@ -48,6 +50,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
         accessibilityLabel={label}
         accessibilityRole="checkbox"
         accessibilityState={{ checked }}
+        disabled={readOnlyOfficialFields}
         accessibilityHint={description}
         style={[styles.stationServiceOption, checked && styles.stationServiceOptionActive]}
         onPress={() => updateService(field)}
@@ -110,6 +113,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
               onChangeText={(t) => setEditingStation((prev) => (prev ? { ...prev, name: t } : prev))}
               placeholder="Nom du ravitaillement"
               placeholderTextColor={Colors.textMuted}
+              editable={!readOnlyOfficialFields}
             />
             <Text style={styles.label}>Distance (km)</Text>
             <TextInput
@@ -121,6 +125,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
               inputAccessoryViewID="pace-yourself-numeric-keyboard"
               placeholder="0"
               placeholderTextColor={Colors.textMuted}
+              editable={!readOnlyOfficialFields}
             />
             <Text style={styles.label}>Pause (min)</Text>
             <TextInput
@@ -134,7 +139,7 @@ export function EditStationModal({ editingStation, setEditingStation, onSave }: 
               placeholderTextColor={Colors.textMuted}
             />
             <Text style={styles.label}>Services disponibles</Text>
-            <View style={styles.stationServiceOptions}>
+            <View pointerEvents={readOnlyOfficialFields ? 'none' : 'auto'} style={styles.stationServiceOptions}>
               {renderServiceOption('waterRefill', 'Eau', 'Remplissage des flasques ou de la poche', 'water-outline')}
               {renderServiceOption('solidRefill', 'Solide', "Produits fournis par l'organisation", 'nutrition-outline')}
               {renderServiceOption('assistanceAllowed', 'Assistance', "Remise de tes produits par l'équipe", 'people-outline')}

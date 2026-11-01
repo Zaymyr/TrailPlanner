@@ -57,15 +57,17 @@ function getEventImageUrl(event: Pick<RaceEventSummaryEvent, 'thumbnail_url' | '
   return event.thumbnail_url ?? event.races.find((race) => race.thumbnail_url)?.thumbnail_url ?? null;
 }
 
-function formatDistance(distanceKm: number) {
-  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
+function formatDistance(distanceKm: number, locale: 'fr' | 'en') {
+  return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', {
+    maximumFractionDigits: distanceKm >= 100 ? 0 : 1,
+  }).format(distanceKm);
 }
 
 function formatElevation(elevationGainM: number | null) {
   return elevationGainM === null ? 'D+ non renseigné' : `D+ ${Math.round(elevationGainM)} m`;
 }
 
-function getEventDistanceRange(races: RaceEventSummaryRace[]) {
+function getEventDistanceRange(races: RaceEventSummaryRace[], locale: 'fr' | 'en') {
   if (races.length === 0) return null;
 
   const distances = races.map((race) => race.distance_km);
@@ -73,10 +75,10 @@ function getEventDistanceRange(races: RaceEventSummaryRace[]) {
   const maxDistance = Math.max(...distances);
 
   if (Math.abs(maxDistance - minDistance) < 0.05) {
-    return `${formatDistance(maxDistance)} km`;
+    return `${formatDistance(maxDistance, locale)} km`;
   }
 
-  return `${formatDistance(minDistance)}-${formatDistance(maxDistance)} km`;
+  return `${formatDistance(minDistance, locale)}-${formatDistance(maxDistance, locale)} km`;
 }
 
 export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
@@ -101,7 +103,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   const eventImageUrl = getEventImageUrl(event);
   const dateStr = formatEventDate(event.race_date, locale);
   const headerMeta = [event.location, dateStr].filter(Boolean).join(' • ');
-  const distanceRange = getEventDistanceRange(event.races);
+  const distanceRange = getEventDistanceRange(event.races, locale);
   const primaryRace = event.races[0] ?? null;
   const formatsLabel =
     event.races.length === 1
@@ -158,13 +160,9 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
       onPress={onOpenFormats}
       style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
     >
-      <View style={styles.imageRail}>
-        {eventImageUrl ? (
+      {eventImageUrl ? <View style={styles.imageRail}>
           <Image source={{ uri: eventImageUrl }} style={styles.railImage} resizeMode="cover" />
-        ) : (
-          <Ionicons color={Colors.textMuted} name="image-outline" size={22} />
-        )}
-      </View>
+      </View> : null}
 
       <View style={styles.cardContent}>
         <View style={styles.header}>
@@ -222,7 +220,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
         {primaryRace && (event.races.length === 1 || showChooseFormatHint) ? (
           <Text style={styles.supportText} numberOfLines={2}>
             {event.races.length === 1
-              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km)} km • ${formatElevation(primaryRace.elevation_gain_m)}`
+              ? `${getRaceShortLabel(primaryRace.name, event.name)} • ${formatDistance(primaryRace.distance_km, locale)} km • ${formatElevation(primaryRace.elevation_gain_m)}`
               : chooseFormatHint}
           </Text>
         ) : null}

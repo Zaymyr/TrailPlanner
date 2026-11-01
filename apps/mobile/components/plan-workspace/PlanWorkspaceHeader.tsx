@@ -19,6 +19,7 @@ type Props = {
   scrollY: Animated.Value;
   topInset: number;
   title: string;
+  subtitle?: string | null;
   totalTime: string;
   averagePace: string;
   startTime?: string | null;
@@ -27,7 +28,7 @@ type Props = {
   onBack: () => void;
 };
 
-export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, averagePace, metrics, saveStatus, onBack, startTime }: Props) {
+export function PlanWorkspaceHeader({ scrollY, topInset, title, subtitle, totalTime, averagePace, metrics, saveStatus, onBack, startTime }: Props) {
   const { t, locale } = useI18n();
   const startLabel = locale === 'fr' ? 'Départ' : 'Start';
   const [compact, setCompact] = useState(false);
@@ -84,6 +85,7 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
       <Animated.View pointerEvents={compact ? 'none' : 'auto'} style={[styles.expanded, { paddingTop: topInset + 13, opacity: expandedOpacity }]}>
         <View style={styles.titleBlock}>
           <Text numberOfLines={2} style={styles.title}>{title}</Text>
+          {subtitle ? <Text numberOfLines={1} style={styles.subtitle}>{subtitle}</Text> : null}
           {statusLabel ? (
             <View accessibilityLiveRegion="polite" style={styles.status}>
               <Ionicons name={saveStatus === 'error' ? 'alert-circle' : saveStatus === 'saving' ? 'sync' : 'checkmark-circle'} size={13} color={saveStatus === 'error' ? '#FFD4D4' : Colors.textOnBrand} />
@@ -98,7 +100,7 @@ export function PlanWorkspaceHeader({ scrollY, topInset, title, totalTime, avera
         <View style={styles.metrics}>
           {metrics.map((metric, index) => (
             <View key={metric.label} style={[styles.metric, index > 0 && styles.metricBorder]}>
-              <Text numberOfLines={1} style={styles.metricLabel}>{metric.label}</Text>
+              <Text numberOfLines={2} style={styles.metricLabel}>{metric.label}</Text>
               <DataText numberOfLines={1} style={styles.metricValue}>{metric.value}</DataText>
             </View>
           ))}
@@ -122,6 +124,7 @@ const styles = StyleSheet.create({
   expanded: { flex: 1, gap: 18, paddingHorizontal: 16, paddingBottom: 16 },
   titleBlock: { minHeight: 78, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 48, gap: 5 },
   title: { color: Colors.textOnBrand, fontSize: 27, lineHeight: 31, fontWeight: '800', textAlign: 'center' },
+  subtitle: { color: Colors.textOnBrand, fontSize: 13, lineHeight: 17, fontWeight: '600', textAlign: 'center', opacity: 0.86 },
   startTimeRow: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   startTime: { color: Colors.textOnBrand, fontSize: 12, lineHeight: 16, fontWeight: '700', opacity: 0.92 },
   status: { flexDirection: 'row', alignItems: 'center', gap: 4 },

@@ -13,6 +13,18 @@ function departureMs(plan: PlanRow) {
   return Number.isFinite(value) ? value : null;
 }
 
+export function isPlanDeparturePast(departureAt: string | null | undefined, nowMs: number) {
+  if (!departureAt) return false;
+  const departure = new Date(departureAt);
+  if (!Number.isFinite(departure.getTime()) || !Number.isFinite(nowMs)) return false;
+
+  return nowMs >= new Date(
+    departure.getFullYear(),
+    departure.getMonth(),
+    departure.getDate() + 1,
+  ).getTime();
+}
+
 function comparePlansByDeparture(left: PlanRow, right: PlanRow, nowMs: number) {
   const leftDeparture = departureMs(left);
   const rightDeparture = departureMs(right);
@@ -33,10 +45,8 @@ export function sortPlanSections(sections: RaceSection[], nowMs: number, pastRac
   for (const section of sections) {
     if (section.sectionKey === '__orphan__') continue;
     const data = [...section.data].sort((left, right) => comparePlansByDeparture(left, right, nowMs));
-    const hasOnlyPastDatedPlans = data.length > 0 && data.every((plan) => {
-      const departure = departureMs(plan);
-      return departure != null && departure <= nowMs;
-    });
+    const hasOnlyPastDatedPlans = data.length > 0
+      && data.every((plan) => isPlanDeparturePast(plan.departureAt, nowMs));
 
     if (hasOnlyPastDatedPlans) pastSections.push({ ...section, data });
     else activeSections.push({ ...section, data });

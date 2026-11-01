@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { getRunnerAccessModeErrorMessage, resolveRunnerPlanCapabilities } from './runnerPlanAccess';
+import { getRunnerAccessModeErrorMessage, resolveRunnerPlanAccess, resolveRunnerPlanCapabilities } from './runnerPlanAccess';
 
 describe('server plan capabilities', () => {
+  it('distinguishes an unknown response from a verified denial and reuses verified cache', () => {
+    const denied = { enabled: true, mode: 'free' as const, canEdit: false, canViewDetails: false };
+    const allowed = { enabled: true, mode: 'premium' as const, canEdit: true, canViewDetails: true };
+    expect(resolveRunnerPlanAccess(denied, allowed)).toEqual({ status: 'verified', capabilities: denied });
+    expect(resolveRunnerPlanAccess(null, allowed)).toEqual({ status: 'cached', capabilities: allowed });
+    expect(resolveRunnerPlanAccess(null, null)).toEqual({ status: 'unknown', capabilities: null });
+  });
+
   it('keeps unpaid access closed after a failed load', () => {
     expect(resolveRunnerPlanCapabilities(null)).toMatchObject({ canEdit: false, canViewDetails: false });
   });

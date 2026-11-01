@@ -72,6 +72,8 @@ related_tables:
 - Compacting the Courses event card by hiding its repeated multi-format helper sentence must not alter `NEW` badge or receipt behavior.
 - Starting sponsor prefetch from a RaceBook action is independent from announcement rendering and must not create or mark a read receipt.
 
+Catalog search clearing, compact no-image cards, past-race plan warnings, and opening an existing plan are presentation/navigation actions. They do not mark an organizer update as read and must not write this table.
+
 ## Related Docs
 
 Private-demo format selection does not create or clear announcement read receipts.

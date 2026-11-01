@@ -75,6 +75,7 @@ import {
   type AutoFillResult,
 } from '../lib/autoFillPreview';
 import { resolvePersonalAidStationTargetIndex } from '../lib/racebookPlanReflection';
+import { resolveAidStationEdit } from '../lib/planRaceEditing';
 import {
   getPreviewReachableContentMinHeight,
   resolveCenteredPreviewUnlockGeometry,
@@ -109,6 +110,7 @@ type Props = {
   showActions?: boolean;
   onWorkspaceScroll?: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   targetAidStationId?: string;
+  isLinkedRace?: boolean;
   tutorial?: {
     scrollRef: React.MutableRefObject<ScrollView | null>;
     onContentSizeChange: (height: number) => void;
@@ -159,6 +161,7 @@ export default function PlanForm({
   showActions = true,
   onWorkspaceScroll,
   targetAidStationId,
+  isLinkedRace = false,
 }: Props) {
   const { locale, t } = useI18n();
   const [values, setValues] = useState<PlanFormValues>(() => buildInitialPlanValues(initialValues));
@@ -202,6 +205,13 @@ export default function PlanForm({
     top: number;
     height: number;
   } | null>(null);
+  const hasDistributedProducts = (values.startSupplies?.length ?? 0) > 0
+    || values.aidStations.some((station) => (station.supplies?.length ?? 0) > 0);
+  const nutritionNeedsChanged = hasDistributedProducts && (
+    values.targetIntakePerHour !== initialValues.targetIntakePerHour
+    || values.waterIntakePerHour !== initialValues.waterIntakePerHour
+    || values.sodiumIntakePerHour !== initialValues.sodiumIntakePerHour
+  );
 
   useEffect(() => {
     setPreviewUnlockStickyVisible(false);
@@ -211,6 +221,12 @@ export default function PlanForm({
     if (surface === 'plan') return;
     previewBoundaryRef.current = null;
     setPreviewBoundaryMeasurement(null);
+  }, [surface]);
+
+  useEffect(() => {
+    if (surface !== 'plan') return;
+    setAidStationsViewMode('stations');
+    aidStationsSectionRef.current?.selectViewMode('stations');
   }, [surface]);
 
   const currentPreviewBoundary = previewBoundaryMeasurement?.sessionKey === previewSessionKey
@@ -692,14 +708,25 @@ export default function PlanForm({
     }
 
     const saveStation = () => {
-      updateAidStation(editingStation.index, {
+      const currentStation = values.aidStations[editingStation.index];
+      const nextStation = resolveAidStationEdit({
+        name: currentStation?.name ?? nextName,
+        distanceKm: currentStation?.distanceKm ?? nextDistanceKm,
+        waterRefill: currentStation?.waterRefill !== false,
+        solidRefill: currentStation?.solidRefill !== false,
+        assistanceAllowed: currentStation?.assistanceAllowed !== false,
+        pauseMinutes: currentStation?.pauseMinutes ?? 0,
+      }, {
         name: nextName,
         distanceKm: nextDistanceKm,
         waterRefill: editingStation.waterRefill,
         solidRefill: editingStation.solidRefill,
         assistanceAllowed: editingStation.assistanceAllowed,
         pauseMinutes: nextPauseMinutes,
-        ...(editingStation.assistanceAllowed ? {} : { supplies: [] }),
+      }, isLinkedRace);
+      updateAidStation(editingStation.index, {
+        ...nextStation,
+        ...(nextStation.assistanceAllowed ? {} : { supplies: [] }),
       });
       setEditingStation(null);
     };
@@ -960,6 +987,7 @@ export default function PlanForm({
                 waterBagOptions={WATER_BAG_OPTIONS}
                 onCustomWaterBagFocus={handleCustomWaterBagFocus}
                 inline
+                isLinkedRace={isLinkedRace}
               />}
             </View>
           </TutorialTarget>
@@ -994,6 +1022,7 @@ export default function PlanForm({
             fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
+            nutritionNeedsChanged={nutritionNeedsChanged}
             intermediateCount={highlights.intermediateCount}
             getSupplies={getSupplies}
             openPicker={openPicker}
@@ -1023,6 +1052,7 @@ export default function PlanForm({
             }}
             toolbarHidden={stickyControlsVisible}
             previewMode={previewMode}
+            isLinkedRace={isLinkedRace}
             previewUnlockStickyVisible={previewUnlockStickyVisible}
             onPreviewBoundaryLayout={(top, height) => {
               const nextMeasurement = top === null
@@ -1159,7 +1189,7 @@ export default function PlanForm({
         onConfirm={handleConfirmAutoFill}
       /> : null}
 
-      {!previewMode ? <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} /> : null}
+      {!previewMode ? <EditStationModal editingStation={editingStation} setEditingStation={setEditingStation} onSave={handleEditSave} officialFieldsReadOnly={isLinkedRace} /> : null}
       {showPremiumUpsell ? (
         <PremiumUpsellModal
           visible={showPremiumUpsell}

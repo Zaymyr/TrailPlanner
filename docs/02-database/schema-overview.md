@@ -129,6 +129,8 @@ This document summarizes the Supabase Postgres schema as inferred from migration
 
 ## Key Concepts
 
+The November 2026 mobile plan-flow polish changes catalog search controls, image fallback presentation, same-day plan grouping, and existing-plan wording without adding a column, relation, query scope, or RLS path. A warning before planning a past event is derived from the already-loaded event date.
+
 - Owner table: a table whose rows are tied to `auth.uid()`.
 - Catalog race: a public or private row in `races`.
 - Saved plan: a row in `race_plans` with flexible planner JSON.

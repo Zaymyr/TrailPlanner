@@ -360,6 +360,8 @@ Selecting a source ravito, deriving a same-course GPX access coordinate, and hid
 - The scroll-driven identity hero height/collapse, focus-time scroll reset, title clipping, single-line emergency label/number layout, and persistent emergency/social-action placement are presentation state only. They emit no event and add no scroll offset, phone number, image URL, color, or logo property to RaceBook analytics; an actual emergency or social press keeps its existing bounded action event.
 - Material checklist state sync is limited to one bounded event per currently published item for users who started the checklist. Never attach persistence keys, notes, arbitrary organizer text, or aggregate checked totals. PostHog's latest observed state is period reporting, not the authoritative current state in `racebook_gear_checks`; users with no checklist row are intentionally absent from both organizer rankings. Expanded use of the published accent color across decorative RaceBook surfaces remains presentation-only.
 
+Clearing the Courses search and omitting an empty card image rail emit no event. An owned-format press keeps the existing `catalog create plan clicked` contract with `action: refine_plan`; changing its visible label to “Open my plan” does not rename the historical bounded action or the successful `plan created` event.
+
 ## Related Docs
 
 Selecting or masking a private-demo format is configuration, not a runner RaceBook open or publication analytics event.

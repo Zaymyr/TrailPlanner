@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, View, type NativeScrollEvent, type NativeSynthe
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { formatDuration, type PlanSummary } from '../../lib/planSummary';
-import { formatAveragePace, type PlanWorkspaceTab } from '../../lib/planWorkspace';
+import { type PlanWorkspaceTab } from '../../lib/planWorkspace';
 import { Button } from '../themed/Button';
 import { DataText } from '../themed/DataText';
 import { Heading } from '../themed/Heading';
@@ -45,22 +45,12 @@ function RecapPreview({ summary, locale, onUnlock }: {
   summary: PlanSummary; locale: string; onUnlock: () => void;
 }) {
   const fr = locale === 'fr';
-  const averagePace = formatAveragePace(summary.totalDurationMin, summary.distanceKm);
-  const stats = [
-    { label: fr ? 'Temps estimé' : 'Estimated time', value: formatDuration(summary.totalDurationMin) },
-    { label: fr ? 'Allure moyenne' : 'Average pace', value: averagePace === '—' ? averagePace : `${averagePace}/km` },
-  ];
   const passagePreview = summary.checkpoints.slice(0, 2);
   const remainingPassages = Math.max(0, summary.checkpoints.length - passagePreview.length);
   return <>
     <View style={styles.card}>
       <Heading variant="h3">{fr ? 'Ton récap en bref' : 'Your recap at a glance'}</Heading>
-      <View style={styles.statsGrid}>
-        {stats.map((stat) => <View key={stat.label} style={styles.statCell}>
-          <Text size="xs" tone="secondary">{stat.label}</Text>
-          <DataText size="xl" tone="brand" weight="bold" numberOfLines={1} adjustsFontSizeToFit>{stat.value}</DataText>
-        </View>)}
-      </View>
+      <Text size="sm" tone="secondary">{fr ? 'Le temps estimé et l’allure moyenne restent visibles dans l’en-tête.' : 'Estimated time and average pace remain visible in the header.'}</Text>
       <Text size="sm" tone="secondary">{fr ? 'Ravitos, pauses, besoins nutritionnels… découvre toute ta stratégie de course.' : 'Aid stations, stops, nutrition needs… discover your complete race strategy.'}</Text>
       <Button onPress={onUnlock}>{fr ? 'Voir le reste des statistiques' : 'See the remaining statistics'}</Button>
     </View>
@@ -113,7 +103,7 @@ export function LockedPlanContent({ summary, tab, contentTopInset, onScroll, onU
       {simulation !== 'real' ? <Text size="sm">{fr ? 'Mode de test' : 'Test mode'} : {simulation}</Text> : null}
       {tab === 'settings' ? <View style={styles.card}>
         <Text weight="bold">{fr ? 'Tes objectifs actuels' : 'Your current targets'}</Text>
-        <Text>{summary.targetCarbsPerHour} g/h · {summary.targetWaterPerHour} ml/h</Text>
+        <Text>{summary.targetCarbsPerHour} g/h · {summary.targetWaterPerHour} ml/h · {summary.targetSodiumPerHour} mg/h</Text>
         <Text>{fr ? 'Poche à eau' : 'Water bladder'} : {summary.waterBagLiters} L</Text>
         {lock('settings')}
       </View> : <RecapPreview summary={summary} locale={locale} onUnlock={onUnlock} />}
@@ -123,8 +113,6 @@ export function LockedPlanContent({ summary, tab, contentTopInset, onScroll, onU
 
 const styles = StyleSheet.create({
   content: { paddingHorizontal: 16, paddingBottom: 120, gap: 16 },
-  statsGrid: { flexDirection: 'row', gap: 12, paddingVertical: 6 },
-  statCell: { flex: 1, gap: 6 },
   passageCard: { marginTop: 12 },
   passageHeading: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   passageTable: { gap: 2 },
