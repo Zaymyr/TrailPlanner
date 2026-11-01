@@ -1,7 +1,9 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-10-29
+
+last_verified: 2026-11-01
+
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -22,11 +24,15 @@ related_tables:
 
 # `race_relay_points`
 
+RaceBook personal passage-time interpolation applies to official aid stations only and does not change relay-point data.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 
 Stores ordered relay handover points. This runner-facing Racebook information remains separate from nutrition and saved-plan aid stations.
+
+Personal plan reflection does not infer a relay handover from a runner checkpoint: it only enriches official ravitos matched by their source station identity.
 
 ## Key Concepts
 
@@ -41,6 +47,8 @@ Stores ordered relay handover points. This runner-facing Racebook information re
 Relay participation badges stay in the identity hero beside the course-date, location and format metrics. The hero does not display the emergency phone number; the number remains available only through the localized call action in the neutral details card.
 
 The compact runner-progress and unified sponsor loading composition is presentation-only and remains independent from relay-point reads and derived legs.
+
+An owner's linked-plan duration, pace and departure may appear in the Livret hero, while compact personal ravito passage/segment timing is interactive; neither behavior adds relay timing, changes derived-leg boundaries, or changes the conditional `Relais` tab.
 
 The stable post-load sponsor surface uses compact tiered rows, and contextual sponsor placements likewise remain independent from relay ordering and the conditional `Relais` sub-tab. Moving start/finish times into the Ravitos endpoint cards does not change relay-derived boundaries or times.
 
@@ -97,6 +105,8 @@ Selecting the conditional `Relais` sub-tab is recorded as RaceBook product engag
 - Do not copy relay points into `plan_aid_stations` or nutrition calculations in this first version.
 - FK behavior does not synchronize copied location text or distance; the Organizer editor does so before save.
 
+The owner-only Livret/Mon plan switch may warm an already saved plan editor only when the warm state's plan id matches the route, but it never turns a relay handover into a personalized passage or changes the `Relais` collection.
+
 ## Related Docs
 
 Masking a format from the private RaceBook demo suppresses its complete mobile RaceBook entry point without deleting relay points.
@@ -110,6 +120,7 @@ Ravito point markers projected onto the route/profile represent `race_aid_statio
 The independently loaded Booking action occupies the permanent Services tab, while Decathlon appears in Matériel. Neither action affects relay-row reads, derived legs, or the conditional Relais sub-tab.
 
 Supporter points are neither handover points nor aid stations. They have no relay-leg semantics and remain visible only through their independent format module.
+
 
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)

@@ -1,7 +1,7 @@
 ---
 title: Geocoding
 scope: integration
-last_verified: 2026-10-29
+last_verified: 2026-11-01
 ai_priority: medium
 related_files:
   - supabase/migrations/20260910074418_add_normalized_race_event_geography.sql
@@ -23,6 +23,8 @@ related_tables:
 
 # Geocoding
 
+The mobile rolling-deployment fallback reads already geocoded supporter points through RLS and does not invoke geocoding from the runner client.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
@@ -32,6 +34,7 @@ This document describes the web geocoding/autocomplete integration used by the o
 Structured restaurant and accommodation cards reuse the organizer address autocomplete and require a geocoded address. Mobile derives a display-only great-circle distance from the best available race start coordinate; it does not claim routing distance. The Maps URL opens the external provider for directions.
 
 Supporter points reuse the same organizer address autocomplete, but their access coordinates are intentionally independent from their course kilometer. A point is publishable only with valid paired coordinates; mobile opens the saved HTTP(S) Maps URL when present and otherwise builds directions from those coordinates. The optional external plan URL is validated separately and is never treated as geocoding input.
+
 
 The structured-editor SAS summary contains only the format id, wave count, and earliest departure time. It drives the common schedule card above the Organizer tabs and does not alter or duplicate any geocoded start/finish location.
 
@@ -138,6 +141,8 @@ The public `/courses` search reads only the normalized locality names alongside 
 - In the mobile Racebook access tab, generated start/finish links are exposed through explicit Maps buttons. Equal normalized start and finish address strings render as one location while retaining the first available generated link; the optional organizer-supplied general map remains a separate labeled action.
 - Keep the organizer address/editor copy UTF-8 safe. `event-format-editors.tsx` mixes geocoded address controls with accented French labels, so a bad save/import encoding can surface mojibake such as `Ã©` right next to location fields.
 - `organizer-dashboard-details.ts` also normalizes unrelated equipment overrides, event website/social URLs (including an HTTPS prefix for otherwise valid domain links), and event emergency-phone display values. It still rejects invalid and non-HTTP(S) links. Preserve those paths without changing any canonical or geocoded location field.
+
+Personal Livret reflection does not geocode runner plan checkpoints or use their products/timing as location data.
 
 ## Related Docs
 

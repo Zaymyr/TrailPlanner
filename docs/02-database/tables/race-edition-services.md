@@ -1,7 +1,9 @@
 ---
 title: race_edition_services Table
 scope: database
-last_verified: 2026-10-29
+
+last_verified: 2026-11-01
+
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -21,11 +23,15 @@ related_tables:
 
 # `race_edition_services`
 
+RaceBook personal passage-time interpolation is client-only and does not alter this table's service contract.
+
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 
 ## Purpose
 
 Stores ordered, structured restaurants, accommodation, recovery and other nearby services shared by every format of an annual edition.
+
+The owner-only plan reflection in the mobile Livret is loaded separately from this edition-scoped public services collection and does not affect its cache or visibility.
 
 ## Contract
 
@@ -74,3 +80,5 @@ Per-format GPX map/profile choices affect only the `Tracé` cards and do not cha
 Fullscreen course visuals and tappable ravito markers do not read, reorder, or replace edition-scoped nearby services.
 
 Format-scoped supporter directions and assistance permissions are not edition services. They are serialized from `race_supporter_points` only when that separate module is effective.
+
+The Livret/Mon plan switch may reuse an already saved owner plan without showing the plan-creation loader. Its owner-specific hero departure/duration/pace and compact ravito passage, segment duration and cutoff warning are not service data; route-local warm state is scoped to the exact plan id and remains separate from the edition-scoped services payload and cache.

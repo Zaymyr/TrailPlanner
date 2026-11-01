@@ -49,6 +49,7 @@ const buildSidecars = (raceId: string): OrganizerRaceSidecars => ({
   ],
   relayPoints: [],
   stationProducts: [],
+  supporterPoints: [],
 });
 
 const buildPreview = (distanceKm: number): GpxPreview => ({

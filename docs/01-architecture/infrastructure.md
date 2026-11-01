@@ -1,7 +1,9 @@
 ---
 title: Infrastructure
 scope: architecture
+
 last_verified: 2026-11-01
+
 ai_priority: high
 related_files:
   - apps/web/.env.example
@@ -221,6 +223,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Never reuse a `NEXT_PUBLIC_` or `EXPO_PUBLIC_` PostHog token as `POSTHOG_API_KEY` or `POSTHOG_PERSONAL_API_KEY`, and never expose the server key in a bootstrap or analytics response. The API host must be the HTTPS PostHog application origin without a path or embedded credentials.
 - The six organizer Stripe Price ids must point to active, one-time EUR prices excluding tax: direct Essential/Complete/Signature at 99/199/349 €, plus upgrades at 100/250/150 €; the server rejects mismatched Price configuration.
 - Organizer checkout recomputes the persisted module requirement before creating Stripe state and stores the recommendation as metadata; the requested lower paid tier remains valid and public filtering keeps uncovered drafts private.
+- `supporter_points` is a default-enabled Essential organizer module (labelled **Suivi coureur**). Its legacy-settings fallback and dashboard sidecar loading are application behavior, not deployment configuration or an environment-variable toggle.
 - Publication presence probes must select a real column from each Supabase table. Edition branding is keyed by `edition_id`, not a generic `id`; a bad projection fails before Stripe Checkout is created.
 - The service role key must stay server-side or inside Supabase functions.
 - `RESEND_API_KEY` is server-only and must not be exposed as a `NEXT_PUBLIC_` or Expo public variable.
