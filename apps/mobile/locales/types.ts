@@ -177,6 +177,9 @@ export type MobileTranslations = {
     saveError: string;
     start: string;
     maximumTime: string;
+    distance: string;
+    elevationGain: string;
+    elevationLoss: string;
     beyondCutoff: string;
     accessChecking: string;
     accessError: string;
@@ -764,8 +767,6 @@ export type MobileTranslations = {
     racebookExpectedPassage: string;
     racebookExpectedTime: string;
     racebookPace: string;
-    racebookElevationGainMetric: string;
-    racebookElevationLossMetric: string;
     racebookCreatePlan: string;
     racebookRefinePlan: string;
     racebookReviewPlan: string;

@@ -31,6 +31,8 @@ related_tables:
 
 # Affiliate Partner Links
 
+The race-workspace header toolbar/footer layout (lot 10) does not change partner-link resolution, placement, click tracking, or destinations.
+
 Moving official timing into the shared RaceBook header and removing its duplicate Trace row does not change partner-link resolution, placement, click tracking, or destinations.
 
 La carte Decathlon mobile apparaît après la checklist Matériel et utilise une formulation sans nombre : les données publiées ne permettent pas de distinguer fiablement tout ce qui s'achète. La destination, la mention d'affiliation et l'action analytics bornée restent inchangées. Booking reste dans Services.

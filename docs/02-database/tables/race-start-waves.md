@@ -24,6 +24,8 @@ related_tables:
 
 # `race_start_waves`
 
+The race-workspace header toolbar/footer layout (lot 10) keeps the same departure fallback and does not alter SAS visibility, ordering, or time authority.
+
 The shared header may use the first ordered SAS only when the common organizer departure is absent. Personal departure selection does not alter the maximum duration derived from that official departure and the finish cutoff.
 
 SAS reste conditionnel dans Course et ses cartes utilisent la couleur principale d'identité. La barre du Livret ne duplique plus de sortie ; retour d'en-tête et retour Android utilisent la même destination sans modifier l'autorité, l'ordre ou les heures des vagues.

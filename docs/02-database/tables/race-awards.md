@@ -23,6 +23,8 @@ related_tables:
 
 # `race_awards`
 
+The race-workspace header toolbar/footer layout (lot 10) is presentation-only and does not change award rows, visibility, ordering, or the conditional Podiums tab.
+
 The shared RaceBook identity header and finish-cutoff placement are presentation-only and do not change award rows, visibility, ordering, or podium timing.
 
 Le Livret affiche toujours Podiums comme sous-onglet conditionnel de Course. La barre basse ne contient plus de sortie et les cartes de podium utilisent l'identité principale organisateur plutôt que son accent ; ces changements de navigation et de présentation ne modifient ni les lignes, ni l'ordre, ni les règles de visibilité.

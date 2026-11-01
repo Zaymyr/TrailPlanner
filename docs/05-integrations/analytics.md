@@ -77,6 +77,8 @@ related_tables:
 
 # Analytics
 
+Lot 10 removes the tappable header location, so the RaceBook no longer emits `racebook action clicked` with `action: map_opened` and source `header_location`; map opening from Accès keeps its existing payload. The shared header layout adds no event.
+
 The shared workspace header, quantity stepper, cutoff placement, and tri-state access presentation add no analytics event and do not change existing event payloads.
 
 Le regroupement des liens organisateur, la suppression des sorties de barre basse et le retour contextuel vers Courses ou Plans ne créent aucun nouvel événement. Les ouvertures de liens conservent leurs actions bornées existantes et les clics Booking/Decathlon gardent leur contexte sans URL ni contenu libre. La présentation compacte des alertes, horaires, listes et couleurs n'ajoute aucune propriété analytics.

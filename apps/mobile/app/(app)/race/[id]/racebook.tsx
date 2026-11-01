@@ -108,7 +108,7 @@ import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSuppo
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
 import { formatAveragePace } from '../../../../lib/planWorkspace';
-import { formatDistance, normalizeClockDisplay } from '../../../../lib/displayFormat';
+import { formatDistance, formatElevation, normalizeClockDisplay } from '../../../../lib/displayFormat';
 import {
   getRacebookScreenSnapshot,
   getRacebookScrollOffset,
@@ -285,10 +285,6 @@ function groupBibPickupSlots(
   });
 
   return [...groups.values()];
-}
-
-function formatElevation(elevationM: number, locale: 'fr' | 'en') {
-  return new Intl.NumberFormat(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 0 }).format(elevationM);
 }
 
 function SectionCard({
@@ -1149,10 +1145,6 @@ export default function RaceRacebookScreen() {
     data?.race.location ??
     raceLocationDetails?.label ??
     null;
-  const headerLocationUrl =
-    (data?.event.location ?? eventLocationDetails?.label)
-      ? eventLocationDetails?.googleMapsUrl ?? null
-      : raceLocationDetails?.googleMapsUrl ?? null;
   const weatherPlan = data?.runnerDetails.equipmentStatus.weatherPlan ?? 'normal';
   const weatherAlertMessage =
     weatherPlan === 'cold'
@@ -1519,18 +1511,21 @@ export default function RaceRacebookScreen() {
   const unavailable = !showLoading && (!data || !data.canOpen);
   const loadedRaceId = data?.race.id ?? null;
   const hasEmergencyHeader = Boolean(emergencyContact?.phone && emergencyTelephoneUrl);
-  const minimumHeroBodyHeight = hasEmergencyHeader ? RACEBOOK_HERO_BODY_HEIGHT + 44 : RACEBOOK_HERO_BODY_HEIGHT;
-  const [heroBodyHeight, setHeroBodyHeight] = useState(minimumHeroBodyHeight);
+  const initialHeroBodyHeight = hasEmergencyHeader ? RACEBOOK_HERO_BODY_HEIGHT + 44 : RACEBOOK_HERO_BODY_HEIGHT;
+  // The hero reports its measured content height; the switch and content offset follow it.
+  // Until a measurement exists for this race, an estimate is used.
+  const [measuredHeroBodyHeight, setMeasuredHeroBodyHeight] = useState<number | null>(null);
+  const heroBodyHeight = measuredHeroBodyHeight ?? initialHeroBodyHeight;
   const heroExpandedHeight = insets.top + heroBodyHeight;
 
   useEffect(() => {
-    setHeroBodyHeight(minimumHeroBodyHeight);
-  }, [id, minimumHeroBodyHeight]);
+    setMeasuredHeroBodyHeight(null);
+  }, [id]);
 
   const handleHeroBodyHeightChange = useCallback((measuredHeight: number) => {
-    const nextHeight = Math.max(minimumHeroBodyHeight, measuredHeight);
-    setHeroBodyHeight((current) => Math.abs(current - nextHeight) < 1 ? current : nextHeight);
-  }, [minimumHeroBodyHeight]);
+    if (!Number.isFinite(measuredHeight) || measuredHeight <= 0) return;
+    setMeasuredHeroBodyHeight((current) => current !== null && Math.abs(current - measuredHeight) < 1 ? current : measuredHeight);
+  }, []);
 
   useEffect(() => {
     if (!id || showLoading || !data || data.race.id !== id) return;
@@ -1889,10 +1884,11 @@ export default function RaceRacebookScreen() {
           maxTimeLabel={t.planWorkspace.maximumTime}
           maxTimeValue={maximumRaceLabel}
           distanceLabel={formatDistance(data.race.distanceKm, locale)}
+          distanceCaption={t.planWorkspace.distance}
           elevationGainLabel={formatElevation(data.race.elevationGainM, locale)}
           elevationLossLabel={data.race.elevationLossM !== null ? formatElevation(data.race.elevationLossM, locale) : null}
-          elevationCaption={t.catalog.racebookElevationGainMetric}
-          descentCaption={t.catalog.racebookElevationLossMetric}
+          elevationCaption={t.planWorkspace.elevationGain}
+          descentCaption={t.planWorkspace.elevationLoss}
           planDurationLabel={linkedPlan ? `${formatDuration(linkedPlan.summary.totalDurationMin)}${planBeyondCutoff ? ` · ${t.planWorkspace.beyondCutoff}` : ''}` : null}
           planDurationCaption={t.catalog.racebookExpectedTime}
           planPaceLabel={linkedPlanAveragePace && linkedPlanAveragePace !== '—' ? `${linkedPlanAveragePace}/km` : linkedPlanAveragePace}
@@ -1915,7 +1911,6 @@ export default function RaceRacebookScreen() {
           ]}
           onBack={exitRacebookToCatalog}
           onCallEmergency={emergencyTelephoneUrl ? () => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started') : undefined}
-          onOpenLocation={headerLocationUrl ? () => openTrackedUrl(headerLocationUrl, 'map_opened', 'header_location') : undefined}
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
           onExpandedBodyHeightChange={handleHeroBodyHeightChange}
         />

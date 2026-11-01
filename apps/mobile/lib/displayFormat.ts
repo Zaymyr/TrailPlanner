@@ -16,6 +16,11 @@ export function formatDistance(distanceKm: number, locale: AppLocale): string {
   return `${formatDistanceValue(distanceKm, locale)} km`;
 }
 
+export function formatElevation(elevationM: number, locale: AppLocale): string {
+  const safeElevation = Number.isFinite(elevationM) ? elevationM : 0;
+  return `${new Intl.NumberFormat(localeTag(locale), { maximumFractionDigits: 0 }).format(Math.round(safeElevation))} m`;
+}
+
 export function formatDistanceRange(startKm: number, endKm: number, locale: AppLocale): string {
   return `${formatDistanceValue(startKm, locale)}–${formatDistanceValue(endKm, locale)} km`;
 }

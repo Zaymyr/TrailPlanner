@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+The race-workspace header toolbar/footer layout (lot 10) does not read or mutate checklist rows.
+
 The shared RaceBook identity header and finish-cutoff placement do not read or mutate checklist rows; equipment completion remains independent owner state.
 
 La checklist conserve ses clés et mutations owner-scoped. Une ligne prête reste lisible sans texte barré et les cases utilisent la palette Pace Yourself. La carte Decathlon se place après la checklist et n'affiche plus de nombre, car le contrat ne distingue pas de façon fiable les objets achetables ; son ouverture ne crée ni ne modifie une coche.

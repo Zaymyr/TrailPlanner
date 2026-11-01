@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import {
   formatDistance,
   formatDistanceRange,
+  formatElevation,
   formatDistanceValue,
   normalizeClockDisplay,
   parseLocalizedDecimal,
@@ -29,5 +30,12 @@ describe('mobile display formatting', () => {
     expect(normalizeClockDisplay('8:30')).toBe('08:30');
     expect(normalizeClockDisplay('09:00:00')).toBe('09:00');
     expect(normalizeClockDisplay('À partir de 8h')).toBe('À partir de 8h');
+  });
+
+  it('formats elevation with a locale thousands separator and a metre unit', () => {
+    expect(formatElevation(860, 'fr')).toBe('860 m');
+    expect(formatElevation(5120, 'fr').replace(/\s/g, ' ')).toBe('5 120 m');
+    expect(formatElevation(5120.4, 'en')).toBe('5,120 m');
+    expect(formatElevation(Number.NaN, 'fr')).toBe('0 m');
   });
 });

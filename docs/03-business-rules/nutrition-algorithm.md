@@ -83,6 +83,8 @@ related_tables:
 
 # Nutrition Algorithm
 
+The measured plan workspace header height (lot 10) only moves the pinned ravito controls and content offset; it changes no nutrition calculation, allocation, or saved product.
+
 The mobile auto-fill inventory sheet exposes each selected product as a 44-point minus/value/plus stepper with an explicit unlimited action. Entering a limit starts at one, product names may wrap to two lines, and the resulting nullable maximum continues to constrain both preview and application through the existing allocation contract.
 
 La suppression de la sortie dupliquée dans la barre de l'éditeur ne change aucun calcul nutritionnel, aucune sauvegarde ni aucun produit. La sortie reste assurée par le bouton retour de l'en-tête et le retour système après la sauvegarde normale du brouillon.
