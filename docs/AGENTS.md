@@ -3,7 +3,7 @@
 > **You are an AI agent working on Pace Yourself.**
 > Read this entire file before doing anything. The Documentation Maintenance Protocol below is a hard rule. If a task seems to conflict with these rules, ASK before proceeding.
 
-Read this first when working in Pace Yourself. Then route yourself to the smallest relevant doc set.
+`../AGENTS.md` is the canonical repository entry point. If you reached this file directly and have not read it yet, stop and read it in full first. It contains the task-start Git safety check, branch discipline, and handoff requirements that apply to every task. Then return here and route yourself to the smallest relevant doc set.
 
 ## Documentation Maintenance Protocol
 
@@ -182,6 +182,7 @@ Use the smallest reliable context first, then expand only when the task needs it
 
 ## Hard Rules
 
+- Run `git status --short --branch` before any fetch, branch switch, edit, generation, or dependency installation. Existing modifications and untracked files are user-owned by default: do not discard, overwrite, stash, clean, reset, or commit them without explicit approval.
 - Use the primary repository checkout as the single worktree for normal development. Switch task branches in that directory; do not create an auxiliary worktree unless the user explicitly requests isolated parallel work.
 - Before pushing `main` or promoting production, enumerate every registered worktree, inspect each one with `git status --short --branch`, and inspect `git log --branches --not --remotes --oneline`. A dirty worktree or a local-only commit blocks release until the work is committed and pushed, integrated into the release branch, or explicitly abandoned by the user. CI cannot detect uncommitted files stored in another local worktree.
 - Migrations are schema truth. `docs/_archive/db/schema.sql` is historical.

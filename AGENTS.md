@@ -2,12 +2,25 @@
 
 This repository is Pace Yourself — a trail race planning SaaS (Next.js + Expo + Supabase).
 
+This file is the canonical entry point for every AI assistant. Tool-specific instruction files must only redirect here and must not maintain a separate copy of project rules.
+
 ## Mandatory reading order
 
 Before doing ANY task in this repo, read in this order:
-1. `docs/AGENTS.md` — full agent routing and protocols
-2. `docs/README.md` — documentation table of contents
-3. Any doc in `docs/` whose `related_files` frontmatter lists a file you intend to modify
+1. This entire file
+2. `docs/AGENTS.md` — full agent routing and protocols
+3. `docs/README.md` — documentation table of contents
+4. Any doc in `docs/` whose `related_files` frontmatter lists a file you intend to modify
+
+## Task-start preflight
+
+Before fetching, switching branches, editing, generating files, or installing dependencies:
+
+1. Run `git status --short --branch`.
+2. Treat every existing modification and untracked file as user-owned unless the current task clearly created it.
+3. Never discard, overwrite, clean, reset, stash, or include pre-existing changes in the task commit without the user's explicit approval.
+4. If pre-existing changes make the required branch switch unsafe, stop and ask the user. If Git can switch safely while preserving them, leave them untouched and exclude them from the task diff and commit.
+5. After this safety check, create the task branch from the latest `origin/main` as required below.
 
 ## Hard rules (non-negotiable)
 
@@ -26,6 +39,8 @@ Before doing ANY task in this repo, read in this order:
 7. **UI component reuse-first** — before creating a UI component, search existing components in `apps/web/components`, the local `_components` folder, and package design-system exports. Reuse or extend an existing component when it fits; keep new components at the narrowest scope until they are used by multiple screens.
 
 8. **Progressive context first** - start with the smallest reliable context: the active file, direct imports, the nearest relevant test, and the minimum required docs. Prefer targeted search before opening whole files. Expand to broader tests, related docs, or shared code as soon as uncertainty remains or contracts, security, schema, business rules, or regression risk require it.
+
+9. **Verification and handoff** — run targeted checks while working and `npm run verify` before handoff unless the task is documentation-only or the full gate cannot run. In those cases, run the smallest relevant checks and report exactly what was and was not verified. Always report the branch name, changed files, verification results, and any preserved pre-existing changes.
 
 ## Delegation and model economy
 
@@ -49,3 +64,4 @@ Before doing ANY task in this repo, read in this order:
 | Mulebar catalog scraping | `docs/05-integrations/mulebar-scraping.md` |
 | Mobile screen | `docs/01-architecture/mobile-app.md` + `docs/07-design-system/` |
 | New feature | `docs/06-workflows/ship-a-feature.md` |
+| AI implementation, review, or handoff | `docs/06-workflows/agentic-development.md` + `docs/06-workflows/ship-a-feature.md` |

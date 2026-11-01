@@ -1,9 +1,10 @@
 ---
 title: Infrastructure
 scope: architecture
-last_verified: 2026-09-23
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
+  - apps/web/.env.example
   - apps/web/lib/posthog-organizer-analytics.ts
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - vercel.json
@@ -159,6 +160,8 @@ The route selects expired service-only sessions, deletes each temporary object n
 ## Environment Variables
 
 Document variable names, not secret values. Important names visible in code include:
+
+For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.local` and `apps/mobile/.env.example` to the ignored `apps/mobile/.env`. The templates contain placeholders only. Keep real values in local ignored files or the appropriate deployment secret store.
 
 - `SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_URL`

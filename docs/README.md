@@ -51,6 +51,7 @@ Docs conventions are in [_conventions.md](_conventions.md).
 - [race_relay_points](02-database/tables/race-relay-points.md)
 - [race_start_waves](02-database/tables/race-start-waves.md)
 - [race_awards](02-database/tables/race-awards.md)
+- [racebook_gear_checks](02-database/tables/racebook-gear-checks.md)
 - [race_edition_services](02-database/tables/race-edition-services.md)
 - [race_aid_station_products](02-database/tables/race-aid-station-products.md)
 - [races](02-database/tables/races.md)
