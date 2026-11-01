@@ -32,6 +32,7 @@ These service-only tables verify and record a voluntary, one-time “support” 
 - `runner_support_events` records ordered purchase/refund/refund-reversed provider events so late events cannot overwrite a newer outcome.
 - Only service role has table access; provider verification and RPC claims are server-side.
 - Server authorization happens before the store sheet; admin Free/Premium simulation is blocked. Strict RevenueCat reconciliation/restore checks the same user, provider, product and transaction.
+- The shared webhook route accepts either its configured Authorization value or a valid RevenueCat HMAC signature over the raw payload. This transport authentication does not change the support ledger's non-entitlement semantics.
 - New authorization requires an effective launch, early-supporter cohort membership and the active seven-day window. `sync`, `reconcile` and `cancel` remain available after that window solely to finish, restore or clean up an already-started purchase; they cannot begin a new charge.
 
 ## Gotchas

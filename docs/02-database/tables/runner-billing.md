@@ -9,6 +9,8 @@ related_files:
   - apps/web/lib/runner-access.ts
   - apps/web/lib/revenuecat.ts
   - apps/web/app/api/revenuecat/webhook/route.ts
+  - apps/web/lib/revenuecat-reconciliation.ts
+  - apps/web/app/api/cron/revenuecat-reconciliation/route.ts
   - apps/web/lib/runner-payments.ts
   - apps/web/app/api/runner/purchase-intents/route.ts
   - apps/web/app/api/runner/purchases/sync/route.ts
@@ -70,6 +72,8 @@ These tables are the server-side authority for runner monetisation. The rollout 
 - Do not grant table writes to mobile or browser clients, including for restore flows.
 - The RevenueCat course product must be a repeat-purchasable consumable in both stores. A non-consumable supports only the first course and breaks the per-race model.
 - RevenueCat webhook authorization is mandatory and fails closed when its server secret is absent. A recognized event whose database persistence fails returns a retryable non-2xx response.
+- RevenueCat webhook requests may use the legacy configured Authorization value or the integration signing secret. HMAC verification uses the untouched request body, a constant-time comparison, and a five-minute timestamp tolerance.
+- The protected daily reconciliation enumerates Supabase Auth UUIDs and reuses the same RevenueCat persistence path. Provider/configuration failures preserve prior access instead of being interpreted as cancellation.
 - RevenueCat `NON_RENEWING_PURCHASE` events can never create Premium, even if the course-product environment is absent. Annual subscription sync requires a configured annual product or exact Premium entitlement plus a finite expiration.
 - Refund reversals are idempotent: duplicates and reversal-before-purchase ordering retain an active journal state for the verified claim.
 

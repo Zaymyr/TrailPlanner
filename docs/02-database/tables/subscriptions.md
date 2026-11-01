@@ -10,6 +10,7 @@ related_files:
   - supabase/migrations/20260618145940_remove_coach_features.sql
   - apps/web/app/api/stripe/webhook/route.ts
   - apps/web/lib/revenuecat.ts
+  - apps/web/lib/revenuecat-reconciliation.ts
   - apps/web/lib/entitlements.ts
   - apps/mobile/hooks/usePremium.ts
 related_tables:
@@ -68,6 +69,7 @@ Summary:
 - RevenueCat writes use provider `google` or `apple`.
 - Entitlement checks treat `active` and `trialing` as active when the period is missing or future, depending on code path.
 - RevenueCat sync writes `runner_subscription_accounts` first. It updates this legacy row only when the row does not carry Stripe customer/subscription identity, so a mobile sync cannot erase an independent web subscription.
+- A daily server reconciliation scans authenticated user ids and replays the same RevenueCat sync. Provider outages do not expire the last verified row; an expiration requires a valid RevenueCat subscriber response.
 - One-time organizer edition purchases are deliberately excluded; they use `organizer_edition_payments` and `organizer_edition_entitlements`.
 - Organizer Checkout Invoice ids and downloadable invoice history also remain on the organizer payment ledger; the shared webhook must not copy them into this subscription snapshot.
 - Runner annual subscriptions may additionally be recorded in `runner_subscription_accounts` so provider events remain an idempotent ledger. One-time runner course purchases are never rows in this table.
@@ -99,6 +101,7 @@ set stripe_customer_id = excluded.stripe_customer_id,
 - Product ID and active Stripe price ID are not literal repo constants; they come from `STRIPE_PRICE_ID` and Stripe dashboard metadata.
 - Do not write mobile purchases into a separate entitlement table. Sync them here.
 - A single primary key cannot represent independent providers. Preserve Stripe identity in this projection and use `runner_subscription_accounts` as the provider-scoped runner ledger.
+- Keep reconciliation writes on the shared idempotent persistence path. Direct cron writes could diverge from webhook and mobile-repair behavior.
 - Never insert organizer RaceBook purchases into this runner entitlement snapshot.
 - Do not store a EUR 9.99 course purchase here: it belongs to `runner_plan_unlocks` and is scoped to one canonical format/edition.
 - Multiple mounted mobile screens share one subscription refresh; keep this table read inside the central Premium monitor instead of adding screen-local copies.
