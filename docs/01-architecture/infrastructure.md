@@ -108,7 +108,7 @@ If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds
 - channels are set by the EAS profile.
 - shared iOS/Android runtime `1.1.1`. This runtime accompanies the native iOS light-appearance change and the Android 16 / API 36 build.
 
-Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetSdkVersion` 36 by default. The repository does not override those native defaults.
+Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetSdkVersion` 36 by default. The repository does not override those API-level defaults. `expo-build-properties` enables R8 minification and resource shrinking for release variants, including store candidates; debug/development-client variants remain unobfuscated. The resulting AAB contains the build-specific `mapping.txt` required to deobfuscate native stack traces.
 
 The app config intentionally keeps `@react-native-google-signin/google-signin` out of the iOS plugin list, and `apps/mobile/react-native.config.js` disables the package in the React Native iOS autolinking layer, because the mobile app only supports native Google Sign-In on Android; iOS stays on the browser OAuth path.
 
@@ -241,6 +241,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 - `userInterfaceStyle` is native configuration. Build and ship a new iOS binary on runtime `1.1.1` before publishing a `1.1.1` OTA; installed iOS `1.1.0` binaries remain in their prior compatibility group.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
+- R8 changes native release output and cannot ship through OTA. Test the exact optimized candidate before promotion, and keep its `mapping.txt` paired with that build rather than reusing a mapping from another version.
 - Store candidate automation also requires valid Apple App Store Connect credentials in EAS. Do not approve the candidate gate until both platform credentials have been configured and the build capacity is intentionally accepted.
 - Do not present hosted Maestro as active on the current Expo plan. Use the local Android runner until the plan is upgraded or a separate compatible CI runner is added.
 

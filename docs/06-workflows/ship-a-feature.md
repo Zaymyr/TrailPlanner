@@ -73,6 +73,7 @@ npm run verify
     Run `npx expo-doctor apps/mobile` after installation and distinguish intentional monorepo Metro isolation warnings from actual SDK version mismatches.
     Native config plugins such as `@react-native-community/datetimepicker` require a new development/store binary; do not describe their JavaScript usage as OTA-only delivery, and keep an older-runtime fallback when development OTAs may arrive first.
     Run `npm run lint -w @trailplanner/mobile` after TypeScript or JavaScript changes.
+    Android release variants use R8 minification and resource shrinking through `expo-build-properties`. Smoke-test the optimized internal-track candidate before production promotion and retain the `mapping.txt` produced by that exact AAB; a debug build or another version's mapping is not equivalent evidence.
     Keep Expo ESLint plugins used by the legacy config explicit in `apps/mobile/devDependencies`; do not rely on a plugin being transitively hoisted in an existing local `node_modules` tree.
 12. For mobile navigation, authentication, or visual changes, run the Maestro shell journey and review its screenshots against [Mobile UX Audit](mobile-ux-audit.md). Treat the automated pass as functional evidence, not as proof that the composition is harmonious.
 13. Immediately before pushing `main` or promoting production, run the local worktree release audit:

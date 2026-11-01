@@ -70,6 +70,15 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       'expo-background-task',
       'expo-localization',
       'expo-secure-store',
+      [
+        'expo-build-properties',
+        {
+          android: {
+            enableMinifyInReleaseBuilds: true,
+            enableShrinkResourcesInReleaseBuilds: true,
+          },
+        },
+      ],
       '@react-native-community/datetimepicker',
       [
         'expo-notifications',

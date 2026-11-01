@@ -189,6 +189,8 @@ npm run test
 
 For native behavior, build/run with the development client profile from `apps/mobile/eas.json`. That profile sets `APP_VARIANT=development` and installs as `Pace Yourself Dev` (`com.paceyourself.app.dev`) beside production. Set the same variable before starting Expo locally; in PowerShell, run `$env:APP_VARIANT = "development"` before `npm run dev:mobile`.
 
+Before promoting an Android store candidate, smoke-test the release build from the internal track as well as the development client. Release variants enable R8 minification and resource shrinking, so development-client success alone cannot detect a missing keep rule or reflection-only native path removed by optimization. Preserve the candidate's own `mapping.txt` for any obfuscated native crash.
+
 For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobile-ux-audit.md). Run `npm run test:e2e:ux -w @trailplanner/mobile` locally when Maestro and an installed build are available, or launch the manual EAS workflow.
 
 For production OTA updates, resolve and verify runtime `1.1.1` on both platforms. Do not publish an iOS `1.1.1` OTA until a matching iOS binary containing the light appearance configuration is installed or released.
