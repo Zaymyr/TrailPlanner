@@ -4,13 +4,14 @@ import { ORGANIZER_MODULES, getMinimumOrganizerPublicationTier, getOrganizerModu
 
 describe("organizer module catalog", () => {
   it("declares every module once with its contractual scope", () => {
-    expect(new Set(ORGANIZER_MODULES.map((module) => module.key)).size).toBe(11);
+    expect(new Set(ORGANIZER_MODULES.map((module) => module.key)).size).toBe(12);
     expect(ORGANIZER_MODULES.filter((module) => module.scope === "edition").map((module) => module.key)).toEqual([
       "equipment", "bib_pickup", "access", "services", "branding", "sponsors",
     ]);
   });
 
   it("keeps modules outside the offer editable as private drafts", () => {
+    expect(getOrganizerModuleState("essential", "supporter_points", true)).toBe("active");
     expect(getOrganizerModuleState("essential", "services", true)).toBe("draftOnly");
     expect(getOrganizerModuleState("complete", "services", true)).toBe("active");
     expect(getOrganizerModuleState("signature", "sponsors", false)).toBe("inactive");

@@ -1,7 +1,7 @@
 ---
 title: race_awards Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -60,3 +60,5 @@ Per-format GPX map/profile choices affect only the `Tracé` cards and remain ind
 Fullscreen course visuals and tappable ravito markers remain presentation-only and do not change podium grouping, ordering, or persistence.
 
 Global Booking and Decathlon actions are loaded through their own server-mediated contract. Booking renders in the permanent Services tab, while Decathlon renders in Matériel above required equipment. Neither action reads, filters, or alters award rows or the conditional Podiums view.
+
+Supporter points are an independent Course collection and module. Their presence does not enable, hide, reorder, or otherwise modify award rows or the Podiums sub-tab.

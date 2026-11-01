@@ -175,6 +175,21 @@ export type RelayPointDraft = {
   notes: string;
 };
 
+export type SupporterPointDraft = {
+  id?: string;
+  name: string;
+  distanceKm: number | null;
+  encouragementAllowed: boolean;
+  assistanceAllowed: boolean;
+  accessLabel: string;
+  latitude: number | null;
+  longitude: number | null;
+  googleMapsUrl: string | null;
+  accessNote: string;
+  planUrl: string;
+  publishable?: boolean;
+};
+
 export type StationProduct = {
   id: string;
   aidStationId: string;

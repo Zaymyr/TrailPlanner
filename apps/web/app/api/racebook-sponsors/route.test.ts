@@ -28,7 +28,7 @@ vi.mock("../../../lib/organizer-module-settings", () => ({
   loadOrganizerModuleSettings: () => Promise.resolve({ edition: {}, races: {} }),
   effectiveOrganizerModules: () => ({
     equipment: true, bib_pickup: true, access: true, services: true, branding: true, sponsors: true,
-    aid_stations: true, start_waves: true, awards: true, relay: true, official_products: true,
+    aid_stations: true, supporter_points: false, start_waves: true, awards: true, relay: true, official_products: true,
   }),
 }));
 
@@ -44,6 +44,7 @@ const racePayload = (live: boolean, previewIsVisible = true) => [{
   racebook_is_live: live,
   racebook_preview_is_visible: previewIsVisible,
   participation_mode: "relay",
+  distance_km: 42,
   organizer_details: {},
   race_events: { is_live: live, organizer_details: {} },
 }];

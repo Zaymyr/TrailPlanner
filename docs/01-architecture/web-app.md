@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -524,6 +524,8 @@ The equipment editor layout should keep each item on one compact flexible row so
 The optional Organizer `Sponsors` tile is Signature-only for runner presentation. Opening the selected private draft lazily reads the edition list; metadata includes the partnership level, optional category, loading/hero flags, and one exact contextual placement. Organizer routes repeat active-membership and selected-module checks for writes. Ordering submits the complete list to one service-only transaction; partial lists, foreign ids and duplicate positions are rejected. The same tile reports active rows plus aggregate raw clicks and impressions. All database and `race-images/organizer-sponsors/{editionId}/` writes remain server-side; route validation repeats the ten-row/two-loading database limits and removes superseded objects.
 
 Mobile calls the lightweight public `/api/racebook-sponsors?raceId=...` route in parallel with `/api/racebook-data?raceId=...`, which assembles the race, ravitos/products, relay points, SAS, awards, and edition services in one server response. Both public responses use a five-minute Vercel CDN TTL with stale-while-revalidate and race/edition/event cache tags; organizer previews remain authenticated and `private, no-store`. The mobile caller deliberately tries the anonymous public URL first so an existing session does not bypass the shared CDN, then retries with its bearer token only for a private organizer preview. Successful organizer mutations invalidate the affected cache tag; a bounded TTL remains the fallback if invalidation is temporarily unavailable.
+
+The same public snapshot adds `supporterPointRows` only when the independent module is effective, and filters incomplete drafts before serialization. `GET/PUT /api/organizer/races/:id/supporter-points` remains membership-gated and uncached; PUT calls the service-only atomic replacement function and invalidates the race snapshot. The organizer sidecar cache stores the draft collection beside ravitos and relays and is invalidated after mutation.
 
 The sponsor response exposes only active presentation DTOs (`tier`, optional `category`, exact `contextualPlacement`) and counted redirect URLs; it never exposes destinations or counters. The redirect validates edition membership, rate-limits counting with a hashed network identifier, attempts the atomic increment, and always preserves navigation to a valid active sponsor target. The separate POST impression route accepts a random view UUID and exact surface placement, deduplicates and throttles it through opaque rate-limit keys, validates the active module/configuration, and uses a service-only RPC that repeats the published race/edition gate before incrementing the aggregate counter.
 

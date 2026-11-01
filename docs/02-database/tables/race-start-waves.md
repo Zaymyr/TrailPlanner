@@ -1,7 +1,7 @@
 ---
 title: race_start_waves Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260907160043_add_structured_racebook_content.sql
@@ -63,3 +63,5 @@ Fullscreen course visuals and tappable ravito markers remain independent from SA
 Global Booking and Decathlon actions are an independent partner payload. Booking renders in the permanent Services tab and Decathlon in Matériel; their availability and presses do not change SAS rows, the authoritative common start time, or Course sub-tab visibility.
 
 Material check/uncheck analytics and bounded per-item checked/missing snapshots are independent from SAS selection and timing; they carry no wave fields and do not mutate start-wave rows.
+
+Supporter points intentionally carry no personalized or official passage time in the first version. Start-wave resolution therefore does not alter their chronology.

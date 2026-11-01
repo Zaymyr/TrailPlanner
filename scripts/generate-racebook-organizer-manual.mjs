@@ -130,6 +130,7 @@ const moduleSettings = {
   races: {
     [raceId]: {
       aid_stations: true,
+      supporter_points: true,
       start_waves: true,
       awards: true,
       relay: true,
@@ -186,6 +187,11 @@ async function installDemoRoutes(page) {
       ] }));
     }
     if (pathname === `/api/organizer/races/${raceId}/relay-points`) return route.fulfill(json({ relayPoints: [] }));
+    if (pathname === `/api/organizer/races/${raceId}/supporter-points`) {
+      return route.fulfill(json({ supporterPoints: [
+        { id: "77777777-7777-4777-8777-777777777781", name: "Pont des Amours", km: 8.6, encouragement_allowed: true, assistance_allowed: false, access_label: "Pont des Amours, Annecy", latitude: 45.9022, longitude: 6.1321, google_maps_url: "https://maps.google.com/?q=45.9022,6.1321", access_note: "Accès piéton depuis le Pâquier.", plan_url: null, publishable: true },
+      ] }));
+    }
     if (pathname === `/api/organizer/races/${raceId}/aid-station-products`) return route.fulfill(json({ stationProducts: [] }));
     if (pathname === `/api/organizer/races/${raceId}/gpx`) {
       return route.fulfill(json({ preview: { stats: { distanceKm: 42.3, gainM: 2450, lossM: 2450, minAltM: 448, maxAltM: 1699 }, elevationProfile: [], detectedAidStations: [] } }));
@@ -497,7 +503,7 @@ const sections = [
   },
   {
     kicker: "ÉTAPE 8 · INFORMATIONS COUREURS",
-    title: "Ajouter les ravitaillements",
+    title: "Ajouter ravitaillements et points supporters",
     image: "08-ravitaillements.png",
     intro: "Positionnez les ravitaillements dans l’ordre du parcours et décrivez précisément ce que le coureur trouvera sur place.",
     items: [
@@ -506,7 +512,7 @@ const sections = [
       ["3", "Ajoutez les horaires, barrières ou notes utiles dans les champs dédiés."],
       ["4", "Utilisez « Ajouter un ravito » pour créer un point ; il sera ordonné selon son kilométrage."],
     ],
-    tip: "Les produits officiels et les points relais dépendent des sections activées et de l’offre choisie.",
+    tip: "L’onglet Supporters place séparément les zones d’encouragement ou d’assistance. Un point public exige un nom, un kilomètre, une autorisation et une adresse géocodée.",
   },
   {
     kicker: "ÉTAPE 9 · CONTRÔLER ET PUBLIER",
@@ -566,7 +572,7 @@ const html = `<!doctype html>
   ${sectionHtml}
   <section class="manual-page final"><header><span>CHECKLIST FINALE</span><b>${sections.length + 2}</b></header><h2>Avant de rendre le Livret coureur public</h2><p class="lead">Passez cette liste en revue pour chaque édition et chaque format.</p><div class="final-grid">
     <div class="card"><h3>Événement</h3><ul><li>Nom, lieu et dates exacts</li><li>Site officiel et réseaux</li><li>Contact d’urgence vérifié</li><li>Matériel commun à jour</li><li>Retrait dossard et accès renseignés</li></ul></div>
-    <div class="card"><h3>Chaque format</h3><ul><li>Nom, distance, D+ et date</li><li>URL officielle du format</li><li>GPX et profil contrôlés</li><li>Départ, ravitos et barrières</li><li>Contenu sans contradiction avec le règlement</li></ul></div>
+    <div class="card"><h3>Chaque format</h3><ul><li>Nom, distance, D+ et date</li><li>URL officielle du format</li><li>GPX et profil contrôlés</li><li>Départ, ravitos, supporters et barrières</li><li>Contenu sans contradiction avec le règlement</li></ul></div>
     <div class="card"><h3>Les 3 états</h3><div class="state"><b class="hidden">Masqué</b><p>Invisible du public.</p></div><div class="state"><b class="private">Privé</b><p>Aperçu organisateur uniquement.</p></div><div class="state"><b class="public">Public</b><p>Accessible aux coureurs après validation.</p></div></div>
     <div class="card"><h3>Bon réflexe</h3><p>Publiez d’abord un format pilote, contrôlez le rendu côté coureur, puis publiez les autres formats. En cas d’erreur urgente, repassez le format en Privé ou Masqué, corrigez, sauvegardez et republiez.</p></div>
   </div><div class="footer-note"><strong>Besoin de reprendre le tutoriel dans l’interface ?</strong><br>Ouvrez le menu <b>Actions</b>, puis choisissez <b>Revoir le guide</b>.</div><p class="small">Les captures utilisent des données fictives. Les sections disponibles dépendent de l’offre de l’édition. Les règles serveur de complétude et de publication restent prioritaires.</p></section>

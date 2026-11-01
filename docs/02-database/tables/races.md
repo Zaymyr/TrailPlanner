@@ -1,7 +1,7 @@
 ---
 title: races Table
 scope: database
-last_verified: 2026-10-01
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20251220120000_add_race_catalog.sql
@@ -207,6 +207,7 @@ where web_catalog_is_live = true
 ## Related Docs
 
 - [organizer_import_sessions](organizer-import-sessions.md)
+- `race_supporter_points` is a child collection ordered by kilometer against `races.distance_km`. Its separate access coordinates must never be projected back into GPX geometry or format location metadata.
 - [race_events](race-events.md)
 - [race_event_editions](race-event-editions.md)
 - [race_aid_stations](race-aid-stations.md)

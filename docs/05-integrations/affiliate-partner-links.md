@@ -1,7 +1,7 @@
 ---
 title: Affiliate Partner Links
 scope: integration
-last_verified: 2026-09-30
+last_verified: 2026-10-29
 ai_priority: medium
 related_files:
   - apps/web/lib/partner-links.ts
@@ -76,6 +76,8 @@ Standard links are not described as affiliate links. Each mobile surface disclos
 - Adding another Admin tab must not merge its persistence with the partner-link atomic upsert. Social proofs and partner destinations remain separate service-only contracts.
 
 ## Related Docs
+
+Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored access URLs directly. They are not affiliate destinations and must not pass through partner redirects or counters.
 
 - [`partner_link_settings`](../02-database/tables/partner-link-settings.md)
 - [Web App Architecture](../01-architecture/web-app.md)

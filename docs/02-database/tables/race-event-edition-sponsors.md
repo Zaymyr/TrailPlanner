@@ -1,7 +1,7 @@
 ---
 title: race_event_edition_sponsors Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260829204018_add_racebook_edition_sponsors.sql
@@ -132,6 +132,8 @@ The two-line clamp for bib-pickup address links is independent from sponsor layo
 Format-owned GPX route/profile choices do not change sponsor loading, placement, redirect counting, or edition scope.
 
 Opening a course visual fullscreen or selecting a ravito marker is not a sponsor presentation, click, or impression and does not restart the sponsor gate.
+
+The first supporter-points version has no dedicated sponsor placement. Showing or opening a supporter point must not create a sponsor impression or click.
 
 - [race_event_editions](race-event-editions.md)
 - [RLS Policies](../rls-policies.md)

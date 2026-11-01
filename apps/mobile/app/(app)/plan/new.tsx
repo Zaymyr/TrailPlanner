@@ -99,6 +99,7 @@ function buildPlannerValues(values: PlanFormValues) {
     aidStations: values.aidStations.map((station) => ({
       name: station.name,
       distanceKm: station.distanceKm,
+      ...(station.sourceAidStationId ? { sourceAidStationId: station.sourceAidStationId } : {}),
       waterRefill: station.waterRefill !== false,
       solidRefill: station.solidRefill !== false,
       assistanceAllowed: station.assistanceAllowed !== false,
@@ -109,10 +110,13 @@ function buildPlannerValues(values: PlanFormValues) {
 }
 
 export default function NewPlanScreen() {
-  const { raceId, catalogRaceId, onboarding } = useLocalSearchParams<{
+  const { raceId, catalogRaceId, onboarding, racebookTab, racebookCourseTab, targetAidStationId } = useLocalSearchParams<{
     raceId?: string;
     catalogRaceId?: string;
     onboarding?: 'plan';
+    racebookTab?: string;
+    racebookCourseTab?: string;
+    targetAidStationId?: string;
   }>();
   const resolvedRaceId = raceId ?? catalogRaceId ?? null;
   const planCreationSource = catalogRaceId ? 'catalog' : raceId ? 'preselected_race' : 'selector';
@@ -129,6 +133,28 @@ export default function NewPlanScreen() {
   const [showPremiumLimitModal, setShowPremiumLimitModal] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
+  const openPlan = useCallback(async (planId: string, showHelp = false) => {
+    if (onboarding === 'plan') await completeOnboarding('plan');
+    const params = new URLSearchParams();
+    if (showHelp) params.set('showHelp', '1');
+    if (racebookTab) params.set('racebookTab', racebookTab);
+    if (racebookCourseTab) params.set('racebookCourseTab', racebookCourseTab);
+    if (targetAidStationId) params.set('targetAidStationId', targetAidStationId);
+    const query = params.toString();
+    router.replace(`/(app)/plan/${planId}/edit${query ? `?${query}` : ''}`);
+  }, [onboarding, racebookCourseTab, racebookTab, router, targetAidStationId]);
+
+  const findExistingPlanId = useCallback(async (uid: string, raceId: string) => {
+    const { data, error } = await supabase
+      .from('race_plans')
+      .select('id')
+      .eq('user_id', uid)
+      .eq('race_id', raceId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.id ?? null;
+  }, []);
+
   const createPlanDraft = useCallback(
     async (race: RaceInfo, seedValues: PlanFormValues, elevationProfile: ElevationPoint[]) => {
       setLoading(true);
@@ -144,6 +170,13 @@ export default function NewPlanScreen() {
         return;
       }
 
+      const existingPlanId = await findExistingPlanId(uid, race.id);
+      if (existingPlanId) {
+        setLoadingProgress(1);
+        await openPlan(existingPlanId, onboarding === 'plan');
+        return;
+      }
+
       const plannerValues = buildPlannerValues(seedValues);
       const { data, error } = await supabase
         .from('race_plans')
@@ -156,6 +189,15 @@ export default function NewPlanScreen() {
         })
         .select('id')
         .single();
+
+      if (error?.code === '23505') {
+        const concurrentPlanId = await findExistingPlanId(uid, race.id).catch(() => null);
+        if (concurrentPlanId) {
+          setLoadingProgress(1);
+          await openPlan(concurrentPlanId, onboarding === 'plan');
+          return;
+        }
+      }
 
       if (error || !data?.id) {
         setLoading(false);
@@ -186,7 +228,6 @@ export default function NewPlanScreen() {
         elevation_gain_m: race.elevation_gain_m,
       });
       if (onboarding === 'plan') {
-        await completeOnboarding('plan');
         const { error: legacyOnboardingError } = await supabase
           .from('user_profiles')
           .update({ onboarding_completed_at: new Date().toISOString() })
@@ -194,12 +235,12 @@ export default function NewPlanScreen() {
         if (legacyOnboardingError) {
           console.warn('Unable to update legacy onboarding completion marker', legacyOnboardingError);
         }
-        router.replace(`/(app)/plan/${data.id}/edit?showHelp=1`);
+        await openPlan(data.id, true);
         return;
       }
-      router.replace(`/(app)/plan/${data.id}/edit`);
+      await openPlan(data.id);
     },
-    [onboarding, planCreationSource, resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
+    [findExistingPlanId, onboarding, openPlan, planCreationSource, resolvedRaceId, router, t.common.error, t.reminders.unfinishedPlanBody, t.reminders.unfinishedPlanTitle],
   );
 
   const loadRaceSeed = useCallback(async () => {
@@ -279,6 +320,17 @@ export default function NewPlanScreen() {
 
       if (!isPremium) {
         void (async () => {
+          if (resolvedRaceId) {
+            const session = await ensureAppSession();
+            const uid = session?.user?.id;
+            if (uid) {
+              const existingPlanId = await findExistingPlanId(uid, resolvedRaceId).catch(() => null);
+              if (existingPlanId) {
+                await openPlan(existingPlanId, onboarding === 'plan');
+                return;
+              }
+            }
+          }
           const planAccess = await getCurrentUserPlanAccess(false);
           if (!planAccess.hasReachedPlanLimit) {
             void loadRaceSeed();
@@ -323,7 +375,10 @@ export default function NewPlanScreen() {
       };
     }, [
       isPremium,
+      findExistingPlanId,
       loadRaceSeed,
+      onboarding,
+      openPlan,
       premiumLoading,
       promptGuestAccount,
       resolvedRaceId,

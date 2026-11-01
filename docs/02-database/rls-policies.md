@@ -201,6 +201,13 @@ Declared through old `race_catalog_aid_stations` policies and renamed in `202603
 - Insert/update/delete grants are service-role-only; Organizer writes stay behind the membership-checked web route.
 - Indexes cover ordered parent-race reads and the optional aid-station foreign key.
 
+### `race_supporter_points`
+
+- RLS is enabled. `anon` and `authenticated` have `SELECT` only; `service_role` has table mutation privileges.
+- The public policy exposes only complete points for an effective `supporter_points` module and a visible format, while retaining organizer/admin preview access under the same completeness rule.
+- Incomplete drafts are intentionally absent from direct client reads and remain available only through the membership-checked organizer API.
+- `replace_race_supporter_points(uuid, jsonb)` is executable only by `service_role`; the route performs the human authorization check before calling it.
+
 ### Organizer Portal Tables
 
 Declared in `20260528120000_add_organizer_portal.sql`.

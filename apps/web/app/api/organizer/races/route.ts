@@ -432,7 +432,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      for (const table of ["race_start_waves", "race_awards"] as const) {
+      for (const table of ["race_start_waves", "race_awards", "race_supporter_points"] as const) {
         const childResponse = await fetch(
           `${auth.serviceConfig.supabaseUrl}/rest/v1/${table}?race_id=eq.${sourceRace.id}&select=*&order=order_index.asc`,
           { headers: serviceHeaders(auth.serviceConfig, ""), cache: "no-store" },

@@ -19,6 +19,7 @@ const raceSchema = z.object({
   racebook_is_live: z.boolean(),
   racebook_preview_is_visible: z.boolean().default(true),
   participation_mode: z.string().nullable().optional(),
+  distance_km: z.coerce.number(),
   organizer_details: z.unknown().nullable().optional(),
   race_events: z.union([
     z.object({ is_live: z.boolean(), organizer_details: z.unknown().nullable().optional() }),
@@ -48,7 +49,7 @@ export async function GET(request: NextRequest) {
   if (!serviceConfig) return withSecurityHeaders(NextResponse.json({ message: "Supabase configuration is missing." }, { status: 500 }));
 
   const raceResponse = await fetch(
-    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,is_live,racebook_is_live,racebook_preview_is_visible,participation_mode,organizer_details,race_events(is_live,organizer_details)&limit=1`,
+    `${serviceConfig.supabaseUrl}/rest/v1/races?id=eq.${raceId}&select=id,event_id,edition_id,is_live,racebook_is_live,racebook_preview_is_visible,participation_mode,distance_km,organizer_details,race_events(is_live,organizer_details)&limit=1`,
     { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
   );
   if (!raceResponse.ok) return withSecurityHeaders(NextResponse.json({ message: "Unable to load Race Book." }, { status: 502 }));
@@ -77,7 +78,23 @@ export async function GET(request: NextRequest) {
     modules = Object.fromEntries(ORGANIZER_MODULES.map((module) => [module.key, true])) as Record<OrganizerModuleKey, boolean>;
   }
   const event = Array.isArray(race.race_events) ? race.race_events[0] ?? null : race.race_events;
-  if (!hasOrganizerRacebookContent(event?.organizer_details, race.organizer_details, race.participation_mode, modules)) {
+  let hasSupporterPoint = false;
+  if (modules.supporter_points) {
+    const supporterResponse = await fetch(
+      `${serviceConfig.supabaseUrl}/rest/v1/race_supporter_points?race_id=eq.${race.id}&select=name,km,latitude,longitude,encouragement_allowed,assistance_allowed`,
+      { headers: serviceHeaders(serviceConfig, ""), cache: "no-store" },
+    );
+    if (supporterResponse.ok) {
+      const rows = await supporterResponse.json().catch(() => []);
+      hasSupporterPoint = Array.isArray(rows) && rows.some((point) =>
+        typeof point?.name === "string" && point.name.trim()
+        && Number.isFinite(Number(point.km)) && Number(point.km) >= 0 && Number(point.km) <= race.distance_km
+        && Number.isFinite(Number(point.latitude)) && Number.isFinite(Number(point.longitude))
+        && (point.encouragement_allowed === true || point.assistance_allowed === true)
+      );
+    }
+  }
+  if (!hasOrganizerRacebookContent(event?.organizer_details, race.organizer_details, race.participation_mode, modules) && !hasSupporterPoint) {
     return withSecurityHeaders(NextResponse.json({ message: "Race Book not available." }, { status: 404 }));
   }
   const isPublic = race.is_live && race.racebook_is_live && event?.is_live === true;

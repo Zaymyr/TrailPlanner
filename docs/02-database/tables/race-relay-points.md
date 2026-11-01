@@ -1,7 +1,7 @@
 ---
 title: race_relay_points Table
 scope: database
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - supabase/migrations/20260824152859_add_relay_course_points.sql
@@ -108,6 +108,8 @@ Per-format GPX map/profile choices affect only the sibling `Tracé` content and 
 Ravito point markers projected onto the route/profile represent `race_aid_stations`, not relay handovers. Fullscreen course visuals do not merge or reinterpret these two collections.
 
 The independently loaded Booking action occupies the permanent Services tab, while Decathlon appears in Matériel. Neither action affects relay-row reads, derived legs, or the conditional Relais sub-tab.
+
+Supporter points are neither handover points nor aid stations. They have no relay-leg semantics and remain visible only through their independent format module.
 
 - [races](races.md)
 - [race_aid_stations](race-aid-stations.md)

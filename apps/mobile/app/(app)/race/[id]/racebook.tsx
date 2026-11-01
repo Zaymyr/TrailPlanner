@@ -50,9 +50,14 @@ import {
 } from '../../../../components/racebook/RacebookBibSection';
 import { RacebookGearSection } from '../../../../components/racebook/RacebookGearSection';
 import { RacebookServicesSection } from '../../../../components/racebook/RacebookServicesSection';
+import { RacebookSupporterPointsSection } from '../../../../components/racebook/RacebookSupporterPointsSection';
 import { RacebookStructuredCourseSections } from '../../../../components/racebook/RacebookStructuredCourseSections';
 import { RacebookTabBar } from '../../../../components/racebook/RacebookTabBar';
 import { RacebookElevationProfile } from '../../../../components/racebook/RacebookElevationProfile';
+import {
+  RACE_WORKSPACE_SWITCH_HEIGHT,
+  RaceWorkspaceSwitch,
+} from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import { Colors } from '../../../../constants/colors';
 import type { MobileGpxPreviewPoint } from '../../../../lib/gpx';
 import { useI18n } from '../../../../lib/i18n';
@@ -81,9 +86,22 @@ import {
   loadRacebookGearChecks,
   saveRacebookGearCheck,
 } from '../../../../lib/racebookGearChecklist';
+import { supabase } from '../../../../lib/supabase';
 
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
-type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'relay' | 'awards';
+type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
+
+function normalizeRacebookTab(value: string | undefined): RacebookTabKey {
+  return value === 'gear' || value === 'bib' || value === 'course' || value === 'access' || value === 'services'
+    ? value
+    : 'gear';
+}
+
+function normalizeCourseTab(value: string | undefined): CourseTabKey {
+  return value === 'route' || value === 'start-waves' || value === 'aid-stations' || value === 'supporters' || value === 'relay' || value === 'awards'
+    ? value
+    : 'route';
+}
 
 type RacebookAnalyticsSession = {
   properties: ReturnType<typeof buildRacebookAnalyticsProperties>;
@@ -546,7 +564,13 @@ function HeroDetailGroup({ title, values }: { title: string; values: string[] })
 }
 
 export default function RaceRacebookScreen() {
-  const { id, onboarding } = useLocalSearchParams<{ id?: string; onboarding?: 'racebook' }>();
+  const { id, onboarding, tab, courseTab, targetAidStationId } = useLocalSearchParams<{
+    id?: string;
+    onboarding?: 'racebook';
+    tab?: string;
+    courseTab?: string;
+    targetAidStationId?: string;
+  }>();
   const router = useRouter();
   const navigation = useNavigation();
   const { locale, t } = useI18n();
@@ -554,9 +578,10 @@ export default function RaceRacebookScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const scrollRef = useRef<ScrollView>(null);
-  const [activeTab, setActiveTab] = useState<RacebookTabKey>('gear');
-  const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>('route');
-  const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<RacebookTabKey>(() => normalizeRacebookTab(tab));
+  const [activeCourseTab, setActiveCourseTab] = useState<CourseTabKey>(() => normalizeCourseTab(courseTab));
+  const [expandedAidStationId, setExpandedAidStationId] = useState<string | null>(targetAidStationId ?? null);
+  const [linkedPlanId, setLinkedPlanId] = useState<string | null>(null);
   const [checkedGearItemKeys, setCheckedGearItemKeys] = useState<Set<string>>(new Set());
   const [pendingGearItemKeys, setPendingGearItemKeys] = useState<Set<string>>(new Set());
   const [gearChecksLoadedRaceId, setGearChecksLoadedRaceId] = useState<string | null>(null);
@@ -598,6 +623,29 @@ export default function RaceRacebookScreen() {
   analyticsDataRef.current = data;
   activeTabRef.current = activeTab;
   activeCourseTabRef.current = activeCourseTab;
+
+  useEffect(() => {
+    setActiveTab(normalizeRacebookTab(tab));
+    setActiveCourseTab(normalizeCourseTab(courseTab));
+    setExpandedAidStationId(targetAidStationId ?? null);
+  }, [courseTab, tab, targetAidStationId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLinkedPlanId(null);
+    if (!id) return () => { cancelled = true; };
+
+    void (async () => {
+      const { data: plan } = await supabase
+        .from('race_plans')
+        .select('id')
+        .eq('race_id', id)
+        .maybeSingle();
+      if (!cancelled) setLinkedPlanId(plan?.id ?? null);
+    })();
+
+    return () => { cancelled = true; };
+  }, [id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1061,6 +1109,9 @@ export default function RaceRacebookScreen() {
       { key: 'route', label: t.catalog.racebookCourseTabRoute },
     ];
     if (sponsorPresentation.modules.aid_stations) availableTabs.push({ key: 'aid-stations', label: t.catalog.racebookCourseTabAidStations });
+    if (sponsorPresentation.modules.supporter_points && (data?.supporterPoints.length ?? 0) > 0) {
+      availableTabs.push({ key: 'supporters', label: locale === 'fr' ? 'Supporters' : 'Supporters' });
+    }
 
     if (sponsorPresentation.modules.relay && relaySegments.length > 0) {
       availableTabs.push({ key: 'relay', label: t.catalog.racebookSectionRelay });
@@ -1073,6 +1124,8 @@ export default function RaceRacebookScreen() {
     relaySegments.length,
     data?.startWaves.length,
     data?.awards.length,
+    data?.supporterPoints.length,
+    locale,
     sponsorPresentation.modules,
     t.catalog.racebookCourseTabAidStations,
     t.catalog.racebookCourseTabAwards,
@@ -1347,6 +1400,25 @@ export default function RaceRacebookScreen() {
     router.replace('/(app)/catalog');
   }, [captureRacebookInteraction, router]);
 
+  const openLinkedPlan = useCallback(() => {
+    if (!id) return;
+    exitingToCatalogRef.current = true;
+    captureAnalyticsEvent('race workspace switched', {
+      direction: 'racebook_to_plan',
+      plan_action: linkedPlanId ? 'open' : 'create',
+    });
+    const params = new URLSearchParams({
+      racebookTab: activeTab,
+      racebookCourseTab: activeCourseTab,
+    });
+    if (expandedAidStationId) params.set('targetAidStationId', expandedAidStationId);
+    router.replace(
+      linkedPlanId
+        ? `/(app)/plan/${linkedPlanId}/edit?${params.toString()}`
+        : `/(app)/plan/new?raceId=${id}&${params.toString()}`,
+    );
+  }, [activeCourseTab, activeTab, expandedAidStationId, id, linkedPlanId, router]);
+
   const reportSponsorImpression = useCallback((impression: RacebookSponsorImpression) => {
     if (!id) return;
     void reportRacebookSponsorImpression(id, sponsorViewId, impression);
@@ -1431,12 +1503,23 @@ export default function RaceRacebookScreen() {
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
         />
       ) : null}
+      {!showLoading && !unavailable && data ? (
+        <RaceWorkspaceSwitch
+          active="racebook"
+          compactHeaderHeight={60}
+          expandedHeaderHeight={RACEBOOK_HERO_BODY_HEIGHT}
+          onOpenPlan={openLinkedPlan}
+          onOpenRacebook={() => undefined}
+          scrollY={scrollY}
+          topInset={insets.top}
+        />
+      ) : null}
       <Animated.ScrollView
         ref={scrollRef}
         contentContainerStyle={[
           styles.container,
           { backgroundColor: brandTheme.primarySurfaceColor },
-          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + 16 } : null,
+          !showLoading && !unavailable && data ? { paddingTop: heroExpandedHeight + RACE_WORKSPACE_SWITCH_HEIGHT + 16 } : null,
           showLoading || unavailable ? { paddingTop: insets.top + 16 } : null,
           showLoading && { minHeight: Math.max(520, viewportHeight - 120) },
         ]}
@@ -1778,6 +1861,13 @@ export default function RaceRacebookScreen() {
                     onSponsorImpression={reportSponsorImpression}
                   />
                   </>
+                ) : null}
+                {activeCourseTab === 'supporters' ? (
+                  <RacebookSupporterPointsSection
+                    locale={locale}
+                    points={data.supporterPoints}
+                    onOpenUrl={(url, action) => openTrackedUrl(url, action === 'directions' ? 'supporter_directions_opened' : 'supporter_plan_opened')}
+                  />
                 ) : null}
 
               </>

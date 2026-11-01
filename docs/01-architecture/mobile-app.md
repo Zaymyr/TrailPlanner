@@ -33,6 +33,7 @@ related_files:
   - apps/mobile/components/inputs/DatePickerField.tsx
   - apps/mobile/components/race/RaceRequestHeaderButton.tsx
   - apps/mobile/components/PlanLoadingScreen.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/app/(app)/catalog.tsx
   - apps/mobile/components/RaceSelector.tsx
@@ -148,6 +149,10 @@ The mobile Plans screen groups saved plans by `races.race_events.id` and display
 ## Plan loading experience
 
 Plan creation, editing, recap, onboarding handoff, and live-mode preparation share `PlanLoadingScreen`. These operations combine network requests, local reads, entitlement checks, and synchronous calculations, so their percentage values are milestones rather than measurable elapsed progress. The UI must not expose a determinate progress bar or percentage: it uses an indeterminate branded trail animation, a context-specific title, the plan name once, and plain-language phase copy. Creation, editor, and recap routes also set their header while loading so a previous screen title or action cannot remain visible during navigation. When a load lasts longer than six seconds, a neutral reassurance appears without blaming the connection or promising a completion time. The component respects the system reduce-motion preference and exposes the active status as a polite busy accessibility announcement. The root Plans list uses the same shared indeterminate `LoadingState` as the other root tabs because it is a screen bootstrap rather than a plan calculation.
+
+## Linked race workspace
+
+A plan with a non-null `race_id` and its accessible Livret share a persistent segmented switch below their compact/collapsing headers. Navigation uses `replace`, so Android back and explicit exits keep their normal root destinations instead of building a Livret/plan loop. The Livret restores its main and Course sub-tabs from route parameters, and the same contract reserves a targeted official ravito id. Switching to the plan reuses the owner row or enters the standard race-seeded creation flow; switching back saves the current draft and remains in the plan on failure. Detached plans omit the switch, while an inaccessible source Livret is visually disabled and explains the condition when selected.
 
 ## Structured RaceBook modules
 
@@ -340,6 +345,8 @@ Primary colors style the image-backed identity hero, the softly tinted RaceBook 
 ## RaceBook Module Visibility
 
 The same lightweight server bootstrap returns an effective boolean map for edition and format modules. Mobile entirely removes inactive or locked Matériel, Dossard and Accès tabs. Course and the global Services shell remain permanent; an inactive Services module removes organizer-authored service rows and its contextual sponsor surface but not the Booking action. Ravitos, SAS, Relais and Podiums sub-tabs follow their format settings; official products are removed from ravito cards independently. Sponsors and branding are returned only when effective. When an older server response omits the map during rolling deployment, normalization defaults every module to the historical visible behavior.
+
+`supporter_points` follows the same additive rolling-deployment contract. Missing `supporterPointRows` normalizes to an empty collection. Course shows `Supporters` only when the module is effective and at least one complete point exists; its S1/S2 chronology exposes permissions, access instructions, a Maps action and an optional external-plan action without adding a general map or runner-specific passage time.
 
 ## Plan Share Links
 

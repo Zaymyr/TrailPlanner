@@ -4,6 +4,7 @@ import { WEB_API_BASE_URL } from './webApi';
 import { fetchWithTimeout } from './fetchWithTimeout';
 
 export type CatalogAidStation = {
+  sourceAidStationId: string;
   name: string;
   distanceKm: number;
   waterRefill: boolean;
@@ -387,7 +388,7 @@ export async function fetchRaceAidStations(raceId: string | null | undefined): P
   try {
     const { data, error } = await supabase
       .from('race_aid_stations')
-      .select('name, km, water_available, order_index')
+      .select('id, name, km, water_available, order_index')
       .eq('race_id', raceId)
       .order('order_index', { ascending: true });
 
@@ -395,6 +396,7 @@ export async function fetchRaceAidStations(raceId: string | null | undefined): P
 
     return data
       .map((row) => ({
+        sourceAidStationId: row.id,
         name: typeof row.name === 'string' ? row.name : '',
         distanceKm: typeof row.km === 'number' ? row.km : Number(row.km ?? 0),
         waterRefill: row.water_available !== false,

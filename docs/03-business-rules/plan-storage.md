@@ -1,7 +1,7 @@
 ---
 title: Plan Storage
 scope: business-rule
-last_verified: 2026-09-29
+last_verified: 2026-10-29
 ai_priority: high
 related_files:
   - apps/web/app/onboarding/account/page.tsx
@@ -90,6 +90,7 @@ On successful save, the flow stores `trailplanner.pendingPlanId`, marks `onboard
 Idempotency behavior:
 
 - if `catalogRaceId` exists, it checks for an existing plan by `user_id + race_id`;
+- the partial unique database index is the final concurrency guard, and a conflicting insert reloads the winning plan;
 - without a race id, it checks plans created in the last 60 seconds;
 - it inserts `race_plans` with `user_id`, `name`, `planner_values`, `elevation_profile`, and optional `race_id`.
 
@@ -125,6 +126,8 @@ Successful Web persistence emits the consent-gated `plan created` or `plan saved
 
 The mobile Plan onboarding now uses the ordinary Courses and Nutrition screens, then calls the standard `plan/new` catalog import. A successful `race_plans` insert marks the Plan tour completed and opens the existing editor tutorial; a failed insert leaves the tour in progress and does not create a false completion.
 
+Linked plan creation first resolves the existing `(user_id, race_id)` row before applying the free-plan limit. This applies to identified and anonymous Supabase sessions. A concurrent uniqueness conflict reloads that row instead of surfacing a creation failure. The mobile Livret and linked-plan editor share a persistent `Livret officiel | Mon plan` switch below their collapsing headers. Both directions use route replacement; entering the plan preserves the Livret tab/course-tab context, leaving the plan flushes the current draft first, and native back/exit still targets Courses or Plans rather than the opposite workspace.
+
 When a guest reaches the one-plan limit, mobile opens the shared account prompt with separate account-creation and existing-account sign-in actions. The prompt runs before another insert and therefore does not create a duplicate or inaccessible `race_plans` row.
 
 When the in-app recap opens, mobile sends the regenerated recap snapshot to `apps/web/app/api/plan-shares/route.ts`; an explicit share reuses the same synchronization result. The web API verifies the Supabase bearer token, checks ownership of the parent `race_plans` row, stores the snapshot in `plan_share_links`, and returns a public `/share/plan/[token]` URL for the crew. New shares use a stable server-derived token. Later recap refreshes update the existing snapshot and return the same URL, so previously distributed links immediately resolve to the latest regenerated values instead of becoming stale or requiring redirects. The mobile synchronizer deduplicates an in-flight or already completed request for an unchanged recap and retries after failure. The public snapshot includes each checkpoint's assistance state so the crew can see where it may be present. Recap UIs should emphasize assistance checkpoints and visually mute no-assistance checkpoints; no-assistance checkpoints should not render a "to give" product block. This public snapshot remains separate from editable plan state and changes only when the authenticated recap is opened/refreshed or deliberately shared.
@@ -153,6 +156,8 @@ It:
 - `elevation_profile` is stored outside `planner_values`.
 - Email confirmation or duplicated auth events must not create duplicate plans.
 - A catalog plan import should not recreate a plan repeatedly while the same URL/action is still active.
+- At most one non-detached plan exists for a user and source race; pre-index duplicates retain the most recently updated linked row and are detached without content deletion.
+- Mobile persistence preserves `sourceAidStationId` through creation, hydration, editing, and canonical saves.
 - Source organizer edits after import do not mutate existing saved plans.
 - Source station service-flag, GPX, pacing, and distance edits affect only future catalog imports, not already-saved plan JSON.
 - Source station-product link edits are the exception: `/api/plans` overlays current official ravito product suggestions at read time for plans with `race_id`, with the stored planner JSON as fallback.
