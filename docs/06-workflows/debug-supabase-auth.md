@@ -23,7 +23,7 @@ related_tables:
 
 ## Runner access diagnostics
 
-The launch announcement does not diagnose or repair Auth/trial state. If it is unexpectedly absent, inspect the cached-session user, authenticated launch-endpoint cohort/window projection, and local daily/hidden preferences before changing a session, trial, grant, or subscription. It must not add an Auth listener.
+The launch announcement does not diagnose or repair Auth/trial state. If it is unexpectedly absent, inspect the cached-session user, authenticated launch-endpoint cohort/window projection, and local campaign/user/device `seen` preference (including migrated legacy preferences) before changing a session, trial, grant, or subscription. It must not add an Auth listener.
 
 For cohort state, inspect the authenticated launch endpoint and cached-user-scoped launch-info hook; do not infer a badge from Auth metadata or repair it through client writes.
 

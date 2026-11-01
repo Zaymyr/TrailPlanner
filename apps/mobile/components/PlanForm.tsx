@@ -53,7 +53,7 @@ import {
 import { NumberInput } from './plan-form/NumberInput';
 import { PlanBasicsSection } from './plan-form/PlanBasicsSection';
 import { ProductPickerModal, type PickerProduct } from './plan-form/ProductPickerModal';
-import { PremiumUpsellModal } from './premium/PremiumUpsellModal';
+import { PremiumUpsellModal, type PremiumPaywallPlacement } from './premium/PremiumUpsellModal';
 import { buildCarryoverCoverages } from './plan-form/carryover';
 import { styles } from './plan-form/styles';
 import { type PlanProductsBootstrap, usePlanProducts } from './plan-form/usePlanProducts';
@@ -98,7 +98,7 @@ type Props = {
   isPremium: boolean;
   planId?: string;
   previewMode?: boolean;
-  onPreviewLimitReached?: (reason: PreviewLimitReason) => void;
+  onPreviewLimitReached?: (reason: PreviewLimitReason, placement?: PremiumPaywallPlacement) => void;
   saveLabel?: string;
   productData?: PlanProductsBootstrap | null;
   elevationProfile?: ElevationPoint[];
@@ -332,8 +332,8 @@ export default function PlanForm({
     setShowPremiumUpsell(true);
   }, []);
 
-  const requestPreviewUnlock = useCallback((reason: PreviewLimitReason = 'press') => {
-    if (onPreviewLimitReached) onPreviewLimitReached(reason);
+  const requestPreviewUnlock = useCallback((reason: PreviewLimitReason = 'press', placement: PremiumPaywallPlacement = 'nutrition') => {
+    if (onPreviewLimitReached) onPreviewLimitReached(reason, placement);
     else openPremiumUpsell();
   }, [onPreviewLimitReached, openPremiumUpsell]);
 
@@ -970,7 +970,7 @@ export default function PlanForm({
                   <Text style={styles.previewBody}>{values.raceDistanceKm.toLocaleString()} km · {values.elevationGain.toLocaleString()} m D+</Text>
                   <Text style={styles.previewBody}>{values.targetIntakePerHour} g/h · {values.waterIntakePerHour} ml/h · {values.sodiumIntakePerHour} mg/h</Text>
                   <Text style={styles.previewBody}>{locale === 'fr' ? 'Poche à eau' : 'Water bladder'} : {values.waterBagLiters} L</Text>
-                  <TouchableOpacity style={styles.previewPrimary} onPress={() => requestPreviewUnlock('press')}>
+                  <TouchableOpacity style={styles.previewPrimary} onPress={() => requestPreviewUnlock('press', 'settings')}>
                     <Text style={styles.previewPrimaryText}>{locale === 'fr' ? 'Modifier mes paramètres' : 'Edit my settings'}</Text>
                   </TouchableOpacity>
                 </View>
@@ -1020,7 +1020,7 @@ export default function PlanForm({
             toggleStation={toggleStation}
             setEditingStation={setEditingStation}
             removeAidStation={removeAidStation}
-            fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press') : handleFillSuppliesAuto}
+            fillSuppliesAuto={previewMode ? () => requestPreviewUnlock('press', 'auto_fill') : handleFillSuppliesAuto}
             isAutoFilling={isAutoFilling}
             autoFillLoadingMessage={AUTO_FILL_LOADING_MESSAGE}
             nutritionNeedsChanged={nutritionNeedsChanged}
@@ -1198,6 +1198,7 @@ export default function PlanForm({
           message={t.plans.autoFillPremiumMessage}
           onClose={() => setShowPremiumUpsell(false)}
           planId={planId}
+          placement="auto_fill"
         />
       ) : null}
     </>

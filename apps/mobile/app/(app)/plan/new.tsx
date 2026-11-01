@@ -571,6 +571,7 @@ export default function NewPlanScreen() {
           visible={showPremiumLimitModal}
           title={t.plans.limitReachedTitle}
           message={t.plans.limitReachedMessage}
+          placement="plan_limit"
           onClose={() => {
             setShowPremiumLimitModal(false);
             router.replace('/(app)/plans');

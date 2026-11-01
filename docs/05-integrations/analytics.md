@@ -83,13 +83,15 @@ The compact aligned passage/cutoff reflection, late-warning disclosure, plan-der
 
 ## Runner monetisation events
 
-The informational runner launch announcement creates no new analytics subscription or purchase event. Its explicit local acknowledgement is not checkout, revenue, an entitlement, or an analytics identity transition; do not include campaign markers, price strings, or stored plan details in telemetry.
+The informational runner launch announcement creates no new analytics subscription or purchase event. Its local once-per-campaign `seen` marker is not checkout, revenue, an entitlement, or an analytics identity transition; do not include campaign markers, price strings, or stored plan details in telemetry.
 
 Opening Plans from the announcement is ordinary navigation, not purchase attribution. A support preview alert is likewise informational and must not be recorded as a verified support purchase.
 
 The read-only preview veil, its scroll position, and CTA stickiness are presentation state. Do not send plan values, section identifiers, start times, or modal display as a purchase/entitlement event; only verified provider fulfillment is revenue.
 
 Analytics may record a paywall impression only when its sheet is actually shown and a purchase result only after server verification. It must distinguish annual subscription from a per-course unlock, and must never include provider transaction ids, secret share tokens, health/profile values, exact scroll offsets, preview-boundary station ids, or a simulated admin mode as a real purchase. The locked preview's read-only cards, its boundary, and manual dismissal create no plan mutation event. Opening an account prompt or profile retry is not an entitlement event.
+
+When a plan-specific RevenueCat price cannot be loaded, mobile emits `premium course price unavailable` once per mounted sheet with only bounded `billing_provider`, `placement`, `reason`, and `store` properties. It never includes price text, plan content, user profile values, transaction data, or raw provider errors. Retry itself is not a revenue event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.
 

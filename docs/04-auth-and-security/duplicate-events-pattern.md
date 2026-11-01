@@ -17,7 +17,7 @@ related_tables:
 
 ## Onboarding plan save
 
-The runner launch announcement is not an Auth-event side effect. Mounting, route changes, or repeated bootstrap events must not acknowledge it; only its explicit action writes its local campaign marker. It neither invokes onboarding plan save nor creates another persistence path.
+The runner launch announcement is not an Auth-event side effect. Its presentation writes one idempotent campaign/user/device `seen` marker; route changes, foreground refreshes and repeated bootstrap/Auth events must not clear it or present the campaign again. It neither invokes onboarding plan save nor creates another business persistence path.
 
 Foreground launch-info refresh is scoped to the current cached user and must not replay an acknowledgement or billing mutation across repeated app/session events.
 

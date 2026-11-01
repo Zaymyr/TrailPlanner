@@ -42,7 +42,7 @@ This document records the current Resend integration in the repo. Resend is used
 
 ## Current Status
 
-The mobile runner launch announcement is local presentation only. It does not trigger Resend contact sync, email, audience updates, or another session side effect; its acknowledgement marker remains device-local and is written only after explicit confirmation.
+The mobile runner launch announcement is local presentation only. It does not trigger Resend contact sync, email, audience updates, or another session side effect; its once-per-campaign `seen` marker remains device-local and is written when the eligible announcement is presented.
 
 Fetching authenticated launch cohort information and showing its cosmetic badge does not broaden this boundary.
 

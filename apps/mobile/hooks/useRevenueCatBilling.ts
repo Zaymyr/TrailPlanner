@@ -31,6 +31,8 @@ type PurchaseResult =
   | { status: 'unavailable' };
 
 type RestoreResult = 'restored' | 'cancelled' | 'unavailable';
+export type CoursePriceStatus = 'loading' | 'available' | 'unavailable';
+export type CoursePriceFailureReason = 'revenuecat_unavailable' | 'missing_user' | 'product_missing' | 'network_error' | null;
 
 function getBillingStore() {
   if (Platform.OS === 'ios') return 'app_store';
@@ -49,6 +51,8 @@ type BillingState = {
   managementUrl: string | null;
   isPremium: boolean;
   coursePriceString: string | null;
+  coursePriceStatus: CoursePriceStatus;
+  coursePriceFailureReason: CoursePriceFailureReason;
 };
 
 const DEFAULT_STATE: BillingState = {
@@ -62,13 +66,15 @@ const DEFAULT_STATE: BillingState = {
   managementUrl: null,
   isPremium: false,
   coursePriceString: null,
+  coursePriceStatus: canUseRevenueCat() ? 'loading' : 'unavailable',
+  coursePriceFailureReason: canUseRevenueCat() ? null : 'revenuecat_unavailable',
 };
 
 export function useRevenueCatBilling() {
   const [state, setState] = useState<BillingState>(DEFAULT_STATE);
 
   async function loadBillingSnapshot(userId: string) {
-    const [customerInfo, offering, courseProduct] = await Promise.all([
+    const [customerInfo, offering, courseProductResult] = await Promise.all([
       getRevenueCatCustomerInfo(userId).catch((error) => {
         console.warn('Unable to load RevenueCat customer info.', error);
         return null;
@@ -77,14 +83,18 @@ export function useRevenueCatBilling() {
         console.warn('Unable to load RevenueCat offering.', error);
         return null;
       }),
-      getRevenueCatCourseProduct(userId).catch(() => null),
+      getRevenueCatCourseProduct(userId)
+        .then((product) => ({ product, reason: product ? null : 'product_missing' as const }))
+        .catch(() => ({ product: null, reason: 'network_error' as const })),
     ]);
 
     return {
       customerInfo,
       offering,
       currentPackage: pickRevenueCatPrimaryPackage(offering),
-      coursePriceString: courseProduct?.priceString ?? null,
+      coursePriceString: courseProductResult.product?.priceString ?? null,
+      coursePriceStatus: courseProductResult.product ? 'available' as const : 'unavailable' as const,
+      coursePriceFailureReason: courseProductResult.reason,
     };
   }
 
@@ -118,6 +128,9 @@ export function useRevenueCatBilling() {
             managementUrl: null,
             isPremium: false,
             customerInfo: null,
+            coursePriceString: null,
+            coursePriceStatus: 'unavailable',
+            coursePriceFailureReason: 'revenuecat_unavailable',
           }));
         }
         return;
@@ -138,12 +151,15 @@ export function useRevenueCatBilling() {
             managementUrl: null,
             isPremium: false,
             customerInfo: null,
+            coursePriceString: null,
+            coursePriceStatus: 'unavailable',
+            coursePriceFailureReason: 'missing_user',
           }));
         }
         return;
       }
 
-      const { customerInfo, offering, currentPackage, coursePriceString } = await loadBillingSnapshot(user.id);
+      const { customerInfo, offering, currentPackage, coursePriceString, coursePriceStatus, coursePriceFailureReason } = await loadBillingSnapshot(user.id);
 
       if (cancelled) return;
 
@@ -159,6 +175,8 @@ export function useRevenueCatBilling() {
         managementUrl: customerInfo?.managementURL ?? null,
         isPremium: hasRevenueCatPremiumEntitlement(customerInfo),
         coursePriceString,
+        coursePriceStatus,
+        coursePriceFailureReason,
       }));
 
       removeCustomerInfoListener?.();
@@ -186,10 +204,15 @@ export function useRevenueCatBilling() {
   }, []);
 
   async function refresh() {
-    setState((current) => ({ ...current, isLoading: current.isAvailable }));
+    setState((current) => ({
+      ...current,
+      isLoading: current.isAvailable,
+      coursePriceStatus: current.isAvailable ? 'loading' : 'unavailable',
+      coursePriceFailureReason: current.isAvailable ? null : 'revenuecat_unavailable',
+    }));
 
     if (!canUseRevenueCat()) {
-      setState((current) => ({ ...current, isAvailable: false, isLoading: false }));
+      setState((current) => ({ ...current, isAvailable: false, isLoading: false, coursePriceString: null, coursePriceStatus: 'unavailable', coursePriceFailureReason: 'revenuecat_unavailable' }));
       return;
     }
 
@@ -206,11 +229,14 @@ export function useRevenueCatBilling() {
         currentPackage: null,
         managementUrl: null,
         isPremium: false,
+        coursePriceString: null,
+        coursePriceStatus: 'unavailable',
+        coursePriceFailureReason: 'missing_user',
       }));
       return;
     }
 
-    const { customerInfo, offering, currentPackage, coursePriceString } = await loadBillingSnapshot(user.id);
+    const { customerInfo, offering, currentPackage, coursePriceString, coursePriceStatus, coursePriceFailureReason } = await loadBillingSnapshot(user.id);
 
     await syncRevenueCatStateToServer(customerInfo);
 
@@ -224,6 +250,8 @@ export function useRevenueCatBilling() {
       managementUrl: customerInfo?.managementURL ?? null,
       isPremium: hasRevenueCatPremiumEntitlement(customerInfo),
       coursePriceString,
+      coursePriceStatus,
+      coursePriceFailureReason,
     }));
   }
 
@@ -279,6 +307,8 @@ export function useRevenueCatBilling() {
           managementUrl: refreshedSnapshot.customerInfo?.managementURL ?? current.managementUrl,
           isPremium: hasRevenueCatPremiumEntitlement(refreshedSnapshot.customerInfo),
           coursePriceString: refreshedSnapshot.coursePriceString,
+          coursePriceStatus: refreshedSnapshot.coursePriceStatus,
+          coursePriceFailureReason: refreshedSnapshot.coursePriceFailureReason,
         }));
       }
 

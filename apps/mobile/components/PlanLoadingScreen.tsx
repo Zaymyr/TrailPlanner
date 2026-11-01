@@ -4,6 +4,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
+  Pressable,
   StyleSheet,
   View,
 } from 'react-native';
@@ -20,6 +21,8 @@ type Props = {
   progress: number;
   variant: PlanLoadingVariant;
   isFinishing?: boolean;
+  cancelLabel?: string;
+  onCancel?: () => void;
 };
 
 export function PlanLoadingScreen({
@@ -27,6 +30,8 @@ export function PlanLoadingScreen({
   progress,
   variant,
   isFinishing = false,
+  cancelLabel,
+  onCancel,
 }: Props) {
   const { t } = useI18n();
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
@@ -188,6 +193,11 @@ export function PlanLoadingScreen({
           <Text style={styles.stage}>{stage}</Text>
         </View>
         {showSlowHint ? <Text style={styles.slowHint}>{t.planLoading.slowHint}</Text> : null}
+        {onCancel ? (
+          <Pressable accessibilityRole="button" onPress={onCancel} style={styles.cancelButton}>
+            <Text style={styles.cancelButtonText}>{cancelLabel ?? t.planLoading.cancelAction}</Text>
+          </Pressable>
+        ) : null}
       </Animated.View>
     </Animated.View>
   );
@@ -281,5 +291,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
     textAlign: 'center',
+  },
+  cancelButton: {
+    minHeight: 44,
+    marginTop: 18,
+    paddingHorizontal: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+  },
+  cancelButtonText: {
+    color: Colors.textPrimary,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: '700',
   },
 });
