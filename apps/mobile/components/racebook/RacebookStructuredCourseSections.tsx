@@ -7,6 +7,8 @@ import { Card } from '../themed/Card';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
+import { useI18n } from '../../lib/i18n';
+import { formatDistance } from '../../lib/displayFormat';
 
 type StructuredCourseTab = 'relay' | 'start-waves' | 'awards';
 
@@ -36,10 +38,6 @@ type RacebookStructuredCourseSectionsProps = {
   };
 };
 
-function formatDistance(distanceKm: number) {
-  return distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1);
-}
-
 function SectionCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <Card style={styles.sectionCard}>
@@ -57,6 +55,7 @@ export function RacebookStructuredCourseSections({
   theme,
   copy,
 }: RacebookStructuredCourseSectionsProps) {
+  const { locale } = useI18n();
   return (
     <>
       {activeTab === ('relay' satisfies StructuredCourseTab) && relaySegments.length > 0 ? (
@@ -71,7 +70,7 @@ export function RacebookStructuredCourseSections({
                   <Text style={[styles.kicker, { color: theme.primaryForegroundColor }]}>
                     {copy.relayLeg.replace('{number}', String(index + 1))}
                   </Text>
-                  <DataText style={styles.distance}>{`${formatDistance(segment.distanceKm)} km`}</DataText>
+                  <DataText style={styles.distance}>{formatDistance(segment.distanceKm, locale)}</DataText>
                 </View>
                 <Text style={styles.title}>{`${segment.start.name} → ${segment.end.name}`}</Text>
                 {segment.end.handoverTime ? <Text style={styles.meta}>{`${copy.relayHandoverTime} · ${segment.end.handoverTime}`}</Text> : null}

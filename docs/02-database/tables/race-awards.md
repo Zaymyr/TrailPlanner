@@ -78,3 +78,5 @@ Global Booking and Decathlon actions are loaded through their own server-mediate
 Supporter points are an independent Course collection and module. Their presence does not enable, hide, reorder, or otherwise modify award rows or the Podiums sub-tab.
 
 Switching from the Livret to an already saved personal plan can pass an owner-scoped plan identifier and reuse a short-lived editor warm state scoped to that exact plan id. The plan's duration, pace and resolved departure render in the owner-specific hero, while ravito passage, segment duration and late-cutoff warning remain Course presentation; none enters the public awards snapshot or changes Podiums availability.
+
+Shared localized distance/elevation formatting and RaceBook hero/control polish do not read, derive, reorder, or mutate award rows.

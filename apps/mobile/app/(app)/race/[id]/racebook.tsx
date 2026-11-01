@@ -108,6 +108,7 @@ import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSuppo
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
 import { formatAveragePace } from '../../../../lib/planWorkspace';
+import { formatDistance, normalizeClockDisplay } from '../../../../lib/displayFormat';
 import {
   getRacebookScreenSnapshot,
   getRacebookScrollOffset,
@@ -253,13 +254,8 @@ function formatBibPickupDate(value: string | null, locale: 'fr' | 'en'): string 
 }
 
 function formatBibPickupTime(value: string | null, locale: 'fr' | 'en'): string | null {
-  if (!value) return null;
-
-  const match = /^(\d{1,2}):(\d{2})/.exec(value);
-  if (!match) return value;
-
-  const hour = String(Number(match[1]));
-  return locale === 'fr' ? `${hour}h${match[2]}` : `${hour.padStart(2, '0')}:${match[2]}`;
+  void locale;
+  return normalizeClockDisplay(value);
 }
 
 function groupBibPickupSlots(
@@ -289,10 +285,6 @@ function groupBibPickupSlots(
   });
 
   return [...groups.values()];
-}
-
-function formatDistance(distanceKm: number, locale: 'fr' | 'en') {
-  return distanceKm.toLocaleString(locale, { maximumFractionDigits: distanceKm >= 100 ? 0 : 1 });
 }
 
 function formatElevation(elevationM: number, locale: 'fr' | 'en') {
@@ -1539,8 +1531,18 @@ export default function RaceRacebookScreen() {
   const unavailable = !showLoading && (!data || !data.canOpen);
   const loadedRaceId = data?.race.id ?? null;
   const hasEmergencyHeader = Boolean(emergencyContact?.phone && emergencyTelephoneUrl);
-  const heroBodyHeight = hasEmergencyHeader ? RACEBOOK_HERO_BODY_HEIGHT : 220;
+  const minimumHeroBodyHeight = hasEmergencyHeader ? RACEBOOK_HERO_BODY_HEIGHT + 44 : RACEBOOK_HERO_BODY_HEIGHT;
+  const [heroBodyHeight, setHeroBodyHeight] = useState(minimumHeroBodyHeight);
   const heroExpandedHeight = insets.top + heroBodyHeight;
+
+  useEffect(() => {
+    setHeroBodyHeight(minimumHeroBodyHeight);
+  }, [id, minimumHeroBodyHeight]);
+
+  const handleHeroBodyHeightChange = useCallback((measuredHeight: number) => {
+    const nextHeight = Math.max(minimumHeroBodyHeight, measuredHeight);
+    setHeroBodyHeight((current) => Math.abs(current - nextHeight) < 1 ? current : nextHeight);
+  }, [minimumHeroBodyHeight]);
 
   useEffect(() => {
     if (!id || showLoading || !data || data.race.id !== id) return;
@@ -1680,13 +1682,6 @@ export default function RaceRacebookScreen() {
   );
 
   const existingPlanId = existingPlan && existingPlan.raceId === id ? existingPlan.planId : null;
-  const planCtaLabel = existingPlanId
-    ? t.catalog.racebookRefinePlan
-    : t.catalog.racebookCreatePlan;
-  const planCtaDescription = existingPlanId
-    ? t.catalog.racebookRefinePlanDescription
-    : t.catalog.racebookCreatePlanDescription;
-
   const handlePlanCtaPress = useCallback(async () => {
     if (!id || planCtaBusy) return;
 
@@ -1903,7 +1898,7 @@ export default function RaceRacebookScreen() {
           participationIcon={data.race.participationMode === 'solo' ? 'person-outline' : 'people-outline'}
           startTimeLabel={t.catalog.racebookMapStart}
           startTimeValue={resolvedStartTime}
-          distanceLabel={`${formatDistance(data.race.distanceKm, locale)} km`}
+          distanceLabel={formatDistance(data.race.distanceKm, locale)}
           elevationGainLabel={formatElevation(data.race.elevationGainM, locale)}
           elevationLossLabel={data.race.elevationLossM !== null ? formatElevation(data.race.elevationLossM, locale) : null}
           elevationCaption={t.catalog.racebookElevationGainMetric}
@@ -1932,6 +1927,7 @@ export default function RaceRacebookScreen() {
           onCallEmergency={emergencyTelephoneUrl ? () => openTrackedUrl(emergencyTelephoneUrl, 'emergency_call_started') : undefined}
           onOpenLocation={headerLocationUrl ? () => openTrackedUrl(headerLocationUrl, 'map_opened', 'header_location') : undefined}
           onOpenSocial={(url, action) => openTrackedUrl(url, action)}
+          onExpandedBodyHeightChange={handleHeroBodyHeightChange}
         />
       ) : null}
       {!showLoading && !unavailable && data ? (
@@ -2004,37 +2000,6 @@ export default function RaceRacebookScreen() {
             theme={brandTheme}
             onSponsorImpression={reportSponsorImpression}
           />
-          {!existingPlanId ? (
-            <Card style={styles.planCtaCard}>
-              <View style={styles.planCtaCopy}>
-                <View style={[styles.planCtaIcon, { backgroundColor: brandTheme.primarySurfaceColor }]}>
-                  <Ionicons name="map-outline" size={21} color={brandTheme.primaryColor} />
-                </View>
-                <View style={styles.planCtaText}>
-                  <Text style={styles.planCtaTitle}>{planCtaLabel}</Text>
-                  <Text style={styles.planCtaDescription}>{planCtaDescription}</Text>
-                </View>
-              </View>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={planCtaLabel}
-                disabled={planCtaBusy}
-                onPress={() => void handlePlanCtaPress()}
-                style={({ pressed }) => [
-                  styles.planCtaButton,
-                  { backgroundColor: brandTheme.primaryColor },
-                  pressed && styles.planCtaButtonPressed,
-                  planCtaBusy && styles.planCtaButtonDisabled,
-                ]}
-                testID="racebook-plan-cta"
-              >
-                <Text style={[styles.planCtaButtonText, { color: brandTheme.onPrimaryColor }]}>
-                  {planCtaBusy ? t.catalog.racebookOpening : planCtaLabel}
-                </Text>
-                <Ionicons name="arrow-forward" size={17} color={brandTheme.onPrimaryColor} />
-              </Pressable>
-            </Card>
-          ) : null}
           {runnerInfoLines.length > 0 ? (
             <Card style={styles.heroCard}>
               <HeroDetailGroup title={t.catalog.racebookSectionRunnerInfo} values={runnerInfoLines} />
@@ -2154,7 +2119,6 @@ export default function RaceRacebookScreen() {
                 <RacebookPersonalPlanCard
                   hasPlan={Boolean(linkedPlanId)}
                   revisionPending={officialRevisionPending}
-                  locale={locale}
                   onOpenPlan={openLinkedPlan}
                 />
 
@@ -2299,6 +2263,7 @@ export default function RaceRacebookScreen() {
                       elevationLossM: data.race.elevationLossM,
                       cutoffTime: data.runnerDetails.schedule.finishCutoffTime,
                     }}
+                    startTime={resolvedStartTime}
                     expandedStationId={expandedAidStationId}
                     showOfficialProducts={sponsorPresentation.modules.official_products}
                     theme={brandTheme}
@@ -2562,55 +2527,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 22,
     paddingBottom: 20,
-  },
-  planCtaCard: {
-    gap: 14,
-    padding: 16,
-  },
-  planCtaCopy: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  planCtaIcon: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  planCtaText: {
-    flex: 1,
-    gap: 3,
-  },
-  planCtaTitle: {
-    color: Colors.textPrimary,
-    fontSize: 16,
-    fontWeight: '800',
-  },
-  planCtaDescription: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  planCtaButton: {
-    minHeight: 46,
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  planCtaButtonPressed: {
-    opacity: 0.88,
-  },
-  planCtaButtonDisabled: {
-    opacity: 0.65,
-  },
-  planCtaButtonText: {
-    fontSize: 14,
-    fontWeight: '800',
   },
   alertCard: {
     gap: 8,

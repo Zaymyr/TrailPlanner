@@ -96,3 +96,5 @@ Supporter `S’y rendre` and `Voir le plan` actions open organizer-authored acce
 - [`partner_link_settings`](../02-database/tables/partner-link-settings.md)
 - [Web App Architecture](../01-architecture/web-app.md)
 - [Analytics](analytics.md)
+
+The labeled RaceBook Maps action, shared distance formatting, and plan-switch visual standardization do not change affiliate destinations, redirect accounting, or partner parameters.

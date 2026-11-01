@@ -18,6 +18,7 @@ import {
 } from './navigation/FloatingActionMenu';
 import { TutorialTarget, type TutorialMeasurableTarget } from './help/SpotlightTutorial';
 import { useI18n } from '../lib/i18n';
+import { parseLocalizedDecimal } from '../lib/displayFormat';
 import {
   AidStationsSectionV3 as AidStationsSection,
   AidStationsToolbar,
@@ -682,11 +683,11 @@ export default function PlanForm({
     if (!editingStation) return;
 
     const trimmedName = editingStation.name.trim();
-    const km = parseFloat(editingStation.km.replace(',', '.'));
-    const pauseMinutes = parseFloat(editingStation.pauseMinutes.replace(',', '.'));
+    const km = parseLocalizedDecimal(editingStation.km);
+    const pauseMinutes = parseLocalizedDecimal(editingStation.pauseMinutes);
 
-    const nextDistanceKm = Number.isNaN(km) ? 0 : km;
-    const nextPauseMinutes = Number.isNaN(pauseMinutes) ? 0 : Math.max(0, pauseMinutes);
+    const nextDistanceKm = km ?? 0;
+    const nextPauseMinutes = pauseMinutes === null ? 0 : Math.max(0, pauseMinutes);
     const fallbackName =
       editingStation.mode === 'create'
         ? `Ravito ${values.aidStations.filter((station) => station.id !== DEPART_ID && station.id !== ARRIVEE_ID).length + 1}`

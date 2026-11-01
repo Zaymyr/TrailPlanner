@@ -518,3 +518,7 @@ The identity hero shows event and format names, the formatted course date, linke
 - [Premium Entitlement](../03-business-rules/premium-entitlement.md)
 - [Trial Lifecycle](../03-business-rules/trial-lifecycle.md)
 - [Analytics](../05-integrations/analytics.md)
+
+## RaceBook polish contract (lot 6)
+
+RaceBook and its linked plan workspace share one localized distance/clock formatter: distances use at most one decimal, ranges use an en dash, metadata uses a middle dot, and clocks render as `HH:MM`. The collapsible hero measures its expanded content so two-line titles remain visible at supported text scales. Workspace selectors use the shared segmented-control treatment, sticky surfaces preserve content clearance, and numeric race values alone use the data typeface. Development-client builds identified by the development Android package skip Expo OTA checks that are unsupported in that runtime; production update behavior is unchanged.

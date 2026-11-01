@@ -1486,9 +1486,10 @@ const styles = StyleSheet.create({
   listHeader: {
     gap: 16,
     backgroundColor: Colors.background,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
     paddingBottom: 16,
     zIndex: 2,
-    elevation: 2,
   },
   listFooterSpacing: {
     height: 8,

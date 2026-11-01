@@ -5,6 +5,8 @@ import { Colors } from '../../constants/colors';
 import { Card } from '../themed/Card';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { useI18n } from '../../lib/i18n';
+import { formatDistance } from '../../lib/displayFormat';
 
 export type RacebookServiceCategory = 'restaurant' | 'accommodation' | 'recovery' | 'other';
 
@@ -65,10 +67,6 @@ const categoryIcons: Record<RacebookServiceCategory, keyof typeof Ionicons.glyph
   other: 'information-circle-outline',
 };
 
-function formatDistance(distanceKm: number) {
-  return `${distanceKm >= 100 ? distanceKm.toFixed(0) : distanceKm.toFixed(1)} km`;
-}
-
 function ServiceAction({
   action,
   icon,
@@ -106,11 +104,13 @@ function ServiceRow({
   copy,
   onOpenUrl,
   showDivider,
+  locale,
 }: {
   service: RacebookServiceItem;
   copy: RacebookServicesCopy;
   onOpenUrl: RacebookServicesSectionProps['onOpenUrl'];
   showDivider: boolean;
+  locale: 'fr' | 'en';
 }) {
   return (
     <View style={[styles.serviceRow, showDivider ? styles.serviceRowDivider : null]}>
@@ -118,7 +118,7 @@ function ServiceRow({
         <View style={styles.serviceHeading}>
           <Text numberOfLines={1} style={styles.serviceName}>{service.name}</Text>
           {service.distanceKm !== null ? (
-            <DataText style={styles.distance}>{formatDistance(service.distanceKm)}</DataText>
+            <DataText style={styles.distance}>{formatDistance(service.distanceKm, locale)}</DataText>
           ) : null}
         </View>
         {service.address ? <Text numberOfLines={2} style={styles.address}>{service.address}</Text> : null}
@@ -170,6 +170,7 @@ export function RacebookServicesSection({
   onOpenUrl,
   onOpenPartnerLink,
 }: RacebookServicesSectionProps) {
+  const { locale } = useI18n();
   const groupedServices = categoryOrder.map((category) => ({
     category,
     services: services.filter((service) => service.category === category),
@@ -195,12 +196,13 @@ export function RacebookServicesSection({
           </View>
           <View>
             {group.services.map((service, index) => (
-              <ServiceRow
+                <ServiceRow
                 key={service.id}
                 service={service}
                 copy={copy}
                 onOpenUrl={onOpenUrl}
                 showDivider={index > 0}
+                  locale={locale}
               />
             ))}
           </View>

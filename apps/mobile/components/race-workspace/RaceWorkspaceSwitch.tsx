@@ -32,11 +32,9 @@ export function RaceWorkspaceSwitch({
   scrollY,
   topInset,
 }: Props) {
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const racebookLabel = t.planWorkspace.officialRacebook;
-  const planLabel = planExists
-    ? (locale === 'fr' ? 'Affiner mon plan' : 'Refine my plan')
-    : (locale === 'fr' ? 'Créer mon plan' : 'Create my plan');
+  const planLabel = planExists ? t.catalog.racebookRefinePlan : t.catalog.racebookCreatePlan;
   const collapseDistance = expandedHeaderHeight - compactHeaderHeight;
   const top = scrollY.interpolate({
     inputRange: [0, collapseDistance],
@@ -106,14 +104,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: mobileComponents.segment.borderRadius,
     paddingHorizontal: mobileComponents.segment.paddingHorizontal,
+    borderWidth: 1,
+    borderColor: 'transparent',
   },
   activeSegment: {
     backgroundColor: Colors.surface,
-    shadowColor: '#1A1A1A',
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
+    borderColor: Colors.brandBorder,
   },
   disabled: { opacity: 0.45 },
   label: { color: Colors.textSecondary, fontSize: 13, lineHeight: 17, fontWeight: '700' },

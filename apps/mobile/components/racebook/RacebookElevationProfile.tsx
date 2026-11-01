@@ -10,6 +10,7 @@ import { getCourseProgressAtDistance, getElevationBounds, interpolateElevationAt
 import { useI18n } from '../../lib/i18n';
 import { DataText } from '../themed/DataText';
 import { Text } from '../themed/Text';
+import { formatDistance, formatDistanceValue } from '../../lib/displayFormat';
 
 type Props = {
   points: ElevationPoint[];
@@ -21,7 +22,7 @@ type Props = {
   profileHeight?: number;
 };
 
-const AXIS_WIDTH = 58;
+const AXIS_WIDTH = 64;
 const RIGHT_PADDING = 34;
 const TOP_PADDING = 18;
 const BOTTOM_PADDING = 28;
@@ -231,7 +232,7 @@ export function RacebookElevationProfile({
                   fontSize="10"
                   textAnchor={index === 0 ? 'start' : index === chart.distanceTicks.length - 1 ? 'end' : 'middle'}
                 >
-                  {tick.toLocaleString(locale, { maximumFractionDigits: tick >= 100 ? 0 : 1 })} km
+                  {formatDistance(tick, locale)}
                 </SvgText>
               ))}
             </Svg>
@@ -243,7 +244,7 @@ export function RacebookElevationProfile({
               accessibilityLabel={t.catalog.racebookProfileExplore}
               accessibilityHint={t.catalog.racebookProfileExploreHint}
               accessibilityValue={inspection ? {
-                text: `${inspection.distanceKm.toLocaleString(locale, { maximumFractionDigits: 1 })} km, D+ ${formatNumber(inspection.elevationGainM, locale)} m, D- ${formatNumber(inspection.elevationLossM, locale)} m`,
+                text: `${formatDistance(inspection.distanceKm, locale)}, D+ ${formatNumber(inspection.elevationGainM, locale)} m, D− ${formatNumber(inspection.elevationLossM, locale)} m`,
               } : undefined}
               accessibilityActions={[{ name: 'increment' }, { name: 'decrement' }]}
               onAccessibilityAction={(event) => adjustInspection(event.nativeEvent.actionName === 'decrement' ? -1 : 1)}
@@ -257,7 +258,7 @@ export function RacebookElevationProfile({
                   setSelectedStationId((current) => current === station.id ? null : station.id);
                 }}
                 accessibilityRole="button"
-                accessibilityLabel={`${t.catalog.racebookAidStationSingular} ${station.name}, ${station.km.toLocaleString(locale)} km`}
+                accessibilityLabel={`${t.catalog.racebookAidStationSingular} ${station.name}, ${formatDistance(station.km, locale)}`}
                 accessibilityHint={t.catalog.racebookAidStationDetailsHint}
               >
                 <View style={[styles.stationMarker, { backgroundColor: accentColor }]}>
@@ -286,7 +287,7 @@ export function RacebookElevationProfile({
               <View style={styles.stationStatExpanded}>
                 <Text style={styles.stationStatLabel}>Distance</Text>
                 <DataText style={styles.stationStatValueExpanded}>
-                  {selectedStation.km.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km
+                  {formatDistance(selectedStation.km, locale)}
                 </DataText>
               </View>
               <View style={styles.stationStatExpanded}>
@@ -348,7 +349,7 @@ export function RacebookElevationProfile({
               <View style={styles.stationStat}>
                 <Text style={styles.stationStatLabel}>{t.catalog.racebookCumulativeDistance}</Text>
                 <DataText style={styles.stationStatValue}>
-                  {selectedStation.km.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km
+                  {formatDistance(selectedStation.km, locale)}
                 </DataText>
               </View>
               <View style={styles.stationStat}>
@@ -375,7 +376,7 @@ export function RacebookElevationProfile({
         <View style={styles.metricsRow} accessibilityLiveRegion="polite">
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeDistance}</Text>
-            <DataText style={styles.metricValue}>{inspection.distanceKm.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US', { maximumFractionDigits: 1 })} km</DataText>
+            <DataText style={styles.metricValue}>{formatDistance(inspection.distanceKm, locale)}</DataText>
           </View>
           <View style={styles.metric}>
             <Text style={styles.metricLabel}>{t.catalog.racebookCumulativeGain}</Text>
@@ -393,8 +394,8 @@ export function RacebookElevationProfile({
           <Ionicons name="information-circle-outline" size={17} color={Colors.warning} />
           <Text style={styles.coverageNoticeText}>
             {t.catalog.racebookProfileCoverage
-              .replace('{covered}', profileDistanceKm.toLocaleString(locale, { maximumFractionDigits: 1 }))
-              .replace('{official}', officialDistanceKm.toLocaleString(locale, { maximumFractionDigits: 1 }))}
+              .replace('{covered}', formatDistanceValue(profileDistanceKm, locale))
+              .replace('{official}', formatDistanceValue(officialDistanceKm, locale))}
           </Text>
         </View>
       ) : null}

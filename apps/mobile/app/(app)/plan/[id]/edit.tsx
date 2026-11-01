@@ -78,6 +78,7 @@ import {
   formatDuration,
 } from '../../../../lib/planSummary';
 import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
+import { formatDistance } from '../../../../lib/displayFormat';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import {
   buildPersistedPlannerValues,
@@ -1187,7 +1188,7 @@ export default function EditPlanScreen() {
           { label: t.planWorkspace.averagePace, value: averagePace === '—' ? '—' : `${averagePace}/km` },
           { label: 'D+', value: `${Math.round(liveValues?.elevationGain ?? 0)} m` },
           { label: 'D−', value: elevationLoss === null ? '—' : `${Math.round(elevationLoss)} m` },
-          { label: 'Distance', value: `${(liveValues?.raceDistanceKm ?? 0).toLocaleString(locale, { maximumFractionDigits: 1 })} km` },
+          { label: 'Distance', value: formatDistance(liveValues?.raceDistanceKm ?? 0, locale) },
         ]}
         onBack={handleBackToPlans}
         saveStatus={saveStatus}

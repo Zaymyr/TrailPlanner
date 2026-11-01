@@ -376,3 +376,7 @@ Likewise, hiding the GPX map or elevation profile is format presentation state o
 - [Web App](../01-architecture/web-app.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
 - [Auth Flows](../04-auth-and-security/auth-flows.md)
+
+## Lot 6 presentation changes
+
+Shared distance and clock formatting, hero sizing, neutral incomplete checklist progress, broken-image fallback, and the removal of the duplicate RaceBook plan card emit no new analytics events. Existing navigation and checklist events retain their names and bounded properties.

@@ -65,6 +65,7 @@ import {
   type PreviewLimitReason,
 } from '../../lib/planPreviewBoundary';
 import { useI18n } from '../../lib/i18n';
+import { formatDistance, formatDistanceRange, formatDistanceValue } from '../../lib/displayFormat';
 
 type Props = {
   values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel' | 'startSupplies'>;
@@ -808,7 +809,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     mode: 'edit',
                     index,
                     name: station.name,
-                    km: String(station.distanceKm),
+                    km: formatDistanceValue(station.distanceKm, locale),
                     pauseMinutes: String(station.pauseMinutes ?? 0),
                     waterRefill: station.waterRefill !== false,
                     solidRefill: station.solidRefill !== false,
@@ -894,7 +895,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
           <View key={`sep-${index}`} style={styles.separator}>
             <View style={styles.separatorLine} />
             <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.separatorText}>
-              {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
+              {formatDistance(summary.distanceKm, locale)} · {formatSectionDuration(summary.durationMin)}
             </DataText>
             <View style={styles.separatorLine} />
           </View>,
@@ -931,7 +932,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
             {station.name}
           </Heading>
           <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.sectionStationKm}>
-            {station.distanceKm} km
+            {formatDistance(station.distanceKm, locale)}
           </DataText>
           <View style={styles.sectionStationLine} />
         </View>,
@@ -957,7 +958,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
               {station.name} vers {nextStation.name}
             </Heading>
             <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.sectionViewMeta}>
-              {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
+              {formatDistance(summary.distanceKm, locale)} · {formatSectionDuration(summary.durationMin)}
             </DataText>
           </View>
           {summary.profilePoints.length > 1 ? (
@@ -968,18 +969,14 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
           <View style={styles.profileMetricsRow}>
             <View style={styles.profileMetricPill}>
               <DataText tone="secondary" size="xs" weight="semibold">
-                {summary.distanceKm.toFixed(2)} km
+                {formatDistance(summary.distanceKm, locale)}
               </DataText>
             </View>
             <View style={styles.profileMetricPill}>
-              <DataText tone="secondary" size="xs" weight="semibold">
-                D+ {Math.round(sectionDPlus)} m
-              </DataText>
+              <View style={planDetailStyles.metricCopy}><Text tone="secondary" size="xs" weight="semibold">D+</Text><DataText tone="secondary" size="xs" weight="semibold">{Math.round(sectionDPlus)} m</DataText></View>
             </View>
             <View style={styles.profileMetricPill}>
-              <DataText tone="secondary" size="xs" weight="semibold">
-                D- {Math.round(sectionDMinus)} m
-              </DataText>
+              <View style={planDetailStyles.metricCopy}><Text tone="secondary" size="xs" weight="semibold">D−</Text><DataText tone="secondary" size="xs" weight="semibold">{Math.round(sectionDMinus)} m</DataText></View>
             </View>
           </View>
           {sectionTimeline.length === 0 ? (
@@ -1039,7 +1036,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
             {station.name}
           </Heading>
           <DataText tone="tertiary" size="xs" weight="medium" style={planDetailStyles.sectionStationKm}>
-            {station.distanceKm} km
+            {formatDistance(station.distanceKm, locale)}
           </DataText>
           <View style={styles.sectionStationLine} />
         </View>,
@@ -1055,7 +1052,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
               {station.name} vers {nextStation.name}
             </Heading>
             <DataText tone="secondary" size="xs" weight="medium" style={planDetailStyles.profileMeta}>
-              {summary.distanceKm.toFixed(1)} km - {formatSectionDuration(summary.durationMin)}
+              {formatDistance(summary.distanceKm, locale)} · {formatSectionDuration(summary.durationMin)}
             </DataText>
           </View>
 
@@ -1313,11 +1310,11 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
       nextStation && Number.isFinite(nextStation.distanceKm) && nextStation.distanceKm > startKm
         ? nextStation.distanceKm
         : null;
-    const meta = endKm !== null ? `${startKm.toFixed(1)}–${endKm.toFixed(1)} km` : `${startKm.toFixed(1)} km`;
+    const meta = endKm !== null ? formatDistanceRange(startKm, endKm, locale) : formatDistance(startKm, locale);
     const label = nextStation && station.id !== arriveeId ? `${station.name} → ${nextStation.name}` : station.name;
 
     return { badge, label, meta };
-  }, [arriveeId, contextAnchorIndex, values.aidStations]);
+  }, [arriveeId, contextAnchorIndex, locale, values.aidStations]);
 
   return (
     <>
@@ -1363,6 +1360,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
 });
 
 const planDetailStyles = StyleSheet.create({
+  metricCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
   toolbar: {
     gap: spacing[2],
     marginBottom: spacing[3],

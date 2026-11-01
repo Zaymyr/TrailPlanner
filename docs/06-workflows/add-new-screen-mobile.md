@@ -242,3 +242,7 @@ RaceBook GPX cards must also honor normalized `gpxDisplay` route/profile choices
 - [Premium Entitlement](../03-business-rules/premium-entitlement.md)
 - [Analytics](../05-integrations/analytics.md)
 - [Design Components](../07-design-system/components.md)
+
+## Race workspace presentation checks
+
+For RaceBook or plan-workspace changes, verify two-line hero titles at 100% and 130% text scaling, 44-point increment/decrement targets, content clearance below sticky selectors, localized distance/range/clock output, and image-error fallback without an empty rail. Keep the Livret/Plan switch as the sole plan entry control on RaceBook; a saved plan may show a revision warning, but must not add a duplicate creation card.

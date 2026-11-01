@@ -134,3 +134,5 @@ On 2026-10-30 the owner explicitly authorized applying the three runner migratio
 - [Premium Entitlement](premium-entitlement.md)
 - [Historical Trials](trial-lifecycle.md)
 - [Stripe](../05-integrations/stripe.md)
+
+The standardized Livret/Plan segmented control and removal of the duplicate RaceBook plan CTA do not change entitlement or purchase gates. The existing workspace action remains responsible for opening or creating the owner plan under the same access rules.

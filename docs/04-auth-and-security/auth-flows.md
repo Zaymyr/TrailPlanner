@@ -178,3 +178,5 @@ Mobile Profile admin/debug presentation follows the same boundary: it accepts on
 - [Duplicate Events Pattern](duplicate-events-pattern.md)
 - [Trial Lifecycle](../03-business-rules/trial-lifecycle.md)
 - [RLS Checklist](rls-checklist.md)
+
+The root layout skips unsupported Expo OTA checks only for the development Android package (and ordinary development runtimes). This runtime guard does not alter session bootstrap, authentication listeners, redirects, or production update checks.

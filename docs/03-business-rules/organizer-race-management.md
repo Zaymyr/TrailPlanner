@@ -656,3 +656,5 @@ The pricing dialog snapshots and displays the selected event and canonical editi
 - [Nutrition Algorithm](nutrition-algorithm.md)
 - [GPX Import](gpx-import.md)
 
+Lot 6 keeps organizer data read-only in the runner experience: official station identity/services show an explicit locked treatment, failed catalog images collapse their decorative rail, and RaceBook distances, ranges, elevation labels, and passage clocks use the shared localized formatter. These changes do not change publication, module visibility, or organizer ownership.
+

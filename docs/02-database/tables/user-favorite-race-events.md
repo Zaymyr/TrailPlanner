@@ -142,3 +142,5 @@ Private-demo format selection does not affect event favorites or catalog members
 - [Schema Overview](../schema-overview.md)
 - [Relationships](../relationships.md)
 - [Mobile App](../../01-architecture/mobile-app.md)
+
+Hiding a failed event thumbnail rail and simplifying the sticky catalog search surface do not add, remove, or reorder favorite rows.

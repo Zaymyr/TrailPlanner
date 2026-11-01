@@ -6,6 +6,8 @@ import { Text, Text as ThemedText } from '../themed/Text';
 import type { ElevationPoint, SectionSubSegmentStats } from './contracts';
 import { ProfileMiniChart } from './ProfileMiniChart';
 import { styles } from './styles';
+import { useI18n } from '../../lib/i18n';
+import { formatDistance } from '../../lib/displayFormat';
 
 type Props = {
   title: string;
@@ -46,6 +48,7 @@ export function AidStationProfileSegmentCard({
   readOnly = false,
   previewIntent,
 }: Props) {
+  const { locale } = useI18n();
   const showControls = !readOnly || Boolean(previewIntent);
   const paceDecrease = previewIntent ?? onDecreasePace;
   const paceIncrease = previewIntent ?? onIncreasePace;
@@ -83,7 +86,7 @@ export function AidStationProfileSegmentCard({
               onPress={paceDecrease}
               activeOpacity={0.8}
             >
-              <Text style={styles.profilePaceStepBtnText}>-</Text>
+              <Text style={styles.profilePaceStepBtnText}>−</Text>
             </TouchableOpacity>
             {previewIntent ? (
               <TouchableOpacity
@@ -130,18 +133,14 @@ export function AidStationProfileSegmentCard({
       <View style={styles.profileMetricsRow}>
         <View style={styles.profileMetricPill}>
           <DataText tone="secondary" size="xs" weight="semibold">
-            {stats.distKm.toFixed(2)} km
+            {formatDistance(stats.distKm, locale)}
           </DataText>
         </View>
         <View style={styles.profileMetricPill}>
-          <DataText tone="secondary" size="xs" weight="semibold">
-            D+ {Math.round(stats.dPlus)} m
-          </DataText>
+          <View style={localStyles.metricCopy}><Text tone="secondary" size="xs" weight="semibold">D+</Text><DataText tone="secondary" size="xs" weight="semibold">{Math.round(stats.dPlus)} m</DataText></View>
         </View>
         <View style={styles.profileMetricPill}>
-          <DataText tone="secondary" size="xs" weight="semibold">
-            D- {Math.round(stats.dMinus)} m
-          </DataText>
+          <View style={localStyles.metricCopy}><Text tone="secondary" size="xs" weight="semibold">D−</Text><DataText tone="secondary" size="xs" weight="semibold">{Math.round(stats.dMinus)} m</DataText></View>
         </View>
       </View>
 
@@ -206,4 +205,5 @@ const localStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  metricCopy: { flexDirection: 'row', alignItems: 'center', gap: spacing[1] },
 });

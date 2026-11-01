@@ -233,3 +233,5 @@ where web_catalog_is_live = true
 - [race_relay_points](race-relay-points.md)
 - [race_slug_redirects](race-slug-redirects.md)
 - [Schema Overview](../schema-overview.md)
+
+RaceBook course distances, ranges, and D+/D− labels now use a shared localized display formatter. Stored race distance/elevation values and GPX-derived authority are unchanged.

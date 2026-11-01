@@ -68,3 +68,5 @@ Clients cannot insert, update, or delete rows directly. `PUT /api/organizer/race
 - [Organizer RaceBook Module Settings](organizer-racebook-module-settings.md)
 - [RLS Policies](../rls-policies.md)
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
+
+Supporter-point kilometer labels use the shared localized distance formatter. Chronology, URLs, access notes, coordinates, publication gates, and RLS remain unchanged.

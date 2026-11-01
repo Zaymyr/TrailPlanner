@@ -125,3 +125,5 @@ The `race_supporter_points` addition follows this workflow: cascade ownership by
 - [Add RLS Policy](add-rls-policy.md)
 - [Schema Overview](../02-database/schema-overview.md)
 - [Race Slug Redirects](../02-database/tables/race-slug-redirects.md)
+
+RaceBook lot 6 is explicitly not a database task: localized display formatting, failed-image fallback, locked official-field presentation, checklist colors, hero measurement, and development-client OTA guards require no migration, table, grant, or policy.

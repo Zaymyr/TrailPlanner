@@ -76,6 +76,7 @@ function LocationPickup({
             ]}
           >
             <Ionicons name="navigate-outline" size={18} color={Colors.brandPrimary} />
+            <Text style={styles.mapsActionText}>{openMapsLabel}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -197,7 +198,8 @@ const styles = StyleSheet.create({
   locationContent: { flex: 1, minWidth: 0, gap: 2, paddingTop: 2 },
   locationName: { color: Colors.textPrimary, fontSize: 15, lineHeight: 21, fontWeight: '700' },
   locationDetails: { color: Colors.textSecondary, fontSize: 13, lineHeight: 18 },
-  mapsAction: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderRadius: 12 },
+  mapsAction: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingHorizontal: 12, borderRadius: 22, borderWidth: 1 },
+  mapsActionText: { color: Colors.brandPrimary, fontSize: 12, fontWeight: '800' },
   pressed: { opacity: 0.7 },
   dayList: { marginLeft: 46, gap: 9 },
   dayRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingTop: 9, borderTopWidth: 1, borderTopColor: Colors.border },

@@ -25,6 +25,7 @@ import { useI18n } from '../../lib/i18n';
 import type { AccordionSection, PlanFormValues } from './contracts';
 import type { NumberInputProps } from './NumberInput';
 import { styles } from './styles';
+import { formatDistance } from '../../lib/displayFormat';
 
 type Props = {
   values: PlanFormValues;
@@ -153,14 +154,14 @@ export function PlanBasicsSection({
   inline = false,
   isLinkedRace = false,
 }: Props) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [fatigueTrackWidth, setFatigueTrackWidth] = useState(0);
   const paceSummary =
     values.paceType === 'pace'
       ? `${String(values.paceMinutes).padStart(2, '0')}:${String(values.paceSeconds).padStart(2, '0')} min/km`
       : `${values.speedKph.toFixed(1)} km/h`;
   const settingsMetaSummary = [
-    `${values.raceDistanceKm || 0} km`,
+    formatDistance(values.raceDistanceKm || 0, locale),
     `D+ ${values.elevationGain || 0} m`,
     `${values.targetIntakePerHour || 0} g/h`,
     `${values.waterIntakePerHour || 0} ml/h`,
@@ -314,7 +315,7 @@ export function PlanBasicsSection({
         <View style={styles.inlineSettingsCard}>
         {renderAccordionHeader('course', 'Course', [
           values.name?.trim() || 'Sans nom',
-          `${values.raceDistanceKm || 0} km`,
+          formatDistance(values.raceDistanceKm || 0, locale),
           `D+ ${values.elevationGain || 0} m`,
         ])}
           <>
@@ -330,7 +331,7 @@ export function PlanBasicsSection({
               <View style={styles.row}>
                 <View style={styles.rowItem}>
                   <Text style={styles.label}>Distance</Text>
-                  <DataText>{values.raceDistanceKm} km</DataText>
+                  <DataText>{formatDistance(values.raceDistanceKm, locale)}</DataText>
                 </View>
                 <View style={[styles.rowItem, { marginLeft: 12 }]}>
                   <Text style={styles.label}>D+</Text>
@@ -502,7 +503,7 @@ export function PlanBasicsSection({
             >
               {renderAccordionHeader('course', 'Course', [
                 values.name?.trim() || 'Sans nom',
-                `${values.raceDistanceKm || 0} km`,
+                formatDistance(values.raceDistanceKm || 0, locale),
                 `D+ ${values.elevationGain || 0} m`,
               ])}
               {expandedSections.course && (
@@ -520,7 +521,7 @@ export function PlanBasicsSection({
                     <View style={styles.row}>
                       <View style={styles.rowItem}>
                         <Text style={styles.label}>Distance</Text>
-                        <DataText>{values.raceDistanceKm} km</DataText>
+                        <DataText>{formatDistance(values.raceDistanceKm, locale)}</DataText>
                       </View>
                       <View style={[styles.rowItem, { marginLeft: 12 }]}>
                         <Text style={styles.label}>D+</Text>

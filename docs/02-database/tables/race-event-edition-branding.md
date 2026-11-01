@@ -147,3 +147,5 @@ The supporter chronology inherits the published RaceBook theme like other Course
 - [Organizer Race Management](../../03-business-rules/organizer-race-management.md)
 - [Mobile App](../../01-architecture/mobile-app.md)
 - [Design Tokens](../../07-design-system/tokens.md)
+
+The measured two-line RaceBook hero, standardized segmented controls, and labeled Maps action continue to consume the resolved edition theme. They add no branding fields and do not change color precedence.
