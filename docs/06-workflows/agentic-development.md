@@ -63,6 +63,8 @@ Track agent effectiveness with repository outcomes, not generated code volume:
 
 Keep a small set of historical, representative tasks for comparing instruction or model changes. Do not use production secrets or live destructive operations in that evaluation set.
 
+Keep `.github/CODEOWNERS` aligned with release definitions as well as application boundaries. GitHub workflows, Supabase, `apps/mobile/eas.json`, and mobile EAS workflows are maintainer-owned review surfaces.
+
 ## Do Not
 
 - Do not accept an agent-authored test as proof when it asserts implementation details instead of behavior.
