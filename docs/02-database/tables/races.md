@@ -69,6 +69,8 @@ related_tables:
 
 # `races`
 
+Mobile reads `race_date` to place dated organizer cutoffs (e.g. `dimanche 15/11 à 14h30`) on the right race day; display-only, no write.
+
 Lot 10 aligns the Plan and RaceBook headers on one layout and uses the event location before `races.location_text` in both; elevation renders with the shared `formatElevation` helper. Display-only, no column or write.
 
 Mobile Plan/RaceBook headers read existing format date, location, organizer schedule and elevation fields for a shared identity presentation. The display-only maximum duration adds no column and never writes a personal departure or prediction into the format row.

@@ -24,6 +24,8 @@ related_tables:
 
 # `racebook_gear_checks`
 
+Chronological cutoff resolution does not read or mutate checklist rows.
+
 The race-workspace header toolbar/footer layout (lot 10) does not read or mutate checklist rows.
 
 The shared RaceBook identity header and finish-cutoff placement do not read or mutate checklist rows; equipment completion remains independent owner state.

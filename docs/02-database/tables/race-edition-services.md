@@ -23,6 +23,8 @@ related_tables:
 
 # `race_edition_services`
 
+Chronological cutoff resolution and plan access gating do not change edition-service reads or actions.
+
 The race-workspace header toolbar/footer layout (lot 10) does not change edition-service reads, grouping, visibility, or actions.
 
 The shared RaceBook identity header and finish-cutoff placement do not change edition-service reads, grouping, visibility, or actions.

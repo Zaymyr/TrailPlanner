@@ -34,6 +34,8 @@ related_tables:
 
 # `race_event_edition_branding`
 
+The Courses image placeholder uses application brand colors, not edition branding; chronological cutoff display keeps the application semantic colors.
+
 Lot 10 places the published edition logo in the RaceBook-only footer row after the common metrics (44×36 surface) and keeps the organizer image, primary veil and on-primary text colors. No branding field or fallback changes.
 
 The shared Plan/RaceBook header changes layout only: RaceBook still resolves published primary/on-primary colors and keeps its organizer image, logo and additional actions after the common identity/metrics content. No branding field or fallback changes.

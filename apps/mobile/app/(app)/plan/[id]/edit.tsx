@@ -78,6 +78,7 @@ import {
 } from '../../../../lib/planSummary';
 import { formatAveragePace, normalizePlanWorkspaceTab, resolvePlanElevationLoss, type PlanWorkspaceTab } from '../../../../lib/planWorkspace';
 import { formatDistance, formatElevation } from '../../../../lib/displayFormat';
+import { fetchWithTimeout } from '../../../../lib/fetchWithTimeout';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import {
   buildPersistedPlannerValues,
@@ -170,6 +171,8 @@ function getUnsavedPlanEditDraft(planId: string) {
 
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
 const PLAN_LOAD_TIMEOUT_MS = 20_000;
+// Beyond this, the cached capabilities (if any) are used instead of waiting.
+const PLAN_ACCESS_TIMEOUT_MS = 6_000;
 
 export default function EditPlanScreen() {
   const { id, showHelp, tab, share, racebookTab, racebookCourseTab, targetAidStationId, planWarmStartToken } = useLocalSearchParams<{
@@ -297,6 +300,10 @@ export default function EditPlanScreen() {
   const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
   const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
   const [planAccessState, setPlanAccessState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  // Plan id whose access has been resolved by the server (or by the cached
+  // fallback after a network failure). The workspace stays on the loading
+  // screen until then, so it never renders with stale or default rights.
+  const [accessCheckedPlanId, setAccessCheckedPlanId] = useState<string | null>(null);
   const [runnerAccessError, setRunnerAccessError] = useState(false);
   const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
   const [previewPaywallPlacement, setPreviewPaywallPlacement] = useState<PremiumPaywallPlacement>('feature_gate');
@@ -497,6 +504,7 @@ export default function EditPlanScreen() {
     setRunnerAccessMode('real');
     if (isNewPlan) {
       setPlanAccessState('unknown');
+      setAccessCheckedPlanId(null);
       setRunnerAccessError(false);
     }
     setActivePlanEditSession(id);
@@ -543,18 +551,8 @@ export default function EditPlanScreen() {
     if (!token || !uid) { setRunnerAccessError(true); return; }
     const cached = await readCachedRunnerPlanCapabilities(uid, id);
     if (activeRouteIdRef.current !== id) return;
-    if (cached) {
-      const seeded = resolveRunnerPlanAccess(null, cached);
-      if (seeded.capabilities) {
-        setPlanCanEdit(seeded.capabilities.canEdit);
-        setPlanCanViewDetails(seeded.capabilities.canViewDetails);
-        setRunnerAccessMode(seeded.capabilities.mode ?? 'real');
-        setPlanAccessState(seeded.capabilities.canEdit || seeded.capabilities.canViewDetails ? 'granted' : 'denied');
-        setRunnerAccessError(false);
-      }
-    }
     try {
-      const response = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${token}` } });
+      const response = await fetchWithTimeout(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${token}` } }, PLAN_ACCESS_TIMEOUT_MS);
       const payload = await response.json().catch(() => null) as { access?: RunnerPlanCapabilities } | null;
       if (activeRouteIdRef.current !== id) return;
       const resolution = resolveRunnerPlanAccess(response.ok ? payload?.access ?? null : null, cached);
@@ -566,8 +564,10 @@ export default function EditPlanScreen() {
       setPlanCanEdit(resolution.capabilities.canEdit); setPlanCanViewDetails(resolution.capabilities.canViewDetails);
       setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
       setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+      setAccessCheckedPlanId(id);
       if (resolution.status === 'verified') void cacheRunnerPlanCapabilities(uid, id, resolution.capabilities);
     } catch {
+      if (activeRouteIdRef.current !== id) return;
       const resolution = resolveRunnerPlanAccess(null, cached);
       if (!resolution.capabilities) setRunnerAccessError(true);
       else {
@@ -576,6 +576,7 @@ export default function EditPlanScreen() {
         setPlanCanViewDetails(resolution.capabilities.canViewDetails);
         setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
         setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
+        setAccessCheckedPlanId(id);
       }
     }
   }, [id]);
@@ -601,17 +602,19 @@ export default function EditPlanScreen() {
 
     const uid = sessionData.data?.session?.user?.id ?? null;
     let nextPlanCanEdit = false;
+    let planAccessResolved = false;
     if (sessionData.data?.session?.access_token && id) {
       const accessUserId = sessionData.data.session.user.id;
       const cachedAccess = await readCachedRunnerPlanCapabilities(accessUserId, id);
       try {
-        const accessResponse = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, {
+        const accessResponse = await fetchWithTimeout(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, {
           headers: { Authorization: `Bearer ${sessionData.data.session.access_token}` },
-        });
+        }, PLAN_ACCESS_TIMEOUT_MS);
         const accessPayload = (await accessResponse.json().catch(() => null)) as { access?: RunnerPlanCapabilities } | null;
         const resolution = resolveRunnerPlanAccess(accessResponse.ok ? accessPayload?.access ?? null : null, cachedAccess);
         if (resolution.capabilities) {
           nextPlanCanEdit = resolution.capabilities.canEdit;
+          planAccessResolved = true;
           setPlanCanViewDetails(resolution.capabilities.canViewDetails);
           setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
           setRunnerAccessError(false);
@@ -623,6 +626,7 @@ export default function EditPlanScreen() {
         const resolution = resolveRunnerPlanAccess(null, cachedAccess);
         if (resolution.capabilities) {
           nextPlanCanEdit = resolution.capabilities.canEdit;
+          planAccessResolved = true;
           setPlanCanViewDetails(resolution.capabilities.canViewDetails);
           setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
           setRunnerAccessError(false);
@@ -632,6 +636,7 @@ export default function EditPlanScreen() {
     }
     if (isStaleLoad()) return;
     setPlanCanEdit(nextPlanCanEdit);
+    if (planAccessResolved) setAccessCheckedPlanId(id);
     const productDataPromise = nextPlanCanEdit
       ? loadPlanProductsBootstrap(uid)
       : Promise.resolve<PlanProductsBootstrap>({ allProducts: [], favoriteProductIds: new Set() });
@@ -1106,7 +1111,8 @@ export default function EditPlanScreen() {
     };
   }, [handleBackToPlans, navigation]));
 
-  if (loading || (!error && (loadedPlanId !== id || (initialValues && !planProductData)))) {
+  const waitingForAccess = !runnerAccessError && accessCheckedPlanId !== id;
+  if (loading || waitingForAccess || (!error && (loadedPlanId !== id || (initialValues && !planProductData)))) {
     const currentLoadingPlanName = loadingPlanNameId === id ? loadingPlanName : null;
     const visiblePlanName =
       currentLoadingPlanName ?? (loadedPlanId === id ? planName || initialValues?.name || null : null);
@@ -1139,7 +1145,7 @@ export default function EditPlanScreen() {
     );
   }
 
-  if (planAccessState === 'unknown') {
+  if (planAccessState === 'unknown' || accessCheckedPlanId !== id) {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />

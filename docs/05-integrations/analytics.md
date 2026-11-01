@@ -77,6 +77,8 @@ related_tables:
 
 # Analytics
 
+The Courses image placeholder, chronological RaceBook cutoffs and the plan access loading gate add no analytics event and do not change existing payloads.
+
 Lot 10 removes the tappable header location, so the RaceBook no longer emits `racebook action clicked` with `action: map_opened` and source `header_location`; map opening from Accès keeps its existing payload. The shared header layout adds no event.
 
 The shared workspace header, quantity stepper, cutoff placement, and tri-state access presentation add no analytics event and do not change existing event payloads.

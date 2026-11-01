@@ -114,6 +114,119 @@ export function resolveCutoffMinuteAfterDeparture(
   return candidates[0] ?? firstOccurrence;
 }
 
+const DAY_MINUTES = 24 * 60;
+
+export type OrganizerCutoff = {
+  minuteOfDay: number;
+  date: { day: number; month: number } | null;
+};
+
+/**
+ * Reads the cutoff clock in organizer wording such as "05:00", "5h",
+ * "dimanche 15/11 à 14h30" or "minuit, nuit du 14 au 15/11". Parenthesized
+ * remarks are ignored so a duration like "(12 h de course)" is never read as
+ * a clock. Returns null when no clock can be found.
+ */
+export function parseOrganizerCutoff(value: string | null | undefined): OrganizerCutoff | null {
+  const text = (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('fr')
+    .replace(/\([^)]*\)/g, ' ')
+    .trim();
+  if (!text) return null;
+
+  const dateMatch = /\b(\d{1,2})\/(\d{1,2})\b/.exec(text);
+  const day = dateMatch ? Number(dateMatch[1]) : NaN;
+  const month = dateMatch ? Number(dateMatch[2]) : NaN;
+  const date = day >= 1 && day <= 31 && month >= 1 && month <= 12 ? { day, month } : null;
+  const withoutDate = dateMatch ? text.replace(dateMatch[0], ' ') : text;
+
+  let minuteOfDay: number | null = null;
+  if (/\bminuit\b|\bmidnight\b/.test(withoutDate)) minuteOfDay = 0;
+  else if (/\bmidi\b|\bnoon\b/.test(withoutDate)) minuteOfDay = 12 * 60;
+  else {
+    const clockMatch = /\b(\d{1,2})\s*(?::|h)\s*(\d{2})?(?!\d)/.exec(withoutDate);
+    if (clockMatch) {
+      const hours = Number(clockMatch[1]);
+      const minutes = Number(clockMatch[2] || 0);
+      if (hours <= 23 && minutes <= 59) minuteOfDay = hours * 60 + minutes;
+    }
+  }
+  return minuteOfDay === null ? null : { minuteOfDay, date };
+}
+
+function daysBetweenRaceDateAnd(raceDate: string | null | undefined, date: { day: number; month: number }) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raceDate ?? '');
+  if (!match) return null;
+  const year = Number(match[1]);
+  const start = Date.UTC(year, Number(match[2]) - 1, Number(match[3]));
+  let target = Date.UTC(year, date.month - 1, date.day);
+  if (target < start) target = Date.UTC(year + 1, date.month - 1, date.day);
+  const days = Math.round((target - start) / (DAY_MINUTES * 60_000));
+  return days >= 0 && days <= 6 ? days : null;
+}
+
+export type OfficialCutoffInput = {
+  id: string;
+  km: number;
+  cutoff: string | null | undefined;
+};
+
+/**
+ * Resolves every official cutoff to elapsed minutes after the official
+ * departure. Cutoffs are read in course order: a clock-only cutoff takes its
+ * first occurrence that is not earlier than the previous cutoff, so a 184 km
+ * race starting at 14:00 places "01:00" at J+2 after a "12:00" cutoff on J+1.
+ * An explicit dd/mm date in the organizer wording wins over that inference
+ * when it is consistent with the race date and the previous cutoff.
+ */
+export function resolveOfficialCutoffSchedule(
+  departureClock: string | null | undefined,
+  raceDate: string | null | undefined,
+  cutoffs: readonly OfficialCutoffInput[],
+): Record<string, number> {
+  const departureMinute = clockToMinutes(departureClock);
+  if (departureMinute === null) return {};
+
+  const schedule: Record<string, number> = {};
+  let previous = 0;
+  cutoffs
+    .slice()
+    .sort((left, right) => left.km - right.km)
+    .forEach((entry) => {
+      const parsed = parseOrganizerCutoff(entry.cutoff);
+      if (!parsed) return;
+      const dayOffset = parsed.date ? daysBetweenRaceDateAnd(raceDate, parsed.date) : null;
+      let elapsed: number | null = dayOffset === null
+        ? null
+        : dayOffset * DAY_MINUTES + parsed.minuteOfDay - departureMinute;
+      if (elapsed === null || elapsed <= 0 || elapsed < previous) {
+        elapsed = (parsed.minuteOfDay - departureMinute + DAY_MINUTES) % DAY_MINUTES || DAY_MINUTES;
+        while (elapsed < previous) elapsed += DAY_MINUTES;
+      }
+      schedule[entry.id] = elapsed;
+      previous = elapsed;
+    });
+  return schedule;
+}
+
+/**
+ * Signed difference, in minutes, between a personal departure and the
+ * official departure (e.g. +20 for a later start wave). Clocks more than
+ * twelve hours apart are treated as the closest equivalent.
+ */
+export function resolveDepartureOffsetMinutes(
+  personalDepartureClock: string | null | undefined,
+  officialDepartureClock: string | null | undefined,
+) {
+  const personal = clockToMinutes(personalDepartureClock);
+  const official = clockToMinutes(officialDepartureClock);
+  if (personal === null || official === null) return 0;
+  const difference = (personal - official + DAY_MINUTES) % DAY_MINUTES;
+  return difference > DAY_MINUTES / 2 ? difference - DAY_MINUTES : difference;
+}
+
 /**
  * Compares a plan passage with the cutoff occurrence whose race day is closest
  * to that passage. The organizer contract stores standalone clocks only, so

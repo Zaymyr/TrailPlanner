@@ -158,7 +158,13 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
     >
       {visibleEventImageUrl ? <View style={styles.imageRail}>
           <Image source={{ uri: visibleEventImageUrl }} style={styles.railImage} resizeMode="cover" onError={() => setFailedImageUrl(visibleEventImageUrl)} />
-      </View> : null}
+      </View> : (
+        // Events without an image (or with a broken one) keep the same rail so
+        // every card in the list shares one layout.
+        <View accessible={false} style={[styles.imageRail, styles.imagePlaceholder]} testID="race-event-image-placeholder">
+          <Ionicons color={Colors.brandPrimary} name="trail-sign" size={24} />
+        </View>
+      )}
 
       <View style={styles.cardContent}>
         <View style={styles.header}>
@@ -306,6 +312,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.surfaceSecondary,
     borderRightWidth: 1,
     borderRightColor: Colors.border,
+  },
+  imagePlaceholder: {
+    backgroundColor: Colors.brandSurface,
   },
   railImage: {
     ...StyleSheet.absoluteFillObject,

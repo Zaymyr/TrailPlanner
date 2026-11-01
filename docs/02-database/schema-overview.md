@@ -113,6 +113,8 @@ related_tables:
 
 # Schema Overview
 
+The mobile Courses card (`RaceEventSummaryCard`) now shows a brand-surface placeholder when an event has no usable image; `race_events.thumbnail_url` and format thumbnails keep their meaning and no column is added.
+
 The September 14 security hardening makes Auth `app_metadata` the only database administrator source, protects profile role/trial/sign-in fields from client mutation, confines legacy user-created races to private standalone rows, restricts privileged analytics/trial/cron/maintenance functions to `service_role`, and makes `product_brand_review` obey caller RLS. The September 30 follow-up closes new runner race inserts entirely while preserving administrator and service-mediated organizer authoring.
 
 RaceBook structured organizer content is normalized into `race_edition_services` (edition scope), `race_start_waves` and `race_awards` (format scope). Parent deletion cascades; clients read through RLS and mutate only through service-role replacement RPCs.

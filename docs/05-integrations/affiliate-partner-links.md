@@ -31,6 +31,8 @@ related_tables:
 
 # Affiliate Partner Links
 
+Chronological cutoff resolution, the Courses image placeholder and plan access gating do not change partner links or their tracking.
+
 The race-workspace header toolbar/footer layout (lot 10) does not change partner-link resolution, placement, click tracking, or destinations.
 
 Moving official timing into the shared RaceBook header and removing its duplicate Trace row does not change partner-link resolution, placement, click tracking, or destinations.

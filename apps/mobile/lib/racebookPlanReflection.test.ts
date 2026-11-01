@@ -10,6 +10,9 @@ import {
   normalizeSimpleClock,
   resolveCutoffMinuteAfterDeparture,
   normalizeAidStationNameForReflection,
+  parseOrganizerCutoff,
+  resolveDepartureOffsetMinutes,
+  resolveOfficialCutoffSchedule,
   resolvePersonalAidStationTargetIndex,
 } from './racebookPlanReflection';
 
@@ -163,5 +166,76 @@ describe('resolvePersonalAidStationTargetIndex', () => {
     const checkpoints = [{ id: 'local-col' }];
     expect(resolvePersonalAidStationTargetIndex(checkpoints, 'local-col')).toBe(0);
     expect(resolvePersonalAidStationTargetIndex(checkpoints, 'missing')).toBe(-1);
+  });
+});
+
+describe('parseOrganizerCutoff', () => {
+  it('reads plain clocks, hour notation, noon and midnight', () => {
+    expect(parseOrganizerCutoff('05:00')).toEqual({ minuteOfDay: 300, date: null });
+    expect(parseOrganizerCutoff('5h')).toEqual({ minuteOfDay: 300, date: null });
+    expect(parseOrganizerCutoff('midi')).toEqual({ minuteOfDay: 720, date: null });
+  });
+
+  it('reads a dated organizer sentence and ignores parenthesized durations', () => {
+    expect(parseOrganizerCutoff('dimanche 15/11 à 14h30')).toEqual({ minuteOfDay: 870, date: { day: 15, month: 11 } });
+    expect(parseOrganizerCutoff('minuit, nuit du 14 au 15/11 (barrière publiée au km 45, 12 h de course)'))
+      .toEqual({ minuteOfDay: 0, date: { day: 15, month: 11 } });
+  });
+
+  it('returns null without a clock', () => {
+    expect(parseOrganizerCutoff('matin')).toBeNull();
+    expect(parseOrganizerCutoff(null)).toBeNull();
+  });
+});
+
+describe('resolveOfficialCutoffSchedule', () => {
+  // L'Ultra des Druides: Friday 13/11 at 14:00, 184.7 km.
+  const druides = [
+    { id: 'onlay', km: 66, cutoff: '07:00' },
+    { id: 'glux', km: 89, cutoff: '12:00' },
+    { id: 'athez', km: 133, cutoff: '01:00' },
+    { id: 'roussillon', km: 151, cutoff: '05:00' },
+    { id: 'verriere', km: 167, cutoff: '09:00' },
+    { id: 'saint-prix', km: 173, cutoff: '11:00' },
+    { id: 'finish', km: 186, cutoff: 'dimanche 15/11 à 14h30' },
+  ];
+
+  it('chains clock-only cutoffs in course order across several nights', () => {
+    const schedule = resolveOfficialCutoffSchedule('14:00', '2026-11-13', druides);
+    expect(formatPersonalPassageClock('14:00', schedule.onlay)).toBe('J+1 · 07:00');
+    expect(formatPersonalPassageClock('14:00', schedule.glux)).toBe('J+1 · 12:00');
+    expect(formatPersonalPassageClock('14:00', schedule.athez)).toBe('J+2 · 01:00');
+    expect(formatPersonalPassageClock('14:00', schedule['saint-prix'])).toBe('J+2 · 11:00');
+    expect(formatPersonalPassageClock('14:00', schedule.finish)).toBe('J+2 · 14:30');
+    expect(schedule.finish).toBe(48 * 60 + 30);
+  });
+
+  it('does not depend on input order and skips unreadable cutoffs', () => {
+    const schedule = resolveOfficialCutoffSchedule('14:00', '2026-11-13', [
+      ...druides.slice().reverse(),
+      { id: 'notes', km: 100, cutoff: 'selon conditions' },
+    ]);
+    expect(schedule.athez).toBe(35 * 60);
+    expect(schedule.notes).toBeUndefined();
+  });
+
+  it('falls back to the chain when an explicit date contradicts it', () => {
+    const schedule = resolveOfficialCutoffSchedule('09:00', '2027-09-27', [
+      { id: 'r1', km: 7, cutoff: '10:45' },
+      { id: 'finish', km: 18, cutoff: '13:30' },
+    ]);
+    expect(schedule).toEqual({ r1: 105, finish: 270 });
+  });
+
+  it('returns an empty schedule without a departure clock', () => {
+    expect(resolveOfficialCutoffSchedule(null, '2026-11-13', druides)).toEqual({});
+  });
+});
+
+describe('resolveDepartureOffsetMinutes', () => {
+  it('returns the signed offset of a later or earlier personal departure', () => {
+    expect(resolveDepartureOffsetMinutes('14:20', '14:00')).toBe(20);
+    expect(resolveDepartureOffsetMinutes('23:50', '00:10')).toBe(-20);
+    expect(resolveDepartureOffsetMinutes(null, '14:00')).toBe(0);
   });
 });

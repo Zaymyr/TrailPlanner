@@ -23,6 +23,8 @@ related_tables:
 
 # `race_awards`
 
+Chronological cutoff resolution and plan access gating do not read or change award rows.
+
 The race-workspace header toolbar/footer layout (lot 10) is presentation-only and does not change award rows, visibility, ordering, or the conditional Podiums tab.
 
 The shared RaceBook identity header and finish-cutoff placement are presentation-only and do not change award rows, visibility, ordering, or podium timing.

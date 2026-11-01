@@ -99,11 +99,12 @@ import { createPlanPersistenceSnapshot } from '../../../../lib/planPersistence';
 import {
   estimatePersonalPassageMinute,
   formatPersonalPassageClock,
-  isPersonalPassageAfterCutoff,
   matchPersonalAidStation,
   normalizeSimpleClock,
-  resolveCutoffMinuteAfterDeparture,
+  resolveDepartureOffsetMinutes,
+  resolveOfficialCutoffSchedule,
 } from '../../../../lib/racebookPlanReflection';
+import { resolveRacebookFinishStation } from '../../../../lib/racebookAidStationPresentation';
 import { hasVisibleRacebookSupporterPoints } from '../../../../lib/racebookSupporterPoints';
 import { isPlanSourceRevisionPending } from '../../../../lib/planSourceRevision';
 import { normalizeStoredPlanValues } from '../../../../lib/raceLivePlan';
@@ -119,18 +120,7 @@ import {
 type RacebookTabKey = 'gear' | 'bib' | 'course' | 'access' | 'services';
 type CourseTabKey = 'route' | 'start-waves' | 'aid-stations' | 'supporters' | 'relay' | 'awards';
 
-function resolvePersonalCutoffDisplay(
-  departureClock: string | null | undefined,
-  cutoffClock: string | null | undefined,
-  passageMinute: number,
-) {
-  const normalizedClock = normalizeSimpleClock(cutoffClock);
-  if (!normalizedClock) return cutoffClock?.trim() || null;
-  const cutoffMinute = resolveCutoffMinuteAfterDeparture(departureClock, cutoffClock, passageMinute);
-  return cutoffMinute === null
-    ? normalizedClock
-    : formatPersonalPassageClock(departureClock, cutoffMinute) ?? normalizedClock;
-}
+const OFFICIAL_FINISH_CUTOFF_ID = '__official-finish__';
 
 type LinkedPlanSnapshot = {
   id: string;
@@ -1440,7 +1430,40 @@ export default function RaceRacebookScreen() {
     ?? normalizePlanClock(data?.startWaves[0]?.startTime);
   const officialStartTime = normalizePlanClock(data?.runnerDetails.schedule.startTime)
     ?? normalizePlanClock(data?.startWaves[0]?.startTime);
-  const maximumRaceMinutes = resolveMaximumRaceMinutes(
+  // Official cutoffs are resolved once, in course order, from the official
+  // departure: multi-day clocks such as "01:00" after "12:00" land on J+2.
+  const officialCutoffs = useMemo(() => {
+    if (!data) return { byStationId: {} as Record<string, number>, finishMinute: null as number | null };
+    const finishStation = resolveRacebookFinishStation(data.aidStations);
+    const finishCutoffText = data.runnerDetails.schedule.finishCutoffTime
+      ?? finishStation?.organizerDetails.cutoffTime
+      ?? null;
+    const schedule = resolveOfficialCutoffSchedule(officialStartTime, data.race.raceDate, [
+      ...data.aidStations
+        .filter((station) => station.id !== finishStation?.id)
+        .map((station) => ({
+          id: station.id,
+          km: station.km,
+          cutoff: Math.abs(station.km - data.race.distanceKm) <= 0.2
+            ? finishCutoffText ?? station.organizerDetails.cutoffTime
+            : station.organizerDetails.cutoffTime,
+        })),
+      { id: OFFICIAL_FINISH_CUTOFF_ID, km: Math.max(data.race.distanceKm, finishStation?.km ?? 0), cutoff: finishCutoffText },
+    ]);
+    const { [OFFICIAL_FINISH_CUTOFF_ID]: finishMinute = null, ...byStationId } = schedule;
+    if (finishStation && finishMinute !== null) byStationId[finishStation.id] = finishMinute;
+    return { byStationId, finishMinute };
+  }, [data, officialStartTime]);
+  const officialCutoffDisplayByStationId = useMemo(() => Object.fromEntries(
+    Object.entries(officialCutoffs.byStationId).map(([stationId, minute]) => [
+      stationId,
+      formatPersonalPassageClock(officialStartTime, minute),
+    ]).filter((entry): entry is [string, string] => Boolean(entry[1])),
+  ), [officialCutoffs, officialStartTime]);
+  const officialFinishCutoffDisplay = officialCutoffs.finishMinute === null
+    ? null
+    : formatPersonalPassageClock(officialStartTime, officialCutoffs.finishMinute);
+  const maximumRaceMinutes = officialCutoffs.finishMinute ?? resolveMaximumRaceMinutes(
     officialStartTime,
     data?.runnerDetails.schedule.finishCutoffTime,
   );
@@ -1454,6 +1477,8 @@ export default function RaceRacebookScreen() {
     const departureClock = personalDepartureClock
       ?? normalizePlanClock(data.runnerDetails.schedule.startTime)
       ?? normalizePlanClock(data.startWaves[0]?.startTime);
+    // Passages are relative to the personal departure, cutoffs to the official one.
+    const departureOffset = resolveDepartureOffsetMinutes(departureClock, officialStartTime);
     const result: Record<string, RacebookPersonalAidStationPlan> = {};
     const planCheckpoints = linkedPlan.summary.checkpoints;
     const personalAidStationCheckpoints = planCheckpoints.filter(
@@ -1469,13 +1494,18 @@ export default function RaceRacebookScreen() {
       const stationCutoffTime = Math.abs(station.km - data.race.distanceKm) <= 0.2
         ? data.runnerDetails.schedule.finishCutoffTime ?? station.organizerDetails.cutoffTime
         : station.organizerDetails.cutoffTime;
+      const cutoffMinute = officialCutoffs.byStationId[station.id];
       result[station.id] = {
         passageLabel: t.catalog.racebookExpectedPassage,
         estimatedClock,
         arrivalMinute,
         pauseMinutes: Math.max(0, checkpoint?.pauseMinutes ?? 0),
-        cutoffDisplay: resolvePersonalCutoffDisplay(departureClock, stationCutoffTime, arrivalMinute),
-        isAfterCutoff: isPersonalPassageAfterCutoff(departureClock, arrivalMinute, stationCutoffTime),
+        cutoffDisplay: officialCutoffDisplayByStationId[station.id]
+          ?? normalizeSimpleClock(stationCutoffTime)
+          ?? stationCutoffTime?.trim()
+          ?? null,
+        isAfterCutoff: cutoffMinute !== undefined
+          && Math.round(arrivalMinute) + departureOffset > cutoffMinute,
       };
     });
     const finishCheckpoint = planCheckpoints.find((checkpoint) => checkpoint.isFinish)
@@ -1488,19 +1518,14 @@ export default function RaceRacebookScreen() {
       estimatedClock: formatPersonalPassageClock(departureClock, finishArrivalMinute),
       arrivalMinute: finishArrivalMinute,
       pauseMinutes: 0,
-      cutoffDisplay: resolvePersonalCutoffDisplay(
-        departureClock,
-        data.runnerDetails.schedule.finishCutoffTime,
-        finishArrivalMinute,
-      ),
-      isAfterCutoff: isPersonalPassageAfterCutoff(
-        departureClock,
-        finishArrivalMinute,
-        data.runnerDetails.schedule.finishCutoffTime,
-      ),
+      cutoffDisplay: officialFinishCutoffDisplay
+        ?? normalizeSimpleClock(data.runnerDetails.schedule.finishCutoffTime)
+        ?? data.runnerDetails.schedule.finishCutoffTime,
+      isAfterCutoff: officialCutoffs.finishMinute !== null
+        && Math.round(finishArrivalMinute) + departureOffset > officialCutoffs.finishMinute,
     };
     return { byStationId: result, finish };
-  }, [data, linkedPlan, personalDepartureClock, t.catalog.racebookExpectedPassage]);
+  }, [data, linkedPlan, officialCutoffDisplayByStationId, officialCutoffs, officialFinishCutoffDisplay, officialStartTime, personalDepartureClock, t.catalog.racebookExpectedPassage]);
   const personalPlanByStationId = personalPlanReflection.byStationId;
   const equipmentNotes = [data?.runnerDetails.equipment.note].filter((value): value is string => Boolean(value));
   const brandTheme = useMemo(
@@ -2263,6 +2288,8 @@ export default function RaceRacebookScreen() {
                       setExpandedAidStationId((current) => (current === station.id ? null : station.id));
                     }}
                     personalPlanByStationId={personalPlanByStationId}
+                    officialCutoffDisplayByStationId={officialCutoffDisplayByStationId}
+                    officialFinishCutoffDisplay={officialFinishCutoffDisplay}
                     finishPersonalPlan={personalPlanReflection.finish}
                     onEditPersonalPlanStation={(station) => openLinkedPlanAtStation(station.id)}
                     copy={{
