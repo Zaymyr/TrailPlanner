@@ -120,6 +120,8 @@ RevenueCat writes a provider-scoped `runner_subscription_accounts` row first. It
 
 ## Gotchas
 
+- The Premium sheet's top-right 44-point close action and shared button radius are presentation-only. Closing still cancels the modal; it never grants access, records purchase success or bypasses server verification.
+
 - A plan-scoped mobile paywall may prioritize the course purchase, but provider-returned pricing remains authoritative. The annual offer stays secondary there and primary when no plan scope exists; no CTA or modal state grants access.
 
 - Do not use archived 14-day trial docs.

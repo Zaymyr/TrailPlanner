@@ -109,3 +109,16 @@ export function formatDepartureCountdown(
 
   return copy.inMinutesAndSeconds(minutes, remainingSeconds % 60);
 }
+
+export function selectPrimaryStartPlanId(
+  plans: Pick<PlanRow, 'id' | 'departureAt'>[],
+  nowMs: number,
+  activePlanId: string | null,
+) {
+  const nextPlan = plans
+    .map((plan) => ({ plan, departure: plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN }))
+    .filter(({ departure }) => Number.isFinite(departure) && departure >= nowMs)
+    .sort((left, right) => left.departure - right.departure)[0]?.plan;
+
+  return nextPlan?.id ?? activePlanId;
+}

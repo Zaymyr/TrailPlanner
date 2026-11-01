@@ -308,6 +308,8 @@ erDiagram
 
 ## Gotchas
 
+- The November mobile visual-alignment pass changes sticky catalog chrome, event metadata truncation, card actions and shared control geometry only. It adds no table, column, persisted filter, query scope or RLS path.
+
 - The pinned Courses search/filter controls, native date inputs, and revised format action layout are presentation-only over the existing catalog snapshot. They add no table, column, RLS policy, or persisted filter value.
 - Catalog/RaceBook plan CTAs and the restored contextual workspace switch are mobile presentation/navigation behavior. They do not create, update, or broaden visibility of race, event, sponsor, service, relay, award, wave, favorite, checklist, or update-read rows.
 

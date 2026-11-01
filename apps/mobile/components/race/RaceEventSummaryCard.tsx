@@ -45,7 +45,7 @@ function formatEventDate(isoDate: string | null, locale: 'fr' | 'en'): string | 
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  });
+  }).replace(/ /g, '\u00a0');
 }
 
 function getRaceShortLabel(raceName: string, eventName: string): string {
@@ -102,7 +102,6 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
   const [displayedFavorite, setDisplayedFavorite] = useState(isFavorite);
   const eventImageUrl = getEventImageUrl(event);
   const dateStr = formatEventDate(event.race_date, locale);
-  const headerMeta = [event.location, dateStr].filter(Boolean).join(' • ');
   const distanceRange = getEventDistanceRange(event.races, locale);
   const primaryRace = event.races[0] ?? null;
   const formatsLabel =
@@ -177,7 +176,13 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
               </View>
             ) : null}
           </View>
-          {headerMeta ? <Text style={styles.meta}>{headerMeta}</Text> : null}
+          {event.location || dateStr ? (
+            <View style={styles.metaRow}>
+              {event.location ? <Text numberOfLines={1} style={[styles.meta, styles.location]}>{event.location}</Text> : null}
+              {event.location && dateStr ? <Text style={styles.meta}>•</Text> : null}
+              {dateStr ? <Text numberOfLines={1} style={styles.meta}>{dateStr}</Text> : null}
+            </View>
+          ) : null}
           </View>
           {onToggleFavorite ? (
             <Pressable
@@ -194,7 +199,7 @@ export function RaceEventSummaryCard<T extends RaceEventSummaryRace>({
                 <Ionicons
                   name={displayedFavorite ? 'heart' : 'heart-outline'}
                   size={21}
-                  color={displayedFavorite ? Colors.textOnBrand : Colors.brandPrimary}
+                  color={Colors.brandPrimary}
                 />
               </Animated.View>
             </Pressable>
@@ -285,6 +290,16 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.textSecondary,
   },
+  metaRow: {
+    minWidth: 0,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  location: {
+    flex: 1,
+    minWidth: 0,
+  },
   imageRail: {
     width: 58,
     alignSelf: 'stretch',
@@ -304,13 +319,10 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.brandSurface,
-    borderWidth: 1,
-    borderColor: Colors.brandBorder,
+    backgroundColor: 'transparent',
   },
   favoriteButtonActive: {
-    backgroundColor: Colors.brandPrimary,
-    borderColor: Colors.brandPrimary,
+    backgroundColor: 'transparent',
   },
   summaryRow: {
     flexDirection: 'row',

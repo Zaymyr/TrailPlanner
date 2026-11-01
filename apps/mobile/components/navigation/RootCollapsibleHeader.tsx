@@ -5,7 +5,7 @@ import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { Text } from '../themed/Text';
 
-export const ROOT_HEADER_EXPANDED_BODY_HEIGHT = 112;
+export const ROOT_HEADER_EXPANDED_BODY_HEIGHT = 76;
 export const ROOT_HEADER_COMPACT_BODY_HEIGHT = 60;
 
 type HeaderAction = {
@@ -45,12 +45,6 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
     outputRange: [0, 1],
     extrapolate: 'clamp',
   });
-  const bottomRadius = scrollY.interpolate({
-    inputRange: [0, collapseDistance],
-    outputRange: [22, 0],
-    extrapolate: 'clamp',
-  });
-
   useEffect(() => {
     const listenerId = scrollY.addListener(({ value }) => {
       setCompact(value >= collapseDistance * 0.72);
@@ -62,11 +56,7 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
     <Animated.View
       style={[
         styles.header,
-        {
-          height,
-          borderBottomLeftRadius: bottomRadius,
-          borderBottomRightRadius: bottomRadius,
-        },
+        { height },
       ]}
     >
       <Animated.View
@@ -80,7 +70,13 @@ export function RootCollapsibleHeader({ action, helpAction, icon, scrollY, title
             <Ionicons color={Colors.textOnBrand} name={icon} size={24} />
           </View>
         )}
-        <Text accessibilityRole="header" numberOfLines={2} style={styles.expandedTitle}>
+        <Text
+          accessibilityRole="header"
+          adjustsFontSizeToFit
+          minimumFontScale={0.72}
+          numberOfLines={1}
+          style={styles.expandedTitle}
+        >
           {title}
         </Text>
       </Animated.View>
@@ -138,6 +134,8 @@ const styles = StyleSheet.create({
     right: 0,
     overflow: 'hidden',
     backgroundColor: Colors.brandPrimary,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
     shadowColor: '#1A1A1A',
     shadowOpacity: 0.16,
     shadowRadius: 14,
@@ -146,27 +144,27 @@ const styles = StyleSheet.create({
   },
   expandedContent: {
     position: 'absolute',
-    left: 20,
-    right: 68,
-    height: ROOT_HEADER_EXPANDED_BODY_HEIGHT,
+    left: 16,
+    right: 72,
+    height: ROOT_HEADER_COMPACT_BODY_HEIGHT,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 13,
+    gap: 12,
   },
   iconSurface: {
-    width: 46,
-    height: 46,
+    width: 44,
+    height: 44,
     flexShrink: 0,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 23,
+    borderRadius: 22,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.34)',
     backgroundColor: 'rgba(0,0,0,0.16)',
   },
   leadingActionSpacer: {
-    width: 46,
-    height: 46,
+    width: 44,
+    height: 44,
     flexShrink: 0,
   },
   expandedTitle: {
@@ -178,8 +176,8 @@ const styles = StyleSheet.create({
   },
   compactContent: {
     position: 'absolute',
-    left: 18,
-    right: 68,
+    left: 16,
+    right: 72,
     height: ROOT_HEADER_COMPACT_BODY_HEIGHT,
     justifyContent: 'center',
   },
@@ -190,19 +188,19 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   compactContentWithLeadingAction: {
-    left: 68,
+    left: 72,
   },
   helpAction: {
     position: 'absolute',
     zIndex: 5,
-    left: 12,
+    left: 16,
     width: 44,
     height: 44,
   },
   action: {
     position: 'absolute',
     zIndex: 4,
-    right: 12,
+    right: 16,
     width: 44,
     height: 44,
     alignItems: 'center',

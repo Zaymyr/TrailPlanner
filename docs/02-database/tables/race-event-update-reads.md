@@ -42,6 +42,8 @@ related_tables:
 
 ## Gotchas
 
+- Making the Courses sticky search surface opaque and aligning it to the shared gutter does not display an organizer message and must not create a read receipt.
+
 - Keeping Courses search and filters visible below the compact header, including native date filters, does not display an announcement or create a read receipt.
 - The catalog's plan create/refine CTA and the RaceBook workspace switch do not create a read receipt. A receipt remains tied only to an identified runner actually displaying the applicable organizer update.
 

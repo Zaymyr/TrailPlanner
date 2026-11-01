@@ -5,6 +5,7 @@ import type {
   WindowsNativeProps,
 } from '@react-native-community/datetimepicker';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { mobileComponents } from '@pace-yourself/design-system';
 import {
   Component,
   type ComponentType,
@@ -162,22 +163,24 @@ export function DatePickerField({
 
 const styles = StyleSheet.create({
   fieldRow: {
+    minHeight: mobileComponents.input.minHeight,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    borderRadius: mobileComponents.input.borderRadius,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    backgroundColor: Colors.surface,
+    overflow: 'hidden',
   },
   field: {
     flex: 1,
-    minHeight: 48,
+    minHeight: mobileComponents.input.minHeight,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surface,
-    paddingHorizontal: 14,
+    paddingLeft: mobileComponents.input.paddingHorizontal,
+    paddingRight: 8,
     paddingVertical: 12,
   },
   clearButton: {
@@ -185,10 +188,7 @@ const styles = StyleSheet.create({
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
+    backgroundColor: Colors.surface,
   },
   value: {
     flex: 1,

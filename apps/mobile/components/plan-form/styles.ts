@@ -1,3 +1,4 @@
+import { mobileComponents } from '@pace-yourself/design-system';
 import { StyleSheet } from 'react-native';
 import { Colors } from '../../constants/colors';
 
@@ -237,15 +238,30 @@ export const styles = StyleSheet.create({
   rowItem: { flex: 1 },
   toggleRow: {
     flexDirection: 'row',
+    gap: mobileComponents.segmentedControl.gap,
     backgroundColor: Colors.surfaceSecondary,
-    borderRadius: 10,
+    borderRadius: mobileComponents.segmentedControl.borderRadius,
     borderWidth: 1,
     borderColor: Colors.border,
-    padding: 4,
+    padding: mobileComponents.segmentedControl.padding,
     marginBottom: 12,
   },
-  toggleBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
-  toggleBtnActive: { backgroundColor: Colors.surface },
+  toggleBtn: {
+    flex: 1,
+    minHeight: mobileComponents.segment.minHeight,
+    paddingHorizontal: mobileComponents.segment.paddingHorizontal,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: mobileComponents.segment.borderRadius,
+  },
+  toggleBtnActive: {
+    backgroundColor: Colors.surface,
+    shadowColor: '#1A1A1A',
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
   toggleBtnText: { color: Colors.textMuted, fontSize: 14, fontWeight: '600' },
   toggleBtnTextActive: { color: Colors.textPrimary, fontWeight: '600' },
   fatigueSliderWrap: {
@@ -388,10 +404,10 @@ export const styles = StyleSheet.create({
     gap: 6,
   },
   fillBtn: {
-    minHeight: 38,
+    minHeight: 48,
     paddingHorizontal: 14,
     paddingVertical: 9,
-    borderRadius: 999,
+    borderRadius: mobileComponents.buttonRadius,
     borderWidth: 1,
     borderColor: Colors.brandPrimary,
     backgroundColor: Colors.brandPrimary,
@@ -811,7 +827,7 @@ export const styles = StyleSheet.create({
   editModalContent: { padding: 24 },
   editModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   editModalTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  editModalCloseButton: { width: 44, height: 44, borderRadius: 22 },
+  editModalCloseButton: { width: mobileComponents.closeButtonSize, height: mobileComponents.closeButtonSize, borderRadius: mobileComponents.closeButtonSize / 2 },
   stationServiceOptions: {
     flexDirection: 'row',
     gap: 8,
@@ -1033,7 +1049,7 @@ export const styles = StyleSheet.create({
   pickerSheet: { backgroundColor: Colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40, maxHeight: '80%' },
   pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   pickerTitle: { fontSize: 17, fontWeight: '700', color: Colors.textPrimary },
-  pickerCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: Colors.surfaceSecondary, justifyContent: 'center', alignItems: 'center' },
+  pickerCloseBtn: { width: mobileComponents.closeButtonSize, height: mobileComponents.closeButtonSize, borderRadius: mobileComponents.closeButtonSize / 2, backgroundColor: Colors.surfaceSecondary, justifyContent: 'center', alignItems: 'center' },
   pickerCloseText: { color: Colors.textSecondary, fontSize: 14, fontWeight: '700' },
   autoFillLimitsSheet: {
     backgroundColor: Colors.surface,

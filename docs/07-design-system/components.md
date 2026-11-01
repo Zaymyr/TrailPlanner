@@ -15,6 +15,7 @@ related_files:
   - apps/mobile/components/themed/ErrorState.tsx
   - apps/mobile/components/themed/EmptyState.tsx
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
+  - packages/design-system/src/tokens/mobile-components.ts
 related_tables: []
 ---
 
@@ -115,12 +116,19 @@ description, optional illustration, and optional primary action. Screen-level
 callers own all visible strings so they can use the locale files.
 
 `RootCollapsibleHeader` is the shared header for the four primary mobile tabs.
-It uses the forest brand surface, respects the native top inset, progressively
-contracts from a 112-point body to a 60-point sticky body, and reserves 44-point
-leading and trailing targets. The leading target hosts the shared root help menu
-in expanded and compact modes; the trailing target is optional and stays limited
-to one essential screen action. Scrolling content owns the `Animated.Value` and
-begins below the expanded height.
+It uses the forest brand surface, respects the native top inset, and progressively
+contracts from a 76-point body to a 60-point sticky body. Both states keep one
+horizontal row: a 44-point leading target at the 16-point gutter, a title whose
+left edge does not move during collapse, and an optional matching trailing target.
+The large title shrinks to fit one line, the lower corner shape remains stable,
+and scrolling content begins below the expanded height.
+
+Shared React Native geometry comes from `mobileComponents`. Filter chips use the
+same selected/unselected structure across Courses and Nutrition; Profile and plan
+workspace selectors use the same segmented-control geometry; input shells keep
+one surface/border/radius with units or clear actions inside; modal dismiss actions
+use a labelled 44-point circular close; primary and secondary buttons share one
+radius. Screen-specific components own copy, state, color roles and behavior.
 
 ## Gotchas
 
@@ -132,6 +140,7 @@ begins below the expanded height.
 - Since `cn` does not merge conflicting Tailwind utilities, route-specific dialogs that replace the primitive's default `grid` layout must use an explicit priority modifier such as `!flex`; otherwise constrained inner scroll regions can be clipped.
 - Do not create a local loading, error, or empty state when a themed state can
   express the screen; pass localized labels and preserve the shared retry CTA.
+- Use `DataText` only for comparable numeric values. Counts or statuses containing words use the normal themed `Text` component.
 
 ## Related Docs
 

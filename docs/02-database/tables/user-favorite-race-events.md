@@ -100,6 +100,8 @@ where event_id = '<event-id>';
 
 ## Gotchas
 
+- Rendering the event heart as a transparent secondary 44-point action changes visual weight only. Optimistic state, guest prompting, server confirmation, pinning and mutation analytics remain unchanged.
+
 - Sticky search/filter presentation and native date entry filter the already-loaded catalog only; they do not create, delete, reorder, or rescope favorite rows.
 - Showing `Ouvrir mon plan` for an existing owned format neither reads nor writes favorites. Clearing search and hiding an empty image rail are also local presentation only. The existing heart remains the only favorite mutation surface.
 

@@ -57,7 +57,7 @@ export const fr: MobileTranslations = {
     unfinishedPlanBody: 'Reviens finaliser {name} et ajouter tes ravitos.',
   },
   plans: {
-    title: 'Mes plans',
+    title: 'Plans',
     empty: 'Aucun plan pour le moment',
     emptySubtitle: 'Crée ton premier plan de course et évite la fringale.',
     browseRaces: 'Choisir une course',

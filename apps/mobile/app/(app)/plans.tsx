@@ -1,6 +1,7 @@
-import { useRef } from 'react';
+import { useCallback, useRef } from 'react';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { colors } from '@pace-yourself/design-system';
+import { useFocusEffect } from 'expo-router';
 import { Animated, StyleSheet, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -23,6 +24,10 @@ import { FREE_PLAN_LIMIT } from '../../lib/planAccess';
 export default function PlansScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
+  useFocusEffect(useCallback(() => {
+    scrollY.stopAnimation();
+    scrollY.setValue(0);
+  }, [scrollY]));
   const {
     locale,
     t,

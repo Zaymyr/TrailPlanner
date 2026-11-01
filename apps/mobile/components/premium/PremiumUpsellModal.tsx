@@ -13,6 +13,7 @@ import {
 import { Text } from '../themed/Text';
 import Constants from 'expo-constants';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { mobileComponents } from '@pace-yourself/design-system';
 import { Colors } from '../../constants/colors';
 import { useRevenueCatBilling } from '../../hooks/useRevenueCatBilling';
 import { useI18n } from '../../lib/i18n';
@@ -203,6 +204,15 @@ function PremiumUpsellModalContent({
       <View style={styles.modalWrapper}>
         <Pressable style={styles.modalOverlay} onPress={onClose} />
         <View accessibilityViewIsModal style={styles.modalSheet}>
+          <TouchableOpacity
+            accessibilityLabel={t.common.close}
+            accessibilityRole="button"
+            disabled={actionBusy}
+            onPress={onClose}
+            style={styles.closeButton}
+          >
+            <Ionicons name="close" size={20} color={Colors.textSecondary} />
+          </TouchableOpacity>
           <View style={styles.iconWrap}>
             <Ionicons name="lock-closed" size={20} color={Colors.warning} />
           </View>
@@ -318,6 +328,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(15, 23, 42, 0.35)',
   },
   modalSheet: {
+    position: 'relative',
     backgroundColor: Colors.surface,
     borderRadius: 24,
     borderWidth: 1,
@@ -335,6 +346,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: 14,
     alignSelf: 'center',
+  },
+  closeButton: {
+    position: 'absolute',
+    zIndex: 2,
+    top: 12,
+    right: 12,
+    width: mobileComponents.closeButtonSize,
+    height: mobileComponents.closeButtonSize,
+    borderRadius: mobileComponents.closeButtonSize / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.surfaceSecondary,
   },
   modalTitle: {
     color: Colors.textPrimary,
@@ -395,7 +418,7 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     backgroundColor: Colors.brandPrimary,
-    borderRadius: 16,
+    borderRadius: mobileComponents.buttonRadius,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 50,
@@ -408,7 +431,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '800',
   },
-  courseButton: { marginTop: 10, minHeight: 46, borderRadius: 14, borderWidth: 1, borderColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
+  courseButton: { marginTop: 10, minHeight: 48, borderRadius: mobileComponents.buttonRadius, borderWidth: 1, borderColor: Colors.brandPrimary, alignItems: 'center', justifyContent: 'center' },
   courseButtonText: { color: Colors.brandPrimary, fontSize: 14, fontWeight: '800' },
   legalButtonsRow: {
     flexDirection: 'row',
@@ -418,7 +441,7 @@ const styles = StyleSheet.create({
   legalButton: {
     flex: 1,
     minHeight: 44,
-    borderRadius: 14,
+    borderRadius: mobileComponents.buttonRadius,
     borderWidth: 1,
     borderColor: Colors.border,
     backgroundColor: Colors.surfaceSecondary,

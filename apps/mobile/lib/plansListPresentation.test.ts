@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { formatDepartureCountdown, isPlanDeparturePast, sortPlanSections } from './plansListPresentation';
+import { formatDepartureCountdown, isPlanDeparturePast, selectPrimaryStartPlanId, sortPlanSections } from './plansListPresentation';
 import type { PlanRow, RaceSection } from '../components/plans/types';
 
 const nowMs = Date.parse('2026-11-01T10:00:00Z');
@@ -71,5 +71,21 @@ describe('plans list presentation', () => {
     expect(formatDepartureCountdown('2026-11-02T07:04:00Z', nowMs, countdownCopy)).toBe('in 21 h 4 min');
     expect(formatDepartureCountdown('2026-11-01T10:04:44Z', nowMs, countdownCopy)).toBe('in 4 min 44 sec');
     expect(formatDepartureCountdown('2026-10-31T10:00:00Z', nowMs, countdownCopy)).toBe('Started');
+  });
+
+  it('selects the nearest future plan for the primary start action', () => {
+    expect(selectPrimaryStartPlanId([
+      plan('undated', null),
+      plan('later', '2026-11-03T10:00:00Z'),
+      plan('nearer', '2026-11-02T10:00:00Z'),
+      plan('past', '2026-10-31T10:00:00Z'),
+    ], nowMs, null)).toBe('nearer');
+  });
+
+  it('falls back to the active plan when no future departure is known', () => {
+    expect(selectPrimaryStartPlanId([
+      plan('undated', null),
+      plan('past', '2026-10-31T10:00:00Z'),
+    ], nowMs, 'active')).toBe('active');
   });
 });

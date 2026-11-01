@@ -61,6 +61,10 @@ The repository skill `$mobile-ux-ui-auditor` turns this workflow into a dedicate
 11. For a linked plan, confirm official distance, elevation, station identity and services are read-only while pause and section pace remain editable. Repeat on a “Sans course” plan and confirm full course/station editing remains available.
 12. Exercise auto-fill with all favorites selected, one excluded product, an unlimited selected product and a capped selected product. Confirm preview is unavailable with no selection and shortage copy names carbohydrates and sodium.
 13. Open a previously verified plan offline and confirm cached access is reused. Open a never-verified plan with the access API unavailable and confirm the retry state appears instead of the paywall. Deploy compatible web routes before publishing any dependent OTA.
+14. For each root tab, capture the 76-point expanded and 60-point compact header. Confirm the 16-point action gutters, fixed title left edge, stable lower corners and header accessibility role at normal and 130% text size.
+15. Return from a plan detail to Plans and confirm the visual header state matches the real list offset. In the plan editor, confirm matching back/help controls and visible first content on a 6.1-inch viewport.
+16. Compare first-level content edges across Courses, Plans, Nutrition and Profile; cards, section titles and selectors must use the same 16-point gutter. Confirm sticky Courses search is fully opaque.
+17. Compare filter chips, segmented selectors, profile inputs, modal closes and primary/secondary buttons across the same journey. Verify event locations truncate before the protected date and sans/mono typography follows the documented value rule.
 
 ## Visual Review Rubric
 
