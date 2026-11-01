@@ -3,6 +3,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 import { Text } from '../themed/Text';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Colors } from '../../constants/colors';
+import { DatePickerField } from '../inputs/DatePickerField';
 
 type ProfilePersonalSectionProps = {
   title: string;
@@ -12,16 +13,23 @@ type ProfilePersonalSectionProps = {
   birthDateLabel: string;
   birthDatePlaceholder: string;
   birthDateHelpText: string;
+  birthDateClearLabel: string;
+  birthDateError?: string | null;
   weightLabel: string;
   weightPlaceholder: string;
   heightLabel: string;
   heightPlaceholder: string;
+  heightError?: string | null;
+  locale: string;
+  datePickerUnavailableMessage: string;
   fullName: string;
-  birthDateInput: string;
+  birthDateInput: Date | null;
   weightKg: string;
+  weightError?: string | null;
   heightCm: string;
   onChangeFullName: (value: string) => void;
-  onChangeBirthDate: (value: string) => void;
+  onChangeBirthDate: (value: Date) => void;
+  onClearBirthDate: () => void;
   onChangeWeightKg: (value: string) => void;
   onChangeHeightCm: (value: string) => void;
 };
@@ -34,16 +42,23 @@ function ProfilePersonalSectionComponent({
   birthDateLabel,
   birthDatePlaceholder,
   birthDateHelpText,
+  birthDateClearLabel,
+  birthDateError,
   weightLabel,
   weightPlaceholder,
   heightLabel,
   heightPlaceholder,
+  heightError,
+  locale,
+  datePickerUnavailableMessage,
   fullName,
   birthDateInput,
   weightKg,
+  weightError,
   heightCm,
   onChangeFullName,
   onChangeBirthDate,
+  onClearBirthDate,
   onChangeWeightKg,
   onChangeHeightCm,
 }: ProfilePersonalSectionProps) {
@@ -74,16 +89,18 @@ function ProfilePersonalSectionComponent({
 
       <View style={styles.fieldGroup}>
         <Text style={styles.label}>{birthDateLabel}</Text>
-        <TextInput
-          style={styles.textInput}
-          value={birthDateInput}
-          onChangeText={onChangeBirthDate}
+        <DatePickerField
+          accessibilityLabel={birthDateLabel}
+          clearLabel={birthDateClearLabel}
+          locale={locale}
+          maximumDate={new Date()}
+          onChange={onChangeBirthDate}
+          onClear={onClearBirthDate}
           placeholder={birthDatePlaceholder}
-          placeholderTextColor={Colors.textMuted}
-          keyboardType="number-pad"
-          inputAccessoryViewID="pace-yourself-numeric-keyboard"
-          maxLength={10}
+          unavailableMessage={datePickerUnavailableMessage}
+          value={birthDateInput}
         />
+        {birthDateError ? <Text style={styles.fieldError}>{birthDateError}</Text> : null}
         <Text style={styles.helperText}>{birthDateHelpText}</Text>
       </View>
 
@@ -103,6 +120,7 @@ function ProfilePersonalSectionComponent({
             />
             <Text style={styles.metricInputUnit}>kg</Text>
           </View>
+          {weightError ? <Text style={styles.fieldError}>{weightError}</Text> : null}
         </View>
 
         <View style={styles.bodyMetricField}>
@@ -120,6 +138,7 @@ function ProfilePersonalSectionComponent({
             />
             <Text style={styles.metricInputUnit}>cm</Text>
           </View>
+          {heightError ? <Text style={styles.fieldError}>{heightError}</Text> : null}
         </View>
       </View>
     </View>
@@ -195,6 +214,12 @@ const styles = StyleSheet.create({
   helperText: {
     color: Colors.textMuted,
     fontSize: 13,
+    marginTop: 6,
+  },
+  fieldError: {
+    color: Colors.danger,
+    fontSize: 12,
+    lineHeight: 17,
     marginTop: 6,
   },
   bodyMetricsRow: {

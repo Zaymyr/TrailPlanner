@@ -1,7 +1,7 @@
 ---
 title: Architecture Overview
 scope: architecture
-last_verified: 2026-09-23
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - package.json
@@ -71,6 +71,7 @@ The mobile app is an Expo Router app:
 - Apple auth nonce helper: `expo-crypto ~15.0.8`
 - Native billing dependency: `react-native-purchases ^9.15.1`
 - Native analytics dependency: `posthog-react-native ^4.45.0`
+- Native date dependency: `@react-native-community/datetimepicker 8.4.4`; date UI requires a rebuilt EAS binary and cannot be added to an existing runtime by OTA alone.
 - Google native sign-in stays Android-only; iOS uses browser OAuth and does not register the Google Sign-In Expo config plugin.
 
 ## Monorepo Structure
@@ -110,8 +111,11 @@ The mobile app is configured for EAS in `apps/mobile/eas.json`:
 - `e2e-test`: Android APK and iOS Simulator binaries for the authenticated Maestro UX audit
 - `production`: Android app bundle, iOS Release build, remote app version source
 - Android production submission: completed release to the Google Play `production` track
+- Store-candidate submission: Android internal-track draft plus iOS App Store Connect/TestFlight upload
 
 `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform quality-gate target. It builds the `e2e-test` binaries and runs the same Maestro journey against Android and iOS, with recordings and screenshot artifacts for human visual review. Its hosted Maestro jobs require a compatible paid Expo plan; the current project plan supports keeping and reviewing the configuration but rejects execution of those jobs.
+
+Merged `main` commits start the native store-candidate workflow but pause before building until an EAS approval is granted. Public Android rollout is a separate protected GitHub dispatch that validates the approved commit and EAS build metadata; iOS public review and release remain controlled in App Store Connect.
 
 Supabase provides:
 

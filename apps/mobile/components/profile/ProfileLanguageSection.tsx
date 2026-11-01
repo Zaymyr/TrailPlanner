@@ -7,24 +7,16 @@ import type { Locale } from '../../locales/types';
 type ProfileLanguageSectionProps = {
   languageEnLabel: string;
   languageFrLabel: string;
-  onOpenPrivacyPolicy: () => void;
-  onOpenTermsOfUse: () => void;
   onSelectLocale: (locale: Locale) => void;
-  privacyPolicyLabel: string;
   selectedLocale: Locale;
-  termsOfUseLabel: string;
   title: string;
 };
 
 function ProfileLanguageSectionComponent({
   languageEnLabel,
   languageFrLabel,
-  onOpenPrivacyPolicy,
-  onOpenTermsOfUse,
   onSelectLocale,
-  privacyPolicyLabel,
   selectedLocale,
-  termsOfUseLabel,
   title,
 }: ProfileLanguageSectionProps) {
   return (
@@ -48,16 +40,6 @@ function ProfileLanguageSectionComponent({
           <Text style={[styles.languageButtonText, selectedLocale === 'en' && styles.languageButtonTextActive]}>
             EN {languageEnLabel}
           </Text>
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.legalButtonsRow}>
-        <TouchableOpacity style={styles.secondaryButton} onPress={onOpenPrivacyPolicy}>
-          <Text style={styles.secondaryButtonText}>{privacyPolicyLabel}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.secondaryButton} onPress={onOpenTermsOfUse}>
-          <Text style={styles.secondaryButtonText}>{termsOfUseLabel}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -106,26 +88,5 @@ const styles = StyleSheet.create({
   },
   languageButtonTextActive: {
     color: Colors.brandPrimary,
-  },
-  secondaryButton: {
-    flex: 1,
-    minHeight: 44,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    backgroundColor: Colors.surfaceSecondary,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 16,
-  },
-  secondaryButtonText: {
-    color: Colors.textPrimary,
-    fontSize: 14,
-    fontWeight: '700',
-    textAlign: 'center',
-  },
-  legalButtonsRow: {
-    flexDirection: 'row',
-    gap: 10,
   },
 });

@@ -1,7 +1,7 @@
 ---
 title: Nutrition Algorithm
 scope: business-rule
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - apps/web/lib/nutrition-planner.ts
@@ -95,7 +95,7 @@ This document describes how Pace Yourself allocates products to segment nutritio
 - Aid station services: `waterRefill` controls water refill availability, `solidRefill` records official solid ravito availability, and `assistanceAllowed` controls whether the runner's crew can hand over personal/favorite products.
 - Organizer station product: product proposed by the race organization for one source ravito.
 - Organizer supply source: selected official ravito products are stored in plan supplies with `source: "organizer"` so they remain available at that ravito even when crew assistance is not allowed.
-- Mobile catalog grouping: an explicit product brand or a recognized brand token creates a collapsible brand group; an unrecognized product name falls back to `Autres marques` / `Other brands` instead of being presented as a brand itself. This is presentation-only and does not alter product nutrition values or favorite ownership.
+- Mobile catalog grouping: an explicit product brand or a recognized brand token creates a collapsible brand group in the unfiltered `Tous` / `All` view; an unrecognized product name falls back to `Autres marques` / `Other brands` instead of being presented as a brand itself. Search or a non-All type filter switches to flat product rows with the brand as subtitle. Brands containing an official product receive a localized textual verified badge rather than color-only status. This is presentation-only and does not alter product nutrition values or favorite ownership.
 - Mobile custom-product creation uses one scrollable brand combobox populated from the loaded catalog's explicit brands. Each typed character filters the visible options, selecting a suggestion reuses its spelling, and unmatched non-empty text is submitted as a new free-form `products.brand` value.
 
 ## Inputs

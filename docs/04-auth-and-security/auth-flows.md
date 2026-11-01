@@ -1,7 +1,7 @@
 ---
 title: Auth Flows
 scope: auth
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - apps/web/app/sign-in/page.tsx
@@ -105,6 +105,7 @@ The password-login inputs and submit action expose stable `auth-login-*` test id
 Login uses the same scrollable keyboard-avoidance layout as signup, so account actions remain reachable when the iOS keyboard is open or Dynamic Type enlarges the form. Its content starts near the top instead of vertically centering a long guest notice, and the social-auth separator is localized.
 The session shell resolves required onboarding before navigation; otherwise it opens the Courses catalog directly and does not preload the Plans screen.
 The Profile root may retry its own `getSession()` plus `user_profiles` bootstrap after a recoverable read failure. That retry reuses the existing session and does not create a second auth listener, navigation gate, guest conversion, or onboarding lifecycle.
+Profile dirty-state retention, its single save dock, and native birth-date entry remain local form presentation. Changing Profile sub-tabs or root tabs does not write, discard, or create a session; only the existing explicit save path persists the normalized ISO date and validated fields.
 
 Non-auth onboarding steps, such as the extracted race/catalog and nutrition-product presentation components, must not add separate session side effects; their callbacks remain owned by the onboarding route, while session, analytics identity, push registration, and Resend sync behavior stay in `_layout.tsx` or the existing dedicated helpers.
 The onboarding race chooser inner-filters event formats to `races.is_live = true`. This visibility filter is catalog behavior only and must not add a new authentication/session side effect.

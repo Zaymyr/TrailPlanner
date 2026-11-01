@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
+  BackHandler,
   Pressable,
   StyleSheet,
   TouchableOpacity,
@@ -37,6 +38,17 @@ export function FloatingActionMenu({
   style,
 }: FloatingActionMenuProps) {
   const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      setOpen(false);
+      return true;
+    });
+
+    return () => subscription.remove();
+  }, [open]);
 
   if (actions.length === 0) return null;
 

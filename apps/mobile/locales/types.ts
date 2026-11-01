@@ -11,6 +11,7 @@ export type MobileTranslations = {
     confirm: string;
     close: string;
     retry: string;
+    datePickerUnavailable: string;
     loading: string;
     error: string;
     back: string;
@@ -62,6 +63,13 @@ export type MobileTranslations = {
     browseRaces: string;
     noRace: string;
     noRaceWarning: string;
+    pastRaces: string;
+    departureLabel: string;
+    departureNotSet: string;
+    departurePassed: string;
+    departureInDays: string;
+    departureInHoursAndMinutes: string;
+    departureInMinutesAndSeconds: string;
     deleteTitle: string;
     deleteMessage: string;
     newPlan: string;
@@ -314,6 +322,7 @@ export type MobileTranslations = {
     firstNameLabel: string;
     namePlaceholder: string;
     birthDateLabel: string;
+    birthDateClear: string;
     birthDatePlaceholder: string;
     birthDateHelp: string;
     birthDateInvalid: string;
@@ -343,6 +352,11 @@ export type MobileTranslations = {
     subscriptionRenewsOn: string;
     adminGrantReason: string;
     adminGrantReasonFallback: string;
+    adminGrantReasonTrialExtension: string;
+    adminGrantReasonSupport: string;
+    adminGrantReasonMarketing: string;
+    adminGrantReasonPartner: string;
+    adminGrantReasonOther: string;
     adminGrantDaysRemaining: string;
     upgradeCta: string;
     upgradeCtaWithPrice: string;
@@ -588,6 +602,7 @@ export type MobileTranslations = {
     minDate: string;
     maxDate: string;
     dateHint: string;
+    clearDate: string;
     reset: string;
     apply: string;
     myRaces: string;
@@ -735,6 +750,7 @@ export type MobileTranslations = {
     favoriteLimitMessage: string;
     createProductPremiumHint: string;
     otherBrandsLabel: string;
+    verifiedLabel: string;
     loadError: string;
     emptyCatalogTitle: string;
     emptyCatalogDescription: string;
@@ -744,6 +760,19 @@ export type MobileTranslations = {
     selectRaceSubtitle: string;
     selectRaceCta: string;
     elevationMissing: string;
+  };
+  rootActionMenu: {
+    triggerLabel: string;
+    dismissLabel: string;
+    helpLabel: string;
+    feedbackLabel: string;
+    raceRequestLabel: string;
+    catalogHelpTitle: string;
+    catalogHelpBody: string;
+    plansHelpTitle: string;
+    plansHelpBody: string;
+    nutritionHelpTitle: string;
+    nutritionHelpBody: string;
   };
   feedback: {
     triggerLabel: string;

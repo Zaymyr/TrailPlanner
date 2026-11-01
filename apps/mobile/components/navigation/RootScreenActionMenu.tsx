@@ -1,16 +1,23 @@
-import { Alert } from 'react-native';
+import { useState } from 'react';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import {
+  Alert,
+  Modal,
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
-import { FeedbackHeaderButton } from '../feedback/FeedbackHeaderButton';
-import { RaceRequestHeaderButton } from '../race/RaceRequestHeaderButton';
-import { useI18n } from '../../lib/i18n';
+import { Colors } from '../../constants/colors';
 import {
   emitHelpTutorialRequest,
   type HelpTutorialScreenKey,
 } from '../../lib/helpTutorial';
-import {
-  FloatingActionMenu,
-  type FloatingActionMenuItem,
-} from './FloatingActionMenu';
+import { useI18n } from '../../lib/i18n';
+import { FeedbackHeaderButton } from '../feedback/FeedbackHeaderButton';
+import { RaceRequestHeaderButton } from '../race/RaceRequestHeaderButton';
+import { Text } from '../themed/Text';
 
 type RootScreenHelp =
   | {
@@ -24,24 +31,29 @@ type RootScreenHelp =
     };
 
 type RootScreenActionMenuProps = {
-  actions?: FloatingActionMenuItem[];
   contextLabel: string;
   help: RootScreenHelp;
-  includeRaceRequest?: boolean;
+  topInset: number;
 };
 
-export function RootScreenActionMenu({
-  actions = [],
-  contextLabel,
+type MenuContentProps = RootScreenActionMenuProps & {
+  openFeedback: () => void;
+  openRaceRequest: () => void;
+};
+
+function MenuContent({
   help,
-  includeRaceRequest = false,
-}: RootScreenActionMenuProps) {
-  const { locale } = useI18n();
-  const helpLabel = locale === 'fr' ? 'Aide' : 'Help';
-  const feedbackLabel = locale === 'fr' ? 'Bug / feedback' : 'Bug / feedback';
-  const openLabel = locale === 'fr' ? 'Ouvrir les actions' : 'Open actions';
-  const closeLabel = locale === 'fr' ? 'Fermer les actions' : 'Close actions';
-  const raceRequestLabel = locale === 'fr' ? 'Demander une course' : 'Request a race';
+  openFeedback,
+  openRaceRequest,
+  topInset,
+}: MenuContentProps) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+
+  const closeThen = (action: () => void) => {
+    setOpen(false);
+    action();
+  };
 
   const handleHelpPress = () => {
     if (help.type === 'tutorial') {
@@ -52,64 +64,145 @@ export function RootScreenActionMenu({
     Alert.alert(help.title, help.body);
   };
 
-  const buildActions = (
-    openFeedback: () => void,
-    openRaceRequest?: () => void,
-  ): FloatingActionMenuItem[] => [
-    {
-      key: 'help',
-      label: helpLabel,
-      icon: 'help-circle-outline',
-      onPress: handleHelpPress,
-    },
-    ...actions,
-    ...(includeRaceRequest && openRaceRequest
-      ? [
-          {
-            key: 'race-request',
-            label: raceRequestLabel,
-            icon: 'paper-plane-outline' as const,
-            onPress: openRaceRequest,
-          },
-        ]
-      : []),
-    {
-      key: 'feedback',
-      label: feedbackLabel,
-      icon: 'bug-outline',
-      onPress: openFeedback,
-    },
-  ];
-
-  if (includeRaceRequest) {
-    return (
-      <RaceRequestHeaderButton>
-        {(openRaceRequest) => (
-          <FeedbackHeaderButton contextLabel={contextLabel}>
-            {(openFeedback) => (
-              <FloatingActionMenu
-                accessibilityLabel={openLabel}
-                actions={buildActions(openFeedback, openRaceRequest)}
-                closedIcon="ellipsis-horizontal"
-                dismissAccessibilityLabel={closeLabel}
-              />
-            )}
-          </FeedbackHeaderButton>
-        )}
-      </RaceRequestHeaderButton>
-    );
-  }
-
   return (
-    <FeedbackHeaderButton contextLabel={contextLabel}>
-      {(openFeedback) => (
-        <FloatingActionMenu
-          accessibilityLabel={openLabel}
-          actions={buildActions(openFeedback)}
-          closedIcon="ellipsis-horizontal"
-          dismissAccessibilityLabel={closeLabel}
-        />
-      )}
-    </FeedbackHeaderButton>
+    <>
+      <Pressable
+        accessibilityLabel={t.rootActionMenu.triggerLabel}
+        accessibilityRole="button"
+        accessibilityState={{ expanded: open }}
+        hitSlop={6}
+        onPress={() => setOpen(true)}
+        style={({ pressed }) => [styles.trigger, pressed && styles.pressed]}
+        testID="root-help-menu"
+      >
+        <Ionicons color={Colors.textOnBrand} name="help" size={22} />
+      </Pressable>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setOpen(false)}
+        statusBarTranslucent
+        transparent
+        visible={open}
+      >
+        <View accessibilityViewIsModal style={styles.modal}>
+          <Pressable
+            accessibilityLabel={t.rootActionMenu.dismissLabel}
+            accessibilityRole="button"
+            onPress={() => setOpen(false)}
+            style={styles.backdrop}
+          />
+          <View style={[styles.actions, { top: topInset + 60 }]}>
+            <TouchableOpacity
+              accessibilityLabel={t.rootActionMenu.helpLabel}
+              accessibilityRole="button"
+              activeOpacity={0.86}
+              onPress={() => closeThen(handleHelpPress)}
+              style={styles.action}
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons color={Colors.textOnBrand} name="help-circle-outline" size={19} />
+              </View>
+              <Text style={styles.actionLabel}>{t.rootActionMenu.helpLabel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityLabel={t.feedback.triggerLabel}
+              accessibilityRole="button"
+              activeOpacity={0.86}
+              onPress={() => closeThen(openFeedback)}
+              style={styles.action}
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons color={Colors.textOnBrand} name="bug-outline" size={19} />
+              </View>
+              <Text style={styles.actionLabel}>{t.rootActionMenu.feedbackLabel}</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityLabel={t.raceRequests.triggerLabel}
+              accessibilityRole="button"
+              activeOpacity={0.86}
+              onPress={() => closeThen(openRaceRequest)}
+              style={styles.action}
+            >
+              <View style={styles.actionIcon}>
+                <Ionicons color={Colors.textOnBrand} name="paper-plane-outline" size={19} />
+              </View>
+              <Text style={styles.actionLabel}>{t.rootActionMenu.raceRequestLabel}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 }
+
+export function RootScreenActionMenu(props: RootScreenActionMenuProps) {
+  return (
+    <RaceRequestHeaderButton>
+      {(openRaceRequest) => (
+        <FeedbackHeaderButton contextLabel={props.contextLabel}>
+          {(openFeedback) => (
+            <MenuContent
+              {...props}
+              openFeedback={openFeedback}
+              openRaceRequest={openRaceRequest}
+            />
+          )}
+        </FeedbackHeaderButton>
+      )}
+    </RaceRequestHeaderButton>
+  );
+}
+
+const styles = StyleSheet.create({
+  trigger: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.34)',
+    backgroundColor: 'rgba(0,0,0,0.16)',
+  },
+  pressed: { opacity: 0.68 },
+  modal: { flex: 1 },
+  backdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(26, 26, 26, 0.24)',
+  },
+  actions: {
+    position: 'absolute',
+    left: 12,
+    gap: 8,
+    minWidth: 230,
+    maxWidth: 300,
+  },
+  action: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: Colors.borderStrong,
+    backgroundColor: Colors.surface,
+    paddingHorizontal: 7,
+    paddingVertical: 5,
+    boxShadow: '0 6px 16px rgba(26, 26, 26, 0.16)',
+  },
+  actionIcon: {
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 18,
+    backgroundColor: Colors.textPrimary,
+  },
+  actionLabel: {
+    flex: 1,
+    color: Colors.textPrimary,
+    fontSize: 14,
+    fontWeight: '800',
+  },
+});

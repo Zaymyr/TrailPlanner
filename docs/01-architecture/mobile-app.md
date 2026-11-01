@@ -1,7 +1,7 @@
 ---
 title: Mobile App Architecture
 scope: architecture
-last_verified: 2026-10-01
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - apps/mobile/lib/racebook.ts
@@ -20,6 +20,8 @@ related_files:
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
+  - apps/mobile/.eas/workflows/store-candidate.yml
+  - .github/workflows/eas-submit-android-production.yml
   - apps/mobile/.maestro/config.yaml
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
@@ -28,6 +30,8 @@ related_files:
   - apps/mobile/components/navigation/AppHeaderTitle.tsx
   - apps/mobile/components/navigation/RootCollapsibleHeader.tsx
   - apps/mobile/components/navigation/RootScreenActionMenu.tsx
+  - apps/mobile/components/inputs/DatePickerField.tsx
+  - apps/mobile/components/race/RaceRequestHeaderButton.tsx
   - apps/mobile/components/PlanLoadingScreen.tsx
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
   - apps/mobile/app/(app)/catalog.tsx
@@ -110,6 +114,9 @@ related_files:
   - apps/mobile/lib/planShareLinks.test.ts
   - apps/mobile/lib/planDeparture.ts
   - apps/mobile/lib/planDeparture.test.ts
+  - apps/mobile/lib/plansListPresentation.ts
+  - apps/mobile/lib/plansListPresentation.test.ts
+  - apps/mobile/lib/profileHelpers.test.ts
   - apps/mobile/lib/webApi.ts
   - apps/mobile/lib/posthog.ts
   - apps/mobile/lib/racebookGearAnalytics.ts
@@ -136,7 +143,7 @@ related_tables:
 
 ## Plan list hierarchy
 
-The mobile Plans screen groups saved plans by `races.race_events.id` and displays the event name as the section heading. Plans for different formats of the same event therefore remain together; legacy plans whose source race has disappeared fall back to their stored race name or the orphan group. Runner-owned race editing is no longer exposed. Within an event section, default plan names matching the race format omit the repeated event name whether it precedes or follows the format; an exact duplicate becomes the neutral localized label “Plan de course” / “Race plan”, while runner-defined names remain unchanged. Event headings use stronger typography and plan cards are slightly indented to make the parent-child hierarchy explicit. Ravito counters exclude the editor-only start and finish stations, including for legacy rows that persisted them. Plans has no floating overflow menu: new plans start from a selected catalog course, while its empty-state action opens Courses first.
+The mobile Plans screen groups saved plans by `races.race_events.id` and displays the event name as the section heading. Future event sections are ordered by their nearest departure; dated future plans precede undated plans inside a section. Sections containing only past departures move into a final localized, initially collapsed past-races group, while the orphan section remains last. Plans for different formats of the same event therefore remain together; legacy plans whose source race has disappeared fall back to their stored race name or the orphan group. Runner-owned race editing is no longer exposed. Within an event section, default plan names matching the race format omit the repeated event name whether it precedes or follows the format; an exact duplicate becomes the neutral localized label “Plan de course” / “Race plan”, while runner-defined names remain unchanged. Event headings use stronger typography and plan cards are slightly indented to make the parent-child hierarchy explicit. Ravito counters exclude the editor-only start and finish stations, including for legacy rows that persisted them. Plans has no floating overflow menu: new plans start from a selected catalog course, while its empty-state action opens Courses first. Departure countdowns use day-only copy from 48 hours, hours/minutes below 48 hours, and seconds only in the final hour; their refresh interval follows that same precision.
 
 ## Plan loading experience
 
@@ -187,6 +194,7 @@ The mobile app is the Expo Router client for onboarding, catalog browsing, plan 
 - `react-native-purchases ^9.15.1`
 - `posthog-react-native ^4.45.0`
 - `react-native-webview 13.15.0` for the interactive Racebook Leaflet map
+- `@react-native-community/datetimepicker 8.4.4` for native date entry in catalog filters, race requests, and Profile birth date; it is registered as an Expo config plugin and requires a new native development/store build
 - `test` / `test:watch`, which run the fast Node-only Vitest suite for pure mobile logic
 - `test:e2e:ux`, which invokes the local Maestro UX journey without storing credentials in source control
 - `lint`, which runs the Expo-compatible ESLint rules while excluding generated export directories; `eslint-plugin-react-hooks` is a direct development dependency so clean workspace installs do not depend on npm hoisting it transitively
@@ -226,6 +234,8 @@ Expo SDK 54 and React Native 0.81 compile against and target Android 16 / API 36
 Because the dependency set includes native modules such as `expo-dev-client`, `react-native-purchases`, notifications, secure store, Apple auth, and `expo-crypto`, use the development client profile for realistic local/device testing. Expo Go can only be assumed for flows that do not require these native modules.
 
 The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform target: it builds Android and iOS in parallel, runs the authenticated Maestro journey with one retry, records each platform, and retains its screenshots as test artifacts. Hosted Maestro jobs require a compatible paid Expo plan; the current project plan rejects those jobs, so local Android execution remains the immediately available path. The journey covers login plus the Courses, Plans, Nutrition, and Profile tabs. Its app id defaults to the E2E/production identifier with a clean restart and login deep link. Local physical-device audits explicitly open the Dev login route through ADB, pass `APP_ID=com.paceyourself.app.dev`, preserve app state and the active Metro process, and skip the shared-scheme deep link so they cannot target the installed production app. Stable React Native test ids are used instead of translated labels. `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` must be secret variables in the EAS `preview` environment; they are never committed or exposed as Expo public values.
+
+Native store candidates use the `production` build profile after a merged `main` commit reaches an explicit EAS approval gate. EAS then submits Android to the internal track as a draft and iOS to App Store Connect/TestFlight. Neither path performs an unattended public release: Android production submission requires the protected GitHub dispatch, explicit confirmation, and build-metadata match against the approved commit, while Apple review and release remain controlled in App Store Connect.
 
 ## App Shell
 
@@ -269,6 +279,8 @@ Race detail stacks use minimal iOS back indicators so dynamic route segments suc
 `apps/mobile/app/(app)/catalog.tsx` is now the runner surface for event favorites and organizer announcements:
 
 Its reusable loading card, race row, and filter modal live in `apps/mobile/components/catalog/CatalogPresentation.tsx`; the route retains catalog queries, filtering state, favorites, analytics, and navigation. Runner-owned personal races are no longer queried or displayed.
+
+The four root tabs expose the same 44-point `?` header action in expanded and compact modes. It opens contextual help, feedback, and race request actions and consumes Android back while open; guided Courses onboarding intentionally omits it. Courses keeps search and quick filters pinned below the compact header. Native date fields preserve ISO values while rendering locale dates and are loaded lazily so an OTA reaching an older binary reports that a new build is required instead of crashing. Profile uses one dirty-only bottom save dock, while Nutrition keeps brand accordions only for the unfiltered catalog and switches to flat product rows for search/type results.
 
 - its public event relation uses an inner join filtered to `races.racebook_preview_is_visible = true`, so an event remains discoverable with private formats but no public RaceBook; the presentation filter removes every format whose preview flag is false;
 - when several visible editions of the same event are already online, it groups formats by stable `edition_id`; an older edition stays alongside the newest through the fourteenth local calendar day after its latest visible format date, then only the newest dated edition remains. Legacy rows without an edition or a usable date stay visible rather than being discarded speculatively;
@@ -364,6 +376,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 - The shared runtime is `1.1.1`. The light iOS appearance is native configuration, so a runtime-`1.1.1` iOS binary must reach testers/App Store before a `1.1.1` OTA is published; do not send that OTA to older iOS `1.1.0` binaries.
 - Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export. Likewise, import Expo vector-icon families from their direct subpath (for example, `@expo/vector-icons/Ionicons`) instead of the package barrel so Metro does not retain unrelated icon-font families.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
+- Never use the `production` submit profile from an automatic branch trigger. Automation must use `store-candidate`; the production profile is reserved for the separately approved Android dispatch.
 - Legacy private races may still exist for other accounts, but current mobile runner flows neither query nor mutate them.
 - Mobile catalog and onboarding query `race_events` and `races.has_aid_stations`; visible migrations in this repo do not create all of those fields.
 - Keep guided RaceBook filtering presentation-only: the initial list and any search result may contain only formats accepted by `canShowRacebook`; the flow must not invent a publication exception, persist the search text, or change the normal Courses catalog when the onboarding parameter is absent.

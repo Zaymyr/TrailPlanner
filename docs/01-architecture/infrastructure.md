@@ -8,6 +8,9 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - vercel.json
   - apps/mobile/eas.json
+  - apps/mobile/.eas/workflows/store-candidate.yml
+  - .github/workflows/eas-submit-android-production.yml
+  - .github/workflows/db-migrate.yml
   - apps/mobile/react-native.config.js
   - apps/mobile/app.config.ts
   - supabase/migrations/20260504133000_schedule_push_reminders_with_supabase_cron.sql
@@ -91,6 +94,7 @@ If the parent commit is unavailable, `git diff` fails closed and Vercel proceeds
 - e2e-test: credential-free Android APK and iOS Simulator build for Maestro.
 - production: store-oriented Android app bundle and iOS Release builds with remote app version source and automatic build-number incrementing.
 - submit production for Android: Google Play `production` track with `releaseStatus: completed` (full rollout after Google approval).
+- submit store-candidate: Google Play `internal` track in `draft` state and App Store Connect/TestFlight for iOS.
 
 `apps/mobile/app.config.ts` declares OTA updates through `expo-updates`:
 
@@ -104,6 +108,8 @@ Expo SDK 54 / React Native 0.81 provide Android `compileSdkVersion` and `targetS
 The app config intentionally keeps `@react-native-google-signin/google-signin` out of the iOS plugin list, and `apps/mobile/react-native.config.js` disables the package in the React Native iOS autolinking layer, because the mobile app only supports native Google Sign-In on Android; iOS stays on the browser OAuth path.
 
 The manual `apps/mobile/.eas/workflows/mobile-ux-audit.yml` workflow uses the EAS `preview` environment for both builds and Maestro jobs. Android targets a Pixel 6 emulator with screen recording; iOS uses a simulator build. Both jobs execute the same authenticated smoke/UX flow and retain screenshots plus recordings as artifacts. Expo requires a compatible paid plan for hosted Maestro jobs, and validation against the current project account stops on that billing capability before execution.
+
+`apps/mobile/.eas/workflows/store-candidate.yml` starts for merged commits on `main`, then pauses at an EAS approval gate before consuming build capacity. It builds both production binaries, submits Android to an internal draft and uploads iOS to App Store Connect/TestFlight. A job-level `main` condition prevents a manual workflow run from another ref from reaching the approval/build chain. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
 
 ## Supabase
 
@@ -199,6 +205,8 @@ Document variable names, not secret values. Important names visible in code incl
 
 ## Gotchas
 
+- `@react-native-community/datetimepicker` is a native Expo config plugin. A development/store rebuild must precede relying on it; an OTA cannot add the native module to an older runtime, so mobile keeps a lazy localized fallback for those binaries.
+
 - Never commit actual environment values into docs.
 - Keep the development profile's `APP_VARIANT` value aligned with local Expo startup. Firebase/Google configuration injected into that profile must use the dedicated `*_DEV` variables and register `com.paceyourself.app.dev`; files containing only the production client are not interchangeable. When those optional Dev files are absent, the app config omits them rather than embedding production configuration, so Dev push/Google features remain unavailable until the separate Firebase clients exist.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
@@ -223,6 +231,7 @@ Document variable names, not secret values. Important names visible in code incl
 - Do not reintroduce the Google Sign-In Expo config plugin on iOS or remove the explicit iOS block in `apps/mobile/react-native.config.js` unless the native iOS package is intentionally linked too; a half-enabled setup can crash at launch while React Native registers third-party Fabric components.
 - `userInterfaceStyle` is native configuration. Build and ship a new iOS binary on runtime `1.1.1` before publishing a `1.1.1` OTA; installed iOS `1.1.0` binaries remain in their prior compatibility group.
 - EAS Submit requires a Google service-account key registered in the project credentials; never commit that JSON key to the repository.
+- Store candidate automation also requires valid Apple App Store Connect credentials in EAS. Do not approve the candidate gate until both platform credentials have been configured and the build capacity is intentionally accepted.
 - Do not present hosted Maestro as active on the current Expo plan. Use the local Android runner until the plan is upgraded or a separate compatible CI runner is added.
 
 ## Related Docs

@@ -1,18 +1,20 @@
 ---
 title: Mobile UX Audit
 scope: workflow
-last_verified: 2026-09-29
+last_verified: 2026-11-01
 ai_priority: high
 related_files:
   - apps/mobile/package.json
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
+  - apps/mobile/.eas/workflows/store-candidate.yml
   - apps/mobile/.maestro/config.yaml
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
   - apps/mobile/scripts/run-mobile-ux-audit.mjs
   - apps/mobile/app/(auth)/login.tsx
   - apps/mobile/app/(app)/_layout.tsx
   - apps/mobile/components/inputs/NumericKeyboardAccessory.tsx
+  - apps/mobile/components/inputs/DatePickerField.tsx
 related_tables: []
 ---
 
@@ -45,6 +47,7 @@ Use one reproducible runner journey to catch broken navigation and produce compa
 6. Record every finding using the rubric below. Link the platform, screenshot, affected user goal, severity, and proposed correction.
 7. After a correction, rerun the same flow and compare the same named artifact. Add a focused Maestro flow only when a new critical interaction cannot be represented safely in the shell journey.
 8. On iOS, focus at least one numeric or decimal field and confirm the shared `Terminé` accessory dismisses the keyboard without closing the form or discarding its value.
+   Also verify native date fields on a freshly rebuilt development client; an older binary must show the localized build-required fallback rather than crash after an OTA.
 
 9. On iOS, open a representative modal with VoiceOver: focus must remain inside the sheet, its title must be announced as a header, and each icon-only close action must announce its purpose with a 44-point target or equivalent hit slop.
 10. Open a saved plan and confirm the contextual bottom bar replaces the global shell bar. Scroll Mon plan through each tab and verify there is one vertical scroll, no horizontal paging, and the tabs plus auto-fill/add actions remain below the compact header. In Récap, verify hourly targets and Share occupy that same pinned position without duplicate VoiceOver focus.
@@ -90,6 +93,7 @@ When a binary and runner are available, the acceptance gate is a successful `aut
 - Do not treat screenshot generation as an automatic aesthetic verdict.
 - Do not rely only on visible French or English text when a stable `testID` can identify the action.
 - Do not auto-run the cross-platform EAS workflow on every commit without an explicit cost/latency decision.
+- Do not use a store candidate build as UX-audit evidence until the development/E2E binary has passed the same journey; candidate submission is a release operation, not a test harness.
 - Do not mutate plans, favorites, purchases, or organizer data in the shell audit. Put destructive scenarios in isolated test-account flows with cleanup.
 - Do not run a development-client audit without explicitly passing `APP_ID=com.paceyourself.app.dev`; both production and Dev may be installed on the same phone.
 - Do not add an authentication or onboarding bypass to the production app for E2E convenience.

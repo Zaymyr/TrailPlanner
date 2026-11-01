@@ -9,6 +9,7 @@ import {
   ROOT_HEADER_EXPANDED_BODY_HEIGHT,
   RootCollapsibleHeader,
 } from '../../components/navigation/RootCollapsibleHeader';
+import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import { PremiumUpsellModal } from '../../components/premium/PremiumUpsellModal';
 import { Button } from '../../components/themed/Button';
 import { Card } from '../../components/themed/Card';
@@ -52,6 +53,17 @@ export default function PlansScreen() {
     handleOpenLockedPlan,
     closePremiumModal,
   } = usePlansScreen();
+  const rootHelpAction = (
+    <RootScreenActionMenu
+      contextLabel={t.plans.title}
+      help={{
+        type: 'message',
+        title: t.rootActionMenu.plansHelpTitle,
+        body: t.rootActionMenu.plansHelpBody,
+      }}
+      topInset={insets.top}
+    />
+  );
   if (loading || premiumLoading) {
     return (
       <Screen style={styles.screen}>
@@ -60,6 +72,7 @@ export default function PlansScreen() {
           style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={rootHelpAction}
           icon="map-outline"
           scrollY={scrollY}
           title={t.plans.title}
@@ -79,6 +92,7 @@ export default function PlansScreen() {
           style={[styles.screen, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={rootHelpAction}
           icon="map-outline"
           scrollY={scrollY}
           title={t.plans.title}
@@ -95,6 +109,18 @@ export default function PlansScreen() {
         activePlanId={activePlanId}
         collapsedSections={collapsedSections}
         browseRacesLabel={t.plans.browseRaces}
+        departureCountdownCopy={{
+          notSet: t.plans.departureNotSet,
+          passed: t.plans.departurePassed,
+          inDays: (days) => t.plans.departureInDays.replace('{days}', String(days)),
+          inHoursAndMinutes: (hours, minutes) => t.plans.departureInHoursAndMinutes
+            .replace('{hours}', String(hours))
+            .replace('{minutes}', String(minutes).padStart(2, '0')),
+          inMinutesAndSeconds: (minutes, seconds) => t.plans.departureInMinutesAndSeconds
+            .replace('{minutes}', String(minutes).padStart(2, '0'))
+            .replace('{seconds}', String(seconds).padStart(2, '0')),
+        }}
+        departureLabel={t.plans.departureLabel}
         emptySubtitle={t.plans.emptySubtitle}
         emptyTitle={t.plans.empty}
         inProgressLabel={t.plans.inProgress}
@@ -160,11 +186,7 @@ export default function PlansScreen() {
       />
 
       <RootCollapsibleHeader
-        action={{
-          accessibilityLabel: t.trainingLive.menuLabel,
-          icon: 'walk-outline',
-          onPress: handleStartFreeTraining,
-        }}
+        helpAction={rootHelpAction}
         icon="map-outline"
         scrollY={scrollY}
         title={t.plans.title}

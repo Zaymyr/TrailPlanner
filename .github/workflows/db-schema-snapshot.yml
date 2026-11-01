@@ -11,7 +11,9 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
+  actions: write
   contents: write
+  pull-requests: write
 
 jobs:
   run-if-success:
@@ -186,7 +188,10 @@ jobs:
           print(f"Wrote {out_path} ({out_path.stat().st_size} bytes)")
           PY
 
-      - name: Commit schema snapshot if changed
+      - name: Open schema snapshot pull request if changed
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SNAPSHOT_BRANCH: bot/schema-snapshot-${{ github.run_id }}
         run: |
           set -euo pipefail
           if [[ -n "$(git status --porcelain docs/db)" ]]; then
@@ -194,8 +199,15 @@ jobs:
             git config user.email "github-actions[bot]@users.noreply.github.com"
             git add docs/db
             git commit -m "chore(db): update schema snapshot"
-            git pull --rebase origin main
-            git push
+            git switch -c "$SNAPSHOT_BRANCH"
+            git push --set-upstream origin "$SNAPSHOT_BRANCH"
+            gh pr create \
+              --base main \
+              --head "$SNAPSHOT_BRANCH" \
+              --title "chore(db): update schema snapshot" \
+              --body "Automated schema snapshot generated after the approved production migration workflow. Review and merge through the normal protected-main process."
+            gh workflow run web-ci.yml --ref "$SNAPSHOT_BRANCH"
+            gh workflow run db-verify.yml --ref "$SNAPSHOT_BRANCH"
           else
             echo "No schema changes."
           fi

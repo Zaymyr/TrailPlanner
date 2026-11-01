@@ -2,14 +2,13 @@ name: Supabase DB Verify
 
 on:
   pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - ".github/workflows/db-migrate.yml"
-      - ".github/workflows/db-verify.yml"
-      - ".github/workflows/db-schema-snapshot.yml"
   workflow_dispatch:
   workflow_call:
     inputs:
+      ref:
+        description: Exact commit to verify
+        required: false
+        type: string
       base_sha:
         description: Commit before the migration change
         required: false
@@ -24,6 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ inputs.ref || github.sha }}
           fetch-depth: 0
 
       - name: Validate migration history and changed SQL
@@ -39,7 +39,7 @@ jobs:
             BASE_SHA="$(git rev-parse HEAD^)"
           fi
 
-          git diff --name-only --diff-filter=ACMR "$BASE_SHA" "$GITHUB_SHA" -- 'supabase/migrations/*.sql' > changed-migrations.txt
+          git diff --name-only --diff-filter=ACMR "$BASE_SHA" HEAD -- 'supabase/migrations/*.sql' > changed-migrations.txt
 
           python3 <<'PY'
           import pathlib

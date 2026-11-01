@@ -20,11 +20,12 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { OnboardingGuideCard } from '../../components/onboarding/OnboardingGuideCard';
 import { useGuestAccountPrompt } from '../../hooks/useGuestAccountPrompt';
 import { RaceEventSummaryCard } from '../../components/race/RaceEventSummaryCard';
-import { RaceRequestHeaderButton } from '../../components/race/RaceRequestHeaderButton';
 import {
+  ROOT_HEADER_COMPACT_BODY_HEIGHT,
   ROOT_HEADER_EXPANDED_BODY_HEIGHT,
   RootCollapsibleHeader,
 } from '../../components/navigation/RootCollapsibleHeader';
+import { RootScreenActionMenu } from '../../components/navigation/RootScreenActionMenu';
 import {
   CatalogFiltersModal,
   CatalogRaceRow,
@@ -411,6 +412,17 @@ export default function CatalogScreen() {
   const insets = useSafeAreaInsets();
   const scrollY = useRef(new Animated.Value(0)).current;
   const { locale, t } = useI18n();
+  const rootHelpAction = onboardingMode ? undefined : (
+    <RootScreenActionMenu
+      contextLabel={locale === 'fr' ? 'Courses' : 'Races'}
+      help={{
+        type: 'message',
+        title: t.rootActionMenu.catalogHelpTitle,
+        body: t.rootActionMenu.catalogHelpBody,
+      }}
+      topInset={insets.top}
+    />
+  );
   const promptGuestAccount = useGuestAccountPrompt();
   const [eventGroups, setEventGroups] = useState<EventGroup[]>([]);
   const [favoriteEventIds, setFavoriteEventIds] = useState<string[]>([]);
@@ -732,11 +744,11 @@ export default function CatalogScreen() {
       styles.list,
       {
         paddingBottom: 120,
-        paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT + 16,
+        paddingTop: ROOT_HEADER_EXPANDED_BODY_HEIGHT - ROOT_HEADER_COMPACT_BODY_HEIGHT + 16,
       },
       visibleEventGroups.length === 0 && styles.listEmpty,
     ],
-    [insets.top, visibleEventGroups.length],
+    [visibleEventGroups.length],
   );
   const selectedEventDate = selectedEvent ? formatEventDate(selectedEvent.race_date, locale) : null;
   const selectedEventMeta = selectedEvent
@@ -921,6 +933,7 @@ export default function CatalogScreen() {
           style={[styles.container, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={rootHelpAction}
           icon="trail-sign-outline"
           scrollY={scrollY}
           title={locale === 'fr' ? 'Courses' : 'Races'}
@@ -944,6 +957,7 @@ export default function CatalogScreen() {
           style={[styles.container, { paddingTop: insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT }]}
         />
         <RootCollapsibleHeader
+          helpAction={rootHelpAction}
           icon="trail-sign-outline"
           scrollY={scrollY}
           title={locale === 'fr' ? 'Courses' : 'Races'}
@@ -961,6 +975,7 @@ export default function CatalogScreen() {
         contentContainerStyle={listContentStyle}
         onScroll={(event) => scrollY.setValue(event.nativeEvent.contentOffset.y)}
         scrollEventThrottle={16}
+        stickyHeaderIndices={[0]}
         refreshControl={
           <RefreshControl
             progressViewOffset={insets.top + ROOT_HEADER_EXPANDED_BODY_HEIGHT}
@@ -973,7 +988,12 @@ export default function CatalogScreen() {
           />
         }
         ListHeaderComponent={
-          <View style={styles.listHeader}>
+          <View
+            style={[
+              styles.listHeader,
+              { paddingTop: insets.top + ROOT_HEADER_COMPACT_BODY_HEIGHT },
+            ]}
+          >
             <View style={styles.filtersCard}>
               <View style={styles.searchRow}>
                 <TextInput
@@ -1088,31 +1108,13 @@ export default function CatalogScreen() {
         ListFooterComponent={<View style={styles.listFooterSpacing} />}
       />
 
-      {!onboardingMode ? (
-        <RaceRequestHeaderButton>
-          {(openRaceRequest) => (
-            <RootCollapsibleHeader
-              action={{
-                accessibilityLabel: t.raceRequests.triggerLabel,
-                icon: 'paper-plane-outline',
-                onPress: openRaceRequest,
-                testID: 'catalog-request-race',
-              }}
-              icon="trail-sign-outline"
-              scrollY={scrollY}
-              title={locale === 'fr' ? 'Courses' : 'Races'}
-              topInset={insets.top}
-            />
-          )}
-        </RaceRequestHeaderButton>
-      ) : (
-        <RootCollapsibleHeader
-          icon="trail-sign-outline"
-          scrollY={scrollY}
-          title={locale === 'fr' ? 'Courses' : 'Races'}
-          topInset={insets.top}
-        />
-      )}
+      <RootCollapsibleHeader
+        helpAction={rootHelpAction}
+        icon="trail-sign-outline"
+        scrollY={scrollY}
+        title={locale === 'fr' ? 'Courses' : 'Races'}
+        topInset={insets.top}
+      />
 
       {onboardingMode ? (
         <OnboardingGuideCard
@@ -1146,6 +1148,8 @@ export default function CatalogScreen() {
         onChangeDateMax={setDateMaxFilter}
         onClose={() => setFiltersOpen(false)}
         onReset={resetFilters}
+        locale={locale}
+        datePickerUnavailableMessage={t.common.datePickerUnavailable}
       />
 
       <Modal
@@ -1356,6 +1360,8 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     gap: 16,
+    backgroundColor: Colors.background,
+    paddingBottom: 10,
   },
   listFooterSpacing: {
     height: 8,
