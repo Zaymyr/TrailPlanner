@@ -93,6 +93,8 @@ An SDK purchase return is not sufficient by itself for success UI or purchase an
 
 The mobile Premium upsell sheet identifies its content as a modal accessibility surface and its title as a VoiceOver heading. This is presentation-only: opening, reading, dismissing, or navigating the sheet does not grant Premium and does not bypass the billing hook's verified-purchase requirement.
 
+The sheet receives a bounded placement so pace, nutrition, auto-fill, recap, settings, plan-limit and favorite-limit gates explain the feature that was just requested. A course offer renders no guessed price: the billing hook distinguishes loading, available and unavailable states, records a bounded failure reason, and Retry reloads the RevenueCat snapshot. The annual offer displays the provider's localized total price with its one-year duration, automatic-renewal/cancellation disclosure, restore action, privacy policy, and platform Terms/EULA. Missing store packages disable checkout rather than substituting a hard-coded price.
+
 ## Billing Sources
 
 `subscriptions.provider` identifies the billing source:

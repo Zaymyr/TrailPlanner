@@ -605,6 +605,7 @@ export const NutritionContent = memo(function NutritionContent({
       <PremiumUpsellModal
         message={favoriteLimitMessage}
         onClose={onCloseFavoriteLimitModal}
+        placement="favorite_limit"
         title={freeAccessTitle}
         visible={showFavoriteLimitModal}
       />

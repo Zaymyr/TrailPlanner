@@ -47,7 +47,7 @@ related_tables:
 
 ## Runner plan creation and billing access
 
-The runner launch announcement uses cached `getSession()` identity and a user-scoped launch-information fetch from the root layout, but installs no new Auth listener. Its local daily/hidden preferences are presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.
+The runner launch announcement uses cached `getSession()` identity and a user-scoped launch-information fetch from the root layout, but installs no new Auth listener. Its local once-per-campaign `seen` preference is presentation state, not an access decision. Existing trials and grants retain their recorded dates; the announcement makes no profile or Auth write.
 
 Launch information is fetched by a user-scoped mobile hook only after a cached authenticated session is known and refreshes on foreground. It exposes cohort/badge state, not a new authorization source; failures do not grant access.
 

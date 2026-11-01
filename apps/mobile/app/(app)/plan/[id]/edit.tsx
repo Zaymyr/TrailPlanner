@@ -42,8 +42,7 @@ import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../..
 import { readOrganizerStartTime, normalizePlanClock } from '../../../../lib/planDeparture';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
-import { usePremium } from '../../../../hooks/usePremium';
-import { PremiumUpsellModal } from '../../../../components/premium/PremiumUpsellModal';
+import { PremiumUpsellModal, type PremiumPaywallPlacement } from '../../../../components/premium/PremiumUpsellModal';
 import { WEB_API_BASE_URL } from '../../../../lib/webApi';
 import {
   cacheRunnerPlanCapabilities,
@@ -170,6 +169,7 @@ function getUnsavedPlanEditDraft(planId: string) {
 }
 
 const PLAN_AUTOSAVE_DELAY_MS = 1600;
+const PLAN_LOAD_TIMEOUT_MS = 20_000;
 
 export default function EditPlanScreen() {
   const { id, showHelp, tab, share, racebookTab, racebookCourseTab, targetAidStationId, planWarmStartToken } = useLocalSearchParams<{
@@ -182,7 +182,6 @@ export default function EditPlanScreen() {
     targetAidStationId?: string;
     planWarmStartToken?: string;
   }>();
-  const { isPremium, isLoading: premiumLoading } = usePremium();
   const { locale, t } = useI18n();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation();
@@ -290,6 +289,7 @@ export default function EditPlanScreen() {
   const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
   const [runnerAccessUnknown, setRunnerAccessUnknown] = useState(false);
   const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
+  const [previewPaywallPlacement, setPreviewPaywallPlacement] = useState<PremiumPaywallPlacement>('feature_gate');
   const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
   const lastSavedSnapshotRef = useRef<string | null>(initialWarmStartDraft?.lastSavedSnapshot ?? null);
   const elevationProfileRef = useRef<ElevationPoint[]>(initialWarmStartDraft?.elevationProfile ?? []);
@@ -598,7 +598,9 @@ export default function EditPlanScreen() {
     }
     if (isStaleLoad()) return;
     setPlanCanEdit(nextPlanCanEdit);
-    const productDataPromise = loadPlanProductsBootstrap(uid);
+    const productDataPromise = nextPlanCanEdit
+      ? loadPlanProductsBootstrap(uid)
+      : Promise.resolve<PlanProductsBootstrap>({ allProducts: [], favoriteProductIds: new Set() });
 
     if (cachedDraft) {
       setLoadingProgress(0.48);
@@ -677,7 +679,7 @@ export default function EditPlanScreen() {
         ? 'saved'
         : 'idle',
     );
-  }, [id, isPremium]);
+  }, [id]);
 
   const persistPlan = useCallback(
     (values: PlanFormValues, silent = false) => {
@@ -794,13 +796,26 @@ export default function EditPlanScreen() {
   );
 
   useEffect(() => {
-    if (premiumLoading || !id || loadedPlanIdRef.current === id) return;
+    if (!id || loadedPlanIdRef.current === id) return;
 
     void loadPlan();
-  }, [id, loadPlan, premiumLoading]);
+  }, [id, loadPlan]);
 
   useEffect(() => {
-    if (!id || premiumLoading || loading || loadedPlanId !== id || !draftSnapshot) return;
+    if (!loading || error) return undefined;
+
+    const timeoutId = setTimeout(() => {
+      loadRequestIdRef.current += 1;
+      setLoading(false);
+      setError(t.planLoading.timeoutMessage);
+      setSaveStatus('error');
+    }, PLAN_LOAD_TIMEOUT_MS);
+
+    return () => clearTimeout(timeoutId);
+  }, [error, loading, t.planLoading.timeoutMessage]);
+
+  useEffect(() => {
+    if (!id || loading || loadedPlanId !== id || !draftSnapshot) return;
     if (draftSnapshot === lastSavedSnapshotRef.current) return;
 
     const autosaveTimer = setTimeout(() => {
@@ -808,7 +823,7 @@ export default function EditPlanScreen() {
     }, PLAN_AUTOSAVE_DELAY_MS);
 
     return () => clearTimeout(autosaveTimer);
-  }, [draftSnapshot, id, loadedPlanId, loading, premiumLoading, saveLatestDraft]);
+  }, [draftSnapshot, id, loadedPlanId, loading, saveLatestDraft]);
 
   useEffect(() => {
     if (!id) return undefined;
@@ -1054,7 +1069,7 @@ export default function EditPlanScreen() {
     };
   }, [handleBackToPlans, navigation]));
 
-  if (loading || premiumLoading || (!error && (loadedPlanId !== id || (initialValues && !planProductData)))) {
+  if (loading || (!error && (loadedPlanId !== id || (initialValues && !planProductData)))) {
     const currentLoadingPlanName = loadingPlanNameId === id ? loadingPlanName : null;
     const visiblePlanName =
       currentLoadingPlanName ?? (loadedPlanId === id ? planName || initialValues?.name || null : null);
@@ -1065,6 +1080,8 @@ export default function EditPlanScreen() {
           planName={visiblePlanName}
           progress={loadingProgress}
           variant="edit"
+          cancelLabel={t.planLoading.cancelAction}
+          onCancel={handleBackToPlans}
         />
       </>
     );
@@ -1075,7 +1092,10 @@ export default function EditPlanScreen() {
       <View style={styles.center}>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
         <Text style={styles.errorText}>{error ?? 'Plan introuvable.'}</Text>
-        <Pressable accessibilityRole="button" onPress={() => router.replace('/(app)/plans')} style={styles.errorBackButton}>
+        <Pressable accessibilityRole="button" onPress={() => { void loadPlan(); }} style={styles.errorBackButton}>
+          <Text style={styles.errorBackButtonText}>{t.common.retry}</Text>
+        </Pressable>
+        <Pressable accessibilityRole="button" onPress={handleBackToPlans} style={styles.errorBackButton}>
           <Text style={styles.errorBackButtonText}>{t.planWorkspace.backToPlans}</Text>
         </Pressable>
       </View>
@@ -1114,7 +1134,7 @@ export default function EditPlanScreen() {
           tab={activeTab}
           contentTopInset={headerTopInset}
           onScroll={handleWorkspaceScroll}
-          onUnlock={() => setPreviewPaywallVisible(true)}
+          onUnlock={(placement) => { setPreviewPaywallPlacement(placement); setPreviewPaywallVisible(true); }}
           simulation={runnerAccessMode}
         />
       ) : activeTab === 'recap' && workspaceSummary ? (
@@ -1137,7 +1157,7 @@ export default function EditPlanScreen() {
           isPremium={planCanEdit}
           planId={id}
           previewMode={!planCanEdit}
-          onPreviewLimitReached={() => setPreviewPaywallVisible(true)}
+          onPreviewLimitReached={(_, placement = 'feature_gate') => { setPreviewPaywallPlacement(placement); setPreviewPaywallVisible(true); }}
           onValuesChange={(values) => {
             if (!planCanEdit) return;
             latestDraftRef.current = values;
@@ -1240,6 +1260,7 @@ export default function EditPlanScreen() {
         title={locale === 'fr' ? 'Débloque ton plan' : 'Unlock your plan'}
         message={locale === 'fr' ? 'Adapte ton allure section par section et construis ta nutrition ravito par ravito.' : 'Fine-tune each section and plan your nutrition at every aid station.'}
         planId={id}
+        placement={previewPaywallPlacement}
         onClose={() => { setPreviewPaywallVisible(false); void refreshRunnerAccess(); }}
       />
       <SpotlightTutorial

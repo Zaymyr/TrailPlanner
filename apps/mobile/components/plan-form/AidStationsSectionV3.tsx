@@ -66,6 +66,7 @@ import {
 } from '../../lib/planPreviewBoundary';
 import { useI18n } from '../../lib/i18n';
 import { formatDistance, formatDistanceRange, formatDistanceValue } from '../../lib/displayFormat';
+import type { PremiumPaywallPlacement } from '../premium/PremiumUpsellModal';
 
 type Props = {
   values: Pick<PlanFormValues, 'sectionSegments' | 'aidStations' | 'fatigueLevel' | 'startSupplies'>;
@@ -122,7 +123,7 @@ type Props = {
   previewMode?: boolean;
   previewUnlockStickyVisible?: boolean;
   onPreviewBoundaryLayout?: (top: number | null, height: number) => void;
-  onPreviewLimitReached?: (reason: PreviewLimitReason) => void;
+  onPreviewLimitReached?: (reason: PreviewLimitReason, placement?: PremiumPaywallPlacement) => void;
   tutorial?: {
     onTargetMeasure: (targetKey: PlanEditTutorialTargetKey, layout: LayoutRectangle) => void;
     onTargetRegisterRef: (targetKey: PlanEditTutorialTargetKey, ref: TutorialMeasurableTarget) => void;
@@ -732,7 +733,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                   onIncreaseQty={(productId) => increaseQty('start', productId)}
                   onDecreaseQty={(productId) => decreaseQty('start', productId)}
                   onRemoveSupply={(productId) => removeSupply('start', productId)}
-                  previewIntent={previewMode ? () => onPreviewLimitReached?.('press') : undefined}
+                  previewIntent={previewMode ? () => onPreviewLimitReached?.('press', 'nutrition') : undefined}
                 />
               </>
             )}
@@ -1146,7 +1147,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
                     onRemove={() => onRemoveSectionSegment(targetKey, segmentIndex)}
                     readOnly={previewMode && !isClearPreviewSection}
                     previewIntent={previewMode && isClearPreviewSection
-                      ? () => onPreviewLimitReached?.('press')
+                      ? () => onPreviewLimitReached?.('press', 'pace')
                       : undefined}
                   />
                 );
@@ -1199,7 +1200,7 @@ export const AidStationsSectionV3 = forwardRef<AidStationsSectionHandle, Props>(
           reportPreviewBoundaryLayout();
         }}
         locale={locale}
-        onPress={() => onPreviewLimitReached?.('press')}
+        onPress={() => onPreviewLimitReached?.('press', mode === 'sections' || mode === 'profile' ? 'pace' : 'nutrition')}
       />
     );
   }

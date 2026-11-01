@@ -1,12 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
 import {
-  getRunnerLaunchDay, getRunnerLaunchStorageKey,
+  getRunnerLaunchStorageKey,
   parseRunnerLaunchPreference, shouldShowRunnerLaunchAnnouncement,
 } from '../lib/runnerLaunchAnnouncement';
 import { useRunnerLaunchInfo } from './useRunnerLaunchInfo';
 
-const sessionPreferences = new Map<string, { hidden: boolean; lastSeenDay: string | null }>();
+const sessionPreferences = new Map<string, { seen: boolean }>();
 
 export function useRunnerLaunchAnnouncement(userId: string | null, eligible: boolean) {
   const info = useRunnerLaunchInfo(userId, eligible);
@@ -25,22 +25,19 @@ export function useRunnerLaunchAnnouncement(userId: string | null, eligible: boo
           setVisibleKey(null);
           return;
         }
-        const seen = { ...preference, lastSeenDay: getRunnerLaunchDay(new Date()) };
+        const seen = { seen: true };
         sessionPreferences.set(key, seen);
         setVisibleKey(key);
-        // Mark at presentation, so closing or backgrounding cannot show it twice today.
+        // Mark at presentation so every exit path keeps this a one-time announcement.
         await AsyncStorage.setItem(key, JSON.stringify(seen));
       } catch { /* Fail closed on unreadable preferences; persistence is best effort. */ }
     })();
     return () => { active = false; };
   }, [eligible, info, key, visibleKey]);
-  const dismiss = useCallback((dontShowAgain = false) => {
+  const dismiss = useCallback(() => {
     setVisibleKey(null);
     if (!key) return;
-    const preference = {
-      hidden: dontShowAgain || sessionPreferences.get(key)?.hidden === true,
-      lastSeenDay: getRunnerLaunchDay(new Date()),
-    };
+    const preference = { seen: true };
     sessionPreferences.set(key, preference);
     void AsyncStorage.setItem(key, JSON.stringify(preference)).catch(() => {
       console.warn('Launch preference saved for this session only.');

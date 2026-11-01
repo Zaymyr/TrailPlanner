@@ -15,7 +15,7 @@ type Props = {
   tab: PlanWorkspaceTab;
   contentTopInset: number;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
-  onUnlock: () => void;
+  onUnlock: (placement: 'pace' | 'nutrition' | 'recap' | 'settings') => void;
   simulation?: 'real' | 'free' | 'premium';
 };
 
@@ -95,7 +95,7 @@ export function LockedPlanContent({ summary, tab, contentTopInset, onScroll, onU
       recap: [fr ? 'Tout ton plan de course, prêt à emporter' : 'Your complete race plan, ready to go', fr ? 'Retrouve tes temps de passage, ta liste de préparation et le plan de ton assistance.' : 'See checkpoint times, your packing list and your crew plan.'],
       settings: [fr ? 'Personnalise ta stratégie de course' : 'Personalize your race strategy', fr ? 'Ajuste tes objectifs et recalcule ta préparation complète.' : 'Adjust your targets and recalculate your complete preparation.'],
     }[kind];
-    return <LockedArea title={copy[0]} description={copy[1]} action={action} onUnlock={onUnlock} />;
+    return <LockedArea title={copy[0]} description={copy[1]} action={action} onUnlock={() => onUnlock(kind)} />;
   };
 
   return (
@@ -106,7 +106,7 @@ export function LockedPlanContent({ summary, tab, contentTopInset, onScroll, onU
         <Text>{summary.targetCarbsPerHour} g/h · {summary.targetWaterPerHour} ml/h · {summary.targetSodiumPerHour} mg/h</Text>
         <Text>{fr ? 'Poche à eau' : 'Water bladder'} : {summary.waterBagLiters} L</Text>
         {lock('settings')}
-      </View> : <RecapPreview summary={summary} locale={locale} onUnlock={onUnlock} />}
+      </View> : <RecapPreview summary={summary} locale={locale} onUnlock={() => onUnlock('recap')} />}
     </ScrollView>
   );
 }

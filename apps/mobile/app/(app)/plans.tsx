@@ -201,6 +201,7 @@ export default function PlansScreen() {
       <PremiumUpsellModal
         message={premiumModalCopy?.message ?? t.plans.freeAccessMessage.replace('{count}', String(FREE_PLAN_LIMIT))}
         onClose={closePremiumModal}
+        placement="plan_limit"
         title={premiumModalCopy?.title ?? t.plans.freeAccessTitle}
         visible={premiumModalCopy !== null}
       />

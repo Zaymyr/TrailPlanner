@@ -1044,7 +1044,6 @@ function RootLayoutContent() {
         {launchAnnouncement.visible ? (
           <RunnerLaunchAnnouncement
             onClose={launchAnnouncement.dismiss}
-            userId={session?.user.id ?? null}
             onOpenPlans={() => router.push('/(app)/plans')}
           />
         ) : null}
