@@ -118,7 +118,7 @@ The current store marketing version is `1.1.2`, while the compatible EAS Update 
 
 `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform quality-gate target. It builds the `e2e-test` binaries and runs the same Maestro journey against Android and iOS, with recordings and screenshot artifacts for human visual review. Its hosted Maestro jobs require a compatible paid Expo plan; the current project plan supports keeping and reviewing the configuration but rejects execution of those jobs.
 
-Merged `main` commits start the native store-candidate workflow but pause before building until an EAS approval is granted. Public Android rollout is a separate protected GitHub dispatch that validates the approved commit and EAS build metadata; iOS public review and release remain controlled in App Store Connect.
+Android and iOS store candidates have separate manual EAS workflows. An operator dispatches only the required platform from remote `main`, then grants that workflow's approval before its build and candidate submission consume capacity. Public Android rollout is a separate protected GitHub dispatch that validates the approved commit and EAS build metadata; iOS public review and release remain controlled in App Store Connect.
 
 Android store candidates are release variants optimized by R8. Validate the optimized binary on the internal track before production promotion and retain the exact build's `mapping.txt` for native crash deobfuscation.
 

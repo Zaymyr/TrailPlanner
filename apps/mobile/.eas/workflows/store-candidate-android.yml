@@ -1,0 +1,27 @@
+name: Build and submit Android store candidate
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  approve_candidate:
+    name: Prepare Android store candidate from main?
+    type: require-approval
+
+  build_android:
+    name: Build Android store candidate
+    needs: [approve_candidate]
+    type: build
+    environment: production
+    params:
+      platform: android
+      profile: production
+
+  submit_android:
+    name: Submit Android candidate to internal draft
+    needs: [build_android]
+    type: submit
+    environment: production
+    params:
+      build_id: ${{ needs.build_android.outputs.build_id }}
+      profile: store-candidate

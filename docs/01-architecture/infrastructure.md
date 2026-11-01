@@ -9,7 +9,8 @@ related_files:
   - apps/web/app/api/organizer/editions/[id]/analytics/route.ts
   - vercel.json
   - apps/mobile/eas.json
-  - apps/mobile/.eas/workflows/store-candidate.yml
+  - apps/mobile/.eas/workflows/store-candidate-android.yml
+  - apps/mobile/.eas/workflows/store-candidate-ios.yml
   - .github/workflows/eas-submit-android-production.yml
   - .github/workflows/db-migrate.yml
   - apps/mobile/react-native.config.js
@@ -115,7 +116,7 @@ The app config intentionally keeps `@react-native-google-signin/google-signin` o
 
 The manual `apps/mobile/.eas/workflows/mobile-ux-audit.yml` workflow uses the EAS `preview` environment for both builds and Maestro jobs. Android targets a Pixel 6 emulator with screen recording; iOS uses a simulator build. Both jobs execute the same authenticated smoke/UX flow and retain screenshots plus recordings as artifacts. Expo requires a compatible paid plan for hosted Maestro jobs, and validation against the current project account stops on that billing capability before execution.
 
-`apps/mobile/.eas/workflows/store-candidate.yml` starts for merged commits on `main`, then pauses at an EAS approval gate before consuming build capacity. It builds both production binaries, submits Android to an internal draft and uploads iOS to App Store Connect/TestFlight. A job-level `main` condition prevents a manual workflow run from another ref from reaching the approval/build chain. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
+Store candidates are manual and platform-specific. `store-candidate-android.yml` and `store-candidate-ios.yml` each expose only `workflow_dispatch`, pause at their own EAS approval gate, build the selected platform with the `production` profile, and submit with `store-candidate`. Operators must dispatch the chosen file from remote `main` (for example, `eas workflow:run .eas/workflows/store-candidate-ios.yml --ref main`); omitting `--ref` uploads the local project state instead. Android submission creates an internal draft, while iOS uploads to App Store Connect/TestFlight. Public Android rollout remains a separate GitHub dispatch protected by the `Production` environment; that dispatch checks the exact merged commit SHA and verifies the selected EAS build's project, platform, profile, application id, commit, status, artifact, and expiry before submission. Apple production review/release remains in App Store Connect.
 
 ## Supabase
 

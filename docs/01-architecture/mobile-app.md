@@ -26,7 +26,8 @@ related_files:
   - apps/mobile/app.config.ts
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
-  - apps/mobile/.eas/workflows/store-candidate.yml
+  - apps/mobile/.eas/workflows/store-candidate-android.yml
+  - apps/mobile/.eas/workflows/store-candidate-ios.yml
   - .github/workflows/eas-submit-android-production.yml
   - apps/mobile/.maestro/config.yaml
   - apps/mobile/.maestro/flows/authenticated-shell.yaml
@@ -286,7 +287,7 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 
 The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform target: it builds Android and iOS in parallel, runs the authenticated Maestro journey with one retry, records each platform, and retains its screenshots as test artifacts. Hosted Maestro jobs require a compatible paid Expo plan; the current project plan rejects those jobs, so local Android execution remains the immediately available path. The journey covers login plus the Courses, Plans, Nutrition, and Profile tabs. Its app id defaults to the E2E/production identifier with a clean restart and login deep link. Local physical-device audits explicitly open the Dev login route through ADB, pass `APP_ID=com.paceyourself.app.dev`, preserve app state and the active Metro process, and skip the shared-scheme deep link so they cannot target the installed production app. Stable React Native test ids are used instead of translated labels. `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` must be secret variables in the EAS `preview` environment; they are never committed or exposed as Expo public values.
 
-Native store candidates use the `production` build profile after a merged `main` commit reaches an explicit EAS approval gate. EAS then submits Android to the internal track as a draft and iOS to App Store Connect/TestFlight. Neither path performs an unattended public release: Android production submission requires the protected GitHub dispatch, explicit confirmation, and build-metadata match against the approved commit, while Apple review and release remain controlled in App Store Connect.
+Native store candidates use two independently dispatched EAS workflows after their definitions have reached `main`. Each platform has its own explicit approval gate, `production` build, and `store-candidate` submission: Android goes to the internal track as a draft, while iOS goes to App Store Connect/TestFlight. Run the selected workflow with `--ref main` so EAS builds the exact remote `main` state instead of packaging a local checkout. Neither path performs an unattended public release: Android production submission requires the protected GitHub dispatch, explicit confirmation, and build-metadata match against the approved commit, while Apple review and release remain controlled in App Store Connect.
 
 ## App Shell
 
