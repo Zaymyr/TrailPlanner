@@ -9,6 +9,7 @@ import { Heading } from '../themed/Heading';
 import { Text } from '../themed/Text';
 import { Colors } from '../../constants/colors';
 import { RacebookBrandLogo } from './RacebookSponsorExperience';
+import { RaceWorkspaceCommonBlock, RaceWorkspaceCompactIdentity } from '../race-workspace/RaceWorkspaceHeaderCommon';
 
 export const RACEBOOK_HERO_BODY_HEIGHT = 268;
 export const RACEBOOK_HERO_COMPACT_BODY_HEIGHT = 60;
@@ -34,6 +35,8 @@ type Props = {
   participationIcon: keyof typeof Ionicons.glyphMap;
   startTimeLabel: string;
   startTimeValue: string | null;
+  maxTimeLabel: string;
+  maxTimeValue: string | null;
   distanceLabel: string;
   elevationGainLabel: string;
   elevationLossLabel: string | null;
@@ -76,6 +79,8 @@ export function RacebookCollapsibleHero({
   participationIcon,
   startTimeLabel,
   startTimeValue,
+  maxTimeLabel,
+  maxTimeValue,
   distanceLabel,
   elevationGainLabel,
   elevationLossLabel,
@@ -173,17 +178,7 @@ export function RacebookCollapsibleHero({
           },
         ]}
       >
-        <View style={styles.compactTitleWrap}>
-          <Text numberOfLines={1} style={[styles.compactTitle, { color: theme.onPrimaryColor }]}>{raceName}</Text>
-          {(Boolean(eventName && eventName !== raceName) || Boolean(startTimeValue)) ? (
-            <Text numberOfLines={1} style={[styles.compactKicker, { color: theme.onPrimaryColor }]}>
-              {[
-                eventName && eventName !== raceName ? eventName : null,
-                startTimeValue ? `${startTimeLabel} ${startTimeValue}` : null,
-              ].filter(Boolean).join(' · ')}
-            </Text>
-          ) : null}
-        </View>
+        <RaceWorkspaceCompactIdentity title={raceName} courseName={eventName} startLabel={startTimeLabel} startTime={startTimeValue} color={theme.onPrimaryColor} />
       </Animated.View>
 
       {socialLinks.length > 0 ? (
@@ -224,34 +219,29 @@ export function RacebookCollapsibleHero({
         onLayout={handleExpandedLayout}
         style={[styles.expandedContent, { paddingTop: topInset + 10, opacity: expandedOpacity }]}
       >
-        <View style={[styles.topRow, { paddingRight: socialLinks.length > 0 ? 48 : 0 }]}>
-          <View style={styles.heading}>
-            {eventName && eventName !== raceName ? (
-              <Text style={[styles.kicker, { color: theme.onPrimaryColor }]}>{eventName}</Text>
-            ) : null}
-            <Heading numberOfLines={2} variant="h1" style={[styles.title, { color: theme.onPrimaryColor }]}>{raceName}</Heading>
-          </View>
-        </View>
-
+        <RaceWorkspaceCommonBlock
+          title={raceName}
+          courseName={eventName}
+          dateLabel={dateLabel}
+          locationLabel={locationLabel}
+          onOpenLocation={onOpenLocation}
+          startLabel={startTimeLabel}
+          startTime={startTimeValue}
+          maxTimeLabel={maxTimeLabel}
+          maxTime={maxTimeValue}
+          color={theme.onPrimaryColor}
+          metrics={[
+            { label: 'Distance', value: distanceLabel },
+            { label: elevationCaption, value: elevationGainLabel },
+            { label: descentCaption, value: elevationLossLabel ?? '—' },
+            { label: planDurationCaption, value: planDurationLabel ?? '—' },
+            { label: planPaceCaption, value: planPaceLabel ?? '—' },
+          ]}
+        />
         <View style={styles.detailsRow}>
           <View style={styles.metaGroup}>
-            {dateLabel ? <Meta icon="calendar-outline" label={dateLabel} color={theme.onPrimaryColor} /> : null}
-            {locationLabel && onOpenLocation ? (
-              <Pressable accessibilityRole="link" onPress={onOpenLocation} style={({ pressed }) => [pressed && styles.pressed]}>
-                <Meta icon="location-outline" label={locationLabel} color={theme.onPrimaryColor} underlined />
-              </Pressable>
-            ) : locationLabel ? <Meta icon="location-outline" label={locationLabel} color={theme.onPrimaryColor} /> : null}
             {participationLabel ? <Meta icon={participationIcon} label={participationLabel} color={theme.onPrimaryColor} /> : null}
           </View>
-          {startTimeValue ? (
-            <View style={styles.startTimeBadge}>
-              <Ionicons name="time-outline" size={17} color={theme.onPrimaryColor} />
-              <View style={styles.startTimeCopy}>
-                <Text numberOfLines={1} style={[styles.startTimeLabel, { color: theme.onPrimaryColor }]}>{startTimeLabel}</Text>
-                <DataText numberOfLines={1} style={[styles.startTimeValue, { color: theme.onPrimaryColor }]}>{startTimeValue}</DataText>
-              </View>
-            </View>
-          ) : null}
           {logoUrl ? (
             <View style={styles.logoSurface}>
               <RacebookBrandLogo uri={logoUrl} style={styles.logo} accessibilityLabel={eventName ?? raceName} />
@@ -259,29 +249,6 @@ export function RacebookCollapsibleHero({
           ) : null}
         </View>
 
-        <View style={styles.metrics}>
-          <Metric value={distanceLabel} label="Distance" color={theme.onPrimaryColor} />
-          <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
-          <Metric value={elevationGainLabel} label={elevationCaption} color={theme.onPrimaryColor} />
-          {elevationLossLabel ? (
-            <>
-              <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
-              <Metric value={elevationLossLabel} label={descentCaption} color={theme.onPrimaryColor} />
-            </>
-          ) : null}
-          {planDurationLabel ? (
-            <>
-              <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
-              <Metric value={planDurationLabel} label={planDurationCaption} color={theme.onPrimaryColor} />
-            </>
-          ) : null}
-          {planPaceLabel ? (
-            <>
-              <View style={[styles.metricDivider, { backgroundColor: theme.onPrimaryColor }]} />
-              <Metric value={planPaceLabel} label={planPaceCaption} color={theme.onPrimaryColor} />
-            </>
-          ) : null}
-        </View>
         {emergency && onCallEmergency ? (
           <View style={styles.emergencyRow}>
             <Ionicons name="medical" size={16} color={theme.onPrimaryColor} />
@@ -348,10 +315,6 @@ export function RacebookCollapsibleHero({
 
 function Meta({ icon, label, color, underlined = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; color: string; underlined?: boolean }) {
   return <View style={styles.metaItem}><Ionicons name={icon} size={18} color={color} /><Text numberOfLines={1} style={[styles.meta, { color }, underlined && styles.metaLink]}>{label}</Text></View>;
-}
-
-function Metric({ value, label, color }: { value: string; label: string; color: string }) {
-  return <View style={styles.metric}><DataText adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={[styles.metricValue, { color }]}>{value}</DataText><Text adjustsFontSizeToFit minimumFontScale={0.75} numberOfLines={1} style={[styles.metricLabel, { color }]}>{label}</Text></View>;
 }
 
 const styles = StyleSheet.create({

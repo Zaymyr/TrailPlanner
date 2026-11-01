@@ -39,7 +39,7 @@ import {
 } from '../../../../components/race-workspace/RaceWorkspaceSwitch';
 import { LockedPlanContent } from '../../../../components/plan-workspace/LockedPlanContent';
 import { type PlanEditTutorialTargetKey, usePlanEditTutorial } from '../../../../hooks/usePlanEditTutorial';
-import { readOrganizerStartTime, normalizePlanClock } from '../../../../lib/planDeparture';
+import { readOrganizerFinishCutoffTime, readOrganizerStartTime, normalizePlanClock, resolveMaximumRaceMinutes } from '../../../../lib/planDeparture';
 import { fetchRaceElevationProfile, pickBestElevationProfile } from '../../../../lib/raceProfile';
 import { type TutorialStep } from '../../../../lib/helpTutorial';
 import { PremiumUpsellModal, type PremiumPaywallPlacement } from '../../../../components/premium/PremiumUpsellModal';
@@ -283,11 +283,15 @@ export default function EditPlanScreen() {
     () => initialWarmStartDraft?.elevationProfile ?? [],
   );
   const [officialStartTime, setOfficialStartTime] = useState<string | null>(null);
+  const [officialFinishCutoffTime, setOfficialFinishCutoffTime] = useState<string | null>(null);
+  const [officialRaceDate, setOfficialRaceDate] = useState<string | null>(null);
+  const [officialRaceLocation, setOfficialRaceLocation] = useState<string | null>(null);
   const [officialElevationLossM, setOfficialElevationLossM] = useState<number | null>(null);
   const [planCanEdit, setPlanCanEdit] = useState(false);
   const [planCanViewDetails, setPlanCanViewDetails] = useState(false);
   const [runnerAccessMode, setRunnerAccessMode] = useState<'real' | 'free' | 'premium'>('real');
-  const [runnerAccessUnknown, setRunnerAccessUnknown] = useState(false);
+  const [planAccessState, setPlanAccessState] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [runnerAccessError, setRunnerAccessError] = useState(false);
   const [previewPaywallVisible, setPreviewPaywallVisible] = useState(false);
   const [previewPaywallPlacement, setPreviewPaywallPlacement] = useState<PremiumPaywallPlacement>('feature_gate');
   const latestDraftRef = useRef<PlanFormValues | null>(initialWarmStartDraft?.values ?? null);
@@ -390,22 +394,29 @@ export default function EditPlanScreen() {
     let cancelled = false;
     setOfficialElevationLossM(null);
     setOfficialStartTime(null);
+    setOfficialFinishCutoffTime(null);
+    setOfficialRaceDate(null);
+    setOfficialRaceLocation(null);
     setLinkedRaceId(null);
 
     if (!id) return () => { cancelled = true; };
 
     void supabase
       .from('race_plans')
-      .select('race_id, races(elevation_loss_m, organizer_details, race_events(name))')
+        .select('race_id, races(elevation_loss_m, organizer_details, race_date, location_text, race_events(name,location,race_date))')
       .eq('id', id)
       .maybeSingle()
       .then(async (result: { data: unknown }) => {
         if (cancelled) return;
-        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null; organizer_details?: unknown; race_events?: { name?: string | null } | { name?: string | null }[] | null } | null } | null;
+        const row = result.data as { race_id?: string | null; races?: { elevation_loss_m?: number | null; organizer_details?: unknown; race_date?: string | null; location_text?: string | null; race_events?: { name?: string | null; location?: string | null; race_date?: string | null } | { name?: string | null; location?: string | null; race_date?: string | null }[] | null } | null } | null;
         setLinkedRaceId(row?.race_id ?? null);
         const eventRelation = row?.races?.race_events;
         const eventName = Array.isArray(eventRelation) ? eventRelation[0]?.name : eventRelation?.name;
+        const eventLocation = Array.isArray(eventRelation) ? eventRelation[0]?.location : eventRelation?.location;
+        const eventRaceDate = Array.isArray(eventRelation) ? eventRelation[0]?.race_date : eventRelation?.race_date;
         setLinkedRaceEventName(typeof eventName === 'string' ? eventName : null);
+        setOfficialRaceLocation(row?.races?.location_text ?? eventLocation ?? null);
+        setOfficialRaceDate(row?.races?.race_date ?? eventRaceDate ?? null);
         const officialValue = row?.races?.elevation_loss_m;
         setOfficialElevationLossM(
           typeof officialValue === 'number' && Number.isFinite(officialValue) && officialValue >= 0
@@ -413,6 +424,7 @@ export default function EditPlanScreen() {
             : null,
         );
         let startTime = readOrganizerStartTime(row?.races?.organizer_details);
+        setOfficialFinishCutoffTime(readOrganizerFinishCutoffTime(row?.races?.organizer_details));
         if (!startTime && row?.race_id) {
           const { data: wave } = await supabase.from('race_start_waves')
             .select('start_time').eq('race_id', row.race_id)
@@ -464,6 +476,7 @@ export default function EditPlanScreen() {
 
     const cachedDraft = routeWorkspaceWarmStart?.draft ?? getUnsavedPlanEditDraft(id);
     const cachedProductData = routeWorkspaceWarmStart?.products ?? getPlanEditProductsBootstrap(id);
+    const isNewPlan = activeRouteIdRef.current !== id;
 
     activeRouteIdRef.current = id;
     loadRequestIdRef.current += 1;
@@ -475,10 +488,11 @@ export default function EditPlanScreen() {
     setError(null);
     setSaving(false);
     setSaveStatus('idle');
-    setPlanCanEdit(false);
-    setPlanCanViewDetails(false);
     setRunnerAccessMode('real');
-    setRunnerAccessUnknown(false);
+    if (isNewPlan) {
+      setPlanAccessState('unknown');
+      setRunnerAccessError(false);
+    }
     setActivePlanEditSession(id);
 
     if (cachedDraft && cachedProductData) {
@@ -520,29 +534,41 @@ export default function EditPlanScreen() {
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token;
     const uid = data.session?.user.id;
-    if (!token || !uid) return;
+    if (!token || !uid) { setRunnerAccessError(true); return; }
+    const cached = await readCachedRunnerPlanCapabilities(uid, id);
+    if (activeRouteIdRef.current !== id) return;
+    if (cached) {
+      const seeded = resolveRunnerPlanAccess(null, cached);
+      if (seeded.capabilities) {
+        setPlanCanEdit(seeded.capabilities.canEdit);
+        setPlanCanViewDetails(seeded.capabilities.canViewDetails);
+        setRunnerAccessMode(seeded.capabilities.mode ?? 'real');
+        setPlanAccessState(seeded.capabilities.canEdit || seeded.capabilities.canViewDetails ? 'granted' : 'denied');
+        setRunnerAccessError(false);
+      }
+    }
     try {
       const response = await fetch(`${WEB_API_BASE_URL}/api/plans/${encodeURIComponent(id)}/access`, { headers: { Authorization: `Bearer ${token}` } });
       const payload = await response.json().catch(() => null) as { access?: RunnerPlanCapabilities } | null;
       if (activeRouteIdRef.current !== id) return;
-      const cached = await readCachedRunnerPlanCapabilities(uid, id);
       const resolution = resolveRunnerPlanAccess(response.ok ? payload?.access ?? null : null, cached);
       if (!resolution.capabilities) {
-        setRunnerAccessUnknown(true);
+        setRunnerAccessError(true);
         return;
       }
-      setRunnerAccessUnknown(false);
+      setRunnerAccessError(false);
       setPlanCanEdit(resolution.capabilities.canEdit); setPlanCanViewDetails(resolution.capabilities.canViewDetails);
+      setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
       setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
       if (resolution.status === 'verified') void cacheRunnerPlanCapabilities(uid, id, resolution.capabilities);
     } catch {
-      const cached = await readCachedRunnerPlanCapabilities(uid, id);
       const resolution = resolveRunnerPlanAccess(null, cached);
-      if (!resolution.capabilities) setRunnerAccessUnknown(true);
+      if (!resolution.capabilities) setRunnerAccessError(true);
       else {
-        setRunnerAccessUnknown(false);
+        setRunnerAccessError(false);
         setPlanCanEdit(resolution.capabilities.canEdit);
         setPlanCanViewDetails(resolution.capabilities.canViewDetails);
+        setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
         setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
       }
     }
@@ -582,9 +608,10 @@ export default function EditPlanScreen() {
           nextPlanCanEdit = resolution.capabilities.canEdit;
           setPlanCanViewDetails(resolution.capabilities.canViewDetails);
           setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
-          setRunnerAccessUnknown(false);
+          setRunnerAccessError(false);
+          setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
           if (resolution.status === 'verified') void cacheRunnerPlanCapabilities(accessUserId, id, resolution.capabilities);
-        } else setRunnerAccessUnknown(true);
+        } else setRunnerAccessError(true);
       } catch (accessError) {
         console.warn('Unable to load plan access.', accessError);
         const resolution = resolveRunnerPlanAccess(null, cachedAccess);
@@ -592,8 +619,9 @@ export default function EditPlanScreen() {
           nextPlanCanEdit = resolution.capabilities.canEdit;
           setPlanCanViewDetails(resolution.capabilities.canViewDetails);
           setRunnerAccessMode(resolution.capabilities.mode ?? 'real');
-          setRunnerAccessUnknown(false);
-        } else setRunnerAccessUnknown(true);
+          setRunnerAccessError(false);
+          setPlanAccessState(resolution.capabilities.canEdit || resolution.capabilities.canViewDetails ? 'granted' : 'denied');
+        } else setRunnerAccessError(true);
       }
     }
     if (isStaleLoad()) return;
@@ -971,6 +999,9 @@ export default function EditPlanScreen() {
   const averagePace = workspaceSummary
     ? formatAveragePace(workspaceSummary.totalDurationMin, workspaceSummary.distanceKm)
     : '—';
+  const maximumRaceMinutes = resolveMaximumRaceMinutes(officialStartTime, officialFinishCutoffTime);
+  const maximumRaceLabel = maximumRaceMinutes === null ? null : formatDuration(maximumRaceMinutes);
+  const planBeyondCutoff = Boolean(workspaceSummary && maximumRaceMinutes !== null && workspaceSummary.totalDurationMin > maximumRaceMinutes);
   const workspaceSwitchHeight = linkedRaceId ? RACE_WORKSPACE_SWITCH_HEIGHT : 0;
   const revisionBannerHeight = officialRevisionPending ? 116 : 0;
   const headerTopInset = insets.top + PLAN_WORKSPACE_HEADER_BODY_HEIGHT + workspaceSwitchHeight + revisionBannerHeight + 16;
@@ -1102,14 +1133,14 @@ export default function EditPlanScreen() {
     );
   }
 
-  if (runnerAccessUnknown) {
+  if (planAccessState === 'unknown') {
     return (
       <View style={styles.center}>
         <Stack.Screen options={{ headerShown: false, gestureEnabled: false }} />
-        <Text style={styles.errorText}>{locale === 'fr' ? 'Impossible de vérifier ton accès à ce plan.' : 'We could not verify access to this plan.'}</Text>
-        <Pressable accessibilityRole="button" onPress={() => { setRunnerAccessUnknown(false); void loadPlan(); }} style={styles.errorBackButton}>
+        <Text style={styles.errorText}>{runnerAccessError ? t.planWorkspace.accessError : t.planWorkspace.accessChecking}</Text>
+        {runnerAccessError ? <Pressable accessibilityRole="button" onPress={() => { setRunnerAccessError(false); void refreshRunnerAccess(); }} style={styles.errorBackButton}>
           <Text style={styles.errorBackButtonText}>{t.common.retry}</Text>
-        </Pressable>
+        </Pressable> : null}
       </View>
     );
   }
@@ -1202,13 +1233,15 @@ export default function EditPlanScreen() {
       )}
       <PlanWorkspaceHeader
         startTime={officialStartTime}
-        averagePace={averagePace}
+        dateLabel={officialRaceDate ? new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC' }).format(new Date(`${officialRaceDate}T12:00:00Z`)) : null}
+        locationLabel={officialRaceLocation}
+        maxTime={maximumRaceLabel}
         metrics={[
-          { label: t.planWorkspace.estimatedTime, value: workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—' },
-          { label: t.planWorkspace.averagePace, value: averagePace === '—' ? '—' : `${averagePace}/km` },
+          { label: 'Distance', value: formatDistance(liveValues?.raceDistanceKm ?? 0, locale) },
           { label: 'D+', value: `${Math.round(liveValues?.elevationGain ?? 0)} m` },
           { label: 'D−', value: elevationLoss === null ? '—' : `${Math.round(elevationLoss)} m` },
-          { label: 'Distance', value: formatDistance(liveValues?.raceDistanceKm ?? 0, locale) },
+          { label: t.planWorkspace.estimatedTime, value: workspaceSummary ? `${formatDuration(workspaceSummary.totalDurationMin)}${planBeyondCutoff ? ` · ${t.planWorkspace.beyondCutoff}` : ''}` : '—' },
+          { label: t.planWorkspace.averagePace, value: averagePace === '—' ? '—' : `${averagePace}/km` },
         ]}
         onBack={handleBackToPlans}
         saveStatus={saveStatus}
@@ -1216,7 +1249,6 @@ export default function EditPlanScreen() {
         title={liveValues?.name || planName}
         subtitle={linkedRaceEventName}
         topInset={insets.top}
-        totalTime={workspaceSummary ? formatDuration(workspaceSummary.totalDurationMin) : '—'}
       />
       {linkedRaceId ? (
         <RaceWorkspaceSwitch

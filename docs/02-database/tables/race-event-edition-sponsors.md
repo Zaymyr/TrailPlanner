@@ -38,6 +38,8 @@ related_tables:
 
 # race_event_edition_sponsors
 
+The shared RaceBook identity block remains ahead of RaceBook-only sponsor/emergency content and does not change sponsor selection, impression, click, or placement contracts.
+
 Le bouton unique de liens organisateur dans l'en-tête n'est pas une surface sponsor. Son ouverture et les retours contextuels n'émettent aucune impression sponsor et ne modifient ni les placements, ni l'ordre, ni les compteurs agrégés.
 
 RaceBook personal passage-time interpolation is client-only and does not alter sponsor selection or presentation.

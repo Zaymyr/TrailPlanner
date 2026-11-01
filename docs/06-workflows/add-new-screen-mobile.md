@@ -28,6 +28,7 @@ related_files:
   - apps/mobile/components/racebook/RacebookTabBar.tsx
   - apps/mobile/components/plan-workspace/LockedPlanContent.tsx
   - apps/mobile/components/race-workspace/RaceWorkspaceSwitch.tsx
+  - apps/mobile/components/race-workspace/RaceWorkspaceHeaderCommon.tsx
   - apps/mobile/lib/planPreviewBoundary.ts
   - apps/mobile/lib/planPreviewBoundary.test.ts
   - apps/mobile/components/racebook/RacebookStructuredCourseSections.tsx
@@ -74,6 +75,8 @@ related_tables:
 ---
 
 # Add New Mobile Screen
+
+For linked Plan/RaceBook workspaces, reuse `RaceWorkspaceHeaderCommon` so identity, official timing and the five course metrics keep one order. Treat plan entitlement as unknown until cached or verified capabilities exist; unknown UI is neutral and retryable, never a free preview.
 
 Les espaces de travail contextuels n'ajoutent pas une action de sortie à leur barre basse : le Livret affiche exactement cinq onglets et l'éditeur trois. Le retour appartient à l'en-tête et au geste/bouton système. Dans un Livret, les interactions utilisent la palette Pace Yourself ; la couleur principale organisateur sert à l'identité et aux badges, et son accent au tracé et aux repères de ravito. Tous les textes visibles restent dans les locales.
 

@@ -175,6 +175,31 @@ export type MobileTranslations = {
     averagePace: string;
     saved: string;
     saveError: string;
+    start: string;
+    maximumTime: string;
+    beyondCutoff: string;
+    accessChecking: string;
+    accessError: string;
+  };
+  autoFillLimits: {
+    preview: string;
+    title: string;
+    help: string;
+    close: string;
+    units: string;
+    products: string;
+    points: string;
+    changedPoints: string;
+    needsCovered: string;
+    empty: string;
+    useProduct: string;
+    doNotUseProduct: string;
+    maximumQuantity: string;
+    unlimited: string;
+    accessibilityQuantity: string;
+    back: string;
+    cancel: string;
+    apply: string;
   };
   trainingLive: {
     title: string;

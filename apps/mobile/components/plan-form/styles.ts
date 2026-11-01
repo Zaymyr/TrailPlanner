@@ -1122,6 +1122,12 @@ export const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
   },
+  autoFillQuantityArea: { width: 132, alignItems: 'stretch', gap: 3 },
+  autoFillQuantityStepper: { minHeight: 44, flexDirection: 'row', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: Colors.brandBorder, overflow: 'hidden' },
+  autoFillQuantityButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  autoFillQuantityValue: { width: 42, height: 44, alignItems: 'center', justifyContent: 'center', borderLeftWidth: 1, borderRightWidth: 1, borderColor: Colors.border },
+  autoFillQuantityValueText: { color: Colors.textPrimary, fontSize: 15, fontWeight: '800' },
+  autoFillUnlimitedButton: { minHeight: 28, alignItems: 'center', justifyContent: 'center' },
   autoFillLimitBadge: {
     color: Colors.textMuted,
     fontSize: 10,
