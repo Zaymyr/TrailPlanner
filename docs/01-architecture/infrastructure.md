@@ -186,6 +186,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `SUPABASE_ANON_KEY`
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+- `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` (public browser token for the admin 3D viewer; restrict it to approved origins)
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `SUPABASE_SERVICE_ROLE`
 - `STRIPE_SECRET_KEY`
@@ -232,6 +233,7 @@ For local setup, copy `apps/web/.env.example` to the ignored `apps/web/.env.loca
 - `@react-native-community/datetimepicker` is a native Expo config plugin. A development/store rebuild must precede relying on it; an OTA cannot add the native module to an older runtime, so mobile keeps a lazy localized fallback for those binaries.
 
 - Never commit actual environment values into docs.
+- A `NEXT_PUBLIC_MAPBOX_ACCESS_TOKEN` is intentionally browser-visible, but it must be a public token with URL restrictions. Never substitute a secret-scope Mapbox token.
 - Keep the development profile's `APP_VARIANT` value aligned with local Expo startup. Firebase/Google configuration injected into that profile must use the dedicated `*_DEV` variables and register `com.paceyourself.app.dev`; files containing only the production client are not interchangeable. When those optional Dev files are absent, the app config omits them rather than embedding production configuration, so Dev push/Google features remain unavailable until the separate Firebase clients exist.
 - Keep Maestro credentials in the EAS `preview` secret environment or process-only local variables. Do not prefix them with `EXPO_PUBLIC_`.
 - Keep the ignored-build paths aligned with every repository-level input used by the web build. An omitted shared input can cause Vercel to skip a required deployment.

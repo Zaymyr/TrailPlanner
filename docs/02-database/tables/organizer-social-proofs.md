@@ -1,7 +1,7 @@
 ---
 title: organizer_social_proofs
 scope: database
-last_verified: 2026-09-30
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - supabase/migrations/20260930115641_add_organizer_social_proofs.sql
@@ -103,6 +103,7 @@ limit 3;
 - Do not expose drafts or audit ids through an anonymous Data API grant. Public presentation remains server-only and allowlisted.
 - The event favorite count is event-scoped current stock and is intentionally not stored in an edition proof.
 - The hero and highlighted section intentionally reuse the same first ordered snapshot; do not compute a separate or fresher metric in the client.
+- The admin header's separate 3D video-generator link neither reads nor mutates organizer proof snapshots.
 
 ## Related Docs
 

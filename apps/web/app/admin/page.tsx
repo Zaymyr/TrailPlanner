@@ -1,5 +1,6 @@
 "use client";
 
+import type { Route } from "next";
 import { useState } from "react";
 import Link from "next/link";
 
@@ -69,6 +70,9 @@ export default function AdminPage() {
           <p className="text-sm text-muted-foreground dark:text-slate-300">{t.admin.description}</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link href={"/admin/video-generator" as Route}>
+            <Button variant="outline">Générateur vidéo 3D</Button>
+          </Link>
           <Link href="/race-planner" className="text-brand underline-offset-4 hover:underline dark:text-emerald-200">
             {t.homeHero.cta}
           </Link>

@@ -15,6 +15,9 @@ related_files:
   - apps/web/lib/public-race-detail.test.ts
   - apps/web/app/courses/_components/PublicElevationProfile.tsx
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
+  - apps/web/app/admin/video-generator/page.tsx
+  - apps/web/app/api/admin/video-generator/races/[id]/route.ts
+  - apps/web/lib/video-generator.ts
   - apps/web/app/api/admin/race-catalog/utmb/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.ts
   - apps/web/app/api/admin/race-catalog/tracedetrail/route.test.ts
@@ -180,6 +183,14 @@ When a source GPX exists, the editor also exposes a confirmed delete action. Suc
 
 Published RaceBook branding may recolor the mobile route and elevation-profile strokes through validated design-system colors. It never rewrites GPX content, computed metrics, Storage paths, or organizer import previews.
 
+## Admin 3D Course Viewer
+
+The admin-only `/admin/video-generator` surface reads both draft and published formats after trusted `app_metadata` authorization. Its detail route downloads the private source object server-side, reuses `parseGpx`, and sends the browser only ordered point/elevation/distance DTOs and bounds. It never returns the Storage path, raw XML or a signed object URL.
+
+Unlike the public bounded preview and Organizer's sampled elevation payload, this internal viewer preserves every parsed point for a future camera path. The Mapbox GeoJSON source owns render-time optimization. Aid stations continue to be source kilometer facts: the viewer projects each one to the nearest cumulative-distance GPX point without persisting inferred coordinates.
+
+The viewer is read-only. Missing GPX is an explicit empty state and neither parsing nor camera navigation changes race metrics, stations, publication state or Storage objects.
+
 ## Review Flow Conflict
 
 `apps/web/components/GpxAidStationImporter.tsx` contains logic for updating existing race aid stations from GPX:
@@ -240,6 +251,7 @@ Published RaceBook branding may recolor the mobile route and elevation-profile s
 - Removing a sent organizer announcement from public history also leaves GPX files, parsed metrics, and ravito interpolation state unchanged.
 - Editing or publicly projecting the event-level website for the catalog registration CTA does not change GPX parsing, storage, preview points, or format metrics; standalone CTA fallback to `races.external_site_url` is presentation-only too.
 - Public course visualization must remain a server-parsed preview. Do not expose a signed/private GPX URL, raw file contents, or a download action from the SEO page.
+- The admin 3D viewer may keep the full parsed point set because it is authenticated and internal, but its API must still omit the source Storage path and raw GPX.
 - Keep edition accent application presentation-only; GPX parsing and distance/elevation calculations must remain color-independent.
 
 ## Related Docs
@@ -255,3 +267,4 @@ Supporter-point `km` values may position the runner conceptually along the forma
 - [Plan Storage](plan-storage.md)
 - [Organizer Race Management](organizer-race-management.md)
 - [Infrastructure](../01-architecture/infrastructure.md)
+- [Mapbox 3D Admin Course Viewer](../05-integrations/mapbox-3d.md)

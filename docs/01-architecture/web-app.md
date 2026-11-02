@@ -1,7 +1,7 @@
 ---
 title: Web App Architecture
 scope: architecture
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: high
 related_files:
   - apps/web/lib/organizer-structured-content.ts
@@ -36,6 +36,12 @@ related_files:
   - apps/web/next.config.mjs
   - apps/web/app/admin/components/AdminRaceCatalogSection.tsx
   - apps/web/app/admin/page.tsx
+  - apps/web/app/admin/video-generator/page.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorMap.tsx
+  - apps/web/app/admin/video-generator/VideoGeneratorMapClient.tsx
+  - apps/web/app/admin/video-generator/camera-controller.ts
+  - apps/web/app/api/admin/video-generator/races/[id]/route.ts
+  - apps/web/lib/video-generator.ts
   - apps/web/app/admin/_components/AdminOrganizerSocialProofsTab.tsx
   - apps/web/app/admin/_components/AdminOrganizerSocialProofsTab.test.ts
   - apps/web/app/api/admin/organizer-social-proofs/route.ts
@@ -425,6 +431,12 @@ Catalog reads tolerate an officially unpublished D+ as `null`. Runner and admin 
 
 The Admin `Liens partenaires` tab manages the two global Booking and Decathlon destinations. Each entry keeps a normal URL, an optional affiliate URL, an explicit affiliate-mode switch, and a global enabled switch. The browser never accesses the configuration table directly: the admin API revalidates the bearer user through trusted Auth `app_metadata`, then performs one service-role PostgREST upsert for both partners. Both seed rows are disabled, so the schema rollout alone publishes no mobile CTA. The public read-only `/api/partner-links` route uses the service credential server-side, filters enabled rows, applies the shared standard-versus-affiliate resolver, and returns only partner key, resolved HTTPS destination, and affiliation status with a five-minute CDN TTL. It never exposes disabled rows, alternate URLs, rollout flags, audit metadata, or the service credential.
 
+### Admin 3D Course Viewer
+
+`/admin/video-generator` is a separate full-width route linked from the existing admin header and protected by the shared server admin layout. It reuses the complete authorized race catalog, including drafts and standalone formats, then lazily calls `/api/admin/video-generator/races/[id]` only after a format is selected. Selection changes abort the previous request.
+
+The detail route verifies trusted `app_metadata` before service-role reads, parses the private `race-gpx` object on the server and returns a narrow route/station DTO without Storage paths or raw XML. Mapbox GL JS is dynamically loaded client-side for satellite terrain, route/marker GeoJSON layers and an isolated camera controller. Public and Organizer Leaflet components are unchanged.
+
 Admin catalog creation lives in `apps/web/app/api/race-catalog/route.ts`. It requires an admin user, validates GPX, can create a `race_events` row, uploads GPX to the private `race-gpx` bucket, normalizes an optional image to a bounded WebP before uploading it to `race-images`, and inserts `races` plus `race_aid_stations`. New event/race rows from this flow should start as draft (`is_live = false`) unless the admin explicitly marks them live. A new catalog race initializes its required series identity with `edition_group_id = id` and `series_name = name`.
 
 The Trace de Trail admin dialog uses `/api/admin/race-catalog/tracedetrail` for preview, import, and direct GPX download. The adapter tries authenticated then public provider downloads and may rebuild a GPX from geometry already embedded in the accessible trace page. Direct download returns the GPX without database or Storage writes. Catalog creation initializes the required edition-series fields for the first imported edition.
@@ -607,6 +619,7 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - Do not call `headers()` from the root layout solely to localize `<html lang>`; that opts the complete public surface into dynamic rendering. A future server-correct English document language requires a deliberate multi-root-layout route structure.
 
 - Do not store service-role keys in client code. `getSupabaseServiceConfig` is server-only by usage.
+- Keep the 3D video-generator route admin-only and lazy. Its public Mapbox token may reach the browser, but Supabase service credentials, GPX Storage paths and raw GPX must not.
 - Keep verified-session readiness independent from the entitlement request. Premium consumers must use `isEntitlementsLoading` when they need to wait for effective rights; authenticated surfaces such as Organizer should not wait for that secondary request.
 - Do not expose `RESEND_API_KEY` to browser or mobile code; both clients must call server routes.
 - `planner_values` is intentionally flexible JSON. Validate route inputs, but do not assume every old plan has every current field.
@@ -678,3 +691,4 @@ See [../04-auth-and-security/rls-checklist.md](../04-auth-and-security/rls-check
 - [GPX Import](../03-business-rules/gpx-import.md)
 - [Organizer Race Management](../03-business-rules/organizer-race-management.md)
 - [Stripe](../05-integrations/stripe.md)
+- [Mapbox 3D Admin Course Viewer](../05-integrations/mapbox-3d.md)
