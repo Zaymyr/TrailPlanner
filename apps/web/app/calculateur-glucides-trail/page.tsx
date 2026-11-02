@@ -37,7 +37,7 @@ export default function CarbCalculatorPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-5xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-5xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData).replace(/</g, "\\u003c") }}
@@ -74,6 +74,6 @@ export default function CarbCalculatorPage() {
           </Link>
         </div>
       </section>
-    </main>
+    </div>
   );
 }

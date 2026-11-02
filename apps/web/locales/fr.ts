@@ -255,6 +255,9 @@ export const fr: Translations = {
     },
   },
   navigation: {
+    home: "Pace Yourself — Accueil",
+    skipToContent: "Aller au contenu principal",
+    account: "Compte",
     racePlanner: "Planificateur de course",
     blog: "Blog",
     settings: "Liste nutrition",
@@ -262,6 +265,15 @@ export const fr: Translations = {
     admin: "Admin",
     menuLabel: "Ouvrir le menu de navigation",
     premium: "Premium",
+  },
+  notFound: {
+    eyebrow: "Erreur 404",
+    title: "Page introuvable",
+    description: "Cette page n’existe pas ou a été déplacée. Retrouvez votre chemin avec l’un des liens ci-dessous.",
+    home: "Retour à l’accueil",
+    planner: "Ouvrir le planificateur",
+    races: "Découvrir les courses",
+    blog: "Lire le blog",
   },
   auth: {
     shared: {

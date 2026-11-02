@@ -14,6 +14,7 @@ export default function PremiumPage() {
   const [planId, setPlanId] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [prices, setPrices] = useState<Partial<Record<Offer, string>>>({});
+  const [priceUnavailable, setPriceUnavailable] = useState<Partial<Record<Offer, boolean>>>({});
   const [opening, setOpening] = useState<Offer | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
@@ -23,9 +24,15 @@ export default function PremiumPage() {
     fetch("/api/runner/config", { signal: controller.signal, cache: "no-store" }).then((r) => r.json()).then((data) => setEnabled(data.enabled === true)).catch(() => {});
     for (const offer of ["annual", "course"] as const) {
       fetch(`/api/stripe/price?offer=${offer}`, { signal: controller.signal, cache: "no-store" }).then(async (r) => {
-        if (!r.ok) return;
-        const { price } = await r.json();
-        if (typeof price?.unitAmount !== "number" || typeof price.currency !== "string") return;
+        if (!r.ok) {
+          setPriceUnavailable((previous) => ({ ...previous, [offer]: true }));
+          return;
+        }
+        const { price, available } = await r.json();
+        if (available === false || typeof price?.unitAmount !== "number" || typeof price.currency !== "string") {
+          setPriceUnavailable((previous) => ({ ...previous, [offer]: true }));
+          return;
+        }
         const formatted = new Intl.NumberFormat(locale, { style: "currency", currency: price.currency }).format(price.unitAmount / 100);
         setPrices((previous) => ({ ...previous, [offer]: formatted }));
       }).catch(() => {});
@@ -48,11 +55,11 @@ export default function PremiumPage() {
       <p className="text-muted-foreground">{fr ? "Ton estimation est gratuite. Débloque tes allures, tes ravitos et ton plan nutrition pour le jour J." : "Your estimate is free. Unlock pacing, aid stations and race-day nutrition."}</p></div>
     <div className="grid gap-6 sm:grid-cols-2">{(["course", "annual"] as const).map((offer) => <section key={offer} className="space-y-5 rounded-2xl border border-border bg-card p-6">
       <h2 className="text-xl font-semibold">{offer === "course" ? (fr ? "Cette course" : "This race") : (fr ? "Toutes mes courses" : "All my races")}</h2>
-      <p className="text-3xl font-semibold">{prices[offer] ?? (offer === "course" ? "9,99 €" : "29,99 €")}{offer === "annual" ? (fr ? "/an" : "/year") : ""}</p>
+      <p className="text-3xl font-semibold">{prices[offer] ? `${prices[offer]}${offer === "annual" ? (fr ? "/an" : "/year") : ""}` : priceUnavailable[offer] ? (fr ? "Prix temporairement indisponible" : "Price temporarily unavailable") : (fr ? "Chargement du prix…" : "Loading price…")}</p>
       <p className="text-muted-foreground">{offer === "course" ? (fr ? "Paiement unique. Accès durable à ce format pour cette édition." : "One-time payment. Lasting access to this distance and edition.") : (fr ? "Abonnement annuel renouvelable. Plus avantageux dès 4 courses par an." : "Auto-renewing annual subscription. Better value from 4 races per year.")}</p>
       <ul className="list-inside list-disc space-y-2 text-sm"><li>{fr ? "Allures ajustables section par section" : "Adjustable pacing by section"}</li><li>{fr ? "Produits et quantités ravito par ravito" : "Products and quantities at each aid station"}</li><li>{fr ? "Récapitulatif, assistance et exports" : "Summary, crew support and exports"}</li></ul>
-      {session && !session.isAnonymous ? <Button onClick={() => { void purchase(offer); }} disabled={!enabled || !prices[offer] || opening !== null || (offer === "course" && !planId)}>{opening === offer ? (fr ? "Ouverture…" : "Opening…") : offer === "course" ? (fr ? "Débloquer cette course" : "Unlock this race") : (fr ? "Choisir l’abonnement annuel" : "Choose annual subscription")}</Button> : <Link href="/sign-up" className="font-semibold text-brand underline">{fr ? "Créer mon compte" : "Create my account"}</Link>}
-      {offer === "course" && !planId ? <p className="text-sm"><Link href="/race-planner" className="underline">{fr ? "Choisis d’abord la course à débloquer." : "First choose the race to unlock."}</Link></p> : null}
+      {session && !session.isAnonymous ? <Button className="min-h-11 w-full" onClick={() => { void purchase(offer); }} disabled={!enabled || !prices[offer] || opening !== null || (offer === "course" && !planId)}>{opening === offer ? (fr ? "Ouverture…" : "Opening…") : offer === "course" ? (fr ? `Débloquer cette course${prices[offer] ? ` — ${prices[offer]}` : ""}` : `Unlock this race${prices[offer] ? ` — ${prices[offer]}` : ""}`) : (fr ? `Passer à l’annuel${prices[offer] ? ` — ${prices[offer]}/an` : ""}` : `Go annual${prices[offer] ? ` — ${prices[offer]}/year` : ""}`)}</Button> : <Link href="/sign-up" className="inline-flex min-h-11 w-full items-center justify-center rounded-md bg-brand px-3 text-sm font-medium text-brand-foreground shadow-sm hover:bg-brand-light">{fr ? "Créer mon compte" : "Create my account"}</Link>}
+      {offer === "course" && !planId ? <p className="text-sm text-muted-foreground">{fr ? "Choisis d’abord une course dans le planificateur pour la débloquer." : "Choose a race in the planner first to unlock it."}</p> : null}
     </section>)}</div>
     {!enabled ? <p role="status" className="text-center text-muted-foreground">{fr ? "Les nouvelles offres sont en cours de préparation." : "The new offers are being prepared."}</p> : null}
     {error ? <p role="alert" className="text-red-600">{error}</p> : null}

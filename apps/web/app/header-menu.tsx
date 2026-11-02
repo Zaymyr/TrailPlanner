@@ -20,9 +20,9 @@ const isActivePath = (pathname: string, href: string) =>
   pathname === href || pathname.startsWith(`${href}/`);
 
 const buttonBaseClass =
-  "flex h-10 w-10 items-center justify-center rounded-md border border-border bg-card text-[hsl(var(--icon))] shadow-sm transition hover:border-[hsl(var(--brand))] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:text-emerald-50";
+  "flex h-11 w-11 items-center justify-center rounded-md border border-border bg-card text-[hsl(var(--icon))] shadow-sm transition hover:border-[hsl(var(--brand))] hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:hover:text-emerald-50";
 const menuActionClass =
-  "flex min-h-10 items-center justify-between gap-2 rounded-md border border-border px-2.5 py-2 text-sm font-medium text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:text-emerald-50 dark:hover:bg-emerald-500/10";
+  "flex min-h-11 items-center justify-between gap-2 rounded-md border border-border px-2.5 py-2 text-sm font-medium text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:text-emerald-50 dark:hover:bg-emerald-500/10";
 
 export function HeaderMenu() {
   const { locale, t, toggleLocale } = useI18n();
@@ -37,7 +37,7 @@ export function HeaderMenu() {
   const isAdmin = session?.role === "admin" || session?.roles?.includes("admin");
   const coursesLabel = locale === "fr" ? "Courses" : "Races";
   const organizerLabel = locale === "fr" ? "Espace organisateur" : "Organizer space";
-  const organizerHref: Route = hasManagedRaces ? "/organizer" : "/organizers";
+  const organizerHref: Route = session ? (hasManagedRaces ? "/organizer" : "/organizers") : "/organisateurs";
 
   const menuItems: MenuItem[] = useMemo(
     () => [
@@ -54,7 +54,7 @@ export function HeaderMenu() {
       {
         label: organizerLabel,
         href: organizerHref,
-        active: isActivePath(pathname, "/organizer") || isActivePath(pathname, "/organizers"),
+        active: isActivePath(pathname, "/organizer") || isActivePath(pathname, "/organizers") || isActivePath(pathname, "/organisateurs"),
       },
       {
         label: t.navigation.blog,
@@ -91,6 +91,9 @@ export function HeaderMenu() {
   );
 
   const visibleMenuItems = menuItems.filter((item) => {
+    if (!session && (item.href === "/settings" || item.href === "/profile")) {
+      return false;
+    }
     if (item.href === "/admin") {
       return isAdmin;
     }
@@ -197,7 +200,7 @@ export function HeaderMenu() {
                 key={item.href}
                 href={item.href}
                 aria-current={item.active ? "page" : undefined}
-                className={`flex items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
+                className={`flex min-h-11 items-center justify-between rounded-md border px-3 py-2 text-sm font-medium transition hover:bg-muted hover:text-foreground dark:hover:bg-emerald-500/15 dark:hover:text-emerald-50 ${
                   item.active
                     ? "border-brand-border bg-brand-surface text-brand shadow-sm dark:border-emerald-400/70 dark:bg-emerald-950/40 dark:text-emerald-50"
                     : "border-transparent text-muted-foreground dark:text-emerald-100"
@@ -210,7 +213,7 @@ export function HeaderMenu() {
             <Link
               href="/premium"
               aria-current={pathname === "/premium" ? "page" : undefined}
-              className={`premium-glow flex items-center justify-between rounded-md border px-3 py-2 text-sm font-semibold transition ${
+              className={`premium-glow flex min-h-11 items-center justify-between rounded-md border px-3 py-2 text-sm font-semibold transition ${
                 pathname === "/premium"
                   ? "border-amber-300/80 bg-amber-300/90 text-foreground"
                   : "border-amber-200/70 bg-amber-300/75 text-foreground hover:bg-amber-300/90"
@@ -222,7 +225,7 @@ export function HeaderMenu() {
             {session ? (
               <button
                 type="button"
-                className="mt-1 w-full rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted dark:text-emerald-50 dark:hover:bg-emerald-500/10"
+                className="mt-1 min-h-11 w-full rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted dark:text-emerald-50 dark:hover:bg-emerald-500/10"
                 onClick={handleSignOut}
               >
                 {t.racePlanner.account.auth.signOut}
@@ -230,7 +233,7 @@ export function HeaderMenu() {
             ) : (
               <Link
                 href="/sign-in"
-                className="mt-1 flex w-full items-center justify-center rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted dark:text-emerald-50 dark:hover:bg-emerald-500/10"
+                className="mt-1 flex min-h-11 w-full items-center justify-center rounded-md border border-border px-3 py-2 text-sm font-semibold text-foreground transition hover:border-[hsl(var(--brand))] hover:bg-muted dark:text-emerald-50 dark:hover:bg-emerald-500/10"
               >
                 {t.racePlanner.account.auth.signIn}
               </Link>

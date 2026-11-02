@@ -617,7 +617,7 @@ export default function ProfilePage() {
       <RunnerAdminAccessMode />
       <div className="space-y-1">
         <p className="text-sm uppercase tracking-[0.2em] text-emerald-700 dark:text-emerald-300">Pace Yourself</p>
-        <h2 className="text-2xl font-semibold text-foreground">{t.profile.title}</h2>
+        <h1 className="text-2xl font-semibold text-foreground">{t.profile.title}</h1>
         <p className="text-sm text-muted-foreground">{t.profile.description}</p>
       </div>
 
@@ -657,7 +657,6 @@ export default function ProfilePage() {
                 >
                   {entitlements.isPremium ? t.profile.subscription.premiumStatus : subscriptionStatusLabel}
                 </span>
-                <p className="text-sm text-muted-foreground">{subscriptionStatusLabel}</p>
               </div>
             ) : null}
 

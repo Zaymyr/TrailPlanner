@@ -57,9 +57,16 @@ export function HeroSection({ hero, locale }: HeroSectionProps) {
             {hero.eyebrow}
           </div>
           <div className="space-y-3">
-            <h1 className="text-4xl font-semibold leading-tight text-foreground sm:text-5xl">{hero.heading}</h1>
+            <h1 className="text-[2rem] font-semibold leading-tight text-foreground sm:text-5xl">{hero.heading}</h1>
             <p className="max-w-3xl text-lg leading-relaxed text-muted-foreground sm:text-xl">{hero.subheading}</p>
           </div>
+          <Link
+            href="/race-planner"
+            className="group inline-flex min-h-14 w-full items-center justify-between gap-3 rounded-lg bg-brand px-5 py-3 text-brand-foreground shadow-lg sm:hidden"
+          >
+            <span className="font-semibold">{hero.primaryCta}</span>
+            <IconArrowRight className="h-4 w-4" />
+          </Link>
           <ul className="space-y-3 text-base text-muted-foreground">
             {hero.bullets.map((item) => (
               <li key={item} className="flex items-start gap-3">
@@ -72,7 +79,7 @@ export function HeroSection({ hero, locale }: HeroSectionProps) {
           <div className="grid gap-3 sm:grid-cols-2">
             <Link
               href="/race-planner"
-              className="group inline-flex min-h-16 items-center justify-between gap-3 rounded-lg bg-brand px-5 py-3 text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
+              className="group hidden min-h-16 items-center justify-between gap-3 rounded-lg bg-brand px-5 py-3 text-brand-foreground shadow-lg shadow-[rgba(45,80,22,0.18)] transition hover:-translate-y-[1px] hover:bg-brand-light focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring sm:inline-flex dark:bg-emerald-400 dark:text-foreground dark:hover:bg-emerald-300 dark:focus-visible:outline-emerald-400"
             >
               <span className="flex flex-col">
                 <span className="text-xs font-medium opacity-80">{isFrench ? "Je suis coureur" : "I am a runner"}</span>

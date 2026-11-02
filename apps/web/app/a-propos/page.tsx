@@ -34,7 +34,7 @@ export default function AboutPage() {
   };
 
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-4xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationData).replace(/</g, "\\u003c") }}
@@ -89,6 +89,6 @@ export default function AboutPage() {
           Signaler une erreur
         </Link>
       </nav>
-    </main>
+    </div>
   );
 }

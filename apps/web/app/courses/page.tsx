@@ -82,7 +82,7 @@ export default async function CoursesPage({ searchParams }: { searchParams?: Cat
   };
 
   return (
-    <main className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-6xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListData).replace(/</g, "\\u003c") }}
@@ -140,6 +140,6 @@ export default async function CoursesPage({ searchParams }: { searchParams?: Cat
       ) : null}
 
       <RaceCatalogFilter view={catalogView} />
-    </main>
+    </div>
   );
 }

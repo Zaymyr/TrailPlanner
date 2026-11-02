@@ -36,7 +36,7 @@ export function CookieBanner() {
   }
 
   return (
-    <div className="fixed bottom-2 left-1/2 z-50 w-[calc(100%-1rem)] max-w-3xl -translate-x-1/2 rounded-xl border border-brand-border bg-card/95 p-3 text-foreground shadow-xl shadow-[rgba(45,80,22,0.14)] backdrop-blur sm:bottom-4 sm:w-[calc(100%-1.5rem)] sm:rounded-2xl sm:p-5 dark:border-emerald-500/30 dark:bg-slate-950/95 dark:shadow-emerald-950/40">
+    <div className="fixed inset-x-0 bottom-0 z-50 w-full border border-brand-border bg-card/95 p-3 text-foreground shadow-xl shadow-[rgba(45,80,22,0.14)] backdrop-blur sm:p-4 dark:border-emerald-500/30 dark:bg-slate-950/95 dark:shadow-emerald-950/40">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
         <div className="space-y-1 text-xs leading-5 text-foreground sm:text-base">
           <p className="font-semibold text-foreground">Gestion des cookies</p>

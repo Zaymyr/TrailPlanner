@@ -1,7 +1,7 @@
 ---
 title: Design Components
 scope: design-system
-last_verified: 2026-11-01
+last_verified: 2026-11-02
 ai_priority: medium
 related_files:
   - apps/web/components/ui/button.tsx
@@ -134,6 +134,8 @@ radius. Screen-specific components own copy, state, color roles and behavior.
 `BriefToast` provides short success or network-error feedback above the mobile tab bar, with an optional retry action. It is reserved for informational outcomes; destructive confirmation remains modal. Root tab headers add elevation only after collapsing, while the bottom tab bar keeps a subtle top divider and shadow.
 
 ## Gotchas
+
+- The shared web `Button` primitive enforces a 44 px minimum height. Compact visual variants may reduce padding or font size, but must not override the minimum interactive target.
 
 - Web UI primitives are not currently exported from `@pace-yourself/design-system`.
 - If moving primitives into the design-system package, update package exports, web transpilation, and docs.

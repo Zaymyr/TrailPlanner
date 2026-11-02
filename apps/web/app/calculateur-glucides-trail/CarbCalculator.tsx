@@ -232,6 +232,8 @@ export function CarbCalculator() {
             </span>
             <input
               type="range"
+              aria-label="Durée prévue"
+              aria-valuetext={`${duration} heures`}
               min="0.5"
               max="30"
               step="0.5"
@@ -255,6 +257,8 @@ export function CarbCalculator() {
             </span>
             <input
               type="range"
+              aria-label="Distance"
+              aria-valuetext={`${distance} kilomètres`}
               min="5"
               max="200"
               step="5"
@@ -278,6 +282,8 @@ export function CarbCalculator() {
             </span>
             <input
               type="range"
+              aria-label="Dénivelé positif"
+              aria-valuetext={`${elevation.toLocaleString("fr-FR")} mètres`}
               min="0"
               max="15000"
               step="100"
@@ -301,6 +307,8 @@ export function CarbCalculator() {
             </span>
             <input
               type="range"
+              aria-label="Tolérance digestive pendant l’effort"
+              aria-valuetext={getToleranceLabel(digestiveTolerance)}
               min="0"
               max="100"
               step="5"

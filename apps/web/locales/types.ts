@@ -1360,6 +1360,9 @@ export type Translations = {
   auth: AuthTranslations;
   resourcePages: Record<ResourcePageSlug, ResourcePageCopy>;
   navigation: {
+    home: string;
+    skipToContent: string;
+    account: string;
     racePlanner: string;
     blog: string;
     settings: string;
@@ -1367,6 +1370,15 @@ export type Translations = {
     menuLabel: string;
     profile: string;
     premium: string;
+  };
+  notFound: {
+    eyebrow: string;
+    title: string;
+    description: string;
+    home: string;
+    planner: string;
+    races: string;
+    blog: string;
   };
   admin: AdminTranslations;
   productSettings: ProductSettingsTranslations;

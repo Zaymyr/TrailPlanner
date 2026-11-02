@@ -2023,15 +2023,6 @@ export function RacePlannerPageContent({ enableMobileNav = true }: { enableMobil
                 </Link>
               </li>
               <li aria-hidden="true">/</li>
-              <li>
-                <Link
-                  href="/race-planner"
-                  className="underline-offset-4 transition hover:text-foreground hover:underline"
-                >
-                  {racePlannerCopy.page.breadcrumbPlanner}
-                </Link>
-              </li>
-              <li aria-hidden="true">/</li>
               <li aria-current="page" className="font-medium text-foreground">
                 {pagePlanTitle}
               </li>

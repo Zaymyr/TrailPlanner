@@ -78,7 +78,7 @@ export function GuestSaveBanner({ isAuthed, forceShow = false }: GuestSaveBanner
       </div>
       <button
         type="button"
-        className="absolute right-2 top-2 inline-flex h-7 w-7 items-center justify-center rounded-full text-brand/70 transition hover:bg-card hover:text-brand dark:text-emerald-100/70 dark:hover:bg-emerald-500/20"
+        className="absolute right-1 top-1 inline-flex h-11 w-11 items-center justify-center rounded-full text-brand/70 transition hover:bg-card hover:text-brand dark:text-emerald-100/70 dark:hover:bg-emerald-500/20"
         aria-label={guestBanner.dismissLabel}
         onClick={handleDismiss}
       >

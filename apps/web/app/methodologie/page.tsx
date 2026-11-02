@@ -26,7 +26,7 @@ export const metadata: Metadata = {
 
 export default function MethodologyPage() {
   return (
-    <main className="mx-auto w-full max-w-4xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
+    <div className="mx-auto w-full max-w-4xl space-y-10 px-4 py-10 sm:px-6 lg:px-8">
       <header className="space-y-4">
         <p className="text-sm font-semibold uppercase tracking-[0.18em] text-brand">Méthodologie</p>
         <h1 className="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
@@ -94,6 +94,6 @@ export default function MethodologyPage() {
           Proposer une correction
         </Link>
       </div>
-    </main>
+    </div>
   );
 }

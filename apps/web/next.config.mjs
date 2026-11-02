@@ -20,6 +20,30 @@ const loadMdxPlugin = async () => {
   }
 };
 
+const browserSecurityHeaders = [
+  {
+    key: 'Content-Security-Policy-Report-Only',
+    value: [
+      "default-src 'self'",
+      "base-uri 'self'",
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "img-src 'self' data: blob: https://*.supabase.co https://res.cloudinary.com https://*.posthog.com",
+      "font-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://*.posthog.com https://js.stripe.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://*.posthog.com https://www.google-analytics.com https://region1.google-analytics.com https://api.stripe.com",
+      "frame-src https://js.stripe.com https://hooks.stripe.com",
+      "form-action 'self' https://checkout.stripe.com",
+      "upgrade-insecure-requests",
+    ].join('; '),
+  },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'X-Frame-Options', value: 'DENY' },
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self "https://js.stripe.com")' },
+];
+
 /** @type {() => Promise<import('next').NextConfig>} */
 const createConfig = async () => {
   const { mdxEnabled, withMDX } = await loadMdxPlugin();
@@ -36,6 +60,10 @@ const createConfig = async () => {
     pageExtensions: ['ts', 'tsx', ...(mdxEnabled ? ['mdx'] : [])],
     async headers() {
       return [
+        {
+          source: '/:path*',
+          headers: browserSecurityHeaders,
+        },
         {
           source: '/en/:path*',
           headers: [{ key: 'Content-Language', value: 'en' }],
