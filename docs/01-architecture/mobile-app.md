@@ -298,7 +298,7 @@ The app config in `apps/mobile/app.config.ts` declares:
 - production Android/iOS identifier `com.paceyourself.app` and development identifier `com.paceyourself.app.dev`, selected by `APP_VARIANT=development`;
 - app version `1.1.2`;
 - shared iOS/Android runtime version `1.1.2` for the current native release line;
-- an OTA-visible iOS native-release marker, defaulting to available build `18` and the TestFlight application URL; `EXPO_PUBLIC_IOS_LATEST_BUILD` and `EXPO_PUBLIC_IOS_NATIVE_UPDATE_URL` may replace those public values when the next binary is actually installable;
+- an OTA-visible iOS native-release marker, defaulting to available build `18` and the public App Store listing; `EXPO_PUBLIC_IOS_LATEST_BUILD` and `EXPO_PUBLIC_IOS_NATIVE_UPDATE_URL` may replace those public values when the next binary is actually installable;
 - an `EAS_UPDATE_RUNTIME_VERSION` override reserved for explicitly approved legacy OTA publication; ordinary builds and updates remain on `1.1.2`;
 - light system appearance, matching the app's light palette; mounted solid-brand headers override status-bar content with their contrast-safe light/dark variant;
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
@@ -328,6 +328,8 @@ Native store candidates use two independently dispatched EAS workflows after the
 The authenticated tab shell mounts `NativeBuildUpdatePrompt` above the safe-area-aware bottom bar. Production iOS reads `Application.nativeBuildVersion` and compares it with `extra.nativeBuildUpdates.ios.latestBuild` from the active embedded/OTA manifest. An older build receives one localized, 15-second actionable toast per shell mount; the action opens the configured HTTPS installation destination and the prompt fails closed for missing, malformed, development, non-iOS, current, or newer builds. Build `18` currently points testers to the TestFlight app. Change the public build marker and destination only after the replacement binary is actually available to its intended testers or App Store audience.
 
 The production OTA dispatch always publishes the current runtime first. Its optional `legacy_ios_runtime_version` input publishes the same reviewed JavaScript bundle to that one iOS runtime by setting `EAS_UPDATE_RUNTIME_VERSION`; this is intended for compatible bridges such as delivering the build-18 prompt to runtime `1.1.1`. Never populate the legacy input when the change imports a native module or native configuration absent from that older binary.
+
+Runtime `1.1.1` / iOS build 17 cannot receive the current `main` bundle: `expo-haptics`, `@react-native-community/datetimepicker` and the Expo patch upgrades were added after that binary. Its prompt is therefore delivered by the dedicated `bridge/ios-1.1.1-build-prompt` branch, built on `60ac6fd1` (the last production OTA for `1.1.1`) with only the JavaScript prompt, toast, copy and App Store marker added. A content-neutral `-s ours` merge records that commit in `main` history so the protected production workflow can promote it without the legacy input; its normal publish targets runtime `1.1.1` from that commit's config, and Android `1.1.1` installs receive the same code with an inert iOS-only prompt.
 
 ## App Shell
 
