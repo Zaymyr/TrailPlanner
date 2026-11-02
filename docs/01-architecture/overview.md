@@ -118,7 +118,7 @@ The mobile app is configured for EAS in `apps/mobile/eas.json`:
 
 The current store marketing version and compatible EAS Update runtime are both `1.1.2`. Production Android and iOS build 18 embed that runtime. Remote versioning automatically advances developer-facing build identifiers; a new App Store version train still requires an explicit `version` change and a rebuilt IPA.
 
-The mobile manifest also advertises the latest installable iOS native build and its HTTPS installation destination. The tab shell compares that marker with the installed `CFBundleVersion` and shows a bounded update toast only to older production iOS builds. An explicitly approved production OTA may target one compatible legacy iOS runtime so the older binary can receive this JavaScript-only prompt without another native build.
+The mobile manifest also advertises the latest installable iOS native build and its HTTPS installation destination, which defaults to the public App Store listing. The tab shell compares that marker with the installed `CFBundleVersion` and shows a bounded update toast only to older production iOS builds. An explicitly approved production OTA may target one compatible legacy iOS runtime so the older binary can receive this JavaScript-only prompt without another native build.
 
 `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform quality-gate target. It builds the `e2e-test` binaries and runs the same Maestro journey against Android and iOS, with recordings and screenshot artifacts for human visual review. Its hosted Maestro jobs require a compatible paid Expo plan; the current project plan supports keeping and reviewing the configuration but rejects execution of those jobs.
 

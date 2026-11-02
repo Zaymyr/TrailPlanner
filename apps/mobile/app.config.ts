@@ -6,7 +6,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
   const iosLatestBuild = process.env.EXPO_PUBLIC_IOS_LATEST_BUILD?.trim() || '18';
   const iosNativeUpdateUrl =
     process.env.EXPO_PUBLIC_IOS_NATIVE_UPDATE_URL?.trim() ||
-    'https://apps.apple.com/app/testflight/id899247664';
+    'https://apps.apple.com/app/id6772180071';
   const applicationId = isDevelopment
     ? 'com.paceyourself.app.dev'
     : 'com.paceyourself.app';
