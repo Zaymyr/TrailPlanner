@@ -48,6 +48,10 @@ export const en: MobileTranslations = {
     continueCta: 'Continue without updating',
     readyNotificationTitle: 'Update ready',
     readyNotificationBody: 'A new version has been downloaded. Tap to restart the app.',
+    nativeUpdateAvailable: 'A new version of Pace Yourself is available on the App Store.',
+    nativeUpdateCta: 'Update',
+    nativeOpenErrorTitle: 'Unable to open',
+    nativeOpenErrorBody: 'Open the App Store to install the latest version.',
   },
   reminders: {
     inactivityTitle: 'Your next plan is waiting',

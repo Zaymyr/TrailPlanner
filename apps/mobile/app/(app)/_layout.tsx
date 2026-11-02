@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AppHeaderTitle } from '../../components/navigation/AppHeaderTitle';
 import { NumericKeyboardAccessory } from '../../components/inputs/NumericKeyboardAccessory';
 import { FeedbackHeaderButton } from '../../components/feedback/FeedbackHeaderButton';
+import { NativeBuildUpdatePrompt } from '../../components/updates/NativeBuildUpdatePrompt';
 import { Colors } from '../../constants/colors';
 import { useI18n } from '../../lib/i18n';
 import { getActivePlanEditHref } from '../../lib/planEditSession';
@@ -263,6 +264,9 @@ export default function AppLayout() {
       />
       </Tabs>
       <NumericKeyboardAccessory />
+      <NativeBuildUpdatePrompt
+        bottom={TAB_BAR_CONTENT_HEIGHT + Math.max(TAB_BAR_MIN_BOTTOM_PADDING, insets.bottom) + 12}
+      />
     </>
   );
 }

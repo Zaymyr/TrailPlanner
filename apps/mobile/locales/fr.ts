@@ -48,6 +48,10 @@ export const fr: MobileTranslations = {
     continueCta: 'Continuer sans mise à jour',
     readyNotificationTitle: 'Mise à jour prête',
     readyNotificationBody: "Une nouvelle version a été téléchargée. Appuie pour redémarrer l'application.",
+    nativeUpdateAvailable: "Une nouvelle version de Pace Yourself est disponible sur l'App Store.",
+    nativeUpdateCta: 'Mettre à jour',
+    nativeOpenErrorTitle: 'Ouverture impossible',
+    nativeOpenErrorBody: "Ouvre l'App Store pour installer la dernière version.",
   },
   reminders: {
     inactivityTitle: 'Ton prochain plan t’attend',

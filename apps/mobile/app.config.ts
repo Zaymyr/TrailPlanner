@@ -82,6 +82,13 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       eas: {
         projectId: 'c713a8a0-cd94-4f6e-9468-063c9c20da6c',
       },
+      // OTA-only bridge for iOS runtime 1.1.1 / build 17: prompts the App Store install of build 18.
+      nativeBuildUpdates: {
+        ios: {
+          latestBuild: '18',
+          updateUrl: 'https://apps.apple.com/app/id6772180071',
+        },
+      },
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,
     },
