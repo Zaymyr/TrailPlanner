@@ -247,6 +247,10 @@ related_tables:
 
 # Organizer Race Management
 
+Organizer edits autosave after 800 ms with visible pending/saving/saved/error states and explicit retry. Validation blocks invalid date ranges, phones, HTTPS links, and incomplete required identity before persistence. New formats inherit event date/location and may prefill the event website, but never clone another format; the format website itself is optional.
+
+Authoring follows progressive disclosure. Essential event identity, edition dates, emergency contact, departure/arrival addresses, and the first bib-pickup location stay visible. Social links, cover image, maps, road restrictions, parking, shuttles, and weather variants are explicit optional modules. Hiding a module changes its visibility flag or local presentation but does not erase its saved content. Equipment items, bib locations/slots, and ravitos use compact summaries with at most one edited row open at a time. A format without an override displays the effective inherited event summary and creates a private override only after `Personnaliser pour ce format`.
+
 The Livret / plan switch is rendered in the organizer primary color as part of the Livret header; organizer data and publication rules are unchanged.
 
 Lot 10 renders the organizer-derived departure and maximum time on the same line and position in the Plan and RaceBook headers; organizer data, cutoff parsing and publication rules are unchanged.

@@ -24,6 +24,10 @@ related_tables:
 
 # `race_event_edition_requests`
 
+Debounced organizer autosave applies only to editable event/format content. Edition creation remains an explicit confirmed action and therefore keeps the existing request lifecycle unchanged.
+
+The progressive form layout and revised publication status do not create edition requests. Creating or duplicating an edition remains the only action in this screen that enters the edition-request workflow.
+
 Supporter-point authoring remains format-scoped after an edition is selected. The ravito-source and same-course access helpers do not change edition-request lifecycle or selection rules.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

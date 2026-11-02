@@ -23,6 +23,8 @@ related_tables:
 
 # `race_awards`
 
+The shared structured-editor status now uses the compact `À jour` label because autosave is explained globally. Award persistence, validation, ordering, and schema are unchanged.
+
 The header-attached workspace switch and the full-width Livret profile chart are presentation only and do not change award rows.
 
 Chronological cutoff resolution and plan access gating do not read or change award rows.

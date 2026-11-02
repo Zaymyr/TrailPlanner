@@ -544,7 +544,7 @@ const buildDocumentOnlyPreview = (event: EventContext): OrganizerWebsiteImportPr
           key,
           label,
           value,
-          required: ["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"].includes(key),
+          required: ["name", "raceDate", "locationText", "distanceKm"].includes(key),
           confidence: value === null ? null : "high" as const,
           sourceUrl: null,
           sourceLabel: value === null ? null : "Données actuelles",
@@ -1230,9 +1230,9 @@ const buildSourceIntelligenceCandidates = (
       ...buildIntelligenceEvidenceSource(analysis, assertion.evidence, documents),
       evidence: assertion.evidence,
     })).slice(0, 30);
-    const knownRequiredFields = (["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"] as OrganizerImportClaimField[])
+    const knownRequiredFields = (["name", "raceDate", "locationText", "distanceKm"] as OrganizerImportClaimField[])
       .filter((field) => claims.some((claim) => claim.field === field));
-    const missingRequiredFields = (["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"] as OrganizerImportClaimField[])
+    const missingRequiredFields = (["name", "raceDate", "locationText", "distanceKm"] as OrganizerImportClaimField[])
       .filter((field) => !knownRequiredFields.includes(field));
     const raceDate = claims.find((claim) => claim.field === "raceDate" && typeof claim.value === "string")?.value;
     const exactExisting = existingRaces.filter((race) =>
@@ -1290,7 +1290,7 @@ const mergeSourceIntelligenceCandidates = (
     const claims = [...target.claims, ...reScopedClaims]
       .filter((claim, index, all) => all.findIndex((candidateClaim) => candidateClaim.claimId === claim.claimId) === index)
       .slice(0, 100);
-    const requiredFields = ["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"] as OrganizerImportClaimField[];
+    const requiredFields = ["name", "raceDate", "locationText", "distanceKm"] as OrganizerImportClaimField[];
     merged[targetIndex] = formatCandidateSchema.parse({
       ...target,
       detectionKeys: Array.from(new Set([...target.detectionKeys, ...candidate.detectionKeys])).slice(0, 30),
@@ -1916,13 +1916,12 @@ const createRaceFromPreview = async (
   editionId: string
 ) => {
   const selectedFields = new Set(proposals.map((proposal) => proposal.field));
-  const requiredFields: OrganizerImportRaceField[] = ["name", "raceDate", "locationText", "distanceKm", "externalSiteUrl"];
+  const requiredFields: OrganizerImportRaceField[] = ["name", "raceDate", "locationText", "distanceKm"];
   if (
     requiredFields.some((field) => !selectedFields.has(field)) ||
     !race.raceDate ||
     !race.locationText ||
-    race.distanceKm === null ||
-    !race.externalSiteUrl
+    race.distanceKm === null
   ) {
     throw new Error("Incomplete race preview.");
   }
@@ -2426,14 +2425,12 @@ const handleOrganizerImportWorkflow = async (
           if (selection.field === "raceDate") missingRequiredFields.add("race_date");
           if (selection.field === "distanceKm") missingRequiredFields.add("distance_km");
           if (selection.field === "locationText") missingRequiredFields.add("location");
-          if (selection.field === "externalSiteUrl") missingRequiredFields.add("source_url");
           continue;
         }
         if (selection.decision !== "claim") continue;
         if (selection.field === "raceDate") missingRequiredFields.delete("race_date");
         if (selection.field === "distanceKm") missingRequiredFields.delete("distance_km");
         if (selection.field === "locationText") missingRequiredFields.delete("location");
-        if (selection.field === "externalSiteUrl") missingRequiredFields.delete("source_url");
         const directFieldMap: Partial<Record<OrganizerImportClaimField, string>> = {
           name: "name",
           seriesName: "seriesName",

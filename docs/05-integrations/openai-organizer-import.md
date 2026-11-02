@@ -26,6 +26,10 @@ related_tables:
 
 # OpenAI Organizer Import Reconciliation
 
+Format website evidence is optional during discovery, reconciliation, draft creation, and apply. The required format evidence set is name, date, location, and distance; a selected website claim is still persisted when present.
+
+Imported legacy and structured content remains visible after the progressive form refactor: populated optional modules open automatically in the editor, and the historical Services block remains available for explicit conversion.
+
 The manual `Suivi coureur` helpers do not change organizer import reconciliation. Imported ravitos may be selected as a source in the editor, but supporter permissions and access location still require organizer confirmation and are never inferred by the import pipeline.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

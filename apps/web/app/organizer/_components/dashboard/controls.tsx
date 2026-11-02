@@ -1,6 +1,7 @@
-import { useId } from 'react';
+import { useId, type ReactNode } from 'react';
 
 import { Input } from '../../../../components/ui/input';
+import { Button } from '../../../../components/ui/button';
 import { Label } from '../../../../components/ui/label';
 import { cn } from '../../../../components/utils';
 import type { OrganizerModuleLevel, OrganizerModuleStatus } from '../completion';
@@ -14,7 +15,7 @@ export function ContextualHelp({ text, label = "Plus d’informations" }: { text
         type="button"
         aria-label={label}
         aria-describedby={tooltipId}
-        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-border bg-card text-[11px] font-bold text-muted-foreground transition hover:border-brand-border hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+        className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-border bg-card text-xs font-bold text-muted-foreground transition hover:border-brand-border hover:text-foreground focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       >
         ?
       </button>
@@ -26,6 +27,72 @@ export function ContextualHelp({ text, label = "Plus d’informations" }: { text
         {text}
       </span>
     </span>
+  );
+}
+
+export function OptionalModule({
+  title,
+  active,
+  onAdd,
+  onRemove,
+  children,
+}: {
+  title: string;
+  active: boolean;
+  onAdd: () => void;
+  onRemove: () => void;
+  children: ReactNode;
+}) {
+  if (!active) {
+    return (
+      <Button type="button" variant="outline" onClick={onAdd} className="justify-start">
+        + Ajouter {title.toLocaleLowerCase("fr-FR")}
+      </Button>
+    );
+  }
+
+  return (
+    <section className="space-y-3 border-t border-border pt-4">
+      <div className="flex items-center justify-between gap-3">
+        <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+        <Button type="button" variant="ghost" onClick={onRemove} className="h-9 text-xs text-muted-foreground">
+          Retirer
+        </Button>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+export function CollapsibleRow({
+  summary,
+  expanded,
+  onToggle,
+  children,
+  actions,
+}: {
+  summary: ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  children: ReactNode;
+  actions?: ReactNode;
+}) {
+  return (
+    <div className="rounded-lg border border-border bg-card">
+      <div className="flex min-h-12 items-center gap-2 px-3 py-2">
+        <button
+          type="button"
+          aria-expanded={expanded}
+          onClick={onToggle}
+          className="flex min-w-0 flex-1 items-center justify-between gap-3 text-left text-sm font-medium text-foreground"
+        >
+          <span className="min-w-0 truncate">{summary}</span>
+          <span className="shrink-0 text-xs font-semibold text-brand">{expanded ? "Masquer" : "Détails"}</span>
+        </button>
+        {actions}
+      </div>
+      {expanded ? <div className="space-y-3 border-t border-border px-3 py-3">{children}</div> : null}
+    </div>
   );
 }
 
@@ -200,6 +267,7 @@ export function TextField({
   disabled,
   id,
   hint,
+  errorMessage,
 }: {
   label: string;
   value: string;
@@ -212,6 +280,7 @@ export function TextField({
   disabled?: boolean;
   id?: string;
   hint?: string;
+  errorMessage?: string;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -236,7 +305,7 @@ export function TextField({
         aria-describedby={invalid ? errorId : undefined}
         className={invalid ? "border-amber-400 bg-amber-50/50 focus-visible:outline-amber-500" : undefined}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
     </div>
   );
 }
@@ -251,6 +320,8 @@ export function NumberField({
   disabled,
   id,
   hint,
+  errorMessage,
+  emptyWhenZero,
 }: {
   label: string;
   value: number;
@@ -261,6 +332,8 @@ export function NumberField({
   disabled?: boolean;
   id?: string;
   hint?: string;
+  errorMessage?: string;
+  emptyWhenZero?: boolean;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -276,8 +349,8 @@ export function NumberField({
         id={inputId}
         type="number"
         step={step}
-        value={value}
-        onChange={(event) => onChange(Number(event.target.value))}
+        value={emptyWhenZero && value === 0 ? "" : value}
+        onChange={(event) => onChange(event.target.value === "" ? 0 : Number(event.target.value))}
         readOnly={readOnly}
         disabled={disabled}
         aria-invalid={invalid || undefined}
@@ -287,7 +360,7 @@ export function NumberField({
           readOnly && "bg-muted/40 text-muted-foreground"
         )}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Saisis une valeur valide."}</p> : null}
     </div>
   );
 }
@@ -300,6 +373,7 @@ export function TextAreaField({
   disabled,
   id,
   hint,
+  errorMessage,
 }: {
   label: string;
   value: string;
@@ -308,6 +382,7 @@ export function TextAreaField({
   disabled?: boolean;
   id?: string;
   hint?: string;
+  errorMessage?: string;
 }) {
   const generatedId = useId();
   const inputId = id ?? generatedId;
@@ -331,7 +406,7 @@ export function TextAreaField({
         aria-invalid={invalid || undefined}
         aria-describedby={invalid ? errorId : undefined}
       />
-      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">Champ manquant</p> : null}
+      {invalid ? <p id={errorId} className="text-xs font-medium text-amber-700">{errorMessage ?? "Ce champ est requis."}</p> : null}
     </div>
   );
 }

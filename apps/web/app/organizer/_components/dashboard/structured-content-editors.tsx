@@ -169,7 +169,7 @@ function useRemoteList<T>(url: string | null, key: string, headers: Headers, ini
 const Select = ({ value, onChange, children, label }: { value:string; onChange:(value:string)=>void; children:ReactNode; label:string }) => (
   <select aria-label={label} className="h-10 w-full rounded-md border border-border bg-background px-3 text-sm" value={value} onChange={(event)=>onChange(event.target.value)}>{children}</select>
 );
-const Status = ({ loaded, message }: { loaded:boolean; message:string|null }) => <p className="text-xs text-muted-foreground">{message ?? (loaded ? "Les modifications valides sont enregistrées automatiquement." : "Chargement…")}</p>;
+const Status = ({ loaded, message }: { loaded:boolean; message:string|null }) => <p className="text-xs text-muted-foreground">{message ?? (loaded ? "À jour" : "Chargement…")}</p>;
 
 export function EditionServicesEditor({ editionId, headers, enabled, legacy, onLegacyChange }: { editionId:string|null; headers:Headers; enabled:boolean; legacy:OrganizerEventDetails["services"]; onLegacyChange:(details:OrganizerEventDetails["services"])=>void }) {
   const remote=useRemoteList<EditionService>(enabled&&editionId?`/api/organizer/editions/${editionId}/services`:null,"services",headers);
@@ -177,7 +177,7 @@ export function EditionServicesEditor({ editionId, headers, enabled, legacy, onL
   const add=(serviceType:EditionService["serviceType"],description:string|null=null)=>remote.update([...remote.items,{serviceType,name:"",description,address:null,latitude:null,longitude:null,googleMapsUrl:null,websiteUrl:null,phone:null}]);
   const labels={restaurant:"Restaurant",accommodation:"Hébergement",recovery:"Récupération",other:"Autre service"};
   return <div className="space-y-5">
-    <div className="flex flex-wrap justify-between gap-2"><div><p className="font-semibold">Services & alentours</p><p className="text-sm text-muted-foreground">Une fiche par lieu, utilisable dans le Livret coureur et sur la carte.</p></div><div className="flex flex-wrap gap-2">{Object.entries(labels).map(([type,label])=><Button key={type} type="button" variant="outline" onClick={()=>add(type as EditionService["serviceType"])}>+ {label}</Button>)}</div></div>
+    <div className="flex flex-wrap justify-between gap-2"><p className="text-sm text-muted-foreground">Une fiche par lieu, utilisable dans le Livret coureur et sur la carte.</p><div className="flex flex-wrap gap-2">{Object.entries(labels).map(([type,label])=><Button key={type} type="button" variant="outline" onClick={()=>add(type as EditionService["serviceType"])}>+ {label}</Button>)}</div></div>
     {remote.items.length===0?<Empty text="Aucun service structuré pour cette édition."/>:<div className="grid gap-4 xl:grid-cols-2">{remote.items.map((item,index)=><article key={item.id??index} className="space-y-3 rounded-xl border border-border bg-background p-4">
       <div className="flex gap-2"><Select label="Type de service" value={item.serviceType} onChange={(value)=>remote.update(remote.items.map((x,i)=>i===index?{...x,serviceType:value as EditionService["serviceType"]}:x))}>{Object.entries(labels).map(([v,l])=><option key={v} value={v}>{l}</option>)}</Select><Button type="button" variant="ghost" onClick={()=>remote.update(remote.items.filter((_,i)=>i!==index))}>Supprimer</Button></div>
       <TextField label="Nom" value={item.name} invalid={!item.name.trim()} onChange={(name)=>remote.update(remote.items.map((x,i)=>i===index?{...x,name}:x))}/>

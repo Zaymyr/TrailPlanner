@@ -29,6 +29,10 @@ related_tables:
 
 # `race_event_claims`
 
+The organizer dashboard now autosaves claimed event content and closes its secondary Actions menu on selection, outside click, or Escape. These interaction changes do not create or mutate ownership claims.
+
+Progressive organizer forms, inherited-content summaries, and compact repeated rows are presentation only. Personalizing an inherited section still writes through the existing authorized event membership and never creates a new claim.
+
 The `Suivi coureur` editor remains inside the existing Organizer dashboard authorization boundary. Seeding a supporter point from a ravito or deriving its GPX access coordinate does not broaden claim ownership or grant access to another event.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

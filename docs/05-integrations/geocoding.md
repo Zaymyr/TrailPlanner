@@ -23,6 +23,10 @@ related_tables:
 
 # Geocoding
 
+New organizer formats receive the event's effective location as an inherited default. Choosing a different location remains explicit and continues through the same geocoding contract.
+
+Departure and arrival addresses are now the always-visible essential access fields; map, parking, shuttle, and restriction details are added progressively. Address autocomplete, coordinate persistence, and Maps URL generation are unchanged.
+
 The mobile rolling-deployment fallback reads already geocoded supporter points through RLS and does not invoke geocoding from the runner client.
 
 > Terminologie : les textes français destinés aux utilisateurs emploient **Livret coureur** et les textes anglais **Race Book**. Les identifiants techniques stables — routes, événements analytics, objets de base de données et valeurs historiques — conservent `racebook`.

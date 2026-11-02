@@ -1,3 +1,5 @@
+import { useState } from "react";
+
 import { Button } from "../../../../components/ui/button";
 import { Input } from "../../../../components/ui/input";
 import { cn } from "../../../../components/utils";
@@ -12,7 +14,7 @@ import {
 } from "../../../../lib/organizer-dashboard-details";
 import { AddressAutocompleteField } from "./address-autocomplete-field";
 import { equipmentSuggestions } from "./constants";
-import { ContextualHelp, TextAreaField, TextField, ToggleChip } from "./controls";
+import { CollapsibleRow, ContextualHelp, OptionalModule, TextAreaField, TextField, ToggleChip } from "./controls";
 import type { RaceFormat } from "./types";
 
 export function EquipmentEditor({
@@ -37,6 +39,7 @@ export function EquipmentEditor({
         description="Chaque ajout ici sera reporté sur toutes les courses de l'événement."
         equipment={eventDetails.mandatoryEquipment}
         weatherPlanEditable
+        showHeader={false}
         onEquipmentChange={(mandatoryEquipment) => onEventChange({ ...eventDetails, mandatoryEquipment })}
       />
     );
@@ -47,6 +50,28 @@ export function EquipmentEditor({
   }
 
   const hasEquipmentOverride = raceDetails.mandatoryEquipment.overrideEnabled;
+
+  if (!hasEquipmentOverride) {
+    const commonItems = eventDetails.mandatoryEquipment.items;
+    return (
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+        <p className="text-sm font-semibold text-foreground">Matériel hérité de l’événement</p>
+        <p className="text-sm text-muted-foreground">
+          {commonItems.length} item{commonItems.length > 1 ? "s" : ""} · Matériel selon la météo : {eventDetails.mandatoryEquipment.weatherPlan === "normal" ? "conditions normales" : eventDetails.mandatoryEquipment.weatherPlan === "cold" ? "grand froid" : "forte chaleur"}
+        </p>
+        <Button type="button" variant="outline" onClick={() => onRaceChange({
+          ...raceDetails,
+          mandatoryEquipment: {
+            ...eventDetails.mandatoryEquipment,
+            items: eventDetails.mandatoryEquipment.items.map((item) => ({ ...item })),
+            overrideEnabled: true,
+          },
+        })}>
+          Personnaliser pour ce format
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -87,49 +112,22 @@ function EquipmentFields({
   const availableSuggestions = equipmentSuggestions.filter((suggestion) => !existingLabels.has(suggestion.toLocaleLowerCase("fr-FR")));
   const effectiveWeatherPlan = sharedWeatherPlan ?? equipment.weatherPlan;
   const weatherPlanLabel = effectiveWeatherPlan === "cold" ? "Grand froid" : effectiveWeatherPlan === "heat" ? "Grosse chaleur" : "Normal";
+  const [expandedItemIndex, setExpandedItemIndex] = useState<number | null>(null);
+  const [weatherVariantsOpen, setWeatherVariantsOpen] = useState(
+    equipment.weatherPlan !== "normal" || equipment.items.some((item) => item.cold || item.heat)
+  );
 
   return (
-    <section className={cn("space-y-4 rounded-lg border bg-background p-4", missingEquipment ? "border-amber-300" : "border-border")}>
+    <section className={cn("space-y-4", missingEquipment && "rounded-lg border border-amber-300 p-4")}>
       {showHeader ? (
         <div className="flex items-center gap-2">
           <p className="font-semibold text-foreground">{title}</p>
           <ContextualHelp text={description} />
         </div>
       ) : null}
-      {weatherPlanEditable ? (
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-foreground">Plan météo actif</p>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { value: "normal", label: "Normal" },
-              { value: "cold", label: "Grand froid" },
-              { value: "heat", label: "Grosse chaleur" },
-            ].map((option) => (
-              <label
-                key={option.value}
-                className={cn(
-                  "inline-flex min-h-9 items-center gap-2 rounded-md border px-3 py-2 text-sm",
-                  equipment.weatherPlan === option.value ? "border-brand bg-brand/10 text-foreground" : "border-border bg-background text-foreground"
-                )}
-              >
-                <input
-                  type="radio"
-                  name={`${title}-weather-plan`}
-                  value={option.value}
-                  checked={equipment.weatherPlan === option.value}
-                  onChange={() => updateWeatherPlan(option.value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])}
-                  className="h-4 w-4"
-                />
-                <span>{option.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div className="rounded-md border border-dashed border-border bg-muted/40 px-3 py-2 text-sm text-muted-foreground">
-          Plan météo actif: <span className="font-medium text-foreground">{weatherPlanLabel}</span>
-        </div>
-      )}
+      <p className="text-sm text-muted-foreground">
+        Matériel selon la météo : <span className="font-medium text-foreground">{weatherPlanLabel.toLocaleLowerCase("fr-FR")}</span>
+      </p>
       <div className="flex flex-wrap gap-2">
         {availableSuggestions.map((suggestion) => (
           <Button
@@ -145,16 +143,34 @@ function EquipmentFields({
       </div>
       <div className="space-y-3">
         {equipment.items.map((item, index) => (
-          <div key={item.id ?? index} className="flex flex-wrap items-center gap-3 rounded-md border border-border bg-card p-3">
-            <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+          <CollapsibleRow
+            key={item.id ?? index}
+            expanded={expandedItemIndex === index}
+            onToggle={() => setExpandedItemIndex((current) => current === index ? null : index)}
+            summary={`${item.label || `Item ${index + 1}`} · ${item.required ? "Obligatoire" : "Recommandé"}${item.cold ? " · Grand froid" : ""}${item.heat ? " · Grosse chaleur" : ""}`}
+            actions={(
+              <Button
+                type="button"
+                variant="ghost"
+                className="h-9 w-9 shrink-0 px-0 text-red-600 hover:text-red-700"
+                onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
+                aria-label={`Retirer ${item.label || "cet item"}`}
+                title="Retirer"
+              >
+                ×
+              </Button>
+            )}
+          >
+            <div className="space-y-3">
               <Input
+                aria-label={`Item de matériel n°${index + 1}`}
                 value={item.label}
                 onChange={(event) =>
                   updateItems(equipment.items.map((candidate, itemIndex) => (itemIndex === index ? { ...candidate, label: event.target.value } : candidate)))
                 }
-                className="h-10 min-w-[16rem] flex-1"
+                className="h-10"
               />
-              <div className="flex flex-wrap items-center gap-2">
+              {weatherVariantsOpen ? <div className="flex flex-wrap items-center gap-2">
                 <label className="inline-flex h-10 items-center gap-2 rounded-md border border-border bg-background px-3 text-sm text-foreground">
                   <input
                     type="checkbox"
@@ -177,8 +193,7 @@ function EquipmentFields({
                   />
                   <span>Grosse chaleur</span>
                 </label>
-              </div>
-            </div>
+              </div> : null}
             <div className="flex flex-wrap items-center gap-2">
               {[
                 { value: "required", label: "Obligatoire" },
@@ -211,25 +226,17 @@ function EquipmentFields({
                 </label>
               ))}
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              className="h-10 w-10 shrink-0 px-0 text-red-600 hover:text-red-700"
-              onClick={() => updateItems(equipment.items.filter((_, itemIndex) => itemIndex !== index))}
-              aria-label={`Retirer ${item.label || "cet item"}`}
-              title="Retirer"
-            >
-              <svg viewBox="0 0 16 16" aria-hidden="true" className="h-4 w-4 fill-current">
-                <path d="M3.2 4.3 4.3 3.2 8 6.9l3.7-3.7 1.1 1.1L9.1 8l3.7 3.7-1.1 1.1L8 9.1l-3.7 3.7-1.1-1.1L6.9 8 3.2 4.3Z" />
-              </svg>
-            </Button>
-          </div>
+            </div>
+          </CollapsibleRow>
         ))}
       </div>
       <Button
         type="button"
         variant="outline"
-        onClick={() => updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, cold: false, heat: false, note: null }])}
+        onClick={() => {
+          updateItems([...equipment.items, { id: `item-${Date.now()}`, label: "Nouvel item", required: true, cold: false, heat: false, note: null }]);
+          setExpandedItemIndex(equipment.items.length);
+        }}
       >
         Ajouter un item
       </Button>
@@ -239,6 +246,28 @@ function EquipmentFields({
         onChange={(value) => onEquipmentChange({ ...equipment, note: value || null })}
         invalid={missingEquipment}
       />
+      {weatherPlanEditable ? (
+        <OptionalModule
+          title="les variantes météo"
+          active={weatherVariantsOpen}
+          onAdd={() => setWeatherVariantsOpen(true)}
+          onRemove={() => setWeatherVariantsOpen(false)}
+        >
+          <p className="text-sm text-muted-foreground">Coche si l’item n’est exigé qu’en cas de grand froid ou de forte chaleur.</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              { value: "normal", label: "Conditions normales" },
+              { value: "cold", label: "Grand froid" },
+              { value: "heat", label: "Grosse chaleur" },
+            ].map((option) => (
+              <label key={option.value} className={cn("inline-flex min-h-10 items-center gap-2 rounded-md border px-3 py-2 text-sm", equipment.weatherPlan === option.value ? "border-brand bg-brand/10" : "border-border")}>
+                <input type="radio" name={`${title}-weather-plan`} checked={equipment.weatherPlan === option.value} onChange={() => updateWeatherPlan(option.value as OrganizerEventDetails["mandatoryEquipment"]["weatherPlan"])} />
+                {option.label}
+              </label>
+            ))}
+          </div>
+        </OptionalModule>
+      ) : null}
     </section>
   );
 }
@@ -255,6 +284,7 @@ export function BibPickupEditor({
       title="Retrait dossard commun"
       description="Renseigne les infos valables pour tous les formats."
       bib={eventDetails.bibPickup}
+      showHeader={false}
       onBibChange={(bibPickup) => onEventChange({ ...eventDetails, bibPickup })}
     />
   );
@@ -262,10 +292,12 @@ export function BibPickupEditor({
 
 export function RaceBibPickupEditor({
   activeRace,
+  eventDetails,
   raceDetails,
   onRaceChange,
 }: {
   activeRace: RaceFormat | null;
+  eventDetails: OrganizerEventDetails;
   raceDetails: OrganizerRaceDetails;
   onRaceChange: (details: OrganizerRaceDetails) => void;
 }) {
@@ -274,7 +306,27 @@ export function RaceBibPickupEditor({
   }
 
   const bib = raceDetails.bibPickup;
-  if (!bib.overrideEnabled) return null;
+  if (!bib.overrideEnabled) {
+    const inheritedLocations = getOrganizerBibPickupLocations(eventDetails.bibPickup);
+    return (
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+        <p className="text-sm font-semibold text-foreground">Retrait hérité de l’événement</p>
+        <p className="text-sm text-muted-foreground">
+          {inheritedLocations[0]?.location || "Lieu à compléter"} · {inheritedLocations.reduce((count, location) => count + location.slots.length, 0)} créneau(x){eventDetails.bibPickup.equipmentCheck ? " · contrôle matériel" : ""}
+        </p>
+        <Button type="button" variant="outline" onClick={() => onRaceChange({
+          ...raceDetails,
+          bibPickup: {
+            ...eventDetails.bibPickup,
+            locations: inheritedLocations.map((location) => ({ ...location, slots: location.slots.map((slot) => ({ ...slot })) })),
+            overrideEnabled: true,
+          },
+        })}>
+          Personnaliser pour ce format
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <BibPickupFields
@@ -307,6 +359,8 @@ function BibPickupFields({
   framed?: boolean;
 }) {
   const update = (next: Partial<OrganizerEventDetails["bibPickup"]>) => onBibChange({ ...bib, ...next });
+  const [expandedLocationIndex, setExpandedLocationIndex] = useState<number | null>(null);
+  const [expandedSlotKey, setExpandedSlotKey] = useState<string | null>(null);
   const locations = getOrganizerBibPickupLocations(bib);
   const emptyLocationDetails = defaultOrganizerEventDetails.bibPickup.locationDetails;
   const updateLocations = (nextLocations: OrganizerBibPickupLocation[]) => {
@@ -319,6 +373,7 @@ function BibPickupFields({
     });
   };
   const addLocation = () => {
+    setExpandedLocationIndex(locations.length);
     updateLocations([
       ...locations,
       {
@@ -359,18 +414,22 @@ function BibPickupFields({
           {locations.map((pickupLocation, locationIndex) => {
             const missingLocation = !pickupLocation.location?.trim();
             return (
-              <article key={`bib-location-${locationIndex}`} className="space-y-4 rounded-lg border border-border bg-card p-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <p className="font-semibold text-foreground">Lieu de retrait {locationIndex + 1}</p>
+              <CollapsibleRow
+                key={`bib-location-${locationIndex}`}
+                expanded={expandedLocationIndex === locationIndex}
+                onToggle={() => setExpandedLocationIndex((current) => current === locationIndex ? null : locationIndex)}
+                summary={`${pickupLocation.location || `Lieu de retrait ${locationIndex + 1}`} · ${pickupLocation.slots.length} créneau${pickupLocation.slots.length > 1 ? "x" : ""}`}
+                actions={(
                   <Button
                     type="button"
                     variant="ghost"
-                    className="h-9 border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100"
+                    className="h-9 px-2 text-xs font-semibold text-red-700 hover:bg-red-50"
                     onClick={() => updateLocations(locations.filter((_, index) => index !== locationIndex))}
                   >
-                    Supprimer le lieu
+                    Supprimer
                   </Button>
-                </div>
+                )}
+              >
                 {hideLocationDetails ? (
                   <TextField label="Lieu de retrait" value={pickupLocation.location ?? ""} onChange={(value) => updateLocation(locationIndex, { location: value || null })} />
                 ) : (
@@ -392,12 +451,13 @@ function BibPickupFields({
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={() =>
+                      onClick={() => {
+                        setExpandedSlotKey(`${locationIndex}:${pickupLocation.slots.length}`);
                         updateSlots(locationIndex, [
                           ...pickupLocation.slots,
                           { date: null, startTime: null, endTime: null },
-                        ])
-                      }
+                        ]);
+                      }}
                     >
                       Ajouter un créneau
                     </Button>
@@ -416,27 +476,33 @@ function BibPickupFields({
                           )
                         );
                       return (
-                        <div
+                        <CollapsibleRow
                           key={`bib-location-${locationIndex}-slot-${slotIndex}`}
-                          className="grid gap-3 rounded-md border border-border bg-background p-3 md:grid-cols-[minmax(0,1fr)_minmax(0,0.8fr)_minmax(0,0.8fr)_auto] md:items-end"
+                          expanded={expandedSlotKey === `${locationIndex}:${slotIndex}`}
+                          onToggle={() => setExpandedSlotKey((current) => current === `${locationIndex}:${slotIndex}` ? null : `${locationIndex}:${slotIndex}`)}
+                          summary={`${slot.date || "Jour à définir"} · ${slot.startTime || "--:--"}–${slot.endTime || "--:--"}`}
+                          actions={(
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              className="h-9 px-2 text-xs font-semibold text-red-700 hover:bg-red-50"
+                              onClick={() => updateSlots(locationIndex, pickupLocation.slots.filter((_, index) => index !== slotIndex))}
+                            >
+                              Supprimer
+                            </Button>
+                          )}
                         >
-                          <TextField label="Jour" type="date" value={slot.date ?? ""} onChange={(date) => updateSlot({ date: date || null })} invalid={!slot.date} />
-                          <TextField label="Début" type="time" value={slot.startTime ?? ""} onChange={(startTime) => updateSlot({ startTime: startTime || null })} invalid={!slot.startTime} />
-                          <TextField label="Fin" type="time" value={slot.endTime ?? ""} onChange={(endTime) => updateSlot({ endTime: endTime || null })} invalid={!slot.endTime} />
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            className="h-10 border border-red-200 bg-red-50 px-3 text-xs font-semibold text-red-700 hover:bg-red-100"
-                            onClick={() => updateSlots(locationIndex, pickupLocation.slots.filter((_, index) => index !== slotIndex))}
-                          >
-                            Supprimer
-                          </Button>
-                        </div>
+                          <div className="grid gap-3 md:grid-cols-3">
+                            <TextField label="Jour" type="date" value={slot.date ?? ""} onChange={(date) => updateSlot({ date: date || null })} invalid={!slot.date} />
+                            <TextField label="Début" type="time" value={slot.startTime ?? ""} onChange={(startTime) => updateSlot({ startTime: startTime || null })} invalid={!slot.startTime} />
+                            <TextField label="Fin" type="time" value={slot.endTime ?? ""} onChange={(endTime) => updateSlot({ endTime: endTime || null })} invalid={!slot.endTime} />
+                          </div>
+                        </CollapsibleRow>
                       );
                     })
                   )}
                 </div>
-              </article>
+              </CollapsibleRow>
             );
           })}
         </div>
@@ -449,9 +515,15 @@ function BibPickupFields({
         />
       ) : null}
       <TextAreaField label="Documents nécessaires" value={bib.requiredDocuments ?? ""} onChange={(value) => update({ requiredDocuments: value || null })} />
-      <div className="flex flex-wrap gap-2">
-        <ToggleChip checked={bib.thirdPartyPickupAllowed === true} label="Retrait par tiers" onChange={(checked) => update({ thirdPartyPickupAllowed: checked })} />
-        <ToggleChip checked={bib.equipmentCheck === true} label="Contrôle matériel" onChange={(checked) => update({ equipmentCheck: checked })} />
+      <div className="space-y-3 border-t border-border pt-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium text-foreground">Une autre personne peut-elle retirer le dossard ?</p>
+          <ToggleChip checked={bib.thirdPartyPickupAllowed === true} label={bib.thirdPartyPickupAllowed ? "Oui" : "Non"} onChange={(checked) => update({ thirdPartyPickupAllowed: checked })} />
+        </div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-sm font-medium text-foreground">Un contrôle du matériel est-il prévu au retrait ?</p>
+          <ToggleChip checked={bib.equipmentCheck === true} label={bib.equipmentCheck ? "Oui" : "Non"} onChange={(checked) => update({ equipmentCheck: checked })} />
+        </div>
       </div>
       <TextAreaField label="Note dossard" value={bib.note ?? ""} onChange={(value) => update({ note: value || null })} />
     </section>
@@ -491,7 +563,23 @@ export function AccessEditor({
     return <p className="rounded-md border border-dashed border-border bg-background p-4 text-sm text-muted-foreground">Sélectionne un format pour ajouter un accès ou une information spécifique.</p>;
   }
 
-  if (!hasRaceAccessOverride(raceDetails.access)) return null;
+  if (!hasRaceAccessOverride(raceDetails.access)) {
+    return (
+      <div className="space-y-3 rounded-lg border border-border bg-muted/20 p-4">
+        <p className="text-sm font-semibold text-foreground">Accès hérité de l’événement</p>
+        <p className="text-sm text-muted-foreground">
+          Départ : {eventDetails.access.startAddress || "à compléter"} · Arrivée : {eventDetails.access.finishAddress || "à compléter"}
+          {eventDetails.access.officialParkings ? " · parkings" : ""}{eventDetails.access.shuttles ? " · navettes" : ""}
+        </p>
+        <Button type="button" variant="outline" onClick={() => onRaceChange({
+          ...raceDetails,
+          access: { ...eventDetails.access, enabledSections: { ...eventDetails.access.enabledSections }, overrideEnabled: true },
+        })}>
+          Personnaliser pour ce format
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -540,6 +628,10 @@ function AccessFields({
     (!access.enabledSections.officialParkings || !access.enabledSections.shuttles
       ? false
       : !access.officialParkings?.trim() && !access.shuttles?.trim() && !access.shuttleSchedule?.trim());
+  const [mapOpen, setMapOpen] = useState(access.enabledSections.mapUrl || Boolean(access.mapUrl?.trim()));
+  const [restrictionsOpen, setRestrictionsOpen] = useState(access.enabledSections.roadRestrictions || Boolean(access.roadRestrictions?.trim()));
+  const [parkingsOpen, setParkingsOpen] = useState(access.enabledSections.officialParkings || Boolean(access.officialParkings?.trim()));
+  const [shuttlesOpen, setShuttlesOpen] = useState(access.enabledSections.shuttles || Boolean(access.shuttles?.trim() || access.shuttleSchedule?.trim()));
 
   return (
     <section className="space-y-4">
@@ -549,17 +641,8 @@ function AccessFields({
           <ContextualHelp text={description} />
         </div>
       ) : null}
-      <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-foreground">1. Lieux et itinéraire</p>
-            <ContextualHelp text="Sélectionne une suggestion pour générer automatiquement l’action Maps. Si le départ et l’arrivée sont identiques, l’app ne l’affichera qu’une fois." />
-          </div>
-          {formatMode ? (
-            <ToggleChip checked={access.enabledSections.mapUrl} label="Carte générale" onChange={(checked) => updateSection("mapUrl", checked)} />
-          ) : null}
-        </div>
-        <div className="grid gap-3 md:grid-cols-2">
+      <p className="text-sm text-muted-foreground">Renseigne d’abord les lieux indispensables, puis ajoute uniquement les informations utiles aux coureurs.</p>
+      <div className="grid gap-3 md:grid-cols-2">
           <AddressAutocompleteField
             label="Adresse départ"
             value={access.startAddress ?? ""}
@@ -577,54 +660,51 @@ function AccessFields({
             onChange={(value) => update({ finishAddress: value || null })}
             onLocationChange={(finishLocation) => update({ finishLocation })}
           />
-        </div>
-        {(!formatMode || access.enabledSections.mapUrl) ? (
+      </div>
+
+      <OptionalModule
+        title="une carte générale"
+        active={mapOpen}
+        onAdd={() => { setMapOpen(true); updateSection("mapUrl", true); }}
+        onRemove={() => { setMapOpen(false); updateSection("mapUrl", false); }}
+      >
           <TextField label="Lien vers une carte générale (optionnel)" value={access.mapUrl ?? ""} onChange={(value) => update({ mapUrl: value || null })} placeholder="https://..." />
-        ) : null}
-      </div>
+      </OptionalModule>
 
-      <div className="space-y-4 rounded-xl border border-amber-300 bg-amber-50/60 p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-foreground">2. À retenir</p>
-            <ContextualHelp text="Ces informations sont mises en avant en premier dans l’app." />
-          </div>
-          {formatMode ? (
-            <ToggleChip checked={access.enabledSections.roadRestrictions} label="Restrictions route" onChange={(checked) => updateSection("roadRestrictions", checked)} />
-          ) : null}
-        </div>
+      <div className="space-y-3 border-t border-border pt-4">
+        <p className="text-sm font-semibold text-foreground">À retenir</p>
         <TextAreaField label="Information prioritaire" hint="À réserver aux consignes critiques : dernière navette, accès fermé ou horaire important." value={access.note ?? ""} onChange={(value) => update({ note: value || null })} />
-        {(!formatMode || access.enabledSections.roadRestrictions) ? (
-          <TextAreaField label="Routes fermées / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
-        ) : null}
       </div>
 
-      <div className="space-y-4 rounded-xl border border-border bg-card p-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <p className="font-semibold text-foreground">3. Venir sur place</p>
-            <ContextualHelp text="Parkings et navettes seront regroupés dans des blocs courts et dépliables dans l’app." />
-          </div>
-          {formatMode ? (
-            <div className="flex flex-wrap gap-2">
-              <ToggleChip checked={access.enabledSections.officialParkings} label="Parkings" onChange={(checked) => updateSection("officialParkings", checked)} />
-              <ToggleChip checked={access.enabledSections.shuttles} label="Navettes" onChange={(checked) => updateSection("shuttles", checked)} />
-            </div>
-          ) : null}
-        </div>
-        {(!formatMode || access.enabledSections.officialParkings) ? (
+      <OptionalModule
+        title="les routes fermées"
+        active={restrictionsOpen}
+        onAdd={() => { setRestrictionsOpen(true); updateSection("roadRestrictions", true); }}
+        onRemove={() => { setRestrictionsOpen(false); updateSection("roadRestrictions", false); }}
+      >
+          <TextAreaField label="Routes fermées / restrictions" value={access.roadRestrictions ?? ""} onChange={(value) => update({ roadRestrictions: value || null })} />
+      </OptionalModule>
+
+      <OptionalModule
+        title="les parkings"
+        active={parkingsOpen}
+        onAdd={() => { setParkingsOpen(true); updateSection("officialParkings", true); }}
+        onRemove={() => { setParkingsOpen(false); updateSection("officialParkings", false); }}
+      >
           <TextAreaField label="Parkings officiels" value={access.officialParkings ?? ""} onChange={(value) => update({ officialParkings: value || null })} invalid={missingParkingOrShuttle} />
-        ) : null}
-        {(!formatMode || access.enabledSections.shuttles) ? (
+      </OptionalModule>
+
+      <OptionalModule
+        title="les navettes"
+        active={shuttlesOpen}
+        onAdd={() => { setShuttlesOpen(true); updateSection("shuttles", true); }}
+        onRemove={() => { setShuttlesOpen(false); updateSection("shuttles", false); }}
+      >
           <div className="grid gap-3 md:grid-cols-2">
             <TextAreaField label="Fonctionnement des navettes" value={access.shuttles ?? ""} onChange={(value) => update({ shuttles: value || null })} invalid={missingParkingOrShuttle} />
             <TextAreaField label="Horaires des navettes" value={access.shuttleSchedule ?? ""} onChange={(value) => update({ shuttleSchedule: value || null })} />
           </div>
-        ) : null}
-        {formatMode && !access.enabledSections.officialParkings && !access.enabledSections.shuttles ? (
-          <p className="rounded-lg border border-dashed border-border bg-background p-3 text-sm text-muted-foreground">Active au moins une rubrique pour publier des informations de transport sur ce format.</p>
-        ) : null}
-      </div>
+      </OptionalModule>
 
       {formatMode && showRunnerInfoToggle ? (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed border-border bg-background p-4">

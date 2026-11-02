@@ -200,15 +200,16 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(shellSource).toContain("Notifier les coureurs");
     expect(shellSource).toContain("Actions");
     expect(shellSource).toContain("Factures");
-    expect(shellSource).toContain("Modifications non enregistrées");
-    expect(shellSource).toContain("Une autre section contient des modifications non enregistrées.");
+    expect(shellSource).toContain("Modifications en attente de sauvegarde…");
+    expect(shellSource).toContain("Sauvegardé automatiquement");
+    expect(shellSource).toContain("Échec de la sauvegarde automatique");
+    expect(shellSource).toContain("Réessayer");
     expect(shellSource).toContain("Duplication de l’édition en cours…");
     expect(shellSource).toContain("Cette opération peut prendre quelques instants.");
     expect(shellSource).toContain('aria-busy={isEditionCreationPending}');
     expect(shellSource).toContain('role="status"');
-    expect(shellSource).toContain("fixed inset-x-4 top-20");
-    expect(shellSource).toContain("sm:bottom-4");
-    expect(dashboardSource).toContain("hasAnyDirtyChanges={hasAnyDirtyChanges}");
+    expect(shellSource).toContain('id="organizer-autosave-status"');
+    expect(dashboardSource).toContain("autosaveState={autosaveState}");
     expect(shellSource).toContain("Supprimer l’édition");
     expect(shellSource).toContain("Supprimer l’événement");
     expect(dashboardSource).toContain("<ContextualHelp");
@@ -242,13 +243,13 @@ describe("organizer dashboard UTF-8 copy", () => {
     const editorSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/dashboard/event-format-editors.tsx"), "utf8");
     const dashboardSource = readFileSync(resolve(process.cwd(), "app/organizer/_components/OrganizerDashboard.tsx"), "utf8");
 
-    expect(editorSource).toContain('label="Site officiel / source du format"');
+    expect(editorSource).toContain('label="Site officiel du format (facultatif)"');
     expect(editorSource).toContain("locationText: inheritedLocationText");
     expect(dashboardSource).toContain("externalSiteUrl: newRaceForm.externalSiteUrl");
     expect(dashboardSource).toContain("externalSiteUrl: nextForm.externalSiteUrl?.trim() || undefined");
     expect(dashboardSource).toContain("locationText: newRaceForm.locationText || eventForm.location");
     expect(dashboardSource).toContain("locationText: nextForm.locationText || eventForm.location");
-    expect(dashboardSource).toContain("site officiel/source");
+    expect(dashboardSource).not.toContain("site officiel/source");
   });
 
   it("stages RaceBook section changes in a wide responsive dialog before one explicit save", () => {
@@ -274,10 +275,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     );
 
     expect(source).toContain("Informations principales");
-    expect(source).toContain("Présence en ligne");
+    expect(source).toContain('title="les réseaux sociaux"');
     expect(source).toContain("Dates de l’édition");
     expect(source).toContain("Contact d’urgence");
-    expect(source).toContain("Image de couverture");
+    expect(source).toContain('title="une image de couverture"');
     expect(source).toContain('label="Nom du contact"');
     expect(source).toContain('label="Téléphone"');
     expect(source).toContain('type="tel"');
@@ -298,7 +299,7 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(source).toContain('activeView === "aidStations"');
     expect(source.indexOf("<FixedCourseCard")).toBeLessThan(source.indexOf("<TabsList"));
     expect(source).toContain("disabled={startWaveCount > 0}");
-    expect(source).toContain("leurs horaires définissent le départ.");
+    expect(source).toContain("Les autres SAS se règlent dans l’onglet SAS.");
     expect(source).toContain('title="Départ"');
     expect(source).toContain('title="Arrivée"');
     expect(source).toContain('StationMetaChip>Barrière {details.cutoffTime?.trim() || "-"}');
@@ -345,9 +346,10 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(dashboardSource).toContain('`Retrait dossard - ${activeRace.name}`');
     expect(dashboardSource).toContain('`Matériel - ${activeRace.name}`');
     expect(dashboardSource).toContain('`Accès - ${activeRace.name}`');
-    expect(dashboardSource).toContain('label="Retrait différent pour ce format"');
-    expect(dashboardSource).toContain('label="Matériel différent pour ce format"');
-    expect(dashboardSource).toContain('label="Accès différents pour ce format"');
+    expect(detailSource.match(/Personnaliser pour ce format/g)).toHaveLength(3);
+    expect(detailSource).toContain("Retrait hérité de l’événement");
+    expect(detailSource).toContain("Matériel hérité de l’événement");
+    expect(detailSource).toContain("Accès hérité de l’événement");
     expect(dashboardSource).toContain('activeModule === "formats" || activeModule === "equipment" || activeModule === "bibPickup" || activeModule === "access"');
     expect(detailSource).toContain("showHeader={false}");
     expect(detailSource).toContain("framed={false}");
@@ -360,9 +362,10 @@ describe("organizer dashboard UTF-8 copy", () => {
       "utf8"
     );
 
-    expect(source).toContain("1. Lieux et itinéraire");
-    expect(source).toContain("2. À retenir");
-    expect(source).toContain("3. Venir sur place");
+    expect(source).toContain('title="une carte générale"');
+    expect(source).toContain('title="les routes fermées"');
+    expect(source).toContain('title="les parkings"');
+    expect(source).toContain('title="les navettes"');
     expect(source).toContain('label="Information prioritaire"');
     expect(source).toContain('label="Fonctionnement des navettes"');
     expect(source).toContain('label="Horaires des navettes"');
@@ -397,7 +400,8 @@ describe("organizer dashboard UTF-8 copy", () => {
     expect(editorSource).toContain("Aperçu mobile");
     expect(editorSource).toContain("Annuler les changements");
     expect(editorSource).toContain("Réinitialiser au thème Pace Yourself");
-    expect(editorSource).toContain("Enregistrer le brouillon");
+    expect(editorSource).toContain("Brouillon sauvegardé automatiquement");
+    expect(editorSource).not.toContain(">Enregistrer le brouillon</Button>");
     expect(editorSource).toContain("Publier la DA");
     expect(editorSource).toContain('window.addEventListener("beforeunload"');
     expect(editorSource).toContain("RACEBOOK_EDITION_LOGO_ENABLED ? (");

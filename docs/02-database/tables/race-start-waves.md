@@ -24,6 +24,8 @@ related_tables:
 
 # `race_start_waves`
 
+Organizer departure microcopy now identifies the earliest wave as `Heure du premier départ (SAS 1)` and directs users to the SAS tab for the remaining waves. Wave timing and persistence rules are unchanged.
+
 The header-attached workspace switch does not alter SAS visibility, ordering, or time authority.
 
 Official cutoffs are resolved from the official (or first ordered SAS) departure; a personal departure only shifts the comparison with the runner's passages and never changes SAS times.
