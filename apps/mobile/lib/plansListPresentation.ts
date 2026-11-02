@@ -8,6 +8,8 @@ export type DepartureCountdownCopy = {
   inMinutesAndSeconds: (minutes: number, seconds: number) => string;
 };
 
+export type PlanPrimaryAction = 'edit' | 'start' | 'recap';
+
 function departureMs(plan: PlanRow) {
   const value = plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN;
   return Number.isFinite(value) ? value : null;
@@ -110,15 +112,35 @@ export function formatDepartureCountdown(
   return copy.inMinutesAndSeconds(minutes, remainingSeconds % 60);
 }
 
-export function selectPrimaryStartPlanId(
-  plans: Pick<PlanRow, 'id' | 'departureAt'>[],
+function localDateKey(date: Date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, '0'),
+    String(date.getDate()).padStart(2, '0'),
+  ].join('-');
+}
+
+export function resolvePlanPrimaryAction(
+  plan: Pick<PlanRow, 'id' | 'departureAt' | 'races'>,
   nowMs: number,
   activePlanId: string | null,
-) {
-  const nextPlan = plans
-    .map((plan) => ({ plan, departure: plan.departureAt ? new Date(plan.departureAt).getTime() : Number.NaN }))
-    .filter(({ departure }) => Number.isFinite(departure) && departure >= nowMs)
-    .sort((left, right) => left.departure - right.departure)[0]?.plan;
+): PlanPrimaryAction {
+  if (plan.id === activePlanId) return 'start';
 
-  return nextPlan?.id ?? activePlanId;
+  const now = new Date(nowMs);
+  if (!Number.isFinite(now.getTime())) return 'edit';
+
+  const raceDate = plan.races?.race_date;
+  const departure = plan.departureAt ? new Date(plan.departureAt) : null;
+  const planDate = raceDate && /^\d{4}-\d{2}-\d{2}$/.test(raceDate)
+    ? raceDate
+    : departure && Number.isFinite(departure.getTime())
+      ? localDateKey(departure)
+      : null;
+
+  if (!planDate) return 'edit';
+
+  const today = localDateKey(now);
+  if (planDate === today) return 'start';
+  return planDate < today ? 'recap' : 'edit';
 }
