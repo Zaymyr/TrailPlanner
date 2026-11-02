@@ -73,7 +73,7 @@ export const en: MobileTranslations = {
     unfinishedPlanBody: 'Come back to finish {name} and add your fueling.',
   },
   plans: {
-    title: 'Plans',
+    title: 'My plans',
     empty: 'No plans yet',
     emptySubtitle: 'Create your first race plan and stop bonking.',
     browseRaces: 'Choose a race',
