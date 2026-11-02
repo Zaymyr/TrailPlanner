@@ -55,6 +55,8 @@ related_tables:
 
 # `race_event_organizers`
 
+The organizer-details schema now preserves additive third-party bib-pickup conditions and supports glanceable equipment/bib editors. Membership authorization, onboarding state, role semantics, admin trust, and organizer preview access remain unchanged.
+
 The organizer editor's autosave and revised tutoiement copy do not change membership authorization. Every event and format write still requires the same active organizer relationship.
 
 The Organizer dashboard may assist supporter-point entry from the selected format's ravitos and GPX, but every read/write remains constrained by the caller's active event membership and the existing route authorization checks.

@@ -26,26 +26,39 @@ const event = {
     mandatoryEquipment: {
       weatherPlan: "normal",
       items: [
-        { id: "equipment-1", label: "Couverture de survie", required: true, cold: false, heat: false, note: null },
-        { id: "equipment-2", label: "Téléphone chargé", required: true, cold: false, heat: false, note: null },
-        { id: "equipment-3", label: "Réserve d’eau de 1 litre", required: true, cold: false, heat: true, note: null },
-        { id: "equipment-4", label: "Bâtons", required: false, cold: false, heat: false, note: null },
+        { id: "equipment-1", label: "Téléphone chargé avec numéro du PC course", required: true, cold: false, heat: false, note: null },
+        { id: "equipment-2", label: "Gobelet personnel", required: true, cold: false, heat: false, note: null },
+        { id: "equipment-3", label: "Couverture de survie", required: true, cold: false, heat: false, note: null },
+        { id: "equipment-4", label: "Réserve d’eau de 1 litre", required: true, cold: false, heat: true, note: null },
+        { id: "equipment-5", label: "Lampe frontale", required: true, cold: false, heat: false, note: null },
+        { id: "equipment-6", label: "Sifflet", required: true, cold: false, heat: false, note: null },
+        { id: "equipment-7", label: "Seconde couche chaude manches longues", required: false, cold: true, heat: false, note: null },
+        { id: "equipment-8", label: "Casquette et crème solaire", required: false, cold: false, heat: true, note: null },
       ],
       note: "Contrôle possible à l’entrée du SAS. Le matériel peut être adapté selon la météo.",
     },
     bibPickup: {
       location: "Salle des fêtes, 12 rue du Lac, Annecy",
       locationDetails: { label: "Salle des fêtes, 12 rue du Lac, Annecy", lat: 45.8992, lng: 6.1294, googleMapsUrl: "https://maps.google.com/?q=45.8992,6.1294", source: "manual" },
-      locations: [{
-        location: "Salle des fêtes, 12 rue du Lac, Annecy",
-        locationDetails: { label: "Salle des fêtes, 12 rue du Lac, Annecy", lat: 45.8992, lng: 6.1294, googleMapsUrl: "https://maps.google.com/?q=45.8992,6.1294", source: "manual" },
-        slots: [
-          { date: "2027-06-11", startTime: "16:00", endTime: "20:00" },
-          { date: "2027-06-12", startTime: "05:00", endTime: "06:15" },
-        ],
-      }],
+      locations: [
+        {
+          location: "Salle du Criou — village départ",
+          locationDetails: { label: "Salle du Criou — village départ", lat: 45.8992, lng: 6.1294, googleMapsUrl: "https://maps.google.com/?q=45.8992,6.1294", source: "manual" },
+          slots: [
+            { date: "2027-06-11", startTime: "15:00", endTime: "20:00" },
+            { date: "2027-06-12", startTime: "03:00", endTime: "07:00" },
+            { date: "2027-06-13", startTime: "06:30", endTime: "08:30" },
+          ],
+        },
+        {
+          location: "Maison de la Montagne — centre-bourg",
+          locationDetails: { label: "Maison de la Montagne — centre-bourg", lat: 45.9011, lng: 6.1322, googleMapsUrl: "https://maps.google.com/?q=45.9011,6.1322", source: "manual" },
+          slots: [{ date: "2027-06-11", startTime: "10:00", endTime: "18:00" }],
+        },
+      ],
       requiredDocuments: "Pièce d’identité et certificat si nécessaire.",
       thirdPartyPickupAllowed: true,
+      thirdPartyPickupConditions: "Présenter la pièce d’identité du coureur et son numéro de dossard.",
       equipmentCheck: true,
       note: "Prévoir le numéro de dossard reçu par e-mail.",
     },
@@ -283,7 +296,7 @@ const browser = await chromium.launch({
   executablePath: process.env.RACEBOOK_MANUAL_BROWSER_PATH
     ?? (process.platform === "win32" ? "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe" : undefined),
 });
-const context = await browser.newContext({ viewport: { width: 1440, height: 1050 }, deviceScaleFactor: 1 });
+const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 });
 const page = await context.newPage();
 await installDemoRoutes(page);
 
@@ -330,12 +343,9 @@ await page.getByRole("button", { name: "Annuler" }).click();
 
 await page.getByRole("button", { name: "Matériel" }).first().click();
 await page.getByRole("heading", { name: "Matériel", level: 3 }).waitFor();
-const weatherModuleButton = page.getByRole("button", { name: "+ Ajouter les variantes météo" });
-if (await weatherModuleButton.isVisible().catch(() => false)) await weatherModuleButton.click();
-await page.getByRole("button", { name: /^Couverture de survie/ }).click();
 await annotate(page, [
-  page.getByText(/Matériel selon la météo/),
-  [page.getByRole("button", { name: "+ Réserve alimentaire" }), page.getByRole("button", { name: "+ Veste imperméable" }), page.getByRole("button", { name: "+ Lampe frontale" })],
+  page.getByText("Variantes météo", { exact: true }),
+  [page.getByRole("button", { name: "+ Réserve alimentaire" }), page.getByRole("button", { name: "+ Veste imperméable" })],
   page.getByLabel("Item de matériel n°1"),
   page.getByLabel("Note matériel"),
 ]);
@@ -343,11 +353,9 @@ await capture(page, "04-materiel", "main");
 
 await page.getByRole("button", { name: "Dossard" }).first().click();
 await page.getByRole("heading", { name: "Dossard", level: 3 }).waitFor();
-await page.getByRole("button", { name: /Salle des fêtes/ }).click();
-await page.getByRole("button", { name: /2027-06-11/ }).click();
 await annotate(page, [
-  page.getByLabel("Adresse du lieu"),
-  [page.getByLabel("Jour").first(), page.getByLabel("Début").first(), page.getByLabel("Fin").first()],
+  page.getByLabel("Adresse du lieu 1"),
+  [page.getByLabel("Jour du créneau 1, lieu 1"), page.getByLabel("Début du créneau 1, lieu 1"), page.getByLabel("Fin du créneau 1, lieu 1")],
   page.getByLabel("Documents nécessaires"),
   [page.getByText("Une autre personne peut-elle retirer le dossard ?"), page.getByText("Un contrôle du matériel est-il prévu au retrait ?")],
 ]);
@@ -461,7 +469,7 @@ const sections = [
     items: [
       ["1", "Ajoute les variantes météo uniquement si le règlement prévoit du matériel différent."],
       ["2", "Utilise les suggestions pour ajouter rapidement les équipements habituels."],
-      ["3", "Ouvre Détails pour préciser si un élément est obligatoire ou recommandé et ses conditions météo."],
+      ["3", "Renomme un élément, change son statut ou sa condition météo directement sur sa ligne."],
       ["4", "Ajoute une note uniquement pour une consigne générale utile au contrôle."],
     ],
     tip: "La liste doit rester cohérente avec le règlement officiel et les dernières consignes météo.",
@@ -475,7 +483,7 @@ const sections = [
       ["1", "Ajoute l’adresse complète du lieu de retrait."],
       ["2", "Crée un créneau par jour avec une heure de début et de fin."],
       ["3", "Liste les documents que le participant doit présenter."],
-      ["4", "Indique si le retrait par un tiers est autorisé et si un contrôle matériel est prévu."],
+      ["4", "Indique si le retrait par un tiers est autorisé, précise ses conditions et signale le contrôle matériel."],
     ],
     tip: "Ajoute plusieurs lieux lorsque le retrait est réparti entre un village course et une zone de départ.",
   },

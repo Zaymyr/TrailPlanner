@@ -31,6 +31,8 @@ related_tables:
 
 # Affiliate Partner Links
 
+The shared mobile RaceBook screen now also renders additive third-party bib-pickup conditions. Booking/Decathlon destination resolution, affiliation disclosure, outbound analytics, and URL validation remain unchanged.
+
 The header-attached workspace switch, full-width profile chart and plan unlock badge do not change partner links or their tracking.
 
 Chronological cutoff resolution, the Courses image placeholder and plan access gating do not change partner links or their tracking.

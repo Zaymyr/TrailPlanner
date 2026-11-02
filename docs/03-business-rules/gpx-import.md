@@ -49,6 +49,8 @@ related_tables:
 
 # GPX Import
 
+Organizer equipment and bib-pickup presentation is now glanceable, and public detail can show additive third-party pickup conditions. These changes do not alter GPX parsing, storage, hashing, simplification, preview metrics, route caching, or aid-station projection.
+
 Adding a format starts from event-level defaults with blank numeric inputs and never reuses the active format's GPX, image, or course metrics. GPX selection remains an explicit action in the new format form.
 
 The format editor is presented as one linear column so the optional GPX, editable metrics, inherited date/location, optional website, and image no longer compete with a sticky side rail. GPX parsing and metric precedence are unchanged.

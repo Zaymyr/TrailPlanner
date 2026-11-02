@@ -96,6 +96,8 @@ related_tables:
 
 # `race_events`
 
+Event-level `organizer_details.bibPickup` may now include nullable `thirdPartyPickupConditions`. It is preserved when the organizer selects Non, rendered only when third-party pickup is allowed, and inherited by formats unless their complete bib-pickup override is enabled. No relational column or event visibility rule changes.
+
 The organizer event form now validates its date range, HTTPS links, and emergency phone before autosave. These client safeguards do not change the `race_events` schema or server authorization contract.
 
 The header-attached workspace switch and the full-width profile chart read no new event field.

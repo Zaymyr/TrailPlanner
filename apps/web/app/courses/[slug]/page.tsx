@@ -194,7 +194,7 @@ export default async function RacePage({ params }: PageProps) {
   const runnerInfo = race.practical.runnerInfo;
   const services = race.practical.services;
   const hasSchedule = hasText(schedule.startTime, schedule.finishCutoffTime, schedule.cutoffNote, schedule.note);
-  const hasBib = bib.locations.length > 0 || hasText(bib.schedule, bib.requiredDocuments, bib.note) || bib.thirdPartyPickupAllowed !== null || bib.equipmentCheck !== null;
+  const hasBib = bib.locations.length > 0 || hasText(bib.schedule, bib.requiredDocuments, bib.thirdPartyPickupConditions, bib.note) || bib.thirdPartyPickupAllowed !== null || bib.equipmentCheck !== null;
   const hasAccess = hasText(
     access.startAddress,
     access.startLocation.label,
@@ -352,6 +352,7 @@ export default async function RacePage({ params }: PageProps) {
                     <StatusBadge positive={bib.thirdPartyPickupAllowed} label={bib.thirdPartyPickupAllowed ? "Autorisé" : "Non autorisé"} />
                   </p>
                 ) : null}
+                {bib.thirdPartyPickupAllowed === true && bib.thirdPartyPickupConditions ? <DetailLine label="Conditions du retrait par un tiers" value={bib.thirdPartyPickupConditions} /> : null}
                 {bib.equipmentCheck !== null ? (
                   <p>
                     <span className="font-semibold text-foreground">Contrôle du matériel :</span>{" "}

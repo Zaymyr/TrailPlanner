@@ -29,6 +29,8 @@ related_tables:
 
 # `race_event_claims`
 
+The organizer Matériel and Dossard editors now keep saved rows visible and editable without nested accordions, including read-first address autocomplete for pickup locations. This presentation change and the additive third-party pickup conditions field do not alter claim review, membership creation, authorization, or publication.
+
 The organizer dashboard now autosaves claimed event content and closes its secondary Actions menu on selection, outside click, or Escape. These interaction changes do not create or mutate ownership claims.
 
 Progressive organizer forms, inherited-content summaries, and compact repeated rows are presentation only. Personalizing an inherited section still writes through the existing authorized event membership and never creates a new claim.

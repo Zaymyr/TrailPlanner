@@ -76,6 +76,8 @@ related_tables:
 
 # Add New Mobile Screen
 
+The RaceBook Dossard rules accept optional third-party pickup conditions. Show them only when pickup by another person is allowed, preserve the organizer's text verbatim, and keep the mobile surface read-only; missing fields from older payloads must continue to normalize to `null`.
+
 When a workspace switch is attached under a collapsible header, pass the header colors to `RaceWorkspaceSwitch` and render the header with `attachedBelow` so only the switch carries the rounded edge and shadow.
 
 Screens that depend on plan entitlements should stay on their loading state until access is resolved for the current entity, using cached capabilities only as a timeout or network fallback.

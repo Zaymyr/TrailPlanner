@@ -22,6 +22,8 @@ related_tables:
 
 # `race_slug_redirects`
 
+Public course details can now show additive third-party bib-pickup conditions. Canonical slug resolution, former-slug redirects, visibility checks, and redirect integrity are unchanged.
+
 ## Purpose
 
 `race_slug_redirects` preserves every former public course slug so indexed URLs and inbound links can permanently redirect to the current `races.slug`.

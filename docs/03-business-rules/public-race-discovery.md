@@ -51,6 +51,8 @@ related_tables:
 
 # Public Race Discovery
 
+The public course practical section may show `thirdPartyPickupConditions` only when the bib-pickup module is public and third-party pickup is allowed. This additive copy does not participate in catalog eligibility, search, canonical identity, slug resolution, ISR visibility, or structured-data selection.
+
 ## Purpose
 
 This document defines which public race pages Pace Yourself may expose to search engines and how the catalog creates useful internal links without inventing missing race facts.

@@ -5,6 +5,7 @@ import {
   buildRunnerOrganizerDetails,
   defaultOrganizerEventDetails,
   defaultOrganizerRaceDetails,
+  hasOrganizerEquipmentLabelPrefix,
   parseOrganizerEventDetails,
   parseOrganizerRaceDetails,
 } from "./organizer-dashboard-details";
@@ -59,6 +60,28 @@ describe("parseOrganizerEventDetails", () => {
     const details = parseOrganizerEventDetails({ emergencyContact: { phone: "112" } });
 
     expect(details.emergencyContact.phone).toBe("112");
+  });
+
+  it("preserves explicit third-party pickup conditions", () => {
+    const details = parseOrganizerEventDetails({
+      bibPickup: {
+        thirdPartyPickupAllowed: true,
+        thirdPartyPickupConditions: "Présenter la pièce d’identité du coureur.",
+      },
+    });
+
+    expect(details.bibPickup.thirdPartyPickupConditions).toBe("Présenter la pièce d’identité du coureur.");
+  });
+
+  it("matches equipment suggestions against accent-insensitive label prefixes", () => {
+    const items = [
+      { label: "Téléphone chargé avec numéro du PC course" },
+      { label: "Réserve d’eau de 1 litre" },
+    ];
+
+    expect(hasOrganizerEquipmentLabelPrefix(items, "Telephone charge")).toBe(true);
+    expect(hasOrganizerEquipmentLabelPrefix(items, "Réserve d'eau")).toBe(true);
+    expect(hasOrganizerEquipmentLabelPrefix(items, "Lampe frontale")).toBe(false);
   });
 });
 

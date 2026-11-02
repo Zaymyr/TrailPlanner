@@ -24,6 +24,8 @@ related_tables:
 
 # `race_start_waves`
 
+The shared mobile RaceBook screen now also reads additive bib-pickup conditions. SAS ordering, time precedence, structured replacement, module visibility, and RLS remain unchanged.
+
 Organizer departure microcopy now identifies the earliest wave as `Heure du premier départ (SAS 1)` and directs users to the SAS tab for the remaining waves. Wave timing and persistence rules are unchanged.
 
 The header-attached workspace switch does not alter SAS visibility, ordering, or time authority.

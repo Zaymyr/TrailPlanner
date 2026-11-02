@@ -137,6 +137,7 @@ export type PublicRaceDetail = PublicRace & {
       schedule: string | null;
       requiredDocuments: string | null;
       thirdPartyPickupAllowed: boolean | null;
+      thirdPartyPickupConditions: string | null;
       equipmentCheck: boolean | null;
       note: string | null;
     };
@@ -266,6 +267,7 @@ const emptyDetail = (race: PublicRace): PublicRaceDetail => ({
       schedule: null,
       requiredDocuments: null,
       thirdPartyPickupAllowed: null,
+      thirdPartyPickupConditions: null,
       equipmentCheck: null,
       note: null,
     },
@@ -412,6 +414,7 @@ export async function getPublicRaceDetail(race: PublicRace): Promise<PublicRaceD
           schedule: publicModules.bib_pickup ? runner.bibPickup.schedule : null,
           requiredDocuments: publicModules.bib_pickup ? runner.bibPickup.requiredDocuments : null,
           thirdPartyPickupAllowed: publicModules.bib_pickup ? runner.bibPickup.thirdPartyPickupAllowed : null,
+          thirdPartyPickupConditions: publicModules.bib_pickup ? runner.bibPickup.thirdPartyPickupConditions : null,
           equipmentCheck: publicModules.bib_pickup ? runner.bibPickup.equipmentCheck : null,
           note: publicModules.bib_pickup ? runner.bibPickup.note : null,
         },
