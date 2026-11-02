@@ -211,6 +211,8 @@ For the cross-platform authenticated shell audit, follow [Mobile UX Audit](mobil
 
 For production OTA updates, resolve and verify runtime `1.1.2` on both platforms. Publish only a commit already validated on the development OTA channel and only after matching production binaries exist.
 
+For the native iOS build prompt, keep release metadata separate from ordinary screen copy. `NativeBuildUpdatePrompt` reads the installed native build and the OTA-visible `nativeBuildUpdates.ios` marker, stays disabled in development and on non-iOS platforms, and reuses the shared actionable toast above the safe-area-aware tab bar. Increase the marker only after the build is installable. Use the production workflow's optional legacy iOS runtime input only when the exact JavaScript bundle is compatible with that older native bridge.
+
 Before starting a store build, compare the explicit app marketing `version` with the latest approved store version. The production profile auto-increments developer-facing build identifiers only; a closed App Store version train requires a higher `version` and a newly built IPA.
 
 For App Store subscription work, verify on iPhone and iPad layouts that the purchase surface still exposes functional privacy and Terms/EULA links without truncation.

@@ -65,6 +65,10 @@ export const en: MobileTranslations = {
     continueCta: 'Continue without updating',
     readyNotificationTitle: 'Update ready',
     readyNotificationBody: 'A new version has been downloaded. Tap to restart the app.',
+    nativeUpdateAvailable: 'Build {build} is available for your iPhone.',
+    nativeUpdateCta: 'Update',
+    nativeOpenErrorTitle: 'Unable to open',
+    nativeOpenErrorBody: 'Open TestFlight or the App Store to install the latest version.',
   },
   reminders: {
     inactivityTitle: 'Your next plan is waiting',

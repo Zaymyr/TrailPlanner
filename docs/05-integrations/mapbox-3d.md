@@ -97,6 +97,7 @@ Provider references:
 - Do not filter draft formats in the admin selector; this tool is specifically allowed to prepare unpublished courses.
 - Do not persist projected station coordinates. Their current source contract is `race_aid_stations.km` plus GPX geometry.
 - Do not remove provider attribution from the map or from any future captured output without explicit provider approval.
+- Do not put positioning utilities such as `absolute inset-0` on the element passed to `new mapboxgl.Map({ container })`. Mapbox adds `.mapboxgl-map { position: relative }`, and the production stylesheet order lets it override Tailwind, collapsing the container to 0px height and showing only the black viewer background. Position a wrapper and give the container `h-full w-full`.
 - Do not describe phase 1 as video generation. It produces no video artifact.
 
 ## Related Docs

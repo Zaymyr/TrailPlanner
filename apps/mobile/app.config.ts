@@ -2,6 +2,11 @@ import { ExpoConfig, ConfigContext } from 'expo/config';
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const isDevelopment = process.env.APP_VARIANT?.trim() === 'development';
+  const runtimeVersion = process.env.EAS_UPDATE_RUNTIME_VERSION?.trim() || '1.1.2';
+  const iosLatestBuild = process.env.EXPO_PUBLIC_IOS_LATEST_BUILD?.trim() || '18';
+  const iosNativeUpdateUrl =
+    process.env.EXPO_PUBLIC_IOS_NATIVE_UPDATE_URL?.trim() ||
+    'https://apps.apple.com/app/testflight/id899247664';
   const applicationId = isDevelopment
     ? 'com.paceyourself.app.dev'
     : 'com.paceyourself.app';
@@ -28,7 +33,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     },
     // The light iOS appearance below changes native configuration, so the next iOS
     // binary and Android API 36 binary share the same, new OTA compatibility group.
-    runtimeVersion: '1.1.2',
+    runtimeVersion,
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'light',
@@ -48,7 +53,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
       },
     },
     android: {
-      runtimeVersion: '1.1.2',
+      runtimeVersion,
       versionCode: 1,
       playStoreUrl: 'https://play.google.com/store/apps/details?id=com.paceyourself.app',
       adaptiveIcon: {
@@ -91,6 +96,12 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: {
       eas: {
         projectId: 'c713a8a0-cd94-4f6e-9468-063c9c20da6c',
+      },
+      nativeBuildUpdates: {
+        ios: {
+          latestBuild: iosLatestBuild,
+          updateUrl: iosNativeUpdateUrl,
+        },
       },
       supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
       supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

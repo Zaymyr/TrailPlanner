@@ -31,6 +31,9 @@ related_files:
   - apps/mobile/lib/productDisplayName.ts
   - apps/mobile/lib/planTimelinePresentation.ts
   - apps/mobile/components/themed/BriefToast.tsx
+  - apps/mobile/components/updates/NativeBuildUpdatePrompt.tsx
+  - apps/mobile/lib/nativeBuildUpdate.ts
+  - apps/mobile/lib/nativeBuildUpdate.test.ts
   - apps/mobile/eas.json
   - apps/mobile/.eas/workflows/mobile-ux-audit.yml
   - apps/mobile/.eas/workflows/store-candidate-android.yml
@@ -295,6 +298,8 @@ The app config in `apps/mobile/app.config.ts` declares:
 - production Android/iOS identifier `com.paceyourself.app` and development identifier `com.paceyourself.app.dev`, selected by `APP_VARIANT=development`;
 - app version `1.1.2`;
 - shared iOS/Android runtime version `1.1.2` for the current native release line;
+- an OTA-visible iOS native-release marker, defaulting to available build `18` and the TestFlight application URL; `EXPO_PUBLIC_IOS_LATEST_BUILD` and `EXPO_PUBLIC_IOS_NATIVE_UPDATE_URL` may replace those public values when the next binary is actually installable;
+- an `EAS_UPDATE_RUNTIME_VERSION` override reserved for explicitly approved legacy OTA publication; ordinary builds and updates remain on `1.1.2`;
 - light system appearance, matching the app's light palette; mounted solid-brand headers override status-bar content with their contrast-safe light/dark variant;
 - EAS project id `c713a8a0-cd94-4f6e-9468-063c9c20da6c`;
 - update URL `https://u.expo.dev/c713a8a0-cd94-4f6e-9468-063c9c20da6c`.
@@ -319,6 +324,10 @@ Because the dependency set includes native modules such as `expo-dev-client`, `r
 The manual EAS workflow at `apps/mobile/.eas/workflows/mobile-ux-audit.yml` is the versioned cross-platform target: it builds Android and iOS in parallel, runs the authenticated Maestro journey with one retry, records each platform, and retains its screenshots as test artifacts. Hosted Maestro jobs require a compatible paid Expo plan; the current project plan rejects those jobs, so local Android execution remains the immediately available path. The journey covers login plus the Courses, Plans, Nutrition, and Profile tabs. Its app id defaults to the E2E/production identifier with a clean restart and login deep link. Local physical-device audits explicitly open the Dev login route through ADB, pass `APP_ID=com.paceyourself.app.dev`, preserve app state and the active Metro process, and skip the shared-scheme deep link so they cannot target the installed production app. Stable React Native test ids are used instead of translated labels. `MAESTRO_E2E_EMAIL` and `MAESTRO_E2E_PASSWORD` must be secret variables in the EAS `preview` environment; they are never committed or exposed as Expo public values.
 
 Native store candidates use two independently dispatched EAS workflows after their definitions have reached `main`. Each platform has its own explicit approval gate, `production` build, and `store-candidate` submission: Android goes to the internal track as a draft, while iOS goes to App Store Connect/TestFlight. Run the selected workflow with `--ref main` so EAS builds the exact remote `main` state instead of packaging a local checkout. Neither path performs an unattended public release: Android production submission requires the protected GitHub dispatch, explicit confirmation, and build-metadata match against the approved commit, while Apple review and release remain controlled in App Store Connect.
+
+The authenticated tab shell mounts `NativeBuildUpdatePrompt` above the safe-area-aware bottom bar. Production iOS reads `Application.nativeBuildVersion` and compares it with `extra.nativeBuildUpdates.ios.latestBuild` from the active embedded/OTA manifest. An older build receives one localized, 15-second actionable toast per shell mount; the action opens the configured HTTPS installation destination and the prompt fails closed for missing, malformed, development, non-iOS, current, or newer builds. Build `18` currently points testers to the TestFlight app. Change the public build marker and destination only after the replacement binary is actually available to its intended testers or App Store audience.
+
+The production OTA dispatch always publishes the current runtime first. Its optional `legacy_ios_runtime_version` input publishes the same reviewed JavaScript bundle to that one iOS runtime by setting `EAS_UPDATE_RUNTIME_VERSION`; this is intended for compatible bridges such as delivering the build-18 prompt to runtime `1.1.1`. Never populate the legacy input when the change imports a native module or native configuration absent from that older binary.
 
 ## App Shell
 
@@ -479,6 +488,7 @@ Do not copy actual keys into docs. Use environment variable names only.
 
 - The shared runtime is `1.1.2`. Production iOS and Android build 18 both embed it and are compatible with `1.1.2` production OTAs; older runtime groups remain isolated.
 - The production profile's remote `autoIncrement` advances the developer-facing iOS build number, not the App Store marketing version. Increment `version` explicitly before building when App Store Connect has closed the current version train; a rejected IPA keeps its embedded version and must be rebuilt.
+- A native-build prompt is only as trustworthy as its OTA release marker. Do not increase `EXPO_PUBLIC_IOS_LATEST_BUILD` or change its installation URL before that exact build is installable for the target audience, and never use the legacy-runtime OTA input for JavaScript that requires a newer native bridge.
 - Keep Google font imports weight-specific in the root layout. Replacing them with package-root imports adds unused font assets to every native export. Likewise, import Expo vector-icon families from their direct subpath (for example, `@expo/vector-icons/Ionicons`) instead of the package barrel so Metro does not retain unrelated icon-font families.
 - The Google Play production submission profile is intentionally configured with `releaseStatus: completed`, so a successful EAS Submit releases the approved build to the full production track rather than creating a draft or staged rollout.
 - Never use the `production` submit profile from an automatic branch trigger. Automation must use `store-candidate`; the production profile is reserved for the separately approved Android dispatch.
